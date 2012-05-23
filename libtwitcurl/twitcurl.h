@@ -67,6 +67,7 @@ namespace twitCurlDefaults
     const std::string TWITCURL_FOLLOW = "follow=";
     const std::string TWITCURL_TRACK = "track=";
     const std::string TWITCURL_LOCATIONS = "locations=";
+    const std::string TWITCURL_REPLYSTATUSID = "in_reply_to_status_id=";
 
     const std::string TWITCURL_USERAGENT = "libcurl " LIBCURL_VERSION;
 
@@ -141,6 +142,8 @@ namespace twitterDefaults
 
     /* Streaming API URLs */
     const std::string TWITCURL_USERSTREAM_URL = "https://userstream.twitter.com/2/user.json";
+    const std::string TWITCURL_PUBLICFILTERSTREAM_URL = "https://stream.twitter.com/1/statuses/filter.json";
+    const std::string TWITCURL_PUBLICSAMPLESTREAM_URL = "https://stream.twitter.com/1/statuses/sample.json";
 
 };
 
@@ -184,7 +187,7 @@ public:
     bool search( std::string& searchQuery /* in */ );
 
     /* Twitter status APIs */
-    bool statusUpdate( std::string& newStatus /* in */ );
+    bool statusUpdate( std::string& newStatus, std::string in_reply_to_status_id = "" ); /* all parameters in */
     bool statusShowById( std::string& statusId /* in */ );
     bool statusDestroyById( std::string& statusId /* in */ );
 
@@ -260,18 +263,20 @@ public:
 
     /* Streaming APIs */
     bool UserStreamingApi( std::string with="", std::string replies="", std::string follow="", std::string track="", std::string locations="", bool accept_encoding=true, bool stall_warnings=false ); /* all parameters in */
+    bool PublicFilterStreamingApi( std::string follow="", std::string track="", std::string locations="", bool accept_encoding=true, bool stall_warnings=false ); /* all parameters in */
+    bool PublicSampleStreamingApi( bool accept_encoding=true, bool stall_warnings=false );
     void SetStreamApiCallback( twitCurlTypes::fpStreamApiCallback func, void *userdata );
 
+    /* Methods to allow the use of the Curl multi API (asynchronous IO) */
     CURL* GetCurlHandle() { return m_curlHandle; }
-    void SetNoPerformFlag(bool noperform) { m_noperform=noperform; }
+    void SetNoPerformFlag(bool noperform) { m_noperform = noperform; }
 
 private:
     /* cURL data */
     CURL* m_curlHandle;
     char m_errorBuffer[twitCurlDefaults::TWITCURL_DEFAULT_BUFFSIZE];
     std::string m_callbackData;
-
-    struct curl_slist* pOAuthHeaderList;
+    struct curl_slist* m_pOAuthHeaderList;	/* This is a member to prevent it going out of scope for multi-IO */
 
     /* cURL flags */
     bool m_curlProxyParamsSet;
@@ -313,6 +318,8 @@ private:
     bool performPost( const std::string& postUrl, std::string dataStr = "" );
     bool curl_gen_exec(CURL *easy_handle);
     void UtilTimelineProcessParams( const struct timelineparams &tmps, std::string &buildUrl );
+    bool PostStreamingApiGeneric( std::string streamurl, std::string with, std::string replies, std::string follow , std::string track, std::string locations, bool accept_encoding, bool stall_warnings );
+    void StreamingApiGenericPrepare( bool accept_encoding );
 
     /* Internal cURL related methods */
     static int curlCallback( char* data, size_t size, size_t nmemb, twitCurl* pTwitCurlObj );

@@ -305,13 +305,41 @@ bool oAuth::buildOAuthTokenKeyValuePairs( const bool includeOAuthVerifierPin,
     if( rawData.length() )
     {
         /* Data should already be urlencoded once */
+        size_t nSep = std::string::npos;
+        size_t nPos2 = std::string::npos;
+        std::string dummyStrKeyValue;
         std::string dummyStrKey;
         std::string dummyStrValue;
-        size_t nPos = rawData.find_first_of( "=" );
-        if( std::string::npos != nPos )
+	std::string dataPart = rawData;
+        while( std::string::npos != ( nSep = dataPart.find_first_of("&") ) )
         {
-            dummyStrKey = rawData.substr( 0, nPos );
-            dummyStrValue = rawData.substr( nPos + 1 );
+            /* Extract first key=value pair */
+            dummyStrKeyValue = dataPart.substr( 0, nSep );
+
+            /* Split them */
+            nPos2 = dummyStrKeyValue.find_first_of( "=" );
+            if( std::string::npos != nPos2 )
+            {
+                dummyStrKey = dummyStrKeyValue.substr( 0, nPos2 );
+                dummyStrValue = dummyStrKeyValue.substr( nPos2 + 1 );
+
+                /* Put this key=value pair in map */
+                keyValueMap[dummyStrKey] = dummyStrValue;
+            }
+            dataPart = dataPart.substr( nSep + 1 );
+        }
+
+        /* For the last key=value */
+        dummyStrKeyValue = dataPart.substr( 0, nSep );
+
+        /* Split them */
+        nPos2 = dummyStrKeyValue.find_first_of( "=" );
+        if( std::string::npos != nPos2 )
+        {
+            dummyStrKey = dummyStrKeyValue.substr( 0, nPos2 );
+            dummyStrValue = dummyStrKeyValue.substr( nPos2 + 1 );
+
+            /* Put this key=value pair in map */
             keyValueMap[dummyStrKey] = dummyStrValue;
         }
     }
@@ -394,12 +422,12 @@ bool oAuth::getSignature( const eOAuthHttpRequestType eType,
     {
         secretSigningKey.append( m_oAuthTokenSecret );
     }
-  
+
     objHMACSHA1.HMAC_SHA1( (unsigned char*)sigBase.c_str(),
                            sigBase.length(),
                            (unsigned char*)secretSigningKey.c_str(),
                            secretSigningKey.length(),
-                           strDigest ); 
+                           strDigest );
 
     /* Do a base64 encode of signature */
     std::string base64Str = base64_encode( strDigest, 20 /* SHA 1 digest is 160 bits */ );
@@ -476,7 +504,7 @@ bool oAuth::getOAuthHeader( const eOAuthHttpRequestType eType,
 
         /* For the last key=value */
         dataKeyVal = dataPart.substr( 0, nSep );
-        
+
         /* Split them */
         nPos2 = dataKeyVal.find_first_of( "=" );
         if( std::string::npos != nPos2 )
@@ -494,6 +522,9 @@ bool oAuth::getOAuthHeader( const eOAuthHttpRequestType eType,
 
     /* Get url encoded base64 signature using request type, url and parameters */
     getSignature( eType, pureUrl, rawKeyValuePairs, oauthSignature );
+
+    /* Clear array so that the parameters themselves are not sent along with the OAuth values */
+    rawKeyValuePairs.clear();
 
     /* Now, again build key-value pairs with signature this time */
     buildOAuthTokenKeyValuePairs( includeOAuthVerifierPin, std::string( "" ), oauthSignature, rawKeyValuePairs, false );

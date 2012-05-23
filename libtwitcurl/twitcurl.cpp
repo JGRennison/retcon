@@ -15,13 +15,15 @@
 *--*/
 twitCurl::twitCurl():
 m_curlHandle( NULL ),
-pOAuthHeaderList( 0 ),
+m_pOAuthHeaderList( 0 ),
 m_curlProxyParamsSet( false ),
 m_curlLoginParamsSet( false ),
 m_curlCallbackParamsSet( false ),
 m_noperform( false ),
 m_eApiFormatType( twitCurlTypes::eTwitCurlApiFormatXml ),
-m_eProtocolType( twitCurlTypes::eTwitCurlProtocolHttp )
+m_eProtocolType( twitCurlTypes::eTwitCurlProtocolHttp ),
+m_streamapicallback( 0 ),
+m_streamapicallback_data( 0 )
 {
     /* Clear callback buffers */
     clearCurlCallbackBuffers();
@@ -47,10 +49,10 @@ m_eProtocolType( twitCurlTypes::eTwitCurlProtocolHttp )
 *--*/
 twitCurl::~twitCurl()
 {
-    if( pOAuthHeaderList )
+    if( m_pOAuthHeaderList )
     {
-        curl_slist_free_all( pOAuthHeaderList );
-        pOAuthHeaderList=0;
+        curl_slist_free_all( m_pOAuthHeaderList );
+        m_pOAuthHeaderList=0;
     }
     /* Cleanup cURL */
     if( m_curlHandle )
@@ -370,13 +372,17 @@ bool twitCurl::search( std::string& searchQuery )
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::statusUpdate( std::string& newStatus )
+bool twitCurl::statusUpdate( std::string& newStatus, std::string in_reply_to_status_id )
 {
     bool retVal = false;
     if( newStatus.length() )
     {
         /* Prepare new status message */
         std::string newStatusMsg = twitCurlDefaults::TWITCURL_STATUSSTRING + urlencode( newStatus );
+        if(in_reply_to_status_id.size())
+        {
+            newStatusMsg += twitCurlDefaults::TWITCURL_URL_SEP_AMP + twitCurlDefaults::TWITCURL_REPLYSTATUSID + urlencode( in_reply_to_status_id );
+        }
 
         /* Perform POST */
         retVal = performPost( twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
@@ -1257,8 +1263,68 @@ bool twitCurl::trendsAvailableGet()
                        twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType] );
 }
 
-bool twitCurl::UserStreamingApi( std::string with, std::string replies, std::string follow , std::string track, std::string locations, bool accept_encoding, bool stall_warnings ) {
-    std::string streamurl = twitterDefaults::TWITCURL_USERSTREAM_URL;
+bool twitCurl::UserStreamingApi( std::string with, std::string replies, std::string follow , std::string track, std::string locations, bool accept_encoding, bool stall_warnings )
+{
+    return PostStreamingApiGeneric( twitterDefaults::TWITCURL_USERSTREAM_URL, with, replies, follow, track, locations, accept_encoding, stall_warnings );
+}
+
+/*++
+* @method: twitCurl::PublicFilterStreamingApi
+*
+* @description: Retrieves public tweets matching a number of filters
+*
+* @input: Various optional filter criteria, whether to send an accept_encoding header, and whether to be sent stall warnings
+*
+* @output: none
+*
+*--*/
+bool twitCurl::PublicFilterStreamingApi( std::string follow , std::string track, std::string locations, bool accept_encoding, bool stall_warnings )
+{
+    return PostStreamingApiGeneric( twitterDefaults::TWITCURL_PUBLICFILTERSTREAM_URL, "", "", follow, track, locations, accept_encoding, stall_warnings );
+}
+
+/*++
+* @method: twitCurl::PublicSampleStreamingApi
+*
+* @description: Retrieves a sample of public tweets
+*
+* @input: whether to send an accept_encoding header, and whether to be sent stall warnings
+*
+* @output: none
+*
+*--*/
+bool twitCurl::PublicSampleStreamingApi( bool accept_encoding, bool stall_warnings )
+{
+    std::string streamurl = twitterDefaults::TWITCURL_PUBLICSAMPLESTREAM_URL + twitCurlDefaults::TWITCURL_URL_SEP_QUES + twitCurlDefaults::TWITCURL_DELIMIT;
+    if( stall_warnings )
+    {
+        streamurl += twitCurlDefaults::TWITCURL_URL_SEP_AMP + twitCurlDefaults::TWITCURL_STALLWARN;
+    }
+    StreamingApiGenericPrepare( accept_encoding );
+
+    bool retval = performGet( streamurl );
+
+    /* So that future requests don't unwittingly use the wrong handler */
+    m_curlCallbackParamsSet = false;
+
+    return retval;
+
+}
+
+/*++
+* @method: twitCurl::PostStreamingApiGeneric
+*
+* @description: Some functionality common to all POST method streaming API functions
+*
+* @input: various optinal fields, and whether to send an accept_encoding header
+*
+* @output: none
+*
+* @remarks: internal method
+*
+*--*/
+bool twitCurl::PostStreamingApiGeneric( std::string streamurl, std::string with, std::string replies, std::string follow , std::string track, std::string locations, bool accept_encoding, bool stall_warnings )
+{
     std::string postdata = twitCurlDefaults::TWITCURL_DELIMIT;
     if( stall_warnings )
     {
@@ -1284,6 +1350,31 @@ bool twitCurl::UserStreamingApi( std::string with, std::string replies, std::str
     {
         postdata += twitCurlDefaults::TWITCURL_URL_SEP_AMP + twitCurlDefaults::TWITCURL_LOCATIONS + locations;
     }
+
+    StreamingApiGenericPrepare( accept_encoding );
+
+    bool retval = performPost( streamurl, postdata );
+
+    /* So that future requests don't unwittingly use the wrong handler */
+    m_curlCallbackParamsSet = false;
+
+    return retval;
+}
+
+/*++
+* @method: twitCurl::StreamingApiGenericPrepare
+*
+* @description: Some functionality common to all streaming API functions
+*
+* @input: whether to send an accept_encoding header
+*
+* @output: none
+*
+* @remarks: internal method
+*
+*--*/
+void twitCurl::StreamingApiGenericPrepare( bool accept_encoding )
+{
     if( accept_encoding )
     {
         /* Send accept encoding header to enable compressed streams */
@@ -1305,13 +1396,6 @@ bool twitCurl::UserStreamingApi( std::string with, std::string replies, std::str
 
     /* Stream does not start in a chunk */
     m_curchunklength = 0;
-
-    bool retval = performPost( streamurl, postdata );
-
-    /* So that future requests don't unwittingly use the wrong handler */
-    m_curlCallbackParamsSet = false;
-
-    return retval;
 }
 
 /*++
@@ -1386,12 +1470,10 @@ int twitCurl::curlStreamingCallback( char* data, size_t size, size_t nmemb, twit
 /*++
 * @method: twitCurl::SetStreamApiCallback
 *
-* @description: static method to get http response back from cURL.
-*               this is an internal method, users of twitcurl need not
-*               use this.
-*               Version for streaming API (with delimeters)
+* @description: method to set the callback used to process each streaming API event as it arrives.
+*               this must be called before starting a streaming API request, otherwise data will be discarded.
 *
-* @input: callback function of typee fpStreamApiCallback
+* @input: callback function of type twitCurlTypes::fpStreamApiCallback
 *         pointer to pass to callback's third argument
 *
 * @output: none
@@ -1538,8 +1620,14 @@ void twitCurl::prepareCurlProxy()
 
         /* Set proxy details in cURL */
         std::string proxyIpPort;
-        if(getProxyServerIp().size()) utilMakeCurlParams( proxyIpPort, getProxyServerIp(), getProxyServerPort() );
-        else proxyIpPort="";
+        if(getProxyServerIp().size())
+        {
+            utilMakeCurlParams( proxyIpPort, getProxyServerIp(), getProxyServerPort() );
+        }
+        else
+        {
+            proxyIpPort = "";
+        }
         curl_easy_setopt( m_curlHandle, CURLOPT_PROXY, proxyIpPort.c_str());
 
         /* Prepare username and password for proxy server */
@@ -1673,10 +1761,10 @@ bool twitCurl::performGet( const std::string& getUrl )
 
     std::string dataStrDummy;
     std::string oAuthHttpHeader;
-    if( pOAuthHeaderList )
+    if( m_pOAuthHeaderList )
     {
-        curl_slist_free_all( pOAuthHeaderList );
-        pOAuthHeaderList=0;
+        curl_slist_free_all( m_pOAuthHeaderList );
+        m_pOAuthHeaderList=0;
     }
 
     /* Prepare standard params */
@@ -1686,10 +1774,10 @@ bool twitCurl::performGet( const std::string& getUrl )
     m_oAuth.getOAuthHeader( eOAuthHttpGet, getUrl, dataStrDummy, oAuthHttpHeader );
     if( oAuthHttpHeader.length() )
     {
-        pOAuthHeaderList = curl_slist_append( pOAuthHeaderList, oAuthHttpHeader.c_str() );
-        if( pOAuthHeaderList )
+        m_pOAuthHeaderList = curl_slist_append( m_pOAuthHeaderList, oAuthHttpHeader.c_str() );
+        if( m_pOAuthHeaderList )
         {
-            curl_easy_setopt( m_curlHandle, CURLOPT_HTTPHEADER, pOAuthHeaderList );
+            curl_easy_setopt( m_curlHandle, CURLOPT_HTTPHEADER, m_pOAuthHeaderList );
         }
     }
 
@@ -1722,10 +1810,10 @@ bool twitCurl::performGet( const std::string& getUrl, const std::string& oAuthHt
         return false;
     }
 
-    if( pOAuthHeaderList )
+    if( m_pOAuthHeaderList )
     {
-        curl_slist_free_all( pOAuthHeaderList );
-        pOAuthHeaderList=0;
+        curl_slist_free_all( m_pOAuthHeaderList );
+        m_pOAuthHeaderList=0;
     }
 
     /* Prepare standard params */
@@ -1738,10 +1826,10 @@ bool twitCurl::performGet( const std::string& getUrl, const std::string& oAuthHt
     /* Set header */
     if( oAuthHttpHeader.length() )
     {
-        pOAuthHeaderList = curl_slist_append( pOAuthHeaderList, oAuthHttpHeader.c_str() );
-        if( pOAuthHeaderList )
+        m_pOAuthHeaderList = curl_slist_append( m_pOAuthHeaderList, oAuthHttpHeader.c_str() );
+        if( m_pOAuthHeaderList )
         {
-            curl_easy_setopt( m_curlHandle, CURLOPT_HTTPHEADER, pOAuthHeaderList );
+            curl_easy_setopt( m_curlHandle, CURLOPT_HTTPHEADER, m_pOAuthHeaderList );
         }
     }
 
@@ -1772,10 +1860,10 @@ bool twitCurl::performDelete( const std::string& deleteUrl )
 
     std::string dataStrDummy;
     std::string oAuthHttpHeader;
-    if( pOAuthHeaderList )
+    if( m_pOAuthHeaderList )
     {
-        curl_slist_free_all( pOAuthHeaderList );
-        pOAuthHeaderList=0;
+        curl_slist_free_all( m_pOAuthHeaderList );
+        m_pOAuthHeaderList=0;
     }
 
     /* Prepare standard params */
@@ -1785,10 +1873,10 @@ bool twitCurl::performDelete( const std::string& deleteUrl )
     m_oAuth.getOAuthHeader( eOAuthHttpDelete, deleteUrl, dataStrDummy, oAuthHttpHeader );
     if( oAuthHttpHeader.length() )
     {
-        pOAuthHeaderList = curl_slist_append( pOAuthHeaderList, oAuthHttpHeader.c_str() );
-        if( pOAuthHeaderList )
+        m_pOAuthHeaderList = curl_slist_append( m_pOAuthHeaderList, oAuthHttpHeader.c_str() );
+        if( m_pOAuthHeaderList )
         {
-            curl_easy_setopt( m_curlHandle, CURLOPT_HTTPHEADER, pOAuthHeaderList );
+            curl_easy_setopt( m_curlHandle, CURLOPT_HTTPHEADER, m_pOAuthHeaderList );
         }
     }
 
@@ -1826,10 +1914,10 @@ bool twitCurl::performPost( const std::string& postUrl, std::string dataStr )
     }
 
     std::string oAuthHttpHeader;
-    if( pOAuthHeaderList )
+    if( m_pOAuthHeaderList )
     {
-        curl_slist_free_all( pOAuthHeaderList );
-        pOAuthHeaderList=0;
+        curl_slist_free_all( m_pOAuthHeaderList );
+        m_pOAuthHeaderList=0;
     }
 
     /* Prepare standard params */
@@ -1839,10 +1927,10 @@ bool twitCurl::performPost( const std::string& postUrl, std::string dataStr )
     m_oAuth.getOAuthHeader( eOAuthHttpPost, postUrl, dataStr, oAuthHttpHeader );
     if( oAuthHttpHeader.length() )
     {
-        pOAuthHeaderList = curl_slist_append( pOAuthHeaderList, oAuthHttpHeader.c_str() );
-        if( pOAuthHeaderList )
+        m_pOAuthHeaderList = curl_slist_append( m_pOAuthHeaderList, oAuthHttpHeader.c_str() );
+        if( m_pOAuthHeaderList )
         {
-            curl_easy_setopt( m_curlHandle, CURLOPT_HTTPHEADER, pOAuthHeaderList );
+            curl_easy_setopt( m_curlHandle, CURLOPT_HTTPHEADER, m_pOAuthHeaderList );
         }
     }
 
@@ -1858,6 +1946,18 @@ bool twitCurl::performPost( const std::string& postUrl, std::string dataStr )
     return curl_gen_exec( m_curlHandle );
 }
 
+/*++
+* @method: twitCurl::curl_gen_exec
+*
+* @description: conditional wrapper around curl_easy_perform
+*
+* @input: curl handle
+*
+* @output: none
+*
+* @remarks: internal method
+*
+*--*/
 bool twitCurl::curl_gen_exec( CURL *easy_handle ) {
     if( m_noperform )
     {
