@@ -10,12 +10,18 @@ genoptconf gcdefaults {
 	{ wxT(""), 1},	//fill this in later
 };
 
+genoptglobconf gcglobdefaults {
+	{ wxT("90"), 1},
+};
+
 taccount::taccount(genoptconf *incfg) {
 	if(incfg) {
 		cfg=*incfg;
 	}
 	CFGParamConv();
 	enabled=false;
+	verifycreddone=false;
+	verifycredinprogress=false;
 }
 
 void taccount::CFGWriteOut(wxConfigBase &twfc) {
@@ -50,10 +56,17 @@ void taccount::CFGParamConv() {
 void globconf::CFGWriteOut(wxConfigBase &twfc) {
 	twfc.SetPath(wxT("/"));
 	cfg.CFGWriteOutCurDir(twfc);
+	gcfg.CFGWriteOut(twfc);
 }
 void globconf::CFGReadIn(wxConfigBase &twfc) {
 	twfc.SetPath(wxT("/"));
 	cfg.CFGReadInCurDir(twfc, gcdefaults);
+	gcfg.CFGReadIn(twfc, gcglobdefaults);
+	CFGParamConv();
+}
+void globconf::CFGParamConv() {
+	gcfg.userexpiretimemins.val.ToULong(&userexpiretime);
+	userexpiretime*=60;
 }
 
 void genoptconf::CFGWriteOutCurDir(wxConfigBase &twfc) {
@@ -69,6 +82,13 @@ void genoptconf::CFGReadInCurDir(wxConfigBase &twfc, const genoptconf &parent) {
 	ssl.CFGReadInCurDir(twfc, wxT("ssl"), parent.ssl.val);
 	userstreams.CFGReadInCurDir(twfc, wxT("userstreams"), parent.userstreams.val);
 	restinterval.CFGReadInCurDir(twfc, wxT("restinterval"), parent.restinterval.val);
+}
+
+void genoptglobconf::CFGWriteOut(wxConfigBase &twfc) {
+	userexpiretimemins.CFGWriteOutCurDir(twfc, wxT("/userexpiretimemins"));
+}
+void genoptglobconf::CFGReadIn(wxConfigBase &twfc, const genoptglobconf &parent) {
+	userexpiretimemins.CFGReadInCurDir(twfc, wxT("/userexpiretimemins"), parent.userexpiretimemins.val);
 }
 
 void genopt::CFGWriteOutCurDir(wxConfigBase &twfc, const wxString &name) {
@@ -99,7 +119,6 @@ void ReadAllCFGIn(wxConfigBase &twfc, globconf &gc, std::list<std::shared_ptr<ta
 	}
 	for(auto it=alist.begin() ; it != alist.end(); it++ ) {
 		(*it)->CFGReadIn(twfc);
-		(*it)->TwInit(0);
 	}
 }
 

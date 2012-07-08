@@ -62,12 +62,6 @@ twitCurl::~twitCurl()
     }
 }
 
-void twitCurl::setlog(FILE *fs, bool verbose)
-{
-        curl_easy_setopt( m_curlHandle, CURLOPT_STDERR, fs );
-        curl_easy_setopt( m_curlHandle, CURLOPT_VERBOSE, verbose );
-}
-
 /*++
 * @method: twitCurl::setTwitterApiType
 *
@@ -1505,6 +1499,23 @@ void twitCurl::getLastWebResponse( std::string& outWebResp )
     {
         outWebResp = m_callbackData;
     }
+}
+
+/*++
+* @method: twitCurl::getLastWebResponseMove
+*
+* @description: method to get http response for the most recent request sent.
+*               twitcurl users need to call this method and parse the XML
+*               data returned by twitter to see what has happened.
+*
+* @input: outWebResp - string in which twitter's response moved to the caller
+*
+* @output: none
+*
+*--*/
+void twitCurl::getLastWebResponseMove( std::string& outWebResp )
+{
+    outWebResp = std::move(m_callbackData);
 }
 
 /*++

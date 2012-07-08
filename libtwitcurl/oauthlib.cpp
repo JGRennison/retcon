@@ -230,7 +230,7 @@ void oAuth::generateNonceTimeStamp()
     memset( szTime, 0, oAuthLibDefaults::OAUTHLIB_BUFFSIZE );
     memset( szRand, 0, oAuthLibDefaults::OAUTHLIB_BUFFSIZE );
     srand( time( NULL ) );
-    sprintf( szRand, "%x", rand()%1000 );
+    sprintf( szRand, "%x%p", rand()&0xFFFF, this );
     sprintf( szTime, "%ld", time( NULL ) );
 
     m_nonce.assign( szTime );

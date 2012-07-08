@@ -165,8 +165,6 @@ public:
     twitCurl();
     ~twitCurl();
 
-    void setlog(FILE *fs, bool verbose);
-
     /* Twitter OAuth authorization methods */
     oAuth& getOAuth();
     bool oAuthRequestToken( std::string& authorizeUrl /* out */ );
@@ -246,6 +244,7 @@ public:
     /* cURL APIs */
     bool isCurlInit();
     void getLastWebResponse( std::string& outWebResp /* out */ );
+    void getLastWebResponseMove( std::string& outWebResp /* out */ );
     void getLastCurlError( std::string& outErrResp /* out */);
 
     /* Internal cURL related methods */

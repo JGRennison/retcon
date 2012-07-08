@@ -9,7 +9,7 @@
 #x64: set to true to compile for x86_64/win64
 
 
-OBJS:=retcon.o cfg.o optui.o parse.o socket.o
+OBJS:=retcon.o cfg.o optui.o parse.o socket.o tpanel.o
 TCOBJS:=libtwitcurl/base64.o libtwitcurl/HMAC_SHA1.o libtwitcurl/oauthlib.o libtwitcurl/SHA1.o libtwitcurl/twitcurl.o libtwitcurl/urlencode.o
 OUTNAME:=retcon
 CFLAGS:=-O3 -Wextra -Wall -Wno-unused-parameter -std=gnu++0x
@@ -23,7 +23,7 @@ PLATFORM:=WIN
 AFLAGS:=-mwindows -s -static -LC:/SourceCode/Libraries/wxWidgets2.8/lib/gcc_lib -L.
 CFLAGS+=-D CURL_STATICLIB
 SUFFIX:=.exe
-LIBS32=-lcurl -lwxmsw28u_core -lwxmsw28u_core -lwxbase28u -lwxmsw28u_adv -lrtmp -lssh2 -lidn -lssl -lz -lcrypto -leay32 -lwldap32 -lws2_32 -lgdi32 -lshell32 -lole32 -luuid -lcomdlg32 -lwinspool -lcomctl32 -loleaut32 -lwinmm
+LIBS32=-lcurl -lwxmsw28u -lwxjpeg -lwxpng -lwxtiff -lrtmp -lssh2 -lidn -lssl -lz -lcrypto -leay32 -lwldap32 -lws2_32 -lgdi32 -lshell32 -lole32 -luuid -lcomdlg32 -lwinspool -lcomctl32 -loleaut32 -lwinmm
 LIBS64=
 GCC32=mingw32-g++
 GCC64=x86_64-w64-mingw32-g++

@@ -8,7 +8,7 @@
 static void check_multi_info(socketmanager *smp) {
 	CURLMsg *msg;
 	int msgs_left;
-	twitcurlext *conn;
+	mcurlconn *conn;
 	CURL *easy;
 	CURLcode res;
 
@@ -24,7 +24,7 @@ static void check_multi_info(socketmanager *smp) {
 	if(sm.curnumsocks==0) smp->st.Stop();
 }
 
-static int sock_cb(CURL *e, curl_socket_t s, int what, socketmanager *smp, twitcurlext *cs) {
+static int sock_cb(CURL *e, curl_socket_t s, int what, socketmanager *smp, mcurlconn *cs) {
 	wxLogWarning(wxT("Socket Interest Change Callback: %p, %d"), s, what);
 	if(what!=CURL_POLL_REMOVE) {
 		if(!cs) {
@@ -51,14 +51,23 @@ static int multi_timer_cb(CURLM *multi, long timeout_ms, socketmanager *smp) {
 	return 0;
 }
 
+DECLARE_EVENT_TYPE(wxextSOCK_NOTIFY, -1)
+
+DEFINE_EVENT_TYPE(wxextSOCK_NOTIFY)
+
+BEGIN_EVENT_TABLE(socketmanager, wxEvtHandler)
+  EVT_COMMAND  (wxID_ANY, wxextSOCK_NOTIFY, socketmanager::NotifySockEventCmd)
+END_EVENT_TABLE()
+
+
 socketmanager::socketmanager() {
+	loghandle=0;
 	curlmulti=curl_multi_init();
 	curl_multi_setopt(curlmulti, CURLMOPT_SOCKETFUNCTION, sock_cb);
 	curl_multi_setopt(curlmulti, CURLMOPT_SOCKETDATA, this);
 	curl_multi_setopt(curlmulti, CURLMOPT_TIMERFUNCTION, multi_timer_cb);
 	curl_multi_setopt(curlmulti, CURLMOPT_TIMERDATA, this);
 	MultiIOHandlerInited=false;
-
 }
 
 socketmanager::~socketmanager() {
@@ -66,7 +75,7 @@ socketmanager::~socketmanager() {
 	curl_multi_cleanup(curlmulti);
 }
 
-bool socketmanager::AddConn(CURL* ch, twitcurlext *cs) {
+bool socketmanager::AddConn(CURL* ch, mcurlconn *cs) {
 	curl_easy_setopt(ch, CURLOPT_PRIVATE, cs);
 	bool ret = (CURLM_OK == curl_multi_add_handle(curlmulti, ch));
 	curl_multi_socket_action(curlmulti, 0, 0, &curnumsocks);
@@ -77,6 +86,10 @@ bool socketmanager::AddConn(twitcurlext &cs) {
 	return AddConn(cs.GetCurlHandle(), &cs);
 }
 
+void socketmanager::RemoveConn(CURL* ch) {
+	curl_multi_remove_handle(curlmulti, ch);
+	curl_multi_socket_action(curlmulti, 0, 0, &curnumsocks);
+}
 
 void sockettimeout::Notify() {
 	wxLogWarning(wxT("Socket Timeout"));
@@ -90,9 +103,16 @@ void socketmanager::NotifySockEvent(curl_socket_t sockfd, int ev_bitmask) {
 	check_multi_info(this);
 }
 
+void socketmanager::NotifySockEventCmd(wxCommandEvent &event) {
+	NotifySockEvent((curl_socket_t) event.GetExtraLong(), event.GetInt());
+}
+
 void twitcurlext::NotifyDone(CURL *easy, CURLcode res) {
 	long httpcode;
 	curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &httpcode);
+
+	KillConn();
+
 	std::shared_ptr<taccount> acc=tacc.lock();
 	if(!acc) return;
 	if(httpcode!=200) {
@@ -103,31 +123,115 @@ void twitcurlext::NotifyDone(CURL *easy, CURLcode res) {
 		wxLogWarning(wxT("Request failed: code %d, text: %s"), httpcode, wxstrstd(rettext).c_str());
 	}
 	else {
-		switch(connmode) {
-			case CS_ACCVERIFY: {
-				userdataparse parse;
-				getLastWebResponse(parse.json);
-				parse.ParseJson(acc);
-				std::shared_ptr<userdata> userobj=parse.pop_front();
-				ad.UpdateUserContainer(ad.GetUserContainerById(userobj->id), userobj);
-				acc->dispname=wxstrstd(userobj->name);
-				userobj->Dump();
-				acc->PostAccVerifyInit();
-			}
-			break;
-			case CS_TIMELINE: {
-				tweetparse parse;
-				getLastWebResponse(parse.json);
-				parse.ParseJson(acc);
-				//do useful stuff
-				for(auto it=parse.list.begin() ; it != parse.list.end(); it++ ) (*it)->Dump();
-			}
-		}
+		jsonparser jp(connmode, acc);
+		std::string str;
+		getLastWebResponse(str);
+		jp.ParseString((char*) str.c_str());	//this modifies the contents of str!!
+		str.clear();
 	}
 }
 
-void twitcurlext::KillConn() {
-	curl_multi_remove_handle(sm.curlmulti, GetCurlHandle());
+void mcurlconn::KillConn() {
+	sm.RemoveConn(GenGetCurlHandle());
+}
+
+void mcurlconn::setlog(FILE *fs, bool verbose) {
+        curl_easy_setopt(GenGetCurlHandle(), CURLOPT_STDERR, fs);
+        curl_easy_setopt(GenGetCurlHandle(), CURLOPT_VERBOSE, verbose);
+}
+
+imgdlconn::imgdlconn(std::string &imgurl_, std::shared_ptr<userdatacontainer> user_) {
+	Init(imgurl_, user_);
+}
+
+void imgdlconn::Init(std::string &imgurl_, std::shared_ptr<userdatacontainer> user_) {
+	imgurl=imgurl_;
+	user=user_;
+	curlHandle = curl_easy_init();
+	curl_easy_setopt(curlHandle, CURLOPT_CAINFO, "./cacert.pem");
+	if(sm.loghandle) setlog(sm.loghandle, 1);
+	curl_easy_setopt(curlHandle, CURLOPT_HTTPGET, 1);
+	curl_easy_setopt(curlHandle, CURLOPT_URL, imgurl.c_str());
+        curl_easy_setopt(curlHandle, CURLOPT_WRITEFUNCTION, curlCallback );
+        curl_easy_setopt(curlHandle, CURLOPT_WRITEDATA, this );
+	sm.AddConn(curlHandle, this);
+}
+
+imgdlconn::~imgdlconn() {
+	curl_easy_cleanup(curlHandle);
+}
+
+std::stack<imgdlconn *> imgdlconn::idlestack;
+std::unordered_set<imgdlconn *> imgdlconn::activeset;
+
+imgdlconn *imgdlconn::GetConn(std::string &imgurl_, std::shared_ptr<userdatacontainer> user_) {
+	imgdlconn *res;
+	if(idlestack.empty()) {
+		res=new imgdlconn(imgurl_, user_);
+	}
+	else {
+		res=idlestack.top();
+		idlestack.pop();
+		res->Init(imgurl_, user_);
+	}
+	activeset.insert(res);
+	return res;
+}
+
+void imgdlconn::Standby() {
+	Reset();
+	idlestack.push(this);
+	activeset.erase(this);
+}
+
+void imgdlconn::ClearAllConns() {
+	while(!idlestack.empty()) {
+		delete idlestack.top();
+		idlestack.pop();
+	}
+	for(auto it=activeset.begin(); it != activeset.end(); it++) {
+		(*it)->KillConn();
+		delete *it;
+	}
+}
+
+void imgdlconn::Reset() {
+	imgurl.clear();
+	imgdata.clear();
+	user.reset();
+}
+
+int imgdlconn::curlCallback(char* data, size_t size, size_t nmemb, imgdlconn *obj) {
+	int writtenSize = 0;
+	if( obj && data ) {
+		writtenSize = size*nmemb;
+		obj->imgdata.append(data, writtenSize);
+	}
+	return writtenSize;
+}
+
+void imgdlconn::NotifyDone(CURL *easy, CURLcode res) {
+	long httpcode;
+	curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &httpcode);
+
+	if(httpcode!=200) {
+
+	}
+	else {
+		if(imgurl==user->user->profile_img_url) {
+			wxString filename;
+			filename.Printf(wxT("/img_%" wxLongLongFmtSpec "d"), user->id);
+			filename.Prepend(wxStandardPaths::Get().GetUserDataDir());
+			wxFile file(filename, wxFile::write);
+			file.Write(imgdata.data(), imgdata.size());
+			wxMemoryInputStream memstream(imgdata.data(), imgdata.size());
+			user->cached_profile_img=std::make_shared<wxImage>(memstream);
+			user->cached_profile_img_url=imgurl;
+			imgdata.clear();
+		}
+		KillConn();
+		Standby();
+	}
 }
 
 #ifdef __WINDOWS__
@@ -198,4 +302,52 @@ void socketmanager::RegisterSockInterest(CURL *e, curl_socket_t s, int what) {
 }
 #else
 
+
+void socketsighandler(int signum, siginfo_t *info, void *ucontext) {
+	if(!sm->MultiIOHandlerInited) return;
+
+	int sendbitmask=0;
+	if(info->si_band&POLLIN) sendbitmask|=CURL_CSELECT_IN;
+	if(info->si_band&POLLOUT) sendbitmask|=CURL_CSELECT_OUT;
+	if(info->si_band&POLLERR) sendbitmask|=CURL_CSELECT_ERR;
+
+	wxCommandEvent event(wxextSOCK_NOTIFY);
+	event.SetExtraLong((long) info->si_fd);
+	event.SetInt(sendbitmask);
+
+	sm->AddPendingEvent(event);
+}
+
+void socketmanager::InitMultiIOHandler() {
+	struct sigaction sa;
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_sigaction=&socketsighandler;
+	sa.sa_flags=SA_SIGINFO;
+	sigfillset(&sa.sa_mask);
+	sigaction(SIGRTMAX, &sa, 0);
+
+	MultiIOHandlerInited=true;
+}
+
+void socketmanager::DeInitMultiIOHandler() {
+	struct sigaction sa;
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_handler=SIG_IGN;
+	sigaction(SIGRTMAX, &sa, 0);
+
+	MultiIOHandlerInited=false;
+}
+
+void socketmanager::RegisterSockInterest(CURL *e, curl_socket_t s, int what) {
+	if(what) {
+		int flags=fcntl(s, F_GETFL);
+		fcntl(s, F_SETFL, flags|O_ASYNC);
+		fcntl(s, F_SETSIG, SIGRTMAX);
+	}
+	else {
+		int flags=fcntl(s, F_GETFL);
+		fcntl(s, F_SETFL, flags&~O_ASYNC);
+		fcntl(s, F_SETSIG, 0);
+	}
+}
 #endif

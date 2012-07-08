@@ -56,12 +56,18 @@ void acc_window::AccDel(wxCommandEvent &event) {
 }
 void acc_window::AccNew(wxCommandEvent &event) {
 	std::shared_ptr<taccount> ta(new taccount(&gc.cfg));
-	bool result=ta->TwInit(this);
-	if(result) {
-		ta->name=ta->dispname;
-		ta->enabled=true;
-		alist.push_back(ta);
-		UpdateLB();
+	ta->enabled=false;
+	ta->dispname=wxT("<new account>");
+	//opportunity for OAuth settings and so on goes here
+	ta->twit.TwInit(ta);
+	if(ta->TwDoOAuth(this, ta->twit)) {
+		if(ta->twit.TwSyncStartupAccVerify()) {
+			alist.push_back(ta);
+			UpdateLB();
+			//opportunity for settings and so on goes here
+			ta->enabled=true;
+			ta->Exec();
+		}
 	}
 }
 void acc_window::AccClose(wxCommandEvent &event) {

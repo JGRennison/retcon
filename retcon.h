@@ -6,6 +6,8 @@
 #include <memory>
 #include <unordered_map>
 #include <forward_list>
+#include <stack>
+#include <unordered_set>
 #include <wx/window.h>
 #include <wx/app.h>
 #include <wx/frame.h>
@@ -22,7 +24,13 @@
 #include <wx/timer.h>
 #include <wx/textdlg.h>
 #include <wx/datetime.h>
-#include "rapidjson/reader.h"
+#include <wx/richtext/richtextctrl.h>
+#include <wx/aui/aui.h>
+#include <wx/stdpaths.h>
+#include <wx/image.h>
+#include <wx/mstream.h>
+#include <wx/filefn.h>
+#include "rapidjson/document.h"
 
 enum
 {
@@ -49,22 +57,81 @@ struct genoptconf {
 	void CFGReadInCurDir(wxConfigBase &twfc, const genoptconf &parent);
 };
 
+struct genoptglobconf {
+	genopt userexpiretimemins;
+	void CFGWriteOut(wxConfigBase &twfc);
+	void CFGReadIn(wxConfigBase &twfc, const genoptglobconf &parent);
+};
+
+struct globconf {
+	genoptconf cfg;
+	genoptglobconf gcfg;
+
+	unsigned long userexpiretime;
+
+	void CFGWriteOut(wxConfigBase &twfc);
+	void CFGReadIn(wxConfigBase &twfc);
+	void CFGParamConv();
+};
+
 struct userdata;
 struct userdatacontainer;
 struct taccount;
 struct tweet;
+struct usevents;
+struct tweetdisp;
+struct tweetdispscr;
+struct tpanelparentwin;
+struct tpanelwin;
 
-struct twitcurlext: public twitCurl {
-	enum {
-		CS_ACCVERIFY=1,
-		CS_TIMELINE,
-		CS_STREAM,
-	};
-	std::weak_ptr<taccount> tacc;
-	unsigned int connmode;
+struct mcurlconn {
+	virtual void NotifyDone(CURL *easy, CURLcode res);
+	virtual void KillConn();
+	virtual CURL *GenGetCurlHandle();
+	void setlog(FILE *fs, bool verbose);
+};
+
+struct imgdlconn : public mcurlconn {
+	CURL* curlHandle;
+	std::string imgurl;
+	std::shared_ptr<userdatacontainer> user;
+	std::string imgdata;
 
 	void NotifyDone(CURL *easy, CURLcode res);
-	void KillConn();
+	static int curlCallback(char* data, size_t size, size_t nmemb, imgdlconn *obj);
+	imgdlconn(std::string &imgurl_, std::shared_ptr<userdatacontainer> user_);
+	void Init(std::string &imgurl_, std::shared_ptr<userdatacontainer> user_);
+	~imgdlconn();
+	CURL *GenGetCurlHandle() { return curlHandle; }
+	void Standby();
+	void Reset();
+	static void ClearAllConns();
+	static imgdlconn *GetConn(std::string &imgurl_, std::shared_ptr<userdatacontainer> user_);
+	static std::stack<imgdlconn *> idlestack;
+	static std::unordered_set<imgdlconn *> activeset;
+};
+
+typedef enum {
+	CS_ACCVERIFY=1,
+	CS_TIMELINE,
+	CS_STREAM,
+	CS_USERLIST
+} CS_ENUMTYPE;
+
+struct twitcurlext: public twitCurl, public mcurlconn {
+	std::weak_ptr<taccount> tacc;
+	CS_ENUMTYPE connmode;
+	bool inited;
+
+	void NotifyDone(CURL *easy, CURLcode res);
+	void TwInit(std::shared_ptr<taccount> acc);
+	void TwDeInit();
+	void TwStartupAccVerify();
+	bool TwSyncStartupAccVerify();
+	CURL *GenGetCurlHandle() { return GetCurlHandle(); }
+	twitcurlext(std::shared_ptr<taccount> acc);
+	twitcurlext();
+	~twitcurlext();
 };
 
 struct taccount : std::enable_shared_from_this<taccount> {
@@ -82,22 +149,33 @@ struct taccount : std::enable_shared_from_this<taccount> {
 
 	std::shared_ptr<userdatacontainer> usercont;
 
-	std::forward_list<std::shared_ptr<tweet>> pendingtweets;
-	std::forward_list<std::shared_ptr<userdatacontainer>> pendingusers;
+	std::unordered_map<uint64_t,std::shared_ptr<userdatacontainer> > usersfollowed;
+	std::unordered_map<uint64_t,std::weak_ptr<userdatacontainer> > usersfollowingthis; //partial list
+
+	void ClearUsersFollowed();
+	void RemoveUserFollowed(std::shared_ptr<userdatacontainer> ptr);
+	void PostRemoveUserFollowed(std::shared_ptr<userdatacontainer> ptr);
+	void AddUserFollowed(std::shared_ptr<userdatacontainer> ptr);
+
+	void RemoveUserFollowingThis(std::shared_ptr<userdatacontainer> ptr);
+	void AddUserFollowingThis(std::shared_ptr<userdatacontainer> ptr);
+
+	void HandleNewTweet(std::shared_ptr<tweet>);
+
+	std::unordered_map<uint64_t,std::shared_ptr<tweet> > pendingtweets;
+	std::unordered_map<uint64_t,std::shared_ptr<userdatacontainer> > pendingusers;
 
 	bool enabled;
+	bool active;
+	bool verifycreddone;
+	bool verifycredinprogress;
 	void CFGWriteOut(wxConfigBase &twfc);
 	void CFGReadIn(wxConfigBase &twfc);
 	void CFGParamConv();
-	bool TwInit(wxWindow *parent);
-	bool PostAccVerifyInit();
+	bool TwDoOAuth(wxWindow *pf, twitcurlext &twit);
+	void PostAccVerifyInit();
+	void Exec();
 	taccount(genoptconf *incfg=0);
-};
-
-struct globconf {
-	genoptconf cfg;
-	void CFGWriteOut(wxConfigBase &twfc);
-	void CFGReadIn(wxConfigBase &twfc);
 };
 
 struct acc_window: public wxDialog {
@@ -113,48 +191,20 @@ struct acc_window: public wxDialog {
 	DECLARE_EVENT_TABLE()
 };
 
-struct jsonp {
-	rapidjson::Reader rd;
-	std::string json;
-	enum {
-		PJ_NONE,
-		PJ_STRING,
-		PJ_BOOL,
-		PJ_UINT64,
-		PJ_INT
-	};
+struct jsonparser {
+	rapidjson::Document dc;
 	std::shared_ptr<taccount> tac;
-	int recdepth;
-	bool inobj;
+	CS_ENUMTYPE type;
 
-	int mode;
-	bool isvalue;
+	std::shared_ptr<userdatacontainer> DoUserParse(const rapidjson::Value& val);
+	void DoEventParse(const rapidjson::Value& val);
+	std::shared_ptr<tweet> DoTweetParse(const rapidjson::Value& val);
 
-	std::string *curstr;
-	bool *curbool;
-	uint64_t *curuint64;
-	int *curint;
-
-	jsonp();
-
-	void ParseJson(std::shared_ptr<taccount> tac=0);
-        void Null();
-        void Bool(bool b);
-        void Int(int i);
-        void Uint(unsigned i);
-        void Int64(int64_t i);
-        void Uint64(uint64_t i);
-        void Double(double d);
-        void String(const char* str, rapidjson::SizeType length, bool copy);
-        virtual void StartObject();
-        virtual void EndObject(rapidjson::SizeType memberCount);
-        virtual void StartArray();
-        virtual void EndArray(rapidjson::SizeType elementCount);
-	virtual void DoProcessValue(const char* str, rapidjson::SizeType length)=0;	//overload this
-	virtual void Preparse() { return ; }
-	virtual void Postparse() { return ; }
-
-	void CommonPostFunc();
+	jsonparser(CS_ENUMTYPE t, std::shared_ptr<taccount> a) {
+		type=t;
+		tac=a;
+	}
+	bool ParseString(char *str);	//modifies str
 };
 
 struct userdata {
@@ -164,6 +214,9 @@ struct userdata {
 	std::string profile_img_url;
 	bool isprotected;
 	std::weak_ptr<taccount> acc;
+	std::string created_at;		//fill this only once
+	wxDateTime createtime;		//fill this only once
+	std::string description;
 
 	void Dump();
 };
@@ -172,27 +225,17 @@ struct userdatacontainer {
 	std::shared_ptr<userdata> user;
 	uint64_t id;
 	long lastupdate;
-};
 
-struct userdataparse : public jsonp {
-	std::forward_list<std::shared_ptr<userdata>> list;
-	std::shared_ptr<userdata> current;
-	std::shared_ptr<userdata> pop_front();
+	std::string cached_profile_img_url;
+	std::shared_ptr<wxImage> cached_profile_img;
 
-	void DoProcessValue(const char* str, rapidjson::SizeType length);
-	void StartObject();
-	void EndObject(rapidjson::SizeType memberCount);
-	void StartArray();
-
-	protected:
-	bool baseisarray;
-	int objdepth;
+	bool NeedsUpdating();
 };
 
 struct tweet {
 	uint64_t id;
 	uint64_t in_reply_to_status_id;
-	int retweet_count;
+	unsigned int retweet_count;
 	bool retweeted;
 	std::string source;
 	std::string text;
@@ -205,19 +248,40 @@ struct tweet {
 	void Dump();
 };
 
-struct tweetparse : public jsonp {
-	std::forward_list<std::shared_ptr<tweet>> list;
-	std::shared_ptr<tweet> current;
-	std::shared_ptr<tweet> pop_front();
+struct tweetdispscr {
+	std::shared_ptr<tweetdisp> td;
+	unsigned int currentheight;
+};
 
-	void DoProcessValue(const char* str, rapidjson::SizeType length);
-	void StartObject();
-	void EndObject(rapidjson::SizeType memberCount);
-	void StartArray();
+struct tweetdisp {
+	std::shared_ptr<tweet> t;
+	std::weak_ptr<tweetdispscr> tdscr;
+};
 
-	protected:
-	bool baseisarray;
-	int objdepth;
+struct tpanel {
+	std::string name;
+	std::map<uint64_t,std::shared_ptr<tweetdisp> > tweetlist;
+	std::weak_ptr<tpanelparentwin> twin;
+
+	tpanel(std::string name_);
+	void PushTweet(std::shared_ptr<tweet> t);
+};
+
+struct tpanelparentwin : public wxPanel {
+	std::shared_ptr<tpanelwin> tpw;
+	std::shared_ptr<tpanel> tp;
+
+	tpanelparentwin(std::shared_ptr<tpanel> tp_);
+	~tpanelparentwin();
+	void PushTweet(std::shared_ptr<tweetdisp> t);
+};
+
+struct tpanelwin : public wxRichTextCtrl {
+	tpanelparentwin *tppw;
+	std::shared_ptr<tpanel> tp;
+
+	tpanelwin(tpanelparentwin *tppw_);
+	void PushTweet(std::shared_ptr<tweetdisp> t);
 };
 
 struct alldata {
@@ -225,6 +289,9 @@ struct alldata {
 	std::map<uint64_t,std::shared_ptr<tweet> > tweetobjs;
 	std::shared_ptr<userdatacontainer> GetUserContainerById(uint64_t id);
 	void UpdateUserContainer(std::shared_ptr<userdatacontainer> usercont, std::shared_ptr<userdata> userconts);
+
+	std::map<std::string,std::shared_ptr<tpanel> > tpanels;
+	std::map<std::string,tpanelparentwin*> tpanelpwin;
 };
 
 class sockettimeout : public wxTimer {
@@ -232,13 +299,15 @@ class sockettimeout : public wxTimer {
 	void Notify();
 };
 
-struct socketmanager {
+struct socketmanager : public wxEvtHandler {
 	socketmanager();
 	~socketmanager();
-	bool AddConn(CURL* ch, twitcurlext *cs);
+	bool AddConn(CURL* ch, mcurlconn *cs);
 	bool AddConn(twitcurlext &cs);
+	void RemoveConn(CURL* ch);
 	void RegisterSockInterest(CURL *e, curl_socket_t s, int what);
 	void NotifySockEvent(curl_socket_t sockfd, int ev_bitmask);
+	void NotifySockEventCmd(wxCommandEvent &event);
 	void InitMultiIOHandler();
 	void DeInitMultiIOHandler();
 	bool MultiIOHandlerInited;
@@ -249,6 +318,9 @@ struct socketmanager {
 	#ifdef __WINDOWS__
 	HWND wind;
 	#endif
+	FILE *loghandle;
+
+	DECLARE_EVENT_TABLE()
 };
 
 class retcon: public wxApp
@@ -257,9 +329,16 @@ class retcon: public wxApp
     virtual int OnExit();
 };
 
+struct tweetpostwin : public wxPanel {
+
+};
+
 class mainframe: public wxFrame
 {
 public:
+	wxAuiManager *auim;
+	tweetpostwin *tpw;
+
 	mainframe(const wxString& title, const wxPoint& pos, const wxSize& size);
 	void OnQuit(wxCommandEvent &event);
 	void OnAbout(wxCommandEvent &event);
@@ -272,7 +351,7 @@ public:
 void ReadAllCFGIn(wxConfigBase &twfc, globconf &gc, std::list<std::shared_ptr<taccount>> &alist);
 void WriteAllCFGOut(wxConfigBase &twfc, globconf &gc, std::list<std::shared_ptr<taccount>> &alist);
 
-void StreamCallback(std::string &data, twitcurlext* pTwitCurlObj, void *userdata);
+void StreamCallback(std::string &data, twitCurl* pTwitCurlObj, void *userdata);
 
 inline wxString wxstrstd(std::string &st) {
 	return wxString::FromUTF8(st.c_str());
@@ -282,3 +361,4 @@ extern globconf gc;
 extern std::list<std::shared_ptr<taccount>> alist;
 extern socketmanager sm;
 extern alldata ad;
+extern mainframe *topframe;
