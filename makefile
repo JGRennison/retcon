@@ -9,12 +9,12 @@
 #x64: set to true to compile for x86_64/win64
 
 
-OBJS:=retcon.o cfg.o optui.o parse.o socket.o tpanel.o
+OBJS:=retcon.o cfg.o optui.o parse.o socket.o tpanel.o twit.o
 TCOBJS:=libtwitcurl/base64.o libtwitcurl/HMAC_SHA1.o libtwitcurl/oauthlib.o libtwitcurl/SHA1.o libtwitcurl/twitcurl.o libtwitcurl/urlencode.o
 OUTNAME:=retcon
-CFLAGS:=-O3 -Wextra -Wall -Wno-unused-parameter -std=gnu++0x
+CFLAGS:=-O3 -Wextra -Wall -Wno-unused-parameter
 #-Wno-missing-braces -Wno-unused-parameter
-CXXFLAGS:=-fno-rtti
+CXXFLAGS:=-fno-rtti -std=gnu++0x
 
 gccver:=$(shell gcc -dumpmachine)
 ifeq (mingw, $(findstring mingw,$(gccver)))
@@ -101,16 +101,20 @@ endif
 	-$(PACKER) $(OUTNAME)$(SUFFIX)
 
 
-.SUFFIXES: .cpp .o$(POSTFIX)
+.SUFFIXES: .cpp .c .o$(POSTFIX)
 
 .cpp.o$(POSTFIX):
 	$(GCC) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(AFLAGS)
 
+.c.o$(POSTFIX):
+	$(GCC:++=cc) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(AFLAGS)
+
 $(TCOBJS): %.o$(POSTFIX): %.cpp
 	$(GCC) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(CXXFLAGS)
 
-$(OBJS): retcon.h libtwitcurl/twitcurl.h
+$(OBJS): retcon.h socket.h cfg.h parse.h twit.h tpanel.h libtwitcurl/twitcurl.h
 $(TCOBJS): libtwitcurl/*.h
+twit.o$(POSTFIX): strptime.cpp timegm.cpp
 
 
 .PHONY: clean install uninstall all

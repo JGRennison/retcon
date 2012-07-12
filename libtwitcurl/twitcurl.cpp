@@ -23,6 +23,7 @@ m_noperform( false ),
 m_eApiFormatType( twitCurlTypes::eTwitCurlApiFormatXml ),
 m_eProtocolType( twitCurlTypes::eTwitCurlProtocolHttp ),
 m_streamapicallback( 0 ),
+m_streamapiactivitycallback( 0 ),
 m_streamapicallback_data( 0 )
 {
     /* Clear callback buffers */
@@ -247,7 +248,7 @@ std::string& twitCurl::getProxyPassword()
 * @output: none
 *
 *--*/
-void twitCurl::setProxyServerIp( std::string& proxyServerIp )
+void twitCurl::setProxyServerIp( const std::string& proxyServerIp )
 {
     if( proxyServerIp.length() )
     {
@@ -270,7 +271,7 @@ void twitCurl::setProxyServerIp( std::string& proxyServerIp )
 * @output: none
 *
 *--*/
-void twitCurl::setProxyServerPort( std::string& proxyServerPort )
+void twitCurl::setProxyServerPort( const std::string& proxyServerPort )
 {
     if( proxyServerPort.length() )
     {
@@ -293,7 +294,7 @@ void twitCurl::setProxyServerPort( std::string& proxyServerPort )
 * @output: none
 *
 *--*/
-void twitCurl::setProxyUserName( std::string& proxyUserName )
+void twitCurl::setProxyUserName( const std::string& proxyUserName )
 {
     if( proxyUserName.length() )
     {
@@ -316,7 +317,7 @@ void twitCurl::setProxyUserName( std::string& proxyUserName )
 * @output: none
 *
 *--*/
-void twitCurl::setProxyPassword( std::string& proxyPassword )
+void twitCurl::setProxyPassword( const std::string& proxyPassword )
 {
     if( proxyPassword.length() )
     {
@@ -342,7 +343,7 @@ void twitCurl::setProxyPassword( std::string& proxyPassword )
 * @note: Only ATOM and JSON format supported.
 *
 *--*/
-bool twitCurl::search( std::string& searchQuery )
+bool twitCurl::search( const std::string& searchQuery )
 {
     /* Prepare URL */
     std::string buildUrl = twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
@@ -366,7 +367,7 @@ bool twitCurl::search( std::string& searchQuery )
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::statusUpdate( std::string& newStatus, std::string in_reply_to_status_id )
+bool twitCurl::statusUpdate( const std::string& newStatus, const std::string in_reply_to_status_id )
 {
     bool retVal = false;
     if( newStatus.length() )
@@ -398,7 +399,7 @@ bool twitCurl::statusUpdate( std::string& newStatus, std::string in_reply_to_sta
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::statusShowById( std::string& statusId )
+bool twitCurl::statusShowById( const std::string& statusId )
 {
     bool retVal = false;
     if( statusId.length() )
@@ -425,7 +426,7 @@ bool twitCurl::statusShowById( std::string& statusId )
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::statusDestroyById( std::string& statusId )
+bool twitCurl::statusDestroyById( const std::string& statusId )
 {
     bool retVal = false;
     if( statusId.length() )
@@ -497,7 +498,7 @@ bool twitCurl::timelineHomeGet(const struct timelineparams &tmps)
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::mentionsGet( std::string sinceId )
+bool twitCurl::mentionsGet( const std::string &sinceId )
 {
     std::string buildUrl = twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
                            twitterDefaults::TWITCURL_MENTIONS_URL +
@@ -525,7 +526,7 @@ bool twitCurl::mentionsGet( std::string sinceId )
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::timelineUserGet( const struct timelineparams &tmps, std::string userInfo, bool isUserId )
+bool twitCurl::timelineUserGet( const struct timelineparams &tmps, const std::string &userInfo, bool isUserId )
 {
     /* Prepare URL */
     std::string buildUrl;
@@ -598,7 +599,7 @@ void twitCurl::UtilTimelineProcessParams( const struct timelineparams &tmps, std
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::userGet( std::string& userInfo, bool isUserId )
+bool twitCurl::userGet( const std::string& userInfo, bool isUserId )
 {
     bool retVal = false;
     if( userInfo.length() )
@@ -628,7 +629,7 @@ bool twitCurl::userGet( std::string& userInfo, bool isUserId )
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::friendsGet( std::string userInfo, bool isUserId )
+bool twitCurl::friendsGet( const std::string &userInfo, bool isUserId )
 {
     /* Set URL */
     std::string buildUrl;
@@ -653,7 +654,7 @@ bool twitCurl::friendsGet( std::string userInfo, bool isUserId )
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::followersGet( std::string userInfo, bool isUserId )
+bool twitCurl::followersGet( const std::string &userInfo, bool isUserId )
 {
     /* Prepare URL */
     std::string buildUrl;
@@ -664,6 +665,41 @@ bool twitCurl::followersGet( std::string userInfo, bool isUserId )
 
     /* Perform GET */
     return performGet( buildUrl );
+}
+
+/*++
+* @method: twitCurl::userLookup
+*
+* @description: method to get a list of users' profiles
+*
+* @input: userIdList - comma-separated list of up to 100 user IDs
+*         screenNameList - comma-separated list of up to 100 screen IDs
+*         include_entities - whether to include entities in inline tweets
+*
+* @output: true if GET is success, otherwise false. This does not check http
+*          response by twitter. Use getLastWebResponse() for that.
+*
+*--*/
+bool twitCurl::userLookup( const std::string& userIdList /* in */, const std::string& screenNameList /* in */, bool include_entities /* in */ )
+{
+    /* Prepare URL */
+    std::string buildUrl = twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
+                           twitterDefaults::TWITCURL_LOOKUPUSERS_URL +
+                           twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType];
+
+    std::string queryStr;
+    if( userIdList.size() ) queryStr.append( twitCurlDefaults::TWITCURL_USERID + urlencode( userIdList ) );
+    if( userIdList.size() ) {
+        if( queryStr.size() ) queryStr.append( twitCurlDefaults::TWITCURL_URL_SEP_AMP );
+        queryStr.append( twitCurlDefaults::TWITCURL_SCREENNAME + urlencode( screenNameList ) );
+    }
+    if( include_entities ) {
+        if( queryStr.size() ) queryStr.append( twitCurlDefaults::TWITCURL_URL_SEP_AMP );
+        queryStr.append( twitCurlDefaults::TWITCURL_INCENTITIES + "1" );
+    }
+
+    /* Perform POST */
+    return performPost( buildUrl, queryStr );
 }
 
 /*++
@@ -698,7 +734,7 @@ bool twitCurl::directMessageGet()
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::directMessageSend( std::string& userInfo, std::string& dMsg, bool isUserId )
+bool twitCurl::directMessageSend( const std::string& userInfo, const std::string& dMsg, bool isUserId )
 {
     bool retVal = false;
     if( userInfo.length() && dMsg.length() )
@@ -749,7 +785,7 @@ bool twitCurl::directMessageGetSent()
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::directMessageDestroyById( std::string& dMsgId )
+bool twitCurl::directMessageDestroyById( const std::string& dMsgId )
 {
     bool retVal = false;
     if( dMsgId.length() )
@@ -777,7 +813,7 @@ bool twitCurl::directMessageDestroyById( std::string& dMsgId )
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::friendshipCreate( std::string& userInfo, bool isUserId )
+bool twitCurl::friendshipCreate( const std::string& userInfo, bool isUserId )
 {
     bool retVal = false;
     if( userInfo.length() )
@@ -811,7 +847,7 @@ bool twitCurl::friendshipCreate( std::string& userInfo, bool isUserId )
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::friendshipDestroy( std::string& userInfo, bool isUserId )
+bool twitCurl::friendshipDestroy( const std::string& userInfo, bool isUserId )
 {
     bool retVal = false;
     if( userInfo.length() )
@@ -841,7 +877,7 @@ bool twitCurl::friendshipDestroy( std::string& userInfo, bool isUserId )
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::friendshipShow( std::string& userInfo, bool isUserId )
+bool twitCurl::friendshipShow( const std::string& userInfo, bool isUserId )
 {
     /* Prepare URL */
     std::string buildUrl = twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
@@ -878,7 +914,7 @@ bool twitCurl::friendshipShow( std::string& userInfo, bool isUserId )
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::friendsIdsGet( std::string& userInfo, bool isUserId )
+bool twitCurl::friendsIdsGet( const std::string& userInfo, bool isUserId )
 {
     /* Prepare URL */
     std::string buildUrl;
@@ -903,7 +939,7 @@ bool twitCurl::friendsIdsGet( std::string& userInfo, bool isUserId )
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::followersIdsGet( std::string& userInfo, bool isUserId )
+bool twitCurl::followersIdsGet( const std::string& userInfo, bool isUserId )
 {
     /* Prepare URL */
     std::string buildUrl;
@@ -984,7 +1020,7 @@ bool twitCurl::favoriteGet()
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::favoriteCreate( std::string& statusId )
+bool twitCurl::favoriteCreate( const std::string& statusId )
 {
     /* Prepare URL */
     std::string buildUrl = twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
@@ -1010,7 +1046,7 @@ bool twitCurl::favoriteCreate( std::string& statusId )
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::favoriteDestroy( std::string& statusId )
+bool twitCurl::favoriteDestroy( const std::string& statusId )
 {
     /* Prepare URL */
     std::string buildUrl = twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
@@ -1032,7 +1068,7 @@ bool twitCurl::favoriteDestroy( std::string& statusId )
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::blockCreate( std::string& userInfo )
+bool twitCurl::blockCreate( const std::string& userInfo )
 {
         /* Prepare URL */
         std::string buildUrl = twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
@@ -1058,7 +1094,7 @@ bool twitCurl::blockCreate( std::string& userInfo )
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::blockDestroy( std::string& userInfo )
+bool twitCurl::blockDestroy( const std::string& userInfo )
 {
     /* Prepare URL */
     std::string buildUrl = twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
@@ -1100,7 +1136,7 @@ bool twitCurl::savedSearchGet( )
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::savedSearchShow( std::string& searchId )
+bool twitCurl::savedSearchShow( const std::string& searchId )
 {
     /* Prepare URL */
     std::string buildUrl = twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
@@ -1122,7 +1158,7 @@ bool twitCurl::savedSearchShow( std::string& searchId )
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::savedSearchCreate( std::string& query )
+bool twitCurl::savedSearchCreate( const std::string& query )
 {
     /* Prepare URL */
     std::string buildUrl = twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
@@ -1149,7 +1185,7 @@ bool twitCurl::savedSearchCreate( std::string& query )
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::savedSearchDestroy( std::string& searchId )
+bool twitCurl::savedSearchDestroy( const std::string& searchId )
 {
     /* Prepare URL */
     std::string buildUrl = twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
@@ -1257,7 +1293,7 @@ bool twitCurl::trendsAvailableGet()
                        twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType] );
 }
 
-bool twitCurl::UserStreamingApi( std::string with, std::string replies, std::string follow , std::string track, std::string locations, bool accept_encoding, bool stall_warnings )
+bool twitCurl::UserStreamingApi( const std::string &with, const std::string &replies, const std::string &follow , const std::string &track, const std::string &locations, bool accept_encoding, bool stall_warnings )
 {
     return PostStreamingApiGeneric( twitterDefaults::TWITCURL_USERSTREAM_URL, with, replies, follow, track, locations, accept_encoding, stall_warnings );
 }
@@ -1272,7 +1308,7 @@ bool twitCurl::UserStreamingApi( std::string with, std::string replies, std::str
 * @output: none
 *
 *--*/
-bool twitCurl::PublicFilterStreamingApi( std::string follow , std::string track, std::string locations, bool accept_encoding, bool stall_warnings )
+bool twitCurl::PublicFilterStreamingApi( const std::string &follow , const std::string &track, const std::string &locations, bool accept_encoding, bool stall_warnings )
 {
     return PostStreamingApiGeneric( twitterDefaults::TWITCURL_PUBLICFILTERSTREAM_URL, "", "", follow, track, locations, accept_encoding, stall_warnings );
 }
@@ -1317,7 +1353,7 @@ bool twitCurl::PublicSampleStreamingApi( bool accept_encoding, bool stall_warnin
 * @remarks: internal method
 *
 *--*/
-bool twitCurl::PostStreamingApiGeneric( std::string streamurl, std::string with, std::string replies, std::string follow , std::string track, std::string locations, bool accept_encoding, bool stall_warnings )
+bool twitCurl::PostStreamingApiGeneric( const std::string &streamurl, const std::string &with, const std::string &replies, const std::string &follow, const std::string &track, const std::string &locations, bool accept_encoding, bool stall_warnings )
 {
     std::string postdata = twitCurlDefaults::TWITCURL_DELIMIT;
     if( stall_warnings )
@@ -1409,6 +1445,9 @@ void twitCurl::StreamingApiGenericPrepare( bool accept_encoding )
 *--*/
 int twitCurl::curlStreamingCallback( char* data, size_t size, size_t nmemb, twitCurl* pTwitCurlObj )
 {
+
+    if(pTwitCurlObj->m_streamapiactivitycallback) (*pTwitCurlObj->m_streamapiactivitycallback)( pTwitCurlObj, pTwitCurlObj->m_streamapicallback_data );
+
     int writtenSize = 0;
     if( ( NULL != pTwitCurlObj ) && ( NULL != data ) )
     {
@@ -1479,6 +1518,23 @@ void twitCurl::SetStreamApiCallback( twitCurlTypes::fpStreamApiCallback func, vo
     m_streamapicallback = func;
 }
 
+/*++
+* @method: twitCurl::SetStreamApiActivityCallback
+*
+* @description: method to set the notification callback called whenever any data arrives.
+*		SetStreamApiCallback must be called to receive the data
+*		The userdata pointer passed to the callback is that set in SetStreamApiCallback
+*		This is mainly useful for tracking connection idleness
+*
+* @input: callback function of type twitCurlTypes::fpStreamApiActivityCallback
+*
+* @output: none
+*
+*--*/
+void twitCurl::SetStreamApiActivityCallback( twitCurlTypes::fpStreamApiActivityCallback func )
+{
+    m_streamapiactivitycallback = func;
+}
 
 /*++
 * @method: twitCurl::getLastWebResponse
@@ -1995,7 +2051,7 @@ bool twitCurl::curl_gen_exec( CURL *easy_handle ) {
 * @remarks: internal method
 *
 *--*/
-void utilMakeCurlParams( std::string& outStr, std::string& inParam1, std::string& inParam2 )
+void utilMakeCurlParams( std::string& outStr, const std::string& inParam1, const std::string& inParam2 )
 {
     outStr = inParam1;
     outStr += twitCurlDefaults::TWITCURL_COLON + inParam2;
@@ -2016,7 +2072,7 @@ void utilMakeCurlParams( std::string& outStr, std::string& inParam1, std::string
 * @remarks: internal method
 *
 *--*/
-void utilMakeUrlForUser( std::string& outUrl, const std::string& baseUrl, std::string& userInfo, bool isUserId )
+void utilMakeUrlForUser( std::string& outUrl, const std::string& baseUrl, const std::string& userInfo, bool isUserId )
 {
     /* Copy base URL */
     outUrl = baseUrl;

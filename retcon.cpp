@@ -16,7 +16,7 @@ bool retcon::OnInit() {
 	if(!::wxDirExists(wxStandardPaths::Get().GetUserDataDir())) {
 		::wxMkdir(wxStandardPaths::Get().GetUserDataDir(), 077);
 	}
-	wxConfigBase *wfc=new wxFileConfig(wxT(""),wxT(""),wxStandardPaths::Get().GetUserDataDir() + wxT("\\retcon.ini"),wxT(""),wxCONFIG_USE_LOCAL_FILE,wxConvUTF8);
+	wxConfigBase *wfc=new wxFileConfig(wxT(""),wxT(""),wxStandardPaths::Get().GetUserDataDir() + wxT("/retcon.ini"),wxT(""),wxCONFIG_USE_LOCAL_FILE,wxConvUTF8);
 	topframe = new mainframe( wxT("Retcon"), wxPoint(50, 50), wxSize(450, 340) );
 	new wxLogWindow(topframe, wxT("Logs"));
 	wxConfigBase::Set(wfc);
@@ -25,9 +25,9 @@ bool retcon::OnInit() {
 	ReadAllCFGIn(*wfc, gc, alist);
 
 	ad.tpanels["[default]"]=std::make_shared<tpanel>("[default]");
-	new tpanelparentwin(ad.tpanels["[default]"]);
+	ad.tpanels["[default]"]->MkTPanelWin();
 	ad.tpanels["[default2]"]=std::make_shared<tpanel>("[default2]");
-	new tpanelparentwin(ad.tpanels["[default2]"]);
+	ad.tpanels["[default2]"]->MkTPanelWin();
 
 	topframe->Show(true);
 	SetTopWindow(topframe);
@@ -36,11 +36,10 @@ bool retcon::OnInit() {
 }
 
 int retcon::OnExit() {
-	for(auto it=alist.begin() ; it != alist.end(); it++ ) {
-		(*it)->twit.KillConn();
-		(*it)->twit_stream.KillConn();
+	for(auto it=alist.begin() ; it != alist.end(); it++) {
+		(*it)->cp.ClearAllConns();
 	}
-	imgdlconn::ClearAllConns();
+	imgdlconn::cp.ClearAllConns();
 	sm.DeInitMultiIOHandler();
 	wxConfigBase *wfc=wxConfigBase::Get();
 	WriteAllCFGOut(*wfc, gc, alist);
@@ -72,10 +71,15 @@ mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& si
 	menuBar->Append(menuO, wxT("&Options"));
 	menuBar->Append(menuH, wxT("&Help"));
 
+	tpw=new tweetpostwin();
+
+#ifdef USEAUIM
 	auim = new wxAuiManager(this,wxAUI_MGR_DEFAULT|wxAUI_MGR_RECTANGLE_HINT);
 	auim->SetDockSizeConstraint(1.0, 1.0);
-	tpw=new tweetpostwin();
-	auim->AddPane(tpw, wxAuiPaneInfo().Resizable().Centre().Caption(wxT("Post Tweet")).Dockable(false).Floatable(false));
+	auim->AddPane(tpw, wxAuiPaneInfo().Resizable().Centre().Caption(wxT("Post Tweet")).Dockable(false).Floatable(false).MaxSize(20000,100));
+#else
+	auib = new wxAuiNotebook(this);
+#endif
 
 	SetMenuBar( menuBar );
 	return;
@@ -131,40 +135,60 @@ void taccount::AddUserFollowingThis(std::shared_ptr<userdatacontainer> ptr) {
 	}
 }
 
-twitcurlext::twitcurlext(std::shared_ptr<taccount> acc) {
-	inited=false;
-	TwInit(acc);
+//limits are inclusive
+void taccount::StartRestGetTweetBackfill(uint64_t start_tweet_id, uint64_t end_tweet_id, unsigned int max_tweets_to_read) {
+	twitcurlext *twit=cp.GetConn();
+	twit->TwInit(shared_from_this());
+	twit->connmode=CS_TIMELINE;
+	twit->SetNoPerformFlag(true);
+	twit->post_action_flags=PAF_RESOLVE_PENDINGS;
+	twit->rbfs=std::make_shared<restbackfillstate>();
+	twit->rbfs->start_tweet_id=start_tweet_id;
+	twit->rbfs->end_tweet_id=end_tweet_id;
+	twit->rbfs->max_tweets_left=max_tweets_to_read;
+	twit->rbfs->read_again=true;
+	twit->ExecRestGetTweetBackfill();
 }
 
-twitcurlext::twitcurlext() {
-	inited=false;
-}
-twitcurlext::~twitcurlext() {
-	TwDeInit();
-}
+void taccount::StartRestQueryPendings() {
+	std::shared_ptr<userlookup> ul=std::make_shared<userlookup>();
+	unsigned int numusers=0;
 
-void twitcurlext::TwInit(std::shared_ptr<taccount> acc) {
-	if(inited) return;
-	tacc=acc;
-	CURL *ch=GetCurlHandle();
-	curl_easy_setopt(ch,CURLOPT_CAINFO,"./cacert.pem");
-	if(sm.loghandle) setlog(sm.loghandle, 1);
-
-	setTwitterApiType(twitCurlTypes::eTwitCurlApiFormatJson);
-	setTwitterProcotolType(acc->ssl?twitCurlTypes::eTwitCurlProtocolHttps:twitCurlTypes::eTwitCurlProtocolHttp);
-
-	getOAuth().setConsumerKey((const char*) acc->cfg.tokenk.val.utf8_str());
-	getOAuth().setConsumerSecret((const char*) acc->cfg.tokens.val.utf8_str());
-
-	if(acc->conk.size() && acc->cons.size()) {
-		getOAuth().setOAuthTokenKey((const char*) acc->conk.utf8_str());
-		getOAuth().setOAuthTokenSecret((const char*) acc->cons.utf8_str());
+	auto it=pendingusers.begin();
+	while(it!=pendingusers.end() && numusers<100) {
+		auto curit=it;
+		std::shared_ptr<userdatacontainer> curobj=curit->second;
+		it++;
+		if(curobj->udc_flags&UDC_LOOKUP_IN_PROGRESS) ;	//do nothing
+		else if(curobj->NeedsUpdating()) {
+			ul->Mark(curobj);
+			numusers++;
+		}
+		else {
+			pendingusers.erase(curit);		//user not pending, remove from list
+			curobj->CheckPendingTweets();
+		}
 	}
-	inited=true;
+	if(numusers) {
+		twitcurlext *twit=cp.GetConn();
+		twit->TwInit(shared_from_this());
+		twit->connmode=CS_USERLIST;
+		twit->ul=ul;
+		twit->post_action_flags=PAF_RESOLVE_PENDINGS;
+		twit->QueueAsyncExec();
+	}
 }
 
-void twitcurlext::TwDeInit() {
-	inited=false;
+void taccount::DoPostAction(twitcurlext *lasttce) {
+	unsigned int postflags=lasttce->post_action_flags;
+	cp.Standby(lasttce);
+	DoPostAction(postflags);
+}
+
+void taccount::DoPostAction(unsigned int postflags) {
+	if(postflags&PAF_RESOLVE_PENDINGS) {
+		StartRestQueryPendings();
+	}
 }
 
 bool taccount::TwDoOAuth(wxWindow *pf, twitcurlext &twit) {
@@ -191,37 +215,6 @@ bool taccount::TwDoOAuth(wxWindow *pf, twitcurlext &twit) {
 	return true;
 }
 
-
-void twitcurlext::TwStartupAccVerify() {
-	tacc.lock()->verifycredinprogress=true;
-	connmode=CS_ACCVERIFY;
-	SetNoPerformFlag(true);
-	accountVerifyCredGet();
-	sm.AddConn(*this);
-	wxLogWarning(wxT("Queue AccVerify"));
-}
-
-bool twitcurlext::TwSyncStartupAccVerify() {
-	tacc.lock()->verifycredinprogress=true;
-	SetNoPerformFlag(false);
-	accountVerifyCredGet();
-	long httpcode;
-	curl_easy_getinfo(GetCurlHandle(), CURLINFO_RESPONSE_CODE, &httpcode);
-	if(httpcode==200) {
-		jsonparser jp(CS_ACCVERIFY, tacc.lock());
-		std::string str;
-		getLastWebResponse(str);
-		jp.ParseString((char*) str.c_str());	//this modifies the contents of str!!
-		str.clear();
-		tacc.lock()->verifycredinprogress=false;
-		return true;
-	}
-	else {
-		tacc.lock()->verifycredinprogress=false;
-		return false;
-	}
-}
-
 void taccount::PostAccVerifyInit() {
 	verifycreddone=true;
 	verifycredinprogress=false;
@@ -230,67 +223,37 @@ void taccount::PostAccVerifyInit() {
 
 void taccount::Exec() {
 	if(enabled && !verifycreddone) {
-		twit.TwInit(shared_from_this());
-		twit_stream.TwInit(shared_from_this());
-
-		twit.TwStartupAccVerify();
+		twitcurlext *twit=cp.GetConn();
+		twit->TwInit(shared_from_this());
+		twit->TwStartupAccVerify();
 	}
 	else if(enabled && !active) {
 		active=true;
 
-		twit.TwInit(shared_from_this());
-		twit_stream.TwInit(shared_from_this());
-
-
 		//streams test
-		twit_stream.connmode=CS_STREAM;
-		twit_stream.SetNoPerformFlag(true);
-		twit_stream.SetStreamApiCallback(&StreamCallback, 0);
-		//twit_stream.UserStreamingApi("followings", "all");
-		twit_stream.UserStreamingApi("followings");
-		sm.AddConn(twit_stream);
+		twitcurlext *twit_stream=cp.GetConn();
+		twit_stream->TwInit(shared_from_this());
+		twit_stream->connmode=CS_STREAM;
+		//twit_stream->post_action_flags|=PAF_STREAM_CONN_READ_BACKFILL;
+		twit_stream->QueueAsyncExec();
 
-		twit.connmode=CS_TIMELINE;
-		twit.SetNoPerformFlag(true);
-		struct timelineparams tmps={
-			200,
-			max_tweet_id,
-			0,
-			1,
-			0,
-			0,
-			0
-		};
-		twit.timelineHomeGet(tmps);
-		sm.AddConn(twit);
-		wxLogWarning(wxT("Queue Initial Tweet Read"));
-		return;
+		//StartRestGetTweetBackfill(0, 0, 45);
+
 	}
 	else if(!enabled && (active || verifycredinprogress)) {
 		active=false;
 		verifycredinprogress=false;
-		twit.KillConn();
-		twit.TwDeInit();
-		twit_stream.KillConn();
-		twit_stream.TwDeInit();
+		cp.ClearAllConns();
 	}
-}
-
-void StreamCallback( std::string &data, twitCurl* pTwitCurlObj, void *userdata ) {
-	twitcurlext *obj=(twitcurlext*) pTwitCurlObj;
-	std::shared_ptr<taccount> acc=obj->tacc.lock();
-	wxLogWarning(wxT("Received: %s"), wxstrstd(data).c_str());
-	jsonparser jp(CS_STREAM, acc);
-	jp.ParseString((char*) data.c_str());	//this modifies the contents of data!!
-	data.clear();
 }
 
 std::shared_ptr<userdatacontainer> alldata::GetUserContainerById(uint64_t id) {
 	std::shared_ptr<userdatacontainer> usercont=userconts[id];
 	if(!usercont) {
-		usercont=std::make_shared<userdatacontainer>();
+		userconts[id]=usercont=std::make_shared<userdatacontainer>();
 		usercont->id=id;
 		usercont->lastupdate=0;
+		usercont->udc_flags=0;
 	}
 	return usercont;
 }
@@ -298,19 +261,9 @@ std::shared_ptr<userdatacontainer> alldata::GetUserContainerById(uint64_t id) {
 void alldata::UpdateUserContainer(std::shared_ptr<userdatacontainer> usercont, std::shared_ptr<userdata> userobj) {
 	usercont->user=userobj;
 	usercont->lastupdate=wxGetUTCTime();
-	if(userobj && userobj->profile_img_url.size() && usercont->cached_profile_img_url!=userobj->profile_img_url) {
-		imgdlconn::GetConn(userobj->profile_img_url, usercont);
+	if(userobj && userobj->profile_img_url.size()) {
+		if(usercont->cached_profile_img_url!=userobj->profile_img_url) {
+			imgdlconn::GetConn(userobj->profile_img_url, usercont);
+		}
 	}
-}
-
-bool userdatacontainer::NeedsUpdating() {
-	if(!user) return true;
-	else {
-		if((wxGetUTCTime()-lastupdate)>gc.userexpiretime) return true;
-		else return false;
-	}
-}
-
-void taccount::HandleNewTweet(std::shared_ptr<tweet>) {
-
 }

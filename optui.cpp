@@ -59,9 +59,10 @@ void acc_window::AccNew(wxCommandEvent &event) {
 	ta->enabled=false;
 	ta->dispname=wxT("<new account>");
 	//opportunity for OAuth settings and so on goes here
-	ta->twit.TwInit(ta);
-	if(ta->TwDoOAuth(this, ta->twit)) {
-		if(ta->twit.TwSyncStartupAccVerify()) {
+	twitcurlext *twit=ta->cp.GetConn();
+	twit->TwInit(ta);
+	if(ta->TwDoOAuth(this, *twit)) {
+		if(twit->TwSyncStartupAccVerify()) {
 			alist.push_back(ta);
 			UpdateLB();
 			//opportunity for settings and so on goes here
@@ -69,6 +70,7 @@ void acc_window::AccNew(wxCommandEvent &event) {
 			ta->Exec();
 		}
 	}
+	ta->cp.Standby(twit);
 }
 void acc_window::AccClose(wxCommandEvent &event) {
 	EndModal(0);

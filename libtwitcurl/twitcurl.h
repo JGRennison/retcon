@@ -26,6 +26,7 @@ namespace twitCurlTypes
     } eTwitCurlProtocolType;
 
     typedef void ( *fpStreamApiCallback )( std::string &data, twitCurl* pTwitCurlObj, void *userdata );
+    typedef void ( *fpStreamApiActivityCallback )( twitCurl* pTwitCurlObj, void *userdata );
 
 };
 
@@ -98,6 +99,7 @@ namespace twitterDefaults
     const std::string TWITCURL_SHOWUSERS_URL = "api.twitter.com/1/users/show";
     const std::string TWITCURL_SHOWFRIENDS_URL = "api.twitter.com/1/statuses/friends";
     const std::string TWITCURL_SHOWFOLLOWERS_URL = "api.twitter.com/1/statuses/followers";
+    const std::string TWITCURL_LOOKUPUSERS_URL = "api.twitter.com/1/users/lookup";
 
     /* Direct messages URLs */
     const std::string TWITCURL_DIRECTMESSAGES_URL = "api.twitter.com/1/direct_messages";
@@ -182,38 +184,39 @@ public:
     void setTwitterProcotolType( twitCurlTypes::eTwitCurlProtocolType eType );
 
     /* Twitter search APIs */
-    bool search( std::string& searchQuery /* in */ );
+    bool search( const std::string& searchQuery /* in */ );
 
     /* Twitter status APIs */
-    bool statusUpdate( std::string& newStatus, std::string in_reply_to_status_id = "" ); /* all parameters in */
-    bool statusShowById( std::string& statusId /* in */ );
-    bool statusDestroyById( std::string& statusId /* in */ );
+    bool statusUpdate( const std::string& newStatus, const std::string in_reply_to_status_id = "" ); /* all parameters in */
+    bool statusShowById( const std::string& statusId /* in */ );
+    bool statusDestroyById( const std::string& statusId /* in */ );
 
     /* Twitter timeline APIs */
     bool timelineHomeGet( const struct timelineparams &tmps );
-    bool timelineUserGet( const struct timelineparams &tmps, std::string userInfo = "" /* in */, bool isUserId = false /* in */ );
+    bool timelineUserGet( const struct timelineparams &tmps, const std::string &userInfo = "" /* in */, bool isUserId = false /* in */ );
     bool featuredUsersGet();
-    bool mentionsGet( std::string sinceId = "" /* in */ );
+    bool mentionsGet( const std::string &sinceId = "" /* in */ );
 
     /* Twitter user APIs */
-    bool userGet( std::string& userInfo /* in */, bool isUserId = false /* in */ );
-    bool friendsGet( std::string userInfo = "" /* in */, bool isUserId = false /* in */ );
-    bool followersGet( std::string userInfo = "" /* in */, bool isUserId = false /* in */ );
+    bool userGet( const std::string& userInfo /* in */, bool isUserId = false /* in */ );
+    bool friendsGet( const std::string &userInfo = "" /* in */, bool isUserId = false /* in */ );
+    bool followersGet( const std::string &userInfo = "" /* in */, bool isUserId = false /* in */ );
+    bool userLookup( const std::string& userIdList /* in */, const std::string& screenNameList /* in */, bool include_entities  = false /* in */ );
 
     /* Twitter direct message APIs */
     bool directMessageGet();
-    bool directMessageSend( std::string& userInfo /* in */, std::string& dMsg /* in */, bool isUserId = false /* in */ );
+    bool directMessageSend( const std::string& userInfo /* in */, const std::string& dMsg /* in */, bool isUserId = false /* in */ );
     bool directMessageGetSent();
-    bool directMessageDestroyById( std::string& dMsgId /* in */ );
+    bool directMessageDestroyById( const std::string& dMsgId /* in */ );
 
     /* Twitter friendships APIs */
-    bool friendshipCreate( std::string& userInfo /* in */, bool isUserId = false /* in */ );
-    bool friendshipDestroy( std::string& userInfo /* in */, bool isUserId = false /* in */ );
-    bool friendshipShow( std::string& userInfo /* in */, bool isUserId = false /* in */ );
+    bool friendshipCreate( const std::string& userInfo /* in */, bool isUserId = false /* in */ );
+    bool friendshipDestroy( const std::string& userInfo /* in */, bool isUserId = false /* in */ );
+    bool friendshipShow( const std::string& userInfo /* in */, bool isUserId = false /* in */ );
 
     /* Twitter social graphs APIs */
-    bool friendsIdsGet( std::string& userInfo /* in */, bool isUserId = false /* in */ );
-    bool followersIdsGet( std::string& userInfo /* in */, bool isUserId = false /* in */ );
+    bool friendsIdsGet( const std::string& userInfo /* in */, bool isUserId = false /* in */ );
+    bool followersIdsGet( const std::string& userInfo /* in */, bool isUserId = false /* in */ );
 
     /* Twitter account APIs */
     bool accountRateLimitGet();
@@ -221,18 +224,18 @@ public:
 
     /* Twitter favorites APIs */
     bool favoriteGet();
-    bool favoriteCreate( std::string& statusId /* in */ );
-    bool favoriteDestroy( std::string& statusId /* in */ );
+    bool favoriteCreate( const std::string& statusId /* in */ );
+    bool favoriteDestroy( const std::string& statusId /* in */ );
 
     /* Twitter block APIs */
-    bool blockCreate( std::string& userInfo /* in */ );
-    bool blockDestroy( std::string& userInfo /* in */ );
+    bool blockCreate( const std::string& userInfo /* in */ );
+    bool blockDestroy( const std::string& userInfo /* in */ );
 
     /* Twitter search APIs */
     bool savedSearchGet();
-    bool savedSearchCreate( std::string& query /* in */ );
-    bool savedSearchShow( std::string& searchId /* in */ );
-    bool savedSearchDestroy( std::string& searchId /* in */ );
+    bool savedSearchCreate( const std::string& query /* in */ );
+    bool savedSearchShow( const std::string& searchId /* in */ );
+    bool savedSearchDestroy( const std::string& searchId /* in */ );
 
     /* Twitter trends APIs (JSON) */
     bool trendsGet();
@@ -255,16 +258,17 @@ public:
     std::string& getProxyServerPort();
     std::string& getProxyUserName();
     std::string& getProxyPassword();
-    void setProxyServerIp( std::string& proxyServerIp /* in */ );
-    void setProxyServerPort( std::string& proxyServerPort /* in */ );
-    void setProxyUserName( std::string& proxyUserName /* in */ );
-    void setProxyPassword( std::string& proxyPassword /* in */ );
+    void setProxyServerIp( const std::string& proxyServerIp /* in */ );
+    void setProxyServerPort( const std::string& proxyServerPort /* in */ );
+    void setProxyUserName( const std::string& proxyUserName /* in */ );
+    void setProxyPassword( const std::string& proxyPassword /* in */ );
 
     /* Streaming APIs */
-    bool UserStreamingApi( std::string with="", std::string replies="", std::string follow="", std::string track="", std::string locations="", bool accept_encoding=true, bool stall_warnings=false ); /* all parameters in */
-    bool PublicFilterStreamingApi( std::string follow="", std::string track="", std::string locations="", bool accept_encoding=true, bool stall_warnings=false ); /* all parameters in */
+    bool UserStreamingApi( const std::string &with="", const std::string &replies="", const std::string &follow="", const std::string &track="", const std::string &locations="", bool accept_encoding=true, bool stall_warnings=false ); /* all parameters in */
+    bool PublicFilterStreamingApi( const std::string &follow="", const std::string &track="", const std::string &locations="", bool accept_encoding=true, bool stall_warnings=false ); /* all parameters in */
     bool PublicSampleStreamingApi( bool accept_encoding=true, bool stall_warnings=false );
     void SetStreamApiCallback( twitCurlTypes::fpStreamApiCallback func, void *userdata );
+    void SetStreamApiActivityCallback( twitCurlTypes::fpStreamApiActivityCallback func);
 
     /* Methods to allow the use of the Curl multi API (asynchronous IO) */
     CURL* GetCurlHandle() { return m_curlHandle; }
@@ -303,6 +307,7 @@ private:
     /* Streaming API data */
     unsigned int m_curchunklength;
     twitCurlTypes::fpStreamApiCallback m_streamapicallback;
+    twitCurlTypes::fpStreamApiActivityCallback m_streamapiactivitycallback;
     void *m_streamapicallback_data;
 
     /* Private methods */
@@ -317,7 +322,7 @@ private:
     bool performPost( const std::string& postUrl, std::string dataStr = "" );
     bool curl_gen_exec(CURL *easy_handle);
     void UtilTimelineProcessParams( const struct timelineparams &tmps, std::string &buildUrl );
-    bool PostStreamingApiGeneric( std::string streamurl, std::string with, std::string replies, std::string follow , std::string track, std::string locations, bool accept_encoding, bool stall_warnings );
+    bool PostStreamingApiGeneric( const std::string &streamurl, const std::string &with, const std::string &replies, const std::string &follow , const std::string &track, const std::string &locations, bool accept_encoding, bool stall_warnings );
     void StreamingApiGenericPrepare( bool accept_encoding );
 
     /* Internal cURL related methods */
@@ -327,7 +332,7 @@ private:
 
 
 /* Private functions */
-void utilMakeCurlParams( std::string& outStr, std::string& inParam1, std::string& inParam2 );
-void utilMakeUrlForUser( std::string& outUrl, const std::string& baseUrl, std::string& userInfo, bool isUserId );
+void utilMakeCurlParams( std::string& outStr, const std::string& inParam1, const std::string& inParam2 );
+void utilMakeUrlForUser( std::string& outUrl, const std::string& baseUrl, const std::string& userInfo, bool isUserId );
 
 #endif // _TWITCURL_H_

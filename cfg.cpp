@@ -12,6 +12,8 @@ genoptconf gcdefaults {
 
 genoptglobconf gcglobdefaults {
 	{ wxT("90"), 1},
+	{ wxT("%Y-%m-%d %H:%M:%S"), 1},
+	{ wxT("48"), 1},
 };
 
 taccount::taccount(genoptconf *incfg) {
@@ -22,6 +24,7 @@ taccount::taccount(genoptconf *incfg) {
 	enabled=false;
 	verifycreddone=false;
 	verifycredinprogress=false;
+	active=false;
 }
 
 void taccount::CFGWriteOut(wxConfigBase &twfc) {
@@ -67,6 +70,7 @@ void globconf::CFGReadIn(wxConfigBase &twfc) {
 void globconf::CFGParamConv() {
 	gcfg.userexpiretimemins.val.ToULong(&userexpiretime);
 	userexpiretime*=60;
+	gcfg.maxpanelprofimgsize.val.ToULong(&maxpanelprofimgsize);
 }
 
 void genoptconf::CFGWriteOutCurDir(wxConfigBase &twfc) {
@@ -86,13 +90,18 @@ void genoptconf::CFGReadInCurDir(wxConfigBase &twfc, const genoptconf &parent) {
 
 void genoptglobconf::CFGWriteOut(wxConfigBase &twfc) {
 	userexpiretimemins.CFGWriteOutCurDir(twfc, wxT("/userexpiretimemins"));
+	datetimeformat.CFGWriteOutCurDir(twfc, wxT("/datetimeformat"));
+	maxpanelprofimgsize.CFGWriteOutCurDir(twfc, wxT("/maxpanelprofimgsize"));
 }
 void genoptglobconf::CFGReadIn(wxConfigBase &twfc, const genoptglobconf &parent) {
 	userexpiretimemins.CFGReadInCurDir(twfc, wxT("/userexpiretimemins"), parent.userexpiretimemins.val);
+	datetimeformat.CFGReadInCurDir(twfc, wxT("/datetimeformat"), parent.datetimeformat.val);
+	maxpanelprofimgsize.CFGReadInCurDir(twfc, wxT("/maxpanelprofimgsize"), parent.maxpanelprofimgsize.val);
 }
 
 void genopt::CFGWriteOutCurDir(wxConfigBase &twfc, const wxString &name) {
-	twfc.Write(name, enable?val:wxT(""));
+	if(enable) twfc.Write(name, val);
+	else twfc.DeleteEntry(name, false);
 }
 void genopt::CFGReadInCurDir(wxConfigBase &twfc, const wxString &name, const wxString &parent) {
 	enable=twfc.Read(name, &val, parent);
