@@ -5,7 +5,8 @@ globconf gc;
 std::list<std::shared_ptr<taccount>> alist;
 socketmanager sm;
 alldata ad;
-mainframe *topframe;
+std::forward_list<mainframe*> mainframelist;
+logwindow *globallogwindow;
 
 IMPLEMENT_APP(retcon)
 
@@ -17,20 +18,20 @@ bool retcon::OnInit() {
 		::wxMkdir(wxStandardPaths::Get().GetUserDataDir(), 077);
 	}
 	wxConfigBase *wfc=new wxFileConfig(wxT(""),wxT(""),wxStandardPaths::Get().GetUserDataDir() + wxT("/retcon.ini"),wxT(""),wxCONFIG_USE_LOCAL_FILE,wxConvUTF8);
-	topframe = new mainframe( wxT("Retcon"), wxPoint(50, 50), wxSize(450, 340) );
-	new wxLogWindow(topframe, wxT("Logs"));
+	mainframe *top = new mainframe( wxT("Retcon"), wxPoint(50, 50), wxSize(450, 340) );
+	new logwindow(0, wxT("Logs"), false);
 	wxConfigBase::Set(wfc);
 	sm.loghandle=fopen("retconcurllog.txt","a");
 	sm.InitMultiIOHandler();
 	ReadAllCFGIn(*wfc, gc, alist);
 
 	ad.tpanels["[default]"]=std::make_shared<tpanel>("[default]");
-	ad.tpanels["[default]"]->MkTPanelWin();
+	ad.tpanels["[default]"]->MkTPanelWin(top);
 	ad.tpanels["[default2]"]=std::make_shared<tpanel>("[default2]");
-	ad.tpanels["[default2]"]->MkTPanelWin();
+	ad.tpanels["[default2]"]->MkTPanelWin(top);
 
-	topframe->Show(true);
-	SetTopWindow(topframe);
+	top->Show(true);
+	SetTopWindow(top);
 	for(auto it=alist.begin() ; it != alist.end(); it++ ) (*it)->Exec();
 	return true;
 }
@@ -44,7 +45,6 @@ int retcon::OnExit() {
 	wxConfigBase *wfc=wxConfigBase::Get();
 	WriteAllCFGOut(*wfc, gc, alist);
 	wfc->Flush();
-	topframe=0;
 	return wxApp::OnExit();
 }
 
@@ -53,14 +53,20 @@ BEGIN_EVENT_TABLE(mainframe, wxFrame)
 	EVT_MENU(ID_About, mainframe::OnAbout)
 	EVT_MENU(ID_Settings, mainframe::OnSettings)
 	EVT_MENU(ID_Accounts, mainframe::OnAccounts)
+	EVT_MENU(ID_Viewlog, mainframe::OnViewlog)
+	EVT_CLOSE(mainframe::OnClose)
 END_EVENT_TABLE()
 
 mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& size)
        : wxFrame(NULL, -1, title, pos, size)
 {
+
+	mainframelist.push_front(this);
+
 	wxMenu *menuH = new wxMenu;
 	menuH->Append( ID_About, wxT("&About"));
 	wxMenu *menuF = new wxMenu;
+	menuF->Append( ID_Viewlog, wxT("View &Log"));
 	menuF->Append( ID_Quit, wxT("E&xit"));
 	wxMenu *menuO = new wxMenu;
 	menuO->Append( ID_Settings, wxT("&Settings"));
@@ -78,7 +84,7 @@ mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& si
 	auim->SetDockSizeConstraint(1.0, 1.0);
 	auim->AddPane(tpw, wxAuiPaneInfo().Resizable().Centre().Caption(wxT("Post Tweet")).Dockable(false).Floatable(false).MaxSize(20000,100));
 #else
-	auib = new wxAuiNotebook(this);
+	auib = new tpanelnotebook(this, this);
 #endif
 
 	SetMenuBar( menuBar );
@@ -99,6 +105,18 @@ void mainframe::OnAccounts(wxCommandEvent &event) {
 	acc->ShowModal();
 	acc->Destroy();
 	//delete acc;
+}
+void mainframe::OnViewlog(wxCommandEvent &event) {
+	if(globallogwindow) globallogwindow->Show(true);
+}
+void mainframe::OnClose(wxCloseEvent &event) {
+	mainframelist.remove(this);
+	if(globallogwindow && mainframelist.empty()) globallogwindow->GetFrame()->Destroy();
+	Destroy();
+}
+
+mainframe::~mainframe() {
+	mainframelist.remove(this);	//OK to try this twice, must definitely happen at least once though
 }
 
 void taccount::ClearUsersFollowed() {
@@ -234,7 +252,7 @@ void taccount::Exec() {
 		twitcurlext *twit_stream=cp.GetConn();
 		twit_stream->TwInit(shared_from_this());
 		twit_stream->connmode=CS_STREAM;
-		//twit_stream->post_action_flags|=PAF_STREAM_CONN_READ_BACKFILL;
+		twit_stream->post_action_flags|=PAF_STREAM_CONN_READ_BACKFILL;
 		twit_stream->QueueAsyncExec();
 
 		//StartRestGetTweetBackfill(0, 0, 45);
@@ -266,4 +284,18 @@ void alldata::UpdateUserContainer(std::shared_ptr<userdatacontainer> usercont, s
 			imgdlconn::GetConn(userobj->profile_img_url, usercont);
 		}
 	}
+}
+
+logwindow::logwindow(wxFrame *parent, const wxChar *title, bool show, bool passToOld) :
+	wxLogWindow(parent, title, show, passToOld) {
+	globallogwindow=this;
+}
+
+logwindow::~logwindow() {
+	globallogwindow=0;
+}
+
+bool logwindow::OnFrameClose(wxFrame *frame) {
+	Show(false);
+	return false;
 }

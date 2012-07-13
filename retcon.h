@@ -39,7 +39,11 @@
 #include <wx/aui/auibook.h>
 #include <wx/dcmemory.h>
 #include <wx/brush.h>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
+#pragma GCC diagnostic ignored "-Wuninitialized"
 #include "rapidjson/document.h"
+#pragma GCC diagnostic pop
 
 struct userdata;
 struct userdatacontainer;
@@ -48,11 +52,13 @@ struct taccount;
 struct tweet;
 struct entity;
 struct usevents;
-struct tweetdisp;
 struct tweetdispscr;
 struct tpanelparentwin;
 struct mcurlconn;
 struct socketmanager;
+struct logwindow;
+struct mainframe;
+struct tpanelnotebook;
 
 #include "socket.h"
 #include "twit.h"
@@ -62,10 +68,11 @@ struct socketmanager;
 
 enum
 {
-    ID_Quit = 1,
-    ID_About,
-    ID_Settings,
-    ID_Accounts
+    ID_Quit = wxID_EXIT,
+    ID_About = wxID_ABOUT,
+    ID_Settings = 1,
+    ID_Accounts,
+    ID_Viewlog,
 };
 
 struct taccount : std::enable_shared_from_this<taccount> {
@@ -134,7 +141,6 @@ struct alldata {
 	void UpdateUserContainer(std::shared_ptr<userdatacontainer> usercont, std::shared_ptr<userdata> userconts);
 
 	std::map<std::string,std::shared_ptr<tpanel> > tpanels;
-	std::map<std::string,tpanelparentwin*> tpanelpwin;
 };
 
 class retcon: public wxApp
@@ -153,15 +159,18 @@ public:
 	#ifdef USEAUIM
 	wxAuiManager *auim;
 	#else
-	wxAuiNotebook *auib;
+	tpanelnotebook *auib;
 	#endif
 	tweetpostwin *tpw;
 
 	mainframe(const wxString& title, const wxPoint& pos, const wxSize& size);
+	~mainframe();
 	void OnQuit(wxCommandEvent &event);
 	void OnAbout(wxCommandEvent &event);
 	void OnSettings(wxCommandEvent &event);
 	void OnAccounts(wxCommandEvent &event);
+	void OnViewlog(wxCommandEvent &event);
+	void OnClose(wxCloseEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };
@@ -173,9 +182,15 @@ inline wxString wxstrstd(const char *ch) {
 	return wxString::FromUTF8(ch);
 }
 
+struct logwindow : public wxLogWindow {
+	logwindow(wxFrame *parent, const wxChar *title, bool show = true, bool passToOld = true);
+	~logwindow();
+	bool OnFrameClose(wxFrame *frame);
+};
+
 extern std::list<std::shared_ptr<taccount>> alist;
 extern alldata ad;
-extern mainframe *topframe;
+extern std::forward_list<mainframe*> mainframelist;
 
 //fix for MinGW, from http://pastebin.com/7rhvv92A
 #ifdef __MINGW32__

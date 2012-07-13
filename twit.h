@@ -11,6 +11,8 @@ struct userdata {
 	time_t createtime_t;
 	std::string description;
 
+	std::string json;
+
 	void Dump();
 };
 
@@ -54,6 +56,8 @@ struct tweet {
 	std::weak_ptr<taccount> acc;
 	std::shared_ptr<userdatacontainer> user;
 	std::forward_list<std::shared_ptr<entity> > entlist;
+
+	std::string json;
 
 	void Dump();
 };

@@ -1,3 +1,9 @@
+struct writestream {
+	writestream(std::string &str_, size_t reshint=512 ) : str(str_) { str.clear(); str.reserve(reshint); }
+	std::string &str;
+	inline void Put(char ch) { str.push_back(ch); }
+};
+
 struct jsonparser {
 	rapidjson::Document dc;
 	std::shared_ptr<taccount> tac;
