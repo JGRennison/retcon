@@ -47,6 +47,7 @@ enum {
 	TPPWID_DETACH = 100,
 	TPPWID_DUP,
 	TPPWID_DETACHDUP,
+	TPPWID_CLOSE,
 };
 
 struct tpanelparentwin : public wxScrolledWindow {

@@ -3,6 +3,7 @@ struct genopt {
 	bool enable;
 	void CFGWriteOutCurDir(wxConfigBase &twfc, const wxString &name);
 	void CFGReadInCurDir(wxConfigBase &twfc, const wxString &name, const wxString &parent);
+	void InheritFromParent(genopt &parent);
 };
 
 struct genoptconf {
@@ -13,6 +14,7 @@ struct genoptconf {
 	genopt restinterval;
 	void CFGWriteOutCurDir(wxConfigBase &twfc);
 	void CFGReadInCurDir(wxConfigBase &twfc, const genoptconf &parent);
+	void InheritFromParent(genoptconf &parent);
 };
 
 struct genoptglobconf {

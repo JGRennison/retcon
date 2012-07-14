@@ -61,7 +61,7 @@ void tpanelnotebook::tabrightclickhandler(wxAuiNotebookEvent& event) {
 		menu.Append(TPPWID_DETACH, wxT("Detach"));
 		menu.Append(TPPWID_DUP, wxT("Duplicate"));
 		menu.Append(TPPWID_DETACHDUP, wxT("Detached Duplicate"));
-		menu.Append(wxID_CLOSE, wxT("Close"));
+		menu.Append(TPPWID_CLOSE, wxT("Close"));
 		tppw->PopupMenu(&menu);
 	}
 }
@@ -76,7 +76,7 @@ BEGIN_EVENT_TABLE(tpanelparentwin, wxScrolledWindow)
 	EVT_MENU(TPPWID_DETACH, tpanelparentwin::tabdetachhandler)
 	EVT_MENU(TPPWID_DUP, tpanelparentwin::tabduphandler)
 	EVT_MENU(TPPWID_DETACHDUP, tpanelparentwin::tabdetachedduphandler)
-	EVT_MENU(wxID_CLOSE, tpanelparentwin::tabclosehandler)
+	EVT_MENU(TPPWID_CLOSE, tpanelparentwin::tabclosehandler)
 END_EVENT_TABLE()
 
 BEGIN_EVENT_TABLE(tweetdispscr, wxRichTextCtrl)
@@ -194,6 +194,7 @@ void tpanelparentwin::tabdetachedduphandler(wxCommandEvent &event) {
 }
 void tpanelparentwin::tabclosehandler(wxCommandEvent &event) {
 	owner->auib->DeletePage(owner->auib->GetPageIndex(this));
+	owner->auib->tabnumcheck();
 }
 
 

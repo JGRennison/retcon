@@ -70,6 +70,7 @@ void acc_window::AccNew(wxCommandEvent &event) {
 			ta->Exec();
 		}
 	}
+	twit->TwDeInit();
 	ta->cp.Standby(twit);
 }
 void acc_window::AccClose(wxCommandEvent &event) {

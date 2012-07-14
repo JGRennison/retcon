@@ -18,9 +18,9 @@ genoptglobconf gcglobdefaults {
 
 taccount::taccount(genoptconf *incfg) {
 	if(incfg) {
-		cfg=*incfg;
+		cfg.InheritFromParent(*incfg);
+		CFGParamConv();
 	}
-	CFGParamConv();
 	enabled=false;
 	verifycreddone=false;
 	verifycredinprogress=false;
@@ -87,6 +87,13 @@ void genoptconf::CFGReadInCurDir(wxConfigBase &twfc, const genoptconf &parent) {
 	userstreams.CFGReadInCurDir(twfc, wxT("userstreams"), parent.userstreams.val);
 	restinterval.CFGReadInCurDir(twfc, wxT("restinterval"), parent.restinterval.val);
 }
+void genoptconf::InheritFromParent(genoptconf &parent) {
+	tokenk.InheritFromParent(parent.tokenk);
+	tokens.InheritFromParent(parent.tokens);
+	ssl.InheritFromParent(parent.ssl);
+	userstreams.InheritFromParent(parent.userstreams);
+	restinterval.InheritFromParent(parent.restinterval);
+}
 
 void genoptglobconf::CFGWriteOut(wxConfigBase &twfc) {
 	userexpiretimemins.CFGWriteOutCurDir(twfc, wxT("/userexpiretimemins"));
@@ -110,6 +117,10 @@ void genopt::CFGReadInCurDir(wxConfigBase &twfc, const wxString &name, const wxS
 		enable=false;
 	}
 }
+void genopt::InheritFromParent(genopt &parent) {
+	enable=0;
+	val=parent.val;
+}
 
 void ReadAllCFGIn(wxConfigBase &twfc, globconf &gc, std::list<std::shared_ptr<taccount>> &alist) {
 	gc.CFGReadIn(twfc);
@@ -126,7 +137,7 @@ void ReadAllCFGIn(wxConfigBase &twfc, globconf &gc, std::list<std::shared_ptr<ta
 		alist.push_back(ta);
 		bCont=twfc.GetNextGroup(str, dummy);
 	}
-	for(auto it=alist.begin() ; it != alist.end(); it++ ) {
+	for(auto it=alist.begin(); it != alist.end(); it++ ) {
 		(*it)->CFGReadIn(twfc);
 	}
 }
