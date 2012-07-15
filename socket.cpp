@@ -242,7 +242,7 @@ static void check_multi_info(socketmanager *smp) {
 }
 
 static int sock_cb(CURL *e, curl_socket_t s, int what, socketmanager *smp, mcurlconn *cs) {
-	wxLogWarning(wxT("Socket Interest Change Callback: %p, %d, conn: %p"), s, what, cs);
+	wxLogWarning(wxT("Socket Interest Change Callback: %d, %d, conn: %p"), s, what, cs);
 	if(what!=CURL_POLL_REMOVE) {
 		if(!cs) {
 			curl_easy_getinfo(e, CURLINFO_PRIVATE, &cs);
@@ -342,7 +342,7 @@ void sockettimeout::Notify() {
 }
 
 void socketmanager::NotifySockEvent(curl_socket_t sockfd, int ev_bitmask) {
-	wxLogWarning(wxT("Socket Notify (%p)"), sockfd);
+	wxLogWarning(wxT("Socket Notify (%d)"), sockfd);
 	curl_multi_socket_action(curlmulti, sockfd, ev_bitmask, &curnumsocks);
 	check_multi_info(this);
 }
@@ -441,7 +441,7 @@ void socketmanager::InitMultiIOHandler() {
 	sa.sa_sigaction=&socketsighandler;
 	sa.sa_flags=SA_SIGINFO;
 	sigfillset(&sa.sa_mask);
-	sigaction(SIGRTMAX, &sa, 0);
+	sigaction(SIGRTMIN, &sa, 0);
 
 	MultiIOHandlerInited=true;
 }
@@ -450,16 +450,21 @@ void socketmanager::DeInitMultiIOHandler() {
 	struct sigaction sa;
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler=SIG_IGN;
-	sigaction(SIGRTMAX, &sa, 0);
+	sigaction(SIGRTMIN, &sa, 0);
 
 	MultiIOHandlerInited=false;
 }
 
 void socketmanager::RegisterSockInterest(CURL *e, curl_socket_t s, int what) {
 	if(what) {
+		fcntl(s, F_SETOWN, (int) getpid());
+		fcntl(s, F_SETSIG, SIGRTMIN);
 		int flags=fcntl(s, F_GETFL);
-		fcntl(s, F_SETFL, flags|O_ASYNC);
-		fcntl(s, F_SETSIG, SIGRTMAX);
+		if(!(flags&O_ASYNC)) {
+			fcntl(s, F_SETFL, flags|O_ASYNC);
+			//check to see if IO is already waiting
+			NotifySockEvent(s, 0);
+		}
 	}
 	else {
 		int flags=fcntl(s, F_GETFL);
