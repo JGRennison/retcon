@@ -193,8 +193,9 @@ void tpanelparentwin::tabdetachedduphandler(wxCommandEvent &event) {
 	top->Show(true);
 }
 void tpanelparentwin::tabclosehandler(wxCommandEvent &event) {
-	owner->auib->DeletePage(owner->auib->GetPageIndex(this));
+	owner->auib->RemovePage(owner->auib->GetPageIndex(this));
 	owner->auib->tabnumcheck();
+	Close();
 }
 
 

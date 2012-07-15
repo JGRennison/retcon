@@ -15,7 +15,7 @@ bool retcon::OnInit() {
 	SetAppName(wxT("retcon"));
 	::wxInitAllImageHandlers();
 	if(!::wxDirExists(wxStandardPaths::Get().GetUserDataDir())) {
-		::wxMkdir(wxStandardPaths::Get().GetUserDataDir(), 077);
+		::wxMkdir(wxStandardPaths::Get().GetUserDataDir(), 0777);
 	}
 	wxConfigBase *wfc=new wxFileConfig(wxT(""),wxT(""),wxStandardPaths::Get().GetUserDataDir() + wxT("/retcon.ini"),wxT(""),wxCONFIG_USE_LOCAL_FILE,wxConvUTF8);
 	mainframe *top = new mainframe( wxT("Retcon"), wxPoint(50, 50), wxSize(450, 340) );
@@ -211,6 +211,7 @@ void taccount::DoPostAction(unsigned int postflags) {
 
 bool taccount::TwDoOAuth(wxWindow *pf, twitcurlext &twit) {
 	std::string authUrl;
+	twit.SetNoPerformFlag(false);
 	twit.oAuthRequestToken(authUrl);
 	wxString authUrlWx=wxString::FromUTF8(authUrl.c_str());
 	//twit.oAuthHandlePIN(authUrl);

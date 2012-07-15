@@ -2,7 +2,8 @@
 #ifdef __WINDOWS__
 #include <windows.h>
 #else
-
+#include <signal.h>
+#include <poll.h>
 #endif
 
 BEGIN_EVENT_TABLE( mcurlconn, wxEvtHandler )
@@ -84,7 +85,9 @@ void imgdlconn::Init(std::string &imgurl_, std::shared_ptr<userdatacontainer> us
 	user=user_;
 	user->udc_flags|=UDC_IMAGE_DL_IN_PROGRESS;
 	if(!curlHandle) curlHandle = curl_easy_init();
+	#ifdef __WINDOWS__
 	curl_easy_setopt(curlHandle, CURLOPT_CAINFO, "./cacert.pem");
+	#endif
 	if(sm.loghandle) setlog(sm.loghandle, 1);
 	curl_easy_setopt(curlHandle, CURLOPT_HTTPGET, 1);
 	curl_easy_setopt(curlHandle, CURLOPT_URL, imgurl.c_str());
@@ -418,7 +421,7 @@ void socketmanager::RegisterSockInterest(CURL *e, curl_socket_t s, int what) {
 
 
 void socketsighandler(int signum, siginfo_t *info, void *ucontext) {
-	if(!sm->MultiIOHandlerInited) return;
+	if(!sm.MultiIOHandlerInited) return;
 
 	int sendbitmask=0;
 	if(info->si_band&POLLIN) sendbitmask|=CURL_CSELECT_IN;
@@ -429,7 +432,7 @@ void socketsighandler(int signum, siginfo_t *info, void *ucontext) {
 	event.SetExtraLong((long) info->si_fd);
 	event.SetInt(sendbitmask);
 
-	sm->AddPendingEvent(event);
+	sm.AddPendingEvent(event);
 }
 
 void socketmanager::InitMultiIOHandler() {

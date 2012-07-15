@@ -54,12 +54,13 @@ else
 GCC_MAJOR:=$(shell gcc -dumpversion | cut -d'.' -f1)
 GCC_MINOR:=$(shell gcc -dumpversion | cut -d'.' -f2)
 PLATFORM:=UNIX
-AFLAGS=-s
-LIBS:=-lpcre -lrt
+AFLAGS=
+LIBS:=-lpcre -lrt `wx-config --libs` -lcurl
+MCFLAGS= `wx-config --cxxflags`
 GCC:=g++
 PACKER:=upx -9
-OBJS+= io_unix.o
-HDEPS:=unix.h
+#OBJS+=
+#HDEPS:=
 ARCH:=$(shell test $(GCC_MAJOR) -gt 4 -o \( $(GCC_MAJOR) -eq 4 -a $(GCC_MINOR) -ge 2 \) && echo native)
 EXECPREFIX:=./
 endif
@@ -112,7 +113,7 @@ endif
 $(TCOBJS): %.o$(POSTFIX): %.cpp
 	$(GCC) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(CXXFLAGS)
 
-$(OBJS): retcon.h socket.h cfg.h parse.h twit.h tpanel.h libtwitcurl/twitcurl.h
+$(OBJS): retcon.h socket.h cfg.h parse.h twit.h tpanel.h optui.h libtwitcurl/twitcurl.h
 $(TCOBJS): libtwitcurl/*.h
 twit.o$(POSTFIX): strptime.cpp timegm.cpp
 

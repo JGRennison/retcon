@@ -45,7 +45,7 @@ acc_window::~acc_window() {
 
 void acc_window::UpdateLB() {
 	lb->Set(0, 0);
-	for(auto it=alist.begin() ; it != alist.end(); it++ ) lb->InsertItems(1,&(*it)->name,0);
+	for(auto it=alist.begin() ; it != alist.end(); it++ ) lb->InsertItems(1,&(*it)->dispname,0);
 }
 
 void acc_window::AccEdit(wxCommandEvent &event) {
@@ -63,6 +63,7 @@ void acc_window::AccNew(wxCommandEvent &event) {
 	twit->TwInit(ta);
 	if(ta->TwDoOAuth(this, *twit)) {
 		if(twit->TwSyncStartupAccVerify()) {
+			ta->name=wxString::Format(wxT("%" wxLongLongFmtSpec "d-%d"),ta->usercont->id,time(0));
 			alist.push_back(ta);
 			UpdateLB();
 			//opportunity for settings and so on goes here
@@ -75,4 +76,25 @@ void acc_window::AccNew(wxCommandEvent &event) {
 }
 void acc_window::AccClose(wxCommandEvent &event) {
 	EndModal(0);
+}
+
+
+BEGIN_EVENT_TABLE(settings_window, wxDialog)
+END_EVENT_TABLE()
+
+settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name)
+	: wxDialog(parent, id, title, pos, size, style, name) {
+
+	//wxPanel *panel = new wxPanel(this, -1);
+	wxWindow *panel=this;
+
+	wxBoxSizer *vbox = new wxBoxSizer(wxVERTICAL);
+	wxStaticBoxSizer *hbox1 = new wxStaticBoxSizer(wxHORIZONTAL, panel, wxT("Accounts"));
+	wxBoxSizer *hbox2 = new wxBoxSizer(wxHORIZONTAL);
+	wxBoxSizer *vboxr = new wxBoxSizer(wxVERTICAL);
+
+}
+
+settings_window::~settings_window() {
+
 }

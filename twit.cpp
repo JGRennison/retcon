@@ -107,8 +107,9 @@ twitcurlext::~twitcurlext() {
 void twitcurlext::TwInit(std::shared_ptr<taccount> acc) {
 	if(inited) return;
 	tacc=acc;
-	CURL *ch=GetCurlHandle();
-	curl_easy_setopt(ch,CURLOPT_CAINFO,"./cacert.pem");
+	#ifdef __WINDOWS__
+	curl_easy_setopt(GetCurlHandle(), CURLOPT_CAINFO, "./cacert.pem");
+	#endif
 	if(sm.loghandle) setlog(sm.loghandle, 1);
 
 	setTwitterApiType(twitCurlTypes::eTwitCurlApiFormatJson);
