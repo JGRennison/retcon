@@ -70,6 +70,51 @@ struct sockettimeout : public wxTimer {
 	void Notify();
 };
 
+#ifndef __WINDOWS__
+#ifndef SIGNALSAFE
+
+typedef enum {
+	SPM_FDCHANGE=1,
+	SPM_ENABLE,
+	SPM_QUIT,
+} SPM_TYPE;
+
+struct socketpollmessage {
+	SPM_TYPE type;
+	int fd;
+	int events;
+};
+
+struct socketpollthread : public wxThread {
+	int pipefd;
+
+	socketpollthread() : wxThread(wxTHREAD_DETACHED) { }
+	wxThread::ExitCode Entry();
+};
+
+#endif
+
+DECLARE_EVENT_TYPE(wxextSOCK_NOTIFY, -1)
+
+struct wxextSocketNotifyEvent : public wxEvent {
+	wxextSocketNotifyEvent( int id=0 );
+	wxextSocketNotifyEvent( const wxextSocketNotifyEvent &src );
+	wxEvent *Clone() const;
+
+	int fd;
+	int curlbitmask;
+	bool reenable;
+};
+
+typedef void (wxEvtHandler::*wxextSocketNotifyEventFunction)(wxextSocketNotifyEvent&);
+
+#define EVT_EXTSOCKETNOTIFY(id, fn) \
+    DECLARE_EVENT_TABLE_ENTRY( wxextSOCK_NOTIFY, id, -1, \
+    (wxObjectEventFunction) (wxEventFunction) \
+    wxStaticCastEvent( wxextSocketNotifyEventFunction, & fn ), (wxObject *) NULL ),
+
+#endif
+
 struct socketmanager : public wxEvtHandler {
 	socketmanager();
 	~socketmanager();
@@ -78,7 +123,9 @@ struct socketmanager : public wxEvtHandler {
 	void RemoveConn(CURL* ch);
 	void RegisterSockInterest(CURL *e, curl_socket_t s, int what);
 	void NotifySockEvent(curl_socket_t sockfd, int ev_bitmask);
-	void NotifySockEventCmd(wxCommandEvent &event);
+	#ifndef __WINDOWS__
+	void NotifySockEventCmd(wxextSocketNotifyEvent &event);
+	#endif
 	void InitMultiIOHandler();
 	void DeInitMultiIOHandler();
 	bool MultiIOHandlerInited;
@@ -88,6 +135,10 @@ struct socketmanager : public wxEvtHandler {
 	int curnumsocks;
 	#ifdef __WINDOWS__
 	HWND wind;
+	#else
+	#ifndef SAFESIGNAL
+	int pipefd;
+	#endif
 	#endif
 	FILE *loghandle;
 

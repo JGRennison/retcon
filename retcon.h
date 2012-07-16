@@ -10,6 +10,7 @@
 #include <unordered_set>
 #include <string>
 #include <list>
+#include <vector>
 #include <cmath>
 #include <stdlib.h>
 #include <time.h>

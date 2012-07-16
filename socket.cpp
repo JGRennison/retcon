@@ -2,7 +2,9 @@
 #ifdef __WINDOWS__
 #include <windows.h>
 #else
+#ifdef SIGNALSAFE
 #include <signal.h>
+#endif
 #include <poll.h>
 #endif
 
@@ -287,14 +289,6 @@ static int multi_timer_cb(CURLM *multi, long timeout_ms, socketmanager *smp) {
 	else return 0;
 }*/
 
-DECLARE_EVENT_TYPE(wxextSOCK_NOTIFY, -1)
-
-DEFINE_EVENT_TYPE(wxextSOCK_NOTIFY)
-
-BEGIN_EVENT_TABLE(socketmanager, wxEvtHandler)
-  EVT_COMMAND  (wxID_ANY, wxextSOCK_NOTIFY, socketmanager::NotifySockEventCmd)
-END_EVENT_TABLE()
-
 
 socketmanager::socketmanager() : st(*this) {
 	loghandle=0;
@@ -347,9 +341,40 @@ void socketmanager::NotifySockEvent(curl_socket_t sockfd, int ev_bitmask) {
 	check_multi_info(this);
 }
 
-void socketmanager::NotifySockEventCmd(wxCommandEvent &event) {
-	NotifySockEvent((curl_socket_t) event.GetExtraLong(), event.GetInt());
+#ifndef __WINDOWS__
+
+DEFINE_EVENT_TYPE(wxextSOCK_NOTIFY)
+
+wxextSocketNotifyEvent::wxextSocketNotifyEvent( int id )
+: wxEvent(id, wxextSOCK_NOTIFY) {
+	fd=0;
+	reenable=false;
+	curlbitmask=0;
 }
+wxextSocketNotifyEvent::wxextSocketNotifyEvent( const wxextSocketNotifyEvent &src ) : wxEvent( src ) {
+	fd=src.fd;
+	reenable=src.reenable;
+	curlbitmask=src.curlbitmask;
+}
+
+wxEvent *wxextSocketNotifyEvent::Clone() const {
+	return new wxextSocketNotifyEvent(*this);
+}
+
+BEGIN_EVENT_TABLE(socketmanager, wxEvtHandler)
+  EVT_EXTSOCKETNOTIFY(wxID_ANY, socketmanager::NotifySockEventCmd)
+END_EVENT_TABLE()
+
+void socketmanager::NotifySockEventCmd(wxextSocketNotifyEvent &event) {
+	NotifySockEvent((curl_socket_t) event.fd, event.curlbitmask);
+	if(event.reenable) {
+		socketpollmessage spm;
+		spm.type=SPM_ENABLE;
+		spm.fd=event.fd;
+		write(pipefd, &spm, sizeof(spm));
+	}
+}
+#endif
 
 #ifdef __WINDOWS__
 
@@ -419,45 +444,69 @@ void socketmanager::RegisterSockInterest(CURL *e, curl_socket_t s, int what) {
 }
 #else
 
-
-void socketsighandler(int signum, siginfo_t *info, void *ucontext) {
+static void AddPendingEventForSocketPollEvent(int fd, short revents, bool reenable=false) {
 	if(!sm.MultiIOHandlerInited) return;
 
 	int sendbitmask=0;
-	if(info->si_band&POLLIN) sendbitmask|=CURL_CSELECT_IN;
-	if(info->si_band&POLLOUT) sendbitmask|=CURL_CSELECT_OUT;
-	if(info->si_band&POLLERR) sendbitmask|=CURL_CSELECT_ERR;
+	if(revents&POLLIN) sendbitmask|=CURL_CSELECT_IN;
+	if(revents&POLLOUT) sendbitmask|=CURL_CSELECT_OUT;
+	if(revents&POLLERR) sendbitmask|=CURL_CSELECT_ERR;
 
-	wxCommandEvent event(wxextSOCK_NOTIFY);
-	event.SetExtraLong((long) info->si_fd);
-	event.SetInt(sendbitmask);
+	wxextSocketNotifyEvent event;
+	event.curlbitmask=sendbitmask;
+	event.fd=fd;
+	event.reenable=reenable;
 
 	sm.AddPendingEvent(event);
 }
 
+#ifdef SIGNALSAFE
+void socketsighandler(int signum, siginfo_t *info, void *ucontext) {
+	AddPendingEventForSocketPollEvent(info->si_fd, info->si_band);
+}
+#endif
+
 void socketmanager::InitMultiIOHandler() {
+	#ifdef SIGNALSAFE
 	struct sigaction sa;
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_sigaction=&socketsighandler;
-	sa.sa_flags=SA_SIGINFO;
+	sa.sa_flags=SA_SIGINFO|SA_RESTART;
 	sigfillset(&sa.sa_mask);
 	sigaction(SIGRTMIN, &sa, 0);
+	#else
+	int pipefd[2];
+	pipe(pipefd);
+	socketpollthread *th=new socketpollthread();
+	th->pipefd=pipefd[0];
+	this->pipefd=pipefd[1];
+	th->Create();
+	th->Run();
+	#endif
 
 	MultiIOHandlerInited=true;
 }
 
 void socketmanager::DeInitMultiIOHandler() {
+	#ifdef SIGNALSAFE
 	struct sigaction sa;
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler=SIG_IGN;
 	sigaction(SIGRTMIN, &sa, 0);
+	#else
+	socketpollmessage spm;
+	spm.type=SPM_QUIT;
+	write(pipefd, &spm, sizeof(spm));
+	close(pipefd);
+	#endif
 
 	MultiIOHandlerInited=false;
 }
 
 void socketmanager::RegisterSockInterest(CURL *e, curl_socket_t s, int what) {
+#ifdef SIGNALSAFE
 	if(what) {
-		fcntl(s, F_SETOWN, (int) getpid());
+		fcntl(s, F_SETOWN, (int) getpid());	//at present, wxWidgets doesn't mask signals around the event critical section
 		fcntl(s, F_SETSIG, SIGRTMIN);
 		int flags=fcntl(s, F_GETFL);
 		if(!(flags&O_ASYNC)) {
@@ -471,5 +520,139 @@ void socketmanager::RegisterSockInterest(CURL *e, curl_socket_t s, int what) {
 		fcntl(s, F_SETFL, flags&~O_ASYNC);
 		fcntl(s, F_SETSIG, 0);
 	}
+#else
+	socketpollmessage spm;
+	spm.type=SPM_FDCHANGE;
+	spm.fd=s;
+	short events=0;
+	switch(what) {
+		case CURL_POLL_NONE:
+		case CURL_POLL_REMOVE:
+		default:
+			events=0;
+			break;
+		case CURL_POLL_IN:
+			events=POLLIN|POLLPRI;
+			break;
+		case CURL_POLL_OUT:
+			events=POLLOUT;
+			break;
+		case CURL_POLL_INOUT:
+			events=POLLOUT|POLLIN|POLLPRI;
+			break;
+	}
+	spm.events=events;
+	write(pipefd, &spm, sizeof(spm));
+#endif
 }
+
+#ifndef SIGNALSAFE
+
+static struct pollfd *getexistpollsetoffsetfromfd(int fd, std::vector<struct pollfd> &pollset) {
+	for(size_t i=0; i<pollset.size(); i++) {
+		if(pollset[i].fd==fd) return &pollset[i];
+	}
+	return 0;
+}
+
+static size_t insertatendofpollset(int fd, std::vector<struct pollfd> &pollset) {
+	pollset.emplace_back();
+	size_t offset=pollset.size()-1;
+	memset(&pollset[offset], 0, sizeof(pollset[offset]));
+	pollset[offset].fd=fd;
+	return offset;
+}
+
+static size_t getpollsetoffsetfromfd(int fd, std::vector<struct pollfd> &pollset) {
+	for(size_t i=0; i<pollset.size(); i++) {
+		if(pollset[i].fd==fd) return i;
+	}
+	return insertatendofpollset(fd, pollset);
+}
+
+static void removefdfrompollset(int fd, std::vector<struct pollfd> &pollset) {
+	for(size_t i=0; i<pollset.size(); i++) {
+		if(pollset[i].fd==fd) {
+			if(i!=pollset.size()-1) {
+				pollset[i]=pollset[pollset.size()-1];
+			}
+			pollset.pop_back();
+			return;
+		}
+	}
+}
+
+wxThread::ExitCode socketpollthread::Entry() {
+	std::vector<struct pollfd> pollset;
+	std::forward_list<struct pollfd> disabled_pollset;
+	pollset.emplace_back();
+	memset(&pollset[0], 0, sizeof(pollset[0]));
+	pollset[0].fd=pipefd;
+	pollset[0].events=POLLIN;
+
+	while(true) {
+		poll(pollset.data(), pollset.size(), -1);
+
+		for(size_t i=1; i<pollset.size(); i++) {
+			if(pollset[i].revents) {
+				AddPendingEventForSocketPollEvent(pollset[i].fd, pollset[i].revents, true);
+
+				//remove fd from pollset temporarily to stop it repeatedly re-firing
+				disabled_pollset.push_front(pollset[i]);
+				if(i!=pollset.size()-1) {
+					pollset[i]=pollset[pollset.size()-1];
+				}
+				pollset.pop_back();
+				i--;
+			}
+		}
+
+		if(pollset[0].revents&POLLIN) {
+			socketpollmessage spm;
+			size_t bytes_to_read=sizeof(spm);
+			size_t bytes_read=0;
+			while(bytes_to_read) {
+				ssize_t l_bytes_read=read(pipefd, ((char *) &spm)+bytes_read, bytes_to_read);
+				if(l_bytes_read>=0) {
+					bytes_read+=l_bytes_read;
+					bytes_to_read-=l_bytes_read;
+				}
+				else {
+					if(l_bytes_read==EINTR) continue;
+					else {
+						close(pipefd);
+						return 0;
+					}
+				}
+			}
+			switch(spm.type) {
+				case SPM_QUIT:
+					close(pipefd);
+					return 0;
+				case SPM_FDCHANGE:
+					disabled_pollset.remove_if([&](const struct pollfd &pfd) { return pfd.fd==spm.fd; });
+					if(spm.events) {
+						size_t offset=getpollsetoffsetfromfd(spm.fd, pollset);
+						pollset[offset].events=spm.events;
+					}
+					else {
+						removefdfrompollset(spm.fd, pollset);
+					}
+					break;
+				case SPM_ENABLE:
+					disabled_pollset.remove_if([&](const struct pollfd &pfd) {
+						if(pfd.fd==spm.fd) {
+							pollset.push_back(pfd);
+							return true;
+						}
+						else return false;
+					});
+					break;
+			}
+		}
+	}
+}
+
+#endif
+
 #endif
