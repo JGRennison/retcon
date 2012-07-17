@@ -92,6 +92,7 @@ tpanelparentwin::tpanelparentwin(std::shared_ptr<tpanel> tp_, mainframe *parent)
 	wxLogWarning(wxT("Creating tweet panel window %s"), wxstrstd(tp->name).c_str());
 
 	tp->twin.push_front(this);
+	tpanelparentwinlist.push_front(this);
 
 	//tpw = new tpanelwin(this);
 	//wxBoxSizer *vbox = new wxBoxSizer(wxHORIZONTAL);
@@ -117,6 +118,7 @@ tpanelparentwin::tpanelparentwin(std::shared_ptr<tpanel> tp_, mainframe *parent)
 
 tpanelparentwin::~tpanelparentwin() {
 	tp->twin.remove(this);
+	tpanelparentwinlist.remove(this);
 }
 
 void tpanelparentwin::FillTweet() {
@@ -356,4 +358,20 @@ void tweetdispscr::urleventhandler(wxTextUrlEvent &event) {
 			it++;
 		}
 	}
+}
+
+bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid) {
+	//wxLogWarning(wxT("MouseWheel"));
+	wxWindow *wind=wxFindWindowAtPoint(wxGetMousePosition() /*event.GetPosition()*/);
+	while(wind) {
+		if(wind!=avoid && std::count(tpanelparentwinlist.begin(), tpanelparentwinlist.end(), wind)) {
+			tpanelparentwin *tppw=(tpanelparentwin*) wind;
+			//wxLogWarning(wxT("Dispatching to %s"), wxstrstd(tppw->tp->name).c_str());
+			event.SetEventObject(tppw);
+			tppw->GetEventHandler()->ProcessEvent(event);
+			return true;
+		}
+		wind=wind->GetParent();
+	}
+	return false;
 }

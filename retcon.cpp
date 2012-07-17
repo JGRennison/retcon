@@ -6,6 +6,7 @@ std::list<std::shared_ptr<taccount>> alist;
 socketmanager sm;
 alldata ad;
 std::forward_list<mainframe*> mainframelist;
+std::forward_list<tpanelparentwin*> tpanelparentwinlist;
 logwindow *globallogwindow;
 
 IMPLEMENT_APP(retcon)
@@ -48,6 +49,26 @@ int retcon::OnExit() {
 	return wxApp::OnExit();
 }
 
+int retcon::FilterEvent(wxEvent& event) {
+	static unsigned int antirecursion=0;
+	if(antirecursion) return -1;
+
+	antirecursion++;
+	#ifdef __WINDOWS__
+	if(event.GetEventType()==wxEVT_MOUSEWHEEL) {
+		if(GetMainframeAncestor((wxWindow *) event.GetEventObject())) {
+			if(RedirectMouseWheelEvent((wxMouseEvent &) event)) {
+				antirecursion--;
+				return 1;
+			}
+		}
+	}
+	#endif
+	antirecursion--;
+
+	return -1;
+}
+
 BEGIN_EVENT_TABLE(mainframe, wxFrame)
 	EVT_MENU(ID_Quit,  mainframe::OnQuit)
 	EVT_MENU(ID_About, mainframe::OnAbout)
@@ -55,6 +76,7 @@ BEGIN_EVENT_TABLE(mainframe, wxFrame)
 	EVT_MENU(ID_Accounts, mainframe::OnAccounts)
 	EVT_MENU(ID_Viewlog, mainframe::OnViewlog)
 	EVT_CLOSE(mainframe::OnClose)
+	EVT_MOUSEWHEEL(mainframe::OnMouseWheel)
 END_EVENT_TABLE()
 
 mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& size)
@@ -117,6 +139,10 @@ void mainframe::OnClose(wxCloseEvent &event) {
 
 mainframe::~mainframe() {
 	mainframelist.remove(this);	//OK to try this twice, must definitely happen at least once though
+}
+
+void mainframe::OnMouseWheel(wxMouseEvent &event) {
+	RedirectMouseWheelEvent(event);
 }
 
 void taccount::ClearUsersFollowed() {
@@ -299,4 +325,13 @@ logwindow::~logwindow() {
 bool logwindow::OnFrameClose(wxFrame *frame) {
 	Show(false);
 	return false;
+}
+
+mainframe *GetMainframeAncestor(wxWindow *in, bool passtoplevels) {
+	while(in) {
+		if(std::count(mainframelist.begin(), mainframelist.end(), in)) return (mainframe *) in;
+		if((passtoplevels==false) && in->IsTopLevel()) return 0;
+		in=in->GetParent();
+	}
+	return 0;
 }
