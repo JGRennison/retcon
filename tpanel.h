@@ -75,6 +75,7 @@ struct tpanelparentwin : public wxScrolledWindow {
 };
 
 bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid=0);
+wxString rc_wx_strftime(const wxString &format, const struct tm *tm);
 
 //struct tpanelwin : public wxRichTextCtrl {
 //	tpanelparentwin *tppw;

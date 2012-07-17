@@ -283,9 +283,8 @@ void tweetdispscr::DisplayTweet() {
 	BeginBold();
 	WriteText(wxT("@") + wxstrstd(udc.user->screen_name));
 	EndBold();
-	char timestr[100];
-	strftime(timestr, sizeof(timestr), gc.gcfg.datetimeformat.val.ToUTF8(), localtime(&tw.createtime_t));
-	WriteText(wxT(" - ") + wxstrstd(timestr));
+	wxString timestr=rc_wx_strftime(gc.gcfg.datetimeformat.val, localtime(&tw.createtime_t));
+	WriteText(wxT(" - ") + timestr);
 	Newline();
 
 	unsigned int nextoffset=0;
@@ -381,4 +380,62 @@ bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid) {
 		wind=wind->GetParent();
 	}
 	return false;
+}
+
+wxString rc_wx_strftime(const wxString &format, const struct tm *tm) {
+	#ifdef __WINDOWS__	//%z is broken in MSVCRT, use a replacement
+				//also add %F, %R, %T
+				//this is adapted from npipe var.cpp
+	wxString newfmt;
+	newfmt.Alloc(format.length());
+	wxString &real_format=newfmt;
+	const wxChar *ch=format.c_str();
+	const wxChar *cur=ch;
+	while(*ch) {
+		if(ch[0]=='%') {
+			wxString insert;
+			if(ch[1]=='z') {
+				int hh;
+				int mm;
+				if(true /*localtime*/) {
+					TIME_ZONE_INFORMATION info;
+					GetTimeZoneInformation(&info);
+					int bias = - info.Bias;
+					hh = bias / 60;
+					if(bias<0) bias=-bias;
+					mm = bias % 60;
+				}
+				else {
+					hh=mm=0;
+				}
+				insert.Printf(wxT("%+03d%02d"), hh, mm);
+			}
+			else if(ch[1]=='F') {
+				insert=wxT("%Y-%m-%d");
+			}
+			else if(ch[1]=='R') {
+				insert=wxT("%H:%M");
+			}
+			else if(ch[1]=='T') {
+				insert=wxT("%H:%M:%S");
+			}
+			else if(ch[1]) {
+				ch++;
+			}
+			if(insert.length()) {
+				real_format.Append(wxString(cur, ch-cur));
+				real_format.Append(insert);
+				cur=ch+2;
+			}
+		}
+		ch++;
+	}
+	real_format.Append(cur);
+	#else
+	wxString &real_format=format;
+	#endif
+
+	char timestr[256];
+	strftime(timestr, sizeof(timestr), real_format.ToUTF8(), tm);
+	return wxstrstd(timestr);
 }
