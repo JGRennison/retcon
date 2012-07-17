@@ -74,6 +74,8 @@ struct tpanelparentwin : public wxScrolledWindow {
 	DECLARE_EVENT_TABLE()
 };
 
+bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid=0);
+
 //struct tpanelwin : public wxRichTextCtrl {
 //	tpanelparentwin *tppw;
 //	std::shared_ptr<tpanel> tp;

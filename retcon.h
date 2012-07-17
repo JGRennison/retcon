@@ -12,6 +12,7 @@
 #include <list>
 #include <vector>
 #include <cmath>
+#include <algorithm>
 #include <stdlib.h>
 #include <time.h>
 #include <wx/window.h>
@@ -136,6 +137,7 @@ class retcon: public wxApp
 {
     virtual bool OnInit();
     virtual int OnExit();
+    int FilterEvent(wxEvent& event);
 };
 
 struct tweetpostwin : public wxPanel {
@@ -160,6 +162,7 @@ public:
 	void OnAccounts(wxCommandEvent &event);
 	void OnViewlog(wxCommandEvent &event);
 	void OnClose(wxCloseEvent &event);
+	void OnMouseWheel(wxMouseEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };
@@ -177,9 +180,12 @@ struct logwindow : public wxLogWindow {
 	bool OnFrameClose(wxFrame *frame);
 };
 
+mainframe *GetMainframeAncestor(wxWindow *in, bool passtoplevels=false);
+
 extern std::list<std::shared_ptr<taccount>> alist;
 extern alldata ad;
 extern std::forward_list<mainframe*> mainframelist;
+extern std::forward_list<tpanelparentwin*> tpanelparentwinlist;
 
 //fix for MinGW, from http://pastebin.com/7rhvv92A
 #ifdef __MINGW32__
