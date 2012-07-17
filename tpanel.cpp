@@ -79,10 +79,6 @@ BEGIN_EVENT_TABLE(tpanelparentwin, wxScrolledWindow)
 	EVT_MENU(TPPWID_CLOSE, tpanelparentwin::tabclosehandler)
 END_EVENT_TABLE()
 
-BEGIN_EVENT_TABLE(tweetdispscr, wxRichTextCtrl)
-	EVT_TEXT_URL(wxID_ANY, tweetdispscr::urleventhandler)
-END_EVENT_TABLE()
-
 tpanelparentwin *tpanel::MkTPanelWin(mainframe *parent) {
 	return new tpanelparentwin(shared_from_this(), parent);
 }
@@ -223,6 +219,11 @@ void tpanelparentwin::tabclosehandler(wxCommandEvent &event) {
 //	}
 //}
 
+BEGIN_EVENT_TABLE(tweetdispscr, wxRichTextCtrl)
+	EVT_TEXT_URL(wxID_ANY, tweetdispscr::urleventhandler)
+	EVT_MOUSEWHEEL(tweetdispscr::mousewheelhandler)
+END_EVENT_TABLE()
+
 tweetdispscr::tweetdispscr(std::shared_ptr<tweet> td_, tpanelparentwin *tppw_, wxBoxSizer *hbox_)
 : wxRichTextCtrl(tppw_, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxRE_READONLY),
 td(td_), tppw(tppw_), hbox(hbox_) {
@@ -356,4 +357,10 @@ void tweetdispscr::urleventhandler(wxTextUrlEvent &event) {
 			it++;
 		}
 	}
+}
+
+void tweetdispscr::mousewheelhandler(wxMouseEvent &event) {
+	wxLogWarning(wxT("MouseWheel"));
+	event.SetEventObject(GetParent());
+	GetParent()->GetEventHandler()->ProcessEvent(event);
 }

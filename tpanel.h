@@ -15,6 +15,7 @@ struct tweetdispscr : public wxRichTextCtrl {
                                bool noRefresh = false );	//virtual override
 
 	void urleventhandler(wxTextUrlEvent &event);
+	void mousewheelhandler(wxMouseEvent &event);
 
 	DECLARE_EVENT_TABLE()
 
