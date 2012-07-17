@@ -341,6 +341,12 @@ void socketmanager::NotifySockEvent(curl_socket_t sockfd, int ev_bitmask) {
 	check_multi_info(this);
 }
 
+BEGIN_EVENT_TABLE(socketmanager, wxEvtHandler)
+#ifndef __WINDOWS__
+  EVT_EXTSOCKETNOTIFY(wxID_ANY, socketmanager::NotifySockEventCmd)
+#endif
+END_EVENT_TABLE()
+
 #ifndef __WINDOWS__
 
 DEFINE_EVENT_TYPE(wxextSOCK_NOTIFY)
@@ -360,10 +366,6 @@ wxextSocketNotifyEvent::wxextSocketNotifyEvent( const wxextSocketNotifyEvent &sr
 wxEvent *wxextSocketNotifyEvent::Clone() const {
 	return new wxextSocketNotifyEvent(*this);
 }
-
-BEGIN_EVENT_TABLE(socketmanager, wxEvtHandler)
-  EVT_EXTSOCKETNOTIFY(wxID_ANY, socketmanager::NotifySockEventCmd)
-END_EVENT_TABLE()
 
 void socketmanager::NotifySockEventCmd(wxextSocketNotifyEvent &event) {
 	NotifySockEvent((curl_socket_t) event.fd, event.curlbitmask);
