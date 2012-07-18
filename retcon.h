@@ -86,7 +86,7 @@ struct taccount : std::enable_shared_from_this<taccount> {
 	wxString cons;
 	bool ssl;
 	bool userstreams;
-	unsigned int restinterval;
+	unsigned long restinterval;	//seconds
 	uint64_t max_tweet_id;
 
 	connpool<twitcurlext> cp;

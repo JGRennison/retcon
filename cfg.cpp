@@ -7,7 +7,7 @@ genoptconf gcdefaults {
 	{ wxT("dvJVLBwaJhmSyTxSUe7T8qz84lrydtFbxQ4snZxmYgM"), 1},
 	{ wxT("1"), 1},
 	{ wxT("0"), 1},	//set this to 1 later
-	{ wxT(""), 1},	//fill this in later
+	{ wxT("300"), 1},
 };
 
 genoptglobconf gcglobdefaults {
@@ -37,6 +37,7 @@ void taccount::CFGWriteOut(wxConfigBase &twfc) {
 	wxString t_max_tweet_id;
 	t_max_tweet_id.Printf("%" wxLongLongFmtSpec "d", max_tweet_id);
 	twfc.Write(wxT("max_tweet_id"), t_max_tweet_id);
+	twfc.Write(wxT("dispname"), dispname);
 	//twfc.SetPath(oldpath);
 }
 void taccount::CFGReadIn(wxConfigBase &twfc) {
@@ -45,16 +46,18 @@ void taccount::CFGReadIn(wxConfigBase &twfc) {
 	cfg.CFGReadInCurDir(twfc, gc.cfg);
 	twfc.Read(wxT("conk"), &conk, wxT(""));
 	twfc.Read(wxT("cons"), &cons, wxT(""));
-	twfc.Read(wxT("enabled"), &enabled, wxT(""));
+	twfc.Read(wxT("enabled"), &enabled, false);
 	wxString t_max_tweet_id;
 	twfc.Read(wxT("max_tweet_id"), &t_max_tweet_id, wxT("0"));
 	t_max_tweet_id.ToULongLong(&max_tweet_id);
+	twfc.Read(wxT("dispname"), &dispname, wxT(""));
 	CFGParamConv();
 	//twfc.SetPath(oldpath);
 }
 void taccount::CFGParamConv() {
 	ssl=(cfg.ssl.val==wxT("1"));
 	userstreams=(cfg.userstreams.val==wxT("1"));
+	cfg.restinterval.val.ToULong(&restinterval);
 }
 void globconf::CFGWriteOut(wxConfigBase &twfc) {
 	twfc.SetPath(wxT("/"));
@@ -87,12 +90,12 @@ void genoptconf::CFGReadInCurDir(wxConfigBase &twfc, const genoptconf &parent) {
 	userstreams.CFGReadInCurDir(twfc, wxT("userstreams"), parent.userstreams.val);
 	restinterval.CFGReadInCurDir(twfc, wxT("restinterval"), parent.restinterval.val);
 }
-void genoptconf::InheritFromParent(genoptconf &parent) {
-	tokenk.InheritFromParent(parent.tokenk);
-	tokens.InheritFromParent(parent.tokens);
-	ssl.InheritFromParent(parent.ssl);
-	userstreams.InheritFromParent(parent.userstreams);
-	restinterval.InheritFromParent(parent.restinterval);
+void genoptconf::InheritFromParent(genoptconf &parent, bool ifunset) {
+	tokenk.InheritFromParent(parent.tokenk, ifunset);
+	tokens.InheritFromParent(parent.tokens, ifunset);
+	ssl.InheritFromParent(parent.ssl, ifunset);
+	userstreams.InheritFromParent(parent.userstreams, ifunset);
+	restinterval.InheritFromParent(parent.restinterval, ifunset);
 }
 
 void genoptglobconf::CFGWriteOut(wxConfigBase &twfc) {
@@ -117,9 +120,12 @@ void genopt::CFGReadInCurDir(wxConfigBase &twfc, const wxString &name, const wxS
 		enable=false;
 	}
 }
-void genopt::InheritFromParent(genopt &parent) {
-	enable=0;
-	val=parent.val;
+void genopt::InheritFromParent(genopt &parent, bool ifunset) {
+	if(ifunset && enable) return;
+	else {
+		enable=0;
+		val=parent.val;
+	}
 }
 
 void ReadAllCFGIn(wxConfigBase &twfc, globconf &gc, std::list<std::shared_ptr<taccount>> &alist) {
@@ -148,4 +154,8 @@ void WriteAllCFGOut(wxConfigBase &twfc, globconf &gc, std::list<std::shared_ptr<
 
 	twfc.DeleteGroup(wxT("/accounts/"));
 	for(auto it=alist.begin() ; it != alist.end(); it++ ) (*it)->CFGWriteOut(twfc);
+}
+
+void AllUsersInheritFromParentIfUnset() {
+	for(auto it=alist.begin() ; it != alist.end(); it++ ) (*it)->cfg.InheritFromParent(gc.cfg, true);
 }
