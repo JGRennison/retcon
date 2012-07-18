@@ -119,7 +119,9 @@ void mainframe::OnAbout(wxCommandEvent &event) {
 
 }
 void mainframe::OnSettings(wxCommandEvent &event) {
-
+	settings_window *sw=new settings_window(this, -1, wxT("Settings"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
+	sw->ShowModal();
+	sw->Destroy();
 }
 void mainframe::OnAccounts(wxCommandEvent &event) {
 	acc_window *acc=new acc_window(this, -1, wxT("Accounts"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE);

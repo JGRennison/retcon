@@ -12,9 +12,15 @@ struct acc_window: public wxDialog {
 };
 
 struct settings_window : public wxDialog {
-	settings_window(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name = wxT("dialogBox"));
+	wxChoice *lb;
+	taccount *current;
+	std::map<taccount *, wxStaticBoxSizer *> accmap;
+	wxBoxSizer *vbox;
+
+	settings_window(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name = wxT("dialogBox"), taccount *defshow=0);
 	~settings_window();
-	
-	
+	bool TransferDataFromWindow();
+	void ChoiceCtrlChange(wxCommandEvent &event);
+
 	DECLARE_EVENT_TABLE()
 };

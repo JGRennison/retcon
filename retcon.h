@@ -41,6 +41,8 @@
 #include <wx/aui/auibook.h>
 #include <wx/dcmemory.h>
 #include <wx/brush.h>
+#include <wx/checkbox.h>
+#include <wx/choice.h>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wtype-limits"
 #pragma GCC diagnostic ignored "-Wuninitialized"
