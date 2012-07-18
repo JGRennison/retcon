@@ -82,6 +82,8 @@ void acc_window::AccClose(wxCommandEvent &event) {
 enum {
 	DCBV_HIDDENDEFAULT	= 1<<0,
 	DCBV_ISGLOBALCFG	= 1<<1,
+	DCBV_ADVOPTION		= 1<<2,
+	DCBV_VERYADVOPTION	= 1<<3,
 };
 
 struct DefaultChkBoxValidator : public wxValidator {
@@ -161,7 +163,7 @@ struct ValueChkBoxValidator : public wxValidator {
 	}
 };
 
-void AddSettingRow_String(wxWindow* parent, wxSizer *sizer, const wxString &name, unsigned int flags, genopt &val, genopt &parentval, long style=wxFILTER_NONE, wxValidator *textctrlvalidator=0) {
+void settings_window::AddSettingRow_String(wxWindow* parent, wxSizer *sizer, const wxString &name, unsigned int flags, genopt &val, genopt &parentval, long style, wxValidator *textctrlvalidator) {
 	wxTextValidator deftv(style, &val.val);
 	if(!textctrlvalidator) textctrlvalidator=&deftv;
 	wxStaticText *stat=new wxStaticText(parent, wxID_ANY, name);
@@ -174,9 +176,19 @@ void AddSettingRow_String(wxWindow* parent, wxSizer *sizer, const wxString &name
 	sizer->SetItemMinSize(stat, std::max(200,statsz.GetWidth()), statsz.GetHeight());
 	sizer->Add(chk, 0, wxALIGN_CENTRE | wxALIGN_CENTRE_VERTICAL, 4);
 	sizer->Add(tc, 0, wxEXPAND | wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL, 4);
+	if(flags&DCBV_ADVOPTION) {
+		advopts.push_front(std::make_pair(sizer, stat));
+		advopts.push_front(std::make_pair(sizer, tc));
+		advopts.push_front(std::make_pair(sizer, chk));
+	}
+	if(flags&DCBV_VERYADVOPTION) {
+		veryadvopts.push_front(std::make_pair(sizer, stat));
+		veryadvopts.push_front(std::make_pair(sizer, tc));
+		veryadvopts.push_front(std::make_pair(sizer, chk));
+	}
 }
 
-void AddSettingRow_Bool(wxWindow* parent, wxSizer *sizer, const wxString &name, unsigned int flags, genopt &val, genopt &parentval) {
+void settings_window::AddSettingRow_Bool(wxWindow* parent, wxSizer *sizer, const wxString &name, unsigned int flags, genopt &val, genopt &parentval) {
 	ValueChkBoxValidator boolvalidator(val);
 	wxStaticText *stat=new wxStaticText(parent, wxID_ANY, name);
 	wxCheckBox *chkval=new wxCheckBox(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, 0, boolvalidator);
@@ -188,9 +200,19 @@ void AddSettingRow_Bool(wxWindow* parent, wxSizer *sizer, const wxString &name, 
 	sizer->SetItemMinSize(stat, std::max(200,statsz.GetWidth()), statsz.GetHeight());
 	sizer->Add(chk, 0, wxALIGN_CENTRE | wxALIGN_CENTRE_VERTICAL, 4);
 	sizer->Add(chkval, 0, wxEXPAND | wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL, 4);
+	if(flags&DCBV_ADVOPTION) {
+		advopts.push_front(std::make_pair(sizer, stat));
+		advopts.push_front(std::make_pair(sizer, chkval));
+		advopts.push_front(std::make_pair(sizer, chk));
+	}
+	if(flags&DCBV_VERYADVOPTION) {
+		veryadvopts.push_front(std::make_pair(sizer, stat));
+		veryadvopts.push_front(std::make_pair(sizer, chkval));
+		veryadvopts.push_front(std::make_pair(sizer, chk));
+	}
 }
 
-wxStaticBoxSizer *AddGenoptconfSettingBlock(wxWindow* parent, wxSizer *sizer, const wxString &name, genoptconf &goc, genoptconf &parentgoc, unsigned int flags) {
+wxStaticBoxSizer *settings_window::AddGenoptconfSettingBlock(wxWindow* parent, wxSizer *sizer, const wxString &name, genoptconf &goc, genoptconf &parentgoc, unsigned int flags) {
 	wxStaticBoxSizer *sbox = new wxStaticBoxSizer(wxVERTICAL, parent, wxT("Account Settings - ") + name);
 	wxFlexGridSizer *fgs = new wxFlexGridSizer(3, 2, 5);
 	fgs->SetFlexibleDirection(wxHORIZONTAL);
@@ -200,15 +222,17 @@ wxStaticBoxSizer *AddGenoptconfSettingBlock(wxWindow* parent, wxSizer *sizer, co
 
 	AddSettingRow_Bool(parent, fgs,  wxT("Use SSL (recommended)"), flags, goc.ssl, parentgoc.ssl);
 	AddSettingRow_Bool(parent, fgs,  wxT("Use User Streams (recommended)"), flags, goc.userstreams, parentgoc.userstreams);
-	AddSettingRow_String(parent, fgs, wxT("REST API Polling Interval / seconds"), flags, goc.restinterval, parentgoc.restinterval, wxFILTER_NUMERIC);
-	AddSettingRow_String(parent, fgs, wxT("Twitter API Consumer Key Override"), flags|DCBV_HIDDENDEFAULT, goc.tokenk, parentgoc.tokenk);
-	AddSettingRow_String(parent, fgs, wxT("Twitter API Consumer Secret Override"), flags|DCBV_HIDDENDEFAULT, goc.tokens, parentgoc.tokens);
+	AddSettingRow_String(parent, fgs, wxT("REST API Polling Interval / seconds"), flags|DCBV_ADVOPTION, goc.restinterval, parentgoc.restinterval, wxFILTER_NUMERIC);
+	AddSettingRow_String(parent, fgs, wxT("Twitter API Consumer Key Override"), flags|DCBV_HIDDENDEFAULT|DCBV_VERYADVOPTION, goc.tokenk, parentgoc.tokenk);
+	AddSettingRow_String(parent, fgs, wxT("Twitter API Consumer Secret Override"), flags|DCBV_HIDDENDEFAULT|DCBV_VERYADVOPTION, goc.tokens, parentgoc.tokens);
 	return sbox;
 }
 
 
 BEGIN_EVENT_TABLE(settings_window, wxDialog)
 EVT_CHOICE(wxID_FILE1, settings_window::ChoiceCtrlChange)
+EVT_CHECKBOX(wxID_FILE2, settings_window::ShowAdvCtrlChange)
+EVT_CHECKBOX(wxID_FILE3, settings_window::ShowVeryAdvCtrlChange)
 END_EVENT_TABLE()
 
 settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name, taccount *defshow)
@@ -218,7 +242,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	wxWindow *panel=this;
 	current=0;
 
-	wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
+	hbox = new wxBoxSizer(wxHORIZONTAL);
 	vbox = new wxBoxSizer(wxVERTICAL);
 	wxStaticBoxSizer *hbox1 = new wxStaticBoxSizer(wxVERTICAL, panel, wxT("General Settings"));
 	wxFlexGridSizer *fgs = new wxFlexGridSizer(3, 2, 5);
@@ -231,12 +255,20 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	wxBoxSizer *hboxfooter = new wxBoxSizer(wxHORIZONTAL);
 	wxButton *okbtn=new wxButton(panel, wxID_OK, wxT("OK"));
 	wxButton *cancelbtn=new wxButton(panel, wxID_CANCEL, wxT("Cancel"));
-	hboxfooter->Add(okbtn, 0, wxALL | wxALIGN_RIGHT, 2);
-	hboxfooter->Add(cancelbtn, 0, wxALL | wxALIGN_RIGHT, 2);
+	advoptchkbox=new wxCheckBox(panel, wxID_FILE2, wxT("Show Advanced Options"));
+	veryadvoptchkbox=new wxCheckBox(panel, wxID_FILE3, wxT("Show Very Advanced Options"));
+	wxBoxSizer *advoptbox = new wxBoxSizer(wxVERTICAL);
+	advoptbox->Add(advoptchkbox, 0, wxALL | wxALIGN_CENTRE_VERTICAL, 2);
+	advoptbox->Add(veryadvoptchkbox, 0, wxALL | wxALIGN_CENTRE_VERTICAL, 2);
+	hboxfooter->Add(advoptbox, 0, wxALL | wxALIGN_CENTRE_VERTICAL, 2);
+	hboxfooter->AddStretchSpacer();
+	hboxfooter->Add(okbtn, 0, wxALL | wxALIGN_BOTTOM | wxALIGN_RIGHT, 2);
+	hboxfooter->Add(cancelbtn, 0, wxALL | wxALIGN_BOTTOM | wxALIGN_RIGHT, 2);
+	advopts.push_front(std::make_pair(advoptbox, veryadvoptchkbox));
 
 	AddSettingRow_String(panel, fgs, wxT("Date-time format (strftime)"), DCBV_ISGLOBALCFG, gc.gcfg.datetimeformat, gcglobdefaults.datetimeformat);
 	AddSettingRow_String(panel, fgs, wxT("Max profile image size / px"), DCBV_ISGLOBALCFG, gc.gcfg.maxpanelprofimgsize, gcglobdefaults.maxpanelprofimgsize, wxFILTER_NUMERIC);
-	AddSettingRow_String(panel, fgs, wxT("Cached User Expiry Time / min"), DCBV_ISGLOBALCFG, gc.gcfg.userexpiretimemins, gcglobdefaults.userexpiretimemins, wxFILTER_NUMERIC);
+	AddSettingRow_String(panel, fgs, wxT("Cached User Expiry Time / min"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.userexpiretimemins, gcglobdefaults.userexpiretimemins, wxFILTER_NUMERIC);
 
 	lb=new wxChoice(panel, wxID_FILE1);
 
@@ -261,13 +293,16 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 
 	if(current) vbox->Hide(defsbox);
 
-	vbox->Add(hboxfooter, 0, wxALL | wxALIGN_BOTTOM | wxALIGN_RIGHT, 0);
+	vbox->Add(hboxfooter, 0, wxALL | wxALIGN_BOTTOM | wxEXPAND, 0);
+
+	AdvOptShowHide(advopts, false);
+	AdvOptShowHide(veryadvopts, false);
 
 	panel->SetSizer(hbox);
 	hbox->Fit(panel);
 
-	wxSize cursize=GetSize();
-	SetSizeHints(cursize.GetWidth(), cursize.GetHeight(), 9000, cursize.GetHeight());
+	initsize=GetSize();
+	SetSizeHints(initsize.GetWidth(), initsize.GetHeight(), 9000, initsize.GetHeight());
 	//InitDialog();
 }
 
@@ -283,6 +318,47 @@ void settings_window::ChoiceCtrlChange(wxCommandEvent &event) {
 
 	vbox->Layout();
 	Thaw();
+}
+
+void settings_window::ShowAdvCtrlChange(wxCommandEvent &event) {
+	Freeze();
+	SetSizeHints(-1, -1);
+	AdvOptShowHide(advopts, event.IsChecked());
+	if(!event.IsChecked()) {
+		veryadvoptchkbox->SetValue(false);
+		AdvOptShowHide(veryadvopts, false);
+	}
+	PostAdvOptShowHide();
+	Thaw();
+}
+void settings_window::ShowVeryAdvCtrlChange(wxCommandEvent &event) {
+	Freeze();
+	SetSizeHints(-1, -1);
+	AdvOptShowHide(veryadvopts, event.IsChecked());
+	PostAdvOptShowHide();
+	Thaw();
+}
+
+void settings_window::AdvOptShowHide(const std::forward_list<std::pair<wxSizer *,wxWindow *>> &opts, bool show) {
+	std::unordered_set<wxSizer *> sizerset;
+	for(auto it=opts.begin(); it!=opts.end(); it++) {
+		wxSizer *sz=it->first;
+		wxWindow *win=it->second;
+		sz->Show(win, show);
+		sizerset.insert(sz);
+	}
+	for(auto it=sizerset.begin(); it!=sizerset.end(); it++) {
+		(*it)->Layout();
+	}
+}
+
+void settings_window::PostAdvOptShowHide() {
+	for(auto it=accmap.begin(); it!=accmap.end(); it++) {
+		if(it->first && it->first!=current) vbox->Hide(it->second);
+	}
+	GetSizer()->Fit(this);
+	wxSize cursize=GetSize();
+	SetSizeHints(initsize.GetWidth(), cursize.GetHeight(), 9000, cursize.GetHeight());
 }
 
 bool settings_window::TransferDataFromWindow() {
