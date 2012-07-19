@@ -240,6 +240,14 @@ void userdatacontainer::GetImageLocalFilename(wxString &filename) {
 	filename.Prepend(wxStandardPaths::Get().GetUserDataDir());
 }
 
+tweet_perspective *tweet::AddTPToTweet(std::shared_ptr<taccount> &tac) {
+	for(auto it=tp_list.begin(); it!=tp_list.end(); it++) {
+		if(it->acc.get()==tac.get()) return &(*it);
+	}
+	tp_list.emplace_front(tac);
+	return &tp_list.front();
+}
+
 void StreamCallback( std::string &data, twitCurl* pTwitCurlObj, void *userdata ) {
 	twitcurlext *obj=(twitcurlext*) pTwitCurlObj;
 	std::shared_ptr<taccount> acc=obj->tacc.lock();

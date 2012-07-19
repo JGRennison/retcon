@@ -33,6 +33,30 @@ template <typename C, typename D> static bool CheckTransJsonValueDef(C &var, con
 	return res;
 }
 
+template <typename C, typename D> static bool CheckTransJsonValueDefFlag(C &var, C flagmask, const rapidjson::Value& val, const char *prop, bool def, Handler *handler=0) {
+	const rapidjson::Value &subval=val[prop];
+	bool res=IsType<bool>(subval);
+	bool flagval=res?GetType<bool>(subval):def;
+	if(flagval) var|=flagmask;
+	else var&=~flagmask;
+	if(res && handler) {
+		handler->String(prop);
+		subval.Accept(*handler);
+	}
+	return res;
+}
+
+template <typename C, typename D> static C CheckGetJsonValueDef(const rapidjson::Value& val, const char *prop, const D def, Handler *handler=0, bool *hadval=0) {
+	const rapidjson::Value &subval=val[prop];
+	bool res=IsType<C>(subval);
+	if(res && handler) {
+		handler->String(prop);
+		subval.Accept(*handler);
+	}
+	if(hadval) *hadval=res;
+	return res?GetType<C>(subval):def;
+}
+
 void jsonparser::RestTweetUpdateParams(std::shared_ptr<tweet> t) {
 	if(twit && twit->rbfs) {
 		if(twit->rbfs->max_tweets_left) twit->rbfs->max_tweets_left--;
@@ -107,21 +131,35 @@ std::shared_ptr<userdatacontainer> jsonparser::DoUserParse(const rapidjson::Valu
 	return userdatacont;
 }
 
+void ParsePerspectivalTweetProps(const rapidjson::Value& val, tweet_perspective *tp, Handler *handler) {
+	tp->SetRetweeted(CheckGetJsonValueDef<bool>(val, "retweeted", false, handler));
+	tp->SetFavourited(CheckGetJsonValueDef<bool>(val, "favourited", false, handler));
+}
+
 std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val) {
-	auto tobj=std::make_shared<tweet>();
-	tobj->acc=tac;
-	writestream wr(tobj->json);
+	uint64_t tweetid;
+	std::string json;
+	writestream wr(json);
 	rapidjson::Writer<writestream> jw(wr);
 	jw.StartObject();
-
-	CheckTransJsonValueDef(tobj->id, val, "id", 0, &jw);
+	CheckTransJsonValueDef(tweetid, val, "id", 0, &jw);
+	
+	//todo: make this less inefficient
+	std::shared_ptr<tweet> tobj=ad.tweetobjs[tweetid];
+	if(!tobj) {
+		ad.tweetobjs[tweetid]=tobj=std::make_shared<tweet>();
+		tobj->id=tweetid;
+	}
+	
+	tweet_perspective *tp=tobj->AddTPToTweet(tac);
+	tp->SetArrivedHere(true);
+	ParsePerspectivalTweetProps(val, tp, 0);
+	
 	if(tac->max_tweet_id<tobj->id) tac->max_tweet_id=tobj->id;
 	CheckTransJsonValueDef(tobj->in_reply_to_status_id, val, "in_reply_to_status_id", 0, &jw);
 	CheckTransJsonValueDef(tobj->retweet_count, val, "retweet_count", 0, &jw);
-	CheckTransJsonValueDef(tobj->retweeted, val, "retweeted", false, &jw);
 	CheckTransJsonValueDef(tobj->source, val, "source", "", &jw);
 	CheckTransJsonValueDef(tobj->text, val, "text", "", &jw);
-	CheckTransJsonValueDef(tobj->favourited, val, "favourited", false, &jw);
 	if(CheckTransJsonValueDef(tobj->created_at, val, "created_at", ""), &jw) {
 		//tobj->createtime.ParseDateTime(wxstrstd(tobj->created_at));
 		//tobj->createtime.ParseFormat(wxstrstd(tobj->created_at), wxT("%a %b %d %T +0000 %Y"));
@@ -139,6 +177,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val) {
 	}
 
 	jw.EndObject();
+	tobj->json=std::move(json);
 	wxLogWarning(wxT("Wrote json for tweet id: %" wxLongLongFmtSpec "d, %s"), tobj->id, wxstrstd(tobj->json).c_str());
 
 	uint64_t userid=val["user"]["id"].GetUint64();
@@ -188,56 +227,53 @@ static bool ReadEntityIndices(int &start, int &end, const rapidjson::Value& val)
 	return false;
 }
 
-static bool ReadEntityIndices(std::shared_ptr<entity> en, const rapidjson::Value& val) {
-	return ReadEntityIndices(en->start, en->end, val);
+static bool ReadEntityIndices(entity &en, const rapidjson::Value& val) {
+	return ReadEntityIndices(en.start, en.end, val);
 }
 
 void jsonparser::DoEntitiesParse(const rapidjson::Value& val, std::shared_ptr<tweet> t) {
 	//wxLogWarning(wxT("jsonparser::DoEntitiesParse"));
-	std::map<int, std::shared_ptr<entity> > entmap;
 
 	auto &hashtags=val["hashtags"];
 	if(hashtags.IsArray()) {
 		for(rapidjson::SizeType i = 0; i < hashtags.Size(); i++) {
-			std::shared_ptr<entity> en = std::make_shared<entity>(ENT_HASHTAG);
-			if(!ReadEntityIndices(en, hashtags[i])) continue;
+			t->entlist.emplace_front(ENT_HASHTAG);
+			entity *en = &t->entlist.front();
+			if(!ReadEntityIndices(*en, hashtags[i])) continue;
 			if(!CheckTransJsonValueDef(en->text, hashtags[i], "text", "")) continue;
 			en->text="#"+en->text;
-			entmap[en->start]=en;
 		}
 	}
 
 	auto &urls=val["urls"];
 	if(urls.IsArray()) {
 		for(rapidjson::SizeType i = 0; i < urls.Size(); i++) {
-			std::shared_ptr<entity> en = std::make_shared<entity>(ENT_URL);
-			if(!ReadEntityIndices(en, urls[i])) continue;
+			t->entlist.emplace_front(ENT_URL);
+			entity *en = &t->entlist.front();
+			if(!ReadEntityIndices(*en, urls[i])) continue;
 			CheckTransJsonValueDef(en->text, urls[i], "display_url", t->text.substr(en->start, en->end-en->start));
 			CheckTransJsonValueDef(en->fullurl, urls[i], "expanded_url", en->text);
-			entmap[en->start]=en;
 		}
 	}
 
 	auto &user_mentions=val["user_mentions"];
 	if(user_mentions.IsArray()) {
 		for(rapidjson::SizeType i = 0; i < user_mentions.Size(); i++) {
-			std::shared_ptr<entity> en = std::make_shared<entity>(ENT_MENTION);
-			if(!ReadEntityIndices(en, user_mentions[i])) continue;
+			t->entlist.emplace_front(ENT_MENTION);
+			entity *en = &t->entlist.front();
+			if(!ReadEntityIndices(*en, user_mentions[i])) continue;
 			uint64_t userid;
 			if(!CheckTransJsonValueDef(userid, user_mentions[i], "id", 0)) continue;
 			if(!CheckTransJsonValueDef(en->text, user_mentions[i], "screen_name", "")) continue;
 			en->text="@"+en->text;
 			en->user=ad.GetUserContainerById(userid);
-			entmap[en->start]=en;
 		}
 	}
 
-	t->entlist.clear();
-	auto targ_it=t->entlist.before_begin();
-	for(auto src_it=entmap.begin(); src_it!=entmap.end(); src_it++) {
-		wxLogWarning(wxT("Tweet %" wxLongLongFmtSpec "d, have entity from %d to %d: %s"), t->id, src_it->second->start,
-			src_it->second->end, wxstrstd(src_it->second->text).c_str());
-		targ_it=t->entlist.insert_after(targ_it, src_it->second);
+	t->entlist.sort([](entity &a, entity &b){ return a.start<b.start; });
+	for(auto src_it=t->entlist.begin(); src_it!=t->entlist.end(); src_it++) {
+		wxLogWarning(wxT("Tweet %" wxLongLongFmtSpec "d, have entity from %d to %d: %s"), t->id, src_it->start,
+			src_it->end, wxstrstd(src_it->text).c_str());
 	}
 }
 
@@ -247,8 +283,11 @@ void userdata::Dump() {
 }
 
 void tweet::Dump() {
-	wxLogWarning(wxT("id: %" wxLongLongFmtSpec "d\nreply_id: %" wxLongLongFmtSpec "d\nretweet_count: %d\retweeted: %d\n"
-		"source: %s\ntext: %s\nfavourited: %d\ncreated_at: %s (%s)"),
-		id, in_reply_to_status_id, retweet_count, retweeted, wxstrstd(source).c_str(),
-		wxstrstd(text).c_str(), favourited, wxstrstd(created_at).c_str(), wxstrstd(ctime(&createtime_t)).c_str());
+	wxLogWarning(wxT("id: %" wxLongLongFmtSpec "d\nreply_id: %" wxLongLongFmtSpec "d\nretweet_count: %d\n"
+		"source: %s\ntext: %s\ncreated_at: %s (%s)"),
+		id, in_reply_to_status_id, retweet_count, wxstrstd(source).c_str(),
+		wxstrstd(text).c_str(), wxstrstd(created_at).c_str(), wxstrstd(ctime(&createtime_t)).c_str());
+	for(auto it=tp_list.begin(); it!=tp_list.end(); it++) {
+		wxLogWarning(wxT("Perspectival attributes: %s\nretweeted: %d\nfavourited: %d"), it->acc->dispname.c_str(), it->IsRetweeted(), it->IsFavourited());
+	}
 }

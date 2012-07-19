@@ -43,23 +43,47 @@ struct userdatacontainer {
 	void GetImageLocalFilename(wxString &filename);
 };
 
+struct tweet_perspective {
+	tweet_perspective(std::shared_ptr<taccount> &tac) : acc(tac) { }
+	std::shared_ptr<taccount> acc;
+	
+	enum {
+		TP_IAH	= 1<<0,
+		TP_FAV	= 1<<1,
+		TP_RET	= 1<<2,
+	};
+	
+	bool IsArrivedHere() { return flags&TP_IAH; }
+	bool IsFavourited() { return flags&TP_FAV; }
+	bool IsRetweeted() { return flags&TP_RET; }
+	void SetArrivedHere(bool val) { if(val) flags|=TP_IAH; else flags&=~TP_IAH; }
+	void SetFavourited(bool val) { if(val) flags|=TP_FAV; else flags&=~TP_FAV; }
+	void SetRetweeted(bool val) { if(val) flags|=TP_RET; else flags&=~TP_RET; }
+	
+	protected:
+	unsigned int flags;
+	
+	//bool arrived_here;
+	//bool favourited;
+	//bool retweeted;
+};
+
 struct tweet {
 	uint64_t id;
 	uint64_t in_reply_to_status_id;
 	unsigned int retweet_count;
-	bool retweeted;
 	std::string source;
 	std::string text;
-	bool favourited;
 	std::string created_at;
 	time_t createtime_t;
-	std::weak_ptr<taccount> acc;
 	std::shared_ptr<userdatacontainer> user;
-	std::forward_list<std::shared_ptr<entity> > entlist;
+	std::forward_list<entity> entlist;
+	std::forward_list<tweet_perspective> tp_list;
 
 	std::string json;
 
 	void Dump();
+	tweet_perspective *AddTPToTweet(std::shared_ptr<taccount> &tac);
 };
 
 typedef enum {

@@ -292,7 +292,7 @@ void tweetdispscr::DisplayTweet() {
 	int track_byte=0;
 	int track_index=0;
 	for(auto it=tw.entlist.begin(); it!=tw.entlist.end(); it++, entnum++) {
-		entity &et=**it;
+		entity &et=*it;
 		DoWriteSubstr(*this, tw.text, nextoffset, et.start, track_byte, track_index, false);
 		BeginUnderline();
 		BeginURL(wxString::Format(wxT("%d"), entnum));
@@ -341,12 +341,12 @@ void tweetdispscr::urleventhandler(wxTextUrlEvent &event) {
 	while(it!=tw.entlist.end()) {
 		if(!counter) {
 			//got entity
-			std::shared_ptr<entity> et= *it;
-			switch(et->type) {
+			entity &et= *it;
+			switch(et.type) {
 				case ENT_HASHTAG:
 					break;
 				case ENT_URL:
-					::wxLaunchDefaultBrowser(wxstrstd(et->fullurl));
+					::wxLaunchDefaultBrowser(wxstrstd(et.fullurl));
 					break;
 				case ENT_MENTION:
 					break;
@@ -388,7 +388,7 @@ wxString rc_wx_strftime(const wxString &format, const struct tm *tm) {
 				//this is adapted from npipe var.cpp
 	wxString newfmt;
 	newfmt.Alloc(format.length());
-	wxString &real_format=newfmt;
+	const wxString &real_format=newfmt;
 	const wxChar *ch=format.c_str();
 	const wxChar *cur=ch;
 	while(*ch) {
@@ -432,7 +432,7 @@ wxString rc_wx_strftime(const wxString &format, const struct tm *tm) {
 	}
 	real_format.Append(cur);
 	#else
-	wxString &real_format=format;
+	const wxString &real_format=format;
 	#endif
 
 	char timestr[256];
