@@ -312,17 +312,18 @@ settings_window::~settings_window() {
 
 void settings_window::ChoiceCtrlChange(wxCommandEvent &event) {
 	Freeze();
-	vbox->Hide(accmap[current]);
+	SetSizeHints(GetSize().GetWidth(), 1);
 	current=(taccount*) event.GetClientData();
 	vbox->Show(accmap[current]);
-
-	vbox->Layout();
+	AdvOptShowHide(advopts, advoptchkbox->IsChecked());
+	AdvOptShowHide(veryadvopts, veryadvoptchkbox->IsChecked());
+	PostAdvOptShowHide();
 	Thaw();
 }
 
 void settings_window::ShowAdvCtrlChange(wxCommandEvent &event) {
 	Freeze();
-	SetSizeHints(-1, -1);
+	SetSizeHints(GetSize().GetWidth(), 1);
 	AdvOptShowHide(advopts, event.IsChecked());
 	if(!event.IsChecked()) {
 		veryadvoptchkbox->SetValue(false);
@@ -333,7 +334,7 @@ void settings_window::ShowAdvCtrlChange(wxCommandEvent &event) {
 }
 void settings_window::ShowVeryAdvCtrlChange(wxCommandEvent &event) {
 	Freeze();
-	SetSizeHints(-1, -1);
+	SetSizeHints(GetSize().GetWidth(), 1);
 	AdvOptShowHide(veryadvopts, event.IsChecked());
 	PostAdvOptShowHide();
 	Thaw();
@@ -354,8 +355,9 @@ void settings_window::AdvOptShowHide(const std::forward_list<std::pair<wxSizer *
 
 void settings_window::PostAdvOptShowHide() {
 	for(auto it=accmap.begin(); it!=accmap.end(); it++) {
-		if(it->first && it->first!=current) vbox->Hide(it->second);
+		if(it->first!=current) vbox->Hide(it->second);
 	}
+	vbox->Layout();
 	GetSizer()->Fit(this);
 	wxSize cursize=GetSize();
 	SetSizeHints(initsize.GetWidth(), cursize.GetHeight(), 9000, cursize.GetHeight());
