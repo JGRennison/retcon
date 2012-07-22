@@ -12,9 +12,9 @@ struct jsonparser {
 
 	std::shared_ptr<userdatacontainer> DoUserParse(const rapidjson::Value& val);
 	void DoEventParse(const rapidjson::Value& val);
-	std::shared_ptr<tweet> DoTweetParse(const rapidjson::Value& val);
-	void DoEntitiesParse(const rapidjson::Value& val, std::shared_ptr<tweet> t);
-	void RestTweetUpdateParams(std::shared_ptr<tweet> t);
+	std::shared_ptr<tweet> DoTweetParse(const rapidjson::Value& val, bool isdm=false);
+	void DoEntitiesParse(const rapidjson::Value& val, const std::shared_ptr<tweet> &t);
+	void RestTweetUpdateParams(const tweet &t);
 
 	jsonparser(CS_ENUMTYPE t, std::shared_ptr<taccount> a, twitcurlext *tw = 0 /*optional*/)
 		: tac(a), type(t), twit(tw) { }

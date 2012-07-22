@@ -13,6 +13,7 @@
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include <bitset>
 #include <stdlib.h>
 #include <time.h>
 #include <wx/window.h>
@@ -110,6 +111,8 @@ struct taccount : std::enable_shared_from_this<taccount> {
 	void StartRestQueryPendings();
 	void DoPostAction(twitcurlext *lasttce);
 	void DoPostAction(unsigned int postflags);
+
+	void MarkPending(uint64_t userid, const std::shared_ptr<userdatacontainer> &user, const std::shared_ptr<tweet> &t, bool checkfirst=false);
 
 	std::unordered_map<uint64_t,std::shared_ptr<userdatacontainer> > pendingusers;
 

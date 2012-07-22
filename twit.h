@@ -43,6 +43,27 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	void Dump();
 };
 
+struct tweet_flags {
+	tweet_flags() : bits() { }
+	tweet_flags(unsigned long long val) : bits(val) { }
+	static constexpr ssize_t GetFlagNum(char in) { return (in>='0' && in<='9')?in-'0':((in>='a' && in<='z')?10+in-'a':((in>='A' && in<='Z')?10+26+in-'A':-1)); }
+	static constexpr char GetFlagChar(size_t in) { return (in<=9)?in+'0':((in>=10 && in<36)?in+'a'-10:((in>36 && in<62)?in+'A'-36:'?')); }
+	bool Get(char in) {
+		ssize_t num=GetFlagNum(in);
+		if(num>=0) return bits.test(num);
+		else return 0;
+	}
+	void Set(char in, bool value=true) {
+		ssize_t num=GetFlagNum(in);
+		if(num>=0) bits.set(num, value);
+	}
+	std::string GetString();
+	protected:
+	std::bitset<62> bits;
+
+
+};
+
 struct tweet_perspective {
 	tweet_perspective(std::shared_ptr<taccount> &tac) : acc(tac) { }
 	std::shared_ptr<taccount> acc;
@@ -76,11 +97,14 @@ struct tweet {
 	std::string text;
 	std::string created_at;
 	time_t createtime_t;
-	std::shared_ptr<userdatacontainer> user;
+	std::shared_ptr<userdatacontainer> user;		//for DMs this is the sender
+	std::shared_ptr<userdatacontainer> user_recipient;	//for DMs this is the recipient, for tweets, unset
 	std::forward_list<entity> entlist;
 	std::forward_list<tweet_perspective> tp_list;
 
 	std::string json;
+
+	tweet_flags flags;
 
 	void Dump();
 	tweet_perspective *AddTPToTweet(std::shared_ptr<taccount> &tac, bool *isnew=0);
@@ -108,7 +132,8 @@ typedef enum {
 	CS_ACCVERIFY=1,
 	CS_TIMELINE,
 	CS_STREAM,
-	CS_USERLIST
+	CS_USERLIST,
+	CS_DMTIMELINE
 } CS_ENUMTYPE;
 
 //for post_action_flags

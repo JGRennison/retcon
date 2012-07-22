@@ -223,10 +223,23 @@ bool userdatacontainer::IsReady() {
 
 void userdatacontainer::CheckPendingTweets() {
 	if(IsReady()) {
-		while(!pendingtweets.empty()) {
-			HandleNewTweet(pendingtweets.front());
-			pendingtweets.pop_front();
-		}
+		pendingtweets.remove_if([&](const std::shared_ptr<tweet> &t) {
+			if(!t->flags.Get('D')) {
+				HandleNewTweet(t);
+				return true;
+			}
+			else {
+				if(t->user->IsReady() && t->user_recipient->IsReady()) {
+					HandleNewTweet(t);
+					return true;
+				}
+				else {
+					if(!t->user->IsReady()) t->tp_list.front().acc->MarkPending(t->user->id, t->user, t, true);
+					if(!t->user_recipient->IsReady()) t->tp_list.front().acc->MarkPending(t->user_recipient->id, t->user_recipient, t, true);
+					return false;
+				}
+			}
+		});
 	}
 }
 
@@ -247,6 +260,17 @@ void userdatacontainer::MarkUpdated() {
 			imgdlconn::GetConn(user.profile_img_url, shared_from_this());
 		}
 	}
+}
+
+std::string tweet_flags::GetString() {
+	std::string out;
+	uint64_t bitint=bits.to_ullong();
+	while(bitint) {
+		int offset=__builtin_ctzll(bitint);
+		offset&=~(1<<offset);
+		out+=GetFlagChar(offset);
+	}
+	return out;
 }
 
 tweet_perspective *tweet::AddTPToTweet(std::shared_ptr<taccount> &tac, bool *isnew) {

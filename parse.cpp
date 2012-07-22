@@ -57,10 +57,10 @@ template <typename C, typename D> static C CheckGetJsonValueDef(const rapidjson:
 	return res?GetType<C>(subval):def;
 }
 
-void jsonparser::RestTweetUpdateParams(std::shared_ptr<tweet> t) {
+void jsonparser::RestTweetUpdateParams(const tweet &t) {
 	if(twit && twit->rbfs) {
 		if(twit->rbfs->max_tweets_left) twit->rbfs->max_tweets_left--;
-		if(!twit->rbfs->end_tweet_id || twit->rbfs->end_tweet_id>=t->id) twit->rbfs->end_tweet_id=t->id-1;
+		if(!twit->rbfs->end_tweet_id || twit->rbfs->end_tweet_id>=t.id) twit->rbfs->end_tweet_id=t.id-1;
 		twit->rbfs->read_again=true;
 	}
 }
@@ -84,9 +84,15 @@ bool jsonparser::ParseString(char *str) {
 			break;
 		case CS_TIMELINE:
 			if(dc.IsArray()) {
-				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) RestTweetUpdateParams(DoTweetParse(dc[i]));
+				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) RestTweetUpdateParams(*DoTweetParse(dc[i]));
 			}
-			else RestTweetUpdateParams(DoTweetParse(dc));
+			else RestTweetUpdateParams(*DoTweetParse(dc));
+			break;
+		case CS_DMTIMELINE:
+			if(dc.IsArray()) {
+				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) RestTweetUpdateParams(*DoTweetParse(dc[i], true));
+			}
+			else RestTweetUpdateParams(*DoTweetParse(dc, true));
 			break;
 		case CS_STREAM: {
 			const rapidjson::Value& fval=dc["friends"];
@@ -102,6 +108,9 @@ bool jsonparser::ParseString(char *str) {
 			}
 			else if(eval.IsString()) {
 				DoEventParse(dc);
+			}
+			else if(dc["recipient"].IsObject() && dc["sender"].IsObject()) {	//assume this is a direct message
+				DoTweetParse(dc, true);
 			}
 			else if(tval.IsString() && ival.IsNumber()) {	//assume that this is a tweet
 				DoTweetParse(dc);
@@ -148,7 +157,16 @@ void ParsePerspectivalTweetProps(const rapidjson::Value& val, tweet_perspective 
 	tp->SetFavourited(CheckGetJsonValueDef<bool>(val, "favourited", false, handler));
 }
 
-std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val) {
+inline std::shared_ptr<userdatacontainer> CheckParseUserObj(uint64_t id, const rapidjson::Value& val, jsonparser &jp) {
+	if(val.HasMember("screen_name")) {	//check to see if this is a trimmed user object
+		return jp.DoUserParse(val);
+	}
+	else {
+		return ad.GetUserContainerById(id);
+	}
+}
+
+std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, bool isdm) {
 	uint64_t tweetid;
 	if(!CheckTransJsonValueDef(tweetid, val, "id", 0, 0)) return std::make_shared<tweet>();
 
@@ -158,6 +176,9 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val) {
 		tobj=std::make_shared<tweet>();
 		tobj->id=tweetid;
 	}
+
+	if(isdm) tobj->flags.Set('D');
+	else tobj->flags.Set('T');
 
 	tweet_perspective *tp=tobj->AddTPToTweet(tac);
 	bool is_new_tweet_perspective=!tp->IsArrivedHere();
@@ -186,7 +207,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val) {
 		const rapidjson::Value &entv=val["entities"];
 		if(entv.IsObject()) {
 			DoEntitiesParse(entv, tobj);
-
+			jw.String("entities");
 			entv.Accept(jw);
 		}
 
@@ -196,20 +217,36 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val) {
 	}
 
 	if(is_new_tweet_perspective) {	//this filters out duplicate tweets from the same account
-		uint64_t userid=val["user"]["id"].GetUint64();
-		if(val["user"].HasMember("screen_name")) {	//check to see if this is a trimmed user object
-			tobj->user=DoUserParse(val["user"]);
-		}
-		else {
-			tobj->user=ad.GetUserContainerById(userid);
-		}
+		if(!isdm) {
+			uint64_t userid=val["user"]["id"].GetUint64();
+			tobj->user=CheckParseUserObj(userid, val["user"], *this);
 
-		if(tobj->user->IsReady()) {
-			HandleNewTweet(tobj);
+			if(tobj->user->IsReady()) {
+				HandleNewTweet(tobj);
+			}
+			else {
+				tac->MarkPending(userid, tobj->user, tobj);
+			}
 		}
-		else {
-			tac->pendingusers[userid]=tobj->user;
-			tobj->user->pendingtweets.push_front(tobj);
+		else {	//direct message
+			uint64_t senderid=val["sender_id"].GetUint64();
+			uint64_t recipientid=val["recipient_id"].GetUint64();
+			tobj->user=CheckParseUserObj(senderid, val["sender"], *this);
+			tobj->user_recipient=CheckParseUserObj(recipientid, val["recipient"], *this);
+
+			bool isready=true;
+
+			if(!tobj->user->IsReady()) {
+				tac->MarkPending(senderid, tobj->user, tobj);
+				isready=false;
+			}
+			if(!tobj->user_recipient->IsReady()) {
+				tac->MarkPending(recipientid, tobj->user_recipient, tobj);
+				isready=false;
+			}
+			if(isready) {
+				HandleNewTweet(tobj);
+			}
 		}
 	}
 	tobj->Dump();
@@ -247,7 +284,7 @@ static bool ReadEntityIndices(entity &en, const rapidjson::Value& val) {
 	return ReadEntityIndices(en.start, en.end, val);
 }
 
-void jsonparser::DoEntitiesParse(const rapidjson::Value& val, std::shared_ptr<tweet> t) {
+void jsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shared_ptr<tweet> &t) {
 	//wxLogWarning(wxT("jsonparser::DoEntitiesParse"));
 
 	auto &hashtags=val["hashtags"];
@@ -272,6 +309,7 @@ void jsonparser::DoEntitiesParse(const rapidjson::Value& val, std::shared_ptr<tw
 		}
 	}
 
+	t->flags.Set('M', false);
 	auto &user_mentions=val["user_mentions"];
 	if(user_mentions.IsArray()) {
 		for(rapidjson::SizeType i = 0; i < user_mentions.Size(); i++) {
@@ -283,6 +321,7 @@ void jsonparser::DoEntitiesParse(const rapidjson::Value& val, std::shared_ptr<tw
 			if(!CheckTransJsonValueDef(en->text, user_mentions[i], "screen_name", "")) continue;
 			en->text="@"+en->text;
 			en->user=ad.GetUserContainerById(userid);
+			if(en->user->udc_flags&UDC_THIS_IS_ACC_USER_HINT) t->flags.Set('M', true);
 		}
 	}
 

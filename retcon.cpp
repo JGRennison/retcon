@@ -294,6 +294,18 @@ void taccount::Exec() {
 	}
 }
 
+void taccount::MarkPending(uint64_t userid, const std::shared_ptr<userdatacontainer> &user, const std::shared_ptr<tweet> &t, bool checkfirst) {
+	pendingusers[userid]=user;
+	if(checkfirst) {
+		if(std::find_if(user->pendingtweets.begin(), user->pendingtweets.end(), [&](const std::shared_ptr<tweet> &tw) {
+			return (t->id==tw->id);
+		})!=user->pendingtweets.end()) {
+			return;
+		}
+	}
+	user->pendingtweets.push_front(t);
+}
+
 std::shared_ptr<userdatacontainer> alldata::GetUserContainerById(uint64_t id) {
 	std::shared_ptr<userdatacontainer> &usercont=userconts[id];
 	if(!usercont) {
