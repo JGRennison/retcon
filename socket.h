@@ -51,14 +51,14 @@ struct imgdlconn : public mcurlconn {
 	void NotifyDoneSuccess(CURL *easy, CURLcode res);
 	static int curlCallback(char* data, size_t size, size_t nmemb, imgdlconn *obj);
 	imgdlconn();
-	void Init(std::string &imgurl_, std::shared_ptr<userdatacontainer> user_);
+	void Init(const std::string &imgurl_, const std::shared_ptr<userdatacontainer> &user_);
 	~imgdlconn();
 	CURL *GenGetCurlHandle() { return curlHandle; }
 	void Reset();
 	void DoRetry();
 	void HandleFailure();
 
-	static imgdlconn *GetConn(std::string &imgurl_, std::shared_ptr<userdatacontainer> user_);
+	static imgdlconn *GetConn(const std::string &imgurl_, const std::shared_ptr<userdatacontainer> &user_);
 	static connpool<imgdlconn> cp;
 
 	DECLARE_EVENT_TABLE()

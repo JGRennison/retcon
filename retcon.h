@@ -129,10 +129,9 @@ struct taccount : std::enable_shared_from_this<taccount> {
 struct alldata {
 	std::unordered_map<uint64_t,std::shared_ptr<userdatacontainer> > userconts;
 	std::map<uint64_t,std::shared_ptr<tweet> > tweetobjs;
-	std::shared_ptr<userdatacontainer> GetUserContainerById(uint64_t id);
-	void UpdateUserContainer(std::shared_ptr<userdatacontainer> usercont, std::shared_ptr<userdata> userconts);
-
 	std::map<std::string,std::shared_ptr<tpanel> > tpanels;
+
+	std::shared_ptr<userdatacontainer> GetUserContainerById(uint64_t id);
 };
 
 class retcon: public wxApp

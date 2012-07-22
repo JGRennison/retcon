@@ -73,7 +73,7 @@ bool jsonparser::ParseString(char *str) {
 		case CS_ACCVERIFY:
 			tac->usercont=DoUserParse(dc);
 			tac->usercont->udc_flags|=UDC_THIS_IS_ACC_USER_HINT;
-			tac->dispname=wxstrstd(tac->usercont->user->name);
+			tac->dispname=wxstrstd(tac->usercont->GetUser().name);
 			tac->PostAccVerifyInit();
 			break;
 		case CS_USERLIST:
@@ -114,20 +114,32 @@ bool jsonparser::ParseString(char *str) {
 
 //don't use this for perspectival attributes
 std::shared_ptr<userdatacontainer> jsonparser::DoUserParse(const rapidjson::Value& val) {
-	auto userobj=std::make_shared<userdata>();
-	userobj->acc=tac;
-	CheckTransJsonValueDef(userobj->id, val, "id", 0);
-	CheckTransJsonValueDef(userobj->name, val, "name", "");
-	CheckTransJsonValueDef(userobj->screen_name, val, "screen_name", "");
-	if(tac->ssl) CheckTransJsonValueDef(userobj->profile_img_url, val, "profile_image_url_https", "");
-	else CheckTransJsonValueDef(userobj->profile_img_url, val, "profile_img_url", "");
-	CheckTransJsonValueDef(userobj->isprotected, val, "protected", false);
-	CheckTransJsonValueDef(userobj->created_at, val, "created_at", "");
+	uint64_t id;
+	CheckTransJsonValueDef(id, val, "id", 0);
+	auto userdatacont = ad.GetUserContainerById(id);
+	userdata &userobj=userdatacont->GetUser();
+	userobj.acc=tac;
+	CheckTransJsonValueDef(userobj.name, val, "name", "");
+	CheckTransJsonValueDef(userobj.screen_name, val, "screen_name", "");
+	if(tac->ssl) {
+		if(!CheckTransJsonValueDef(userobj.profile_img_url, val, "profile_image_url_https", "")) {
+			CheckTransJsonValueDef(userobj.profile_img_url, val, "profile_img_url", "");
+		}
+	}
+	else {
+		if(!CheckTransJsonValueDef(userobj.profile_img_url, val, "profile_img_url", "")) {
+			CheckTransJsonValueDef(userobj.profile_img_url, val, "profile_image_url_https", "");
+		}
+	}
+	CheckTransJsonValueDef(userobj.isprotected, val, "protected", false);
+	if(!userobj.created_at.size()) {
+		CheckTransJsonValueDef(userobj.created_at, val, "created_at", "");
+		ParseTwitterDate(0, &userobj.createtime_t, userobj.created_at);
+	}
 
-	auto userdatacont = ad.GetUserContainerById(userobj->id);
-	ad.UpdateUserContainer(userdatacont, userobj);
+	userdatacont->MarkUpdated();
 
-	userobj->Dump();
+	userdatacont->Dump();
 	return userdatacont;
 }
 
@@ -165,8 +177,6 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val) {
 		CheckTransJsonValueDef(tobj->source, val, "source", "", &jw);
 		CheckTransJsonValueDef(tobj->text, val, "text", "", &jw);
 		if(CheckTransJsonValueDef(tobj->created_at, val, "created_at", ""), &jw) {
-			//tobj->createtime.ParseDateTime(wxstrstd(tobj->created_at));
-			//tobj->createtime.ParseFormat(wxstrstd(tobj->created_at), wxT("%a %b %d %T +0000 %Y"));
 			ParseTwitterDate(0, &tobj->createtime_t, tobj->created_at);
 		}
 		else {
@@ -283,9 +293,9 @@ void jsonparser::DoEntitiesParse(const rapidjson::Value& val, std::shared_ptr<tw
 	}
 }
 
-void userdata::Dump() {
+void userdatacontainer::Dump() {
 	wxLogWarning(wxT("id: %" wxLongLongFmtSpec "d\nname: %s\nscreen_name: %s\npimg: %s\nprotected: %d"),
-		id, wxstrstd(name).c_str(), wxstrstd(screen_name).c_str(), wxstrstd(profile_img_url).c_str(), isprotected);
+		id, wxstrstd(GetUser().name).c_str(), wxstrstd(GetUser().screen_name).c_str(), wxstrstd(GetUser().profile_img_url).c_str(), GetUser().isprotected);
 }
 
 void tweet::Dump() {

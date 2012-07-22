@@ -281,7 +281,7 @@ void tweetdispscr::DisplayTweet() {
 	userdatacontainer &udc=*tw.user;
 	Clear();
 	BeginBold();
-	WriteText(wxT("@") + wxstrstd(udc.user->screen_name));
+	WriteText(wxT("@") + wxstrstd(udc.GetUser().screen_name));
 	EndBold();
 	wxString timestr=rc_wx_strftime(gc.gcfg.datetimeformat.val, localtime(&tw.createtime_t));
 	WriteText(wxT(" - ") + timestr);

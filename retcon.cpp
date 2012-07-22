@@ -305,16 +305,6 @@ std::shared_ptr<userdatacontainer> alldata::GetUserContainerById(uint64_t id) {
 	return usercont;
 }
 
-void alldata::UpdateUserContainer(std::shared_ptr<userdatacontainer> usercont, std::shared_ptr<userdata> userobj) {
-	usercont->user=userobj;
-	usercont->lastupdate=wxGetUTCTime();
-	if(userobj && userobj->profile_img_url.size()) {
-		if(usercont->cached_profile_img_url!=userobj->profile_img_url) {
-			imgdlconn::GetConn(userobj->profile_img_url, usercont);
-		}
-	}
-}
-
 logwindow::logwindow(wxFrame *parent, const wxChar *title, bool show, bool passToOld) :
 	wxLogWindow(parent, title, show, passToOld) {
 	globallogwindow=this;

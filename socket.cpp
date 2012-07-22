@@ -82,7 +82,7 @@ END_EVENT_TABLE()
 imgdlconn::imgdlconn() : curlHandle(0) {
 }
 
-void imgdlconn::Init(std::string &imgurl_, std::shared_ptr<userdatacontainer> user_) {
+void imgdlconn::Init(const std::string &imgurl_, const std::shared_ptr<userdatacontainer> &user_) {
 	imgurl=imgurl_;
 	user=user_;
 	user->udc_flags|=UDC_IMAGE_DL_IN_PROGRESS;
@@ -100,12 +100,12 @@ void imgdlconn::Init(std::string &imgurl_, std::shared_ptr<userdatacontainer> us
 }
 
 void imgdlconn::DoRetry() {
-	if(imgurl==user->user->profile_img_url) Init(imgurl, user);
+	if(imgurl==user->GetUser().profile_img_url) Init(imgurl, user);
 	else cp.Standby(this);
 }
 
 void imgdlconn::HandleFailure() {
-	if(imgurl==user->user->profile_img_url) {
+	if(imgurl==user->GetUser().profile_img_url) {
 		if(!user->cached_profile_img) {	//generate a placeholder image
 			user->cached_profile_img=std::make_shared<wxBitmap>(48,48,-1);
 			wxMemoryDC dc(*user->cached_profile_img);
@@ -130,7 +130,7 @@ void imgdlconn::Reset() {
 	user.reset();
 }
 
-imgdlconn *imgdlconn::GetConn(std::string &imgurl_, std::shared_ptr<userdatacontainer> user_) {
+imgdlconn *imgdlconn::GetConn(const std::string &imgurl_, const std::shared_ptr<userdatacontainer> &user_) {
 	imgdlconn *res=cp.GetConn();
 	res->Init(imgurl_, user_);
 	return res;
@@ -146,7 +146,7 @@ int imgdlconn::curlCallback(char* data, size_t size, size_t nmemb, imgdlconn *ob
 }
 
 void imgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
-	if(imgurl==user->user->profile_img_url) {
+	if(imgurl==user->GetUser().profile_img_url) {
 		wxString filename;
 		user->GetImageLocalFilename(filename);
 		wxFile file(filename, wxFile::write);

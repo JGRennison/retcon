@@ -208,7 +208,7 @@ void streamconntimeout::Notify() {
 }
 
 bool userdatacontainer::NeedsUpdating() {
-	if(!user) return true;
+	if(!lastupdate) return true;
 	else {
 		if((wxGetUTCTime()-lastupdate)>gc.userexpiretime) return true;
 		else return false;
@@ -238,6 +238,15 @@ std::shared_ptr<taccount> userdatacontainer::GetAccountOfUser() {
 void userdatacontainer::GetImageLocalFilename(wxString &filename) {
 	filename.Printf(wxT("/img_%" wxLongLongFmtSpec "d"), id);
 	filename.Prepend(wxStandardPaths::Get().GetUserDataDir());
+}
+
+void userdatacontainer::MarkUpdated() {
+	lastupdate=wxGetUTCTime();
+	if(user.profile_img_url.size()) {
+		if(cached_profile_img_url!=user.profile_img_url) {
+			imgdlconn::GetConn(user.profile_img_url, shared_from_this());
+		}
+	}
 }
 
 tweet_perspective *tweet::AddTPToTweet(std::shared_ptr<taccount> &tac, bool *isnew) {

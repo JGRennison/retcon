@@ -1,7 +1,6 @@
 void HandleNewTweet(std::shared_ptr<tweet>);
 
 struct userdata {
-	uint64_t id;
 	std::string name;
 	std::string screen_name;
 	std::string profile_img_url;
@@ -12,8 +11,6 @@ struct userdata {
 	std::string description;
 
 	std::string json;
-
-	void Dump();
 };
 
 enum {
@@ -22,9 +19,9 @@ enum {
 	UDC_THIS_IS_ACC_USER_HINT	= 1<<2
 };
 
-struct userdatacontainer {
-	std::shared_ptr<userdata> user;
+struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	uint64_t id;
+	userdata user;
 	long lastupdate;
 	unsigned int udc_flags;
 
@@ -41,6 +38,9 @@ struct userdatacontainer {
 	void CheckPendingTweets();
 	std::shared_ptr<taccount> GetAccountOfUser();
 	void GetImageLocalFilename(wxString &filename);
+	inline userdata &GetUser() { return user; }
+	void MarkUpdated();
+	void Dump();
 };
 
 struct tweet_perspective {
