@@ -46,23 +46,23 @@ struct userdatacontainer {
 struct tweet_perspective {
 	tweet_perspective(std::shared_ptr<taccount> &tac) : acc(tac) { }
 	std::shared_ptr<taccount> acc;
-	
+
 	enum {
 		TP_IAH	= 1<<0,
 		TP_FAV	= 1<<1,
 		TP_RET	= 1<<2,
 	};
-	
+
 	bool IsArrivedHere() { return flags&TP_IAH; }
 	bool IsFavourited() { return flags&TP_FAV; }
 	bool IsRetweeted() { return flags&TP_RET; }
 	void SetArrivedHere(bool val) { if(val) flags|=TP_IAH; else flags&=~TP_IAH; }
 	void SetFavourited(bool val) { if(val) flags|=TP_FAV; else flags&=~TP_FAV; }
 	void SetRetweeted(bool val) { if(val) flags|=TP_RET; else flags&=~TP_RET; }
-	
+
 	protected:
 	unsigned int flags;
-	
+
 	//bool arrived_here;
 	//bool favourited;
 	//bool retweeted;
@@ -83,7 +83,7 @@ struct tweet {
 	std::string json;
 
 	void Dump();
-	tweet_perspective *AddTPToTweet(std::shared_ptr<taccount> &tac);
+	tweet_perspective *AddTPToTweet(std::shared_ptr<taccount> &tac, bool *isnew=0;);
 };
 
 typedef enum {

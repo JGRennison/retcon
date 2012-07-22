@@ -240,11 +240,15 @@ void userdatacontainer::GetImageLocalFilename(wxString &filename) {
 	filename.Prepend(wxStandardPaths::Get().GetUserDataDir());
 }
 
-tweet_perspective *tweet::AddTPToTweet(std::shared_ptr<taccount> &tac) {
+tweet_perspective *tweet::AddTPToTweet(std::shared_ptr<taccount> &tac, bool *isnew) {
 	for(auto it=tp_list.begin(); it!=tp_list.end(); it++) {
-		if(it->acc.get()==tac.get()) return &(*it);
+		if(it->acc.get()==tac.get()) {
+			if(isnew) *isnew=false;
+			return &(*it);
+		}
 	}
 	tp_list.emplace_front(tac);
+	if(isnew) *isnew=true;
 	return &tp_list.front();
 }
 

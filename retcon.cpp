@@ -295,10 +295,9 @@ void taccount::Exec() {
 }
 
 std::shared_ptr<userdatacontainer> alldata::GetUserContainerById(uint64_t id) {
-	//todo check/make this less inefficient
-	std::shared_ptr<userdatacontainer> usercont=userconts[id];
+	std::shared_ptr<userdatacontainer> &usercont=userconts[id];
 	if(!usercont) {
-		userconts[id]=usercont=std::make_shared<userdatacontainer>();
+		usercont=std::make_shared<userdatacontainer>();
 		usercont->id=id;
 		usercont->lastupdate=0;
 		usercont->udc_flags=0;

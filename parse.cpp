@@ -138,64 +138,70 @@ void ParsePerspectivalTweetProps(const rapidjson::Value& val, tweet_perspective 
 
 std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val) {
 	uint64_t tweetid;
-	std::string json;
-	writestream wr(json);
-	rapidjson::Writer<writestream> jw(wr);
-	jw.StartObject();
-	CheckTransJsonValueDef(tweetid, val, "id", 0, &jw);
-	
-	//todo: make this less inefficient
-	std::shared_ptr<tweet> tobj=ad.tweetobjs[tweetid];
+	if(!CheckTransJsonValueDef(tweetid, val, "id", 0, 0)) return std::make_shared<tweet>();
+
+	std::shared_ptr<tweet> &tobj=ad.tweetobjs[tweetid];
+	bool is_new_tweet=!tobj;
 	if(!tobj) {
-		ad.tweetobjs[tweetid]=tobj=std::make_shared<tweet>();
+		tobj=std::make_shared<tweet>();
 		tobj->id=tweetid;
 	}
-	
+
 	tweet_perspective *tp=tobj->AddTPToTweet(tac);
+	bool is_new_tweet_perspective=!tp->IsArrivedHere();
 	tp->SetArrivedHere(true);
 	ParsePerspectivalTweetProps(val, tp, 0);
-	
+
 	if(tac->max_tweet_id<tobj->id) tac->max_tweet_id=tobj->id;
-	CheckTransJsonValueDef(tobj->in_reply_to_status_id, val, "in_reply_to_status_id", 0, &jw);
-	CheckTransJsonValueDef(tobj->retweet_count, val, "retweet_count", 0, &jw);
-	CheckTransJsonValueDef(tobj->source, val, "source", "", &jw);
-	CheckTransJsonValueDef(tobj->text, val, "text", "", &jw);
-	if(CheckTransJsonValueDef(tobj->created_at, val, "created_at", ""), &jw) {
-		//tobj->createtime.ParseDateTime(wxstrstd(tobj->created_at));
-		//tobj->createtime.ParseFormat(wxstrstd(tobj->created_at), wxT("%a %b %d %T +0000 %Y"));
-		ParseTwitterDate(0, &tobj->createtime_t, tobj->created_at);
-	}
-	else {
-		//tobj->createtime.SetToCurrent();
-		tobj->createtime_t=time(0);
-	}
-	const rapidjson::Value &entv=val["entities"];
-	if(entv.IsObject()) {
-		DoEntitiesParse(entv, tobj);
-		jw.String("entities");
-		entv.Accept(jw);
+	if(is_new_tweet) {
+		std::string json;
+		writestream wr(json);
+		rapidjson::Writer<writestream> jw(wr);
+		jw.StartObject();
+		jw.String("id");
+		jw.Uint64(tobj->id);
+		CheckTransJsonValueDef(tobj->in_reply_to_status_id, val, "in_reply_to_status_id", 0, &jw);
+		CheckTransJsonValueDef(tobj->retweet_count, val, "retweet_count", 0, &jw);
+		CheckTransJsonValueDef(tobj->source, val, "source", "", &jw);
+		CheckTransJsonValueDef(tobj->text, val, "text", "", &jw);
+		if(CheckTransJsonValueDef(tobj->created_at, val, "created_at", ""), &jw) {
+			//tobj->createtime.ParseDateTime(wxstrstd(tobj->created_at));
+			//tobj->createtime.ParseFormat(wxstrstd(tobj->created_at), wxT("%a %b %d %T +0000 %Y"));
+			ParseTwitterDate(0, &tobj->createtime_t, tobj->created_at);
+		}
+		else {
+			//tobj->createtime.SetToCurrent();
+			tobj->createtime_t=time(0);
+		}
+		const rapidjson::Value &entv=val["entities"];
+		if(entv.IsObject()) {
+			DoEntitiesParse(entv, tobj);
+
+			entv.Accept(jw);
+		}
+
+		jw.EndObject();
+		tobj->json=std::move(json);
+		wxLogWarning(wxT("Wrote json for tweet id: %" wxLongLongFmtSpec "d, %s"), tobj->id, wxstrstd(tobj->json).c_str());
 	}
 
-	jw.EndObject();
-	tobj->json=std::move(json);
-	wxLogWarning(wxT("Wrote json for tweet id: %" wxLongLongFmtSpec "d, %s"), tobj->id, wxstrstd(tobj->json).c_str());
+	if(is_new_tweet_perspective) {	//this filters out duplicate tweets from the same account
+		uint64_t userid=val["user"]["id"].GetUint64();
+		if(val["user"].HasMember("screen_name")) {	//check to see if this is a trimmed user object
+			tobj->user=DoUserParse(val["user"]);
+		}
+		else {
+			tobj->user=ad.GetUserContainerById(userid);
+		}
 
-	uint64_t userid=val["user"]["id"].GetUint64();
-	if(val["user"].HasMember("screen_name")) {	//check to see if this is a trimmed user object
-		tobj->user=DoUserParse(val["user"]);
+		if(tobj->user->IsReady()) {
+			HandleNewTweet(tobj);
+		}
+		else {
+			tac->pendingusers[userid]=tobj->user;
+			tobj->user->pendingtweets.push_front(tobj);
+		}
 	}
-	else {
-		tobj->user=ad.GetUserContainerById(userid);
-	}
-
-	if(tobj->user->IsReady()) {
-		HandleNewTweet(tobj);
-	}
-	else {
-		tac->pendingusers[userid]=tobj->user;
-		tobj->user->pendingtweets.push_front(tobj);
-	}
-
 	tobj->Dump();
 
 	return tobj;

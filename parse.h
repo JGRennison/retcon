@@ -16,11 +16,8 @@ struct jsonparser {
 	void DoEntitiesParse(const rapidjson::Value& val, std::shared_ptr<tweet> t);
 	void RestTweetUpdateParams(std::shared_ptr<tweet> t);
 
-	jsonparser(CS_ENUMTYPE t, std::shared_ptr<taccount> a, twitcurlext *tw = 0 /*optional*/) {
-		type=t;
-		tac=a;
-		twit=tw;
-	}
+	jsonparser(CS_ENUMTYPE t, std::shared_ptr<taccount> a, twitcurlext *tw = 0 /*optional*/)
+		: type(t), tac(a), twit(tw) { }
 	bool ParseString(char *str);	//modifies str
 };
 
