@@ -47,7 +47,7 @@ struct tweet_flags {
 	tweet_flags() : bits() { }
 	tweet_flags(unsigned long long val) : bits(val) { }
 	static constexpr ssize_t GetFlagNum(char in) { return (in>='0' && in<='9')?in-'0':((in>='a' && in<='z')?10+in-'a':((in>='A' && in<='Z')?10+26+in-'A':-1)); }
-	static constexpr char GetFlagChar(size_t in) { return (in<=9)?in+'0':((in>=10 && in<36)?in+'a'-10:((in>36 && in<62)?in+'A'-36:'?')); }
+	static constexpr char GetFlagChar(size_t in) { return (in<10)?in+'0':((in>=10 && in<36)?in+'a'-10:((in>=36 && in<62)?in+'A'-36:'?')); }
 	bool Get(char in) {
 		ssize_t num=GetFlagNum(in);
 		if(num>=0) return bits.test(num);

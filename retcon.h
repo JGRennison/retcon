@@ -171,7 +171,7 @@ public:
 	DECLARE_EVENT_TABLE()
 };
 
-inline wxString wxstrstd(std::string &st) {
+inline wxString wxstrstd(const std::string &st) {
 	return wxString::FromUTF8(st.c_str());
 }
 inline wxString wxstrstd(const char *ch) {

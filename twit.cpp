@@ -267,7 +267,7 @@ std::string tweet_flags::GetString() {
 	uint64_t bitint=bits.to_ullong();
 	while(bitint) {
 		int offset=__builtin_ctzll(bitint);
-		offset&=~(1<<offset);
+		bitint&=~((uint64_t) 1<<offset);
 		out+=GetFlagChar(offset);
 	}
 	return out;

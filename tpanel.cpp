@@ -285,6 +285,7 @@ void tweetdispscr::DisplayTweet() {
 	EndBold();
 	wxString timestr=rc_wx_strftime(gc.gcfg.datetimeformat.val, localtime(&tw.createtime_t));
 	WriteText(wxT(" - ") + timestr);
+	WriteText(wxT(" - ") + wxstrstd(tw.flags.GetString()));
 	Newline();
 
 	unsigned int nextoffset=0;
