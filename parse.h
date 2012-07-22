@@ -17,7 +17,7 @@ struct jsonparser {
 	void RestTweetUpdateParams(std::shared_ptr<tweet> t);
 
 	jsonparser(CS_ENUMTYPE t, std::shared_ptr<taccount> a, twitcurlext *tw = 0 /*optional*/)
-		: type(t), tac(a), twit(tw) { }
+		: tac(a), type(t), twit(tw) { }
 	bool ParseString(char *str);	//modifies str
 };
 

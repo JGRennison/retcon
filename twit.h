@@ -83,7 +83,7 @@ struct tweet {
 	std::string json;
 
 	void Dump();
-	tweet_perspective *AddTPToTweet(std::shared_ptr<taccount> &tac, bool *isnew=0;);
+	tweet_perspective *AddTPToTweet(std::shared_ptr<taccount> &tac, bool *isnew=0);
 };
 
 typedef enum {

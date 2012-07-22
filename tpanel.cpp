@@ -388,7 +388,7 @@ wxString rc_wx_strftime(const wxString &format, const struct tm *tm) {
 				//this is adapted from npipe var.cpp
 	wxString newfmt;
 	newfmt.Alloc(format.length());
-	const wxString &real_format=newfmt;
+	wxString &real_format=newfmt;
 	const wxChar *ch=format.c_str();
 	const wxChar *cur=ch;
 	while(*ch) {
