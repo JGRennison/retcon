@@ -21,7 +21,7 @@ acc_window::acc_window(wxWindow* parent, wxWindowID id, const wxString& title, c
 
 	lb=new wxListBox(panel, wxID_FILE1, wxDefaultPosition, wxDefaultSize, 0, 0, wxLB_SINGLE | wxLB_SORT | wxLB_NEEDED_SB);
 	UpdateLB();
-	wxButton *editbtn=new wxButton(panel, wxID_PROPERTIES, wxT("Edit"));
+	wxButton *editbtn=new wxButton(panel, wxID_PROPERTIES, wxT("Settings"));
 	wxButton *delbtn=new wxButton(panel, wxID_DELETE, wxT("Delete"));
 	wxButton *newbtn=new wxButton(panel, wxID_NEW, wxT("Add account"));
 	wxButton *clsbtn=new wxButton(panel, wxID_CLOSE, wxT("Close"));
@@ -45,12 +45,17 @@ acc_window::~acc_window() {
 }
 
 void acc_window::UpdateLB() {
-	lb->Set(0, 0);
-	for(auto it=alist.begin() ; it != alist.end(); it++ ) lb->InsertItems(1,&(*it)->dispname,0);
+	lb->Clear();
+	for(auto it=alist.begin() ; it != alist.end(); it++ ) lb->Append((*it)->dispname,(*it).get());
 }
 
 void acc_window::AccEdit(wxCommandEvent &event) {
-
+	int sel=lb->GetSelection();
+	if(sel==wxNOT_FOUND) return;
+	taccount *acc=(taccount *) lb->GetClientData(sel);
+	settings_window *sw=new settings_window(this, -1, wxT("Settings"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER, wxT("dialogBox"), acc);
+	sw->ShowModal();
+	sw->Destroy();
 }
 void acc_window::AccDel(wxCommandEvent &event) {
 
@@ -285,6 +290,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 		lb->Append((*it)->dispname, (*it).get());
 		if((*it).get()==defshow) {
 			current=defshow;
+			lb->SetSelection(lb->GetCount()-1);
 		}
 		else {
 			vbox->Hide(sbox);
