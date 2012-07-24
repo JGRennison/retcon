@@ -42,26 +42,31 @@ template <typename C> struct connpool {
 	std::unordered_set<C *> activeset;
 };
 
-struct imgdlconn : public mcurlconn {
+struct dlconn : public mcurlconn {
 	CURL* curlHandle;
-	std::string imgurl;
+	std::string url;
+	std::string data;
+
+	static int curlCallback(char* data, size_t size, size_t nmemb, dlconn *obj);
+	dlconn();
+	void Init(const std::string &url_);
+	void Reset();
+	~dlconn();
+	CURL *GenGetCurlHandle() { return curlHandle; }
+};
+
+struct profileimgdlconn : public dlconn {
 	std::shared_ptr<userdatacontainer> user;
-	std::string imgdata;
+	static connpool<profileimgdlconn> cp;
+
+	void Init(const std::string &imgurl_, const std::shared_ptr<userdatacontainer> &user_);
 
 	void NotifyDoneSuccess(CURL *easy, CURLcode res);
-	static int curlCallback(char* data, size_t size, size_t nmemb, imgdlconn *obj);
-	imgdlconn();
-	void Init(const std::string &imgurl_, const std::shared_ptr<userdatacontainer> &user_);
-	~imgdlconn();
-	CURL *GenGetCurlHandle() { return curlHandle; }
 	void Reset();
 	void DoRetry();
 	void HandleFailure();
+	static profileimgdlconn *GetConn(const std::string &imgurl_, const std::shared_ptr<userdatacontainer> &user_);
 
-	static imgdlconn *GetConn(const std::string &imgurl_, const std::shared_ptr<userdatacontainer> &user_);
-	static connpool<imgdlconn> cp;
-
-	DECLARE_EVENT_TABLE()
 };
 
 struct sockettimeout : public wxTimer {

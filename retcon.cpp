@@ -41,7 +41,7 @@ int retcon::OnExit() {
 	for(auto it=alist.begin() ; it != alist.end(); it++) {
 		(*it)->cp.ClearAllConns();
 	}
-	imgdlconn::cp.ClearAllConns();
+	profileimgdlconn::cp.ClearAllConns();
 	sm.DeInitMultiIOHandler();
 	wxConfigBase *wfc=wxConfigBase::Get();
 	WriteAllCFGOut(*wfc, gc, alist);

@@ -76,36 +76,47 @@ void mcurlconn::StandbyTidy() {
 	}
 }
 
-BEGIN_EVENT_TABLE( imgdlconn, mcurlconn )
-END_EVENT_TABLE()
-
-imgdlconn::imgdlconn() : curlHandle(0) {
+dlconn::dlconn() : curlHandle(0) {
 }
 
-void imgdlconn::Init(const std::string &imgurl_, const std::shared_ptr<userdatacontainer> &user_) {
-	imgurl=imgurl_;
-	user=user_;
-	user->udc_flags|=UDC_IMAGE_DL_IN_PROGRESS;
+dlconn::~dlconn() {
+	if(curlHandle) curl_easy_cleanup(curlHandle);
+	curlHandle=0;
+}
+
+void dlconn::Reset() {
+	url.clear();
+	data.clear();
+}
+
+void dlconn::Init(const std::string &url_) {
+	url=url_;
 	if(!curlHandle) curlHandle = curl_easy_init();
 	#ifdef __WINDOWS__
 	curl_easy_setopt(curlHandle, CURLOPT_CAINFO, "./cacert.pem");
 	#endif
 	if(sm.loghandle) setlog(sm.loghandle, 1);
 	curl_easy_setopt(curlHandle, CURLOPT_HTTPGET, 1);
-	curl_easy_setopt(curlHandle, CURLOPT_URL, imgurl.c_str());
+	curl_easy_setopt(curlHandle, CURLOPT_URL, url.c_str());
         curl_easy_setopt(curlHandle, CURLOPT_WRITEFUNCTION, curlCallback );
         curl_easy_setopt(curlHandle, CURLOPT_WRITEDATA, this );
-	wxLogWarning(wxT("Fetching image %s for user id %" wxLongLongFmtSpec "d, conn: %p"), wxstrstd(imgurl).c_str(), user_->id, this);
 	sm.AddConn(curlHandle, this);
 }
 
-void imgdlconn::DoRetry() {
-	if(imgurl==user->GetUser().profile_img_url) Init(imgurl, user);
+void profileimgdlconn::Init(const std::string &imgurl_, const std::shared_ptr<userdatacontainer> &user_) {
+	user=user_;
+	user->udc_flags|=UDC_IMAGE_DL_IN_PROGRESS;
+	wxLogWarning(wxT("Fetching image %s for user id %" wxLongLongFmtSpec "d, conn: %p"), wxstrstd(imgurl_).c_str(), user_->id, this);
+	dlconn::Init(imgurl_);
+}
+
+void profileimgdlconn::DoRetry() {
+	if(url==user->GetUser().profile_img_url) Init(url, user);
 	else cp.Standby(this);
 }
 
-void imgdlconn::HandleFailure() {
-	if(imgurl==user->GetUser().profile_img_url) {
+void profileimgdlconn::HandleFailure() {
+	if(url==user->GetUser().profile_img_url) {
 		if(!user->cached_profile_img) {	//generate a placeholder image
 			user->cached_profile_img=std::make_shared<wxBitmap>(48,48,-1);
 			wxMemoryDC dc(*user->cached_profile_img);
@@ -119,39 +130,33 @@ void imgdlconn::HandleFailure() {
 	else cp.Standby(this);
 }
 
-imgdlconn::~imgdlconn() {
-	if(curlHandle) curl_easy_cleanup(curlHandle);
-	curlHandle=0;
-}
-
-void imgdlconn::Reset() {
-	imgurl.clear();
-	imgdata.clear();
+void profileimgdlconn::Reset() {
+	dlconn::Reset();
 	user.reset();
 }
 
-imgdlconn *imgdlconn::GetConn(const std::string &imgurl_, const std::shared_ptr<userdatacontainer> &user_) {
-	imgdlconn *res=cp.GetConn();
+profileimgdlconn *profileimgdlconn::GetConn(const std::string &imgurl_, const std::shared_ptr<userdatacontainer> &user_) {
+	profileimgdlconn *res=cp.GetConn();
 	res->Init(imgurl_, user_);
 	return res;
 }
 
-int imgdlconn::curlCallback(char* data, size_t size, size_t nmemb, imgdlconn *obj) {
+int dlconn::curlCallback(char* data, size_t size, size_t nmemb, dlconn *obj) {
 	int writtenSize = 0;
 	if( obj && data ) {
 		writtenSize = size*nmemb;
-		obj->imgdata.append(data, writtenSize);
+		obj->data.append(data, writtenSize);
 	}
 	return writtenSize;
 }
 
-void imgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
-	if(imgurl==user->GetUser().profile_img_url) {
+void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
+	if(url==user->GetUser().profile_img_url) {
 		wxString filename;
 		user->GetImageLocalFilename(filename);
 		wxFile file(filename, wxFile::write);
-		file.Write(imgdata.data(), imgdata.size());
-		wxMemoryInputStream memstream(imgdata.data(), imgdata.size());
+		file.Write(data.data(), data.size());
+		wxMemoryInputStream memstream(data.data(), data.size());
 
 		//user->cached_profile_img=std::make_shared<wxImage>(memstream);
 		wxImage img(memstream);
@@ -165,8 +170,8 @@ void imgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 
 		user->cached_profile_img=std::make_shared<wxBitmap>(img);
 
-		user->cached_profile_img_url=imgurl;
-		imgdata.clear();
+		user->cached_profile_img_url=url;
+		data.clear();
 		user->udc_flags&=~UDC_IMAGE_DL_IN_PROGRESS;
 		user->CheckPendingTweets();
 	}
@@ -190,7 +195,7 @@ template <typename C> void connpool<C>::ClearAllConns() {
 	}
 	activeset.clear();
 }
-template void connpool<imgdlconn>::ClearAllConns();
+template void connpool<profileimgdlconn>::ClearAllConns();
 template void connpool<twitcurlext>::ClearAllConns();
 
 template <typename C> C *connpool<C>::GetConn() {
@@ -216,7 +221,7 @@ template <typename C> void connpool<C>::Standby(C *obj) {
 }
 template void connpool<twitcurlext>::Standby(twitcurlext *obj);
 
-connpool<imgdlconn> imgdlconn::cp;
+connpool<profileimgdlconn> profileimgdlconn::cp;
 
 static void check_multi_info(socketmanager *smp) {
 	CURLMsg *msg;

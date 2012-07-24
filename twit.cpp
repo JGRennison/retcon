@@ -257,7 +257,7 @@ void userdatacontainer::MarkUpdated() {
 	lastupdate=wxGetUTCTime();
 	if(user.profile_img_url.size()) {
 		if(cached_profile_img_url!=user.profile_img_url) {
-			imgdlconn::GetConn(user.profile_img_url, shared_from_this());
+			profileimgdlconn::GetConn(user.profile_img_url, shared_from_this());
 		}
 	}
 }
