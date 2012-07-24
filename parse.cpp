@@ -324,6 +324,19 @@ void jsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shared_
 			if(en->user->udc_flags&UDC_THIS_IS_ACC_USER_HINT) t->flags.Set('M', true);
 		}
 	}
+	auto &media=val["media"];
+	if(media.IsArray()) {
+		for(rapidjson::SizeType i = 0; i < media.Size(); i++) {
+			t->flags.Set('I');
+			t->entlist.emplace_front(ENT_MEDIA);
+			entity *en = &t->entlist.front();
+			if(!ReadEntityIndices(*en, media[i])) continue;
+			CheckTransJsonValueDef(en->text, media[i], "display_url", t->text.substr(en->start, en->end-en->start));
+			CheckTransJsonValueDef(en->fullurl, media[i], "expanded_url", en->text);
+			if(!CheckTransJsonValueDef(en->media_id, media[i], "id", 0)) continue;
+
+		}
+	}
 
 	t->entlist.sort([](entity &a, entity &b){ return a.start<b.start; });
 	for(auto src_it=t->entlist.begin(); src_it!=t->entlist.end(); src_it++) {

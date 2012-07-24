@@ -69,6 +69,18 @@ struct profileimgdlconn : public dlconn {
 
 };
 
+struct mediaimgdlconn : public dlconn {
+	uint64_t media_id;
+
+	void Init(const std::string &imgurl_, uint64_t media_id_);
+	mediaimgdlconn(const std::string &imgurl_, uint64_t media_id_) { Init(imgurl_, media_id_); }
+
+	void NotifyDoneSuccess(CURL *easy, CURLcode res);
+	void Reset();
+	void DoRetry();
+	void HandleFailure() { }
+};
+
 struct sockettimeout : public wxTimer {
 	socketmanager &sm;
 	sockettimeout(socketmanager &sm_) : sm(sm_) {};

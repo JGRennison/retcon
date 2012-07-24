@@ -114,6 +114,7 @@ typedef enum {
 	ENT_HASHTAG = 1,
 	ENT_URL,
 	ENT_MENTION,
+	ENT_MEDIA,
 } ENT_ENUMTYPE;
 
 struct entity {
@@ -123,10 +124,18 @@ struct entity {
 	std::string text;
 	std::string fullurl;
 	std::shared_ptr<userdatacontainer> user;
+	uint64_t media_id;
 
 	entity(ENT_ENUMTYPE t) : type(t) {}
 };
 
+struct media_entity {
+	uint64_t media_id;
+	std::string media_url;
+	wxSize fullsize;
+	wxImage thumbimg;
+	wxImage fullimg;
+};
 
 typedef enum {
 	CS_ACCVERIFY=1,
