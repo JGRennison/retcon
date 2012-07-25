@@ -86,17 +86,26 @@ struct image_panel : public wxPanel {
 	DECLARE_EVENT_TABLE()
 };
 
+enum {
+	MDID_SAVE=1,
+};
+
 struct media_display_win : public wxFrame {
 	uint64_t media_id;
 	std::string media_url;
 	image_panel *sb;
 	wxStaticText *st;
 	wxBoxSizer *sz;
+	wxMenuItem *savemenuitem;
+
 	media_display_win(wxWindow *parent, uint64_t media_id_);
 	~media_display_win();
 	void Update();
 	bool GetImage(wxImage &img, wxString &message);
 	media_entity *GetMediaEntity();
+	void OnSave(wxCommandEvent &event);
+
+	DECLARE_EVENT_TABLE()
 };
 
 bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid=0);

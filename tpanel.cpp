@@ -1,5 +1,7 @@
 #include "retcon.h"
 #include "utf8.h"
+#include <wx/filename.h>
+#include <wx/filedlg.h>
 
 void tpanel::PushTweet(std::shared_ptr<tweet> t) {
 	wxLogWarning(wxT("Pushing tweet id %" wxLongLongFmtSpec "d to panel %s"), t->id, wxstrstd(name).c_str());
@@ -451,10 +453,23 @@ void image_panel::UpdateBitmap() {
 	Refresh();
 }
 
+BEGIN_EVENT_TABLE(media_display_win, wxFrame)
+	EVT_MENU(MDID_SAVE,  media_display_win::OnSave)
+END_EVENT_TABLE()
+
 media_display_win::media_display_win(wxWindow *parent, uint64_t media_id_)
 	: wxFrame(parent, wxID_ANY, wxstrstd(ad.media_list[media_id_].media_url)), media_id(media_id_), sb(0), st(0), sz(0) {
 	Freeze();
 	ad.media_list[media_id_].win=this;
+
+	wxMenu *menuF = new wxMenu;
+	savemenuitem=menuF->Append( MDID_SAVE, wxT("&Save Image"));
+
+	wxMenuBar *menuBar = new wxMenuBar;
+	menuBar->Append(menuF, wxT("&File"));
+
+	SetMenuBar( menuBar );
+
 	sz=new wxBoxSizer(wxVERTICAL);
 	SetSizer(sz);
 	Update();
@@ -475,6 +490,7 @@ void media_display_win::Update() {
 	wxString message;
 	bool imgok=GetImage(img, message);
 	if(imgok) {
+		savemenuitem->Enable(true);
 		if(st) {
 			sz->Detach(st);
 			st->Destroy();
@@ -490,6 +506,7 @@ void media_display_win::Update() {
 		sb->UpdateBitmap();
 	}
 	else {
+		savemenuitem->Enable(false);
 		if(sb) {
 			sz->Detach(sb);
 			sb->Destroy();
@@ -532,6 +549,23 @@ media_entity *media_display_win::GetMediaEntity() {
 		return &it->second;
 	}
 	else return 0;
+}
+
+void media_display_win::OnSave(wxCommandEvent &event) {
+	media_entity *me=GetMediaEntity();
+	if(me) {
+		wxString hint;
+		wxString ext;
+		bool hasext;
+		wxFileName::SplitPath(wxstrstd(me->media_url), 0, 0, &hint, &ext, &hasext, wxPATH_UNIX);
+		if(hasext) hint+=wxT(".")+ext;
+		wxString newhint;
+		if(hint.EndsWith(wxT(":large"), &newhint)) hint=newhint;
+		wxString filename=wxFileSelector(wxT("Save Image"), wxT(""), hint, ext, wxT("*.*"), wxFD_SAVE | wxFD_OVERWRITE_PROMPT, this);
+		if(filename.Len()) {
+			me->fullimg.SaveFile(filename);
+		}
+	}
 }
 
 bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid) {
