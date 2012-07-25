@@ -26,7 +26,7 @@ struct mcurlconn : public wxEvtHandler {
 	virtual void DoRetry()=0;
 	virtual void HandleFailure()=0;
 	virtual void KillConn();
-	virtual MCC_HTTPERRTYPE CheckHTTPErrType(long httpcode) { return MCC_RETRY; }
+	virtual MCC_HTTPERRTYPE CheckHTTPErrType(long httpcode);
 	virtual CURL *GenGetCurlHandle()=0;
 
 	DECLARE_EVENT_TABLE()
@@ -80,7 +80,7 @@ struct mediaimgdlconn : public dlconn {
 	unsigned int flags;
 
 	void Init(const std::string &imgurl_, uint64_t media_id_, unsigned int flags_=0);
-	mediaimgdlconn(const std::string &imgurl_, uint64_t media_id_, unsigned int flags_=0) { Init(imgurl_, media_id_, flags); }
+	mediaimgdlconn(const std::string &imgurl_, uint64_t media_id_, unsigned int flags_=0) { Init(imgurl_, media_id_, flags_); }
 
 	void NotifyDoneSuccess(CURL *easy, CURLcode res);
 	void Reset();

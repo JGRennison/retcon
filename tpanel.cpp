@@ -273,10 +273,13 @@ static void DoWriteSubstr(tweetdispscr &td, const std::string &str, int start, i
 	int end_offset=track_byte;
 	wxString wstr=wxString::FromUTF8(&str[start_offset], end_offset-start_offset);
 	if(trim) wstr.Trim();
-	td.WriteText(wstr);
+	if(wstr.Len()) td.WriteText(wstr);
 }
 
 void tweetdispscr::DisplayTweet() {
+	std::forward_list<media_entity*> me_list;
+	auto last_me=me_list.before_begin();
+	
 	tweet &tw=*td;
 	userdatacontainer &udc=*tw.user;
 	Clear();
@@ -301,8 +304,24 @@ void tweetdispscr::DisplayTweet() {
 		nextoffset=et.end;
 		EndURL();
 		EndUnderline();
+		if(et.type==ENT_MEDIA && et.media_id) {
+			media_entity &me=ad.media_list[et.media_id];
+			if(me.flags&ME_HAVE_THUMB) {
+				last_me=me_list.insert_after(last_me, &me);
+			}
+		}
 	}
 	DoWriteSubstr(*this, tw.text, nextoffset, -1, track_byte, track_index, true);
+	if(!me_list.empty()) {
+		Newline();
+		BeginAlignment(wxTEXT_ALIGNMENT_CENTRE);
+		for(auto it=me_list.begin(); it!=me_list.end(); ++it) {
+			BeginURL(wxString::Format(wxT("M%d"), (*it)->media_id));
+			AddImage((*it)->thumbimg);
+			EndURL();
+		}
+		EndAlignment();
+	}
 }
 
 void tweetdispscr::DoResize() {
@@ -317,7 +336,7 @@ void tweetdispscr::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 		       int noUnitsX, int noUnitsY,
 		       int xPos, int yPos,
 		       bool noRefresh ) {
-	wxLogWarning(wxT("tweetdispscr::SetScrollbars, tweet id %" wxLongLongFmtSpec "d"), td->id);
+	//wxLogWarning(wxT("tweetdispscr::SetScrollbars, tweet id %" wxLongLongFmtSpec "d"), td->id);
 	wxRichTextCtrl::SetScrollbars(0, 0, 0, 0, 0, 0, noRefresh);
 	int newheight=(pixelsPerUnitY*noUnitsY)+4;
 	hbox->SetItemMinSize(this, 10, newheight);
@@ -347,6 +366,7 @@ void tweetdispscr::urleventhandler(wxTextUrlEvent &event) {
 				case ENT_HASHTAG:
 					break;
 				case ENT_URL:
+				case ENT_MEDIA:
 					::wxLaunchDefaultBrowser(wxstrstd(et.fullurl));
 					break;
 				case ENT_MENTION:
@@ -362,7 +382,7 @@ void tweetdispscr::urleventhandler(wxTextUrlEvent &event) {
 }
 
 void tweetdispscr::mousewheelhandler(wxMouseEvent &event) {
-	wxLogWarning(wxT("MouseWheel"));
+	//wxLogWarning(wxT("MouseWheel"));
 	event.SetEventObject(GetParent());
 	GetParent()->GetEventHandler()->ProcessEvent(event);
 }

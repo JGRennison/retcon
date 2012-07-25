@@ -8,9 +8,21 @@
 #pragma GCC diagnostic pop
 #endif
 
-void HandleNewTweet(std::shared_ptr<tweet> t) {
+void HandleNewTweet(const std::shared_ptr<tweet> &t) {
 	//do some filtering, etc
 	ad.tpanels["[default]"]->PushTweet(t);
+}
+
+void UpdateTweet(const std::shared_ptr<tweet> &t) {
+	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
+		for(auto jt=(*it)->currentdisp.begin(); jt!=(*it)->currentdisp.end(); ++jt) {
+			if(jt->first==t->id) {	//found matching entry
+				wxLogWarning(wxT("UpdateTweet: Found Entry %" wxLongLongFmtSpec "d."), t->id);
+				jt->second->DisplayTweet();
+				break;
+			}
+		}
+	}
 }
 
 userlookup::~userlookup() {

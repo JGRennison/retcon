@@ -105,7 +105,7 @@ bool jsonparser::ParseString(char *str) {
 				tac->ClearUsersFollowed();
 				for(rapidjson::SizeType i = 0; i < fval.Size(); i++) tac->AddUserFollowed(ad.GetUserContainerById(fval[i].GetUint64()));
 				if(twit && (twit->post_action_flags&PAF_STREAM_CONN_READ_BACKFILL)) {
-					tac->StartRestGetTweetBackfill(0, 0, 10);
+					tac->StartRestGetTweetBackfill(0, 0, 30);
 				}
 			}
 			else if(eval.IsString()) {
@@ -341,7 +341,7 @@ void jsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shared_
 			//	media_entity &me=*(pair.first);
 			auto it=ad.media_list.find(en->media_id);
 			if(it==ad.media_list.end()) {
-				media_entity &me=it->second;
+				media_entity &me=ad.media_list[en->media_id];
 				me.media_id=en->media_id;
 				if(tac->ssl) {
 					if(!CheckTransJsonValueDef(me.media_url, media[i], "media_url_https", "")) {
@@ -363,14 +363,19 @@ void jsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shared_
 				else width=height=-1;
 				me.fullsize.Set(width, height);
 				
+				wxLogWarning(wxT("Parse: media image %s, w: %d, h: %d"), wxstrstd(me.media_url).c_str(), width, height);
+				
 				me.tweet_list.push_front(t);
 				new mediaimgdlconn(me.media_url+":thumb", en->media_id, MIDC_THUMBIMG | MIDC_REDRAW_TWEETS);
 			}
 			else {
-				media_entity &me=ad.media_list[en->media_id];
+				media_entity &me=it->second;
 				auto res=std::find_if(me.tweet_list.begin(), me.tweet_list.end(), [&](std::shared_ptr<tweet> &tt) {
 					return tt->id==t->id;
 				});
+				
+				wxLogWarning(wxT("Parse: existing media image %s"), wxstrstd(me.media_url).c_str());
+				
 				if(res==me.tweet_list.end()) {
 					me.tweet_list.push_front(t);
 				}

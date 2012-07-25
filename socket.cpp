@@ -29,7 +29,9 @@ void mcurlconn::NotifyDone(CURL *easy, CURLcode res) {
 	if(httpcode!=200 || res!=CURLE_OK) {
 		//failed
 		if(res==CURLE_OK) {
-			wxLogWarning(wxT("Request failed: conn: %p, code: %d"), this, httpcode);
+			char *url;
+			curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &url);
+			wxLogWarning(wxT("Request failed: conn: %p, code: %d, url: %s"), this, httpcode, wxstrstd(url).c_str());
 		}
 		else {
 			wxLogWarning(wxT("Socket error: conn: %p, code: %d, message: %s"), this, res, wxstrstd(curl_easy_strerror(res)).c_str());
@@ -74,6 +76,11 @@ void mcurlconn::StandbyTidy() {
 		delete tm;
 		tm=0;
 	}
+}
+
+MCC_HTTPERRTYPE mcurlconn::CheckHTTPErrType(long httpcode) {
+	if(httpcode>=400 && httpcode<420) return MCC_FAILED;
+	return MCC_RETRY;
 }
 
 dlconn::dlconn() : curlHandle(0) {
@@ -182,12 +189,12 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 void mediaimgdlconn::Init(const std::string &imgurl_, uint64_t media_id_, unsigned int flags_) {
 	media_id=media_id_;
 	flags=flags_;
-	wxLogWarning(wxT("Fetching media image %s, conn: %p"), wxstrstd(imgurl_).c_str(), this);
+	wxLogWarning(wxT("Fetching media image %s, id: %" wxLongLongFmtSpec "d, flags: %X, conn: %p"), wxstrstd(imgurl_).c_str(), media_id_, flags_, this);
 	dlconn::Init(imgurl_);
 }
 
 void mediaimgdlconn::DoRetry() {
-	Init(url, media_id);
+	Init(url, media_id, flags);
 }
 
 void mediaimgdlconn::HandleFailure() {
@@ -199,6 +206,8 @@ void mediaimgdlconn::Reset() {
 }
 
 void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
+	
+	wxLogWarning(wxT("Media image downloaded %s, id: %" wxLongLongFmtSpec "d, flags: %X"), wxstrstd(url).c_str(), media_id, flags);
 	
 	media_entity &me=ad.media_list[media_id];
 	
@@ -224,6 +233,13 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 		}
 		else me.thumbimg=img;
 		me.flags|=ME_HAVE_THUMB;
+	}
+	
+	if(flags&MIDC_REDRAW_TWEETS) {
+		for(auto it=me.tweet_list.begin(); it!=me.tweet_list.end(); ++it) {
+			wxLogWarning(wxT("Media: UpdateTweet"));
+			UpdateTweet(*it);
+		}
 	}
 	
 	data.clear();
