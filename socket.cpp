@@ -103,6 +103,15 @@ void dlconn::Init(const std::string &url_) {
 	sm.AddConn(curlHandle, this);
 }
 
+int dlconn::curlCallback(char* data, size_t size, size_t nmemb, dlconn *obj) {
+	int writtenSize = 0;
+	if( obj && data ) {
+		writtenSize = size*nmemb;
+		obj->data.append(data, writtenSize);
+	}
+	return writtenSize;
+}
+
 void profileimgdlconn::Init(const std::string &imgurl_, const std::shared_ptr<userdatacontainer> &user_) {
 	user=user_;
 	user->udc_flags|=UDC_IMAGE_DL_IN_PROGRESS;
@@ -141,15 +150,6 @@ profileimgdlconn *profileimgdlconn::GetConn(const std::string &imgurl_, const st
 	return res;
 }
 
-int dlconn::curlCallback(char* data, size_t size, size_t nmemb, dlconn *obj) {
-	int writtenSize = 0;
-	if( obj && data ) {
-		writtenSize = size*nmemb;
-		obj->data.append(data, writtenSize);
-	}
-	return writtenSize;
-}
-
 void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 	if(url==user->GetUser().profile_img_url) {
 		wxString filename;
@@ -177,6 +177,59 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 	}
 	KillConn();
 	cp.Standby(this);
+}
+
+void mediaimgdlconn::Init(const std::string &imgurl_, uint64_t media_id_, unsigned int flags_) {
+	media_id=media_id_;
+	flags=flags_;
+	wxLogWarning(wxT("Fetching media image %s, conn: %p"), wxstrstd(imgurl_).c_str(), this);
+	dlconn::Init(imgurl_);
+}
+
+void mediaimgdlconn::DoRetry() {
+	Init(url, media_id);
+}
+
+void mediaimgdlconn::HandleFailure() {
+	delete this;
+}
+
+void mediaimgdlconn::Reset() {
+	dlconn::Reset();
+}
+
+void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
+	
+	media_entity &me=ad.media_list[media_id];
+	
+	//wxString filename;
+	//user->GetImageLocalFilename(filename);
+	//wxFile file(filename, wxFile::write);
+	//file.Write(data.data(), data.size());
+	wxMemoryInputStream memstream(data.data(), data.size());
+
+	wxImage img(memstream);
+	if(flags&MIDC_FULLIMG) {
+		me.fullimg=img;
+		me.flags|=ME_HAVE_FULL;
+	}
+
+	if(flags&MIDC_THUMBIMG) {
+		const int maxdim=64;
+		if(img.GetHeight()>maxdim || img.GetWidth()>maxdim) {
+			double scalefactor=(double) maxdim / (double) std::max(img.GetHeight(), img.GetWidth());
+			int newwidth = (double) img.GetWidth() * scalefactor;
+			int newheight = (double) img.GetHeight() * scalefactor;
+			me.thumbimg=img.Scale(std::lround(newwidth), std::lround(newheight), wxIMAGE_QUALITY_HIGH);
+		}
+		else me.thumbimg=img;
+		me.flags|=ME_HAVE_THUMB;
+	}
+	
+	data.clear();
+		
+	KillConn();
+	delete this;
 }
 
 template <typename C> connpool<C>::~connpool() {

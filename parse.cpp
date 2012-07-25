@@ -11,6 +11,7 @@ typedef typename rapidjson::Writer<writestream> Handler;
 template <typename C> bool IsType(const rapidjson::Value& val);
 template <> bool IsType<bool>(const rapidjson::Value& val) { return val.IsBool(); }
 template <> bool IsType<unsigned int>(const rapidjson::Value& val) { return val.IsUint(); }
+template <> bool IsType<int>(const rapidjson::Value& val) { return val.IsInt(); }
 template <> bool IsType<uint64_t>(const rapidjson::Value& val) { return val.IsUint64(); }
 template <> bool IsType<const char*>(const rapidjson::Value& val) { return val.IsString(); }
 template <> bool IsType<std::string>(const rapidjson::Value& val) { return val.IsString(); }
@@ -18,6 +19,7 @@ template <> bool IsType<std::string>(const rapidjson::Value& val) { return val.I
 template <typename C> C GetType(const rapidjson::Value& val);
 template <> bool GetType<bool>(const rapidjson::Value& val) { return val.GetBool(); }
 template <> unsigned int GetType<unsigned int>(const rapidjson::Value& val) { return val.GetUint(); }
+template <> int GetType<int>(const rapidjson::Value& val) { return val.GetInt(); }
 template <> uint64_t GetType<uint64_t>(const rapidjson::Value& val) { return val.GetUint64(); }
 template <> const char* GetType<const char*>(const rapidjson::Value& val) { return val.GetString(); }
 template <> std::string GetType<std::string>(const rapidjson::Value& val) { return val.GetString(); }
@@ -292,8 +294,8 @@ void jsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shared_
 		for(rapidjson::SizeType i = 0; i < hashtags.Size(); i++) {
 			t->entlist.emplace_front(ENT_HASHTAG);
 			entity *en = &t->entlist.front();
-			if(!ReadEntityIndices(*en, hashtags[i])) continue;
-			if(!CheckTransJsonValueDef(en->text, hashtags[i], "text", "")) continue;
+			if(!ReadEntityIndices(*en, hashtags[i])) { t->entlist.pop_front(); continue; }
+			if(!CheckTransJsonValueDef(en->text, hashtags[i], "text", "")) { t->entlist.pop_front(); continue; }
 			en->text="#"+en->text;
 		}
 	}
@@ -303,7 +305,7 @@ void jsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shared_
 		for(rapidjson::SizeType i = 0; i < urls.Size(); i++) {
 			t->entlist.emplace_front(ENT_URL);
 			entity *en = &t->entlist.front();
-			if(!ReadEntityIndices(*en, urls[i])) continue;
+			if(!ReadEntityIndices(*en, urls[i])) { t->entlist.pop_front(); continue; }
 			CheckTransJsonValueDef(en->text, urls[i], "display_url", t->text.substr(en->start, en->end-en->start));
 			CheckTransJsonValueDef(en->fullurl, urls[i], "expanded_url", en->text);
 		}
@@ -315,10 +317,10 @@ void jsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shared_
 		for(rapidjson::SizeType i = 0; i < user_mentions.Size(); i++) {
 			t->entlist.emplace_front(ENT_MENTION);
 			entity *en = &t->entlist.front();
-			if(!ReadEntityIndices(*en, user_mentions[i])) continue;
+			if(!ReadEntityIndices(*en, user_mentions[i])) { t->entlist.pop_front(); continue; }
 			uint64_t userid;
-			if(!CheckTransJsonValueDef(userid, user_mentions[i], "id", 0)) continue;
-			if(!CheckTransJsonValueDef(en->text, user_mentions[i], "screen_name", "")) continue;
+			if(!CheckTransJsonValueDef(userid, user_mentions[i], "id", 0)) { t->entlist.pop_front(); continue; }
+			if(!CheckTransJsonValueDef(en->text, user_mentions[i], "screen_name", "")) { t->entlist.pop_front(); continue; }
 			en->text="@"+en->text;
 			en->user=ad.GetUserContainerById(userid);
 			if(en->user->udc_flags&UDC_THIS_IS_ACC_USER_HINT) t->flags.Set('M', true);
@@ -330,11 +332,49 @@ void jsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shared_
 			t->flags.Set('I');
 			t->entlist.emplace_front(ENT_MEDIA);
 			entity *en = &t->entlist.front();
-			if(!ReadEntityIndices(*en, media[i])) continue;
+			if(!ReadEntityIndices(*en, media[i])) { t->entlist.pop_front(); continue; }
 			CheckTransJsonValueDef(en->text, media[i], "display_url", t->text.substr(en->start, en->end-en->start));
 			CheckTransJsonValueDef(en->fullurl, media[i], "expanded_url", en->text);
-			if(!CheckTransJsonValueDef(en->media_id, media[i], "id", 0)) continue;
-
+			if(!CheckTransJsonValueDef(en->media_id, media[i], "id", 0)) { t->entlist.pop_front(); continue; }
+			//auto pair = ad.media_list.emplace(en->media_id);	//emplace is not yet implemented in libstdc
+			//if(pair.second) { //new element inserted
+			//	media_entity &me=*(pair.first);
+			auto it=ad.media_list.find(en->media_id);
+			if(it==ad.media_list.end()) {
+				media_entity &me=it->second;
+				me.media_id=en->media_id;
+				if(tac->ssl) {
+					if(!CheckTransJsonValueDef(me.media_url, media[i], "media_url_https", "")) {
+						CheckTransJsonValueDef(me.media_url, media[i], "media_url", "");
+					}
+				}
+				else {
+					if(!CheckTransJsonValueDef(me.media_url, media[i], "media_url", "")) {
+						CheckTransJsonValueDef(me.media_url, media[i], "media_url_https", "");
+					}
+				}
+				auto &sizes=media[i]["sizes"]["large"];
+				int width;
+				int height;
+				if(sizes.IsObject()) {
+					width=CheckGetJsonValueDef<int>(sizes, "w", -1);
+					height=CheckGetJsonValueDef<int>(sizes, "h", -1);
+				}
+				else width=height=-1;
+				me.fullsize.Set(width, height);
+				
+				me.tweet_list.push_front(t);
+				new mediaimgdlconn(me.media_url+":thumb", en->media_id, MIDC_THUMBIMG | MIDC_REDRAW_TWEETS);
+			}
+			else {
+				media_entity &me=ad.media_list[en->media_id];
+				auto res=std::find_if(me.tweet_list.begin(), me.tweet_list.end(), [&](std::shared_ptr<tweet> &tt) {
+					return tt->id==t->id;
+				});
+				if(res==me.tweet_list.end()) {
+					me.tweet_list.push_front(t);
+				}
+			}
 		}
 	}
 

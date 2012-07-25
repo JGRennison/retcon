@@ -133,7 +133,7 @@ struct alldata {
 	std::unordered_map<uint64_t,std::shared_ptr<userdatacontainer> > userconts;
 	std::map<uint64_t,std::shared_ptr<tweet> > tweetobjs;
 	std::map<std::string,std::shared_ptr<tpanel> > tpanels;
-	std::unordered_map<uint64_t,media_entity> media_items;
+	std::unordered_map<uint64_t,media_entity> media_list;
 
 	std::shared_ptr<userdatacontainer> GetUserContainerById(uint64_t id);
 };

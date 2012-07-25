@@ -69,16 +69,23 @@ struct profileimgdlconn : public dlconn {
 
 };
 
+enum {
+	MIDC_FULLIMG		= 1<<0,
+	MIDC_THUMBIMG		= 1<<1,
+	MIDC_REDRAW_TWEETS		= 1<<2,
+};
+
 struct mediaimgdlconn : public dlconn {
 	uint64_t media_id;
+	unsigned int flags;
 
-	void Init(const std::string &imgurl_, uint64_t media_id_);
-	mediaimgdlconn(const std::string &imgurl_, uint64_t media_id_) { Init(imgurl_, media_id_); }
+	void Init(const std::string &imgurl_, uint64_t media_id_, unsigned int flags_=0);
+	mediaimgdlconn(const std::string &imgurl_, uint64_t media_id_, unsigned int flags_=0) { Init(imgurl_, media_id_, flags); }
 
 	void NotifyDoneSuccess(CURL *easy, CURLcode res);
 	void Reset();
 	void DoRetry();
-	void HandleFailure() { }
+	void HandleFailure();
 };
 
 struct sockettimeout : public wxTimer {

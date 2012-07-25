@@ -129,12 +129,19 @@ struct entity {
 	entity(ENT_ENUMTYPE t) : type(t) {}
 };
 
+enum {
+	ME_HAVE_THUMB	= 1<<0,
+	ME_HAVE_FULL	= 1<<1,
+};
+	
 struct media_entity {
 	uint64_t media_id;
 	std::string media_url;
 	wxSize fullsize;
 	wxImage thumbimg;
 	wxImage fullimg;
+	std::forward_list<std::shared_ptr<tweet> > tweet_list;
+	unsigned int flags;
 };
 
 typedef enum {
