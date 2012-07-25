@@ -74,6 +74,22 @@ struct tpanelparentwin : public wxScrolledWindow {
 	DECLARE_EVENT_TABLE()
 };
 
+struct image_panel : public wxPanel {
+	image_panel(media_display_win *parent);
+};
+
+struct media_display_win : public wxFrame {
+	uint64_t media_id;
+	std::string media_url;
+	image_panel *sb;
+	wxBoxSizer *sz;
+	media_display_win(wxWindow *parent, uint64_t media_id_);
+	~media_display_win();
+	void Update();
+	wxBitmap GetBitmap();
+	media_entity *GetMediaEntity();
+};
+
 bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid=0);
 wxString rc_wx_strftime(const wxString &format, const struct tm *tm);
 

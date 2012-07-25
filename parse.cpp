@@ -5,6 +5,7 @@
 #include "rapidjson/reader.h"
 #pragma GCC diagnostic pop
 #include <cstring>
+#include <wx/uri.h>
 
 typedef typename rapidjson::Writer<writestream> Handler;
 
@@ -308,6 +309,42 @@ void jsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shared_
 			if(!ReadEntityIndices(*en, urls[i])) { t->entlist.pop_front(); continue; }
 			CheckTransJsonValueDef(en->text, urls[i], "display_url", t->text.substr(en->start, en->end-en->start));
 			CheckTransJsonValueDef(en->fullurl, urls[i], "expanded_url", en->text);
+
+			wxURI url(wxstrstd(en->fullurl));
+			wxString end=url.GetPath();
+			if(end.EndsWith(wxT(".jpg")) || end.EndsWith(wxT(".png")) || end.EndsWith(wxT(".jpeg")) || end.EndsWith(wxT(".gif"))) {
+				en->type=ENT_URL_IMG;
+
+				uint64_t &media_id=ad.img_media_map[en->fullurl];
+
+				if(!media_id) {
+					media_id=ad.next_media_id;
+					ad.next_media_id++;
+				}
+				en->media_id=media_id;
+
+				auto it=ad.media_list.find(media_id);
+				if(it==ad.media_list.end()) {
+					media_entity &me=ad.media_list[media_id];
+					me.media_id=media_id;
+					me.fullsize.Set(200, 200);
+					me.media_url=en->fullurl;
+					me.tweet_list.push_front(t);
+					new mediaimgdlconn(me.media_url, media_id, MIDC_FULLIMG | MIDC_THUMBIMG | MIDC_REDRAW_TWEETS);
+				}
+				else {
+					media_entity &me=it->second;
+					auto res=std::find_if(me.tweet_list.begin(), me.tweet_list.end(), [&](std::shared_ptr<tweet> &tt) {
+						return tt->id==t->id;
+					});
+
+					wxLogWarning(wxT("Parse: existing media image %s"), wxstrstd(me.media_url).c_str());
+
+					if(res==me.tweet_list.end()) {
+						me.tweet_list.push_front(t);
+					}
+				}
+			}
 		}
 	}
 
@@ -360,11 +397,11 @@ void jsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shared_
 					width=CheckGetJsonValueDef<int>(sizes, "w", -1);
 					height=CheckGetJsonValueDef<int>(sizes, "h", -1);
 				}
-				else width=height=-1;
+				else width=height=200;
 				me.fullsize.Set(width, height);
-				
+
 				wxLogWarning(wxT("Parse: media image %s, w: %d, h: %d"), wxstrstd(me.media_url).c_str(), width, height);
-				
+
 				me.tweet_list.push_front(t);
 				new mediaimgdlconn(me.media_url+":thumb", en->media_id, MIDC_THUMBIMG | MIDC_REDRAW_TWEETS);
 			}
@@ -373,9 +410,9 @@ void jsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shared_
 				auto res=std::find_if(me.tweet_list.begin(), me.tweet_list.end(), [&](std::shared_ptr<tweet> &tt) {
 					return tt->id==t->id;
 				});
-				
+
 				wxLogWarning(wxT("Parse: existing media image %s"), wxstrstd(me.media_url).c_str());
-				
+
 				if(res==me.tweet_list.end()) {
 					me.tweet_list.push_front(t);
 				}

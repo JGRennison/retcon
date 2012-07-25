@@ -114,6 +114,7 @@ struct tweet {
 typedef enum {
 	ENT_HASHTAG = 1,
 	ENT_URL,
+	ENT_URL_IMG,
 	ENT_MENTION,
 	ENT_MEDIA,
 } ENT_ENUMTYPE;
@@ -142,7 +143,10 @@ struct media_entity {
 	wxImage thumbimg;
 	wxImage fullimg;
 	std::forward_list<std::shared_ptr<tweet> > tweet_list;
+	media_display_win *win;
 	unsigned int flags;
+
+	media_entity() : win(0) { }
 };
 
 typedef enum {

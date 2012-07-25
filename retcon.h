@@ -64,6 +64,7 @@ struct socketmanager;
 struct logwindow;
 struct mainframe;
 struct tpanelnotebook;
+struct media_display_win;
 
 #include "socket.h"
 #include "twit.h"
@@ -134,8 +135,12 @@ struct alldata {
 	std::map<uint64_t,std::shared_ptr<tweet> > tweetobjs;
 	std::map<std::string,std::shared_ptr<tpanel> > tpanels;
 	std::unordered_map<uint64_t,media_entity> media_list;
+	std::unordered_map<std::string,uint64_t> img_media_map;
+	unsigned int next_media_id;
 
 	std::shared_ptr<userdatacontainer> GetUserContainerById(uint64_t id);
+	
+	alldata() : next_media_id(1) { }
 };
 
 class retcon: public wxApp

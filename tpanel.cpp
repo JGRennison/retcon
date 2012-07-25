@@ -142,7 +142,7 @@ tweetdispscr *tpanelparentwin::PushTweet(std::shared_ptr<tweet> t, size_t index)
 	//if(tpw) tpw->PushTweet(t);
 	wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
 	tweetdispscr *td=new tweetdispscr(t, this, hbox);
-	td->bm = new wxStaticBitmap(this, wxID_ANY, *t->user->cached_profile_img);
+	td->bm = new wxStaticBitmap(this, wxID_ANY, *t->user->cached_profile_img, wxPoint(-1000, -1000));
 	//wxBitmapButton *bm=new wxBitmapButton(this, wxID_ANY, *t->t->user->cached_profile_img);
 
 	hbox->Add(td->bm, 0, wxALL, 2);
@@ -152,8 +152,8 @@ tweetdispscr *tpanelparentwin::PushTweet(std::shared_ptr<tweet> t, size_t index)
 	//sizer->Add(td, 0, wxALL | wxEXPAND, 2);
 	//sizer->SetItemMinSize(td, 50, 50);
 	FitInside();
-	Thaw();
 	td->LayoutContent();
+	Thaw();
 	//td->DoResize();
 	return td;
 }
@@ -227,7 +227,7 @@ BEGIN_EVENT_TABLE(tweetdispscr, wxRichTextCtrl)
 END_EVENT_TABLE()
 
 tweetdispscr::tweetdispscr(std::shared_ptr<tweet> td_, tpanelparentwin *tppw_, wxBoxSizer *hbox_)
-: wxRichTextCtrl(tppw_, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxRE_READONLY),
+: wxRichTextCtrl(tppw_, wxID_ANY, wxEmptyString, wxPoint(-1000, -1000), wxDefaultSize, wxRE_READONLY),
 td(td_), tppw(tppw_), hbox(hbox_) {
 	GetCaret()->Hide();
 	DisplayTweet();
@@ -279,7 +279,7 @@ static void DoWriteSubstr(tweetdispscr &td, const std::string &str, int start, i
 void tweetdispscr::DisplayTweet() {
 	std::forward_list<media_entity*> me_list;
 	auto last_me=me_list.before_begin();
-	
+
 	tweet &tw=*td;
 	userdatacontainer &udc=*tw.user;
 	Clear();
@@ -304,11 +304,9 @@ void tweetdispscr::DisplayTweet() {
 		nextoffset=et.end;
 		EndURL();
 		EndUnderline();
-		if(et.type==ENT_MEDIA && et.media_id) {
+		if((et.type==ENT_MEDIA || et.type==ENT_URL_IMG) && et.media_id) {
 			media_entity &me=ad.media_list[et.media_id];
-			if(me.flags&ME_HAVE_THUMB) {
-				last_me=me_list.insert_after(last_me, &me);
-			}
+			last_me=me_list.insert_after(last_me, &me);
 		}
 	}
 	DoWriteSubstr(*this, tw.text, nextoffset, -1, track_byte, track_index, true);
@@ -317,7 +315,14 @@ void tweetdispscr::DisplayTweet() {
 		BeginAlignment(wxTEXT_ALIGNMENT_CENTRE);
 		for(auto it=me_list.begin(); it!=me_list.end(); ++it) {
 			BeginURL(wxString::Format(wxT("M%d"), (*it)->media_id));
-			AddImage((*it)->thumbimg);
+			if((*it)->flags&ME_HAVE_THUMB) {
+				AddImage((*it)->thumbimg);
+			}
+			else {
+				BeginUnderline();
+				WriteText(wxT("[Image]"));
+				EndUnderline();
+			}
 			EndURL();
 		}
 		EndAlignment();
@@ -355,28 +360,40 @@ void tweetdispscr::urleventhandler(wxTextUrlEvent &event) {
 	long start=event.GetURLStart();
 	wxRichTextAttr textattr;
 	GetStyle(start, textattr);
-	unsigned long counter;
-	textattr.GetURL().ToULong(&counter);
-	auto it=tw.entlist.begin();
-	while(it!=tw.entlist.end()) {
-		if(!counter) {
-			//got entity
-			entity &et= *it;
-			switch(et.type) {
-				case ENT_HASHTAG:
-					break;
-				case ENT_URL:
-				case ENT_MEDIA:
-					::wxLaunchDefaultBrowser(wxstrstd(et.fullurl));
-					break;
-				case ENT_MENTION:
-					break;
-			}
-			return;
+	wxString url=textattr.GetURL();
+	if(url[0]=='M') {
+		uint64_t media_id;
+		url.Mid(1).ToULongLong(&media_id);
+		if(ad.media_list[media_id].win) {
+			ad.media_list[media_id].win->Raise();
 		}
-		else {
-			counter--;
-			it++;
+		else new media_display_win(this, media_id);
+	}
+	else {
+		unsigned long counter;
+		url.ToULong(&counter);
+		auto it=tw.entlist.begin();
+		while(it!=tw.entlist.end()) {
+			if(!counter) {
+				//got entity
+				entity &et= *it;
+				switch(et.type) {
+					case ENT_HASHTAG:
+						break;
+					case ENT_URL:
+					case ENT_URL_IMG:
+					case ENT_MEDIA:
+						::wxLaunchDefaultBrowser(wxstrstd(et.fullurl));
+						break;
+					case ENT_MENTION:
+						break;
+				}
+				return;
+			}
+			else {
+				counter--;
+				it++;
+			}
 		}
 	}
 }
@@ -385,6 +402,63 @@ void tweetdispscr::mousewheelhandler(wxMouseEvent &event) {
 	//wxLogWarning(wxT("MouseWheel"));
 	event.SetEventObject(GetParent());
 	GetParent()->GetEventHandler()->ProcessEvent(event);
+}
+
+media_display_win::media_display_win(wxWindow *parent, uint64_t media_id_)
+	: wxFrame(parent, wxID_ANY, wxstrstd(ad.media_list[media_id_].media_url)), media_id(media_id_) {
+	else ad.media_list[media_id_].win=this;
+	Freeze();
+	sb=new image_panel(this);
+	sz=new wxBoxSizer(wxVERTICAL);
+	sz->Add(sb, 1, wxSHAPED | wxALIGN_CENTRE);
+	SetSizer(sz);
+	sz->Fit(this);
+	Thaw();
+	Show();
+}
+
+media_display_win::~media_display_win() {
+	media_entity *me=GetMediaEntity();
+	if(me) me->win=0;
+}
+
+void media_display_win::Update() {
+	sb->SetBitmap(GetBitmap());
+	sz->Fit(this);
+}
+
+wxBitmap media_display_win::GetBitmap() {
+	wxString str;
+	wxSize fullsize;
+	media_entity *me=GetMediaEntity();
+	if(me) {
+		if(me->flags&ME_HAVE_FULL) {
+			return wxBitmap(me->fullimg);
+		}
+		else str=wxT("Loading Image");
+		fullsize=me->fullsize;
+	}
+	else {
+		str=wxT("No Image");
+		fullsize.Set(200,200);
+	}
+
+	wxBitmap bm(fullsize.GetWidth(), fullsize.GetHeight());
+	wxMemoryDC mdc(bm);
+	mdc.SetBackground(*wxBLACK_BRUSH);
+	mdc.SetTextForeground(*wxWHITE);
+	mdc.SetTextBackground(*wxBLACK);
+	wxSize size=mdc.GetTextExtent(str);
+	mdc.DrawText(str, fullsize.GetWidth()-(size.GetWidth()/2), fullsize.GetHeight()-(size.GetHeight()/2));
+	return bm;
+}
+
+media_entity *media_display_win::GetMediaEntity() {
+	auto it=ad.media_list.find(media_id);
+	if(it!=ad.media_list.end()) {
+		return &it->second;
+	}
+	else return 0;
 }
 
 bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid) {

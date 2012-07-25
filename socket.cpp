@@ -206,11 +206,11 @@ void mediaimgdlconn::Reset() {
 }
 
 void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
-	
+
 	wxLogWarning(wxT("Media image downloaded %s, id: %" wxLongLongFmtSpec "d, flags: %X"), wxstrstd(url).c_str(), media_id, flags);
-	
+
 	media_entity &me=ad.media_list[media_id];
-	
+
 	//wxString filename;
 	//user->GetImageLocalFilename(filename);
 	//wxFile file(filename, wxFile::write);
@@ -234,16 +234,16 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 		else me.thumbimg=img;
 		me.flags|=ME_HAVE_THUMB;
 	}
-	
+
 	if(flags&MIDC_REDRAW_TWEETS) {
 		for(auto it=me.tweet_list.begin(); it!=me.tweet_list.end(); ++it) {
 			wxLogWarning(wxT("Media: UpdateTweet"));
 			UpdateTweet(*it);
 		}
 	}
-	
+
 	data.clear();
-		
+
 	KillConn();
 	delete this;
 }
