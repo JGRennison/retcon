@@ -1,5 +1,4 @@
 #include "retcon.h"
-#include <wx/stattext.h>
 
 BEGIN_EVENT_TABLE(acc_window, wxDialog)
 	EVT_BUTTON(wxID_PROPERTIES, acc_window::AccEdit)

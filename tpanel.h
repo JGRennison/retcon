@@ -75,18 +75,27 @@ struct tpanelparentwin : public wxScrolledWindow {
 };
 
 struct image_panel : public wxPanel {
-	image_panel(media_display_win *parent);
+	image_panel(media_display_win *parent, wxSize size=wxDefaultSize);
+	void OnPaint(wxPaintEvent &event);
+	void OnResize(wxSizeEvent &event);
+	void UpdateBitmap();
+
+	wxBitmap bm;
+	wxImage img;
+
+	DECLARE_EVENT_TABLE()
 };
 
 struct media_display_win : public wxFrame {
 	uint64_t media_id;
 	std::string media_url;
 	image_panel *sb;
+	wxStaticText *st;
 	wxBoxSizer *sz;
 	media_display_win(wxWindow *parent, uint64_t media_id_);
 	~media_display_win();
 	void Update();
-	wxBitmap GetBitmap();
+	bool GetImage(wxImage &img, wxString &message);
 	media_entity *GetMediaEntity();
 };
 

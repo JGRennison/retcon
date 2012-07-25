@@ -66,7 +66,7 @@ struct tweet_flags {
 };
 
 struct tweet_perspective {
-	tweet_perspective(std::shared_ptr<taccount> &tac) : acc(tac) { }
+	tweet_perspective(std::shared_ptr<taccount> &tac) : acc(tac), flags(0) { }
 	std::shared_ptr<taccount> acc;
 
 	enum {
@@ -128,14 +128,15 @@ struct entity {
 	std::shared_ptr<userdatacontainer> user;
 	uint64_t media_id;
 
-	entity(ENT_ENUMTYPE t) : type(t) {}
+	entity(ENT_ENUMTYPE t) : type(t), media_id(0) {}
 };
 
 enum {
 	ME_HAVE_THUMB	= 1<<0,
 	ME_HAVE_FULL	= 1<<1,
+	ME_FULL_FAILED	= 1<<2,
 };
-	
+
 struct media_entity {
 	uint64_t media_id;
 	std::string media_url;
@@ -146,7 +147,7 @@ struct media_entity {
 	media_display_win *win;
 	unsigned int flags;
 
-	media_entity() : win(0) { }
+	media_entity() : media_id(0), win(0), flags(0) { }
 };
 
 typedef enum {

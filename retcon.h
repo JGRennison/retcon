@@ -44,6 +44,7 @@
 #include <wx/brush.h>
 #include <wx/checkbox.h>
 #include <wx/choice.h>
+#include <wx/stattext.h>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wtype-limits"
 #pragma GCC diagnostic ignored "-Wuninitialized"
@@ -139,7 +140,7 @@ struct alldata {
 	unsigned int next_media_id;
 
 	std::shared_ptr<userdatacontainer> GetUserContainerById(uint64_t id);
-	
+
 	alldata() : next_media_id(1) { }
 };
 

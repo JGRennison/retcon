@@ -70,9 +70,11 @@ struct profileimgdlconn : public dlconn {
 };
 
 enum {
-	MIDC_FULLIMG		= 1<<0,
-	MIDC_THUMBIMG		= 1<<1,
+	MIDC_FULLIMG			= 1<<0,
+	MIDC_THUMBIMG			= 1<<1,
 	MIDC_REDRAW_TWEETS		= 1<<2,
+	MIDC_OPPORTUNIST_THUMB		= 1<<3,
+	MIDC_OPPORTUNIST_REDRAW_TWEETS	= 1<<4,
 };
 
 struct mediaimgdlconn : public dlconn {

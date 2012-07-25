@@ -112,10 +112,10 @@ bool jsonparser::ParseString(char *str) {
 			else if(eval.IsString()) {
 				DoEventParse(dc);
 			}
-			else if(dc["recipient"].IsObject() && dc["sender"].IsObject()) {	//assume this is a direct message
+			else if(ival.IsNumber() && tval.IsString() && dc["recipient"].IsObject() && dc["sender"].IsObject()) {	//assume this is a direct message
 				DoTweetParse(dc, true);
 			}
-			else if(tval.IsString() && ival.IsNumber()) {	//assume that this is a tweet
+			else if(ival.IsNumber() && tval.IsString() && dc["user"].IsObject()) {	//assume that this is a tweet
 				DoTweetParse(dc);
 			}
 			//else do nothing
@@ -216,8 +216,10 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, boo
 
 		jw.EndObject();
 		tobj->json=std::move(json);
-		wxLogWarning(wxT("Wrote json for tweet id: %" wxLongLongFmtSpec "d, %s"), tobj->id, wxstrstd(tobj->json).c_str());
+		//wxLogWarning(wxT("Wrote json for tweet id: %" wxLongLongFmtSpec "d, %s"), tobj->id, wxstrstd(tobj->json).c_str());
 	}
+
+	//wxLogWarning(wxT("id: %" wxLongLongFmtSpec "d, is_new_tweet_perspective: %d, isdm: %d"), tobj->id, is_new_tweet_perspective, isdm);
 
 	if(is_new_tweet_perspective) {	//this filters out duplicate tweets from the same account
 		if(!isdm) {
@@ -225,9 +227,11 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, boo
 			tobj->user=CheckParseUserObj(userid, val["user"], *this);
 
 			if(tobj->user->IsReady()) {
+				//wxLogWarning(wxT("HandleNewTweet %" wxLongLongFmtSpec "d"), tobj->id);
 				HandleNewTweet(tobj);
 			}
 			else {
+				//wxLogWarning(wxT("MarkPending %" wxLongLongFmtSpec "d, user: %" wxLongLongFmtSpec "d"), tobj->id, userid);
 				tac->MarkPending(userid, tobj->user, tobj);
 			}
 		}
@@ -314,6 +318,7 @@ void jsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shared_
 			wxString end=url.GetPath();
 			if(end.EndsWith(wxT(".jpg")) || end.EndsWith(wxT(".png")) || end.EndsWith(wxT(".jpeg")) || end.EndsWith(wxT(".gif"))) {
 				en->type=ENT_URL_IMG;
+				t->flags.Set('I');
 
 				uint64_t &media_id=ad.img_media_map[en->fullurl];
 
@@ -400,10 +405,13 @@ void jsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shared_
 				else width=height=200;
 				me.fullsize.Set(width, height);
 
+				std::string thumburl=me.media_url+":thumb";
+				me.media_url+=":large";
+
 				wxLogWarning(wxT("Parse: media image %s, w: %d, h: %d"), wxstrstd(me.media_url).c_str(), width, height);
 
 				me.tweet_list.push_front(t);
-				new mediaimgdlconn(me.media_url+":thumb", en->media_id, MIDC_THUMBIMG | MIDC_REDRAW_TWEETS);
+				new mediaimgdlconn(thumburl, en->media_id, MIDC_THUMBIMG | MIDC_REDRAW_TWEETS);
 			}
 			else {
 				media_entity &me=it->second;

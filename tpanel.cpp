@@ -314,7 +314,7 @@ void tweetdispscr::DisplayTweet() {
 		Newline();
 		BeginAlignment(wxTEXT_ALIGNMENT_CENTRE);
 		for(auto it=me_list.begin(); it!=me_list.end(); ++it) {
-			BeginURL(wxString::Format(wxT("M%d"), (*it)->media_id));
+			BeginURL(wxString::Format(wxT("M%" wxLongLongFmtSpec "d"), (*it)->media_id));
 			if((*it)->flags&ME_HAVE_THUMB) {
 				AddImage((*it)->thumbimg);
 			}
@@ -361,9 +361,21 @@ void tweetdispscr::urleventhandler(wxTextUrlEvent &event) {
 	wxRichTextAttr textattr;
 	GetStyle(start, textattr);
 	wxString url=textattr.GetURL();
+	wxLogWarning(wxT("URL clicked, id: %s"), url.c_str());
 	if(url[0]=='M') {
-		uint64_t media_id;
-		url.Mid(1).ToULongLong(&media_id);
+		uint64_t media_id=0;
+		//url.Mid(1).ToULongLong(&media_id);	//not implemented on some systems
+
+		//poor man's strtoull
+		for(unsigned int i=1; i<url.Len(); i++) {
+			if(url[i]>='0' && url[i]<='9') {
+				media_id*=10;
+				media_id+=url[i]-'0';
+			}
+			else break;
+		}
+
+		wxLogWarning(wxT("Media image clicked, str: %s, id: %" wxLongLongFmtSpec "d"), url.Mid(1).c_str(), media_id);
 		if(ad.media_list[media_id].win) {
 			ad.media_list[media_id].win->Raise();
 		}
@@ -404,15 +416,51 @@ void tweetdispscr::mousewheelhandler(wxMouseEvent &event) {
 	GetParent()->GetEventHandler()->ProcessEvent(event);
 }
 
+BEGIN_EVENT_TABLE(image_panel, wxPanel)
+	EVT_PAINT(image_panel::OnPaint)
+	EVT_SIZE(image_panel::OnResize)
+END_EVENT_TABLE()
+
+image_panel::image_panel(media_display_win *parent, wxSize size) : wxPanel(parent, wxID_ANY, wxDefaultPosition, size) {
+
+}
+
+void image_panel::OnPaint(wxPaintEvent &event) {
+	wxPaintDC dc(this);
+	dc.DrawBitmap(bm, 0, 0, 0);
+}
+
+void image_panel::OnResize(wxSizeEvent &event) {
+	UpdateBitmap();
+}
+
+void image_panel::UpdateBitmap() {
+	//if(imgok) {
+		bm=wxBitmap(img.Scale(GetSize().GetWidth(), GetSize().GetHeight(), wxIMAGE_QUALITY_HIGH));
+	//}
+	/*else {
+		bm.Create(GetSize().GetWidth(),GetSize().GetHeight());
+		wxMemoryDC mdc(bm);
+		mdc.SetBackground(*wxBLACK_BRUSH);
+		mdc.SetTextForeground(*wxWHITE);
+		mdc.SetTextBackground(*wxBLACK);
+		mdc.Clear();
+		wxSize size=mdc.GetTextExtent(message);
+		mdc.DrawText(message, (GetSize().GetWidth()/2)-(size.GetWidth()/2), (GetSize().GetHeight()/2)-(size.GetHeight()/2));
+	}*/
+	Refresh();
+}
+
 media_display_win::media_display_win(wxWindow *parent, uint64_t media_id_)
-	: wxFrame(parent, wxID_ANY, wxstrstd(ad.media_list[media_id_].media_url)), media_id(media_id_) {
-	else ad.media_list[media_id_].win=this;
+	: wxFrame(parent, wxID_ANY, wxstrstd(ad.media_list[media_id_].media_url)), media_id(media_id_), sb(0), st(0), sz(0) {
 	Freeze();
-	sb=new image_panel(this);
+	ad.media_list[media_id_].win=this;
 	sz=new wxBoxSizer(wxVERTICAL);
-	sz->Add(sb, 1, wxSHAPED | wxALIGN_CENTRE);
 	SetSizer(sz);
-	sz->Fit(this);
+	Update();
+	if(!sb) {
+		new mediaimgdlconn(ad.media_list[media_id_].media_url, media_id_, MIDC_FULLIMG | MIDC_OPPORTUNIST_THUMB | MIDC_OPPORTUNIST_REDRAW_TWEETS);
+	}
 	Thaw();
 	Show();
 }
@@ -423,34 +471,59 @@ media_display_win::~media_display_win() {
 }
 
 void media_display_win::Update() {
-	sb->SetBitmap(GetBitmap());
+	wxImage img;
+	wxString message;
+	bool imgok=GetImage(img, message);
+	if(imgok) {
+		if(st) {
+			sz->Detach(st);
+			st->Destroy();
+			st=0;
+		}
+		wxSize size(img.GetWidth(), img.GetHeight());
+		if(!sb) {
+			sb=new image_panel(this, size);
+			sb->img=img;
+			sz->Add(sb, 1, wxSHAPED | wxALIGN_CENTRE);
+		}
+		else sb->SetSize(size);
+		sb->UpdateBitmap();
+	}
+	else {
+		if(sb) {
+			sz->Detach(sb);
+			sb->Destroy();
+			sb=0;
+		}
+		if(!st) {
+			st=new wxStaticText(this, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE);
+			sz->Add(st, 0, wxALIGN_CENTRE);
+			sz->SetMinSize(200, 200);
+		}
+		else st->SetLabel(message);
+	}
 	sz->Fit(this);
 }
 
-wxBitmap media_display_win::GetBitmap() {
-	wxString str;
-	wxSize fullsize;
+bool media_display_win::GetImage(wxImage &img, wxString &message) {
 	media_entity *me=GetMediaEntity();
 	if(me) {
 		if(me->flags&ME_HAVE_FULL) {
-			return wxBitmap(me->fullimg);
+			img=me->fullimg;
+			me->fullsize.Set(img.GetWidth(),img.GetHeight());
+			return true;
 		}
-		else str=wxT("Loading Image");
-		fullsize=me->fullsize;
+		else if(me->flags&ME_FULL_FAILED) {
+			message=wxT("Failed to Load Image");
+		}
+		else {
+			message=wxT("Loading Image");
+		}
 	}
 	else {
-		str=wxT("No Image");
-		fullsize.Set(200,200);
+		message=wxT("No Image");
 	}
-
-	wxBitmap bm(fullsize.GetWidth(), fullsize.GetHeight());
-	wxMemoryDC mdc(bm);
-	mdc.SetBackground(*wxBLACK_BRUSH);
-	mdc.SetTextForeground(*wxWHITE);
-	mdc.SetTextBackground(*wxBLACK);
-	wxSize size=mdc.GetTextExtent(str);
-	mdc.DrawText(str, fullsize.GetWidth()-(size.GetWidth()/2), fullsize.GetHeight()-(size.GetHeight()/2));
-	return bm;
+	return false;
 }
 
 media_entity *media_display_win::GetMediaEntity() {

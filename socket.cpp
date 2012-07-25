@@ -198,6 +198,14 @@ void mediaimgdlconn::DoRetry() {
 }
 
 void mediaimgdlconn::HandleFailure() {
+	auto it=ad.media_list.find(media_id);
+	if(it!=ad.media_list.end()) {
+		media_entity &me=it->second;
+		if(flags&MIDC_FULLIMG) {
+			me.flags|=ME_FULL_FAILED;
+			if(me.win) me.win->Update();
+		}
+	}
 	delete this;
 }
 
@@ -209,36 +217,41 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 
 	wxLogWarning(wxT("Media image downloaded %s, id: %" wxLongLongFmtSpec "d, flags: %X"), wxstrstd(url).c_str(), media_id, flags);
 
-	media_entity &me=ad.media_list[media_id];
+	auto it=ad.media_list.find(media_id);
+	if(it!=ad.media_list.end()) {
+		media_entity &me=it->second;
 
-	//wxString filename;
-	//user->GetImageLocalFilename(filename);
-	//wxFile file(filename, wxFile::write);
-	//file.Write(data.data(), data.size());
-	wxMemoryInputStream memstream(data.data(), data.size());
+		wxMemoryInputStream memstream(data.data(), data.size());
+		wxImage img(memstream);
 
-	wxImage img(memstream);
-	if(flags&MIDC_FULLIMG) {
-		me.fullimg=img;
-		me.flags|=ME_HAVE_FULL;
-	}
-
-	if(flags&MIDC_THUMBIMG) {
-		const int maxdim=64;
-		if(img.GetHeight()>maxdim || img.GetWidth()>maxdim) {
-			double scalefactor=(double) maxdim / (double) std::max(img.GetHeight(), img.GetWidth());
-			int newwidth = (double) img.GetWidth() * scalefactor;
-			int newheight = (double) img.GetHeight() * scalefactor;
-			me.thumbimg=img.Scale(std::lround(newwidth), std::lround(newheight), wxIMAGE_QUALITY_HIGH);
+		if(flags&MIDC_OPPORTUNIST_THUMB && !(flags&MIDC_THUMBIMG)) {
+			flags|=MIDC_THUMBIMG;
+			if(flags&MIDC_OPPORTUNIST_REDRAW_TWEETS) flags|=MIDC_REDRAW_TWEETS;
 		}
-		else me.thumbimg=img;
-		me.flags|=ME_HAVE_THUMB;
-	}
 
-	if(flags&MIDC_REDRAW_TWEETS) {
-		for(auto it=me.tweet_list.begin(); it!=me.tweet_list.end(); ++it) {
-			wxLogWarning(wxT("Media: UpdateTweet"));
-			UpdateTweet(*it);
+		if(flags&MIDC_FULLIMG) {
+			me.fullimg=img;
+			me.flags|=ME_HAVE_FULL;
+			if(me.win) me.win->Update();
+		}
+
+		if(flags&MIDC_THUMBIMG) {
+			const int maxdim=64;
+			if(img.GetHeight()>maxdim || img.GetWidth()>maxdim) {
+				double scalefactor=(double) maxdim / (double) std::max(img.GetHeight(), img.GetWidth());
+				int newwidth = (double) img.GetWidth() * scalefactor;
+				int newheight = (double) img.GetHeight() * scalefactor;
+				me.thumbimg=img.Scale(std::lround(newwidth), std::lround(newheight), wxIMAGE_QUALITY_HIGH);
+			}
+			else me.thumbimg=img;
+			me.flags|=ME_HAVE_THUMB;
+		}
+
+		if(flags&MIDC_REDRAW_TWEETS) {
+			for(auto it=me.tweet_list.begin(); it!=me.tweet_list.end(); ++it) {
+				wxLogWarning(wxT("Media: UpdateTweet"));
+				UpdateTweet(*it);
+			}
 		}
 	}
 
