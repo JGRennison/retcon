@@ -199,6 +199,14 @@ void twitcurlext::QueueAsyncExec() {
 		case CS_USERLIST: {
 			std::string userliststr;
 			ul->GetIdList(userliststr);
+			if(userliststr.empty()) {	//nothing left to look up
+				auto acc=tacc.lock();
+				if(!acc) delete this;
+				else {
+					acc->cp.Standby(this);
+				}
+				return;
+			}
 			userLookup(userliststr, "", 0);
 			break;
 			}

@@ -166,7 +166,7 @@ void tpanelparentwin::resizehandler(wxSizeEvent &event) {
 }
 
 void tpanelparentwin::resizemsghandler(wxCommandEvent &event) {
-	wxLogWarning(wxT("tpanelparentwin::resizemsghandler"));
+	//wxLogWarning(wxT("tpanelparentwin::resizemsghandler"));
 	FitInside();
 	Refresh();
 	Update();
