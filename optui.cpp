@@ -1,4 +1,5 @@
 #include "retcon.h"
+#include <wx/msgdlg.h>
 
 BEGIN_EVENT_TABLE(acc_window, wxDialog)
 	EVT_BUTTON(wxID_PROPERTIES, acc_window::AccEdit)
@@ -56,9 +57,20 @@ void acc_window::AccEdit(wxCommandEvent &event) {
 	sw->ShowModal();
 	sw->Destroy();
 }
-void acc_window::AccDel(wxCommandEvent &event) {
 
+void acc_window::AccDel(wxCommandEvent &event) {
+	int sel=lb->GetSelection();
+	if(sel==wxNOT_FOUND) return;
+	taccount *acc=(taccount *) lb->GetClientData(sel);
+	int answer=wxMessageBox(wxT("Are you sure that you want to delete account: ") + acc->dispname + wxT(".\nThis cannot be undone."), wxT("Confirm Account Deletion"), wxYES_NO | wxICON_EXCLAMATION, this);
+	if(answer==wxYES) {
+		acc->enabled=0;
+		acc->Exec();
+		alist.remove_if([&](const std::shared_ptr<taccount> &a) { return a.get()==acc; });
+		UpdateLB();
+	}
 }
+
 void acc_window::AccNew(wxCommandEvent &event) {
 	std::shared_ptr<taccount> ta(new taccount(&gc.cfg));
 	ta->enabled=false;

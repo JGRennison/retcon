@@ -93,6 +93,17 @@ struct taccount : std::enable_shared_from_this<taccount> {
 	bool userstreams;
 	unsigned long restinterval;	//seconds
 	uint64_t max_tweet_id;
+	uint64_t max_recvdm_id;
+	uint64_t max_sentdm_id;
+
+	uint64_t &GetMaxId(RBFS_TYPE type) {
+		switch(type) {
+			case RBFS_TWEETS: return max_tweet_id;
+			case RBFS_RECVDM: return max_recvdm_id;
+			case RBFS_SENTDM: return max_sentdm_id;
+			default: return max_tweet_id;
+		}
+	}
 
 	connpool<twitcurlext> cp;
 
@@ -109,10 +120,11 @@ struct taccount : std::enable_shared_from_this<taccount> {
 	void RemoveUserFollowingThis(std::shared_ptr<userdatacontainer> ptr);
 	void AddUserFollowingThis(std::shared_ptr<userdatacontainer> ptr);
 
-	void StartRestGetTweetBackfill(uint64_t start_tweet_id, uint64_t end_tweet_id, unsigned int max_tweets_to_read);
+	void StartRestGetTweetBackfill(uint64_t start_tweet_id, uint64_t end_tweet_id, unsigned int max_tweets_to_read, RBFS_TYPE type=RBFS_TWEETS);
 	void StartRestQueryPendings();
 	void DoPostAction(twitcurlext *lasttce);
 	void DoPostAction(unsigned int postflags);
+	void GetRestBackfill();
 
 	void MarkPending(uint64_t userid, const std::shared_ptr<userdatacontainer> &user, const std::shared_ptr<tweet> &t, bool checkfirst=false);
 

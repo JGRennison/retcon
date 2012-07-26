@@ -1,5 +1,30 @@
 #include "retcon.h"
 
+static uint64_t ReadULongLong(wxConfigBase &twfc, const wxString& key, uint64_t def=0) {
+	wxString str;
+	bool read=twfc.Read(key, &str);
+	if(read) {
+		uint64_t retval=0;
+		for(unsigned int i=0; i<str.Len(); i++) {
+			if(str[i]>='0' && str[i]<='9') {
+				retval*=10;
+				retval+=str[i]-'0';
+			}
+			else break;
+		}
+		return retval;
+	}
+	else {
+		return def;
+	}
+}
+
+static void WriteULongLong(wxConfigBase &twfc, const wxString& key, uint64_t value) {
+	wxString str;
+	str.Printf("%" wxLongLongFmtSpec "d", value);
+	twfc.Write(key, str);
+}
+
 genoptconf gcdefaults {
 	//{ wxT("vlC5S1NCMHHg8mD1ghPRkA"), 1},
 	{ wxT("qUfhKgogatGDPDeBaP1qBw"), 1},
@@ -25,6 +50,7 @@ taccount::taccount(genoptconf *incfg) {
 	verifycreddone=false;
 	verifycredinprogress=false;
 	active=false;
+	max_tweet_id=max_recvdm_id=max_sentdm_id=0;
 }
 
 void taccount::CFGWriteOut(wxConfigBase &twfc) {
@@ -34,9 +60,9 @@ void taccount::CFGWriteOut(wxConfigBase &twfc) {
 	twfc.Write(wxT("conk"), conk);
 	twfc.Write(wxT("cons"), cons);
 	twfc.Write(wxT("enabled"), enabled);
-	wxString t_max_tweet_id;
-	t_max_tweet_id.Printf("%" wxLongLongFmtSpec "d", max_tweet_id);
-	twfc.Write(wxT("max_tweet_id"), t_max_tweet_id);
+	WriteULongLong(twfc, wxT("max_tweet_id"), max_tweet_id);
+	WriteULongLong(twfc, wxT("max_recvdm_id"), max_recvdm_id);
+	WriteULongLong(twfc, wxT("max_sentdm_id"), max_sentdm_id);
 	twfc.Write(wxT("dispname"), dispname);
 	//twfc.SetPath(oldpath);
 }
@@ -47,9 +73,9 @@ void taccount::CFGReadIn(wxConfigBase &twfc) {
 	twfc.Read(wxT("conk"), &conk, wxT(""));
 	twfc.Read(wxT("cons"), &cons, wxT(""));
 	twfc.Read(wxT("enabled"), &enabled, false);
-	wxString t_max_tweet_id;
-	twfc.Read(wxT("max_tweet_id"), &t_max_tweet_id, wxT("0"));
-	t_max_tweet_id.ToULongLong(&max_tweet_id);
+	max_tweet_id=ReadULongLong(twfc, wxT("max_tweet_id"));
+	max_recvdm_id=ReadULongLong(twfc, wxT("max_recvdm_id"));
+	max_sentdm_id=ReadULongLong(twfc, wxT("max_sentdm_id"));
 	twfc.Read(wxT("dispname"), &dispname, wxT(""));
 	CFGParamConv();
 	//twfc.SetPath(oldpath);

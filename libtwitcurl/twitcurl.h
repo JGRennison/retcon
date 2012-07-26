@@ -204,9 +204,9 @@ public:
     bool userLookup( const std::string& userIdList /* in */, const std::string& screenNameList /* in */, bool include_entities  = false /* in */ );
 
     /* Twitter direct message APIs */
-    bool directMessageGet();
+    bool directMessageGet( const struct timelineparams &tmps );
     bool directMessageSend( const std::string& userInfo /* in */, const std::string& dMsg /* in */, bool isUserId = false /* in */ );
-    bool directMessageGetSent();
+    bool directMessageGetSent( const struct timelineparams &tmps );
     bool directMessageDestroyById( const std::string& dMsgId /* in */ );
 
     /* Twitter friendships APIs */

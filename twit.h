@@ -164,11 +164,18 @@ enum {
 	PAF_STREAM_CONN_READ_BACKFILL	= 1<<1,
 };
 
+typedef enum {
+	RBFS_TWEETS = 1,
+	RBFS_RECVDM,
+	RBFS_SENTDM,
+} RBFS_TYPE;
+
 struct restbackfillstate {
-	uint64_t start_tweet_id;
-	uint64_t end_tweet_id;
+	uint64_t start_tweet_id;	//exclusive limit
+	uint64_t end_tweet_id;		//inclusive limit
 	unsigned int max_tweets_left;
 	bool read_again;
+	RBFS_TYPE type;
 };
 
 struct userlookup {

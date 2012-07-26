@@ -106,7 +106,7 @@ bool jsonparser::ParseString(char *str) {
 				tac->ClearUsersFollowed();
 				for(rapidjson::SizeType i = 0; i < fval.Size(); i++) tac->AddUserFollowed(ad.GetUserContainerById(fval[i].GetUint64()));
 				if(twit && (twit->post_action_flags&PAF_STREAM_CONN_READ_BACKFILL)) {
-					tac->StartRestGetTweetBackfill(0, 0, 30);
+					tac->GetRestBackfill();
 				}
 			}
 			else if(eval.IsString()) {
@@ -188,7 +188,6 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, boo
 	tp->SetArrivedHere(true);
 	ParsePerspectivalTweetProps(val, tp, 0);
 
-	if(tac->max_tweet_id<tobj->id) tac->max_tweet_id=tobj->id;
 	if(is_new_tweet) {
 		std::string json;
 		writestream wr(json);
@@ -256,6 +255,19 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, boo
 			}
 		}
 	}
+
+	if(isdm) {
+		if(tobj->user_recipient.get()==tac->usercont.get()) {	//received DM
+			if(tac->max_recvdm_id<tobj->id) tac->max_recvdm_id=tobj->id;
+		}
+		else {
+			if(tac->max_sentdm_id<tobj->id) tac->max_sentdm_id=tobj->id;
+		}
+	}
+	else {
+		if(tac->max_tweet_id<tobj->id) tac->max_tweet_id=tobj->id;
+	}
+
 	tobj->Dump();
 
 	return tobj;

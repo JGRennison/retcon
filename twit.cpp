@@ -79,25 +79,38 @@ void twitcurlext::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 }
 
 void twitcurlext::ExecRestGetTweetBackfill() {
+	auto acc=tacc.lock();
+	if(!acc) delete this;
+
 	unsigned int tweets_to_get=std::min((unsigned int) 200, rbfs->max_tweets_left);
 	if(rbfs->start_tweet_id>rbfs->end_tweet_id || !tweets_to_get || !rbfs->read_again) {
-		auto acc=tacc.lock();
-		if(!acc) delete this;
-		else {
-			acc->DoPostAction(this);
-		}
+		acc->DoPostAction(this);
 	}
 	else {
+		rbfs->read_again=false;
 		struct timelineparams tmps={
 			tweets_to_get,
 			rbfs->start_tweet_id,
 			rbfs->end_tweet_id,
-			1,
-			1,
+			(signed char) ((rbfs->type==RBFS_TWEETS)?1:0),
+			(signed char) ((rbfs->type==RBFS_TWEETS)?1:0),
 			1,
 			0
 		};
-		timelineHomeGet(tmps);
+		wxLogWarning(wxT("acc: %s, type: %d, num: %d, start_id: %" wxLongLongFmtSpec "d, end_id: %" wxLongLongFmtSpec "d"),
+			acc->dispname.c_str(), rbfs->type, tweets_to_get, rbfs->start_tweet_id, rbfs->end_tweet_id);
+
+		switch(rbfs->type) {
+			case RBFS_TWEETS:
+				timelineHomeGet(tmps);
+				break;
+			case RBFS_RECVDM:
+				directMessageGet(tmps);
+				break;
+			case RBFS_SENTDM:
+				directMessageGetSent(tmps);
+				break;
+		}
 		sm.AddConn(*this);
 	}
 }
@@ -187,6 +200,7 @@ void twitcurlext::QueueAsyncExec() {
 			accountVerifyCredGet();
 			break;
 		case CS_TIMELINE:
+		case CS_DMTIMELINE:
 			return ExecRestGetTweetBackfill();
 		case CS_STREAM:
 			wxLogWarning(wxT("Queue Stream Connection"));

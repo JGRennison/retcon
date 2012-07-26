@@ -181,11 +181,17 @@ void taccount::AddUserFollowingThis(std::shared_ptr<userdatacontainer> ptr) {
 	}
 }
 
+void taccount::GetRestBackfill() {
+	StartRestGetTweetBackfill(GetMaxId(RBFS_TWEETS), 0, 10, RBFS_TWEETS);
+	StartRestGetTweetBackfill(GetMaxId(RBFS_RECVDM), 0, 5, RBFS_RECVDM);
+	StartRestGetTweetBackfill(GetMaxId(RBFS_SENTDM), 0, 5, RBFS_SENTDM);
+}
+
 //limits are inclusive
-void taccount::StartRestGetTweetBackfill(uint64_t start_tweet_id, uint64_t end_tweet_id, unsigned int max_tweets_to_read) {
+void taccount::StartRestGetTweetBackfill(uint64_t start_tweet_id, uint64_t end_tweet_id, unsigned int max_tweets_to_read, RBFS_TYPE type) {
 	twitcurlext *twit=cp.GetConn();
 	twit->TwInit(shared_from_this());
-	twit->connmode=CS_TIMELINE;
+	twit->connmode=(type==RBFS_TWEETS)?CS_TIMELINE:CS_DMTIMELINE;
 	twit->SetNoPerformFlag(true);
 	twit->post_action_flags=PAF_RESOLVE_PENDINGS;
 	twit->rbfs=std::make_shared<restbackfillstate>();
@@ -193,6 +199,7 @@ void taccount::StartRestGetTweetBackfill(uint64_t start_tweet_id, uint64_t end_t
 	twit->rbfs->end_tweet_id=end_tweet_id;
 	twit->rbfs->max_tweets_left=max_tweets_to_read;
 	twit->rbfs->read_again=true;
+	twit->rbfs->type=type;
 	twit->ExecRestGetTweetBackfill();
 }
 

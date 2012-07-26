@@ -713,12 +713,23 @@ bool twitCurl::userLookup( const std::string& userIdList /* in */, const std::st
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::directMessageGet()
+bool twitCurl::directMessageGet( const struct timelineparams &tmps )
 {
-    /* Perform GET */
-    return performGet( twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
+    /* Prepare URL */
+    std::string buildUrl = twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
                        twitterDefaults::TWITCURL_DIRECTMESSAGES_URL +
-                       twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType] );
+                       twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType];
+
+    std::string URLext;
+    UtilTimelineProcessParams(tmps, URLext);
+    if( URLext.size() )
+    {
+        buildUrl += twitCurlDefaults::TWITCURL_URL_SEP_QUES;
+        buildUrl += URLext.substr(1);	//chop off first &
+    }
+
+    /* Perform GET */
+    return performGet( buildUrl );
 }
 
 /*++
@@ -766,12 +777,23 @@ bool twitCurl::directMessageSend( const std::string& userInfo, const std::string
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::directMessageGetSent()
+bool twitCurl::directMessageGetSent(  const struct timelineparams &tmps )
 {
-    /* Perform GET */
-    return performGet( twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
+    /* Prepare URL */
+    std::string buildUrl = twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
                        twitterDefaults::TWITCURL_DIRECTMESSAGESSENT_URL +
-                       twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType] );
+                       twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType];
+
+    std::string URLext;
+    UtilTimelineProcessParams(tmps, URLext);
+    if( URLext.size() )
+    {
+        buildUrl += twitCurlDefaults::TWITCURL_URL_SEP_QUES;
+        buildUrl += URLext.substr(1);	//chop off first &
+    }
+
+    /* Perform GET */
+    return performGet( buildUrl );
 }
 
 /*++
