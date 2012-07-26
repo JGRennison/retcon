@@ -221,21 +221,14 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 	if(it!=ad.media_list.end()) {
 		media_entity &me=it->second;
 
-		wxMemoryInputStream memstream(data.data(), data.size());
-		wxImage img(memstream);
-
 		if(flags&MIDC_OPPORTUNIST_THUMB && !(flags&MIDC_THUMBIMG)) {
 			flags|=MIDC_THUMBIMG;
 			if(flags&MIDC_OPPORTUNIST_REDRAW_TWEETS) flags|=MIDC_REDRAW_TWEETS;
 		}
 
-		if(flags&MIDC_FULLIMG) {
-			me.fullimg=img;
-			me.flags|=ME_HAVE_FULL;
-			if(me.win) me.win->Update();
-		}
-
 		if(flags&MIDC_THUMBIMG) {
+			wxMemoryInputStream memstream(data.data(), data.size());
+			wxImage img(memstream);
 			const int maxdim=64;
 			if(img.GetHeight()>maxdim || img.GetWidth()>maxdim) {
 				double scalefactor=(double) maxdim / (double) std::max(img.GetHeight(), img.GetWidth());
@@ -245,6 +238,12 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 			}
 			else me.thumbimg=img;
 			me.flags|=ME_HAVE_THUMB;
+		}
+
+		if(flags&MIDC_FULLIMG) {
+			me.fulldata=std::move(data);
+			me.flags|=ME_HAVE_FULL;
+			if(me.win) me.win->Update();
 		}
 
 		if(flags&MIDC_REDRAW_TWEETS) {

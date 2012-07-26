@@ -526,7 +526,8 @@ bool media_display_win::GetImage(wxImage &img, wxString &message) {
 	media_entity *me=GetMediaEntity();
 	if(me) {
 		if(me->flags&ME_HAVE_FULL) {
-			img=me->fullimg;
+			wxMemoryInputStream memstream(me->fulldata.data(), me->fulldata.size());
+			img.LoadFile(memstream, wxBITMAP_TYPE_ANY);
 			me->fullsize.Set(img.GetWidth(),img.GetHeight());
 			return true;
 		}
@@ -563,7 +564,8 @@ void media_display_win::OnSave(wxCommandEvent &event) {
 		if(hint.EndsWith(wxT(":large"), &newhint)) hint=newhint;
 		wxString filename=wxFileSelector(wxT("Save Image"), wxT(""), hint, ext, wxT("*.*"), wxFD_SAVE | wxFD_OVERWRITE_PROMPT, this);
 		if(filename.Len()) {
-			me->fullimg.SaveFile(filename);
+			wxFile file(filename, wxFile::write);
+			file.Write(me->fulldata.data(), me->fulldata.size());
 		}
 	}
 }

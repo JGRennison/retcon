@@ -140,9 +140,9 @@ enum {
 struct media_entity {
 	uint64_t media_id;
 	std::string media_url;
+	std::string fulldata;	//the full unmodified content of the image data
 	wxSize fullsize;
 	wxImage thumbimg;
-	wxImage fullimg;
 	std::forward_list<std::shared_ptr<tweet> > tweet_list;
 	media_display_win *win;
 	unsigned int flags;
