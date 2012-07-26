@@ -1,7 +1,7 @@
 #include "retcon.h"
 
-#include "timegm.cpp"
 #ifdef __WINDOWS__
+#include "timegm.cpp"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #include "strptime.cpp"
@@ -359,5 +359,19 @@ void ParseTwitterDate(struct tm *createtm, time_t *createtm_t, const std::string
 	memset(createtm, 0, sizeof(struct tm));
 	*createtm_t=0;
 	strptime(created_at.c_str(), "%a %b %d %T +0000 %Y", createtm);
+	#ifdef __WINDOWS__
 	*createtm_t=rttimegm(createtm);
+	#else
+	char *tz;
+
+	tz = getenv("TZ");
+	setenv("TZ", "", 1);
+	tzset();
+	*createtm_t = mktime(createtm);
+	if (tz)
+	   setenv("TZ", tz, 1);
+	else
+	   unsetenv("TZ");
+	tzset();
+	#endif
 }

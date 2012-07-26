@@ -32,6 +32,7 @@ MCFLAGS= -Icurl -IC:/SourceCode/Libraries/wxWidgets2.8/include
 OBJS+=
 HDEPS:=
 EXECPREFIX:=
+twit.o$(POSTFIX): timegm.cpp
 
 ifdef x64
 GCC:=$(GCC64)
@@ -115,7 +116,7 @@ $(TCOBJS): %.o$(POSTFIX): %.cpp
 
 $(OBJS): retcon.h socket.h cfg.h parse.h twit.h tpanel.h optui.h libtwitcurl/twitcurl.h
 $(TCOBJS): libtwitcurl/*.h
-twit.o$(POSTFIX): strptime.cpp timegm.cpp
+twit.o$(POSTFIX): strptime.cpp
 
 
 .PHONY: clean install uninstall all
