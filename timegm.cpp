@@ -47,7 +47,7 @@ rttimegm(struct tm *tm) {
 	time_t res = 0;
 	int i;
 
-	for (i = 0 /*70*/; i < tm->tm_year; ++i)
+	for (i = 70; i < tm->tm_year; ++i)
 		res += is_leap(i) ? 366 : 365;
 
 	for (i = 0; i < tm->tm_mon; ++i)
