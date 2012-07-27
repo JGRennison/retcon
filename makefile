@@ -9,7 +9,7 @@
 #x64: set to true to compile for x86_64/win64
 
 
-OBJS:=retcon.o cfg.o optui.o parse.o socket.o tpanel.o twit.o
+OBJS:=retcon.o cfg.o optui.o parse.o socket.o tpanel.o twit.o db.o
 TCOBJS:=libtwitcurl/base64.o libtwitcurl/HMAC_SHA1.o libtwitcurl/oauthlib.o libtwitcurl/SHA1.o libtwitcurl/twitcurl.o libtwitcurl/urlencode.o
 OUTNAME:=retcon
 CFLAGS:=-O3 -Wextra -Wall -Wno-unused-parameter
@@ -27,12 +27,11 @@ LIBS32=-lcurl -lwxmsw28u -lwxjpeg -lwxpng -lwxtiff -lrtmp -lssh2 -lidn -lssl -lz
 LIBS64=
 GCC32=mingw32-g++
 GCC64=x86_64-w64-mingw32-g++
-MCFLAGS= -Icurl -IC:/SourceCode/Libraries/wxWidgets2.8/include
+MCFLAGS= -Icurl -IC:/SourceCode/Libraries/wxWidgets2.8/include -Isqlite -Izlib
 #-isystem .
-OBJS+=
+EXOBJS:=sqlite/sqlite3.o
 HDEPS:=
 EXECPREFIX:=
-twit.o$(POSTFIX): timegm.cpp
 
 ifdef x64
 GCC:=$(GCC64)
@@ -40,6 +39,7 @@ LIBS:=$(LIBS64)
 OUTNAME:=$(OUTNAME)64
 OBJS:=$(OBJS:.o=.o64)
 TCOBJS:=$(TCOBJS:.o=.o64)
+EXOBJS:=$(EXOBJS:.o=.o64)
 POSTFIX:=64
 CFLAGS2:=-mcx16
 PACKER:=mpress -s
@@ -56,17 +56,17 @@ GCC_MAJOR:=$(shell gcc -dumpversion | cut -d'.' -f1)
 GCC_MINOR:=$(shell gcc -dumpversion | cut -d'.' -f2)
 PLATFORM:=UNIX
 AFLAGS=
-LIBS:=-lpcre -lrt `wx-config --libs` -lcurl
+LIBS:=-lpcre -lrt `wx-config --libs` -lcurl -lsqlite
 MCFLAGS= `wx-config --cxxflags`
 GCC:=g++
 PACKER:=upx -9
-#OBJS+=
+EXOBJS:=
 #HDEPS:=
 ARCH:=$(shell test $(GCC_MAJOR) -gt 4 -o \( $(GCC_MAJOR) -eq 4 -a $(GCC_MINOR) -ge 2 \) && echo native)
 EXECPREFIX:=./
 endif
 
-ALL_OBJS:=$(OBJS) $(TCOBJS)
+ALL_OBJS:=$(OBJS) $(TCOBJS) $(EXOBJS)
 
 ifneq ($(ARCH),)
 CFLAGS2 += -march=$(ARCH)
@@ -114,9 +114,12 @@ endif
 $(TCOBJS): %.o$(POSTFIX): %.cpp
 	$(GCC) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(CXXFLAGS)
 
-$(OBJS): retcon.h socket.h cfg.h parse.h twit.h tpanel.h optui.h libtwitcurl/twitcurl.h
+$(OBJS): retcon.h socket.h cfg.h parse.h twit.h tpanel.h optui.h libtwitcurl/twitcurl.h db.h
 $(TCOBJS): libtwitcurl/*.h
 twit.o$(POSTFIX): strptime.cpp
+ifeq ($(PLATFORM),WIN)
+twit.o$(POSTFIX): timegm.cpp
+endif
 
 
 .PHONY: clean install uninstall all

@@ -2,8 +2,9 @@
 #include <cstdio>
 
 globconf gc;
-std::list<std::shared_ptr<taccount>> alist;
+std::list<std::shared_ptr<taccount> > alist;
 socketmanager sm;
+dbconn dbc;
 alldata ad;
 std::forward_list<mainframe*> mainframelist;
 std::forward_list<tpanelparentwin*> tpanelparentwinlist;
@@ -25,6 +26,7 @@ bool retcon::OnInit() {
 	sm.loghandle=fopen("retconcurllog.txt","a");
 	sm.InitMultiIOHandler();
 	ReadAllCFGIn(*wfc, gc, alist);
+	dbc.Init(std::string((wxStandardPaths::Get().GetUserDataDir() + wxT("/retcondb.sqlite3")).ToUTF8()));
 
 	ad.tpanels["[default]"]=std::make_shared<tpanel>("[default]");
 	ad.tpanels["[default]"]->MkTPanelWin(top);
@@ -46,6 +48,7 @@ int retcon::OnExit() {
 	wxConfigBase *wfc=wxConfigBase::Get();
 	WriteAllCFGOut(*wfc, gc, alist);
 	wfc->Flush();
+	dbc.DeInit();
 	return wxApp::OnExit();
 }
 

@@ -6,32 +6,27 @@ struct userdata {
 	std::string screen_name;
 	std::string profile_img_url;
 	bool isprotected;
-	std::weak_ptr<taccount> acc;
-	std::string created_at;		//fill this only once
-	time_t createtime_t;
+	time_t createtime;
 	std::string description;
 
-	std::string json;
+	userdata() : isprotected(0), createtime(0) { }
 };
 
 enum {
 	UDC_LOOKUP_IN_PROGRESS		= 1<<0,
 	UDC_IMAGE_DL_IN_PROGRESS	= 1<<1,
-	UDC_THIS_IS_ACC_USER_HINT	= 1<<2
+	UDC_THIS_IS_ACC_USER_HINT	= 1<<2,
+	UDC_PROFILE_BITMAP_SET		= 1<<3,
 };
 
 struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	uint64_t id;
 	userdata user;
-	long lastupdate;
+	uint64_t lastupdate;
 	unsigned int udc_flags;
 
-	std::string json;
-
 	std::string cached_profile_img_url;
-	std::shared_ptr<wxBitmap> cached_profile_img;
-	//std::shared_ptr<wxImage> cached_profile_img;
-
+	wxBitmap cached_profile_img;
 	std::forward_list<std::shared_ptr<tweet> > pendingtweets;
 
 	bool NeedsUpdating();
@@ -41,6 +36,8 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	void GetImageLocalFilename(wxString &filename);
 	inline userdata &GetUser() { return user; }
 	void MarkUpdated();
+	std::string mkjson();
+	void SetProfileBitmapFromwxImage(wxImage &img);
 	void Dump();
 };
 
@@ -59,6 +56,7 @@ struct tweet_flags {
 		if(num>=0) bits.set(num, value);
 	}
 	std::string GetString();
+	unsigned long long Save() { return bits.to_ullong(); }
 	protected:
 	std::bitset<62> bits;
 
@@ -66,14 +64,16 @@ struct tweet_flags {
 };
 
 struct tweet_perspective {
-	tweet_perspective(std::shared_ptr<taccount> &tac) : acc(tac), flags(0) { }
 	std::shared_ptr<taccount> acc;
-
 	enum {
 		TP_IAH	= 1<<0,
 		TP_FAV	= 1<<1,
 		TP_RET	= 1<<2,
 	};
+
+	tweet_perspective(std::shared_ptr<taccount> &tac) : acc(tac), flags(0) { }
+	void Load(unsigned int fl) { flags=fl; }
+	unsigned int Save() { return flags; }
 
 	bool IsArrivedHere() { return flags&TP_IAH; }
 	bool IsFavourited() { return flags&TP_FAV; }
@@ -90,25 +90,28 @@ struct tweet_perspective {
 	//bool retweeted;
 };
 
+enum {	//for tweet.lflags
+	TLF_DYNDIRTY	= 1<<0,
+};
+
 struct tweet {
 	uint64_t id;
 	uint64_t in_reply_to_status_id;
 	unsigned int retweet_count;
 	std::string source;
 	std::string text;
-	std::string created_at;
-	time_t createtime_t;
+	time_t createtime;
 	std::shared_ptr<userdatacontainer> user;		//for DMs this is the sender
 	std::shared_ptr<userdatacontainer> user_recipient;	//for DMs this is the recipient, for tweets, unset
 	std::forward_list<entity> entlist;
 	std::forward_list<tweet_perspective> tp_list;
 
-	std::string json;
-
 	tweet_flags flags;
+	unsigned int lflags;
 
 	void Dump();
 	tweet_perspective *AddTPToTweet(std::shared_ptr<taccount> &tac, bool *isnew=0);
+	std::string mkdynjson();
 };
 
 typedef enum {

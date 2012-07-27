@@ -170,5 +170,3 @@ struct socketmanager : public wxEvtHandler {
 
 	DECLARE_EVENT_TABLE()
 };
-
-extern socketmanager sm;

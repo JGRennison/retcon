@@ -144,7 +144,7 @@ tweetdispscr *tpanelparentwin::PushTweet(std::shared_ptr<tweet> t, size_t index)
 	//if(tpw) tpw->PushTweet(t);
 	wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
 	tweetdispscr *td=new tweetdispscr(t, this, hbox);
-	td->bm = new wxStaticBitmap(this, wxID_ANY, *t->user->cached_profile_img, wxPoint(-1000, -1000));
+	td->bm = new wxStaticBitmap(this, wxID_ANY, t->user->cached_profile_img, wxPoint(-1000, -1000));
 	//wxBitmapButton *bm=new wxBitmapButton(this, wxID_ANY, *t->t->user->cached_profile_img);
 
 	hbox->Add(td->bm, 0, wxALL, 2);

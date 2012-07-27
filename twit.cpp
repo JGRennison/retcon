@@ -63,7 +63,7 @@ void twitcurlext::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 	jsonparser jp(connmode, acc, this);
 	std::string str;
 	getLastWebResponseMove(str);
-	jp.ParseString((char*) str.c_str());	//this modifies the contents of str!!
+	jp.ParseString(str);
 	str.clear();
 
 	KillConn();
@@ -170,7 +170,7 @@ bool twitcurlext::TwSyncStartupAccVerify() {
 		jsonparser jp(CS_ACCVERIFY, tacc.lock(), this);
 		std::string str;
 		getLastWebResponse(str);
-		jp.ParseString((char*) str.c_str());	//this modifies the contents of str!!
+		jp.ParseString(str);
 		str.clear();
 		tacc.lock()->verifycredinprogress=false;
 		return true;
@@ -244,12 +244,23 @@ void streamconntimeout::Notify() {
 bool userdatacontainer::NeedsUpdating() {
 	if(!lastupdate) return true;
 	else {
-		if((wxGetUTCTime()-lastupdate)>gc.userexpiretime) return true;
+		if((time(0)-lastupdate)>gc.userexpiretime) return true;
 		else return false;
 	}
 }
 
 bool userdatacontainer::IsReady() {
+	if(cached_profile_img_url.size() && !(udc_flags&UDC_PROFILE_BITMAP_SET))  {
+		wxImage img;
+		wxString filename;
+		GetImageLocalFilename(filename);
+		if(img.LoadFile(filename)) SetProfileBitmapFromwxImage(img);
+		else {					//the saved image is not loadable, clear cache and re-download
+			cached_profile_img_url.clear();
+			profileimgdlconn::GetConn(user.profile_img_url, shared_from_this());
+			return false;
+		}
+	}
 	if(NeedsUpdating()) return false;
 	else if( udc_flags & (UDC_LOOKUP_IN_PROGRESS|UDC_IMAGE_DL_IN_PROGRESS)) return false;
 	else return true;
@@ -288,12 +299,44 @@ void userdatacontainer::GetImageLocalFilename(wxString &filename) {
 }
 
 void userdatacontainer::MarkUpdated() {
-	lastupdate=wxGetUTCTime();
+	lastupdate=time(0);
 	if(user.profile_img_url.size()) {
 		if(cached_profile_img_url!=user.profile_img_url) {
 			profileimgdlconn::GetConn(user.profile_img_url, shared_from_this());
 		}
 	}
+}
+
+std::string userdatacontainer::mkjson() {
+	std::string json;
+	writestream wr(json);
+	Handler jw(wr);
+	jw.StartObject();
+	jw.String("name");
+	jw.String(user.name);
+	jw.String("screen_name");
+	jw.String(user.screen_name);
+
+	if(cached_profile_img_url!=user.profile_img_url) {	//don't bother writing it if it's the same as the cached image url
+		jw.String("profile_img_url");
+		jw.String(user.profile_img_url);
+	}
+
+	jw.String("protected");
+	jw.Bool(user.isprotected);
+	jw.EndObject();
+	return json;
+}
+
+void userdatacontainer::SetProfileBitmapFromwxImage(wxImage &img) {	//modifies img
+	if(img.GetHeight()>(int) gc.maxpanelprofimgsize || img.GetWidth()>(int) gc.maxpanelprofimgsize) {
+		double scalefactor=(double) gc.maxpanelprofimgsize / (double) std::max(img.GetHeight(), img.GetWidth());
+		int newwidth = (double) img.GetWidth() * scalefactor;
+		int newheight = (double) img.GetHeight() * scalefactor;
+		img.Rescale(std::lround(newwidth), std::lround(newheight), wxIMAGE_QUALITY_HIGH);
+	}
+	cached_profile_img=wxBitmap(img);
+	udc_flags|=UDC_PROFILE_BITMAP_SET;
 }
 
 std::string tweet_flags::GetString() {
@@ -319,13 +362,33 @@ tweet_perspective *tweet::AddTPToTweet(std::shared_ptr<taccount> &tac, bool *isn
 	return &tp_list.front();
 }
 
+std::string tweet::mkdynjson() {
+	std::string json;
+	writestream wr(json);
+	Handler jw(wr);
+	jw.StartObject();
+	jw.String("p");
+	jw.StartArray();
+	for(auto it=tp_list.begin(); it!=tp_list.end(); ++it) {
+		jw.StartObject();
+		jw.String("f");
+		jw.Uint(it->Save());
+		jw.String("a");
+		jw.Uint(it->acc->dbindex);
+		jw.EndObject();
+	}
+	jw.EndArray();
+	jw.EndObject();
+	return json;
+}
+
 void StreamCallback( std::string &data, twitCurl* pTwitCurlObj, void *userdata ) {
 	twitcurlext *obj=(twitcurlext*) pTwitCurlObj;
 	std::shared_ptr<taccount> acc=obj->tacc.lock();
 
 	wxLogWarning(wxT("Received: %s"), wxstrstd(data).c_str());
 	jsonparser jp(CS_STREAM, acc, obj);
-	jp.ParseString((char*) data.c_str());	//this modifies the contents of data!!
+	jp.ParseString(data);
 	data.clear();
 }
 

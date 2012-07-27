@@ -73,6 +73,7 @@ struct media_display_win;
 #include "parse.h"
 #include "tpanel.h"
 #include "optui.h"
+#include "db.h"
 
 enum
 {
@@ -104,6 +105,8 @@ struct taccount : std::enable_shared_from_this<taccount> {
 			default: return max_tweet_id;
 		}
 	}
+
+	unsigned int dbindex;
 
 	connpool<twitcurlext> cp;
 
@@ -206,6 +209,8 @@ struct logwindow : public wxLogWindow {
 mainframe *GetMainframeAncestor(wxWindow *in, bool passtoplevels=false);
 
 extern std::list<std::shared_ptr<taccount>> alist;
+extern socketmanager sm;
+extern dbconn dbc;
 extern alldata ad;
 extern std::forward_list<mainframe*> mainframelist;
 extern std::forward_list<tpanelparentwin*> tpanelparentwinlist;

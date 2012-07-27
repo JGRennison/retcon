@@ -133,11 +133,12 @@ void profileimgdlconn::DoRetry() {
 
 void profileimgdlconn::HandleFailure() {
 	if(url==user->GetUser().profile_img_url) {
-		if(!user->cached_profile_img) {	//generate a placeholder image
-			user->cached_profile_img=std::make_shared<wxBitmap>(48,48,-1);
-			wxMemoryDC dc(*user->cached_profile_img);
+		if(!user->udc_flags&UDC_PROFILE_BITMAP_SET) {	//generate a placeholder image
+			user->cached_profile_img.Create(48,48,-1);
+			wxMemoryDC dc(user->cached_profile_img);
 			dc.SetBackground(wxBrush(wxColour(0,0,0,wxALPHA_TRANSPARENT)));
 			dc.Clear();
+			user->udc_flags|=UDC_PROFILE_BITMAP_SET;
 		}
 		user->udc_flags&=~UDC_IMAGE_DL_IN_PROGRESS;
 		user->CheckPendingTweets();
@@ -167,15 +168,7 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 
 		//user->cached_profile_img=std::make_shared<wxImage>(memstream);
 		wxImage img(memstream);
-
-		if(img.GetHeight()>(int) gc.maxpanelprofimgsize || img.GetWidth()>(int) gc.maxpanelprofimgsize) {
-			double scalefactor=(double) gc.maxpanelprofimgsize / (double) std::max(img.GetHeight(), img.GetWidth());
-			int newwidth = (double) img.GetWidth() * scalefactor;
-			int newheight = (double) img.GetHeight() * scalefactor;
-			img.Rescale(std::lround(newwidth), std::lround(newheight), wxIMAGE_QUALITY_HIGH);
-		}
-
-		user->cached_profile_img=std::make_shared<wxBitmap>(img);
+		user->SetProfileBitmapFromwxImage(img);
 
 		user->cached_profile_img_url=url;
 		data.clear();
