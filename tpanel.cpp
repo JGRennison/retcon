@@ -288,7 +288,7 @@ void tweetdispscr::DisplayTweet() {
 	BeginBold();
 	WriteText(wxT("@") + wxstrstd(udc.GetUser().screen_name));
 	EndBold();
-	wxString timestr=rc_wx_strftime(gc.gcfg.datetimeformat.val, localtime(&tw.createtime_t));
+	wxString timestr=rc_wx_strftime(gc.gcfg.datetimeformat.val, localtime(&tw.createtime), tw.createtime);
 	WriteText(wxT(" - ") + timestr);
 	WriteText(wxT(" - ") + wxstrstd(tw.flags.GetString()));
 	Newline();
@@ -586,9 +586,9 @@ bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid) {
 	return false;
 }
 
-wxString rc_wx_strftime(const wxString &format, const struct tm *tm) {
+wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t timestamp) {
 	#ifdef __WINDOWS__	//%z is broken in MSVCRT, use a replacement
-				//also add %F, %R, %T
+				//also add %F, %R, %T, %s
 				//this is adapted from npipe var.cpp
 	wxString newfmt;
 	newfmt.Alloc(format.length());
@@ -603,8 +603,9 @@ wxString rc_wx_strftime(const wxString &format, const struct tm *tm) {
 				int mm;
 				if(true /*localtime*/) {
 					TIME_ZONE_INFORMATION info;
-					GetTimeZoneInformation(&info);
+					DWORD res = GetTimeZoneInformation(&info);
 					int bias = - info.Bias;
+					if(res==TIME_ZONE_ID_DAYLIGHT) bias-=info.DaylightBias;
 					hh = bias / 60;
 					if(bias<0) bias=-bias;
 					mm = bias % 60;
@@ -622,6 +623,9 @@ wxString rc_wx_strftime(const wxString &format, const struct tm *tm) {
 			}
 			else if(ch[1]=='T') {
 				insert=wxT("%H:%M:%S");
+			}
+			else if(ch[1]=='s') {
+				insert.Printf(wxT("%" wxLongLongFmtSpec "d"), (long long int) timestamp);
 			}
 			else if(ch[1]) {
 				ch++;

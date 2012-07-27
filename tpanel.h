@@ -109,7 +109,7 @@ struct media_display_win : public wxFrame {
 };
 
 bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid=0);
-wxString rc_wx_strftime(const wxString &format, const struct tm *tm);
+wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t timestamp=0);
 
 //struct tpanelwin : public wxRichTextCtrl {
 //	tpanelparentwin *tppw;
