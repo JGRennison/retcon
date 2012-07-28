@@ -11,7 +11,7 @@ const unsigned char profimgdictionary[]="http://https://si0.twimg.com/profile_im
 const char *startup_sql=
 "CREATE TABLE IF NOT EXISTS tweets(id INTEGER PRIMARY KEY NOT NULL, statjson BLOB, dynjson BLOB, userid INTEGER, userrecipid INTEGER, flags INTEGER, timestamp INTEGER);"
 "CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY NOT NULL, json BLOB, cachedprofimgurl BLOB, createtimestamp INTEGER, lastupdatetimestamp INTEGER);"
-"CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, json BLOB);";
+"CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, json BLOB, tweetids BLOB, dmids BLOB);";
 
 const char *sql[]={
 	"INSERT INTO tweets(id, statjson, dynjson, userid, userrecipid, flags, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?);",
@@ -19,6 +19,8 @@ const char *sql[]={
 	"BEGIN;",
 	"COMMIT;",
 	"INSERT INTO users(id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp) VALUES (?, ?, ?, ?, ?);",
+	"INSERT INTO acc (name) VALUES (?);",
+	"UPDATE acc SET tweetids = ?, dmids = ? WHERE id == ?;"
 };
 
 int busy_handler_callback(void *ptr, int count) {
@@ -83,7 +85,7 @@ static unsigned char *DoCompress(const std::string &in, size_t &sz, unsigned cha
 	const unsigned char *dict;
 	size_t dict_size;
 	bool compress=TagToDict(tag, dict, dict_size);
-	if(compress && in.size()>=50) {
+	if(compress && in.size()>=100) {
 		z_stream strm;
 		strm.zalloc = Z_NULL;
 		strm.zfree = Z_NULL;
@@ -94,10 +96,10 @@ static unsigned char *DoCompress(const std::string &in, size_t &sz, unsigned cha
 		size_t maxsize=deflateBound(&strm, in.size());
 		data=(unsigned char *) malloc(maxsize+HEADERSIZE);
 		data[0]=tag;
-		data[1]=in.size()&0xFF;
-		data[2]=(in.size()>>8)&0xFF;
-		data[3]=(in.size()>>16)&0xFF;
-		data[4]=(in.size()>>24)&0xFF;
+		data[1]=(in.size()>>24)&0xFF;
+		data[2]=(in.size()>>16)&0xFF;
+		data[3]=(in.size()>>8)&0xFF;
+		data[4]=(in.size()>>0)&0xFF;
 		strm.avail_in=in.size();
 		strm.next_in=(unsigned char *) in.data();
 		strm.avail_out=maxsize;
@@ -125,11 +127,15 @@ static unsigned char *DoCompress(const std::string &in, size_t &sz, unsigned cha
 	return data;
 }
 
-static void bind_compressed(sqlite3_stmt* stmt, int num, const std::string &in, unsigned char tag='Z') {
+enum {
+	BINDCF_NONTEXT		= 1<<0,
+};
+
+static void bind_compressed(sqlite3_stmt* stmt, int num, const std::string &in, unsigned char tag='Z', unsigned int flags=0) {
 	size_t comsize;
 	bool iscompressed;
 	unsigned char *com=DoCompress(in, comsize, tag, &iscompressed);
-	if(iscompressed) sqlite3_bind_blob(stmt, num, com, comsize, &free);
+	if(iscompressed || flags&BINDCF_NONTEXT) sqlite3_bind_blob(stmt, num, com, comsize, &free);
 	else sqlite3_bind_text(stmt, num, (const char *) com, comsize, &free);
 }
 
@@ -167,7 +173,7 @@ static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsiz
 	strm.avail_in = insize-HEADERSIZE;
 	inflateInit(&strm);
 	outsize=0;
-	for(unsigned int i=4; i>=1; i--) {
+	for(unsigned int i=1; i<5; i++) {
 		outsize<<=8;
 		outsize+=in[i];
 	}
@@ -372,6 +378,7 @@ void dbconn::DeInit() {
 	}
 
 	SyncWriteBackAllUsers(syncdb);
+	AccountIdListsSync(syncdb);
 
 	sqlite3_close(syncdb);
 }
@@ -396,8 +403,9 @@ void dbconn::UpdateTweetDyn(const std::shared_ptr<tweet> &tobj) {
 	SendMessage(msg);
 }
 
+//tweetids, dmids are little endian in database
 void dbconn::AccountSync(sqlite3 *adb) {
-	const char getacc[]="SELECT id, name FROM acc;";
+	const char getacc[]="SELECT id, name, tweetids, dmids FROM acc;";
 	auto acclist=alist;	//copy list
 	sqlite3_stmt *getstmt;
 	sqlite3_prepare_v2(adb, getacc, sizeof(getacc)+1, &getstmt, 0);
@@ -406,29 +414,97 @@ void dbconn::AccountSync(sqlite3 *adb) {
 		if(res==SQLITE_ROW) {
 			unsigned int id=(unsigned int) sqlite3_column_int(getstmt, 0);
 			wxString name=wxString::FromUTF8((const char*) sqlite3_column_text(getstmt, 1));
+			taccount *acc=0;
 			acclist.remove_if([&](const std::shared_ptr<taccount> &t) {
 				if(t->name==name) {
 					t->dbindex=id;
+					acc=t.get();
 					return true;
 				}
 				else return false;
 			});
+			if(acc) {
+				size_t tweetarraysize;
+				//unsigned char *tweetarray=(unsigned char*) column_get_compressed(getstmt, 3, tweetarraysize);
+				const unsigned char *tweetarray=(const unsigned char*) sqlite3_column_blob(getstmt, 3);
+				tweetarraysize=sqlite3_column_bytes(getstmt, 3);
+				tweetarraysize&=~7;
+				for(unsigned int i=0; i<tweetarraysize; i+=8) {		//stored in big endian format
+					uint64_t id=0;
+					for(unsigned int j=0; j<8; j++) id<<=8, id|=tweetarray[i+j];
+					acc->tweet_ids.insert(id);
+				}
+				size_t dmarraysize;
+				//unsigned char *dmarray=(unsigned char*) column_get_compressed(getstmt, 4, dmarraysize);
+				const unsigned char *dmarray=(const unsigned char*) sqlite3_column_blob(getstmt, 4);
+				dmarraysize=sqlite3_column_bytes(getstmt, 4);
+				dmarraysize&=~7;
+				for(unsigned int i=0; i<dmarraysize; i+=8) {		//stored in big endian format
+					uint64_t id=0;
+					for(unsigned int j=0; j<8; j++) id<<=8, id|=dmarray[i+j];
+					acc->dm_ids.insert(id);
+				}
+				//free(tweetarray);
+				//free(dmarray);
+			}
 		}
 		else break;
 	} while(true);
 	sqlite3_finalize(getstmt);
 	if(!acclist.empty()) {
-		const char setacc[]="INSERT INTO acc (name) VALUES (?);";
-		sqlite3_stmt *setstmt;
-		sqlite3_prepare_v2(adb, setacc, sizeof(setacc)+1, &setstmt, 0);
 		for(auto it=acclist.begin(); it!=acclist.end(); ++it) {
-			sqlite3_bind_text(setstmt, 1, (*it)->name.ToUTF8(), -1, SQLITE_TRANSIENT);
-			sqlite3_step(setstmt);
-			(*it)->dbindex=(unsigned int) sqlite3_last_insert_rowid(adb);
-			sqlite3_reset(setstmt);
+			SyncInsertNewAccount(adb, **it);
 		}
-		sqlite3_finalize(setstmt);
 	}
+}
+
+inline void writebeuint64(unsigned char* data, uint64_t id) {
+	data[0]=(id>>56)&0xFF;
+	data[1]=(id>>48)&0xFF;
+	data[2]=(id>>40)&0xFF;
+	data[3]=(id>>32)&0xFF;
+	data[4]=(id>>24)&0xFF;
+	data[5]=(id>>16)&0xFF;
+	data[6]=(id>>8)&0xFF;
+	data[7]=(id>>0)&0xFF;
+}
+
+static unsigned char *settoblob(const std::set<uint64_t> &set, size_t &size) {
+	size=set.size()*8;
+	unsigned char *data=(unsigned char *) malloc(size);
+	unsigned char *curdata=data;
+	for(auto it=set.cbegin(); it!=set.cend(); ++it) {
+		writebeuint64(curdata, *it);
+		curdata+=8;
+	}
+	return data;
+}
+
+void dbconn::AccountIdListsSync(sqlite3 *adb) {
+	sqlite3_stmt *setstmt=cache.GetStmt(adb, DBPSC_UPDATEACCIDLISTS);
+	for(auto it=alist.begin(); it!=alist.end(); ++it) {
+		size_t size;
+		unsigned char *data;
+
+		data=settoblob((*it)->tweet_ids, size);
+		sqlite3_bind_blob(setstmt, 1, data, size, &free);
+
+		data=settoblob((*it)->dm_ids, size);
+		sqlite3_bind_blob(setstmt, 2, data, size, &free);
+
+		sqlite3_bind_int(setstmt, 3, (*it)->dbindex);
+
+		sqlite3_step(setstmt);
+		sqlite3_reset(setstmt);
+	}
+}
+
+void dbconn::SyncInsertNewAccount(sqlite3 *adb, taccount &acc) {
+	sqlite3_stmt *setstmt=cache.GetStmt(adb, DBPSC_INSERTNEWACC);
+	sqlite3_bind_text(setstmt, 1, acc.name.ToUTF8(), -1, SQLITE_TRANSIENT);
+	sqlite3_step(setstmt);
+	acc.dbindex=(unsigned int) sqlite3_last_insert_rowid(adb);
+	sqlite3_reset(setstmt);
 }
 
 void dbconn::SyncWriteBackAllUsers(sqlite3 *adb) {

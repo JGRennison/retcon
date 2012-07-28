@@ -392,6 +392,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, boo
 
 	if(is_new_tweet_perspective) {	//this filters out duplicate tweets from the same account
 		if(!isdm) {
+			tac->tweet_ids.insert(tweetid);
 			uint64_t userid=val["user"]["id"].GetUint64();
 			tobj->user=CheckParseUserObj(userid, val["user"], *this);
 
@@ -405,6 +406,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, boo
 			}
 		}
 		else {	//direct message
+			tac->dm_ids.insert(tweetid);
 			uint64_t senderid=val["sender_id"].GetUint64();
 			uint64_t recipientid=val["recipient_id"].GetUint64();
 			tobj->user=CheckParseUserObj(senderid, val["sender"], *this);

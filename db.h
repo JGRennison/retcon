@@ -8,7 +8,8 @@ typedef enum {
 	DBPSC_BEGIN,
 	DBPSC_COMMIT,
 	DBPSC_INSUSER,
-	DBPSC_GETUSER,
+	DBPSC_INSERTNEWACC,
+	DBPSC_UPDATEACCIDLISTS,
 
 	DBPSC_NUM_STATEMENTS,
 } DBPSC_TYPE;
@@ -92,4 +93,6 @@ struct dbconn : public wxEvtHandler {
 	void AccountSync(sqlite3 *adb);
 	void SyncWriteBackAllUsers(sqlite3 *adb);
 	void SyncReadInAllUsers(sqlite3 *adb);
+	void SyncInsertNewAccount(sqlite3 *adb, taccount &acc);
+	void AccountIdListsSync(sqlite3 *adb);
 };

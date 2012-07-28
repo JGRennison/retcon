@@ -8,6 +8,7 @@
 #include <forward_list>
 #include <stack>
 #include <unordered_set>
+#include <set>
 #include <string>
 #include <list>
 #include <vector>
@@ -114,6 +115,10 @@ struct taccount : std::enable_shared_from_this<taccount> {
 
 	std::unordered_map<uint64_t,std::shared_ptr<userdatacontainer> > usersfollowed;
 	std::unordered_map<uint64_t,std::weak_ptr<userdatacontainer> > usersfollowingthis; //partial list
+
+	//any tweet or DM in this list *must* be either in ad.tweetobjs, or in the database
+	std::set<uint64_t> tweet_ids;
+	std::set<uint64_t> dm_ids;
 
 	void ClearUsersFollowed();
 	void RemoveUserFollowed(std::shared_ptr<userdatacontainer> ptr);
