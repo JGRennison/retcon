@@ -21,14 +21,33 @@ struct tweetdispscr : public wxRichTextCtrl {
 
 };
 
+enum {
+	TPF_CANLOADMOREFROMDB	= 1<<0,
+	TPF_ISAUTO				= 1<<1,
+	TPF_SAVETODB			= 1<<2,
+	TPF_AUTO_DM				= 1<<3,
+	TPF_AUTO_TW				= 1<<4,
+	TPF_AUTO_ACC			= 1<<5,
+	TPF_AUTO_ALLACCS		= 1<<6,
+	TPF_DELETEONWINCLOSE	= 1<<7,
+};
+
 struct tpanel : std::enable_shared_from_this<tpanel> {
 	std::string name;
+	std::string dispname;
 	std::map<uint64_t,std::shared_ptr<tweet> > tweetlist;
 	std::forward_list<tpanelparentwin*> twin;
+	unsigned int flags;
+	std::shared_ptr<taccount> assoc_acc;
+	std::set<uint64_t> storedids;		//any tweet or DM in this list *must* be either in ad.tweetobjs, or in the database
 
-	tpanel(std::string name_);
+	static std::shared_ptr<tpanel> MkTPanel(const std::string &name_, const std::string &dispname_, unsigned int flags_=0, std::shared_ptr<taccount> *acc=0);
+	tpanel(const std::string &name_, const std::string &dispname_, unsigned int flags_=0, std::shared_ptr<taccount> *acc=0);		//don't use this directly
+
 	void PushTweet(std::shared_ptr<tweet> t);
+	void LoadPushTweet(uint64_t id);
 	tpanelparentwin *MkTPanelWin(mainframe *parent);
+	void OnTPanelWinClose(tpanelparentwin *tppw);
 };
 
 struct tpanelnotebook : public wxAuiNotebook {

@@ -28,10 +28,11 @@ bool retcon::OnInit() {
 	ReadAllCFGIn(*wfc, gc, alist);
 	dbc.Init(std::string((wxStandardPaths::Get().GetUserDataDir() + wxT("/retcondb.sqlite3")).ToUTF8()));
 
-	ad.tpanels["[default]"]=std::make_shared<tpanel>("[default]");
-	ad.tpanels["[default]"]->MkTPanelWin(top);
-	ad.tpanels["[default2]"]=std::make_shared<tpanel>("[default2]");
-	ad.tpanels["[default2]"]->MkTPanelWin(top);
+	//temp
+	if(globallogwindow) globallogwindow->Show(true);
+
+	tpanel::MkTPanel("[default]", "[default]")->MkTPanelWin(top);
+	tpanel::MkTPanel("[default2]", "[default2]")->MkTPanelWin(top);
 
 	top->Show(true);
 	SetTopWindow(top);

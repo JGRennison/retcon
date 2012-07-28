@@ -17,9 +17,51 @@ void tpanel::PushTweet(std::shared_ptr<tweet> t) {
 	}
 }
 
-tpanel::tpanel(std::string name_) {
+tpanel::tpanel(const std::string &name_, const std::string &dispname_, unsigned int flags_, std::shared_ptr<taccount> *acc) : name(name_), dispname(dispname_), flags(flags_) {
 	twin.clear();
-	name=name_;
+	if(acc) assoc_acc=*acc;
+}
+
+std::shared_ptr<tpanel> tpanel::MkTPanel(const std::string &name_, const std::string &dispname_, unsigned int flags_, std::shared_ptr<taccount> *acc) {
+	std::shared_ptr<tpanel> &ref=ad.tpanels[name_];
+	if(!ref) {
+		ref=std::make_shared<tpanel>(name_, dispname_, flags_, acc);
+	}
+	return ref;
+}
+
+void tpanel::OnTPanelWinClose(tpanelparentwin *tppw) {
+	twin.remove(tppw);
+	if(twin.empty() && flags&TPF_DELETEONWINCLOSE) {
+		ad.tpanels.erase(name);
+	}
+}
+
+//if lessthanid is non-zero, is an exclusive upper id limit
+void tpanel::LoadMore(unsigned int n, uint64_t lessthanid=0) {
+	std::forward_list<taccount &> accs;
+	std::forward_list<std::set<uint64_t> &> idsets;
+	std::forward_list<std::pair<std::const_iterator, std::const_iterator> &> its;
+
+	if(flags&TPF_ISAUTO) {
+		if(flags&TPF_AUTO_ACC) acc.push_front(*assoc_acc);
+		else if(flags&TPF_AUTO_ALLACCS) {
+			for(auto it=alist.begin(); it!=alist.end(); ++it) acc.push_front(**it);
+		}
+		for(auto it=accs.begin(); it!=accs.end(); ++it) {
+			if(flags&TPF_AUTO_DM) idsets.push_front(it->dm_ids);
+			if(flags&TPF_AUTO_TW) idsets.push_front(it->tweet_ids);
+		}
+	}
+	else idsets.push_front(storedids);
+
+	for(auto it=idsets.begin(); it!=idsets.end(); ++it) {
+		if(lessthanid) stit=it->lower_bound(lessthanid);
+		else stit=it->cend();
+		if(stit!=it->cbegin()) {
+			stit--;
+		}
+	}
 }
 
 BEGIN_EVENT_TABLE(tpanelnotebook, wxAuiNotebook)
@@ -115,7 +157,7 @@ tpanelparentwin::tpanelparentwin(std::shared_ptr<tpanel> tp_, mainframe *parent)
 }
 
 tpanelparentwin::~tpanelparentwin() {
-	tp->twin.remove(this);
+	tp->OnTPanelWinClose(this);
 	tpanelparentwinlist.remove(this);
 }
 
