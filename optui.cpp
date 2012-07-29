@@ -325,7 +325,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 }
 
 settings_window::~settings_window() {
-
+	UpdateAllTweets();
 }
 
 void settings_window::ChoiceCtrlChange(wxCommandEvent &event) {

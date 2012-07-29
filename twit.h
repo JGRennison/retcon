@@ -1,5 +1,6 @@
 void HandleNewTweet(const std::shared_ptr<tweet> &t);
 void UpdateTweet(const std::shared_ptr<tweet> &t);
+void UpdateAllTweets();
 
 struct userdata {
 	std::string name;

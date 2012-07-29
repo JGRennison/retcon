@@ -22,11 +22,11 @@ void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map) {
 	map.clear();
 
 	int nextid=tpanelmenustartid;
-	PerAccTPanelMenu(menuP, map, nextid, TPF_ISAUTO | TPF_AUTO_ALLACCS, 0);
+	PerAccTPanelMenu(menuP, map, nextid, TPF_ISAUTO | TPF_AUTO_ALLACCS | TPF_DELETEONWINCLOSE, 0);
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
 		wxMenu *submenu = new wxMenu;
 		menuP->AppendSubMenu(submenu, (*it)->dispname);
-		PerAccTPanelMenu(submenu, map, nextid, TPF_ISAUTO | TPF_AUTO_ACC, (*it)->dbindex);
+		PerAccTPanelMenu(submenu, map, nextid, TPF_ISAUTO | TPF_AUTO_ACC | TPF_DELETEONWINCLOSE, (*it)->dbindex);
 	}
 }
 

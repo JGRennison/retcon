@@ -11,6 +11,23 @@
 void HandleNewTweet(const std::shared_ptr<tweet> &t) {
 	//do some filtering, etc
 	ad.tpanels["[default]"]->PushTweet(t);
+
+	for(auto it=ad.tpanels.begin(); it!=ad.tpanels.end(); ++it) {
+		tpanel &tp=*(it->second);
+		if(tp.flags&TPF_ISAUTO) {
+			if((tp.flags&TPF_AUTO_DM && t->flags.Get('D')) || (tp.flags&TPF_AUTO_TW && t->flags.Get('T'))) {
+				if(tp.flags&TPF_AUTO_ALLACCS) tp.PushTweet(t);
+				else if(tp.flags&TPF_AUTO_ACC) {
+					for(auto jt=t->tp_list.begin(); jt!=t->tp_list.end(); ++jt) {
+						if((*jt).acc.get()==tp.assoc_acc.get() && (*jt).IsArrivedHere()) {
+							tp.PushTweet(t);
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 void UpdateTweet(const std::shared_ptr<tweet> &t) {
@@ -21,6 +38,14 @@ void UpdateTweet(const std::shared_ptr<tweet> &t) {
 				jt->second->DisplayTweet();
 				break;
 			}
+		}
+	}
+}
+
+void UpdateAllTweets() {
+	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
+		for(auto jt=(*it)->currentdisp.begin(); jt!=(*it)->currentdisp.end(); ++jt) {
+			jt->second->DisplayTweet();
 		}
 	}
 }
