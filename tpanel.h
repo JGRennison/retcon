@@ -18,7 +18,7 @@ struct tweetdispscr : public wxRichTextCtrl {
 
 	tweetdispscr(std::shared_ptr<tweet> td_, tpanelparentwin *tppw_, wxBoxSizer *hbox_);
 	~tweetdispscr();
-	void DisplayTweet();
+	void DisplayTweet(bool redrawimg=false);
 	void DoResize();
 
 	void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,

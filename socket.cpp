@@ -175,6 +175,7 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 		data.clear();
 		user->udc_flags&=~UDC_IMAGE_DL_IN_PROGRESS;
 		user->CheckPendingTweets();
+		UpdateUsersTweet(user->id, true);
 	}
 	KillConn();
 	cp.Standby(this);

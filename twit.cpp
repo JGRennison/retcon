@@ -30,22 +30,36 @@ void HandleNewTweet(const std::shared_ptr<tweet> &t) {
 	}
 }
 
-void UpdateTweet(const std::shared_ptr<tweet> &t) {
+void UpdateTweet(const std::shared_ptr<tweet> &t, bool redrawimg) {
 	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
 		for(auto jt=(*it)->currentdisp.begin(); jt!=(*it)->currentdisp.end(); ++jt) {
 			if(jt->first==t->id) {	//found matching entry
 				wxLogWarning(wxT("UpdateTweet: Found Entry %" wxLongLongFmtSpec "d."), t->id);
-				jt->second->DisplayTweet();
+				jt->second->DisplayTweet(redrawimg);
 				break;
 			}
 		}
 	}
 }
 
-void UpdateAllTweets() {
+void UpdateUsersTweet(uint64_t userid, bool redrawimg) {
 	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
 		for(auto jt=(*it)->currentdisp.begin(); jt!=(*it)->currentdisp.end(); ++jt) {
-			jt->second->DisplayTweet();
+			tweetdispscr &tds=*(jt->second);
+			if((tds.td->user && tds.td->user->id==userid)
+			 || (tds.td->user_recipient && tds.td->user_recipient->id==userid)) {
+				wxLogWarning(wxT("UpdateUsersTweet: Found Entry %" wxLongLongFmtSpec "d."), jt->first);
+				jt->second->DisplayTweet(redrawimg);
+				break;
+			}
+		}
+	}
+}
+
+void UpdateAllTweets(bool redrawimg) {
+	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
+		for(auto jt=(*it)->currentdisp.begin(); jt!=(*it)->currentdisp.end(); ++jt) {
+			jt->second->DisplayTweet(redrawimg);
 		}
 	}
 }

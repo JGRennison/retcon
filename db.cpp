@@ -81,12 +81,12 @@ static bool TagToDict(unsigned char tag, const unsigned char *&dict, size_t &dic
 
 #define HEADERSIZE 5
 
-static unsigned char *DoCompress(const std::string &in, size_t &sz, unsigned char tag='Z', bool *iscompressed=0) {
+static unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsigned char tag='Z', bool *iscompressed=0) {
 	unsigned char *data;
 	const unsigned char *dict;
 	size_t dict_size;
 	bool compress=TagToDict(tag, dict, dict_size);
-	if(compress && in.size()>=100) {
+	if(compress && insize>=100) {
 		z_stream strm;
 		strm.zalloc = Z_NULL;
 		strm.zfree = Z_NULL;
@@ -94,15 +94,15 @@ static unsigned char *DoCompress(const std::string &in, size_t &sz, unsigned cha
 		deflateInit(&strm, 9);
 
 		if(dict) deflateSetDictionary(&strm, dict, dict_size);
-		size_t maxsize=deflateBound(&strm, in.size());
+		size_t maxsize=deflateBound(&strm, insize);
 		data=(unsigned char *) malloc(maxsize+HEADERSIZE);
 		data[0]=tag;
-		data[1]=(in.size()>>24)&0xFF;
-		data[2]=(in.size()>>16)&0xFF;
-		data[3]=(in.size()>>8)&0xFF;
-		data[4]=(in.size()>>0)&0xFF;
-		strm.avail_in=in.size();
-		strm.next_in=(unsigned char *) in.data();
+		data[1]=(insize>>24)&0xFF;
+		data[2]=(insize>>16)&0xFF;
+		data[3]=(insize>>8)&0xFF;
+		data[4]=(insize>>0)&0xFF;
+		strm.avail_in=insize;
+		strm.next_in=(unsigned char *) in;
 		strm.avail_out=maxsize;
 		strm.next_out=data+HEADERSIZE;
 		int res=deflate(&strm, Z_FINISH);
@@ -112,20 +112,24 @@ static unsigned char *DoCompress(const std::string &in, size_t &sz, unsigned cha
 		if(iscompressed) *iscompressed=true;
 	}
 	else {
-		data=(unsigned char *) malloc(in.size()+1);
+		data=(unsigned char *) malloc(insize+1);
 		data[0]='T';
-		memcpy(data+1, in.data(), in.size());
-		sz=in.size()+1;
+		memcpy(data+1, in, insize);
+		sz=insize+1;
 		if(iscompressed) *iscompressed=false;
 	}
 
 	static size_t cumin=0;
 	static size_t cumout=0;
-	cumin+=in.size();
+	cumin+=insize;
 	cumout+=sz;
-	//OutputDebugStringW(wxString::Format(wxT("zlib compress: %d -> %d, cum: %f"), in.size(), sz, (double) cumout/ (double) cumin).wc_str());
+	//OutputDebugStringW(wxString::Format(wxT("zlib compress: %d -> %d, cum: %f"), insize, sz, (double) cumout/ (double) cumin).wc_str());
 
 	return data;
+}
+
+static unsigned char *DoCompress(const std::string &in, size_t &sz, unsigned char tag='Z', bool *iscompressed=0) {
+	return DoCompress(in.data(), in.size(), sz, tag, iscompressed);
 }
 
 enum {
@@ -528,9 +532,9 @@ void dbconn::AccountSync(sqlite3 *adb) {
 			});
 			if(acc) {
 				size_t tweetarraysize;
-				//unsigned char *tweetarray=(unsigned char*) column_get_compressed(getstmt, 3, tweetarraysize);
-				const unsigned char *tweetarray=(const unsigned char*) sqlite3_column_blob(getstmt, 2);
-				tweetarraysize=sqlite3_column_bytes(getstmt, 2);
+				unsigned char *tweetarray=(unsigned char*) column_get_compressed(getstmt, 2, tweetarraysize);
+				//const unsigned char *tweetarray=(const unsigned char*) sqlite3_column_blob(getstmt, 2);
+				//tweetarraysize=sqlite3_column_bytes(getstmt, 2);
 				tweetarraysize&=~7;
 				for(unsigned int i=0; i<tweetarraysize; i+=8) {		//stored in big endian format
 					uint64_t id=0;
@@ -539,9 +543,9 @@ void dbconn::AccountSync(sqlite3 *adb) {
 					//wxLogWarning(wxT("dbconn::AccountSync: Found Tweet %" wxLongLongFmtSpec "d"), id);
 				}
 				size_t dmarraysize;
-				//unsigned char *dmarray=(unsigned char*) column_get_compressed(getstmt, 4, dmarraysize);
-				const unsigned char *dmarray=(const unsigned char*) sqlite3_column_blob(getstmt, 3);
-				dmarraysize=sqlite3_column_bytes(getstmt, 3);
+				unsigned char *dmarray=(unsigned char*) column_get_compressed(getstmt, 3, dmarraysize);
+				//const unsigned char *dmarray=(const unsigned char*) sqlite3_column_blob(getstmt, 3);
+				//dmarraysize=sqlite3_column_bytes(getstmt, 3);
 				dmarraysize&=~7;
 				for(unsigned int i=0; i<dmarraysize; i+=8) {		//stored in big endian format
 					uint64_t id=0;
@@ -549,8 +553,8 @@ void dbconn::AccountSync(sqlite3 *adb) {
 					acc->dm_ids.insert(id);
 					//wxLogWarning(wxT("dbconn::AccountSync: Found DM %" wxLongLongFmtSpec "d"), id);
 				}
-				//free(tweetarray);
-				//free(dmarray);
+				free(tweetarray);
+				free(dmarray);
 			}
 		}
 		else break;
@@ -585,16 +589,24 @@ static unsigned char *settoblob(const tweetidset &set, size_t &size) {
 	return data;
 }
 
+static unsigned char *settocompressedblob(const tweetidset &set, size_t &size) {
+	size_t insize;
+	unsigned char *data=settoblob(set, insize);
+	unsigned char *comdata=DoCompress(data, insize, size, 'Z');
+	free(data);
+	return comdata;
+}
+
 void dbconn::AccountIdListsSync(sqlite3 *adb) {
 	sqlite3_stmt *setstmt=cache.GetStmt(adb, DBPSC_UPDATEACCIDLISTS);
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
 		size_t size;
 		unsigned char *data;
 
-		data=settoblob((*it)->tweet_ids, size);
+		data=settocompressedblob((*it)->tweet_ids, size);
 		sqlite3_bind_blob(setstmt, 1, data, size, &free);
 
-		data=settoblob((*it)->dm_ids, size);
+		data=settocompressedblob((*it)->dm_ids, size);
 		sqlite3_bind_blob(setstmt, 2, data, size, &free);
 
 		sqlite3_bind_int(setstmt, 3, (*it)->dbindex);

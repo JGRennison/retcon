@@ -433,12 +433,15 @@ static void DoWriteSubstr(tweetdispscr &td, const std::string &str, int start, i
 	if(wstr.Len()) td.WriteText(wstr);
 }
 
-void tweetdispscr::DisplayTweet() {
+void tweetdispscr::DisplayTweet(bool redrawimg) {
 	std::forward_list<media_entity*> me_list;
 	auto last_me=me_list.before_begin();
 
 	tweet &tw=*td;
 	userdatacontainer &udc=*tw.user;
+
+	if(redrawimg && bm) bm->SetBitmap(udc.cached_profile_img);
+
 	Clear();
 	BeginBold();
 	WriteText(wxT("@") + wxstrstd(udc.GetUser().screen_name));

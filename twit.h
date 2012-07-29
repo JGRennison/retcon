@@ -1,6 +1,7 @@
 void HandleNewTweet(const std::shared_ptr<tweet> &t);
-void UpdateTweet(const std::shared_ptr<tweet> &t);
-void UpdateAllTweets();
+void UpdateTweet(const std::shared_ptr<tweet> &t, bool redrawimg=false);
+void UpdateAllTweets(bool redrawimg=false);
+void UpdateUsersTweet(uint64_t userid, bool redrawimg=false);
 
 struct userdata {
 	std::string name;
