@@ -23,6 +23,7 @@ struct genjsonparser {
 	static void ParseTweetStatics(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj, Handler *jw=0);
 	static void DoEntitiesParse(const rapidjson::Value& val, const std::shared_ptr<tweet> &t);
 	static void ParseUserContents(const rapidjson::Value& val, userdata &userobj, bool is_ssl=0);
+	static void ParseTweetDyn(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj);
 };
 
 struct jsonparser : public genjsonparser {

@@ -13,14 +13,15 @@ const char *startup_sql=
 "CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY NOT NULL, json BLOB, cachedprofimgurl BLOB, createtimestamp INTEGER, lastupdatetimestamp INTEGER);"
 "CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, json BLOB, tweetids BLOB, dmids BLOB);";
 
-const char *sql[]={
+const char *sql[DBPSC_NUM_STATEMENTS]={
 	"INSERT INTO tweets(id, statjson, dynjson, userid, userrecipid, flags, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?);",
 	"UPDATE tweets SET dynjson = ?, flags = ? WHERE id == ?;",
 	"BEGIN;",
 	"COMMIT;",
-	"INSERT INTO users(id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp) VALUES (?, ?, ?, ?, ?);",
+	"INSERT OR REPLACE INTO users(id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp) VALUES (?, ?, ?, ?, ?);",
 	"INSERT INTO acc (name) VALUES (?);",
-	"UPDATE acc SET tweetids = ?, dmids = ? WHERE id == ?;"
+	"UPDATE acc SET tweetids = ?, dmids = ? WHERE id == ?;",
+	"SELECT statjson, dynjson, userid, userrecipid, flags, timestamp FROM tweets WHERE id == ?",
 };
 
 int busy_handler_callback(void *ptr, int count) {
@@ -250,6 +251,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			sqlite3_bind_int64(stmt, 7, (sqlite3_int64) m->timestamp);
 			sqlite3_step(stmt);
 			sqlite3_reset(stmt);
+			break;
 		}
 		case DBSM_UPDATETWEET: {
 			dbupdatetweetmsg *m=(dbupdatetweetmsg*) msg;
@@ -259,6 +261,48 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			sqlite3_bind_int64(stmt, 3, (sqlite3_int64) m->id);
 			sqlite3_step(stmt);
 			sqlite3_reset(stmt);
+			break;
+		}
+		case DBSM_SELTWEET: {
+			dbseltweetmsg *m=(dbseltweetmsg*) msg;
+			sqlite3_stmt *stmt=cache.GetStmt(db, DBPSC_SELTWEET);
+			std::forward_list<dbrettweetdata> recv_data;
+			for(auto it=m->id_set.cbegin(); it!=m->id_set.cend(); ++it) {
+				sqlite3_bind_int64(stmt, 1, (sqlite3_int64) (*it));
+				int res=sqlite3_step(stmt);
+				//wxLogWarning(wxT("dbconn::OnTpanelTweetLoadFromDB got tweet: id:%" wxLongLongFmtSpec "d, statjson: %s, dynjson: %s"), dt.id, wxstrstd(dt.statjson).c_str(), wxstrstd(dt.dynjson).c_str());
+				if(res==SQLITE_ROW) {
+					recv_data.emplace_front();
+					dbrettweetdata &rd=recv_data.front();
+					size_t outsize;
+					rd.id=(*it);
+					rd.statjson=column_get_compressed(stmt, 0, outsize);
+					rd.dynjson=column_get_compressed(stmt, 1, outsize);
+					rd.user1=(uint64_t) sqlite3_column_int64(stmt, 2);
+					rd.user2=(uint64_t) sqlite3_column_int64(stmt, 3);
+					rd.flags=(uint64_t) sqlite3_column_int64(stmt, 4);
+					rd.timestamp=(uint64_t) sqlite3_column_int64(stmt, 5);
+				}
+				sqlite3_reset(stmt);
+			}
+			if(!recv_data.empty()) {
+				m->data=std::move(recv_data);
+				m->SendReply(m);
+				return;
+			}
+			break;
+		}
+		case DBSM_INSERTUSER: {
+			dbinsertusermsg *m=(dbinsertusermsg*) msg;
+			sqlite3_stmt *stmt=cache.GetStmt(db, DBPSC_INSUSER);
+			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->id);
+			bind_compressed(stmt, 2, m->json, 'J');
+			bind_compressed(stmt, 3, m->cached_profile_img_url, 'P');
+			sqlite3_bind_int64(stmt, 4, (sqlite3_int64) m->createtime);
+			sqlite3_bind_int64(stmt, 5, (sqlite3_int64) m->lastupdate);
+			sqlite3_step(stmt);
+			sqlite3_reset(stmt);
+			break;
 		}
 		default: break;
 	}
@@ -310,6 +354,51 @@ void dbiothread::MsgLoop() {
 		#endif
 		ProcessMessage(db, msg, ok, cache);
 	}
+}
+
+DEFINE_EVENT_TYPE(wxextDBCONN_NOTIFY)
+
+BEGIN_EVENT_TABLE(dbconn, wxEvtHandler)
+EVT_COMMAND(wxDBCONNEVT_ID_TPANELTWEETLOAD, wxextDBCONN_NOTIFY, dbconn::OnTpanelTweetLoadFromDB)
+END_EVENT_TABLE()
+
+void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
+	dbseltweetmsg *msg=(dbseltweetmsg *) event.GetClientData();
+	for(auto it=msg->data.begin(); it!=msg->data.end(); ++it) {
+		dbrettweetdata &dt=*it;
+		wxLogWarning(wxT("dbconn::OnTpanelTweetLoadFromDB got tweet: id:%" wxLongLongFmtSpec "d, statjson: %s, dynjson: %s"), dt.id, wxstrstd(dt.statjson).c_str(), wxstrstd(dt.dynjson).c_str());
+		std::shared_ptr<tweet> &t=ad.tweetobjs[dt.id];
+		if(!t) {
+			t=std::make_shared<tweet>();
+			t->id=dt.id;
+		}
+		rapidjson::Document dc;
+		if(dt.statjson && !dc.ParseInsitu<0>(dt.statjson).HasParseError() && dc.IsObject()) {
+			wxLogWarning(wxT("dbconn::OnTpanelTweetLoadFromDB about to parse tweet statics"));
+			genjsonparser::ParseTweetStatics(dc, t, 0);
+		}
+		if(dt.dynjson && !dc.ParseInsitu<0>(dt.dynjson).HasParseError() && dc.IsObject()) {
+			wxLogWarning(wxT("dbconn::OnTpanelTweetLoadFromDB about to parse tweet dyn"));
+			genjsonparser::ParseTweetDyn(dc, t);
+		}
+		t->user=ad.GetUserContainerById(dt.user1);
+		if(dt.user2) t->user_recipient=ad.GetUserContainerById(dt.user2);
+		t->createtime=(time_t) dt.timestamp;
+		new (&t->flags) tweet_flags(dt.flags);
+
+
+		t->user->ImgIsReady(false);				//load any images from saved files if necessary
+		if(dt.user2) t->user_recipient->ImgIsReady(false);
+
+		t->lflags&=~TLF_BEINGLOADEDFROMDB;
+
+		//any tweet in the database will also have the relevant user objects as well, hence no risk of a null user
+		//does not matter if the user object is not strictly up to date
+		auto itpair=tpaneldbloadmap.equal_range(dt.id);
+		for(auto it=itpair.first; it!=itpair.second; ++it) (*it).second->PushTweet(t);
+		tpaneldbloadmap.erase(itpair.first, itpair.second);
+	}
+	delete msg;
 }
 
 void dbconn::SendMessage(dbsendmsg *msg) {
@@ -386,6 +475,8 @@ void dbconn::DeInit() {
 void dbconn::InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string statjson) {
 	dbinserttweetmsg *msg=new dbinserttweetmsg();
 	msg->statjson=std::move(statjson);
+	msg->statjson.push_back((char) 42);	//modify the string to prevent any possible COW semantics
+	msg->statjson.resize(msg->statjson.size()-1);
 	msg->dynjson=tobj->mkdynjson();
 	msg->id=tobj->id;
 	msg->user1=tobj->user->id;
@@ -403,6 +494,17 @@ void dbconn::UpdateTweetDyn(const std::shared_ptr<tweet> &tobj) {
 	SendMessage(msg);
 }
 
+void dbconn::InsertUser(const std::shared_ptr<userdatacontainer> &u) {
+	dbinsertusermsg *msg=new dbinsertusermsg();
+	msg->id=u->id;
+	msg->json=u->mkjson();
+	msg->cached_profile_img_url=std::string(u->cached_profile_img_url.begin(), u->cached_profile_img_url.end());	//prevent any COW semantics
+	msg->createtime=u->user.createtime;
+	msg->lastupdate=u->lastupdate;
+	u->lastupdate_wrotetodb=u->lastupdate;
+	SendMessage(msg);
+}
+
 //tweetids, dmids are little endian in database
 void dbconn::AccountSync(sqlite3 *adb) {
 	const char getacc[]="SELECT id, name, tweetids, dmids FROM acc;";
@@ -414,6 +516,7 @@ void dbconn::AccountSync(sqlite3 *adb) {
 		if(res==SQLITE_ROW) {
 			unsigned int id=(unsigned int) sqlite3_column_int(getstmt, 0);
 			wxString name=wxString::FromUTF8((const char*) sqlite3_column_text(getstmt, 1));
+			//wxLogWarning(wxT("dbconn::AccountSync: Found %d, %s"), id, name.c_str());
 			taccount *acc=0;
 			acclist.remove_if([&](const std::shared_ptr<taccount> &t) {
 				if(t->name==name) {
@@ -426,23 +529,25 @@ void dbconn::AccountSync(sqlite3 *adb) {
 			if(acc) {
 				size_t tweetarraysize;
 				//unsigned char *tweetarray=(unsigned char*) column_get_compressed(getstmt, 3, tweetarraysize);
-				const unsigned char *tweetarray=(const unsigned char*) sqlite3_column_blob(getstmt, 3);
-				tweetarraysize=sqlite3_column_bytes(getstmt, 3);
+				const unsigned char *tweetarray=(const unsigned char*) sqlite3_column_blob(getstmt, 2);
+				tweetarraysize=sqlite3_column_bytes(getstmt, 2);
 				tweetarraysize&=~7;
 				for(unsigned int i=0; i<tweetarraysize; i+=8) {		//stored in big endian format
 					uint64_t id=0;
 					for(unsigned int j=0; j<8; j++) id<<=8, id|=tweetarray[i+j];
 					acc->tweet_ids.insert(id);
+					//wxLogWarning(wxT("dbconn::AccountSync: Found Tweet %" wxLongLongFmtSpec "d"), id);
 				}
 				size_t dmarraysize;
 				//unsigned char *dmarray=(unsigned char*) column_get_compressed(getstmt, 4, dmarraysize);
-				const unsigned char *dmarray=(const unsigned char*) sqlite3_column_blob(getstmt, 4);
-				dmarraysize=sqlite3_column_bytes(getstmt, 4);
+				const unsigned char *dmarray=(const unsigned char*) sqlite3_column_blob(getstmt, 3);
+				dmarraysize=sqlite3_column_bytes(getstmt, 3);
 				dmarraysize&=~7;
 				for(unsigned int i=0; i<dmarraysize; i+=8) {		//stored in big endian format
 					uint64_t id=0;
 					for(unsigned int j=0; j<8; j++) id<<=8, id|=dmarray[i+j];
 					acc->dm_ids.insert(id);
+					//wxLogWarning(wxT("dbconn::AccountSync: Found DM %" wxLongLongFmtSpec "d"), id);
 				}
 				//free(tweetarray);
 				//free(dmarray);
@@ -469,7 +574,7 @@ inline void writebeuint64(unsigned char* data, uint64_t id) {
 	data[7]=(id>>0)&0xFF;
 }
 
-static unsigned char *settoblob(const std::set<uint64_t> &set, size_t &size) {
+static unsigned char *settoblob(const tweetidset &set, size_t &size) {
 	size=set.size()*8;
 	unsigned char *data=(unsigned char *) malloc(size);
 	unsigned char *curdata=data;
@@ -509,12 +614,13 @@ void dbconn::SyncInsertNewAccount(sqlite3 *adb, taccount &acc) {
 
 void dbconn::SyncWriteBackAllUsers(sqlite3 *adb) {
 	cache.ExecStmt(adb, DBPSC_BEGIN);
-	sqlite3_exec(adb, "DELETE FROM users", 0, 0, 0);
+	//sqlite3_exec(adb, "DELETE FROM users", 0, 0, 0);
 
 	sqlite3_stmt *stmt=cache.GetStmt(adb, DBPSC_INSUSER);
 	for(auto it=ad.userconts.begin(); it!=ad.userconts.end(); ++it) {
 		userdatacontainer *u=it->second.get();
-		if(u->user.screen_name.empty()) continue;	//don't bother saving empty user stubs
+		if(u->lastupdate==u->lastupdate_wrotetodb) continue;	//this user is already in the database and does not need updating
+		if(u->user.screen_name.empty()) continue;		//don't bother saving empty user stubs
 		sqlite3_bind_int64(stmt, 1, (sqlite3_int64) it->first);
 		bind_compressed(stmt, 2, u->mkjson(), 'J');
 		bind_compressed(stmt, 3, u->cached_profile_img_url, 'P');
@@ -554,4 +660,10 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 		else break;
 	} while(true);
 	sqlite3_finalize(stmt);
+}
+
+void dbsendmsg_callback::SendReply(void *data) {
+	wxCommandEvent evt(cmdevtype, winid);
+	evt.SetClientData(data);
+	targ->AddPendingEvent(evt);
 }

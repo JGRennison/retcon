@@ -67,6 +67,9 @@ struct logwindow;
 struct mainframe;
 struct tpanelnotebook;
 struct media_display_win;
+struct tpanel;
+
+typedef std::set<uint64_t, std::greater<uint64_t> > tweetidset;		//std::set, sorted in opposite order
 
 #include "socket.h"
 #include "twit.h"
@@ -117,8 +120,8 @@ struct taccount : std::enable_shared_from_this<taccount> {
 	std::unordered_map<uint64_t,std::weak_ptr<userdatacontainer> > usersfollowingthis; //partial list
 
 	//any tweet or DM in this list *must* be either in ad.tweetobjs, or in the database
-	std::set<uint64_t> tweet_ids;
-	std::set<uint64_t> dm_ids;
+	tweetidset tweet_ids;
+	tweetidset dm_ids;
 
 	void ClearUsersFollowed();
 	void RemoveUserFollowed(std::shared_ptr<userdatacontainer> ptr);
@@ -135,6 +138,7 @@ struct taccount : std::enable_shared_from_this<taccount> {
 	void GetRestBackfill();
 
 	void MarkPending(uint64_t userid, const std::shared_ptr<userdatacontainer> &user, const std::shared_ptr<tweet> &t, bool checkfirst=false);
+	void MarkPendingOrHandle(const std::shared_ptr<tweet> &t);
 
 	std::unordered_map<uint64_t,std::shared_ptr<userdatacontainer> > pendingusers;
 
@@ -178,12 +182,10 @@ struct tweetpostwin : public wxPanel {
 class mainframe: public wxFrame
 {
 public:
-	#ifdef USEAUIM
-	wxAuiManager *auim;
-	#else
 	tpanelnotebook *auib;
-	#endif
 	tweetpostwin *tpw;
+	tpanelmenudata tpm;
+	wxMenu *tpmenu;
 
 	mainframe(const wxString& title, const wxPoint& pos, const wxSize& size);
 	~mainframe();
@@ -194,6 +196,8 @@ public:
 	void OnViewlog(wxCommandEvent &event);
 	void OnClose(wxCloseEvent &event);
 	void OnMouseWheel(wxMouseEvent &event);
+	void OnMenuOpen(wxMenuEvent &event);
+	void OnTPanelMenuCmd(wxCommandEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };

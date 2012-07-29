@@ -69,6 +69,22 @@ void genjsonparser::ParseTweetStatics(const rapidjson::Value& val, const std::sh
 	}
 }
 
+void genjsonparser::ParseTweetDyn(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj) {
+	const rapidjson::Value &p=val["p"];
+	if(p.IsArray()) {
+		for(rapidjson::SizeType i = 0; i < p.Size(); i++) {
+			unsigned int dbindex=CheckGetJsonValueDef<unsigned int>(p[i], "a", 0);
+			for(auto it=alist.begin(); it!=alist.end(); ++it) {
+				if((*it)->dbindex==dbindex) {
+					tweet_perspective *tp=tobj->AddTPToTweet(*it);
+					tp->Load(CheckGetJsonValueDef<unsigned int>(p[i], "f", 0));
+					break;
+				}
+			}
+		}
+	}
+}
+
 //returns true on success
 static bool ReadEntityIndices(int &start, int &end, const rapidjson::Value& val) {
 	auto &ar=val["indices"];
@@ -325,10 +341,11 @@ std::shared_ptr<userdatacontainer> jsonparser::DoUserParse(const rapidjson::Valu
 	auto userdatacont = ad.GetUserContainerById(id);
 	userdata &userobj=userdatacont->GetUser();
 	ParseUserContents(val, userobj, tac->ssl);
-	if(!userobj.createtime) {
+	if(!userobj.createtime) {				//this means that the object is new
 		std::string created_at;
 		CheckTransJsonValueDef(created_at, val, "created_at", "");
 		ParseTwitterDate(0, &userobj.createtime, created_at);
+		dbc.InsertUser(userdatacont);
 	}
 
 	userdatacont->MarkUpdated();
@@ -378,7 +395,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, boo
 		jw.StartObject();
 		ParseTweetStatics(val, tobj, &jw);
 		std::string created_at;
-		if(CheckTransJsonValueDef(created_at, val, "created_at", ""), 0) {
+		if(CheckTransJsonValueDef(created_at, val, "created_at", "", 0)) {
 			ParseTwitterDate(0, &tobj->createtime, created_at);
 		}
 		else {
@@ -395,15 +412,6 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, boo
 			tac->tweet_ids.insert(tweetid);
 			uint64_t userid=val["user"]["id"].GetUint64();
 			tobj->user=CheckParseUserObj(userid, val["user"], *this);
-
-			if(tobj->user->IsReady()) {
-				//wxLogWarning(wxT("HandleNewTweet %" wxLongLongFmtSpec "d"), tobj->id);
-				HandleNewTweet(tobj);
-			}
-			else {
-				//wxLogWarning(wxT("MarkPending %" wxLongLongFmtSpec "d, user: %" wxLongLongFmtSpec "d"), tobj->id, userid);
-				tac->MarkPending(userid, tobj->user, tobj);
-			}
 		}
 		else {	//direct message
 			tac->dm_ids.insert(tweetid);
@@ -411,21 +419,8 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, boo
 			uint64_t recipientid=val["recipient_id"].GetUint64();
 			tobj->user=CheckParseUserObj(senderid, val["sender"], *this);
 			tobj->user_recipient=CheckParseUserObj(recipientid, val["recipient"], *this);
-
-			bool isready=true;
-
-			if(!tobj->user->IsReady()) {
-				tac->MarkPending(senderid, tobj->user, tobj);
-				isready=false;
-			}
-			if(!tobj->user_recipient->IsReady()) {
-				tac->MarkPending(recipientid, tobj->user_recipient, tobj);
-				isready=false;
-			}
-			if(isready) {
-				HandleNewTweet(tobj);
-			}
 		}
+		tac->MarkPendingOrHandle(tobj);
 	}
 
 	if(isdm) {

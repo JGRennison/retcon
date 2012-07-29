@@ -81,6 +81,8 @@ BEGIN_EVENT_TABLE(mainframe, wxFrame)
 	EVT_MENU(ID_Viewlog, mainframe::OnViewlog)
 	EVT_CLOSE(mainframe::OnClose)
 	EVT_MOUSEWHEEL(mainframe::OnMouseWheel)
+	EVT_MENU_OPEN(mainframe::OnMenuOpen)
+	EVT_MENU_RANGE(tpanelmenustartid, tpanelmenuendid, mainframe::OnTPanelMenuCmd)
 END_EVENT_TABLE()
 
 mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& size)
@@ -97,21 +99,17 @@ mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& si
 	wxMenu *menuO = new wxMenu;
 	menuO->Append( ID_Settings, wxT("&Settings"));
 	menuO->Append( ID_Accounts, wxT("&Accounts"));
+	tpmenu = new wxMenu;
 
 	wxMenuBar *menuBar = new wxMenuBar;
 	menuBar->Append(menuF, wxT("&File"));
+	menuBar->Append(tpmenu, wxT("&Panels"));
 	menuBar->Append(menuO, wxT("&Options"));
 	menuBar->Append(menuH, wxT("&Help"));
 
 	tpw=new tweetpostwin();
 
-#ifdef USEAUIM
-	auim = new wxAuiManager(this,wxAUI_MGR_DEFAULT|wxAUI_MGR_RECTANGLE_HINT);
-	auim->SetDockSizeConstraint(1.0, 1.0);
-	auim->AddPane(tpw, wxAuiPaneInfo().Resizable().Centre().Caption(wxT("Post Tweet")).Dockable(false).Floatable(false).MaxSize(20000,100));
-#else
 	auib = new tpanelnotebook(this, this);
-#endif
 
 	SetMenuBar( menuBar );
 	return;
@@ -149,6 +147,16 @@ mainframe::~mainframe() {
 
 void mainframe::OnMouseWheel(wxMouseEvent &event) {
 	RedirectMouseWheelEvent(event);
+}
+
+void mainframe::OnMenuOpen(wxMenuEvent &event) {
+	if(event.GetMenu()==tpmenu) {
+		MakeTPanelMenu(tpmenu, tpm);
+	}
+}
+
+void mainframe::OnTPanelMenuCmd(wxCommandEvent &event) {
+	TPanelMenuAction(tpm, event.GetId(), this);
 }
 
 void taccount::ClearUsersFollowed() {
@@ -189,6 +197,10 @@ void taccount::GetRestBackfill() {
 	StartRestGetTweetBackfill(GetMaxId(RBFS_TWEETS), 0, 10, RBFS_TWEETS);
 	StartRestGetTweetBackfill(GetMaxId(RBFS_RECVDM), 0, 5, RBFS_RECVDM);
 	StartRestGetTweetBackfill(GetMaxId(RBFS_SENTDM), 0, 5, RBFS_SENTDM);
+
+	//StartRestGetTweetBackfill(0, 0, 10, RBFS_TWEETS);
+	//StartRestGetTweetBackfill(0, 0, 5, RBFS_RECVDM);
+	//StartRestGetTweetBackfill(0, 0, 5, RBFS_SENTDM);
 }
 
 //limits are inclusive

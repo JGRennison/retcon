@@ -3,6 +3,67 @@
 #include <wx/filename.h>
 #include <wx/filedlg.h>
 
+std::unordered_multimap<uint64_t, tpanel*> tpaneldbloadmap;
+
+static void PerAccTPanelMenu(wxMenu *menu, tpanelmenudata &map, int &nextid, unsigned int flagbase, unsigned int dbindex) {
+	map[nextid]={dbindex, flagbase|TPF_AUTO_TW};
+	menu->Append(nextid++, wxT("&Tweets"));
+	map[nextid]={dbindex, flagbase|TPF_AUTO_DM};
+	menu->Append(nextid++, wxT("&DMs"));
+	map[nextid]={dbindex, flagbase|TPF_AUTO_TW|TPF_AUTO_DM};
+	menu->Append(nextid++, wxT("Tweets &and DMs"));
+}
+
+void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map) {
+	wxMenuItemList& items=menuP->GetMenuItems();
+	for(auto it=items.begin(); it!=items.end(); ++it) {
+		menuP->Destroy(*it);
+	}
+	map.clear();
+
+	int nextid=tpanelmenustartid;
+	PerAccTPanelMenu(menuP, map, nextid, TPF_ISAUTO | TPF_AUTO_ALLACCS, 0);
+	for(auto it=alist.begin(); it!=alist.end(); ++it) {
+		wxMenu *submenu = new wxMenu;
+		menuP->AppendSubMenu(submenu, (*it)->dispname);
+		PerAccTPanelMenu(submenu, map, nextid, TPF_ISAUTO | TPF_AUTO_ACC, (*it)->dbindex);
+	}
+}
+
+void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent) {
+	unsigned int dbindex=map[curid].dbindex;
+	unsigned int flags=map[curid].flags;
+	std::shared_ptr<taccount> *acc=0;
+	wxString name;
+	wxString accname;
+	wxString type;
+	if(dbindex) {
+		for(auto it=alist.begin(); it!=alist.end(); ++it) {
+			if((*it)->dbindex==dbindex) {
+				acc=&(*it);
+				name=(*it)->dispname;
+				accname=(*it)->name;
+				break;
+			}
+		}
+		if(!acc) return;
+	}
+	else {
+		name=wxT("All Accounts");
+		accname=wxT("*");
+	}
+	if(flags&TPF_AUTO_TW && flags&TPF_AUTO_DM) type=wxT("Tweets & DMs");
+	else if(flags&TPF_AUTO_TW) type=wxT("Tweets");
+	else if(flags&TPF_AUTO_DM) type=wxT("DMs");
+
+	std::string paneldispname=std::string(wxString::Format(wxT("[%s - %s]"), name.c_str(), type.c_str()).ToUTF8());
+	std::string panelname=std::string(wxString::Format(wxT("___%s - %s"), accname.c_str(), type.c_str()).ToUTF8());
+
+	auto tp=tpanel::MkTPanel(panelname, paneldispname, flags, acc);
+	tp->LoadMore(100);
+	tp->MkTPanelWin(parent, true);
+}
+
 void tpanel::PushTweet(std::shared_ptr<tweet> t) {
 	wxLogWarning(wxT("Pushing tweet id %" wxLongLongFmtSpec "d to panel %s"), t->id, wxstrstd(name).c_str());
 	if(tweetlist.count(t->id)) {
@@ -14,6 +75,22 @@ void tpanel::PushTweet(std::shared_ptr<tweet> t) {
 		for(auto i=twin.begin(); i!=twin.end(); i++) {
 			(*i)->PushTweet(t);
 		}
+	}
+}
+
+uint64_t tpanel::PushTweetOrRetLoadId(uint64_t id) {
+	std::shared_ptr<tweet> &tobj=ad.tweetobjs[id];
+	if(tobj) {
+		if(tobj->lflags&TLF_BEINGLOADEDFROMDB) tpaneldbloadmap.insert(std::make_pair(id, this));
+		else PushTweet(tobj);
+		return 0;
+	}
+	else {
+		tobj=std::make_shared<tweet>();
+		tobj->id=id;
+		tobj->lflags=TLF_BEINGLOADEDFROMDB;
+		tpaneldbloadmap.insert(std::make_pair(id, this));
+		return id;
 	}
 }
 
@@ -30,6 +107,17 @@ std::shared_ptr<tpanel> tpanel::MkTPanel(const std::string &name_, const std::st
 	return ref;
 }
 
+tpanel::~tpanel() {
+	for(auto it=tpaneldbloadmap.begin(); it!=tpaneldbloadmap.end(); ) {
+		if((*it).second==this) {
+			auto todel=it;
+			it++;
+			tpaneldbloadmap.erase(todel);
+		}
+		else it++;
+	}
+}
+
 void tpanel::OnTPanelWinClose(tpanelparentwin *tppw) {
 	twin.remove(tppw);
 	if(twin.empty() && flags&TPF_DELETEONWINCLOSE) {
@@ -38,29 +126,59 @@ void tpanel::OnTPanelWinClose(tpanelparentwin *tppw) {
 }
 
 //if lessthanid is non-zero, is an exclusive upper id limit
-void tpanel::LoadMore(unsigned int n, uint64_t lessthanid=0) {
-	std::forward_list<taccount &> accs;
-	std::forward_list<std::set<uint64_t> &> idsets;
-	std::forward_list<std::pair<std::const_iterator, std::const_iterator> &> its;
+void tpanel::LoadMore(unsigned int n, uint64_t lessthanid) {
+	std::forward_list<taccount *> accs;
+	std::forward_list<tweetidset *> idsets;
+	std::forward_list<std::pair<tweetidset::const_iterator, tweetidset::const_iterator> > its;
+	dbseltweetmsg *loadmsg=0;
 
 	if(flags&TPF_ISAUTO) {
-		if(flags&TPF_AUTO_ACC) acc.push_front(*assoc_acc);
+		if(flags&TPF_AUTO_ACC) accs.push_front(assoc_acc.get());
 		else if(flags&TPF_AUTO_ALLACCS) {
-			for(auto it=alist.begin(); it!=alist.end(); ++it) acc.push_front(**it);
+			for(auto it=alist.begin(); it!=alist.end(); ++it) accs.push_front((*it).get());
 		}
 		for(auto it=accs.begin(); it!=accs.end(); ++it) {
-			if(flags&TPF_AUTO_DM) idsets.push_front(it->dm_ids);
-			if(flags&TPF_AUTO_TW) idsets.push_front(it->tweet_ids);
+			if(flags&TPF_AUTO_DM) idsets.push_front(&(*it)->dm_ids);
+			if(flags&TPF_AUTO_TW) idsets.push_front(&(*it)->tweet_ids);
 		}
 	}
-	else idsets.push_front(storedids);
+	else idsets.push_front(&storedids);
 
 	for(auto it=idsets.begin(); it!=idsets.end(); ++it) {
-		if(lessthanid) stit=it->lower_bound(lessthanid);
-		else stit=it->cend();
-		if(stit!=it->cbegin()) {
-			stit--;
+		tweetidset::const_iterator stit;
+		if(lessthanid) stit=(*it)->upper_bound(lessthanid);	//finds the first id *less than* lessthanid
+		else stit=(*it)->cbegin();
+		if(stit==(*it)->cend()) continue;
+		its.push_front(std::make_pair(stit, (*it)->cend()));
+	}
+	for(unsigned int i=0; i<n; i++) {
+		uint64_t bestid=0;
+		tweetidset::const_iterator *bestfound=0;
+		for(auto it=its.begin(); it!=its.end(); ++it) {
+			if((*it).first==(*it).second) {		//no more ids left in set
+				continue;
+			}
+			uint64_t curid=*((*it).first);
+			if(curid==bestid) ++((*it).first);	//skip duplicate ids
+			else if(curid>bestid) {
+				bestfound=&((*it).first);
+				bestid=curid;
+			}
 		}
+		if(!bestid) break;
+		++(*bestfound);
+		uint64_t loadid=PushTweetOrRetLoadId(bestid);
+		if(loadid) {
+			wxLogWarning("tpanel::LoadMore loading from db id: %" wxLongLongFmtSpec "d", loadid);
+			if(!loadmsg) loadmsg=new dbseltweetmsg;
+			loadmsg->id_set.insert(loadid);
+		}
+	}
+	if(loadmsg) {
+		loadmsg->targ=&dbc;
+		loadmsg->cmdevtype=wxextDBCONN_NOTIFY;
+		loadmsg->winid=wxDBCONNEVT_ID_TPANELTWEETLOAD;
+		dbc.SendMessage(loadmsg);
 	}
 }
 
@@ -123,11 +241,11 @@ BEGIN_EVENT_TABLE(tpanelparentwin, wxScrolledWindow)
 	EVT_MENU(TPPWID_CLOSE, tpanelparentwin::tabclosehandler)
 END_EVENT_TABLE()
 
-tpanelparentwin *tpanel::MkTPanelWin(mainframe *parent) {
-	return new tpanelparentwin(shared_from_this(), parent);
+tpanelparentwin *tpanel::MkTPanelWin(mainframe *parent, bool select) {
+	return new tpanelparentwin(shared_from_this(), parent, select);
 }
 
-tpanelparentwin::tpanelparentwin(std::shared_ptr<tpanel> tp_, mainframe *parent)
+tpanelparentwin::tpanelparentwin(std::shared_ptr<tpanel> tp_, mainframe *parent, bool select)
 : wxScrolledWindow(parent), tp(tp_), resize_update_pending(false), owner(parent) {
 	wxLogWarning(wxT("Creating tweet panel window %s"), wxstrstd(tp->name).c_str());
 
@@ -147,12 +265,7 @@ tpanelparentwin::tpanelparentwin(std::shared_ptr<tpanel> tp_, mainframe *parent)
         SetScrollRate(5, 5);
 
 
-#ifdef USEAUIM
-	parent->auim->AddPane(this, wxAuiPaneInfo().Resizable().Top().Caption(wxstrstd(tp->name)).Movable().GripperTop().Dockable(false).TopDockable().MinSize(50,50));
-	parent->auim->Update();
-#else
-	parent->auib->AddPage(this, wxstrstd(tp->name));
-#endif
+	parent->auib->AddPage(this, wxstrstd(tp->dispname), select);
 	FillTweet();
 }
 

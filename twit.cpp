@@ -249,18 +249,26 @@ bool userdatacontainer::NeedsUpdating() {
 	}
 }
 
-bool userdatacontainer::IsReady() {
+bool userdatacontainer::ImgIsReady(bool download) {
 	if(cached_profile_img_url.size() && !(udc_flags&UDC_PROFILE_BITMAP_SET))  {
 		wxImage img;
 		wxString filename;
 		GetImageLocalFilename(filename);
 		if(img.LoadFile(filename)) SetProfileBitmapFromwxImage(img);
-		else {					//the saved image is not loadable, clear cache and re-download
+		else {
 			cached_profile_img_url.clear();
-			profileimgdlconn::GetConn(user.profile_img_url, shared_from_this());
+			if(download) {					//the saved image is not loadable, clear cache and re-download
+				profileimgdlconn::GetConn(user.profile_img_url, shared_from_this());
+			}
 			return false;
 		}
 	}
+	if(udc_flags & UDC_IMAGE_DL_IN_PROGRESS) return false;
+	return true;
+}
+
+bool userdatacontainer::IsReady() {
+	if(!ImgIsReady()) return false;
 	if(NeedsUpdating()) return false;
 	else if( udc_flags & (UDC_LOOKUP_IN_PROGRESS|UDC_IMAGE_DL_IN_PROGRESS)) return false;
 	else return true;
@@ -350,7 +358,7 @@ std::string tweet_flags::GetString() {
 	return out;
 }
 
-tweet_perspective *tweet::AddTPToTweet(std::shared_ptr<taccount> &tac, bool *isnew) {
+tweet_perspective *tweet::AddTPToTweet(const std::shared_ptr<taccount> &tac, bool *isnew) {
 	for(auto it=tp_list.begin(); it!=tp_list.end(); it++) {
 		if(it->acc.get()==tac.get()) {
 			if(isnew) *isnew=false;
@@ -360,6 +368,32 @@ tweet_perspective *tweet::AddTPToTweet(std::shared_ptr<taccount> &tac, bool *isn
 	tp_list.emplace_front(tac);
 	if(isnew) *isnew=true;
 	return &tp_list.front();
+}
+
+void taccount::MarkPendingOrHandle(const std::shared_ptr<tweet> &t) {
+	if(t->flags.Get('T')) {
+		if(t->user->IsReady()) {
+			HandleNewTweet(t);
+		}
+		else {
+			MarkPending(t->user->id, t->user, t);
+		}
+	}
+	else if(t->flags.Get('D')) {
+		bool isready=true;
+
+		if(!t->user->IsReady()) {
+			MarkPending(t->user->id, t->user, t);
+			isready=false;
+		}
+		if(!t->user_recipient->IsReady()) {
+			MarkPending(t->user_recipient->id, t->user_recipient, t);
+			isready=false;
+		}
+		if(isready) {
+			HandleNewTweet(t);
+		}
+	}
 }
 
 std::string tweet::mkdynjson() {

@@ -171,6 +171,7 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 		user->SetProfileBitmapFromwxImage(img);
 
 		user->cached_profile_img_url=url;
+		dbc.InsertUser(user);
 		data.clear();
 		user->udc_flags&=~UDC_IMAGE_DL_IN_PROGRESS;
 		user->CheckPendingTweets();

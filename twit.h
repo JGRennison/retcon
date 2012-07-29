@@ -23,6 +23,7 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	uint64_t id;
 	userdata user;
 	uint64_t lastupdate;
+	uint64_t lastupdate_wrotetodb;
 	unsigned int udc_flags;
 
 	std::string cached_profile_img_url;
@@ -39,6 +40,7 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	std::string mkjson();
 	void SetProfileBitmapFromwxImage(wxImage &img);
 	void Dump();
+	bool ImgIsReady(bool download=true);
 };
 
 struct tweet_flags {
@@ -71,7 +73,7 @@ struct tweet_perspective {
 		TP_RET	= 1<<2,
 	};
 
-	tweet_perspective(std::shared_ptr<taccount> &tac) : acc(tac), flags(0) { }
+	tweet_perspective(const std::shared_ptr<taccount> &tac) : acc(tac), flags(0) { }
 	void Load(unsigned int fl) { flags=fl; }
 	unsigned int Save() { return flags; }
 
@@ -91,7 +93,8 @@ struct tweet_perspective {
 };
 
 enum {	//for tweet.lflags
-	TLF_DYNDIRTY	= 1<<0,
+	TLF_DYNDIRTY		= 1<<0,
+	TLF_BEINGLOADEDFROMDB	= 1<<1,
 };
 
 struct tweet {
@@ -110,7 +113,7 @@ struct tweet {
 	unsigned int lflags;
 
 	void Dump();
-	tweet_perspective *AddTPToTweet(std::shared_ptr<taccount> &tac, bool *isnew=0);
+	tweet_perspective *AddTPToTweet(const std::shared_ptr<taccount> &tac, bool *isnew=0);
 	std::string mkdynjson();
 };
 

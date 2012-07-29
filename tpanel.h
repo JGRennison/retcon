@@ -1,3 +1,15 @@
+extern std::unordered_multimap<uint64_t, tpanel*> tpaneldbloadmap;
+
+enum { tpanelmenustartid=wxID_HIGHEST+8001 };
+enum { tpanelmenuendid=wxID_HIGHEST+12000 };
+
+struct tpanelmenuitem {
+	unsigned int dbindex;
+	unsigned int flags;
+};
+
+typedef std::map<int,tpanelmenuitem> tpanelmenudata;
+
 struct tweetdispscr : public wxRichTextCtrl {
 	std::shared_ptr<tweet> td;
 	tpanelparentwin *tppw;
@@ -22,14 +34,13 @@ struct tweetdispscr : public wxRichTextCtrl {
 };
 
 enum {
-	TPF_CANLOADMOREFROMDB	= 1<<0,
-	TPF_ISAUTO				= 1<<1,
+	TPF_DELETEONWINCLOSE		= 1<<0,
+	TPF_ISAUTO			= 1<<1,
 	TPF_SAVETODB			= 1<<2,
-	TPF_AUTO_DM				= 1<<3,
-	TPF_AUTO_TW				= 1<<4,
+	TPF_AUTO_DM			= 1<<3,
+	TPF_AUTO_TW			= 1<<4,
 	TPF_AUTO_ACC			= 1<<5,
 	TPF_AUTO_ALLACCS		= 1<<6,
-	TPF_DELETEONWINCLOSE	= 1<<7,
 };
 
 struct tpanel : std::enable_shared_from_this<tpanel> {
@@ -39,15 +50,17 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	std::forward_list<tpanelparentwin*> twin;
 	unsigned int flags;
 	std::shared_ptr<taccount> assoc_acc;
-	std::set<uint64_t> storedids;		//any tweet or DM in this list *must* be either in ad.tweetobjs, or in the database
+	tweetidset storedids;		//any tweet or DM in this list *must* be either in ad.tweetobjs, or in the database
 
 	static std::shared_ptr<tpanel> MkTPanel(const std::string &name_, const std::string &dispname_, unsigned int flags_=0, std::shared_ptr<taccount> *acc=0);
 	tpanel(const std::string &name_, const std::string &dispname_, unsigned int flags_=0, std::shared_ptr<taccount> *acc=0);		//don't use this directly
+	~tpanel();
 
 	void PushTweet(std::shared_ptr<tweet> t);
-	void LoadPushTweet(uint64_t id);
-	tpanelparentwin *MkTPanelWin(mainframe *parent);
+	uint64_t PushTweetOrRetLoadId(uint64_t id);
+	tpanelparentwin *MkTPanelWin(mainframe *parent, bool select=false);
 	void OnTPanelWinClose(tpanelparentwin *tppw);
+	void LoadMore(unsigned int n, uint64_t lessthanid=0);
 };
 
 struct tpanelnotebook : public wxAuiNotebook {
@@ -78,7 +91,7 @@ struct tpanelparentwin : public wxScrolledWindow {
 	bool resize_update_pending;
 	mainframe *owner;
 
-	tpanelparentwin(std::shared_ptr<tpanel> tp_, mainframe *parent);
+	tpanelparentwin(std::shared_ptr<tpanel> tp_, mainframe *parent, bool select=false);
 	~tpanelparentwin();
 	void PushTweet(std::shared_ptr<tweet> t);
 	tweetdispscr *PushTweet(std::shared_ptr<tweet> t, size_t index);
@@ -129,6 +142,8 @@ struct media_display_win : public wxFrame {
 
 bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid=0);
 wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t timestamp=0);
+void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map);
+void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent);
 
 //struct tpanelwin : public wxRichTextCtrl {
 //	tpanelparentwin *tppw;

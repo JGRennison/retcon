@@ -10,6 +10,7 @@ typedef enum {
 	DBPSC_INSUSER,
 	DBPSC_INSERTNEWACC,
 	DBPSC_UPDATEACCIDLISTS,
+	DBPSC_SELTWEET,
 
 	DBPSC_NUM_STATEMENTS,
 } DBPSC_TYPE;
@@ -46,6 +47,8 @@ typedef enum {
 	DBSM_QUIT=1,
 	DBSM_INSERTTWEET,
 	DBSM_UPDATETWEET,
+	DBSM_SELTWEET,
+	DBSM_INSERTUSER,
 } DBSM_TYPE;
 
 struct dbsendmsg {
@@ -54,13 +57,25 @@ struct dbsendmsg {
 	dbsendmsg(DBSM_TYPE type_) : type(type_) { }
 };
 
+struct dbsendmsg_callback : public dbsendmsg {
+	dbsendmsg_callback(DBSM_TYPE type_) : dbsendmsg(type_) { }
+	dbsendmsg_callback(DBSM_TYPE type_, wxEvtHandler *targ_, WXTYPE cmdevtype_, int winid_=wxID_ANY ) :
+		dbsendmsg(type_), targ(targ_), cmdevtype(cmdevtype_), winid(winid_) { }
+
+	wxEvtHandler *targ;
+	WXTYPE cmdevtype;
+	int winid;
+
+	void SendReply(void *data);
+};
+
 struct dbinserttweetmsg : public dbsendmsg {
 	dbinserttweetmsg() : dbsendmsg(DBSM_INSERTTWEET) { }
 
 	std::string statjson;
 	std::string dynjson;
 	uint64_t id, user1, user2, timestamp;
-	unsigned int flags;
+	uint64_t flags;
 };
 
 struct dbupdatetweetmsg : public dbsendmsg {
@@ -68,7 +83,43 @@ struct dbupdatetweetmsg : public dbsendmsg {
 
 	std::string dynjson;
 	uint64_t id;
-	unsigned int flags;
+	uint64_t flags;
+};
+
+struct dbrettweetdata {
+	char *statjson;	//free when done
+	char *dynjson;	//free when done
+	uint64_t id, user1, user2, timestamp;
+	uint64_t flags;
+
+	dbrettweetdata() : statjson(0), dynjson(0) { }
+	~dbrettweetdata() {
+		if(statjson) free(statjson);
+		if(dynjson) free(dynjson);
+	}
+	dbrettweetdata(const dbrettweetdata& that) = delete;
+};
+
+struct dbseltweetmsg : public dbsendmsg_callback {
+	dbseltweetmsg() : dbsendmsg_callback(DBSM_SELTWEET) { }
+
+	std::set<uint64_t> id_set;			//ids to select
+	std::forward_list<dbrettweetdata> data;		//return data
+};
+
+struct dbinsertusermsg : public dbsendmsg {
+	dbinsertusermsg() : dbsendmsg(DBSM_INSERTUSER) { }
+	uint64_t id;
+	std::string json;
+	std::string cached_profile_img_url;
+	time_t createtime;
+	uint64_t lastupdate;
+};
+
+DECLARE_EVENT_TYPE(wxextDBCONN_NOTIFY, -1)
+
+enum {
+	wxDBCONNEVT_ID_TPANELTWEETLOAD = 1,
 };
 
 struct dbconn : public wxEvtHandler {
@@ -90,9 +141,13 @@ struct dbconn : public wxEvtHandler {
 
 	void InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string statjson);
 	void UpdateTweetDyn(const std::shared_ptr<tweet> &tobj);
+	void InsertUser(const std::shared_ptr<userdatacontainer> &u);
 	void AccountSync(sqlite3 *adb);
 	void SyncWriteBackAllUsers(sqlite3 *adb);
 	void SyncReadInAllUsers(sqlite3 *adb);
 	void SyncInsertNewAccount(sqlite3 *adb, taccount &acc);
 	void AccountIdListsSync(sqlite3 *adb);
+	void OnTpanelTweetLoadFromDB(wxCommandEvent &event);
+
+	DECLARE_EVENT_TABLE()
 };
