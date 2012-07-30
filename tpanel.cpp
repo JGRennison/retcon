@@ -60,11 +60,11 @@ void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent) {
 	std::string panelname=std::string(wxString::Format(wxT("___%s - %s"), accname.c_str(), type.c_str()).ToUTF8());
 
 	auto tp=tpanel::MkTPanel(panelname, paneldispname, flags, acc);
-	tp->LoadMore(100);
+	tp->LoadMore(gc.maxtweetsdisplayinpanel);
 	tp->MkTPanelWin(parent, true);
 }
 
-void tpanel::PushTweet(std::shared_ptr<tweet> t) {
+void tpanel::PushTweet(const std::shared_ptr<tweet> &t) {
 	wxLogWarning(wxT("Pushing tweet id %" wxLongLongFmtSpec "d to panel %s"), t->id, wxstrstd(name).c_str());
 	if(tweetlist.count(t->id)) {
 		//already have this tweet
@@ -142,7 +142,7 @@ void tpanel::LoadMore(unsigned int n, uint64_t lessthanid) {
 			if(flags&TPF_AUTO_TW) idsets.push_front(&(*it)->tweet_ids);
 		}
 	}
-	else idsets.push_front(&storedids);
+	else return; //idsets.push_front(&storedids);
 
 	for(auto it=idsets.begin(); it!=idsets.end(); ++it) {
 		tweetidset::const_iterator stit;
@@ -245,8 +245,8 @@ tpanelparentwin *tpanel::MkTPanelWin(mainframe *parent, bool select) {
 	return new tpanelparentwin(shared_from_this(), parent, select);
 }
 
-tpanelparentwin::tpanelparentwin(std::shared_ptr<tpanel> tp_, mainframe *parent, bool select)
-: wxScrolledWindow(parent), tp(tp_), resize_update_pending(false), owner(parent) {
+tpanelparentwin::tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select)
+: wxScrolledWindow(parent), tp(tp_), displayoffset(0), mindisplayid(0), resize_update_pending(false), owner(parent) {
 	wxLogWarning(wxT("Creating tweet panel window %s"), wxstrstd(tp->name).c_str());
 
 	tp->twin.push_front(this);
@@ -266,7 +266,7 @@ tpanelparentwin::tpanelparentwin(std::shared_ptr<tpanel> tp_, mainframe *parent,
 
 
 	parent->auib->AddPage(this, wxstrstd(tp->dispname), select);
-	FillTweet();
+	FillTweet(gc.maxtweetsdisplayinpanel);
 }
 
 tpanelparentwin::~tpanelparentwin() {
@@ -274,17 +274,35 @@ tpanelparentwin::~tpanelparentwin() {
 	tpanelparentwinlist.remove(this);
 }
 
-void tpanelparentwin::FillTweet() {
+void tpanelparentwin::FillTweet(size_t max) {
 	size_t index=0;
 	Freeze();
-	for(auto it=tp->tweetlist.rbegin(); it!=tp->tweetlist.rend(); it++, index++) {
+	for(auto it=tp->tweetlist.rbegin(); it!=tp->tweetlist.rend() && index<max; it++, index++) {
 		currentdisp.push_back(std::make_pair(it->second->id, PushTweet(it->second, index)));
 	}
 	Thaw();
 }
 
-void tpanelparentwin::PushTweet(std::shared_ptr<tweet> t) {
+void tpanelparentwin::PushTweet(const std::shared_ptr<tweet> &t) {
 	uint64_t id=t->id;
+	if(mindisplayid) {
+		if(id>mindisplayid) {
+			displayoffset++;
+			return;
+		}
+	}
+	if(currentdisp.size()==gc.maxtweetsdisplayinpanel) {
+		if(t->id<currentdisp.back().first) return;		//off the end of the list
+		else {							//too many in list, remove the last one
+			currentdisp.back().second->Destroy();
+			wxSizer *sz=sizer->GetItem(gc.maxtweetsdisplayinpanel-1)->GetSizer();
+			if(sz) {
+				sz->Clear(true);
+				sizer->Remove(gc.maxtweetsdisplayinpanel-1);
+			}
+			currentdisp.pop_back();
+		}
+	}
 	size_t index=0;
 	auto it=currentdisp.begin();
 	for(; it!=currentdisp.end(); it++, index++) {
@@ -294,24 +312,35 @@ void tpanelparentwin::PushTweet(std::shared_ptr<tweet> t) {
 	currentdisp.insert(it, std::make_pair(id, td));
 }
 
-tweetdispscr *tpanelparentwin::PushTweet(std::shared_ptr<tweet> t, size_t index) {
+tweetdispscr *tpanelparentwin::PushTweet(const std::shared_ptr<tweet> &t, size_t index) {
 	Freeze();
-	//if(tpw) tpw->PushTweet(t);
 	wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
 	tweetdispscr *td=new tweetdispscr(t, this, hbox);
-	td->bm = new wxStaticBitmap(this, wxID_ANY, t->user->cached_profile_img, wxPoint(-1000, -1000));
-	//wxBitmapButton *bm=new wxBitmapButton(this, wxID_ANY, *t->t->user->cached_profile_img);
 
-	hbox->Add(td->bm, 0, wxALL, 2);
+	if(t->flags.Get('T')) {
+		td->bm = new wxStaticBitmap(this, wxID_ANY, t->user->cached_profile_img, wxPoint(-1000, -1000));
+		hbox->Add(td->bm, 0, wxALL, 2);
+	}
+	else if(t->flags.Get('D') && t->user_recipient) {
+			t->user->ImgHalfIsReady();
+			t->user_recipient->ImgHalfIsReady();
+			td->bm = new wxStaticBitmap(this, wxID_ANY, t->user->cached_profile_img_half, wxPoint(-1000, -1000));
+			td->bm2 = new wxStaticBitmap(this, wxID_ANY, t->user_recipient->cached_profile_img_half, wxPoint(-1000, -1000));
+			wxGridSizer *gs=new wxGridSizer(2,2,0,0);
+			wxStaticText *arrow=new wxStaticText(this, wxID_ANY, wxT("\x21b3"), wxPoint(-1000, -1000), wxDefaultSize, wxALIGN_CENTRE );
+			gs->Add(td->bm, 0, 0, 0);
+			gs->AddStretchSpacer();
+			gs->Add(arrow, 0, wxALIGN_CENTRE, 0);
+			gs->Add(td->bm2, 0, 0, 0);
+			hbox->Add(gs, 0, wxALL, 2);
+	}
+
 	hbox->Add(td, 1, wxALL | wxEXPAND, 2);
 
 	sizer->Insert(index, hbox, 0, wxALL | wxEXPAND, 2);
-	//sizer->Add(td, 0, wxALL | wxEXPAND, 2);
-	//sizer->SetItemMinSize(td, 50, 50);
 	FitInside();
 	td->LayoutContent();
 	Thaw();
-	//td->DoResize();
 	return td;
 }
 
@@ -385,7 +414,7 @@ END_EVENT_TABLE()
 
 tweetdispscr::tweetdispscr(std::shared_ptr<tweet> td_, tpanelparentwin *tppw_, wxBoxSizer *hbox_)
 : wxRichTextCtrl(tppw_, wxID_ANY, wxEmptyString, wxPoint(-1000, -1000), wxDefaultSize, wxRE_READONLY),
-td(td_), tppw(tppw_), hbox(hbox_) {
+td(td_), tppw(tppw_), hbox(hbox_), bm(0), bm2(0) {
 	GetCaret()->Hide();
 	DisplayTweet();
 }
@@ -438,13 +467,22 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 	auto last_me=me_list.before_begin();
 
 	tweet &tw=*td;
-	userdatacontainer &udc=*tw.user;
+	userdatacontainer *udc=tw.user.get();
+	userdatacontainer *udc_recip=tw.user_recipient.get();
 
-	if(redrawimg && bm) bm->SetBitmap(udc.cached_profile_img);
+	if(redrawimg) {
+		if(bm && bm2 && udc_recip) {
+			udc->ImgHalfIsReady();
+			udc_recip->ImgHalfIsReady();
+			bm->SetBitmap(udc->cached_profile_img_half);
+			bm2->SetBitmap(udc_recip->cached_profile_img_half);
+		}
+		else if(bm) bm->SetBitmap(udc->cached_profile_img);
+	}
 
 	Clear();
 	BeginBold();
-	WriteText(wxT("@") + wxstrstd(udc.GetUser().screen_name));
+	WriteText(wxT("@") + wxstrstd(udc->GetUser().screen_name));
 	EndBold();
 	wxString timestr=rc_wx_strftime(gc.gcfg.datetimeformat.val, localtime(&tw.createtime), tw.createtime);
 	WriteText(wxT(" - ") + timestr);

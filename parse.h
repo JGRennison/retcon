@@ -31,6 +31,7 @@ struct jsonparser : public genjsonparser {
 	CS_ENUMTYPE type;
 	twitcurlext *twit;
 	rapidjson::Document dc;
+	dbsendmsg_list *dbmsglist;
 
 	std::shared_ptr<userdatacontainer> DoUserParse(const rapidjson::Value& val);
 	void DoEventParse(const rapidjson::Value& val);

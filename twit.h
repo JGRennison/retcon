@@ -19,6 +19,7 @@ enum {
 	UDC_IMAGE_DL_IN_PROGRESS	= 1<<1,
 	UDC_THIS_IS_ACC_USER_HINT	= 1<<2,
 	UDC_PROFILE_BITMAP_SET		= 1<<3,
+	UDC_HALF_PROFILE_BITMAP_SET	= 1<<4,
 };
 
 struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
@@ -30,6 +31,7 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 
 	std::string cached_profile_img_url;
 	wxBitmap cached_profile_img;
+	wxBitmap cached_profile_img_half;
 	std::forward_list<std::shared_ptr<tweet> > pendingtweets;
 
 	bool NeedsUpdating();
@@ -40,9 +42,11 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	inline userdata &GetUser() { return user; }
 	void MarkUpdated();
 	std::string mkjson();
-	void SetProfileBitmapFromwxImage(wxImage &img);
+	wxBitmap MkProfileBitmapFromwxImage(const wxImage &img, double limitscalefactor);
+	void SetProfileBitmapFromwxImage(const wxImage &img);
 	void Dump();
 	bool ImgIsReady(bool download=true);
+	bool ImgHalfIsReady(bool download=true);
 };
 
 struct tweet_flags {

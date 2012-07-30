@@ -15,6 +15,7 @@
 #include <cmath>
 #include <algorithm>
 #include <bitset>
+#include <queue>
 #include <stdlib.h>
 #include <time.h>
 #include <wx/window.h>
@@ -68,6 +69,7 @@ struct mainframe;
 struct tpanelnotebook;
 struct media_display_win;
 struct tpanel;
+struct dbsendmsg_list;
 
 typedef std::set<uint64_t, std::greater<uint64_t> > tweetidset;		//std::set, sorted in opposite order
 

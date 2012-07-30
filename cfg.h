@@ -21,6 +21,7 @@ struct genoptglobconf {
 	genopt userexpiretimemins;
 	genopt datetimeformat;
 	genopt maxpanelprofimgsize;
+	genopt maxtweetsdisplayinpanel;
 	void CFGWriteOut(wxConfigBase &twfc);
 	void CFGReadIn(wxConfigBase &twfc, const genoptglobconf &parent);
 };
@@ -31,6 +32,7 @@ struct globconf {
 
 	unsigned long userexpiretime;
 	unsigned long maxpanelprofimgsize;
+	unsigned long maxtweetsdisplayinpanel;
 
 	void CFGWriteOut(wxConfigBase &twfc);
 	void CFGReadIn(wxConfigBase &twfc);

@@ -29,7 +29,7 @@ bool retcon::OnInit() {
 	dbc.Init(std::string((wxStandardPaths::Get().GetUserDataDir() + wxT("/retcondb.sqlite3")).ToUTF8()));
 
 	//temp
-	if(globallogwindow) globallogwindow->Show(true);
+	//if(globallogwindow) globallogwindow->Show(true);
 
 	tpanel::MkTPanel("[default]", "[default]")->MkTPanelWin(top);
 	tpanel::MkTPanel("[default2]", "[default2]")->MkTPanelWin(top);
@@ -194,9 +194,9 @@ void taccount::AddUserFollowingThis(std::shared_ptr<userdatacontainer> ptr) {
 }
 
 void taccount::GetRestBackfill() {
-	StartRestGetTweetBackfill(GetMaxId(RBFS_TWEETS), 0, 10, RBFS_TWEETS);
-	StartRestGetTweetBackfill(GetMaxId(RBFS_RECVDM), 0, 5, RBFS_RECVDM);
-	StartRestGetTweetBackfill(GetMaxId(RBFS_SENTDM), 0, 5, RBFS_SENTDM);
+	StartRestGetTweetBackfill(GetMaxId(RBFS_TWEETS), 0, 800, RBFS_TWEETS);
+	StartRestGetTweetBackfill(GetMaxId(RBFS_RECVDM), 0, 800, RBFS_RECVDM);
+	StartRestGetTweetBackfill(GetMaxId(RBFS_SENTDM), 0, 800, RBFS_SENTDM);
 
 	//StartRestGetTweetBackfill(0, 0, 10, RBFS_TWEETS);
 	//StartRestGetTweetBackfill(0, 0, 5, RBFS_RECVDM);

@@ -290,18 +290,21 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			break;
 		case CS_USERLIST:
 			if(dc.IsArray()) {
+				dbmsglist=new dbsendmsg_list();
 				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) DoUserParse(dc[i]);
 			}
 			else DoUserParse(dc);
 			break;
 		case CS_TIMELINE:
 			if(dc.IsArray()) {
+				dbmsglist=new dbsendmsg_list();
 				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) RestTweetUpdateParams(*DoTweetParse(dc[i]));
 			}
 			else RestTweetUpdateParams(*DoTweetParse(dc));
 			break;
 		case CS_DMTIMELINE:
 			if(dc.IsArray()) {
+				dbmsglist=new dbsendmsg_list();
 				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) RestTweetUpdateParams(*DoTweetParse(dc[i], true));
 			}
 			else RestTweetUpdateParams(*DoTweetParse(dc, true));
@@ -330,6 +333,11 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			//else do nothing
 		}
 	}
+	if(dbmsglist) {
+		if(!dbmsglist->msglist.empty()) dbc.SendMessage(dbmsglist);
+		else delete dbmsglist;
+		dbmsglist=0;
+	}
 	free(json);
 	return true;
 }
@@ -345,7 +353,7 @@ std::shared_ptr<userdatacontainer> jsonparser::DoUserParse(const rapidjson::Valu
 		std::string created_at;
 		CheckTransJsonValueDef(created_at, val, "created_at", "");
 		ParseTwitterDate(0, &userobj.createtime, created_at);
-		dbc.InsertUser(userdatacont);
+		dbc.InsertUser(userdatacont, dbmsglist);
 	}
 
 	userdatacont->MarkUpdated();
@@ -438,8 +446,8 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, boo
 
 	tobj->Dump();
 
-	if(is_new_tweet) dbc.InsertNewTweet(tobj, std::move(json));
-	else dbc.UpdateTweetDyn(tobj);
+	if(is_new_tweet) dbc.InsertNewTweet(tobj, std::move(json), dbmsglist);
+	else dbc.UpdateTweetDyn(tobj, dbmsglist);
 
 	return tobj;
 }

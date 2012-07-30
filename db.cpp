@@ -308,6 +308,15 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			sqlite3_reset(stmt);
 			break;
 		}
+		case DBSM_MSGLIST: {
+			cache.ExecStmt(db, DBPSC_BEGIN);
+			dbsendmsg_list *m=(dbsendmsg_list*) msg;
+			while(!m->msglist.empty()) {
+				ProcessMessage(db, m->msglist.front(), ok, cache);
+				m->msglist.pop();
+			}
+			cache.ExecStmt(db, DBPSC_COMMIT);
+		}
 		default: break;
 	}
 	delete msg;
@@ -370,7 +379,7 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 	dbseltweetmsg *msg=(dbseltweetmsg *) event.GetClientData();
 	for(auto it=msg->data.begin(); it!=msg->data.end(); ++it) {
 		dbrettweetdata &dt=*it;
-		wxLogWarning(wxT("dbconn::OnTpanelTweetLoadFromDB got tweet: id:%" wxLongLongFmtSpec "d, statjson: %s, dynjson: %s"), dt.id, wxstrstd(dt.statjson).c_str(), wxstrstd(dt.dynjson).c_str());
+		//wxLogWarning(wxT("dbconn::OnTpanelTweetLoadFromDB got tweet: id:%" wxLongLongFmtSpec "d, statjson: %s, dynjson: %s"), dt.id, wxstrstd(dt.statjson).c_str(), wxstrstd(dt.dynjson).c_str());
 		std::shared_ptr<tweet> &t=ad.tweetobjs[dt.id];
 		if(!t) {
 			t=std::make_shared<tweet>();
@@ -378,11 +387,11 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 		}
 		rapidjson::Document dc;
 		if(dt.statjson && !dc.ParseInsitu<0>(dt.statjson).HasParseError() && dc.IsObject()) {
-			wxLogWarning(wxT("dbconn::OnTpanelTweetLoadFromDB about to parse tweet statics"));
+			//wxLogWarning(wxT("dbconn::OnTpanelTweetLoadFromDB about to parse tweet statics"));
 			genjsonparser::ParseTweetStatics(dc, t, 0);
 		}
 		if(dt.dynjson && !dc.ParseInsitu<0>(dt.dynjson).HasParseError() && dc.IsObject()) {
-			wxLogWarning(wxT("dbconn::OnTpanelTweetLoadFromDB about to parse tweet dyn"));
+			//wxLogWarning(wxT("dbconn::OnTpanelTweetLoadFromDB about to parse tweet dyn"));
 			genjsonparser::ParseTweetDyn(dc, t);
 		}
 		t->user=ad.GetUserContainerById(dt.user1);
@@ -403,6 +412,11 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 		tpaneldbloadmap.erase(itpair.first, itpair.second);
 	}
 	delete msg;
+}
+
+void dbconn::SendMessageOrAddToList(dbsendmsg *msg, dbsendmsg_list *msglist) {
+	if(msglist) msglist->msglist.push(msg);
+	else SendMessage(msg);
 }
 
 void dbconn::SendMessage(dbsendmsg *msg) {
@@ -476,7 +490,7 @@ void dbconn::DeInit() {
 	sqlite3_close(syncdb);
 }
 
-void dbconn::InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string statjson) {
+void dbconn::InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string statjson, dbsendmsg_list *msglist) {
 	dbinserttweetmsg *msg=new dbinserttweetmsg();
 	msg->statjson=std::move(statjson);
 	msg->statjson.push_back((char) 42);	//modify the string to prevent any possible COW semantics
@@ -487,18 +501,18 @@ void dbconn::InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string stat
 	msg->user2=tobj->user_recipient?tobj->user_recipient->id:0;
 	msg->timestamp=tobj->createtime;
 	msg->flags=tobj->flags.Save();
-	SendMessage(msg);
+	SendMessageOrAddToList(msg, msglist);
 }
 
-void dbconn::UpdateTweetDyn(const std::shared_ptr<tweet> &tobj) {
+void dbconn::UpdateTweetDyn(const std::shared_ptr<tweet> &tobj, dbsendmsg_list *msglist) {
 	dbupdatetweetmsg *msg=new dbupdatetweetmsg();
 	msg->dynjson=tobj->mkdynjson();
 	msg->id=tobj->id;
 	msg->flags=tobj->flags.Save();
-	SendMessage(msg);
+	SendMessageOrAddToList(msg, msglist);
 }
 
-void dbconn::InsertUser(const std::shared_ptr<userdatacontainer> &u) {
+void dbconn::InsertUser(const std::shared_ptr<userdatacontainer> &u, dbsendmsg_list *msglist) {
 	dbinsertusermsg *msg=new dbinsertusermsg();
 	msg->id=u->id;
 	msg->json=u->mkjson();
@@ -506,7 +520,7 @@ void dbconn::InsertUser(const std::shared_ptr<userdatacontainer> &u) {
 	msg->createtime=u->user.createtime;
 	msg->lastupdate=u->lastupdate;
 	u->lastupdate_wrotetodb=u->lastupdate;
-	SendMessage(msg);
+	SendMessageOrAddToList(msg, msglist);
 }
 
 //tweetids, dmids are little endian in database

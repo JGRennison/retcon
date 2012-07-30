@@ -39,6 +39,7 @@ genoptglobconf gcglobdefaults {
 	{ wxT("90"), 1},
 	{ wxT("%Y-%m-%d %H:%M:%S"), 1},
 	{ wxT("48"), 1},
+	{ wxT("100"), 1},
 };
 
 taccount::taccount(genoptconf *incfg) {
@@ -100,6 +101,7 @@ void globconf::CFGParamConv() {
 	gcfg.userexpiretimemins.val.ToULong(&userexpiretime);
 	userexpiretime*=60;
 	gcfg.maxpanelprofimgsize.val.ToULong(&maxpanelprofimgsize);
+	gcfg.maxtweetsdisplayinpanel.val.ToULong(&maxtweetsdisplayinpanel);
 }
 
 void genoptconf::CFGWriteOutCurDir(wxConfigBase &twfc) {
@@ -128,11 +130,13 @@ void genoptglobconf::CFGWriteOut(wxConfigBase &twfc) {
 	userexpiretimemins.CFGWriteOutCurDir(twfc, wxT("/userexpiretimemins"));
 	datetimeformat.CFGWriteOutCurDir(twfc, wxT("/datetimeformat"));
 	maxpanelprofimgsize.CFGWriteOutCurDir(twfc, wxT("/maxpanelprofimgsize"));
+	maxtweetsdisplayinpanel.CFGWriteOutCurDir(twfc, wxT("/maxtweetsdisplayinpanel"));
 }
 void genoptglobconf::CFGReadIn(wxConfigBase &twfc, const genoptglobconf &parent) {
 	userexpiretimemins.CFGReadInCurDir(twfc, wxT("/userexpiretimemins"), parent.userexpiretimemins.val);
 	datetimeformat.CFGReadInCurDir(twfc, wxT("/datetimeformat"), parent.datetimeformat.val);
 	maxpanelprofimgsize.CFGReadInCurDir(twfc, wxT("/maxpanelprofimgsize"), parent.maxpanelprofimgsize.val);
+	maxtweetsdisplayinpanel.CFGReadInCurDir(twfc, wxT("/maxtweetsdisplayinpanel"), parent.maxtweetsdisplayinpanel.val);
 }
 
 void genopt::CFGWriteOutCurDir(wxConfigBase &twfc, const wxString &name) {

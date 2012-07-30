@@ -283,8 +283,9 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	hboxfooter->Add(cancelbtn, 0, wxALL | wxALIGN_BOTTOM | wxALIGN_RIGHT, 2);
 	advopts.push_front(std::make_pair(advoptbox, veryadvoptchkbox));
 
-	AddSettingRow_String(panel, fgs, wxT("Date-time format (strftime)"), DCBV_ISGLOBALCFG, gc.gcfg.datetimeformat, gcglobdefaults.datetimeformat);
-	AddSettingRow_String(panel, fgs, wxT("Max profile image size / px"), DCBV_ISGLOBALCFG, gc.gcfg.maxpanelprofimgsize, gcglobdefaults.maxpanelprofimgsize, wxFILTER_NUMERIC);
+	AddSettingRow_String(panel, fgs, wxT("Max No. of Items to Display in Panel"), DCBV_ISGLOBALCFG, gc.gcfg.maxtweetsdisplayinpanel, gcglobdefaults.maxtweetsdisplayinpanel, wxFILTER_NUMERIC);
+	AddSettingRow_String(panel, fgs, wxT("Date-Time Format (strftime)"), DCBV_ISGLOBALCFG, gc.gcfg.datetimeformat, gcglobdefaults.datetimeformat);
+	AddSettingRow_String(panel, fgs, wxT("Max Profile Image Size / px"), DCBV_ISGLOBALCFG, gc.gcfg.maxpanelprofimgsize, gcglobdefaults.maxpanelprofimgsize, wxFILTER_NUMERIC);
 	AddSettingRow_String(panel, fgs, wxT("Cached User Expiry Time / min"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.userexpiretimemins, gcglobdefaults.userexpiretimemins, wxFILTER_NUMERIC);
 
 	lb=new wxChoice(panel, wxID_FILE1);

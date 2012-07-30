@@ -15,6 +15,7 @@ struct tweetdispscr : public wxRichTextCtrl {
 	tpanelparentwin *tppw;
 	wxBoxSizer *hbox;
 	wxStaticBitmap *bm;
+	wxStaticBitmap *bm2;
 
 	tweetdispscr(std::shared_ptr<tweet> td_, tpanelparentwin *tppw_, wxBoxSizer *hbox_);
 	~tweetdispscr();
@@ -50,13 +51,13 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	std::forward_list<tpanelparentwin*> twin;
 	unsigned int flags;
 	std::shared_ptr<taccount> assoc_acc;
-	tweetidset storedids;		//any tweet or DM in this list *must* be either in ad.tweetobjs, or in the database
+	//tweetidset storedids;		//any tweet or DM in this list *must* be either in ad.tweetobjs, or in the database
 
 	static std::shared_ptr<tpanel> MkTPanel(const std::string &name_, const std::string &dispname_, unsigned int flags_=0, std::shared_ptr<taccount> *acc=0);
 	tpanel(const std::string &name_, const std::string &dispname_, unsigned int flags_=0, std::shared_ptr<taccount> *acc=0);		//don't use this directly
 	~tpanel();
 
-	void PushTweet(std::shared_ptr<tweet> t);
+	void PushTweet(const std::shared_ptr<tweet> &t);
 	uint64_t PushTweetOrRetLoadId(uint64_t id);
 	tpanelparentwin *MkTPanelWin(mainframe *parent, bool select=false);
 	void OnTPanelWinClose(tpanelparentwin *tppw);
@@ -87,15 +88,17 @@ struct tpanelparentwin : public wxScrolledWindow {
 	//tpanelwin *tpw;
 	std::shared_ptr<tpanel> tp;
 	wxBoxSizer *sizer;
+	size_t displayoffset;
+	uint64_t mindisplayid;
 	std::list<std::pair<uint64_t, tweetdispscr *> > currentdisp;
 	bool resize_update_pending;
 	mainframe *owner;
 
-	tpanelparentwin(std::shared_ptr<tpanel> tp_, mainframe *parent, bool select=false);
+	tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select=false);
 	~tpanelparentwin();
-	void PushTweet(std::shared_ptr<tweet> t);
-	tweetdispscr *PushTweet(std::shared_ptr<tweet> t, size_t index);
-	void FillTweet();
+	void PushTweet(const std::shared_ptr<tweet> &t);
+	tweetdispscr *PushTweet(const std::shared_ptr<tweet> &t, size_t index);
+	void FillTweet(size_t max);
 	void resizehandler(wxSizeEvent &event);
 	void resizemsghandler(wxCommandEvent &event);
 	void tabdetachhandler(wxCommandEvent &event);

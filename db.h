@@ -49,12 +49,19 @@ typedef enum {
 	DBSM_UPDATETWEET,
 	DBSM_SELTWEET,
 	DBSM_INSERTUSER,
+	DBSM_MSGLIST,
 } DBSM_TYPE;
 
 struct dbsendmsg {
 	DBSM_TYPE type;
 
 	dbsendmsg(DBSM_TYPE type_) : type(type_) { }
+};
+
+struct dbsendmsg_list : public dbsendmsg {
+	dbsendmsg_list() : dbsendmsg(DBSM_MSGLIST) { }
+
+	std::queue<dbsendmsg *> msglist;
 };
 
 struct dbsendmsg_callback : public dbsendmsg {
@@ -138,10 +145,11 @@ struct dbconn : public wxEvtHandler {
 	void Init(const std::string &filename);
 	void DeInit();
 	void SendMessage(dbsendmsg *msg);
+	void SendMessageOrAddToList(dbsendmsg *msg, dbsendmsg_list *msglist);
 
-	void InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string statjson);
-	void UpdateTweetDyn(const std::shared_ptr<tweet> &tobj);
-	void InsertUser(const std::shared_ptr<userdatacontainer> &u);
+	void InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string statjson, dbsendmsg_list *msglist=0);
+	void UpdateTweetDyn(const std::shared_ptr<tweet> &tobj, dbsendmsg_list *msglist=0);
+	void InsertUser(const std::shared_ptr<userdatacontainer> &u, dbsendmsg_list *msglist=0);
 	void AccountSync(sqlite3 *adb);
 	void SyncWriteBackAllUsers(sqlite3 *adb);
 	void SyncReadInAllUsers(sqlite3 *adb);

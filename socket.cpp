@@ -141,6 +141,7 @@ void profileimgdlconn::HandleFailure() {
 			user->udc_flags|=UDC_PROFILE_BITMAP_SET;
 		}
 		user->udc_flags&=~UDC_IMAGE_DL_IN_PROGRESS;
+		user->udc_flags&=~UDC_HALF_PROFILE_BITMAP_SET;
 		user->CheckPendingTweets();
 		cp.Standby(this);
 	}
@@ -174,6 +175,7 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 		dbc.InsertUser(user);
 		data.clear();
 		user->udc_flags&=~UDC_IMAGE_DL_IN_PROGRESS;
+		user->udc_flags&=~UDC_HALF_PROFILE_BITMAP_SET;
 		user->CheckPendingTweets();
 		UpdateUsersTweet(user->id, true);
 	}

@@ -122,7 +122,7 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 	if(!acc) delete this;
 
 	unsigned int tweets_to_get=std::min((unsigned int) 200, rbfs->max_tweets_left);
-	if(rbfs->start_tweet_id>rbfs->end_tweet_id || !tweets_to_get || !rbfs->read_again) {
+	if((rbfs->end_tweet_id && rbfs->start_tweet_id>rbfs->end_tweet_id) || !tweets_to_get || !rbfs->read_again) {
 		acc->DoPostAction(this);
 	}
 	else {
@@ -306,6 +306,16 @@ bool userdatacontainer::ImgIsReady(bool download) {
 	return true;
 }
 
+bool userdatacontainer::ImgHalfIsReady(bool download) {
+	bool res=ImgIsReady(download);
+	if(res && !(udc_flags&UDC_HALF_PROFILE_BITMAP_SET)) {
+		wxImage img=cached_profile_img.ConvertToImage();
+		cached_profile_img_half=MkProfileBitmapFromwxImage(img, 0.5);
+		udc_flags|=UDC_HALF_PROFILE_BITMAP_SET;
+	}
+	return res;
+}
+
 bool userdatacontainer::IsReady() {
 	if(!ImgIsReady()) return false;
 	if(NeedsUpdating()) return false;
@@ -375,14 +385,19 @@ std::string userdatacontainer::mkjson() {
 	return json;
 }
 
-void userdatacontainer::SetProfileBitmapFromwxImage(wxImage &img) {	//modifies img
-	if(img.GetHeight()>(int) gc.maxpanelprofimgsize || img.GetWidth()>(int) gc.maxpanelprofimgsize) {
-		double scalefactor=(double) gc.maxpanelprofimgsize / (double) std::max(img.GetHeight(), img.GetWidth());
+wxBitmap userdatacontainer::MkProfileBitmapFromwxImage(const wxImage &img, double limitscalefactor) {
+	int maxdim=(gc.maxpanelprofimgsize*limitscalefactor);
+	if(img.GetHeight()>maxdim || img.GetWidth()>maxdim) {
+		double scalefactor=(double) maxdim / (double) std::max(img.GetHeight(), img.GetWidth());
 		int newwidth = (double) img.GetWidth() * scalefactor;
 		int newheight = (double) img.GetHeight() * scalefactor;
-		img.Rescale(std::lround(newwidth), std::lround(newheight), wxIMAGE_QUALITY_HIGH);
+		return wxBitmap(img.Scale(std::lround(newwidth), std::lround(newheight), wxIMAGE_QUALITY_HIGH));
 	}
-	cached_profile_img=wxBitmap(img);
+	else return wxBitmap(img);
+}
+
+void userdatacontainer::SetProfileBitmapFromwxImage(const wxImage &img) {
+	cached_profile_img=MkProfileBitmapFromwxImage(img, 1.0);
 	udc_flags|=UDC_PROFILE_BITMAP_SET;
 }
 
