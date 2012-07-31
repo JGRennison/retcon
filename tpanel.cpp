@@ -1,9 +1,11 @@
 #include "retcon.h"
 #include "utf8.h"
+#include "res.h"
 #include <wx/filename.h>
 #include <wx/filedlg.h>
 
 std::unordered_multimap<uint64_t, tpanel*> tpaneldbloadmap;
+tpanelglobal *tpg;
 
 static void PerAccTPanelMenu(wxMenu *menu, tpanelmenudata &map, int &nextid, unsigned int flagbase, unsigned int dbindex) {
 	map[nextid]={dbindex, flagbase|TPF_AUTO_TW};
@@ -326,8 +328,13 @@ tweetdispscr *tpanelparentwin::PushTweet(const std::shared_ptr<tweet> &t, size_t
 			t->user_recipient->ImgHalfIsReady();
 			td->bm = new wxStaticBitmap(this, wxID_ANY, t->user->cached_profile_img_half, wxPoint(-1000, -1000));
 			td->bm2 = new wxStaticBitmap(this, wxID_ANY, t->user_recipient->cached_profile_img_half, wxPoint(-1000, -1000));
+			int dim=gc.maxpanelprofimgsize/2;
+			if(tpg->arrow_dim!=dim) {
+				tpg->arrow=GetArrowIcon(dim);
+				tpg->arrow_dim=dim;
+			}
+			wxStaticBitmap *arrow = new wxStaticBitmap(this, wxID_ANY, tpg->arrow, wxPoint(-1000, -1000));
 			wxGridSizer *gs=new wxGridSizer(2,2,0,0);
-			wxStaticText *arrow=new wxStaticText(this, wxID_ANY, wxT("\x21b3"), wxPoint(-1000, -1000), wxDefaultSize, wxALIGN_CENTRE );
 			gs->Add(td->bm, 0, 0, 0);
 			gs->AddStretchSpacer();
 			gs->Add(arrow, 0, wxALIGN_CENTRE, 0);

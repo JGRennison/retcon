@@ -15,6 +15,7 @@ bool retcon::OnInit() {
 	//wxApp::OnInit();	//don't call this, it just calls the default command line processor
 	SetAppName(wxT("retcon"));
 	::wxInitAllImageHandlers();
+	tpg=new tpanelglobal;
 	cmdlineproc(argv, argc);
 	if(!::wxDirExists(wxStandardPaths::Get().GetUserDataDir())) {
 		::wxMkdir(wxStandardPaths::Get().GetUserDataDir(), 0777);
@@ -46,6 +47,7 @@ int retcon::OnExit() {
 	WriteAllCFGOut(*wfc, gc, alist);
 	wfc->Flush();
 	dbc.DeInit();
+	delete tpg;
 	return wxApp::OnExit();
 }
 

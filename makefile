@@ -9,6 +9,7 @@
 
 OBJS:=retcon.o cfg.o optui.o parse.o socket.o tpanel.o twit.o db.o log.o cmdline.o
 TCOBJS:=libtwitcurl/base64.o libtwitcurl/HMAC_SHA1.o libtwitcurl/oauthlib.o libtwitcurl/SHA1.o libtwitcurl/twitcurl.o libtwitcurl/urlencode.o
+EXOBJS:=res.o
 OUTNAME:=retcon
 CFLAGS:=-O3 -Wextra -Wall -Wno-unused-parameter
 #-Wno-missing-braces -Wno-unused-parameter
@@ -35,7 +36,7 @@ GCC64=x86_64-w64-mingw32-g++
 MCFLAGS= -Icurl -IC:/SourceCode/Libraries/wxWidgets2.8/include -Isqlite -Izlib
 HDEPS:=
 EXECPREFIX:=
-EXOBJS:=sqlite/sqlite3.o
+EXOBJS+=sqlite/sqlite3.o
 
 ifdef x64
 POSTFIX+=64
@@ -60,7 +61,6 @@ LIBS:=-lpcre -lrt `wx-config --libs` -lcurl -lsqlite3
 MCFLAGS= `wx-config --cxxflags`
 GCC:=g++
 PACKER:=upx -9
-EXOBJS:=
 #HDEPS:=
 ARCH:=$(shell test $(GCC_MAJOR) -gt 4 -o \( $(GCC_MAJOR) -eq 4 -a $(GCC_MINOR) -ge 2 \) && echo native)
 EXECPREFIX:=./
@@ -103,6 +103,7 @@ $(TCOBJS): %.o$(POSTFIX): %.cpp
 	$(GCC) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(CXXFLAGS)
 
 $(OBJS): retcon.h socket.h cfg.h parse.h twit.h tpanel.h optui.h libtwitcurl/twitcurl.h db.h log.h cmdline.h
+res.o$(POSTFIX) tpanel.o$(POSTFIX): res.h
 $(TCOBJS): libtwitcurl/*.h
 ifeq ($(PLATFORM),WIN)
 twit.o$(POSTFIX): timegm.cpp strptime.cpp

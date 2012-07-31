@@ -1,5 +1,3 @@
-extern std::unordered_multimap<uint64_t, tpanel*> tpaneldbloadmap;
-
 enum { tpanelmenustartid=wxID_HIGHEST+8001 };
 enum { tpanelmenuendid=wxID_HIGHEST+12000 };
 
@@ -156,3 +154,13 @@ void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent);
 //	~tpanelwin();
 //	void PushTweet(std::shared_ptr<tweetdisp> t);
 //};
+
+struct tpanelglobal {
+	wxBitmap arrow;
+	unsigned int arrow_dim;
+
+	tpanelglobal() : arrow_dim(0) { }
+};
+
+extern std::unordered_multimap<uint64_t, tpanel*> tpaneldbloadmap;
+extern tpanelglobal *tpg;
