@@ -143,7 +143,6 @@ struct DefaultChkBoxValidator : public wxValidator {
 				chkbox->SetValue((parentval.val==wxT("1")));
 			}
 		}
-		//wxLogWarning(wxT("DefaultChkBoxValidator::statechange %p %p %d"), chk, txtctrl, chk->GetValue());
 	}
 	virtual bool Validate(wxWindow* parent) {
 		statechange();

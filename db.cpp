@@ -24,6 +24,16 @@ const char *sql[DBPSC_NUM_STATEMENTS]={
 	"SELECT statjson, dynjson, userid, userrecipid, flags, timestamp FROM tweets WHERE id == ?",
 };
 
+static void DBThreadSafeLogMsg(logflagtype logflags, const wxString &str) {
+	wxCommandEvent evt(wxextDBCONN_NOTIFY, wxDBCONNEVT_ID_DEBUGMSG);
+	evt.SetString(str);
+	evt.SetExtraLong(logflags);
+	dbc.AddPendingEvent(evt);
+}
+
+#define DBLogMsgFormat(l, ...) if( currentlogflags & l ) DBThreadSafeLogMsg(l, wxString::Format(__VA_ARGS__))
+#define DBLogMsg(l, s) if( currentlogflags & l ) DBThreadSafeLogMsg(l, s)
+
 int busy_handler_callback(void *ptr, int count) {
 	if(count<20) {
 		unsigned int sleeplen=25<<count;
@@ -106,7 +116,7 @@ static unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsi
 		strm.avail_out=maxsize;
 		strm.next_out=data+HEADERSIZE;
 		int res=deflate(&strm, Z_FINISH);
-		//OutputDebugStringW(wxString::Format(wxT("deflate: %d, %d, %d"), res, strm.avail_in, strm.avail_out).wc_str());
+		DBLogMsgFormat(LFT_ZLIBTRACE, wxT("deflate: %d, %d, %d"), res, strm.avail_in, strm.avail_out);
 		sz=HEADERSIZE+maxsize-strm.avail_out;
 		deflateEnd(&strm);
 		if(iscompressed) *iscompressed=true;
@@ -123,7 +133,7 @@ static unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsi
 	static size_t cumout=0;
 	cumin+=insize;
 	cumout+=sz;
-	//OutputDebugStringW(wxString::Format(wxT("zlib compress: %d -> %d, cum: %f"), insize, sz, (double) cumout/ (double) cumin).wc_str());
+	DBLogMsgFormat(LFT_ZLIBTRACE, wxT("zlib compress: %d -> %d, cum: %f"), insize, sz, (double) cumout/ (double) cumin);
 
 	return data;
 }
@@ -146,7 +156,7 @@ static void bind_compressed(sqlite3_stmt* stmt, int num, const std::string &in, 
 
 static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsize) {
 	if(!insize) {
-		//OutputDebugStringA("DoDecompress: insize=0");
+		DBLogMsg(LFT_ZLIBTRACE, wxT("DoDecompress: insize=0"));
 		outsize=0;
 		return 0;
 	}
@@ -164,7 +174,7 @@ static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsiz
 			bool compress=TagToDict(in[0], dict, dict_size);
 			if(compress) break;
 			else {
-				//OutputDebugStringA("DoDecompress: Bad tag");
+				DBLogMsg(LFT_ZLIBTRACE, wxT("DoDecompress: Bad tag"));
 				outsize=0;
 				return 0;
 			}
@@ -182,13 +192,13 @@ static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsiz
 		outsize<<=8;
 		outsize+=in[i];
 	}
-	//OutputDebugStringW(wxString::Format(wxT("DoDecompress: insize %d, outsize %d"), insize, outsize).wc_str());
+	DBLogMsgFormat(LFT_ZLIBTRACE, wxT("DoDecompress: insize %d, outsize %d"), insize, outsize);
 	unsigned char *data=(unsigned char *) malloc(outsize+1);
 	strm.next_out=data;
 	strm.avail_out=outsize;
 	while(true) {
 		int res=inflate(&strm, Z_FINISH);
-		//OutputDebugStringW(wxString::Format(wxT("inflate: %d, %d, %d"), res, strm.avail_in, strm.avail_out).wc_str());
+		DBLogMsgFormat(LFT_ZLIBTRACE, wxT("inflate: %d, %d, %d"), res, strm.avail_in, strm.avail_out);
 		//if(strm.msg) OutputDebugStringA(strm.msg);
 		if(res==Z_NEED_DICT) {
 			if(dict) inflateSetDictionary(&strm, dict, dict_size);
@@ -196,7 +206,7 @@ static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsiz
 				outsize=0;
 				inflateEnd(&strm);
 				free(data);
-				//OutputDebugStringA("DoDecompress: Wants dictionary");
+				DBLogMsgFormat(LFT_ZLIBTRACE, wxT("DoDecompress: Wants dictionary: %ux"), strm.adler);
 				return 0;
 			}
 		}
@@ -206,7 +216,7 @@ static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsiz
 			outsize=0;
 			inflateEnd(&strm);
 			free(data);
-			//OutputDebugStringA("DoDecompress: res!=Z_STREAM_END");
+			DBLogMsgFormat(LFT_ZLIBTRACE, wxT("DoDecompress: res!=Z_STREAM_END"));
 			return 0;
 		}
 	}
@@ -214,7 +224,7 @@ static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsiz
 	inflateEnd(&strm);
 	data[outsize]=0;
 
-	//OutputDebugStringW(wxString::Format(wxT("zlib decompress: %d -> %d, text: %s"), insize, outsize, wxstrstd((const char*) data).c_str()).wc_str());
+	DBLogMsgFormat(LFT_ZLIBTRACE,wxT("zlib decompress: %d -> %d, text: %s"), insize, outsize, wxstrstd((const char*) data).c_str());
 	return (char *) data;
 }
 
@@ -274,7 +284,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			for(auto it=m->id_set.cbegin(); it!=m->id_set.cend(); ++it) {
 				sqlite3_bind_int64(stmt, 1, (sqlite3_int64) (*it));
 				int res=sqlite3_step(stmt);
-				//wxLogWarning(wxT("dbconn::OnTpanelTweetLoadFromDB got tweet: id:%" wxLongLongFmtSpec "d, statjson: %s, dynjson: %s"), dt.id, wxstrstd(dt.statjson).c_str(), wxstrstd(dt.dynjson).c_str());
+				DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_SELTWEET got res: %d for id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) (*it), res);
 				if(res==SQLITE_ROW) {
 					recv_data.emplace_front();
 					dbrettweetdata &rd=recv_data.front();
@@ -373,13 +383,14 @@ DEFINE_EVENT_TYPE(wxextDBCONN_NOTIFY)
 
 BEGIN_EVENT_TABLE(dbconn, wxEvtHandler)
 EVT_COMMAND(wxDBCONNEVT_ID_TPANELTWEETLOAD, wxextDBCONN_NOTIFY, dbconn::OnTpanelTweetLoadFromDB)
+EVT_COMMAND(wxDBCONNEVT_ID_DEBUGMSG, wxextDBCONN_NOTIFY, dbconn::OnDBThreadDebugMsg)
 END_EVENT_TABLE()
 
 void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 	dbseltweetmsg *msg=(dbseltweetmsg *) event.GetClientData();
 	for(auto it=msg->data.begin(); it!=msg->data.end(); ++it) {
 		dbrettweetdata &dt=*it;
-		//wxLogWarning(wxT("dbconn::OnTpanelTweetLoadFromDB got tweet: id:%" wxLongLongFmtSpec "d, statjson: %s, dynjson: %s"), dt.id, wxstrstd(dt.statjson).c_str(), wxstrstd(dt.dynjson).c_str());
+		DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::OnTpanelTweetLoadFromDB got tweet: id:%" wxLongLongFmtSpec "d, statjson: %s, dynjson: %s"), dt.id, wxstrstd(dt.statjson).c_str(), wxstrstd(dt.dynjson).c_str());
 		std::shared_ptr<tweet> &t=ad.tweetobjs[dt.id];
 		if(!t) {
 			t=std::make_shared<tweet>();
@@ -387,11 +398,11 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 		}
 		rapidjson::Document dc;
 		if(dt.statjson && !dc.ParseInsitu<0>(dt.statjson).HasParseError() && dc.IsObject()) {
-			//wxLogWarning(wxT("dbconn::OnTpanelTweetLoadFromDB about to parse tweet statics"));
+			DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::OnTpanelTweetLoadFromDB about to parse tweet statics"));
 			genjsonparser::ParseTweetStatics(dc, t, 0);
 		}
 		if(dt.dynjson && !dc.ParseInsitu<0>(dt.dynjson).HasParseError() && dc.IsObject()) {
-			//wxLogWarning(wxT("dbconn::OnTpanelTweetLoadFromDB about to parse tweet dyn"));
+			DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::OnTpanelTweetLoadFromDB about to parse tweet dyn"));
 			genjsonparser::ParseTweetDyn(dc, t);
 		}
 		t->user=ad.GetUserContainerById(dt.user1);
@@ -412,6 +423,10 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 		tpaneldbloadmap.erase(itpair.first, itpair.second);
 	}
 	delete msg;
+}
+
+void dbconn::OnDBThreadDebugMsg(wxCommandEvent &event) {
+	LogMsg(event.GetExtraLong(), event.GetString());
 }
 
 void dbconn::SendMessageOrAddToList(dbsendmsg *msg, dbsendmsg_list *msglist) {
@@ -527,14 +542,14 @@ void dbconn::InsertUser(const std::shared_ptr<userdatacontainer> &u, dbsendmsg_l
 void dbconn::AccountSync(sqlite3 *adb) {
 	const char getacc[]="SELECT id, name, tweetids, dmids FROM acc;";
 	auto acclist=alist;	//copy list
-	sqlite3_stmt *getstmt;
+	sqlite3_stmt *getstmt=0;
 	sqlite3_prepare_v2(adb, getacc, sizeof(getacc)+1, &getstmt, 0);
 	do {
 		int res=sqlite3_step(getstmt);
 		if(res==SQLITE_ROW) {
 			unsigned int id=(unsigned int) sqlite3_column_int(getstmt, 0);
 			wxString name=wxString::FromUTF8((const char*) sqlite3_column_text(getstmt, 1));
-			//wxLogWarning(wxT("dbconn::AccountSync: Found %d, %s"), id, name.c_str());
+			DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::AccountSync: Found %d, %s"), id, name.c_str());
 			taccount *acc=0;
 			acclist.remove_if([&](const std::shared_ptr<taccount> &t) {
 				if(t->name==name) {
@@ -554,7 +569,7 @@ void dbconn::AccountSync(sqlite3 *adb) {
 					uint64_t id=0;
 					for(unsigned int j=0; j<8; j++) id<<=8, id|=tweetarray[i+j];
 					acc->tweet_ids.insert(id);
-					//wxLogWarning(wxT("dbconn::AccountSync: Found Tweet %" wxLongLongFmtSpec "d"), id);
+					DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::AccountSync: Found Tweet %" wxLongLongFmtSpec "d"), id);
 				}
 				size_t dmarraysize;
 				unsigned char *dmarray=(unsigned char*) column_get_compressed(getstmt, 3, dmarraysize);
@@ -565,7 +580,7 @@ void dbconn::AccountSync(sqlite3 *adb) {
 					uint64_t id=0;
 					for(unsigned int j=0; j<8; j++) id<<=8, id|=dmarray[i+j];
 					acc->dm_ids.insert(id);
-					//wxLogWarning(wxT("dbconn::AccountSync: Found DM %" wxLongLongFmtSpec "d"), id);
+					DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::AccountSync: Found DM %" wxLongLongFmtSpec "d"), id);
 				}
 				free(tweetarray);
 				free(dmarray);
@@ -660,7 +675,7 @@ void dbconn::SyncWriteBackAllUsers(sqlite3 *adb) {
 
 void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 	const char sql[]="SELECT id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp FROM users;";
-	sqlite3_stmt *stmt;
+	sqlite3_stmt *stmt=0;
 	sqlite3_prepare_v2(adb, sql, sizeof(sql)+1, &stmt, 0);
 
 	do {

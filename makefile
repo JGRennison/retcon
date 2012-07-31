@@ -7,7 +7,7 @@
 #x64: set to true to compile for x86_64/win64
 
 
-OBJS:=retcon.o cfg.o optui.o parse.o socket.o tpanel.o twit.o db.o
+OBJS:=retcon.o cfg.o optui.o parse.o socket.o tpanel.o twit.o db.o log.o cmdline.o
 TCOBJS:=libtwitcurl/base64.o libtwitcurl/HMAC_SHA1.o libtwitcurl/oauthlib.o libtwitcurl/SHA1.o libtwitcurl/twitcurl.o libtwitcurl/urlencode.o
 OUTNAME:=retcon
 CFLAGS:=-O3 -Wextra -Wall -Wno-unused-parameter
@@ -77,11 +77,6 @@ CFLAGS+= -masm=intel -g --save-temps -Wa,-msyntax=intel,-aghlms=$*$(POSTFIX).lst
 AFLAGS:=$(AFLAGS) -Wl,-Map=$(OUTNAME)$(POSTFIX).map
 endif
 
-ifdef unpacked
-NTEMP:=$(OUTNAME)_defl$(POSTFIX)
-TARGS+=$(NTEMP)$(SUFFIX)
-endif
-
 ALL_OBJS:=$(OBJS) $(TCOBJS) $(EXOBJS)
 
 ifneq ($(ARCH),)
@@ -107,11 +102,10 @@ $(TARGS): $(ALL_OBJS)
 $(TCOBJS): %.o$(POSTFIX): %.cpp
 	$(GCC) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(CXXFLAGS)
 
-$(OBJS): retcon.h socket.h cfg.h parse.h twit.h tpanel.h optui.h libtwitcurl/twitcurl.h db.h
+$(OBJS): retcon.h socket.h cfg.h parse.h twit.h tpanel.h optui.h libtwitcurl/twitcurl.h db.h log.h cmdline.h
 $(TCOBJS): libtwitcurl/*.h
-twit.o$(POSTFIX): strptime.cpp
 ifeq ($(PLATFORM),WIN)
-twit.o$(POSTFIX): timegm.cpp
+twit.o$(POSTFIX): timegm.cpp strptime.cpp
 endif
 
 

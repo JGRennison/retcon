@@ -39,7 +39,7 @@ struct jsonparser : public genjsonparser {
 	void RestTweetUpdateParams(const tweet &t);
 
 	jsonparser(CS_ENUMTYPE t, std::shared_ptr<taccount> a, twitcurlext *tw = 0 /*optional*/)
-		: tac(a), type(t), twit(tw) { }
+		: tac(a), type(t), twit(tw), dbmsglist(0) { }
 	bool ParseString(const char *str, size_t len);
 	bool ParseString(const std::string &str) { return ParseString(str.c_str(), str.size()); }
 };

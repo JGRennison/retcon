@@ -12,14 +12,21 @@ BEGIN_EVENT_TABLE( mcurlconn, wxEvtHandler )
 	EVT_TIMER(MCCT_RETRY, mcurlconn::RetryNotify)
 END_EVENT_TABLE()
 
-void mcurlconn::KillConn() {
-	wxLogWarning(wxT("KillConn: conn: %p"), this);
-	sm.RemoveConn(GenGetCurlHandle());
+int curl_debug_func(CURL *cl, curl_infotype ci, char *txt, size_t len, void *extra) {
+	if(ci==CURLINFO_TEXT) {
+		LogMsgProcess(LFT_CURLVERB, wxString::FromUTF8(txt, len));
+	}
+	return 0;
 }
 
-void mcurlconn::setlog(FILE *fs, bool verbose) {
-        curl_easy_setopt(GenGetCurlHandle(), CURLOPT_STDERR, fs);
-        curl_easy_setopt(GenGetCurlHandle(), CURLOPT_VERBOSE, verbose);
+void SetCurlHandleVerboseState(CURL *easy, bool verbose) {
+	if(verbose) curl_easy_setopt(easy, CURLOPT_DEBUGFUNCTION, &curl_debug_func);
+	curl_easy_setopt(easy, CURLOPT_VERBOSE, verbose);
+}
+
+void mcurlconn::KillConn() {
+	LogMsgFormat(LFT_SOCKTRACE, wxT("KillConn: conn: %p"), this);
+	sm.RemoveConn(GenGetCurlHandle());
 }
 
 void mcurlconn::NotifyDone(CURL *easy, CURLcode res) {
@@ -31,10 +38,10 @@ void mcurlconn::NotifyDone(CURL *easy, CURLcode res) {
 		if(res==CURLE_OK) {
 			char *url;
 			curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &url);
-			wxLogWarning(wxT("Request failed: conn: %p, code: %d, url: %s"), this, httpcode, wxstrstd(url).c_str());
+			LogMsgFormat(LFT_SOCKERR, wxT("Request failed: conn: %p, code: %d, url: %s"), this, httpcode, wxstrstd(url).c_str());
 		}
 		else {
-			wxLogWarning(wxT("Socket error: conn: %p, code: %d, message: %s"), this, res, wxstrstd(curl_easy_strerror(res)).c_str());
+			LogMsgFormat(LFT_SOCKERR, wxT("Socket error: conn: %p, code: %d, message: %s"), this, res, wxstrstd(curl_easy_strerror(res)).c_str());
 		}
 		KillConn();
 		HandleError(easy, httpcode, res);
@@ -102,7 +109,6 @@ void dlconn::Init(const std::string &url_) {
 	#ifdef __WINDOWS__
 	curl_easy_setopt(curlHandle, CURLOPT_CAINFO, "./cacert.pem");
 	#endif
-	if(sm.loghandle) setlog(sm.loghandle, 1);
 	curl_easy_setopt(curlHandle, CURLOPT_HTTPGET, 1);
 	curl_easy_setopt(curlHandle, CURLOPT_URL, url.c_str());
         curl_easy_setopt(curlHandle, CURLOPT_WRITEFUNCTION, curlCallback );
@@ -122,7 +128,7 @@ int dlconn::curlCallback(char* data, size_t size, size_t nmemb, dlconn *obj) {
 void profileimgdlconn::Init(const std::string &imgurl_, const std::shared_ptr<userdatacontainer> &user_) {
 	user=user_;
 	user->udc_flags|=UDC_IMAGE_DL_IN_PROGRESS;
-	wxLogWarning(wxT("Fetching image %s for user id %" wxLongLongFmtSpec "d, conn: %p"), wxstrstd(imgurl_).c_str(), user_->id, this);
+	LogMsgFormat(LFT_SOCKTRACE, wxT("Fetching image %s for user id %" wxLongLongFmtSpec "d, conn: %p"), wxstrstd(imgurl_).c_str(), user_->id, this);
 	dlconn::Init(imgurl_);
 }
 
@@ -186,7 +192,7 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 void mediaimgdlconn::Init(const std::string &imgurl_, uint64_t media_id_, unsigned int flags_) {
 	media_id=media_id_;
 	flags=flags_;
-	wxLogWarning(wxT("Fetching media image %s, id: %" wxLongLongFmtSpec "d, flags: %X, conn: %p"), wxstrstd(imgurl_).c_str(), media_id_, flags_, this);
+	LogMsgFormat(LFT_SOCKTRACE, wxT("Fetching media image %s, id: %" wxLongLongFmtSpec "d, flags: %X, conn: %p"), wxstrstd(imgurl_).c_str(), media_id_, flags_, this);
 	dlconn::Init(imgurl_);
 }
 
@@ -212,7 +218,7 @@ void mediaimgdlconn::Reset() {
 
 void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 
-	wxLogWarning(wxT("Media image downloaded %s, id: %" wxLongLongFmtSpec "d, flags: %X"), wxstrstd(url).c_str(), media_id, flags);
+	LogMsgFormat(LFT_SOCKTRACE, wxT("Media image downloaded %s, id: %" wxLongLongFmtSpec "d, flags: %X"), wxstrstd(url).c_str(), media_id, flags);
 
 	auto it=ad.media_list.find(media_id);
 	if(it!=ad.media_list.end()) {
@@ -245,7 +251,7 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 
 		if(flags&MIDC_REDRAW_TWEETS) {
 			for(auto it=me.tweet_list.begin(); it!=me.tweet_list.end(); ++it) {
-				wxLogWarning(wxT("Media: UpdateTweet"));
+				LogMsgFormat(LFT_SOCKTRACE, wxT("Media: UpdateTweet"));
 				UpdateTweet(*it);
 			}
 		}
@@ -315,19 +321,19 @@ static void check_multi_info(socketmanager *smp) {
 			long httpcode;
 			curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &httpcode);
 			curl_easy_getinfo(easy, CURLINFO_PRIVATE, &conn);
-			wxLogWarning(wxT("Socket Done, conn: %p, res: %d, http: %d"), conn, res, httpcode);
+			LogMsgFormat(LFT_SOCKTRACE, wxT("Socket Done, conn: %p, res: %d, http: %d"), conn, res, httpcode);
 			curl_multi_remove_handle(smp->curlmulti, easy);
 			conn->NotifyDone(easy, res);
 		}
 	}
 	if(sm.curnumsocks==0) {
-		wxLogWarning(wxT("No Sockets Left, Stopping Timer"));
+		LogMsgFormat(LFT_SOCKTRACE, wxT("No Sockets Left, Stopping Timer"));
 		smp->st.Stop();
 	}
 }
 
 static int sock_cb(CURL *e, curl_socket_t s, int what, socketmanager *smp, mcurlconn *cs) {
-	wxLogWarning(wxT("Socket Interest Change Callback: %d, %d, conn: %p"), s, what, cs);
+	LogMsgFormat(LFT_SOCKTRACE, wxT("Socket Interest Change Callback: %d, %d, conn: %p"), s, what, cs);
 	if(what!=CURL_POLL_REMOVE) {
 		if(!cs) {
 			curl_easy_getinfo(e, CURLINFO_PRIVATE, &cs);
@@ -343,7 +349,7 @@ static int multi_timer_cb(CURLM *multi, long timeout_ms, socketmanager *smp) {
 	//if(timeout_ms<=0 || timeout_ms>90000) new_timeout_ms=90000;
 	//else new_timeout_ms=timeout_ms;
 
-	wxLogWarning(wxT("Socket Timer Callback: %d ms"), timeout_ms);
+	LogMsgFormat(LFT_SOCKTRACE, wxT("Socket Timer Callback: %d ms"), timeout_ms);
 
 	if(timeout_ms>0) smp->st.Start(timeout_ms,wxTIMER_ONE_SHOT);
 	else smp->st.Stop();
@@ -352,29 +358,7 @@ static int multi_timer_cb(CURLM *multi, long timeout_ms, socketmanager *smp) {
 	return 0;
 }
 
-/*static int progress_cb(void *clientp, double dltotal, double dlnow, double ultotal, double ulnow) {
-	wxLogWarning(wxT("progress_cb: %p %g %g %g %g"), clientp, dltotal, dlnow, ultotal, ulnow);
-	mcurlconn *conn=(mcurlconn *) clientp;
-	if(!conn) return 0;
-	time_t now=time(0);	//this is not strictly monotonic, but good enough for calculating rough timeouts
-	if(dlnow>0 || ulnow>0) {
-		conn->lastactiontime=now;
-		return 0;
-	}
-	else if(conn->lastactiontime>now) {
-		conn->lastactiontime=now;
-		return 0;
-	}
-	else if(now>(conn->lastactiontime+90)) {
-		//timeout
-		return 1;
-	}
-	else return 0;
-}*/
-
-
-socketmanager::socketmanager() : st(*this) {
-	loghandle=0;
+socketmanager::socketmanager() : st(*this), curnumsocks(0) {
 	curlmulti=curl_multi_init();
 	curl_multi_setopt(curlmulti, CURLMOPT_SOCKETFUNCTION, sock_cb);
 	curl_multi_setopt(curlmulti, CURLMOPT_SOCKETDATA, this);
@@ -389,11 +373,8 @@ socketmanager::~socketmanager() {
 }
 
 bool socketmanager::AddConn(CURL* ch, mcurlconn *cs) {
-	//curl_easy_setopt(ch, CURLOPT_LOW_SPEED_LIMIT, 1);
-	//curl_easy_setopt(ch, CURLOPT_LOW_SPEED_TIME, 90);
-	//curl_easy_setopt(ch, CURLOPT_PROGRESSDATA, cs);
-	//curl_easy_setopt(ch, CURLOPT_PROGRESSFUNCTION, progress_cb);
-	//curl_easy_setopt(ch, CURLOPT_NOPROGRESS, 0);
+	connlist.push_front(ch);
+	SetCurlHandleVerboseState(ch, currentlogflags&LFT_CURLVERB);
 	curl_easy_setopt(ch, CURLOPT_TIMEOUT, (cs->mcflags&MCF_NOTIMEOUT)?0:180);
 	curl_easy_setopt(ch, CURLOPT_PRIVATE, cs);
 	bool ret = (CURLM_OK == curl_multi_add_handle(curlmulti, ch));
@@ -408,18 +389,19 @@ bool socketmanager::AddConn(twitcurlext &cs) {
 
 void socketmanager::RemoveConn(CURL* ch) {
 	curl_multi_remove_handle(curlmulti, ch);
+	connlist.remove(ch);
 	curl_multi_socket_action(curlmulti, 0, 0, &curnumsocks);
 }
 
 void sockettimeout::Notify() {
-	wxLogWarning(wxT("Socket Timer Event"));
+	LogMsgFormat(LFT_SOCKTRACE, wxT("Socket Timer Event"));
 	curl_multi_socket_action(sm.curlmulti, CURL_SOCKET_TIMEOUT, 0, &sm.curnumsocks);
 	check_multi_info(&sm);
 	//if(!IsRunning() && sm.curnumsocks) Start(90000,wxTIMER_ONE_SHOT);
 }
 
 void socketmanager::NotifySockEvent(curl_socket_t sockfd, int ev_bitmask) {
-	wxLogWarning(wxT("Socket Notify (%d)"), sockfd);
+	LogMsgFormat(LFT_SOCKTRACE, wxT("Socket Notify (%d)"), sockfd);
 	curl_multi_socket_action(curlmulti, sockfd, ev_bitmask, &curnumsocks);
 	check_multi_info(this);
 }

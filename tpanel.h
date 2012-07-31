@@ -144,7 +144,7 @@ struct media_display_win : public wxFrame {
 };
 
 bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid=0);
-wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t timestamp=0);
+wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t timestamp=0, bool localtime=true);
 void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map);
 void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent);
 

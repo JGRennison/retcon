@@ -34,7 +34,7 @@ void UpdateTweet(const std::shared_ptr<tweet> &t, bool redrawimg) {
 	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
 		for(auto jt=(*it)->currentdisp.begin(); jt!=(*it)->currentdisp.end(); ++jt) {
 			if(jt->first==t->id) {	//found matching entry
-				wxLogWarning(wxT("UpdateTweet: Found Entry %" wxLongLongFmtSpec "d."), t->id);
+				LogMsgFormat(LFT_TPANEL, wxT("UpdateTweet: Found Entry %" wxLongLongFmtSpec "d."), t->id);
 				jt->second->DisplayTweet(redrawimg);
 				break;
 			}
@@ -48,7 +48,7 @@ void UpdateUsersTweet(uint64_t userid, bool redrawimg) {
 			tweetdispscr &tds=*(jt->second);
 			if((tds.td->user && tds.td->user->id==userid)
 			 || (tds.td->user_recipient && tds.td->user_recipient->id==userid)) {
-				wxLogWarning(wxT("UpdateUsersTweet: Found Entry %" wxLongLongFmtSpec "d."), jt->first);
+				LogMsgFormat(LFT_TPANEL, wxT("UpdateUsersTweet: Found Entry %" wxLongLongFmtSpec "d."), jt->first);
 				jt->second->DisplayTweet(redrawimg);
 				break;
 			}
@@ -136,7 +136,7 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 			1,
 			0
 		};
-		wxLogWarning(wxT("acc: %s, type: %d, num: %d, start_id: %" wxLongLongFmtSpec "d, end_id: %" wxLongLongFmtSpec "d"),
+		LogMsgFormat(LFT_TWITACT, wxT("acc: %s, type: %d, num: %d, start_id: %" wxLongLongFmtSpec "d, end_id: %" wxLongLongFmtSpec "d"),
 			acc->dispname.c_str(), rbfs->type, tweets_to_get, rbfs->start_tweet_id, rbfs->end_tweet_id);
 
 		switch(rbfs->type) {
@@ -174,7 +174,6 @@ void twitcurlext::TwInit(std::shared_ptr<taccount> acc) {
 	#ifdef __WINDOWS__
 	curl_easy_setopt(GetCurlHandle(), CURLOPT_CAINFO, "./cacert.pem");
 	#endif
-	if(sm.loghandle) setlog(sm.loghandle, 1);
 
 	setTwitterApiType(twitCurlTypes::eTwitCurlApiFormatJson);
 	setTwitterProcotolType(acc->ssl?twitCurlTypes::eTwitCurlProtocolHttps:twitCurlTypes::eTwitCurlProtocolHttp);
@@ -235,14 +234,14 @@ void twitcurlext::QueueAsyncExec() {
 	SetNoPerformFlag(true);
 	switch(connmode) {
 		case CS_ACCVERIFY:
-			wxLogWarning(wxT("Queue AccVerify"));
+			LogMsgFormat(LFT_TWITACT, wxT("Queue AccVerify"));
 			accountVerifyCredGet();
 			break;
 		case CS_TIMELINE:
 		case CS_DMTIMELINE:
 			return ExecRestGetTweetBackfill();
 		case CS_STREAM:
-			wxLogWarning(wxT("Queue Stream Connection"));
+			LogMsgFormat(LFT_TWITACT, wxT("Queue Stream Connection"));
 			mcflags|=MCF_NOTIMEOUT;
 			scto=std::make_shared<streamconntimeout>(this);
 			SetStreamApiCallback(&StreamCallback, 0);
@@ -452,7 +451,7 @@ void taccount::MarkPendingOrHandle(const std::shared_ptr<tweet> &t) {
 
 std::string tweet::mkdynjson() {
 	std::string json;
-	writestream wr(json);
+	writestream wr(json, 64);
 	Handler jw(wr);
 	jw.StartObject();
 	jw.String("p");
@@ -474,7 +473,7 @@ void StreamCallback( std::string &data, twitCurl* pTwitCurlObj, void *userdata )
 	twitcurlext *obj=(twitcurlext*) pTwitCurlObj;
 	std::shared_ptr<taccount> acc=obj->tacc.lock();
 
-	wxLogWarning(wxT("Received: %s"), wxstrstd(data).c_str());
+	LogMsgFormat(LFT_SOCKTRACE, wxT("StreamCallback: Received: %s"), wxstrstd(data).c_str());
 	jsonparser jp(CS_STREAM, acc, obj);
 	jp.ParseString(data);
 	data.clear();
@@ -483,7 +482,7 @@ void StreamCallback( std::string &data, twitCurl* pTwitCurlObj, void *userdata )
 void StreamActivityCallback( twitCurl* pTwitCurlObj, void *userdata ) {
 	twitcurlext *obj=(twitcurlext*) pTwitCurlObj;
 	obj->scto->Arm();
-	wxLogWarning(wxT("Reset timeout on stream connection %p"), obj);
+	LogMsgFormat(LFT_SOCKTRACE, wxT("Reset timeout on stream connection %p"), obj);
 }
 
 #ifdef __WINDOWS__

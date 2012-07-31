@@ -14,7 +14,6 @@ enum {
 struct mcurlconn : public wxEvtHandler {
 	void NotifyDone(CURL *easy, CURLcode res);
 	void HandleError(CURL *easy, long httpcode, CURLcode res);
-	void setlog(FILE *fs, bool verbose);
 	void RetryNotify(wxTimerEvent& event);
 	void StandbyTidy();
 	wxTimer *tm;
@@ -166,7 +165,9 @@ struct socketmanager : public wxEvtHandler {
 	int pipefd;
 	#endif
 	#endif
-	FILE *loghandle;
+	std::forward_list<CURL*> connlist;
 
 	DECLARE_EVENT_TABLE()
 };
+
+void SetCurlHandleVerboseState(CURL *easy, bool verbose);

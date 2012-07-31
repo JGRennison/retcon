@@ -65,7 +65,7 @@ void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent) {
 }
 
 void tpanel::PushTweet(const std::shared_ptr<tweet> &t) {
-	wxLogWarning(wxT("Pushing tweet id %" wxLongLongFmtSpec "d to panel %s"), t->id, wxstrstd(name).c_str());
+	LogMsgFormat(LFT_TPANEL, wxT("Pushing tweet id %" wxLongLongFmtSpec "d to panel %s"), t->id, wxstrstd(name).c_str());
 	if(tweetlist.count(t->id)) {
 		//already have this tweet
 		return;
@@ -169,7 +169,7 @@ void tpanel::LoadMore(unsigned int n, uint64_t lessthanid) {
 		++(*bestfound);
 		uint64_t loadid=PushTweetOrRetLoadId(bestid);
 		if(loadid) {
-			wxLogWarning("tpanel::LoadMore loading from db id: %" wxLongLongFmtSpec "d", loadid);
+			LogMsgFormat(LFT_TPANEL, "tpanel::LoadMore loading from db id: %" wxLongLongFmtSpec "d", loadid);
 			if(!loadmsg) loadmsg=new dbseltweetmsg;
 			loadmsg->id_set.insert(loadid);
 		}
@@ -247,7 +247,7 @@ tpanelparentwin *tpanel::MkTPanelWin(mainframe *parent, bool select) {
 
 tpanelparentwin::tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select)
 : wxScrolledWindow(parent), tp(tp_), displayoffset(0), mindisplayid(0), resize_update_pending(false), owner(parent) {
-	wxLogWarning(wxT("Creating tweet panel window %s"), wxstrstd(tp->name).c_str());
+	LogMsgFormat(LFT_TPANEL, wxT("Creating tweet panel window %s"), wxstrstd(tp->name).c_str());
 
 	tp->twin.push_front(this);
 	tpanelparentwinlist.push_front(this);
@@ -345,7 +345,7 @@ tweetdispscr *tpanelparentwin::PushTweet(const std::shared_ptr<tweet> &t, size_t
 }
 
 void tpanelparentwin::resizehandler(wxSizeEvent &event) {
-	wxLogWarning(wxT("tpanelparentwin::resizehandler"));
+	LogMsgFormat(LFT_TPANEL, wxT("tpanelparentwin::resizehandler"));
 	//FitInside();
 	//Refresh();
 	//Update();
@@ -539,7 +539,7 @@ void tweetdispscr::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 		       int noUnitsX, int noUnitsY,
 		       int xPos, int yPos,
 		       bool noRefresh ) {
-	//wxLogWarning(wxT("tweetdispscr::SetScrollbars, tweet id %" wxLongLongFmtSpec "d"), td->id);
+	//LogMsgFormat(LFT_TPANEL, wxT("tweetdispscr::SetScrollbars, tweet id %" wxLongLongFmtSpec "d"), td->id);
 	wxRichTextCtrl::SetScrollbars(0, 0, 0, 0, 0, 0, noRefresh);
 	int newheight=(pixelsPerUnitY*noUnitsY)+4;
 	hbox->SetItemMinSize(this, 10, newheight);
@@ -559,7 +559,7 @@ void tweetdispscr::urleventhandler(wxTextUrlEvent &event) {
 	wxRichTextAttr textattr;
 	GetStyle(start, textattr);
 	wxString url=textattr.GetURL();
-	wxLogWarning(wxT("URL clicked, id: %s"), url.c_str());
+	LogMsgFormat(LFT_TPANEL, wxT("URL clicked, id: %s"), url.c_str());
 	if(url[0]=='M') {
 		uint64_t media_id=0;
 		//url.Mid(1).ToULongLong(&media_id);	//not implemented on some systems
@@ -573,7 +573,7 @@ void tweetdispscr::urleventhandler(wxTextUrlEvent &event) {
 			else break;
 		}
 
-		wxLogWarning(wxT("Media image clicked, str: %s, id: %" wxLongLongFmtSpec "d"), url.Mid(1).c_str(), media_id);
+		LogMsgFormat(LFT_TPANEL, wxT("Media image clicked, str: %s, id: %" wxLongLongFmtSpec "d"), url.Mid(1).c_str(), media_id);
 		if(ad.media_list[media_id].win) {
 			ad.media_list[media_id].win->Raise();
 		}
@@ -609,7 +609,7 @@ void tweetdispscr::urleventhandler(wxTextUrlEvent &event) {
 }
 
 void tweetdispscr::mousewheelhandler(wxMouseEvent &event) {
-	//wxLogWarning(wxT("MouseWheel"));
+	//LogMsg(LFT_TPANEL, wxT("MouseWheel"));
 	event.SetEventObject(GetParent());
 	GetParent()->GetEventHandler()->ProcessEvent(event);
 }
@@ -767,12 +767,12 @@ void media_display_win::OnSave(wxCommandEvent &event) {
 }
 
 bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid) {
-	//wxLogWarning(wxT("MouseWheel"));
+	//LogMsg(LFT_TPANEL, wxT("Redirect MouseWheel"));
 	wxWindow *wind=wxFindWindowAtPoint(wxGetMousePosition() /*event.GetPosition()*/);
 	while(wind) {
 		if(wind!=avoid && std::count(tpanelparentwinlist.begin(), tpanelparentwinlist.end(), wind)) {
 			tpanelparentwin *tppw=(tpanelparentwin*) wind;
-			//wxLogWarning(wxT("Dispatching to %s"), wxstrstd(tppw->tp->name).c_str());
+			//LogMsgFormat(LFT_TPANEL, wxT("Redirect MouseWheel: Dispatching to %s"), wxstrstd(tppw->tp->name).c_str());
 			event.SetEventObject(tppw);
 			tppw->GetEventHandler()->ProcessEvent(event);
 			return true;
@@ -782,7 +782,7 @@ bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid) {
 	return false;
 }
 
-wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t timestamp) {
+wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t timestamp, bool localtime) {
 	#ifdef __WINDOWS__	//%z is broken in MSVCRT, use a replacement
 				//also add %F, %R, %T, %s
 				//this is adapted from npipe var.cpp
@@ -797,7 +797,7 @@ wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t time
 			if(ch[1]=='z') {
 				int hh;
 				int mm;
-				if(true /*localtime*/) {
+				if(localtime) {
 					TIME_ZONE_INFORMATION info;
 					DWORD res = GetTimeZoneInformation(&info);
 					int bias = - info.Bias;

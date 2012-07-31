@@ -56,6 +56,7 @@ struct dbsendmsg {
 	DBSM_TYPE type;
 
 	dbsendmsg(DBSM_TYPE type_) : type(type_) { }
+	virtual ~dbsendmsg() { }
 };
 
 struct dbsendmsg_list : public dbsendmsg {
@@ -127,6 +128,7 @@ DECLARE_EVENT_TYPE(wxextDBCONN_NOTIFY, -1)
 
 enum {
 	wxDBCONNEVT_ID_TPANELTWEETLOAD = 1,
+	wxDBCONNEVT_ID_DEBUGMSG,
 };
 
 struct dbconn : public wxEvtHandler {
@@ -156,6 +158,7 @@ struct dbconn : public wxEvtHandler {
 	void SyncInsertNewAccount(sqlite3 *adb, taccount &acc);
 	void AccountIdListsSync(sqlite3 *adb);
 	void OnTpanelTweetLoadFromDB(wxCommandEvent &event);
+	void OnDBThreadDebugMsg(wxCommandEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };

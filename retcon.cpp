@@ -8,28 +8,24 @@ dbconn dbc;
 alldata ad;
 std::forward_list<mainframe*> mainframelist;
 std::forward_list<tpanelparentwin*> tpanelparentwinlist;
-logwindow *globallogwindow;
 
 IMPLEMENT_APP(retcon)
 
 bool retcon::OnInit() {
-	wxApp::OnInit();
+	//wxApp::OnInit();	//don't call this, it just calls the default command line processor
 	SetAppName(wxT("retcon"));
 	::wxInitAllImageHandlers();
+	cmdlineproc(argv, argc);
 	if(!::wxDirExists(wxStandardPaths::Get().GetUserDataDir())) {
 		::wxMkdir(wxStandardPaths::Get().GetUserDataDir(), 0777);
 	}
 	wxConfigBase *wfc=new wxFileConfig(wxT(""),wxT(""),wxStandardPaths::Get().GetUserDataDir() + wxT("/retcon.ini"),wxT(""),wxCONFIG_USE_LOCAL_FILE,wxConvUTF8);
 	mainframe *top = new mainframe( wxT("Retcon"), wxPoint(50, 50), wxSize(450, 340) );
-	new logwindow(0, wxT("Logs"), false);
+	if(!globallogwindow) new log_window(0, lfd_defaultwin, false);
 	wxConfigBase::Set(wfc);
-	sm.loghandle=fopen("retconcurllog.txt","a");
 	sm.InitMultiIOHandler();
 	ReadAllCFGIn(*wfc, gc, alist);
 	dbc.Init(std::string((wxStandardPaths::Get().GetUserDataDir() + wxT("/retcondb.sqlite3")).ToUTF8()));
-
-	//temp
-	//if(globallogwindow) globallogwindow->Show(true);
 
 	tpanel::MkTPanel("[default]", "[default]")->MkTPanelWin(top);
 	tpanel::MkTPanel("[default2]", "[default2]")->MkTPanelWin(top);
@@ -133,11 +129,11 @@ void mainframe::OnAccounts(wxCommandEvent &event) {
 	//delete acc;
 }
 void mainframe::OnViewlog(wxCommandEvent &event) {
-	if(globallogwindow) globallogwindow->Show(true);
+	if(globallogwindow) globallogwindow->LWShow(true);
 }
 void mainframe::OnClose(wxCloseEvent &event) {
 	mainframelist.remove(this);
-	if(globallogwindow && mainframelist.empty()) globallogwindow->GetFrame()->Destroy();
+	if(globallogwindow && mainframelist.empty()) globallogwindow->Destroy();
 	Destroy();
 }
 
@@ -266,7 +262,7 @@ bool taccount::TwDoOAuth(wxWindow *pf, twitcurlext &twit) {
 	twit.oAuthRequestToken(authUrl);
 	wxString authUrlWx=wxString::FromUTF8(authUrl.c_str());
 	//twit.oAuthHandlePIN(authUrl);
-	wxLogWarning(wxT("%s, %s, %s"), cfg.tokenk.val.c_str(), cfg.tokens.val.c_str(), authUrlWx.c_str());
+	LogMsgFormat(LFT_AUTH, wxT("%s, %s, %s"), cfg.tokenk.val.c_str(), cfg.tokens.val.c_str(), authUrlWx.c_str());
 	wxLaunchDefaultBrowser(authUrlWx);
 	wxTextEntryDialog *ted=new wxTextEntryDialog(pf, wxT("Enter Twitter PIN"), wxT("Enter Twitter PIN"), wxT(""), wxOK | wxCANCEL);
 	int res=ted->ShowModal();
@@ -338,20 +334,6 @@ std::shared_ptr<userdatacontainer> alldata::GetUserContainerById(uint64_t id) {
 		usercont->udc_flags=0;
 	}
 	return usercont;
-}
-
-logwindow::logwindow(wxFrame *parent, const wxChar *title, bool show, bool passToOld) :
-	wxLogWindow(parent, title, show, passToOld) {
-	globallogwindow=this;
-}
-
-logwindow::~logwindow() {
-	globallogwindow=0;
-}
-
-bool logwindow::OnFrameClose(wxFrame *frame) {
-	Show(false);
-	return false;
 }
 
 mainframe *GetMainframeAncestor(wxWindow *in, bool passtoplevels) {

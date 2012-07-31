@@ -64,7 +64,6 @@ struct tweetdispscr;
 struct tpanelparentwin;
 struct mcurlconn;
 struct socketmanager;
-struct logwindow;
 struct mainframe;
 struct tpanelnotebook;
 struct media_display_win;
@@ -80,6 +79,8 @@ typedef std::set<uint64_t, std::greater<uint64_t> > tweetidset;		//std::set, sor
 #include "tpanel.h"
 #include "optui.h"
 #include "db.h"
+#include "log.h"
+#include "cmdline.h"
 
 enum
 {
@@ -210,12 +211,9 @@ inline wxString wxstrstd(const std::string &st) {
 inline wxString wxstrstd(const char *ch) {
 	return wxString::FromUTF8(ch);
 }
-
-struct logwindow : public wxLogWindow {
-	logwindow(wxFrame *parent, const wxChar *title, bool show = true, bool passToOld = true);
-	~logwindow();
-	bool OnFrameClose(wxFrame *frame);
-};
+inline wxString wxstrstd(const char *ch, size_t len) {
+	return wxString::FromUTF8(ch, len);
+}
 
 mainframe *GetMainframeAncestor(wxWindow *in, bool passtoplevels=false);
 

@@ -103,7 +103,7 @@ static bool ReadEntityIndices(entity &en, const rapidjson::Value& val) {
 }
 
 void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shared_ptr<tweet> &t) {
-	//wxLogWarning(wxT("jsonparser::DoEntitiesParse"));
+	LogMsg(LFT_PARSE, wxT("jsonparser::DoEntitiesParse"));
 
 	auto &hashtags=val["hashtags"];
 	if(hashtags.IsArray()) {
@@ -154,7 +154,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 						return tt->id==t->id;
 					});
 
-					wxLogWarning(wxT("Parse: existing media image %s"), wxstrstd(me.media_url).c_str());
+					LogMsgFormat(LFT_PARSE, wxT("Parse: existing media image %s"), wxstrstd(me.media_url).c_str());
 
 					if(res==me.tweet_list.end()) {
 						me.tweet_list.push_front(t);
@@ -219,7 +219,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 				std::string thumburl=me.media_url+":thumb";
 				me.media_url+=":large";
 
-				wxLogWarning(wxT("Parse: media image %s, w: %d, h: %d"), wxstrstd(me.media_url).c_str(), width, height);
+				LogMsgFormat(LFT_PARSE, wxT("Parse: media image %s, w: %d, h: %d"), wxstrstd(me.media_url).c_str(), width, height);
 
 				me.tweet_list.push_front(t);
 				new mediaimgdlconn(thumburl, en->media_id, MIDC_THUMBIMG | MIDC_REDRAW_TWEETS);
@@ -230,7 +230,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 					return tt->id==t->id;
 				});
 
-				wxLogWarning(wxT("Parse: existing media image %s"), wxstrstd(me.media_url).c_str());
+				LogMsgFormat(LFT_PARSE, wxT("Parse: existing media image %s"), wxstrstd(me.media_url).c_str());
 
 				if(res==me.tweet_list.end()) {
 					me.tweet_list.push_front(t);
@@ -241,7 +241,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 
 	t->entlist.sort([](entity &a, entity &b){ return a.start<b.start; });
 	for(auto src_it=t->entlist.begin(); src_it!=t->entlist.end(); src_it++) {
-		wxLogWarning(wxT("Tweet %" wxLongLongFmtSpec "d, have entity from %d to %d: %s"), t->id, src_it->start,
+		LogMsgFormat(LFT_PARSE, wxT("Tweet %" wxLongLongFmtSpec "d, have entity from %d to %d: %s"), t->id, src_it->start,
 			src_it->end, wxstrstd(src_it->text).c_str());
 	}
 }
@@ -358,7 +358,7 @@ std::shared_ptr<userdatacontainer> jsonparser::DoUserParse(const rapidjson::Valu
 
 	userdatacont->MarkUpdated();
 
-	userdatacont->Dump();
+	if(currentlogflags&LFT_PARSE) userdatacont->Dump();
 	return userdatacont;
 }
 
@@ -413,7 +413,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, boo
 		jw.EndObject();
 	}
 
-	//wxLogWarning(wxT("id: %" wxLongLongFmtSpec "d, is_new_tweet_perspective: %d, isdm: %d"), tobj->id, is_new_tweet_perspective, isdm);
+	LogMsgFormat(LFT_PARSE, wxT("id: %" wxLongLongFmtSpec "d, is_new_tweet_perspective: %d, isdm: %d"), tobj->id, is_new_tweet_perspective, isdm);
 
 	if(is_new_tweet_perspective) {	//this filters out duplicate tweets from the same account
 		if(!isdm) {
@@ -444,7 +444,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, boo
 		if(tac->max_tweet_id<tobj->id) tac->max_tweet_id=tobj->id;
 	}
 
-	tobj->Dump();
+	if(currentlogflags&LFT_PARSE) tobj->Dump();
 
 	if(is_new_tweet) dbc.InsertNewTweet(tobj, std::move(json), dbmsglist);
 	else dbc.UpdateTweetDyn(tobj, dbmsglist);
@@ -466,16 +466,16 @@ void jsonparser::DoEventParse(const rapidjson::Value& val) {
 }
 
 void userdatacontainer::Dump() {
-	wxLogWarning(wxT("id: %" wxLongLongFmtSpec "d\nname: %s\nscreen_name: %s\npimg: %s\nprotected: %d"),
+	LogMsgFormat(LFT_PARSE, wxT("id: %" wxLongLongFmtSpec "d\nname: %s\nscreen_name: %s\npimg: %s\nprotected: %d"),
 		id, wxstrstd(GetUser().name).c_str(), wxstrstd(GetUser().screen_name).c_str(), wxstrstd(GetUser().profile_img_url).c_str(), GetUser().isprotected);
 }
 
 void tweet::Dump() {
-	wxLogWarning(wxT("id: %" wxLongLongFmtSpec "d\nreply_id: %" wxLongLongFmtSpec "d\nretweet_count: %d\n"
+	LogMsgFormat(LFT_PARSE, wxT("id: %" wxLongLongFmtSpec "d\nreply_id: %" wxLongLongFmtSpec "d\nretweet_count: %d\n"
 		"source: %s\ntext: %s\ncreated_at: %s"),
 		id, in_reply_to_status_id, retweet_count, wxstrstd(source).c_str(),
 		wxstrstd(text).c_str(), wxstrstd(ctime(&createtime)).c_str());
 	for(auto it=tp_list.begin(); it!=tp_list.end(); it++) {
-		wxLogWarning(wxT("Perspectival attributes: %s\nretweeted: %d\nfavourited: %d"), it->acc->dispname.c_str(), it->IsRetweeted(), it->IsFavourited());
+		LogMsgFormat(LFT_PARSE, wxT("Perspectival attributes: %s\nretweeted: %d\nfavourited: %d"), it->acc->dispname.c_str(), it->IsRetweeted(), it->IsFavourited());
 	}
 }
