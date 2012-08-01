@@ -53,6 +53,16 @@ template <typename C, typename D> static C CheckGetJsonValueDef(const rapidjson:
 	return res?GetType<C>(subval):def;
 }
 
+void DisplayParseErrorMsg(rapidjson::Document &dc, const wxString &name, const char *data) {
+	std::string errjson;
+	writestream wr(errjson);
+	Handler jw(wr);
+	jw.StartArray();
+	jw.String(data);
+	jw.EndArray();
+	LogMsgFormat(LFT_PARSEERR, wxT("JSON parse error: %s, message: %s, offset: %d, data:\n%s"), name.c_str(), wxstrstd(dc.GetParseError()).c_str(), dc.GetErrorOffset(), wxstrstd(errjson).c_str());
+}
+
 //if jw, caller should already have called jw->StartObject(), etc
 void genjsonparser::ParseTweetStatics(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj, Handler *jw) {
 	CheckTransJsonValueDef(tobj->in_reply_to_status_id, val, "in_reply_to_status_id", 0, jw);
@@ -277,6 +287,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 	json[len]=0;
 
 	if (dc.ParseInsitu<0>(json).HasParseError()) {
+		DisplayParseErrorMsg(dc, wxT("jsonparser::ParseString"), json);
 		free(json);
 		return false;
 	}

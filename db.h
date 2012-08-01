@@ -50,6 +50,7 @@ typedef enum {
 	DBSM_SELTWEET,
 	DBSM_INSERTUSER,
 	DBSM_MSGLIST,
+	DBSM_INSERTACC,
 } DBSM_TYPE;
 
 struct dbsendmsg {
@@ -124,11 +125,20 @@ struct dbinsertusermsg : public dbsendmsg {
 	uint64_t lastupdate;
 };
 
+struct dbinsertaccmsg : public dbsendmsg_callback {
+	dbinsertaccmsg() : dbsendmsg_callback(DBSM_INSERTACC) { }
+
+	std::string name;				//account name
+	std::string dispname;				//account name
+	unsigned int dbindex;				//return data
+};
+
 DECLARE_EVENT_TYPE(wxextDBCONN_NOTIFY, -1)
 
 enum {
 	wxDBCONNEVT_ID_TPANELTWEETLOAD = 1,
 	wxDBCONNEVT_ID_DEBUGMSG,
+	wxDBCONNEVT_ID_INSERTNEWACC,
 };
 
 struct dbconn : public wxEvtHandler {
@@ -139,8 +149,8 @@ struct dbconn : public wxEvtHandler {
 	#endif
 	bool isinited;
 	sqlite3 *syncdb;
-	dbpscache cache;
 	dbiothread *th;
+	dbpscache cache;
 
 	dbconn() : isinited(0), th(0) { }
 	~dbconn() { DeInit(); }
@@ -155,10 +165,50 @@ struct dbconn : public wxEvtHandler {
 	void AccountSync(sqlite3 *adb);
 	void SyncWriteBackAllUsers(sqlite3 *adb);
 	void SyncReadInAllUsers(sqlite3 *adb);
-	void SyncInsertNewAccount(sqlite3 *adb, taccount &acc);
 	void AccountIdListsSync(sqlite3 *adb);
 	void OnTpanelTweetLoadFromDB(wxCommandEvent &event);
 	void OnDBThreadDebugMsg(wxCommandEvent &event);
+	void OnDBNewAccountInsert(wxCommandEvent &event);
 
 	DECLARE_EVENT_TABLE()
+};
+
+struct DBGenConfig {
+	void SetDBIndexGlobal();
+	void SetDBIndex(unsigned int id);
+	DBGenConfig(sqlite3 *db_);
+
+	protected:
+	unsigned int dbindex;
+	bool dbindex_global;
+	sqlite3 *db;
+	void bind_accid_name(sqlite3_stmt *stmt, const char *name);
+};
+
+struct DBWriteConfig : public DBGenConfig {
+	void Write(const char *name, const char *strval);
+	void Write(const char *name, const wxString &strval) { Write(name, strval.ToUTF8()); }
+	void WriteInt64(const char *name, sqlite3_int64 val);
+	void Delete(const char *name);
+	void DeleteAll();
+	DBWriteConfig(sqlite3 *db);
+	~DBWriteConfig();
+
+	protected:
+	sqlite3_stmt *stmt;
+	sqlite3_stmt *delstmt;
+	void exec(sqlite3_stmt *stmt);
+};
+
+struct DBReadConfig : public DBGenConfig {
+	bool Read(const char *name, wxString *strval, const wxString &defval);
+	bool ReadInt64(const char *name, sqlite3_int64 *strval, sqlite3_int64 defval);
+	bool ReadBool(const char *name, bool *strval, bool defval);
+	bool ReadUInt64(const char *name, uint64_t *strval, uint64_t defval);
+	DBReadConfig(sqlite3 *db);
+	~DBReadConfig();
+
+	protected:
+	sqlite3_stmt *stmt;
+	bool exec(sqlite3_stmt *stmt);
 };

@@ -1,8 +1,10 @@
+#include <sqlite3.h>
+
 struct genopt {
 	wxString val;
 	bool enable;
-	void CFGWriteOutCurDir(wxConfigBase &twfc, const wxString &name);
-	void CFGReadInCurDir(wxConfigBase &twfc, const wxString &name, const wxString &parent);
+	void CFGWriteOutCurDir(DBWriteConfig &twfc, const char *name);
+	void CFGReadInCurDir(DBReadConfig &twfc, const char *name, const wxString &parent);
 	void InheritFromParent(genopt &parent, bool ifunset=false);
 };
 
@@ -12,8 +14,8 @@ struct genoptconf {
 	genopt ssl;
 	genopt userstreams;
 	genopt restinterval;
-	void CFGWriteOutCurDir(wxConfigBase &twfc);
-	void CFGReadInCurDir(wxConfigBase &twfc, const genoptconf &parent);
+	void CFGWriteOutCurDir(DBWriteConfig &twfc);
+	void CFGReadInCurDir(DBReadConfig &twfc, const genoptconf &parent);
 	void InheritFromParent(genoptconf &parent, bool ifunset=false);
 };
 
@@ -22,8 +24,8 @@ struct genoptglobconf {
 	genopt datetimeformat;
 	genopt maxpanelprofimgsize;
 	genopt maxtweetsdisplayinpanel;
-	void CFGWriteOut(wxConfigBase &twfc);
-	void CFGReadIn(wxConfigBase &twfc, const genoptglobconf &parent);
+	void CFGWriteOut(DBWriteConfig &twfc);
+	void CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent);
 };
 
 struct globconf {
@@ -34,13 +36,13 @@ struct globconf {
 	unsigned long maxpanelprofimgsize;
 	unsigned long maxtweetsdisplayinpanel;
 
-	void CFGWriteOut(wxConfigBase &twfc);
-	void CFGReadIn(wxConfigBase &twfc);
+	void CFGWriteOut(DBWriteConfig &twfc);
+	void CFGReadIn(DBReadConfig &twfc);
 	void CFGParamConv();
 };
 
-void ReadAllCFGIn(wxConfigBase &twfc, globconf &gc, std::list<std::shared_ptr<taccount>> &alist);
-void WriteAllCFGOut(wxConfigBase &twfc, globconf &gc, std::list<std::shared_ptr<taccount>> &alist);
+void ReadAllCFGIn(sqlite3 *db, globconf &gc, std::list<std::shared_ptr<taccount>> &alist);
+void WriteAllCFGOut(sqlite3 *db, globconf &gc, std::list<std::shared_ptr<taccount>> &alist);
 void AllUsersInheritFromParentIfUnset();
 
 extern globconf gc;

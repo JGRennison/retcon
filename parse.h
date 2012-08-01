@@ -44,3 +44,4 @@ struct jsonparser : public genjsonparser {
 	bool ParseString(const std::string &str) { return ParseString(str.c_str(), str.size()); }
 };
 
+void DisplayParseErrorMsg(rapidjson::Document &dc, const wxString &name, const char *data);

@@ -11,7 +11,8 @@ const unsigned char profimgdictionary[]="http://https://si0.twimg.com/profile_im
 const char *startup_sql=
 "CREATE TABLE IF NOT EXISTS tweets(id INTEGER PRIMARY KEY NOT NULL, statjson BLOB, dynjson BLOB, userid INTEGER, userrecipid INTEGER, flags INTEGER, timestamp INTEGER);"
 "CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY NOT NULL, json BLOB, cachedprofimgurl BLOB, createtimestamp INTEGER, lastupdatetimestamp INTEGER);"
-"CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, json BLOB, tweetids BLOB, dmids BLOB);";
+"CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, json BLOB, tweetids BLOB, dmids BLOB);"
+"CREATE TABLE IF NOT EXISTS settings(accid BLOB, name TEXT, value BLOB, PRIMARY KEY (accid, name));";
 
 const char *sql[DBPSC_NUM_STATEMENTS]={
 	"INSERT INTO tweets(id, statjson, dynjson, userid, userrecipid, flags, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?);",
@@ -31,8 +32,8 @@ static void DBThreadSafeLogMsg(logflagtype logflags, const wxString &str) {
 	dbc.AddPendingEvent(evt);
 }
 
-#define DBLogMsgFormat(l, ...) if( currentlogflags & l ) DBThreadSafeLogMsg(l, wxString::Format(__VA_ARGS__))
-#define DBLogMsg(l, s) if( currentlogflags & l ) DBThreadSafeLogMsg(l, s)
+#define DBLogMsgFormat(l, ...) if( currentlogflags & (l) ) DBThreadSafeLogMsg(l, wxString::Format(__VA_ARGS__))
+#define DBLogMsg(l, s) if( currentlogflags & (l) ) DBThreadSafeLogMsg(l, s)
 
 int busy_handler_callback(void *ptr, int count) {
 	if(count<20) {
@@ -116,7 +117,8 @@ static unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsi
 		strm.avail_out=maxsize;
 		strm.next_out=data+HEADERSIZE;
 		int res=deflate(&strm, Z_FINISH);
-		DBLogMsgFormat(LFT_ZLIBTRACE, wxT("deflate: %d, %d, %d"), res, strm.avail_in, strm.avail_out);
+		//DBLogMsgFormat(LFT_ZLIBTRACE, wxT("deflate: %d, %d, %d"), res, strm.avail_in, strm.avail_out);
+		if(res!=Z_STREAM_END) { DBLogMsgFormat(LFT_ZLIBERR, wxT("DoCompress: deflate: error: res: %d (%s)"), res, wxstrstd(strm.msg).c_str()); }
 		sz=HEADERSIZE+maxsize-strm.avail_out;
 		deflateEnd(&strm);
 		if(iscompressed) *iscompressed=true;
@@ -156,7 +158,7 @@ static void bind_compressed(sqlite3_stmt* stmt, int num, const std::string &in, 
 
 static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsize) {
 	if(!insize) {
-		DBLogMsg(LFT_ZLIBTRACE, wxT("DoDecompress: insize=0"));
+		DBLogMsg(LFT_ZLIBERR, wxT("DoDecompress: insize=0"));
 		outsize=0;
 		return 0;
 	}
@@ -174,7 +176,7 @@ static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsiz
 			bool compress=TagToDict(in[0], dict, dict_size);
 			if(compress) break;
 			else {
-				DBLogMsg(LFT_ZLIBTRACE, wxT("DoDecompress: Bad tag"));
+				DBLogMsg(LFT_ZLIBERR, wxT("DoDecompress: Bad tag"));
 				outsize=0;
 				return 0;
 			}
@@ -198,8 +200,7 @@ static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsiz
 	strm.avail_out=outsize;
 	while(true) {
 		int res=inflate(&strm, Z_FINISH);
-		DBLogMsgFormat(LFT_ZLIBTRACE, wxT("inflate: %d, %d, %d"), res, strm.avail_in, strm.avail_out);
-		//if(strm.msg) OutputDebugStringA(strm.msg);
+		//DBLogMsgFormat(LFT_ZLIBTRACE, wxT("inflate: %d, %d, %d"), res, strm.avail_in, strm.avail_out);
 		if(res==Z_NEED_DICT) {
 			if(dict) inflateSetDictionary(&strm, dict, dict_size);
 			else {
@@ -213,10 +214,10 @@ static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsiz
 		else if(res==Z_OK) continue;
 		else if(res==Z_STREAM_END) break;
 		else {
+			DBLogMsgFormat(LFT_ZLIBERR, wxT("DoDecompress: inflate: error: res: %d (%s)"), res, wxstrstd(strm.msg).c_str());
 			outsize=0;
 			inflateEnd(&strm);
 			free(data);
-			DBLogMsgFormat(LFT_ZLIBTRACE, wxT("DoDecompress: res!=Z_STREAM_END"));
 			return 0;
 		}
 	}
@@ -241,6 +242,7 @@ static char *column_get_compressed_and_parse(sqlite3_stmt* stmt, int num, rapidj
 	char *str=column_get_compressed(stmt, num, str_size);
 	if(str) {
 		if(dc.ParseInsitu<0>(str).HasParseError()) {
+			DisplayParseErrorMsg(dc, wxT("column_get_compressed_and_parse"), str);
 			dc.SetNull();
 		}
 	}
@@ -252,6 +254,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 	switch(msg->type) {
 		case DBSM_QUIT:
 			ok=false;
+			DBLogMsg(LFT_DBTRACE, wxT("DBSM_QUIT"));
 			break;
 		case DBSM_INSERTTWEET: {
 			dbinserttweetmsg *m=(dbinserttweetmsg*) msg;
@@ -263,7 +266,9 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			sqlite3_bind_int64(stmt, 5, (sqlite3_int64) m->user2);
 			sqlite3_bind_int64(stmt, 6, (sqlite3_int64) m->flags);
 			sqlite3_bind_int64(stmt, 7, (sqlite3_int64) m->timestamp);
-			sqlite3_step(stmt);
+			int res=sqlite3_step(stmt);
+			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_INSERTTWEET got error: %d (%s) for id:%" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), m->id); }
+			else { DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_INSERTTWEET inserted row id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) m->id); }
 			sqlite3_reset(stmt);
 			break;
 		}
@@ -273,7 +278,9 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			bind_compressed(stmt, 1, m->dynjson, 'J');
 			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->flags);
 			sqlite3_bind_int64(stmt, 3, (sqlite3_int64) m->id);
-			sqlite3_step(stmt);
+			int res=sqlite3_step(stmt);
+			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_UPDATETWEET got error: %d (%s) for id:%" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), m->id); }
+			else { DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_UPDATETWEET updated id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) m->id); }
 			sqlite3_reset(stmt);
 			break;
 		}
@@ -284,8 +291,8 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			for(auto it=m->id_set.cbegin(); it!=m->id_set.cend(); ++it) {
 				sqlite3_bind_int64(stmt, 1, (sqlite3_int64) (*it));
 				int res=sqlite3_step(stmt);
-				DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_SELTWEET got res: %d for id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) (*it), res);
 				if(res==SQLITE_ROW) {
+					DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_SELTWEET got id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) (*it));
 					recv_data.emplace_front();
 					dbrettweetdata &rd=recv_data.front();
 					size_t outsize;
@@ -297,6 +304,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 					rd.flags=(uint64_t) sqlite3_column_int64(stmt, 4);
 					rd.timestamp=(uint64_t) sqlite3_column_int64(stmt, 5);
 				}
+				else { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_SELTWEET got error: %d (%s) for id:%" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) (*it)); }
 				sqlite3_reset(stmt);
 			}
 			if(!recv_data.empty()) {
@@ -314,13 +322,28 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			bind_compressed(stmt, 3, m->cached_profile_img_url, 'P');
 			sqlite3_bind_int64(stmt, 4, (sqlite3_int64) m->createtime);
 			sqlite3_bind_int64(stmt, 5, (sqlite3_int64) m->lastupdate);
-			sqlite3_step(stmt);
+			int res=sqlite3_step(stmt);
+			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_INSERTUSER got error: %d (%s) for id:%" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), m->id); }
+			else { DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_INSERTUSER inserted id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) m->id); }
 			sqlite3_reset(stmt);
+			break;
+		}
+		case DBSM_INSERTACC: {
+			dbinsertaccmsg *m=(dbinsertaccmsg*) msg;
+			sqlite3_stmt *stmt=cache.GetStmt(db, DBPSC_INSERTNEWACC);
+			sqlite3_bind_text(stmt, 1, m->name.c_str(), -1, SQLITE_TRANSIENT);
+			int res=sqlite3_step(stmt);
+			m->dbindex=(unsigned int) sqlite3_last_insert_rowid(db);
+			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_INSERTACC got error: %d (%s) for user name: %s"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), m->dispname.c_str()); }
+			else { DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_INSERTACC inserted user dbindex: %d, name: %s"), m->dbindex, m->dispname.c_str()); }
+			sqlite3_reset(stmt);
+			m->SendReply(m);
 			break;
 		}
 		case DBSM_MSGLIST: {
 			cache.ExecStmt(db, DBPSC_BEGIN);
 			dbsendmsg_list *m=(dbsendmsg_list*) msg;
+			DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_MSGLIST: queue size: %d"), m->msglist.size());
 			while(!m->msglist.empty()) {
 				ProcessMessage(db, m->msglist.front(), ok, cache);
 				m->msglist.pop();
@@ -333,16 +356,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 }
 
 wxThread::ExitCode dbiothread::Entry() {
-
-	int res=sqlite3_open(filename.c_str(), &db);
-	if(res!=SQLITE_OK) return 0;
-
-	sqlite3_busy_handler(db, &busy_handler_callback, 0);
-
 	MsgLoop();
-
-	sqlite3_close(db);
-
 	return 0;
 }
 
@@ -384,6 +398,7 @@ DEFINE_EVENT_TYPE(wxextDBCONN_NOTIFY)
 BEGIN_EVENT_TABLE(dbconn, wxEvtHandler)
 EVT_COMMAND(wxDBCONNEVT_ID_TPANELTWEETLOAD, wxextDBCONN_NOTIFY, dbconn::OnTpanelTweetLoadFromDB)
 EVT_COMMAND(wxDBCONNEVT_ID_DEBUGMSG, wxextDBCONN_NOTIFY, dbconn::OnDBThreadDebugMsg)
+EVT_COMMAND(wxDBCONNEVT_ID_INSERTNEWACC, wxextDBCONN_NOTIFY, dbconn::OnDBNewAccountInsert)
 END_EVENT_TABLE()
 
 void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
@@ -398,13 +413,15 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 		}
 		rapidjson::Document dc;
 		if(dt.statjson && !dc.ParseInsitu<0>(dt.statjson).HasParseError() && dc.IsObject()) {
-			DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::OnTpanelTweetLoadFromDB about to parse tweet statics"));
+			//DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::OnTpanelTweetLoadFromDB about to parse tweet statics"));
 			genjsonparser::ParseTweetStatics(dc, t, 0);
 		}
+		else { DBLogMsgFormat(LFT_PARSEERR | LFT_DBERR, wxT("dbconn::OnTpanelTweetLoadFromDB static JSON parse error: malformed or missing, tweet id: %" wxLongLongFmtSpec "d"), dt.id); }
 		if(dt.dynjson && !dc.ParseInsitu<0>(dt.dynjson).HasParseError() && dc.IsObject()) {
-			DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::OnTpanelTweetLoadFromDB about to parse tweet dyn"));
+			//DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::OnTpanelTweetLoadFromDB about to parse tweet dyn"));
 			genjsonparser::ParseTweetDyn(dc, t);
 		}
+		else { DBLogMsgFormat(LFT_PARSEERR | LFT_DBERR, wxT("dbconn::OnTpanelTweetLoadFromDB dyn JSON parse error: malformed or missing, tweet id: s%" wxLongLongFmtSpec "d"), dt.id); }
 		t->user=ad.GetUserContainerById(dt.user1);
 		if(dt.user2) t->user_recipient=ad.GetUserContainerById(dt.user2);
 		t->createtime=(time_t) dt.timestamp;
@@ -429,30 +446,36 @@ void dbconn::OnDBThreadDebugMsg(wxCommandEvent &event) {
 	LogMsg(event.GetExtraLong(), event.GetString());
 }
 
+void dbconn::OnDBNewAccountInsert(wxCommandEvent &event) {
+	dbinsertaccmsg *msg=(dbinsertaccmsg *) event.GetClientData();
+	wxString accname=wxstrstd(msg->name);
+	for(auto it=alist.begin() ; it != alist.end(); ++it ) {
+		if((*it)->name==accname) {
+			(*it)->dbindex=msg->dbindex;
+			(*it)->enabled=true;
+			(*it)->Exec();
+		}
+	}
+}
+
 void dbconn::SendMessageOrAddToList(dbsendmsg *msg, dbsendmsg_list *msglist) {
 	if(msglist) msglist->msglist.push(msg);
 	else SendMessage(msg);
 }
 
 void dbconn::SendMessage(dbsendmsg *msg) {
-	if(sqlite3_threadsafe()) {
-		#ifdef __WINDOWS__
-		PostQueuedCompletionStatus(iocp, 0, (ULONG_PTR) msg, 0);
-		#else
-		write(pipefd, &msg, sizeof(msg));
-		#endif
-	}
-	else {
-		bool ok;
-		ProcessMessage(syncdb, msg, ok, cache);
-	}
+	#ifdef __WINDOWS__
+	PostQueuedCompletionStatus(iocp, 0, (ULONG_PTR) msg, 0);
+	#else
+	write(pipefd, &msg, sizeof(msg));
+	#endif
 }
 
 void dbconn::Init(const std::string &filename /*UTF-8*/) {
 	if(isinited) return;
 	isinited=true;
 
-	sqlite3_config(SQLITE_CONFIG_MULTITHREAD);
+	sqlite3_config(SQLITE_CONFIG_SINGLETHREAD);		//only use sqlite from one thread at any given time
 	sqlite3_initialize();
 
 	int res=sqlite3_open(filename.c_str(), &syncdb);
@@ -464,43 +487,45 @@ void dbconn::Init(const std::string &filename /*UTF-8*/) {
 	if(res!=SQLITE_OK) return;
 
 	AccountSync(syncdb);
+	ReadAllCFGIn(syncdb, gc, alist);
 	SyncReadInAllUsers(syncdb);
 
-	if(sqlite3_threadsafe()) {
-		th=new dbiothread();
-		th->filename=filename;
-		#ifdef __WINDOWS__
-		iocp=CreateIoCompletionPort(INVALID_HANDLE_VALUE, 0, 0, 1);
-		th->iocp=iocp;
-		#else
-		int pipefd[2];
-		pipe(pipefd);
-		th->pipefd=pipefd[0];
-		this->pipefd=pipefd[1];
-		#endif
-		th->Create();
-		th->Run();
-	}
+	th=new dbiothread();
+	th->filename=filename;
+	th->db=syncdb;
+	syncdb=0;
+	#ifdef __WINDOWS__
+	iocp=CreateIoCompletionPort(INVALID_HANDLE_VALUE, 0, 0, 1);
+	th->iocp=iocp;
+	#else
+	int pipefd[2];
+	pipe(pipefd);
+	th->pipefd=pipefd[0];
+	this->pipefd=pipefd[1];
+	#endif
+	th->Create();
+	th->Run();
 }
 
 void dbconn::DeInit() {
 	if(!isinited) return;
 	isinited=false;
 
-	if(sqlite3_threadsafe()) {
-		SendMessage(new dbsendmsg(DBSM_QUIT));
+	SendMessage(new dbsendmsg(DBSM_QUIT));
 
-		#ifdef __WINDOWS__
-		CloseHandle(iocp);
-		#else
-		close(pipefd);
-		#endif
-		th->Wait();
-		delete th;
-	}
+	#ifdef __WINDOWS__
+	CloseHandle(iocp);
+	#else
+	close(pipefd);
+	#endif
+	LogMsg(LFT_DBTRACE, wxT("dbconn::DeInit(): Waiting for database thread to terminate"));
+	th->Wait();
+	syncdb=th->db;
+	delete th;
 
 	SyncWriteBackAllUsers(syncdb);
 	AccountIdListsSync(syncdb);
+	WriteAllCFGOut(syncdb, gc, alist);
 
 	sqlite3_close(syncdb);
 }
@@ -541,7 +566,6 @@ void dbconn::InsertUser(const std::shared_ptr<userdatacontainer> &u, dbsendmsg_l
 //tweetids, dmids are little endian in database
 void dbconn::AccountSync(sqlite3 *adb) {
 	const char getacc[]="SELECT id, name, tweetids, dmids FROM acc;";
-	auto acclist=alist;	//copy list
 	sqlite3_stmt *getstmt=0;
 	sqlite3_prepare_v2(adb, getacc, sizeof(getacc)+1, &getstmt, 0);
 	do {
@@ -550,50 +574,40 @@ void dbconn::AccountSync(sqlite3 *adb) {
 			unsigned int id=(unsigned int) sqlite3_column_int(getstmt, 0);
 			wxString name=wxString::FromUTF8((const char*) sqlite3_column_text(getstmt, 1));
 			DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::AccountSync: Found %d, %s"), id, name.c_str());
-			taccount *acc=0;
-			acclist.remove_if([&](const std::shared_ptr<taccount> &t) {
-				if(t->name==name) {
-					t->dbindex=id;
-					acc=t.get();
-					return true;
-				}
-				else return false;
-			});
-			if(acc) {
-				size_t tweetarraysize;
-				unsigned char *tweetarray=(unsigned char*) column_get_compressed(getstmt, 2, tweetarraysize);
-				//const unsigned char *tweetarray=(const unsigned char*) sqlite3_column_blob(getstmt, 2);
-				//tweetarraysize=sqlite3_column_bytes(getstmt, 2);
-				tweetarraysize&=~7;
-				for(unsigned int i=0; i<tweetarraysize; i+=8) {		//stored in big endian format
-					uint64_t id=0;
-					for(unsigned int j=0; j<8; j++) id<<=8, id|=tweetarray[i+j];
-					acc->tweet_ids.insert(id);
-					DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::AccountSync: Found Tweet %" wxLongLongFmtSpec "d"), id);
-				}
-				size_t dmarraysize;
-				unsigned char *dmarray=(unsigned char*) column_get_compressed(getstmt, 3, dmarraysize);
-				//const unsigned char *dmarray=(const unsigned char*) sqlite3_column_blob(getstmt, 3);
-				//dmarraysize=sqlite3_column_bytes(getstmt, 3);
-				dmarraysize&=~7;
-				for(unsigned int i=0; i<dmarraysize; i+=8) {		//stored in big endian format
-					uint64_t id=0;
-					for(unsigned int j=0; j<8; j++) id<<=8, id|=dmarray[i+j];
-					acc->dm_ids.insert(id);
-					DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::AccountSync: Found DM %" wxLongLongFmtSpec "d"), id);
-				}
-				free(tweetarray);
-				free(dmarray);
+
+			std::shared_ptr<taccount> ta(new(taccount));
+			ta->name=name;
+			ta->dbindex=id;
+			alist.push_back(ta);
+
+			size_t tweetarraysize;
+			unsigned char *tweetarray=(unsigned char*) column_get_compressed(getstmt, 2, tweetarraysize);
+			//const unsigned char *tweetarray=(const unsigned char*) sqlite3_column_blob(getstmt, 2);
+			//tweetarraysize=sqlite3_column_bytes(getstmt, 2);
+			tweetarraysize&=~7;
+			for(unsigned int i=0; i<tweetarraysize; i+=8) {		//stored in big endian format
+				uint64_t id=0;
+				for(unsigned int j=0; j<8; j++) id<<=8, id|=tweetarray[i+j];
+				ta->tweet_ids.insert(id);
+				//DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::AccountSync: Found Tweet %" wxLongLongFmtSpec "d"), id);
 			}
+			size_t dmarraysize;
+			unsigned char *dmarray=(unsigned char*) column_get_compressed(getstmt, 3, dmarraysize);
+			//const unsigned char *dmarray=(const unsigned char*) sqlite3_column_blob(getstmt, 3);
+			//dmarraysize=sqlite3_column_bytes(getstmt, 3);
+			dmarraysize&=~7;
+			for(unsigned int i=0; i<dmarraysize; i+=8) {		//stored in big endian format
+				uint64_t id=0;
+				for(unsigned int j=0; j<8; j++) id<<=8, id|=dmarray[i+j];
+				ta->dm_ids.insert(id);
+				//DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::AccountSync: Found DM %" wxLongLongFmtSpec "d"), id);
+			}
+			free(tweetarray);
+			free(dmarray);
 		}
 		else break;
 	} while(true);
 	sqlite3_finalize(getstmt);
-	if(!acclist.empty()) {
-		for(auto it=acclist.begin(); it!=acclist.end(); ++it) {
-			SyncInsertNewAccount(adb, **it);
-		}
-	}
 }
 
 inline void writebeuint64(unsigned char* data, uint64_t id) {
@@ -640,17 +654,11 @@ void dbconn::AccountIdListsSync(sqlite3 *adb) {
 
 		sqlite3_bind_int(setstmt, 3, (*it)->dbindex);
 
-		sqlite3_step(setstmt);
+		int res=sqlite3_step(setstmt);
+		if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("dbconn::AccountIdListsSync got error: %d (%s) for user dbindex: %d, name: %s"), res, wxstrstd(sqlite3_errmsg(adb)).c_str(), (*it)->dbindex, (*it)->dispname.c_str()); }
+		else { DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::AccountIdListsSync inserted user dbindex: %d, name: %s"), (*it)->dbindex, (*it)->dispname.c_str()); }
 		sqlite3_reset(setstmt);
 	}
-}
-
-void dbconn::SyncInsertNewAccount(sqlite3 *adb, taccount &acc) {
-	sqlite3_stmt *setstmt=cache.GetStmt(adb, DBPSC_INSERTNEWACC);
-	sqlite3_bind_text(setstmt, 1, acc.name.ToUTF8(), -1, SQLITE_TRANSIENT);
-	sqlite3_step(setstmt);
-	acc.dbindex=(unsigned int) sqlite3_last_insert_rowid(adb);
-	sqlite3_reset(setstmt);
 }
 
 void dbconn::SyncWriteBackAllUsers(sqlite3 *adb) {
@@ -667,7 +675,9 @@ void dbconn::SyncWriteBackAllUsers(sqlite3 *adb) {
 		bind_compressed(stmt, 3, u->cached_profile_img_url, 'P');
 		sqlite3_bind_int64(stmt, 4, (sqlite3_int64) u->user.createtime);
 		sqlite3_bind_int64(stmt, 5, (sqlite3_int64) u->lastupdate);
-		sqlite3_step(stmt);
+		int res=sqlite3_step(stmt);
+		if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("dbconn::SyncWriteBackAllUsers got error: %d (%s) for user id: %" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(adb)).c_str(), it->first); }
+		else { DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncWriteBackAllUsers inserted user id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) it->first); }
 		sqlite3_reset(stmt);
 	}
 	cache.ExecStmt(adb, DBPSC_COMMIT);
@@ -697,7 +707,9 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 			u.lastupdate=(uint64_t) sqlite3_column_int64(stmt, 4);
 			if(json) free(json);
 			if(profimg) free(profimg);
+			DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncReadInAllUsers retrieved user id: %" wxLongLongFmtSpec "d"), (sqlite3_int64) id);
 		}
+		else if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("dbconn::SyncReadInAllUsers got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
 		else break;
 	} while(true);
 	sqlite3_finalize(stmt);
@@ -707,4 +719,125 @@ void dbsendmsg_callback::SendReply(void *data) {
 	wxCommandEvent evt(cmdevtype, winid);
 	evt.SetClientData(data);
 	targ->AddPendingEvent(evt);
+}
+
+static const char globstr[]="G";
+
+void DBGenConfig::SetDBIndexGlobal() {
+	dbindex_global=true;
+}
+
+void DBGenConfig::SetDBIndex(unsigned int id) {
+	dbindex_global=false;
+	dbindex=id;
+}
+void DBGenConfig::bind_accid_name(sqlite3_stmt *stmt, const char *name) {
+	if(dbindex_global) sqlite3_bind_text(stmt, 1, globstr, sizeof(globstr), SQLITE_STATIC);
+	else sqlite3_bind_int(stmt, 1, dbindex);
+	sqlite3_bind_text(stmt, 2, name, -1, SQLITE_TRANSIENT);
+}
+
+DBGenConfig::DBGenConfig(sqlite3 *db_) : dbindex(0), dbindex_global(true), db(db_) { }
+
+DBWriteConfig::DBWriteConfig(sqlite3 *db_) : DBGenConfig(db_), stmt(0) {
+	sqlite3_prepare_v2(db, "INSERT OR REPLACE INTO settings(accid, name, value) VALUES (?, ?, ?);", -1, &stmt, 0);
+	sqlite3_prepare_v2(db, "DELETE FROM settings WHERE (accid IS ?) AND (name IS ?)", -1, &delstmt, 0);
+	sqlite3_stmt *exst=0;
+	sqlite3_prepare_v2(db, "BEGIN;", -1, &exst, 0);
+	exec(exst);
+	sqlite3_finalize(exst);
+}
+
+DBWriteConfig::~DBWriteConfig() {
+	sqlite3_stmt *exst=0;
+	sqlite3_prepare_v2(db, "COMMIT;", -1, &exst, 0);
+	exec(exst);
+	sqlite3_finalize(exst);
+	sqlite3_finalize(stmt);
+	sqlite3_finalize(delstmt);
+}
+void DBWriteConfig::Write(const char *name, const char *strval) {
+	bind_accid_name(stmt, name);
+	sqlite3_bind_text(stmt, 3, strval, -1, SQLITE_TRANSIENT);
+	exec(stmt);
+}
+void DBWriteConfig::WriteInt64(const char *name, sqlite3_int64 val) {
+	bind_accid_name(stmt, name);
+	sqlite3_bind_int64(stmt, 3, val);
+	exec(stmt);
+}
+void DBWriteConfig::Delete(const char *name) {
+	bind_accid_name(delstmt, name);
+	exec(delstmt);
+}
+void DBWriteConfig::DeleteAll() {
+	sqlite3_stmt *delall;
+	sqlite3_prepare_v2(db, "DELETE FROM settings;", -1, &delall, 0);
+	exec(delall);
+	sqlite3_finalize(delall);
+}
+void DBWriteConfig::exec(sqlite3_stmt *stmt) {
+	int res=sqlite3_step(stmt);
+	if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBWriteConfig got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(db)).c_str()); }
+	sqlite3_reset(stmt);
+}
+
+DBReadConfig::DBReadConfig(sqlite3 *db_) : DBGenConfig(db_), stmt(0) {
+	sqlite3_prepare_v2(db, "SELECT value FROM settings WHERE (accid IS ?) AND (name IS ?);", -1, &stmt, 0);
+	sqlite3_stmt *exst=0;
+	sqlite3_prepare_v2(db, "BEGIN;", -1, &exst, 0);
+	exec(exst);
+	sqlite3_finalize(exst);
+}
+
+DBReadConfig::~DBReadConfig() {
+	sqlite3_stmt *exst=0;
+	sqlite3_prepare_v2(db, "COMMIT;", -1, &exst, 0);
+	exec(exst);
+	sqlite3_finalize(exst);
+	sqlite3_finalize(stmt);
+}
+
+bool DBReadConfig::exec(sqlite3_stmt *stmt) {
+	int res=sqlite3_step(stmt);
+	if(res==SQLITE_ROW) return true;
+	else if(res==SQLITE_DONE) return false;
+	else {
+		DBLogMsgFormat(LFT_DBERR, wxT("DBReadConfig got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(db)).c_str());
+		return false;
+	}
+}
+
+bool DBReadConfig::Read(const char *name, wxString *strval, const wxString &defval) {
+	bind_accid_name(stmt, name);
+	bool ok=exec(stmt);
+	if(ok) {
+		const char *text=(const char *) sqlite3_column_text(stmt, 0);
+		int len=sqlite3_column_bytes(stmt, 0);
+		*strval=wxstrstd(text, len);
+	}
+	else *strval=defval;
+	sqlite3_reset(stmt);
+	return ok;
+}
+
+bool DBReadConfig::ReadBool(const char *name, bool *strval, bool defval) {
+	sqlite3_int64 value;
+	bool res=ReadInt64(name, &value, (sqlite3_int64) defval);
+	*strval=(bool) value;
+	return res;
+}
+bool DBReadConfig::ReadUInt64(const char *name, uint64_t *strval, uint64_t defval) {
+	return ReadInt64(name, (sqlite3_int64 *) strval, (sqlite3_int64) defval);
+}
+
+bool DBReadConfig::ReadInt64(const char *name, sqlite3_int64 *strval, sqlite3_int64 defval) {
+	bind_accid_name(stmt, name);
+	bool ok=exec(stmt);
+	if(ok) {
+		*strval=sqlite3_column_int64(stmt, 0);
+	}
+	else *strval=defval;
+	sqlite3_reset(stmt);
+	return ok;
 }

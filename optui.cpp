@@ -83,10 +83,13 @@ void acc_window::AccNew(wxCommandEvent &event) {
 			ta->name=wxString::Format(wxT("%" wxLongLongFmtSpec "d-%d"),ta->usercont->id,time(0));
 			alist.push_back(ta);
 			UpdateLB();
-			dbc.SyncInsertNewAccount(dbc.syncdb, *ta);
-			//opportunity for settings and so on goes here
-			ta->enabled=true;
-			ta->Exec();
+			dbinsertaccmsg *insmsg=new dbinsertaccmsg;
+			insmsg->name=ta->name.ToUTF8();
+			insmsg->dispname=ta->dispname.ToUTF8();
+			insmsg->targ=&dbc;
+			insmsg->cmdevtype=wxextDBCONN_NOTIFY;
+			insmsg->winid=wxDBCONNEVT_ID_INSERTNEWACC;
+			dbc.SendMessage(insmsg);
 		}
 	}
 	twit->TwDeInit();

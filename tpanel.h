@@ -157,7 +157,7 @@ void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent);
 
 struct tpanelglobal {
 	wxBitmap arrow;
-	unsigned int arrow_dim;
+	int arrow_dim;
 
 	tpanelglobal() : arrow_dim(0) { }
 };

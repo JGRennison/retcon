@@ -20,12 +20,9 @@ bool retcon::OnInit() {
 	if(!::wxDirExists(wxStandardPaths::Get().GetUserDataDir())) {
 		::wxMkdir(wxStandardPaths::Get().GetUserDataDir(), 0777);
 	}
-	wxConfigBase *wfc=new wxFileConfig(wxT(""),wxT(""),wxStandardPaths::Get().GetUserDataDir() + wxT("/retcon.ini"),wxT(""),wxCONFIG_USE_LOCAL_FILE,wxConvUTF8);
 	mainframe *top = new mainframe( wxT("Retcon"), wxPoint(50, 50), wxSize(450, 340) );
 	if(!globallogwindow) new log_window(0, lfd_defaultwin, false);
-	wxConfigBase::Set(wfc);
 	sm.InitMultiIOHandler();
-	ReadAllCFGIn(*wfc, gc, alist);
 	dbc.Init(std::string((wxStandardPaths::Get().GetUserDataDir() + wxT("/retcondb.sqlite3")).ToUTF8()));
 
 	tpanel::MkTPanel("[default]", "[default]")->MkTPanelWin(top);
@@ -43,9 +40,6 @@ int retcon::OnExit() {
 	}
 	profileimgdlconn::cp.ClearAllConns();
 	sm.DeInitMultiIOHandler();
-	wxConfigBase *wfc=wxConfigBase::Get();
-	WriteAllCFGOut(*wfc, gc, alist);
-	wfc->Flush();
 	dbc.DeInit();
 	delete tpg;
 	return wxApp::OnExit();

@@ -22,8 +22,6 @@
 #include <wx/app.h>
 #include <wx/frame.h>
 #include <wx/string.h>
-#include <wx/confbase.h>
-#include <wx/fileconf.h>
 #include <wx/menu.h>
 #include <wx/event.h>
 #include <wx/dialog.h>
@@ -69,6 +67,8 @@ struct tpanelnotebook;
 struct media_display_win;
 struct tpanel;
 struct dbsendmsg_list;
+struct DBWriteConfig;
+struct DBReadConfig;
 
 typedef std::set<uint64_t, std::greater<uint64_t> > tweetidset;		//std::set, sorted in opposite order
 
@@ -149,8 +149,8 @@ struct taccount : std::enable_shared_from_this<taccount> {
 	bool active;
 	bool verifycreddone;
 	bool verifycredinprogress;
-	void CFGWriteOut(wxConfigBase &twfc);
-	void CFGReadIn(wxConfigBase &twfc);
+	void CFGWriteOut(DBWriteConfig &twfc);
+	void CFGReadIn(DBReadConfig &twfc);
 	void CFGParamConv();
 	bool TwDoOAuth(wxWindow *pf, twitcurlext &twit);
 	void PostAccVerifyInit();
