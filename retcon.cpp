@@ -258,7 +258,7 @@ bool taccount::TwDoOAuth(wxWindow *pf, twitcurlext &twit) {
 	twit.oAuthRequestToken(authUrl);
 	wxString authUrlWx=wxString::FromUTF8(authUrl.c_str());
 	//twit.oAuthHandlePIN(authUrl);
-	LogMsgFormat(LFT_AUTH, wxT("%s, %s, %s"), cfg.tokenk.val.c_str(), cfg.tokens.val.c_str(), authUrlWx.c_str());
+	LogMsgFormat(LFT_OTHERTRACE, wxT("taccount::TwDoOAuth: %s, %s, %s"), cfg.tokenk.val.c_str(), cfg.tokens.val.c_str(), authUrlWx.c_str());
 	wxLaunchDefaultBrowser(authUrlWx);
 	wxTextEntryDialog *ted=new wxTextEntryDialog(pf, wxT("Enter Twitter PIN"), wxT("Enter Twitter PIN"), wxT(""), wxOK | wxCANCEL);
 	int res=ted->ShowModal();
@@ -328,6 +328,7 @@ std::shared_ptr<userdatacontainer> alldata::GetUserContainerById(uint64_t id) {
 		usercont->id=id;
 		usercont->lastupdate=0;
 		usercont->udc_flags=0;
+		memset(usercont->cached_profile_img_sha1, 0, sizeof(usercont->cached_profile_img_sha1));
 	}
 	return usercont;
 }

@@ -15,7 +15,6 @@ const wxChar *logflagsstrings[]={
 	wxT("curlverb"),
 	wxT("parsetrace"),
 	wxT("parseerr"),
-	wxT("authtrace"),
 	wxT("socktrace"),
 	wxT("sockerr"),
 	wxT("tpanel"),
@@ -24,6 +23,8 @@ const wxChar *logflagsstrings[]={
 	wxT("dberr"),
 	wxT("ztrace"),
 	wxT("zerr"),
+	wxT("othertrace"),
+	wxT("othererr"),
 };
 
 void Update_currentlogflags() {

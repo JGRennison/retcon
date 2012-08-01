@@ -7,6 +7,7 @@
 #include "strptime.cpp"
 #pragma GCC diagnostic pop
 #endif
+#include <openssl/sha.h>
 
 void HandleNewTweet(const std::shared_ptr<tweet> &t) {
 	//do some filtering, etc
@@ -292,9 +293,32 @@ bool userdatacontainer::ImgIsReady(unsigned int updcf_flags) {
 	if(cached_profile_img_url.size() && !(udc_flags&UDC_PROFILE_BITMAP_SET))  {
 		wxImage img;
 		wxString filename;
+		bool success=false;
 		GetImageLocalFilename(filename);
-		if(img.LoadFile(filename)) SetProfileBitmapFromwxImage(img);
-		else {
+		wxFile file;
+		bool opened=file.Open(filename);
+		if(opened) {
+			wxFileOffset len=file.Length();
+			if(len && len<(50<<20)) {	//don't load empty absurdly large files
+				char *data=(char*) malloc(len);
+				size_t res=file.Read(data, len);
+				if(res==len) {
+					unsigned char hash[20];
+					SHA1((const unsigned char *) data, (unsigned long) len, hash);
+					if(memcmp(hash, cached_profile_img_sha1, 20)==0) {
+						wxMemoryInputStream memstream(data, len);
+						if(img.LoadFile(memstream, wxBITMAP_TYPE_ANY)) {
+							SetProfileBitmapFromwxImage(img);
+							success=true;
+						}
+					}
+				}
+				free(data);
+			}
+		}
+		if(!success) {
+			LogMsgFormat(LFT_OTHERERR, wxT("userdatacontainer::ImgIsReady, cached profile image file for user id: %" wxLongLongFmtSpec "d (%s), file: %s, url: %s, missing, invalid or failed hash check"),
+				id, wxstrstd(GetUser().screen_name).c_str(), filename.c_str(), wxstrstd(cached_profile_img_url).c_str());
 			cached_profile_img_url.clear();
 			if(updcf_flags&UPDCF_DOWNLOADIMG) {					//the saved image is not loadable, clear cache and re-download
 				profileimgdlconn::GetConn(user.profile_img_url, shared_from_this());

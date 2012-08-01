@@ -7,6 +7,8 @@
 #endif
 #include <poll.h>
 #endif
+#include <openssl/sha.h>
+
 
 BEGIN_EVENT_TABLE( mcurlconn, wxEvtHandler )
 	EVT_TIMER(MCCT_RETRY, mcurlconn::RetryNotify)
@@ -178,6 +180,8 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 		user->SetProfileBitmapFromwxImage(img);
 
 		user->cached_profile_img_url=url;
+		SHA1((const unsigned char *) data.data(), (unsigned long) data.size(), user->cached_profile_img_sha1);
+		user->lastupdate_wrotetodb=0;		//force user to be written out to database
 		dbc.InsertUser(user);
 		data.clear();
 		user->udc_flags&=~UDC_IMAGE_DL_IN_PROGRESS;

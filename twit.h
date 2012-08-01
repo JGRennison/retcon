@@ -35,6 +35,7 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	unsigned int udc_flags;
 
 	std::string cached_profile_img_url;
+	unsigned char cached_profile_img_sha1[20];
 	wxBitmap cached_profile_img;
 	wxBitmap cached_profile_img_half;
 	std::forward_list<std::shared_ptr<tweet> > pendingtweets;

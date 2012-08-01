@@ -9,17 +9,19 @@ const unsigned char jsondictionary[]="<a href=\"http://retweet_countsourcetexten
 const unsigned char profimgdictionary[]="http://https://si0.twimg.com/profile_images/imagesmallnormal.png.jpg.jpeg.gif";
 
 const char *startup_sql=
+"PRAGMA locking_mode = EXCLUSIVE;"
 "CREATE TABLE IF NOT EXISTS tweets(id INTEGER PRIMARY KEY NOT NULL, statjson BLOB, dynjson BLOB, userid INTEGER, userrecipid INTEGER, flags INTEGER, timestamp INTEGER);"
-"CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY NOT NULL, json BLOB, cachedprofimgurl BLOB, createtimestamp INTEGER, lastupdatetimestamp INTEGER);"
-"CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, json BLOB, tweetids BLOB, dmids BLOB);"
-"CREATE TABLE IF NOT EXISTS settings(accid BLOB, name TEXT, value BLOB, PRIMARY KEY (accid, name));";
+"CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY NOT NULL, json BLOB, cachedprofimgurl BLOB, createtimestamp INTEGER, lastupdatetimestamp INTEGER, cachedprofileimgchecksum BLOB);"
+"CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, json BLOB, tweetids BLOB, dmids BLOB, mentionids BLOB);"
+"CREATE TABLE IF NOT EXISTS settings(accid BLOB, name TEXT, value BLOB, PRIMARY KEY (accid, name));"
+"INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', 'dirtyflag', strftime('%s','now'));";
 
 const char *sql[DBPSC_NUM_STATEMENTS]={
 	"INSERT INTO tweets(id, statjson, dynjson, userid, userrecipid, flags, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?);",
 	"UPDATE tweets SET dynjson = ?, flags = ? WHERE id == ?;",
 	"BEGIN;",
 	"COMMIT;",
-	"INSERT OR REPLACE INTO users(id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp) VALUES (?, ?, ?, ?, ?);",
+	"INSERT OR REPLACE INTO users(id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum) VALUES (?, ?, ?, ?, ?, ?);",
 	"INSERT INTO acc (name) VALUES (?);",
 	"UPDATE acc SET tweetids = ?, dmids = ? WHERE id == ?;",
 	"SELECT statjson, dynjson, userid, userrecipid, flags, timestamp FROM tweets WHERE id == ?",
@@ -322,6 +324,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			bind_compressed(stmt, 3, m->cached_profile_img_url, 'P');
 			sqlite3_bind_int64(stmt, 4, (sqlite3_int64) m->createtime);
 			sqlite3_bind_int64(stmt, 5, (sqlite3_int64) m->lastupdate);
+			sqlite3_bind_blob(stmt, 6, m->cached_profile_img_hash.data(), m->cached_profile_img_hash.size(), SQLITE_TRANSIENT);
 			int res=sqlite3_step(stmt);
 			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_INSERTUSER got error: %d (%s) for id:%" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), m->id); }
 			else { DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_INSERTUSER inserted id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) m->id); }
@@ -426,7 +429,6 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 		if(dt.user2) t->user_recipient=ad.GetUserContainerById(dt.user2);
 		t->createtime=(time_t) dt.timestamp;
 		new (&t->flags) tweet_flags(dt.flags);
-
 
 		bool user1ready=t->user->IsReady(UPDCF_NOUSEREXPIRE|UPDCF_DOWNLOADIMG);
 		bool user2ready=(dt.user2)?t->user_recipient->IsReady(UPDCF_NOUSEREXPIRE|UPDCF_DOWNLOADIMG):1;
@@ -563,6 +565,7 @@ void dbconn::InsertUser(const std::shared_ptr<userdatacontainer> &u, dbsendmsg_l
 	msg->cached_profile_img_url=std::string(u->cached_profile_img_url.begin(), u->cached_profile_img_url.end());	//prevent any COW semantics
 	msg->createtime=u->user.createtime;
 	msg->lastupdate=u->lastupdate;
+	msg->cached_profile_img_hash.assign((const char*) u->cached_profile_img_sha1, sizeof(u->cached_profile_img_sha1));
 	u->lastupdate_wrotetodb=u->lastupdate;
 	SendMessageOrAddToList(msg, msglist);
 }
@@ -679,6 +682,7 @@ void dbconn::SyncWriteBackAllUsers(sqlite3 *adb) {
 		bind_compressed(stmt, 3, u->cached_profile_img_url, 'P');
 		sqlite3_bind_int64(stmt, 4, (sqlite3_int64) u->user.createtime);
 		sqlite3_bind_int64(stmt, 5, (sqlite3_int64) u->lastupdate);
+		sqlite3_bind_blob(stmt, 6, u->cached_profile_img_sha1, sizeof(u->cached_profile_img_sha1), SQLITE_TRANSIENT);
 		int res=sqlite3_step(stmt);
 		if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("dbconn::SyncWriteBackAllUsers got error: %d (%s) for user id: %" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(adb)).c_str(), it->first); }
 		else { DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncWriteBackAllUsers inserted user id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) it->first); }
@@ -688,7 +692,7 @@ void dbconn::SyncWriteBackAllUsers(sqlite3 *adb) {
 }
 
 void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
-	const char sql[]="SELECT id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp FROM users;";
+	const char sql[]="SELECT id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum FROM users;";
 	sqlite3_stmt *stmt=0;
 	sqlite3_prepare_v2(adb, sql, sizeof(sql)+1, &stmt, 0);
 
@@ -709,6 +713,15 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 			if(u.user.profile_img_url.empty()) u.user.profile_img_url.assign(profimg, profimg_size);
 			u.user.createtime=(time_t) sqlite3_column_int64(stmt, 3);
 			u.lastupdate=(uint64_t) sqlite3_column_int64(stmt, 4);
+			const char *hash=(const char*) sqlite3_column_blob(stmt, 5);
+			int hashsize=sqlite3_column_bytes(stmt, 5);
+			if(hashsize==sizeof(u.cached_profile_img_sha1)) {
+				memcpy(u.cached_profile_img_sha1, hash, sizeof(u.cached_profile_img_sha1));
+			}
+			else {
+				memset(u.cached_profile_img_sha1, 0, sizeof(u.cached_profile_img_sha1));
+				if(profimg_size) DBLogMsgFormat(LFT_DBERR, wxT("dbconn::SyncReadInAllUsers user id: %" wxLongLongFmtSpec "d, has invalid profile image hash length: %d"), (sqlite3_int64) id, hashsize);
+			}
 			if(json) free(json);
 			if(profimg) free(profimg);
 			DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncReadInAllUsers retrieved user id: %" wxLongLongFmtSpec "d"), (sqlite3_int64) id);

@@ -123,6 +123,7 @@ struct dbinsertusermsg : public dbsendmsg {
 	std::string cached_profile_img_url;
 	time_t createtime;
 	uint64_t lastupdate;
+	std::string cached_profile_img_hash;
 };
 
 struct dbinsertaccmsg : public dbsendmsg_callback {
