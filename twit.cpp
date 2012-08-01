@@ -279,15 +279,16 @@ void streamconntimeout::Notify() {
 	tw->HandleError(tw->GetCurlHandle(),0,CURLE_OPERATION_TIMEDOUT);
 }
 
-bool userdatacontainer::NeedsUpdating() {
+bool userdatacontainer::NeedsUpdating(unsigned int updcf_flags) {
 	if(!lastupdate) return true;
+	else if(updcf_flags&UPDCF_NOUSEREXPIRE && GetUser().screen_name.size()) return false;
 	else {
 		if((time(0)-lastupdate)>gc.userexpiretime) return true;
 		else return false;
 	}
 }
 
-bool userdatacontainer::ImgIsReady(bool download) {
+bool userdatacontainer::ImgIsReady(unsigned int updcf_flags) {
 	if(cached_profile_img_url.size() && !(udc_flags&UDC_PROFILE_BITMAP_SET))  {
 		wxImage img;
 		wxString filename;
@@ -295,7 +296,7 @@ bool userdatacontainer::ImgIsReady(bool download) {
 		if(img.LoadFile(filename)) SetProfileBitmapFromwxImage(img);
 		else {
 			cached_profile_img_url.clear();
-			if(download) {					//the saved image is not loadable, clear cache and re-download
+			if(updcf_flags&UPDCF_DOWNLOADIMG) {					//the saved image is not loadable, clear cache and re-download
 				profileimgdlconn::GetConn(user.profile_img_url, shared_from_this());
 			}
 			return false;
@@ -305,8 +306,8 @@ bool userdatacontainer::ImgIsReady(bool download) {
 	return true;
 }
 
-bool userdatacontainer::ImgHalfIsReady(bool download) {
-	bool res=ImgIsReady(download);
+bool userdatacontainer::ImgHalfIsReady(unsigned int updcf_flags) {
+	bool res=ImgIsReady(updcf_flags);
 	if(res && !(udc_flags&UDC_HALF_PROFILE_BITMAP_SET)) {
 		wxImage img=cached_profile_img.ConvertToImage();
 		cached_profile_img_half=MkProfileBitmapFromwxImage(img, 0.5);
@@ -315,9 +316,10 @@ bool userdatacontainer::ImgHalfIsReady(bool download) {
 	return res;
 }
 
-bool userdatacontainer::IsReady() {
-	if(!ImgIsReady()) return false;
-	if(NeedsUpdating()) return false;
+bool userdatacontainer::IsReady(unsigned int updcf_flags) {
+	if(!ImgIsReady(updcf_flags)) return false;
+	if(NeedsUpdating(updcf_flags)) return false;
+	else if( updcf_flags&UPDCF_NOUSEREXPIRE ) return true;
 	else if( udc_flags & (UDC_LOOKUP_IN_PROGRESS|UDC_IMAGE_DL_IN_PROGRESS)) return false;
 	else return true;
 }
@@ -326,12 +328,12 @@ void userdatacontainer::CheckPendingTweets() {
 	if(IsReady()) {
 		pendingtweets.remove_if([&](const std::shared_ptr<tweet> &t) {
 			if(!t->flags.Get('D')) {
-				HandleNewTweet(t);
+				UnmarkPending(t);
 				return true;
 			}
 			else {
 				if(t->user->IsReady() && t->user_recipient->IsReady()) {
-					HandleNewTweet(t);
+					UnmarkPending(t);
 					return true;
 				}
 				else {
@@ -341,6 +343,20 @@ void userdatacontainer::CheckPendingTweets() {
 				}
 			}
 		});
+	}
+}
+
+void userdatacontainer::UnmarkPending(const std::shared_ptr<tweet> &t) {
+	if(t->lflags&TLF_PENDINGHANDLENEW) {
+		t->lflags&=~TLF_PENDINGHANDLENEW;
+		HandleNewTweet(t);
+	}
+	if(t->lflags&TLF_PENDINGINDBTPANELMAP) {
+		t->lflags&=~TLF_PENDINGINDBTPANELMAP;
+		t->lflags&=~TLF_BEINGLOADEDFROMDB;
+		auto itpair=tpaneldbloadmap.equal_range(t->id);
+		for(auto it=itpair.first; it!=itpair.second; ++it) (*it).second->PushTweet(t);
+		tpaneldbloadmap.erase(itpair.first, itpair.second);
 	}
 }
 
@@ -429,6 +445,7 @@ void taccount::MarkPendingOrHandle(const std::shared_ptr<tweet> &t) {
 			HandleNewTweet(t);
 		}
 		else {
+			t->lflags|=TLF_PENDINGHANDLENEW;
 			MarkPending(t->user->id, t->user, t);
 		}
 	}
@@ -436,10 +453,12 @@ void taccount::MarkPendingOrHandle(const std::shared_ptr<tweet> &t) {
 		bool isready=true;
 
 		if(!t->user->IsReady()) {
+			t->lflags|=TLF_PENDINGHANDLENEW;
 			MarkPending(t->user->id, t->user, t);
 			isready=false;
 		}
 		if(!t->user_recipient->IsReady()) {
+			t->lflags|=TLF_PENDINGHANDLENEW;
 			MarkPending(t->user_recipient->id, t->user_recipient, t);
 			isready=false;
 		}

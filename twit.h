@@ -22,6 +22,11 @@ enum {
 	UDC_HALF_PROFILE_BITMAP_SET	= 1<<4,
 };
 
+enum {	UPDCF_DOWNLOADIMG	= 1<<0,
+	UPDCF_NOUSEREXPIRE	= 1<<1,
+	UPDCF_DEFAULT = UPDCF_DOWNLOADIMG,
+};
+
 struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	uint64_t id;
 	userdata user;
@@ -34,9 +39,10 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	wxBitmap cached_profile_img_half;
 	std::forward_list<std::shared_ptr<tweet> > pendingtweets;
 
-	bool NeedsUpdating();
-	bool IsReady();
+	bool NeedsUpdating(unsigned int updcf_flags=UPDCF_DEFAULT);
+	bool IsReady(unsigned int updcf_flags=UPDCF_DEFAULT);
 	void CheckPendingTweets();
+	void UnmarkPending(const std::shared_ptr<tweet> &t);
 	std::shared_ptr<taccount> GetAccountOfUser();
 	void GetImageLocalFilename(wxString &filename);
 	inline userdata &GetUser() { return user; }
@@ -45,8 +51,8 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	wxBitmap MkProfileBitmapFromwxImage(const wxImage &img, double limitscalefactor);
 	void SetProfileBitmapFromwxImage(const wxImage &img);
 	void Dump();
-	bool ImgIsReady(bool download=true);
-	bool ImgHalfIsReady(bool download=true);
+	bool ImgIsReady(unsigned int updcf_flags=UPDCF_DEFAULT);
+	bool ImgHalfIsReady(unsigned int updcf_flags=UPDCF_DEFAULT);
 };
 
 struct tweet_flags {
@@ -101,6 +107,8 @@ struct tweet_perspective {
 enum {	//for tweet.lflags
 	TLF_DYNDIRTY		= 1<<0,
 	TLF_BEINGLOADEDFROMDB	= 1<<1,
+	TLF_PENDINGINDBTPANELMAP= 1<<2,
+	TLF_PENDINGHANDLENEW	= 1<<3,
 };
 
 struct tweet {

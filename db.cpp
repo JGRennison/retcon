@@ -428,16 +428,20 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 		new (&t->flags) tweet_flags(dt.flags);
 
 
-		t->user->ImgIsReady(false);				//load any images from saved files if necessary
-		if(dt.user2) t->user_recipient->ImgIsReady(false);
+		bool user1ready=t->user->IsReady(UPDCF_NOUSEREXPIRE|UPDCF_DOWNLOADIMG);
+		bool user2ready=(dt.user2)?t->user_recipient->IsReady(UPDCF_NOUSEREXPIRE|UPDCF_DOWNLOADIMG):1;
 
-		t->lflags&=~TLF_BEINGLOADEDFROMDB;
-
-		//any tweet in the database will also have the relevant user objects as well, hence no risk of a null user
-		//does not matter if the user object is not strictly up to date
-		auto itpair=tpaneldbloadmap.equal_range(dt.id);
-		for(auto it=itpair.first; it!=itpair.second; ++it) (*it).second->PushTweet(t);
-		tpaneldbloadmap.erase(itpair.first, itpair.second);
+		if(user1ready && user2ready) {
+			t->lflags&=~TLF_BEINGLOADEDFROMDB;
+			auto itpair=tpaneldbloadmap.equal_range(dt.id);
+			for(auto it=itpair.first; it!=itpair.second; ++it) (*it).second->PushTweet(t);
+			tpaneldbloadmap.erase(itpair.first, itpair.second);
+		}
+		else {
+			t->lflags|=TLF_PENDINGINDBTPANELMAP;
+			if(!user1ready) t->tp_list.front().acc->MarkPending(t->user->id, t->user, t, true);
+			if(!user2ready) t->tp_list.front().acc->MarkPending(t->user_recipient->id, t->user_recipient, t, true);
+		}
 	}
 	delete msg;
 }

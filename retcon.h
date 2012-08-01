@@ -45,6 +45,7 @@
 #include <wx/checkbox.h>
 #include <wx/choice.h>
 #include <wx/stattext.h>
+#include <wx/file.h>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wtype-limits"
 #pragma GCC diagnostic ignored "-Wuninitialized"
