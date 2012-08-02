@@ -39,6 +39,7 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	wxBitmap cached_profile_img;
 	wxBitmap cached_profile_img_half;
 	std::forward_list<std::shared_ptr<tweet> > pendingtweets;
+	std::deque<uint64_t> mention_index;
 
 	bool NeedsUpdating(unsigned int updcf_flags=UPDCF_DEFAULT);
 	bool IsReady(unsigned int updcf_flags=UPDCF_DEFAULT);

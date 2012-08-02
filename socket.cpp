@@ -363,17 +363,11 @@ static int multi_timer_cb(CURLM *multi, long timeout_ms, socketmanager *smp) {
 }
 
 socketmanager::socketmanager() : st(*this), curnumsocks(0) {
-	curlmulti=curl_multi_init();
-	curl_multi_setopt(curlmulti, CURLMOPT_SOCKETFUNCTION, sock_cb);
-	curl_multi_setopt(curlmulti, CURLMOPT_SOCKETDATA, this);
-	curl_multi_setopt(curlmulti, CURLMOPT_TIMERFUNCTION, multi_timer_cb);
-	curl_multi_setopt(curlmulti, CURLMOPT_TIMERDATA, this);
 	MultiIOHandlerInited=false;
 }
 
 socketmanager::~socketmanager() {
-	if(MultiIOHandlerInited) DeInitMultiIOHandler();
-	curl_multi_cleanup(curlmulti);
+	DeInitMultiIOHandler();
 }
 
 bool socketmanager::AddConn(CURL* ch, mcurlconn *cs) {
@@ -447,6 +441,18 @@ void socketmanager::NotifySockEventCmd(wxextSocketNotifyEvent &event) {
 }
 #endif
 
+void socketmanager::InitMultiIOHandlerCommon() {
+	curlmulti=curl_multi_init();
+	curl_multi_setopt(curlmulti, CURLMOPT_SOCKETFUNCTION, sock_cb);
+	curl_multi_setopt(curlmulti, CURLMOPT_SOCKETDATA, this);
+	curl_multi_setopt(curlmulti, CURLMOPT_TIMERFUNCTION, multi_timer_cb);
+	curl_multi_setopt(curlmulti, CURLMOPT_TIMERDATA, this);
+}
+
+void socketmanager::DeInitMultiIOHandlerCommon() {
+	curl_multi_cleanup(curlmulti);
+}
+
 #ifdef __WINDOWS__
 
 const char *tclassname="____retcon_wsaasyncselect_window";
@@ -477,6 +483,8 @@ LRESULT CALLBACK wndproc(
 }
 
 void socketmanager::InitMultiIOHandler() {
+	if(MultiIOHandlerInited) return;
+	InitMultiIOHandlerCommon();
 	WNDCLASSA wc = { 0, &wndproc, 0, 0,
 			(HINSTANCE) GetModuleHandle(0),
 			0, 0, 0, 0,
@@ -487,8 +495,10 @@ void socketmanager::InitMultiIOHandler() {
 }
 
 void socketmanager::DeInitMultiIOHandler() {
+	if(!MultiIOHandlerInited) return;
 	DestroyWindow(wind);
 	wind=0;
+	DeInitMultiIOHandlerCommon();
 	MultiIOHandlerInited=false;
 }
 
@@ -538,6 +548,8 @@ void socketsighandler(int signum, siginfo_t *info, void *ucontext) {
 #endif
 
 void socketmanager::InitMultiIOHandler() {
+	if(MultiIOHandlerInited) return;
+	InitMultiIOHandlerCommon();
 	#ifdef SIGNALSAFE
 	struct sigaction sa;
 	memset(&sa, 0, sizeof(sa));
@@ -559,6 +571,7 @@ void socketmanager::InitMultiIOHandler() {
 }
 
 void socketmanager::DeInitMultiIOHandler() {
+	if(!MultiIOHandlerInited) return;
 	#ifdef SIGNALSAFE
 	struct sigaction sa;
 	memset(&sa, 0, sizeof(sa));
@@ -570,7 +583,7 @@ void socketmanager::DeInitMultiIOHandler() {
 	write(pipefd, &spm, sizeof(spm));
 	close(pipefd);
 	#endif
-
+	DeInitMultiIOHandlerCommon();
 	MultiIOHandlerInited=false;
 }
 

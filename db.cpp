@@ -3,6 +3,7 @@
 #include <windows.h>
 #endif
 #include <zlib.h>
+#include <wx/msgdlg.h>
 
 const unsigned char jsondictionary[]="<a href=\"http://retweet_countsourcetextentitiesindiceshashtagsurlsdisplayexpandedjpgpnguser_mentionsmediaidhttptweetusercreatedfavoritedscreen_namein_reply_to_user_idprofileprotectedfollowdescriptionfriends"
 				"typesizesthe[{\",\":\"}]";
@@ -11,8 +12,8 @@ const unsigned char profimgdictionary[]="http://https://si0.twimg.com/profile_im
 const char *startup_sql=
 "PRAGMA locking_mode = EXCLUSIVE;"
 "CREATE TABLE IF NOT EXISTS tweets(id INTEGER PRIMARY KEY NOT NULL, statjson BLOB, dynjson BLOB, userid INTEGER, userrecipid INTEGER, flags INTEGER, timestamp INTEGER);"
-"CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY NOT NULL, json BLOB, cachedprofimgurl BLOB, createtimestamp INTEGER, lastupdatetimestamp INTEGER, cachedprofileimgchecksum BLOB);"
-"CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, json BLOB, tweetids BLOB, dmids BLOB, mentionids BLOB);"
+"CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY NOT NULL, json BLOB, cachedprofimgurl BLOB, createtimestamp INTEGER, lastupdatetimestamp INTEGER, cachedprofileimgchecksum BLOB, mentionindex BLOB);"
+"CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, json BLOB, tweetids BLOB, dmids BLOB);"
 "CREATE TABLE IF NOT EXISTS settings(accid BLOB, name TEXT, value BLOB, PRIMARY KEY (accid, name));"
 "INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', 'dirtyflag', strftime('%s','now'));";
 
@@ -21,7 +22,7 @@ const char *sql[DBPSC_NUM_STATEMENTS]={
 	"UPDATE tweets SET dynjson = ?, flags = ? WHERE id == ?;",
 	"BEGIN;",
 	"COMMIT;",
-	"INSERT OR REPLACE INTO users(id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum) VALUES (?, ?, ?, ?, ?, ?);",
+	"INSERT OR REPLACE INTO users(id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex) VALUES (?, ?, ?, ?, ?, ?, ?);",
 	"INSERT INTO acc (name) VALUES (?);",
 	"UPDATE acc SET tweetids = ?, dmids = ? WHERE id == ?;",
 	"SELECT statjson, dynjson, userid, userrecipid, flags, timestamp FROM tweets WHERE id == ?",
@@ -128,7 +129,7 @@ static unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsi
 	else {
 		data=(unsigned char *) malloc(insize+1);
 		data[0]='T';
-		memcpy(data+1, in, insize);
+		if(in) memcpy(data+1, in, insize);
 		sz=insize+1;
 		if(iscompressed) *iscompressed=false;
 	}
@@ -252,6 +253,41 @@ static char *column_get_compressed_and_parse(sqlite3_stmt* stmt, int num, rapidj
 	return str;
 }
 
+template <typename C> unsigned char *settoblob(const C &set, size_t &size) {
+	size=set.size()*8;
+	if(!size) return 0;
+	unsigned char *data=(unsigned char *) malloc(size);
+	unsigned char *curdata=data;
+	for(auto it=set.cbegin(); it!=set.cend(); ++it) {
+		writebeuint64(curdata, *it);
+		curdata+=8;
+	}
+	return data;
+}
+
+template <typename C> unsigned char *settocompressedblob(const C &set, size_t &size) {
+	size_t insize;
+	unsigned char *data=settoblob(set, insize);
+	unsigned char *comdata=DoCompress(data, insize, size, 'Z');
+	free(data);
+	return comdata;
+}
+
+	//const unsigned char *tweetarray=(const unsigned char*) sqlite3_column_blob(getstmt, 2);
+	//tweetarraysize=sqlite3_column_bytes(getstmt, 2);
+
+template <typename C> void setfromcompressedblob(C func, sqlite3_stmt *stmt, int columnid) {
+	size_t blarraysize;
+	unsigned char *blarray=(unsigned char*) column_get_compressed(stmt, columnid, blarraysize);
+	blarraysize&=~7;
+	for(unsigned int i=0; i<blarraysize; i+=8) {		//stored in big endian format
+		uint64_t id=0;
+		for(unsigned int j=0; j<8; j++) id<<=8, id|=blarray[i+j];
+		func(id);
+	}
+	free(blarray);
+}
+
 static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cache) {
 	switch(msg->type) {
 		case DBSM_QUIT:
@@ -325,6 +361,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			sqlite3_bind_int64(stmt, 4, (sqlite3_int64) m->createtime);
 			sqlite3_bind_int64(stmt, 5, (sqlite3_int64) m->lastupdate);
 			sqlite3_bind_blob(stmt, 6, m->cached_profile_img_hash.data(), m->cached_profile_img_hash.size(), SQLITE_TRANSIENT);
+			sqlite3_bind_blob(stmt, 7, m->mentionindex, m->mentionindex_size, &free);
 			int res=sqlite3_step(stmt);
 			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_INSERTUSER got error: %d (%s) for id:%" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), m->id); }
 			else { DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_INSERTUSER inserted id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) m->id); }
@@ -477,20 +514,31 @@ void dbconn::SendMessage(dbsendmsg *msg) {
 	#endif
 }
 
-void dbconn::Init(const std::string &filename /*UTF-8*/) {
-	if(isinited) return;
-	isinited=true;
+bool dbconn::Init(const std::string &filename /*UTF-8*/) {
+	if(isinited) return true;
 
 	sqlite3_config(SQLITE_CONFIG_SINGLETHREAD);		//only use sqlite from one thread at any given time
 	sqlite3_initialize();
 
 	int res=sqlite3_open(filename.c_str(), &syncdb);
-	if(res!=SQLITE_OK) return;
+	if(res!=SQLITE_OK) {
+		wxMessageDialog(0, wxString::Format(wxT("Database could not be opened/created, got error: %d (%s)\nDatabase filename: %s\nCheck that the database is not locked by another process, and that the directory is read/writable."),
+			res, wxstrstd(sqlite3_errmsg(syncdb)).c_str(), wxstrstd(filename).c_str()),
+			wxT("Fatal Startup Error"), wxOK | wxICON_ERROR ).ShowModal();
+		return false;
+	}
 
 	sqlite3_busy_handler(syncdb, &busy_handler_callback, 0);
 
 	res=sqlite3_exec(syncdb, startup_sql, 0, 0, 0);
-	if(res!=SQLITE_OK) return;
+	if(res!=SQLITE_OK) {
+		wxMessageDialog(0, wxString::Format(wxT("Startup SQL failed, got error: %d (%s)\nDatabase filename: %s\nCheck that the database is not locked by another process, and that the directory is read/writable."),
+			res, wxstrstd(sqlite3_errmsg(syncdb)).c_str(), wxstrstd(filename).c_str()),
+			wxT("Fatal Startup Error"), wxOK | wxICON_ERROR ).ShowModal();
+		sqlite3_close(syncdb);
+		syncdb=0;
+		return false;
+	}
 
 	AccountSync(syncdb);
 	ReadAllCFGIn(syncdb, gc, alist);
@@ -511,6 +559,9 @@ void dbconn::Init(const std::string &filename /*UTF-8*/) {
 	#endif
 	th->Create();
 	th->Run();
+
+	isinited=true;
+	return true;
 }
 
 void dbconn::DeInit() {
@@ -566,6 +617,7 @@ void dbconn::InsertUser(const std::shared_ptr<userdatacontainer> &u, dbsendmsg_l
 	msg->createtime=u->user.createtime;
 	msg->lastupdate=u->lastupdate;
 	msg->cached_profile_img_hash.assign((const char*) u->cached_profile_img_sha1, sizeof(u->cached_profile_img_sha1));
+	msg->mentionindex=settocompressedblob(u->mention_index, msg->mentionindex_size);
 	u->lastupdate_wrotetodb=u->lastupdate;
 	SendMessageOrAddToList(msg, msglist);
 }
@@ -587,30 +639,8 @@ void dbconn::AccountSync(sqlite3 *adb) {
 			ta->dbindex=id;
 			alist.push_back(ta);
 
-			size_t tweetarraysize;
-			unsigned char *tweetarray=(unsigned char*) column_get_compressed(getstmt, 2, tweetarraysize);
-			//const unsigned char *tweetarray=(const unsigned char*) sqlite3_column_blob(getstmt, 2);
-			//tweetarraysize=sqlite3_column_bytes(getstmt, 2);
-			tweetarraysize&=~7;
-			for(unsigned int i=0; i<tweetarraysize; i+=8) {		//stored in big endian format
-				uint64_t id=0;
-				for(unsigned int j=0; j<8; j++) id<<=8, id|=tweetarray[i+j];
-				ta->tweet_ids.insert(id);
-				//DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::AccountSync: Found Tweet %" wxLongLongFmtSpec "d"), id);
-			}
-			size_t dmarraysize;
-			unsigned char *dmarray=(unsigned char*) column_get_compressed(getstmt, 3, dmarraysize);
-			//const unsigned char *dmarray=(const unsigned char*) sqlite3_column_blob(getstmt, 3);
-			//dmarraysize=sqlite3_column_bytes(getstmt, 3);
-			dmarraysize&=~7;
-			for(unsigned int i=0; i<dmarraysize; i+=8) {		//stored in big endian format
-				uint64_t id=0;
-				for(unsigned int j=0; j<8; j++) id<<=8, id|=dmarray[i+j];
-				ta->dm_ids.insert(id);
-				//DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::AccountSync: Found DM %" wxLongLongFmtSpec "d"), id);
-			}
-			free(tweetarray);
-			free(dmarray);
+			setfromcompressedblob([&](uint64_t &id) { ta->tweet_ids.insert(id); }, getstmt, 2);
+			setfromcompressedblob([&](uint64_t &id) { ta->dm_ids.insert(id); }, getstmt, 3);
 		}
 		else break;
 	} while(true);
@@ -626,25 +656,6 @@ inline void writebeuint64(unsigned char* data, uint64_t id) {
 	data[5]=(id>>16)&0xFF;
 	data[6]=(id>>8)&0xFF;
 	data[7]=(id>>0)&0xFF;
-}
-
-static unsigned char *settoblob(const tweetidset &set, size_t &size) {
-	size=set.size()*8;
-	unsigned char *data=(unsigned char *) malloc(size);
-	unsigned char *curdata=data;
-	for(auto it=set.cbegin(); it!=set.cend(); ++it) {
-		writebeuint64(curdata, *it);
-		curdata+=8;
-	}
-	return data;
-}
-
-static unsigned char *settocompressedblob(const tweetidset &set, size_t &size) {
-	size_t insize;
-	unsigned char *data=settoblob(set, insize);
-	unsigned char *comdata=DoCompress(data, insize, size, 'Z');
-	free(data);
-	return comdata;
 }
 
 void dbconn::AccountIdListsSync(sqlite3 *adb) {
@@ -683,6 +694,9 @@ void dbconn::SyncWriteBackAllUsers(sqlite3 *adb) {
 		sqlite3_bind_int64(stmt, 4, (sqlite3_int64) u->user.createtime);
 		sqlite3_bind_int64(stmt, 5, (sqlite3_int64) u->lastupdate);
 		sqlite3_bind_blob(stmt, 6, u->cached_profile_img_sha1, sizeof(u->cached_profile_img_sha1), SQLITE_TRANSIENT);
+		size_t mentionindex_size;
+		unsigned char *mentionindex=settocompressedblob(u->mention_index, mentionindex_size);
+		sqlite3_bind_blob(stmt, 7, mentionindex, mentionindex_size, &free);
 		int res=sqlite3_step(stmt);
 		if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("dbconn::SyncWriteBackAllUsers got error: %d (%s) for user id: %" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(adb)).c_str(), it->first); }
 		else { DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncWriteBackAllUsers inserted user id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) it->first); }
@@ -692,7 +706,7 @@ void dbconn::SyncWriteBackAllUsers(sqlite3 *adb) {
 }
 
 void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
-	const char sql[]="SELECT id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum FROM users;";
+	const char sql[]="SELECT id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex FROM users;";
 	sqlite3_stmt *stmt=0;
 	sqlite3_prepare_v2(adb, sql, sizeof(sql)+1, &stmt, 0);
 
@@ -724,6 +738,7 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 			}
 			if(json) free(json);
 			if(profimg) free(profimg);
+			setfromcompressedblob([&](uint64_t &id) { u.mention_index.push_back(id); }, stmt, 6);
 			DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncReadInAllUsers retrieved user id: %" wxLongLongFmtSpec "d"), (sqlite3_int64) id);
 		}
 		else if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("dbconn::SyncReadInAllUsers got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }

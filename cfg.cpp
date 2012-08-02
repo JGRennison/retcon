@@ -6,7 +6,7 @@ genoptconf gcdefaults {
 	//{ wxT("3w4cIrHyI3IYUZW5O2ppcFXmsACDaENzFdLIKmEU84"), 1},
 	{ wxT("dvJVLBwaJhmSyTxSUe7T8qz84lrydtFbxQ4snZxmYgM"), 1},
 	{ wxT("1"), 1},
-	{ wxT("0"), 1},	//set this to 1 later
+	{ wxT("1"), 1},
 	{ wxT("300"), 1},
 };
 

@@ -153,6 +153,8 @@ struct socketmanager : public wxEvtHandler {
 	#endif
 	void InitMultiIOHandler();
 	void DeInitMultiIOHandler();
+	void InitMultiIOHandlerCommon();
+	void DeInitMultiIOHandlerCommon();
 	bool MultiIOHandlerInited;
 
 	CURLM *curlmulti;

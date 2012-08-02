@@ -10,6 +10,8 @@ tpanelglobal *tpg;
 static void PerAccTPanelMenu(wxMenu *menu, tpanelmenudata &map, int &nextid, unsigned int flagbase, unsigned int dbindex) {
 	map[nextid]={dbindex, flagbase|TPF_AUTO_TW};
 	menu->Append(nextid++, wxT("&Tweets"));
+	map[nextid]={dbindex, flagbase|TPF_AUTO_MN};
+	menu->Append(nextid++, wxT("&Mentions"));
 	map[nextid]={dbindex, flagbase|TPF_AUTO_DM};
 	menu->Append(nextid++, wxT("&DMs"));
 	map[nextid]={dbindex, flagbase|TPF_AUTO_TW|TPF_AUTO_DM};
@@ -57,6 +59,7 @@ void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent) {
 	if(flags&TPF_AUTO_TW && flags&TPF_AUTO_DM) type=wxT("Tweets & DMs");
 	else if(flags&TPF_AUTO_TW) type=wxT("Tweets");
 	else if(flags&TPF_AUTO_DM) type=wxT("DMs");
+	else if(flags&TPF_AUTO_MN) type=wxT("Mentions");
 
 	std::string paneldispname=std::string(wxString::Format(wxT("[%s - %s]"), name.c_str(), type.c_str()).ToUTF8());
 	std::string panelname=std::string(wxString::Format(wxT("___%s - %s"), accname.c_str(), type.c_str()).ToUTF8());
@@ -134,6 +137,8 @@ void tpanel::LoadMore(unsigned int n, uint64_t lessthanid) {
 	std::forward_list<std::pair<tweetidset::const_iterator, tweetidset::const_iterator> > its;
 	dbseltweetmsg *loadmsg=0;
 
+	std::forward_list<tweetidset> extra_idsets;
+
 	if(flags&TPF_ISAUTO) {
 		if(flags&TPF_AUTO_ACC) accs.push_front(assoc_acc.get());
 		else if(flags&TPF_AUTO_ALLACCS) {
@@ -142,6 +147,13 @@ void tpanel::LoadMore(unsigned int n, uint64_t lessthanid) {
 		for(auto it=accs.begin(); it!=accs.end(); ++it) {
 			if(flags&TPF_AUTO_DM) idsets.push_front(&(*it)->dm_ids);
 			if(flags&TPF_AUTO_TW) idsets.push_front(&(*it)->tweet_ids);
+			if(flags&TPF_AUTO_MN) {
+				extra_idsets.emplace_front();
+				for(auto jt=(*it)->usercont->mention_index.cbegin(); jt!=(*it)->usercont->mention_index.cend(); ++jt) {
+					extra_idsets.front().insert(*jt);
+				}
+				idsets.push_front(&extra_idsets.front());
+			}
 		}
 	}
 	else return; //idsets.push_front(&storedids);

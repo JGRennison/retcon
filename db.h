@@ -124,6 +124,8 @@ struct dbinsertusermsg : public dbsendmsg {
 	time_t createtime;
 	uint64_t lastupdate;
 	std::string cached_profile_img_hash;
+	unsigned char *mentionindex;			//already packed and compressed, must be malloced
+	size_t mentionindex_size;
 };
 
 struct dbinsertaccmsg : public dbsendmsg_callback {
@@ -155,7 +157,7 @@ struct dbconn : public wxEvtHandler {
 
 	dbconn() : isinited(0), th(0) { }
 	~dbconn() { DeInit(); }
-	void Init(const std::string &filename);
+	bool Init(const std::string &filename);
 	void DeInit();
 	void SendMessage(dbsendmsg *msg);
 	void SendMessageOrAddToList(dbsendmsg *msg, dbsendmsg_list *msglist);

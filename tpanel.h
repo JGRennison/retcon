@@ -40,6 +40,7 @@ enum {
 	TPF_AUTO_TW			= 1<<4,
 	TPF_AUTO_ACC			= 1<<5,
 	TPF_AUTO_ALLACCS		= 1<<6,
+	TPF_AUTO_MN			= 1<<7,
 };
 
 struct tpanel : std::enable_shared_from_this<tpanel> {

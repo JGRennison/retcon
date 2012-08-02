@@ -64,14 +64,14 @@ void DisplayParseErrorMsg(rapidjson::Document &dc, const wxString &name, const c
 }
 
 //if jw, caller should already have called jw->StartObject(), etc
-void genjsonparser::ParseTweetStatics(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj, Handler *jw) {
+void genjsonparser::ParseTweetStatics(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj, Handler *jw, bool isnew) {
 	CheckTransJsonValueDef(tobj->in_reply_to_status_id, val, "in_reply_to_status_id", 0, jw);
 	CheckTransJsonValueDef(tobj->retweet_count, val, "retweet_count", 0, jw);
 	CheckTransJsonValueDef(tobj->source, val, "source", "", jw);
 	CheckTransJsonValueDef(tobj->text, val, "text", "", jw);
 	const rapidjson::Value &entv=val["entities"];
 	if(entv.IsObject()) {
-		DoEntitiesParse(entv, tobj);
+		DoEntitiesParse(entv, tobj, isnew);
 		if(jw) {
 			jw->String("entities");
 			entv.Accept(*jw);
@@ -112,7 +112,7 @@ static bool ReadEntityIndices(entity &en, const rapidjson::Value& val) {
 	return ReadEntityIndices(en.start, en.end, val);
 }
 
-void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shared_ptr<tweet> &t) {
+void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shared_ptr<tweet> &t, bool isnew) {
 	LogMsg(LFT_PARSE, wxT("jsonparser::DoEntitiesParse"));
 
 	auto &hashtags=val["hashtags"];
@@ -187,6 +187,10 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 			en->text="@"+en->text;
 			en->user=ad.GetUserContainerById(userid);
 			if(en->user->udc_flags&UDC_THIS_IS_ACC_USER_HINT) t->flags.Set('M', true);
+			if(isnew) {
+				en->user->mention_index.push_back(t->id);
+				en->user->lastupdate_wrotetodb=0;		//force flush of user to DB
+			}
 		}
 	}
 	auto &media=val["media"];
@@ -412,7 +416,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, boo
 		writestream wr(json);
 		Handler jw(wr);
 		jw.StartObject();
-		ParseTweetStatics(val, tobj, &jw);
+		ParseTweetStatics(val, tobj, &jw, true);
 		std::string created_at;
 		if(CheckTransJsonValueDef(created_at, val, "created_at", "", 0)) {
 			ParseTwitterDate(0, &tobj->createtime, created_at);
