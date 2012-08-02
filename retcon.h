@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <bitset>
 #include <queue>
+#include <deque>
 #include <stdlib.h>
 #include <time.h>
 #include <wx/window.h>

@@ -374,11 +374,11 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			sqlite3_bind_text(stmt, 1, m->name.c_str(), -1, SQLITE_TRANSIENT);
 			int res=sqlite3_step(stmt);
 			m->dbindex=(unsigned int) sqlite3_last_insert_rowid(db);
-			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_INSERTACC got error: %d (%s) for user name: %s"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), m->dispname.c_str()); }
-			else { DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_INSERTACC inserted user dbindex: %d, name: %s"), m->dbindex, m->dispname.c_str()); }
+			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_INSERTACC got error: %d (%s) for user name: %s"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), wxstrstd(m->dispname).c_str()); }
+			else { DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_INSERTACC inserted user dbindex: %d, name: %s"), m->dbindex, wxstrstd(m->dispname).c_str()); }
 			sqlite3_reset(stmt);
 			m->SendReply(m);
-			break;
+			return;
 		}
 		case DBSM_MSGLIST: {
 			cache.ExecStmt(db, DBPSC_BEGIN);
