@@ -124,6 +124,9 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 
 	unsigned int tweets_to_get=std::min((unsigned int) 200, rbfs->max_tweets_left);
 	if((rbfs->end_tweet_id && rbfs->start_tweet_id>rbfs->end_tweet_id) || !tweets_to_get || !rbfs->read_again) {
+		//all done, can now clean up pending rbfs
+		acc->pending_rbfs_list.remove_if([&](restbackfillstate &r) { return (&r==rbfs); });
+		rbfs=0;
 		acc->DoPostAction(this);
 	}
 	else {
@@ -164,6 +167,7 @@ twitcurlext::twitcurlext(std::shared_ptr<taccount> acc) {
 twitcurlext::twitcurlext() {
 	inited=false;
 	post_action_flags=0;
+	rbfs=0;
 }
 twitcurlext::~twitcurlext() {
 	TwDeInit();
@@ -222,7 +226,7 @@ bool twitcurlext::TwSyncStartupAccVerify() {
 
 void twitcurlext::Reset() {
 	scto.reset();
-	rbfs.reset();
+	rbfs=0;
 	ul.reset();
 	post_action_flags=0;
 }
@@ -350,6 +354,7 @@ bool userdatacontainer::IsReady(unsigned int updcf_flags) {
 
 void userdatacontainer::CheckPendingTweets() {
 	if(IsReady()) {
+		FreezeAll();
 		pendingtweets.remove_if([&](const std::shared_ptr<tweet> &t) {
 			if(!t->flags.Get('D')) {
 				UnmarkPending(t);
@@ -367,6 +372,7 @@ void userdatacontainer::CheckPendingTweets() {
 				}
 			}
 		});
+		ThawAll();
 	}
 }
 

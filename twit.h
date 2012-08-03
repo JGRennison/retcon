@@ -186,7 +186,7 @@ enum {
 	PAF_STREAM_CONN_READ_BACKFILL	= 1<<1,
 };
 
-typedef enum {
+typedef enum {			//do not change these values, they are saved/loaded to/from the DB
 	RBFS_TWEETS = 1,
 	RBFS_RECVDM,
 	RBFS_SENTDM,
@@ -196,8 +196,9 @@ struct restbackfillstate {
 	uint64_t start_tweet_id;	//exclusive limit
 	uint64_t end_tweet_id;		//inclusive limit
 	unsigned int max_tweets_left;
-	bool read_again;
 	RBFS_TYPE type;
+	bool read_again;
+	bool started;
 };
 
 struct userlookup {
@@ -237,7 +238,7 @@ struct twitcurlext: public twitCurl, public mcurlconn {
 	void HandleFailure();
 	void QueueAsyncExec();
 
-	std::shared_ptr<restbackfillstate> rbfs;
+	restbackfillstate *rbfs;
 	void ExecRestGetTweetBackfill();
 
 	std::shared_ptr<userlookup> ul;

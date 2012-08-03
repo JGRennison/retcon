@@ -15,17 +15,19 @@ const char *startup_sql=
 "CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY NOT NULL, json BLOB, cachedprofimgurl BLOB, createtimestamp INTEGER, lastupdatetimestamp INTEGER, cachedprofileimgchecksum BLOB, mentionindex BLOB);"
 "CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, json BLOB, tweetids BLOB, dmids BLOB);"
 "CREATE TABLE IF NOT EXISTS settings(accid BLOB, name TEXT, value BLOB, PRIMARY KEY (accid, name));"
+"CREATE TABLE IF NOT EXISTS rbfspending(accid INTEGER, type INTEGER, startid INTEGER, endid INTEGER, maxleft INTEGER);"
 "INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', 'dirtyflag', strftime('%s','now'));";
 
 const char *sql[DBPSC_NUM_STATEMENTS]={
-	"INSERT INTO tweets(id, statjson, dynjson, userid, userrecipid, flags, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?);",
+	"INSERT OR REPLACE INTO tweets(id, statjson, dynjson, userid, userrecipid, flags, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?);",
 	"UPDATE tweets SET dynjson = ?, flags = ? WHERE id == ?;",
 	"BEGIN;",
 	"COMMIT;",
 	"INSERT OR REPLACE INTO users(id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex) VALUES (?, ?, ?, ?, ?, ?, ?);",
-	"INSERT INTO acc (name) VALUES (?);",
+	"INSERT INTO acc(name) VALUES (?);",
 	"UPDATE acc SET tweetids = ?, dmids = ? WHERE id == ?;",
-	"SELECT statjson, dynjson, userid, userrecipid, flags, timestamp FROM tweets WHERE id == ?",
+	"SELECT statjson, dynjson, userid, userrecipid, flags, timestamp FROM tweets WHERE id == ?;",
+	"INSERT INTO rbfspending(accid, type, startid, endid, maxleft) VALUES (?, ?, ?, ?, ?);",
 };
 
 static void DBThreadSafeLogMsg(logflagtype logflags, const wxString &str) {
@@ -543,6 +545,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	AccountSync(syncdb);
 	ReadAllCFGIn(syncdb, gc, alist);
 	SyncReadInAllUsers(syncdb);
+	SyncReadInRBFSs(syncdb);
 
 	th=new dbiothread();
 	th->filename=filename;
@@ -582,6 +585,7 @@ void dbconn::DeInit() {
 
 	SyncWriteBackAllUsers(syncdb);
 	AccountIdListsSync(syncdb);
+	SyncWriteOutRBFSs(syncdb);
 	WriteAllCFGOut(syncdb, gc, alist);
 
 	sqlite3_close(syncdb);
@@ -699,7 +703,7 @@ void dbconn::SyncWriteBackAllUsers(sqlite3 *adb) {
 		sqlite3_bind_blob(stmt, 7, mentionindex, mentionindex_size, &free);
 		int res=sqlite3_step(stmt);
 		if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("dbconn::SyncWriteBackAllUsers got error: %d (%s) for user id: %" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(adb)).c_str(), it->first); }
-		else { DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncWriteBackAllUsers inserted user id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) it->first); }
+		else { DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncWriteBackAllUsers inserted user id:%" wxLongLongFmtSpec "d"), it->first); }
 		sqlite3_reset(stmt);
 	}
 	cache.ExecStmt(adb, DBPSC_COMMIT);
@@ -742,6 +746,61 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 			DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncReadInAllUsers retrieved user id: %" wxLongLongFmtSpec "d"), (sqlite3_int64) id);
 		}
 		else if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("dbconn::SyncReadInAllUsers got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
+		else break;
+	} while(true);
+	sqlite3_finalize(stmt);
+}
+
+void dbconn::SyncWriteOutRBFSs(sqlite3 *adb) {
+	cache.ExecStmt(adb, DBPSC_BEGIN);
+	sqlite3_exec(adb, "DELETE FROM rbfspending", 0, 0, 0);
+	sqlite3_stmt *stmt=cache.GetStmt(adb, DBPSC_INSERTRBFSP);
+	for(auto it=alist.begin(); it!=alist.end(); ++it) {
+		taccount &acc=**it;
+		for(auto jt=acc.pending_rbfs_list.begin(); jt!=acc.pending_rbfs_list.end(); ++jt) {
+			restbackfillstate &rbfs=*jt;
+			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) acc.dbindex);
+			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) rbfs.type);
+			sqlite3_bind_int64(stmt, 3, (sqlite3_int64) rbfs.start_tweet_id);
+			sqlite3_bind_int64(stmt, 4, (sqlite3_int64) rbfs.end_tweet_id);
+			sqlite3_bind_int64(stmt, 5, (sqlite3_int64) rbfs.max_tweets_left);
+			int res=sqlite3_step(stmt);
+			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("dbconn::SyncWriteOutRBFSs got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
+			else { DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncWriteOutRBFSs inserted pending RBFS")); }
+			sqlite3_reset(stmt);
+		}
+	}
+	cache.ExecStmt(adb, DBPSC_COMMIT);
+}
+
+void dbconn::SyncReadInRBFSs(sqlite3 *adb) {
+	const char sql[]="SELECT accid, type, startid, endid, maxleft FROM rbfspending;";
+	sqlite3_stmt *stmt=0;
+	sqlite3_prepare_v2(adb, sql, sizeof(sql)+1, &stmt, 0);
+
+	do {
+		int res=sqlite3_step(stmt);
+		if(res==SQLITE_ROW) {
+			unsigned int dbindex=(unsigned int) sqlite3_column_int64(stmt, 0);
+			bool found=false;
+			for(auto it=alist.begin(); it!=alist.end(); ++it) {
+				if((*it)->dbindex==dbindex) {
+					(*it)->pending_rbfs_list.emplace_front();
+					restbackfillstate &rbfs=(*it)->pending_rbfs_list.front();
+					rbfs.type=(RBFS_TYPE) sqlite3_column_int64(stmt, 1);
+					rbfs.start_tweet_id=(uint64_t) sqlite3_column_int64(stmt, 2);
+					rbfs.end_tweet_id=(uint64_t) sqlite3_column_int64(stmt, 3);
+					rbfs.max_tweets_left=(uint64_t) sqlite3_column_int64(stmt, 4);
+					rbfs.read_again=true;
+					rbfs.started=false;
+					found=true;
+					break;
+				}
+			}
+			if(found) DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncReadInRBFSs retrieved RBFS"));
+			else DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncReadInRBFSs retrieved RBFS with no associated account, ignoring"));
+		}
+		else if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("dbconn::SyncReadInRBFSs got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
 		else break;
 	} while(true);
 	sqlite3_finalize(stmt);

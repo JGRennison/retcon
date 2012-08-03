@@ -11,6 +11,7 @@ typedef enum {
 	DBPSC_INSERTNEWACC,
 	DBPSC_UPDATEACCIDLISTS,
 	DBPSC_SELTWEET,
+	DBPSC_INSERTRBFSP,
 
 	DBPSC_NUM_STATEMENTS,
 } DBPSC_TYPE;
@@ -169,6 +170,8 @@ struct dbconn : public wxEvtHandler {
 	void SyncWriteBackAllUsers(sqlite3 *adb);
 	void SyncReadInAllUsers(sqlite3 *adb);
 	void AccountIdListsSync(sqlite3 *adb);
+	void SyncWriteOutRBFSs(sqlite3 *adb);
+	void SyncReadInRBFSs(sqlite3 *adb);
 	void OnTpanelTweetLoadFromDB(wxCommandEvent &event);
 	void OnDBThreadDebugMsg(wxCommandEvent &event);
 	void OnDBNewAccountInsert(wxCommandEvent &event);

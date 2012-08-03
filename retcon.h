@@ -137,6 +137,7 @@ struct taccount : std::enable_shared_from_this<taccount> {
 	void AddUserFollowingThis(std::shared_ptr<userdatacontainer> ptr);
 
 	void StartRestGetTweetBackfill(uint64_t start_tweet_id, uint64_t end_tweet_id, unsigned int max_tweets_to_read, RBFS_TYPE type=RBFS_TWEETS);
+	void ExecRBFS(restbackfillstate *rbfs);
 	void StartRestQueryPendings();
 	void DoPostAction(twitcurlext *lasttce);
 	void DoPostAction(unsigned int postflags);
@@ -146,6 +147,7 @@ struct taccount : std::enable_shared_from_this<taccount> {
 	void MarkPendingOrHandle(const std::shared_ptr<tweet> &t);
 
 	std::unordered_map<uint64_t,std::shared_ptr<userdatacontainer> > pendingusers;
+	std::forward_list<restbackfillstate> pending_rbfs_list;
 
 	bool enabled;
 	bool active;
@@ -218,6 +220,8 @@ inline wxString wxstrstd(const char *ch, size_t len) {
 }
 
 mainframe *GetMainframeAncestor(wxWindow *in, bool passtoplevels=false);
+void FreezeAll();
+void ThawAll();
 
 extern std::list<std::shared_ptr<taccount>> alist;
 extern socketmanager sm;

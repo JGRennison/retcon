@@ -198,17 +198,24 @@ void taccount::GetRestBackfill() {
 
 //limits are inclusive
 void taccount::StartRestGetTweetBackfill(uint64_t start_tweet_id, uint64_t end_tweet_id, unsigned int max_tweets_to_read, RBFS_TYPE type) {
+	pending_rbfs_list.emplace_front();
+	restbackfillstate *rbfs=&pending_rbfs_list.front();
+	rbfs->start_tweet_id=start_tweet_id;
+	rbfs->end_tweet_id=end_tweet_id;
+	rbfs->max_tweets_left=max_tweets_to_read;
+	rbfs->read_again=true;
+	rbfs->type=type;
+	rbfs->started=false;
+	ExecRBFS(rbfs);
+}
+
+void taccount::ExecRBFS(restbackfillstate *rbfs) {
+	if(rbfs->started) return;
 	twitcurlext *twit=cp.GetConn();
 	twit->TwInit(shared_from_this());
-	twit->connmode=(type==RBFS_TWEETS)?CS_TIMELINE:CS_DMTIMELINE;
+	twit->connmode=(rbfs->type==RBFS_TWEETS)?CS_TIMELINE:CS_DMTIMELINE;
 	twit->SetNoPerformFlag(true);
-	twit->post_action_flags=PAF_RESOLVE_PENDINGS;
-	twit->rbfs=std::make_shared<restbackfillstate>();
-	twit->rbfs->start_tweet_id=start_tweet_id;
-	twit->rbfs->end_tweet_id=end_tweet_id;
-	twit->rbfs->max_tweets_left=max_tweets_to_read;
-	twit->rbfs->read_again=true;
-	twit->rbfs->type=type;
+	twit->rbfs=rbfs;
 	twit->ExecRestGetTweetBackfill();
 }
 
@@ -293,6 +300,10 @@ void taccount::Exec() {
 	else if(enabled && !active) {
 		active=true;
 
+		for(auto it=pending_rbfs_list.begin(); it!=pending_rbfs_list.end(); ++it) {
+			ExecRBFS(&(*it));
+		}
+
 		//streams test
 		twitcurlext *twit_stream=cp.GetConn();
 		twit_stream->TwInit(shared_from_this());
@@ -341,4 +352,11 @@ mainframe *GetMainframeAncestor(wxWindow *in, bool passtoplevels) {
 		in=in->GetParent();
 	}
 	return 0;
+}
+
+void FreezeAll() {
+	for(auto it=mainframelist.begin(); it!=mainframelist.end(); ++it) (*it)->Freeze();
+}
+void ThawAll() {
+	for(auto it=mainframelist.begin(); it!=mainframelist.end(); ++it) (*it)->Thaw();
 }
