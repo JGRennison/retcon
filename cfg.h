@@ -24,6 +24,8 @@ struct genoptglobconf {
 	genopt datetimeformat;
 	genopt maxpanelprofimgsize;
 	genopt maxtweetsdisplayinpanel;
+	genopt tweetdispformat;
+	genopt dmdispformat;
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent);
 };

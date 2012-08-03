@@ -500,33 +500,87 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 	}
 
 	Clear();
-	BeginBold();
-	WriteText(wxT("@") + wxstrstd(udc->GetUser().screen_name));
-	EndBold();
-	wxString timestr=rc_wx_strftime(gc.gcfg.datetimeformat.val, localtime(&tw.createtime), tw.createtime);
-	WriteText(wxT(" - ") + timestr);
-	WriteText(wxT(" - ") + wxstrstd(tw.flags.GetString()));
-	Newline();
+	wxString format=wxT("");
+	wxString str=wxT("");
+	if(tw.flags.Get('T')) format=gc.gcfg.tweetdispformat.val;
+	else if(tw.flags.Get('D')) format=gc.gcfg.dmdispformat.val;
 
-	unsigned int nextoffset=0;
-	unsigned int entnum=0;
-	int track_byte=0;
-	int track_index=0;
-	for(auto it=tw.entlist.begin(); it!=tw.entlist.end(); it++, entnum++) {
-		entity &et=*it;
-		DoWriteSubstr(*this, tw.text, nextoffset, et.start, track_byte, track_index, false);
-		BeginUnderline();
-		BeginURL(wxString::Format(wxT("%d"), entnum));
-		WriteText(wxstrstd(et.text));
-		nextoffset=et.end;
-		EndURL();
-		EndUnderline();
-		if((et.type==ENT_MEDIA || et.type==ENT_URL_IMG) && et.media_id) {
-			media_entity &me=ad.media_list[et.media_id];
-			last_me=me_list.insert_after(last_me, &me);
+	auto flush=[&]() {
+		if(str.size()) {
+			this->WriteText(str);
+			str.clear();
+		}
+	};
+	auto userfmt=[&](userdatacontainer *u, size_t &i) {
+		i++;
+		if(i>=format.size()) return;
+		switch(format[i]) {
+			case 'n':
+				str+=wxstrstd(u->GetUser().screen_name);
+				break;
+			case 'N':
+				str+=wxString::Format("%" wxLongLongFmtSpec "d", u->id);
+				break;
+			default:
+				break;
+		}
+	};
+
+	for(size_t i=0; i<format.size(); i++) {
+		switch(format[i]) {
+			case 'u':
+				userfmt(udc, i);
+				break;
+			case 'U':
+				if(udc_recip) userfmt(udc_recip, i);
+				else i++;
+				break;
+			case 'N':
+				flush();
+				Newline();
+				break;
+			case 'F':
+				str+=wxstrstd(tw.flags.GetString());
+				break;
+			case 'T':
+				str+=rc_wx_strftime(gc.gcfg.datetimeformat.val, localtime(&tw.createtime), tw.createtime);
+				break;
+			case 'B': flush(); BeginBold(); break;
+			case 'b': flush(); EndBold(); break;
+			case 'L': flush(); BeginUnderline(); break;
+			case 'l': flush(); EndUnderline(); break;
+			case 'I': flush(); BeginItalic(); break;
+			case 'i': flush(); EndItalic(); break;
+			case 'C': {
+				flush();
+				unsigned int nextoffset=0;
+				unsigned int entnum=0;
+				int track_byte=0;
+				int track_index=0;
+				for(auto it=tw.entlist.begin(); it!=tw.entlist.end(); it++, entnum++) {
+					entity &et=*it;
+					DoWriteSubstr(*this, tw.text, nextoffset, et.start, track_byte, track_index, false);
+					BeginUnderline();
+					BeginURL(wxString::Format(wxT("%d"), entnum));
+					WriteText(wxstrstd(et.text));
+					nextoffset=et.end;
+					EndURL();
+					EndUnderline();
+					if((et.type==ENT_MEDIA || et.type==ENT_URL_IMG) && et.media_id) {
+						media_entity &me=ad.media_list[et.media_id];
+						last_me=me_list.insert_after(last_me, &me);
+					}
+				}
+				DoWriteSubstr(*this, tw.text, nextoffset, -1, track_byte, track_index, true);
+				break;
+			}
+			default:
+				str+=format[i];
+				break;
 		}
 	}
-	DoWriteSubstr(*this, tw.text, nextoffset, -1, track_byte, track_index, true);
+	flush();
+
 	if(!me_list.empty()) {
 		Newline();
 		BeginAlignment(wxTEXT_ALIGNMENT_CENTRE);

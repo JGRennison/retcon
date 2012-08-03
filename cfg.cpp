@@ -14,7 +14,9 @@ genoptglobconf gcglobdefaults {
 	{ wxT("90"), 1},
 	{ wxT("%Y-%m-%d %H:%M:%S"), 1},
 	{ wxT("48"), 1},
-	{ wxT("100"), 1},
+	{ wxT("40"), 1},
+	{ wxT("B@unb - T - FNC"), 1},
+	{ wxT("B@unb -> B@Unb - T - FNC"), 1},
 };
 
 taccount::taccount(genoptconf *incfg) {
@@ -106,6 +108,8 @@ void genoptglobconf::CFGWriteOut(DBWriteConfig &twfc) {
 	datetimeformat.CFGWriteOutCurDir(twfc, "datetimeformat");
 	maxpanelprofimgsize.CFGWriteOutCurDir(twfc, "maxpanelprofimgsize");
 	maxtweetsdisplayinpanel.CFGWriteOutCurDir(twfc, "maxtweetsdisplayinpanel");
+	tweetdispformat.CFGWriteOutCurDir(twfc, "tweetdispformat");
+	dmdispformat.CFGWriteOutCurDir(twfc, "dmdispformat");
 }
 void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent) {
 	twfc.SetDBIndexGlobal();
@@ -113,6 +117,8 @@ void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent)
 	datetimeformat.CFGReadInCurDir(twfc, "datetimeformat", parent.datetimeformat.val);
 	maxpanelprofimgsize.CFGReadInCurDir(twfc, "maxpanelprofimgsize", parent.maxpanelprofimgsize.val);
 	maxtweetsdisplayinpanel.CFGReadInCurDir(twfc, "maxtweetsdisplayinpanel", parent.maxtweetsdisplayinpanel.val);
+	tweetdispformat.CFGReadInCurDir(twfc, "tweetdispformat", parent.tweetdispformat.val);
+	dmdispformat.CFGReadInCurDir(twfc, "dmdispformat", parent.dmdispformat.val);
 }
 
 void genopt::CFGWriteOutCurDir(DBWriteConfig &twfc, const char *name) {
