@@ -195,7 +195,7 @@ public:
     bool timelineHomeGet( const struct timelineparams &tmps );
     bool timelineUserGet( const struct timelineparams &tmps, const std::string &userInfo = "" /* in */, bool isUserId = false /* in */ );
     bool featuredUsersGet();
-    bool mentionsGet( const std::string &sinceId = "" /* in */ );
+    bool mentionsGet( const struct timelineparams &tmps );
 
     /* Twitter user APIs */
     bool userGet( const std::string& userInfo /* in */, bool isUserId = false /* in */ );

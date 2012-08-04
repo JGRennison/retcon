@@ -109,6 +109,7 @@ struct taccount : std::enable_shared_from_this<taccount> {
 	uint64_t &GetMaxId(RBFS_TYPE type) {
 		switch(type) {
 			case RBFS_TWEETS: return max_tweet_id;
+			case RBFS_MENTIONS: return max_tweet_id;
 			case RBFS_RECVDM: return max_recvdm_id;
 			case RBFS_SENTDM: return max_sentdm_id;
 			default: return max_tweet_id;

@@ -213,7 +213,7 @@ void taccount::ExecRBFS(restbackfillstate *rbfs) {
 	if(rbfs->started) return;
 	twitcurlext *twit=cp.GetConn();
 	twit->TwInit(shared_from_this());
-	twit->connmode=(rbfs->type==RBFS_TWEETS)?CS_TIMELINE:CS_DMTIMELINE;
+	twit->connmode=(rbfs->type==RBFS_TWEETS || rbfs->type==RBFS_MENTIONS)?CS_TIMELINE:CS_DMTIMELINE;
 	twit->SetNoPerformFlag(true);
 	twit->rbfs=rbfs;
 	twit->ExecRestGetTweetBackfill();

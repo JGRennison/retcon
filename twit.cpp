@@ -122,8 +122,21 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 	auto acc=tacc.lock();
 	if(!acc) delete this;
 
+	bool cleanup=false;
 	unsigned int tweets_to_get=std::min((unsigned int) 200, rbfs->max_tweets_left);
-	if((rbfs->end_tweet_id && rbfs->start_tweet_id>rbfs->end_tweet_id) || !tweets_to_get || !rbfs->read_again) {
+	if((rbfs->end_tweet_id && rbfs->start_tweet_id>rbfs->end_tweet_id) || !rbfs->read_again) {
+		cleanup=true;
+	}
+	else if(!tweets_to_get) {
+		if(rbfs->type==RBFS_TWEETS) {
+			rbfs->max_tweets_left=800;
+			tweets_to_get=200;
+			rbfs->type=RBFS_MENTIONS;
+		}
+		else cleanup=true;
+	}
+
+	if(cleanup) {
 		//all done, can now clean up pending rbfs
 		acc->pending_rbfs_list.remove_if([&](restbackfillstate &r) { return (&r==rbfs); });
 		rbfs=0;
@@ -135,8 +148,8 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 			tweets_to_get,
 			rbfs->start_tweet_id,
 			rbfs->end_tweet_id,
-			(signed char) ((rbfs->type==RBFS_TWEETS)?1:0),
-			(signed char) ((rbfs->type==RBFS_TWEETS)?1:0),
+			(signed char) ((rbfs->type==RBFS_TWEETS || rbfs->type==RBFS_MENTIONS)?1:0),
+			(signed char) ((rbfs->type==RBFS_TWEETS || rbfs->type==RBFS_MENTIONS)?1:0),
 			1,
 			0
 		};
@@ -146,6 +159,9 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 		switch(rbfs->type) {
 			case RBFS_TWEETS:
 				timelineHomeGet(tmps);
+				break;
+			case RBFS_MENTIONS:
+				mentionsGet(tmps);
 				break;
 			case RBFS_RECVDM:
 				directMessageGet(tmps);

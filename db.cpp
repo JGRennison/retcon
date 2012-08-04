@@ -759,6 +759,11 @@ void dbconn::SyncWriteOutRBFSs(sqlite3 *adb) {
 		taccount &acc=**it;
 		for(auto jt=acc.pending_rbfs_list.begin(); jt!=acc.pending_rbfs_list.end(); ++jt) {
 			restbackfillstate &rbfs=*jt;
+			if(rbfs.start_tweet_id<=acc.GetMaxId(rbfs.type)) continue;		//rbfs would be read next time anyway
+			if(!rbfs.end_tweet_id || rbfs.end_tweet_id>=acc.GetMaxId(rbfs.type)) {
+				rbfs.end_tweet_id=acc.GetMaxId(rbfs.type);	//remove overlap
+				if(rbfs.end_tweet_id) rbfs.end_tweet_id--;
+			}
 			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) acc.dbindex);
 			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) rbfs.type);
 			sqlite3_bind_int64(stmt, 3, (sqlite3_int64) rbfs.start_tweet_id);
@@ -785,9 +790,12 @@ void dbconn::SyncReadInRBFSs(sqlite3 *adb) {
 			bool found=false;
 			for(auto it=alist.begin(); it!=alist.end(); ++it) {
 				if((*it)->dbindex==dbindex) {
+					RBFS_TYPE type=(RBFS_TYPE) sqlite3_column_int64(stmt, 1);
+					if(type<RBFS_MIN || type>RBFS_MAX) break;
+
 					(*it)->pending_rbfs_list.emplace_front();
 					restbackfillstate &rbfs=(*it)->pending_rbfs_list.front();
-					rbfs.type=(RBFS_TYPE) sqlite3_column_int64(stmt, 1);
+					rbfs.type=type;
 					rbfs.start_tweet_id=(uint64_t) sqlite3_column_int64(stmt, 2);
 					rbfs.end_tweet_id=(uint64_t) sqlite3_column_int64(stmt, 3);
 					rbfs.max_tweets_left=(uint64_t) sqlite3_column_int64(stmt, 4);
@@ -797,8 +805,8 @@ void dbconn::SyncReadInRBFSs(sqlite3 *adb) {
 					break;
 				}
 			}
-			if(found) DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncReadInRBFSs retrieved RBFS"));
-			else DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncReadInRBFSs retrieved RBFS with no associated account, ignoring"));
+			if(found) { DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncReadInRBFSs retrieved RBFS")); }
+			else { DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncReadInRBFSs retrieved RBFS with no associated account or bad type, ignoring")); }
 		}
 		else if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("dbconn::SyncReadInRBFSs got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
 		else break;

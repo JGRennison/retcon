@@ -187,9 +187,12 @@ enum {
 };
 
 typedef enum {			//do not change these values, they are saved/loaded to/from the DB
+	RBFS_MIN = 1,
 	RBFS_TWEETS = 1,
+	RBFS_MENTIONS,
 	RBFS_RECVDM,
 	RBFS_SENTDM,
+	RBFS_MAX = RBFS_SENTDM,
 } RBFS_TYPE;
 
 struct restbackfillstate {

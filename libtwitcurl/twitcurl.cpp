@@ -498,15 +498,16 @@ bool twitCurl::timelineHomeGet(const struct timelineparams &tmps)
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::mentionsGet( const std::string &sinceId )
+bool twitCurl::mentionsGet(const struct timelineparams &tmps)
 {
+    std::string URLext;
+    UtilTimelineProcessParams(tmps, URLext);
+
     std::string buildUrl = twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
                            twitterDefaults::TWITCURL_MENTIONS_URL +
                            twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType];
-    if( sinceId.length() )
-    {
-        buildUrl += twitCurlDefaults::TWITCURL_URL_SEP_QUES + twitCurlDefaults::TWITCURL_SINCEID + sinceId;
-    }
+
+	if(URLext.size()) buildUrl+=twitCurlDefaults::TWITCURL_URL_SEP_QUES + URLext.substr(1);	//chop off first &
 
     /* Perform GET */
     return performGet( buildUrl );
