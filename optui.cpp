@@ -86,6 +86,7 @@ void acc_window::AccNew(wxCommandEvent &event) {
 			dbinsertaccmsg *insmsg=new dbinsertaccmsg;
 			insmsg->name=ta->name.ToUTF8();
 			insmsg->dispname=ta->dispname.ToUTF8();
+			insmsg->userid=ta->usercont->id;
 			insmsg->targ=&dbc;
 			insmsg->cmdevtype=wxextDBCONN_NOTIFY;
 			insmsg->winid=wxDBCONNEVT_ID_INSERTNEWACC;

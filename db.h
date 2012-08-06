@@ -134,6 +134,7 @@ struct dbinsertaccmsg : public dbsendmsg_callback {
 
 	std::string name;				//account name
 	std::string dispname;				//account name
+	uint64_t userid;
 	unsigned int dbindex;				//return data
 };
 

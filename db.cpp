@@ -13,7 +13,7 @@ const char *startup_sql=
 "PRAGMA locking_mode = EXCLUSIVE;"
 "CREATE TABLE IF NOT EXISTS tweets(id INTEGER PRIMARY KEY NOT NULL, statjson BLOB, dynjson BLOB, userid INTEGER, userrecipid INTEGER, flags INTEGER, timestamp INTEGER);"
 "CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY NOT NULL, json BLOB, cachedprofimgurl BLOB, createtimestamp INTEGER, lastupdatetimestamp INTEGER, cachedprofileimgchecksum BLOB, mentionindex BLOB);"
-"CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, json BLOB, tweetids BLOB, dmids BLOB);"
+"CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, json BLOB, tweetids BLOB, dmids BLOB, userid INTEGER);"
 "CREATE TABLE IF NOT EXISTS settings(accid BLOB, name TEXT, value BLOB, PRIMARY KEY (accid, name));"
 "CREATE TABLE IF NOT EXISTS rbfspending(accid INTEGER, type INTEGER, startid INTEGER, endid INTEGER, maxleft INTEGER);"
 "INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', 'dirtyflag', strftime('%s','now'));";
@@ -24,7 +24,7 @@ const char *sql[DBPSC_NUM_STATEMENTS]={
 	"BEGIN;",
 	"COMMIT;",
 	"INSERT OR REPLACE INTO users(id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex) VALUES (?, ?, ?, ?, ?, ?, ?);",
-	"INSERT INTO acc(name) VALUES (?);",
+	"INSERT INTO acc(name, userid) VALUES (?, ?);",
 	"UPDATE acc SET tweetids = ?, dmids = ? WHERE id == ?;",
 	"SELECT statjson, dynjson, userid, userrecipid, flags, timestamp FROM tweets WHERE id == ?;",
 	"INSERT INTO rbfspending(accid, type, startid, endid, maxleft) VALUES (?, ?, ?, ?, ?);",
@@ -374,6 +374,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			dbinsertaccmsg *m=(dbinsertaccmsg*) msg;
 			sqlite3_stmt *stmt=cache.GetStmt(db, DBPSC_INSERTNEWACC);
 			sqlite3_bind_text(stmt, 1, m->name.c_str(), -1, SQLITE_TRANSIENT);
+			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->userid);
 			int res=sqlite3_step(stmt);
 			m->dbindex=(unsigned int) sqlite3_last_insert_rowid(db);
 			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_INSERTACC got error: %d (%s) for user name: %s"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), wxstrstd(m->dispname).c_str()); }
@@ -628,7 +629,7 @@ void dbconn::InsertUser(const std::shared_ptr<userdatacontainer> &u, dbsendmsg_l
 
 //tweetids, dmids are little endian in database
 void dbconn::AccountSync(sqlite3 *adb) {
-	const char getacc[]="SELECT id, name, tweetids, dmids FROM acc;";
+	const char getacc[]="SELECT id, name, tweetids, dmids, userid FROM acc;";
 	sqlite3_stmt *getstmt=0;
 	sqlite3_prepare_v2(adb, getacc, sizeof(getacc)+1, &getstmt, 0);
 	do {
@@ -645,6 +646,8 @@ void dbconn::AccountSync(sqlite3 *adb) {
 
 			setfromcompressedblob([&](uint64_t &id) { ta->tweet_ids.insert(id); }, getstmt, 2);
 			setfromcompressedblob([&](uint64_t &id) { ta->dm_ids.insert(id); }, getstmt, 3);
+			uint64_t userid=(uint64_t) sqlite3_column_int64(getstmt, 4);
+			ta->usercont=ad.GetUserContainerById(userid);
 		}
 		else break;
 	} while(true);
@@ -759,7 +762,7 @@ void dbconn::SyncWriteOutRBFSs(sqlite3 *adb) {
 		taccount &acc=**it;
 		for(auto jt=acc.pending_rbfs_list.begin(); jt!=acc.pending_rbfs_list.end(); ++jt) {
 			restbackfillstate &rbfs=*jt;
-			if(rbfs.start_tweet_id<=acc.GetMaxId(rbfs.type)) continue;		//rbfs would be read next time anyway
+			if(rbfs.start_tweet_id>=acc.GetMaxId(rbfs.type)) continue;		//rbfs would be read next time anyway
 			if(!rbfs.end_tweet_id || rbfs.end_tweet_id>=acc.GetMaxId(rbfs.type)) {
 				rbfs.end_tweet_id=acc.GetMaxId(rbfs.type);	//remove overlap
 				if(rbfs.end_tweet_id) rbfs.end_tweet_id--;
