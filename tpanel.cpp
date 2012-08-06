@@ -599,6 +599,7 @@ static void DoWriteSubstr(tweetdispscr &td, const std::string &str, int start, i
 }
 
 void tweetdispscr::DisplayTweet(bool redrawimg) {
+	updatetime=0;
 	std::forward_list<media_entity*> me_list;
 	auto last_me=me_list.before_begin();
 
@@ -658,6 +659,13 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 				break;
 			case 'F':
 				str+=wxstrstd(tw.flags.GetString());
+				break;
+			case 't':
+				flush();
+				reltimestart=GetInsertionPoint();
+				WriteText(getreltimestr(tw.createtime, updatetime));
+				reltimeend=GetInsertionPoint();
+				if(!tpg->minutetimer.IsRunning()) tpg->minutetimer.Start(60000, wxTIMER_CONTINUOUS);
 				break;
 			case 'T':
 				str+=rc_wx_strftime(gc.gcfg.datetimeformat.val, localtime(&tw.createtime), tw.createtime);
@@ -1032,4 +1040,58 @@ wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t time
 	char timestr[256];
 	strftime(timestr, sizeof(timestr), real_format.ToUTF8(), tm);
 	return wxstrstd(timestr);
+}
+
+wxString getreltimestr(time_t timestamp, time_t &updatetime) {
+	time_t nowtime=time(0);
+	if(timestamp>nowtime) {
+		updatetime=30+timestamp-nowtime;
+		return wxT("In the future");
+	}
+	time_t diff=nowtime-timestamp;
+	if(diff<60) {
+		updatetime=nowtime+60;
+		return wxT("< 1 minute ago");
+	}
+	diff/=60;
+	if(diff<120) {
+		updatetime=nowtime+60;
+		return wxString::Format(wxT("%d minute%s ago"), diff, (diff!=1)?wxT("s"):wxT(""));
+	}
+	diff/=60;
+	if(diff<48) {
+		updatetime=nowtime+60*30;
+		return wxString::Format(wxT("%d hour%s ago"), diff, (diff!=1)?wxT("s"):wxT(""));
+	}
+	diff/=24;
+	if(diff<30) {
+		updatetime=nowtime+60*60*2;
+		return wxString::Format(wxT("%d day%s ago"), diff, (diff!=1)?wxT("s"):wxT(""));
+	}
+	diff/=30;
+	if(diff<12) {
+		updatetime=nowtime+60*60*24*2;
+		return wxString::Format(wxT("%d month%s ago"), diff, (diff!=1)?wxT("s"):wxT(""));
+	}
+	diff/=12;
+	updatetime=nowtime+60*60*24*2;
+	return wxString::Format(wxT("%d year%s ago"), diff, (diff!=1)?wxT("s"):wxT(""));
+
+}
+
+void tpanelreltimeupdater::Notify() {
+	time_t nowtime=time(0);
+	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
+		for(auto jt=(*it)->currentdisp.begin(); jt!=(*it)->currentdisp.end(); ++jt) {
+			tweetdispscr &td=*((*jt).second);
+			if(!td.updatetime) continue;
+			else if(nowtime>=td.updatetime) {
+				td.Delete(wxRichTextRange(td.reltimestart, td.reltimeend));
+				td.SetInsertionPoint(td.reltimestart);
+				td.WriteText(getreltimestr(td.td->createtime, td.updatetime));
+				td.reltimeend=td.GetInsertionPoint();
+			}
+			else break;
+		}
+	}
 }
