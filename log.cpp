@@ -159,7 +159,7 @@ log_window::log_window(wxWindow *parent, logflagtype flagmask, bool show)
 	bs->Add(hs, 0, wxALL, 2);
 	SetSizer(bs);
 	InitDialog();
-	if(show) Show();
+	if(show) LWShow();
 }
 
 log_window::~log_window() {

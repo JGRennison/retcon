@@ -17,6 +17,7 @@ bool retcon::OnInit() {
 	::wxInitAllImageHandlers();
 	tpg=new tpanelglobal;
 	cmdlineproc(argv, argc);
+	if(!globallogwindow) new log_window(0, lfd_defaultwin, false);
 	if(!::wxDirExists(wxStandardPaths::Get().GetUserDataDir())) {
 		::wxMkdir(wxStandardPaths::Get().GetUserDataDir(), 0777);
 	}
@@ -24,7 +25,6 @@ bool retcon::OnInit() {
 	bool res=dbc.Init(std::string((wxStandardPaths::Get().GetUserDataDir() + wxT("/retcondb.sqlite3")).ToUTF8()));
 	if(!res) return false;
 	mainframe *top = new mainframe( wxT("Retcon"), wxPoint(50, 50), wxSize(450, 340) );
-	if(!globallogwindow) new log_window(0, lfd_defaultwin, false);
 
 	tpanel::MkTPanel("[default]", "[default]")->MkTPanelWin(top);
 	tpanel::MkTPanel("[default2]", "[default2]")->MkTPanelWin(top);
