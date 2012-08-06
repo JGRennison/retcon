@@ -4,7 +4,7 @@
 #include <wx/filename.h>
 #include <wx/filedlg.h>
 
-std::unordered_multimap<uint64_t, tpanel*> tpaneldbloadmap;
+std::unordered_multimap<uint64_t, tpaneldbloadmap_data> tpaneldbloadmap;
 tpanelglobal *tpg;
 
 static void PerAccTPanelMenu(wxMenu *menu, tpanelmenudata &map, int &nextid, unsigned int flagbase, unsigned int dbindex) {
@@ -65,7 +65,6 @@ void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent) {
 	std::string panelname=std::string(wxString::Format(wxT("___%s - %s"), accname.c_str(), type.c_str()).ToUTF8());
 
 	auto tp=tpanel::MkTPanel(panelname, paneldispname, flags, acc);
-	tp->LoadMore(gc.maxtweetsdisplayinpanel);
 	tp->MkTPanelWin(parent, true);
 }
 
@@ -76,32 +75,31 @@ void tpanel::PushTweet(const std::shared_ptr<tweet> &t) {
 		return;
 	}
 	else {
-		tweetlist[t->id]=t;
+		tweetlist.insert(t->id);
 		for(auto i=twin.begin(); i!=twin.end(); i++) {
 			(*i)->PushTweet(t);
 		}
 	}
 }
 
-uint64_t tpanel::PushTweetOrRetLoadId(uint64_t id) {
-	std::shared_ptr<tweet> &tobj=ad.tweetobjs[id];
-	if(tobj) {
-		if(tobj->lflags&TLF_BEINGLOADEDFROMDB) tpaneldbloadmap.insert(std::make_pair(id, this));
-		else PushTweet(tobj);
-		return 0;
-	}
-	else {
-		tobj=std::make_shared<tweet>();
-		tobj->id=id;
-		tobj->lflags=TLF_BEINGLOADEDFROMDB;
-		tpaneldbloadmap.insert(std::make_pair(id, this));
-		return id;
-	}
-}
-
 tpanel::tpanel(const std::string &name_, const std::string &dispname_, unsigned int flags_, std::shared_ptr<taccount> *acc) : name(name_), dispname(dispname_), flags(flags_) {
 	twin.clear();
 	if(acc) assoc_acc=*acc;
+
+	std::forward_list<taccount *> accs;
+
+	if(flags&TPF_ISAUTO) {
+		if(flags&TPF_AUTO_ACC) accs.push_front(assoc_acc.get());
+		else if(flags&TPF_AUTO_ALLACCS) {
+			for(auto it=alist.begin(); it!=alist.end(); ++it) accs.push_front((*it).get());
+		}
+		for(auto it=accs.begin(); it!=accs.end(); ++it) {
+			if(flags&TPF_AUTO_DM) tweetlist.insert((*it)->dm_ids.begin(), (*it)->dm_ids.end());
+			if(flags&TPF_AUTO_TW) tweetlist.insert((*it)->tweet_ids.begin(), (*it)->tweet_ids.end());
+			if(flags&TPF_AUTO_MN) tweetlist.insert((*it)->usercont->mention_index.begin(), (*it)->usercont->mention_index.end());
+		}
+	}
+	else return;
 }
 
 std::shared_ptr<tpanel> tpanel::MkTPanel(const std::string &name_, const std::string &dispname_, unsigned int flags_, std::shared_ptr<taccount> *acc) {
@@ -113,86 +111,13 @@ std::shared_ptr<tpanel> tpanel::MkTPanel(const std::string &name_, const std::st
 }
 
 tpanel::~tpanel() {
-	for(auto it=tpaneldbloadmap.begin(); it!=tpaneldbloadmap.end(); ) {
-		if((*it).second==this) {
-			auto todel=it;
-			it++;
-			tpaneldbloadmap.erase(todel);
-		}
-		else it++;
-	}
+
 }
 
 void tpanel::OnTPanelWinClose(tpanelparentwin *tppw) {
 	twin.remove(tppw);
 	if(twin.empty() && flags&TPF_DELETEONWINCLOSE) {
 		ad.tpanels.erase(name);
-	}
-}
-
-//if lessthanid is non-zero, is an exclusive upper id limit
-void tpanel::LoadMore(unsigned int n, uint64_t lessthanid) {
-	std::forward_list<taccount *> accs;
-	std::forward_list<tweetidset *> idsets;
-	std::forward_list<std::pair<tweetidset::const_iterator, tweetidset::const_iterator> > its;
-	dbseltweetmsg *loadmsg=0;
-
-	std::forward_list<tweetidset> extra_idsets;
-
-	if(flags&TPF_ISAUTO) {
-		if(flags&TPF_AUTO_ACC) accs.push_front(assoc_acc.get());
-		else if(flags&TPF_AUTO_ALLACCS) {
-			for(auto it=alist.begin(); it!=alist.end(); ++it) accs.push_front((*it).get());
-		}
-		for(auto it=accs.begin(); it!=accs.end(); ++it) {
-			if(flags&TPF_AUTO_DM) idsets.push_front(&(*it)->dm_ids);
-			if(flags&TPF_AUTO_TW) idsets.push_front(&(*it)->tweet_ids);
-			if(flags&TPF_AUTO_MN) {
-				extra_idsets.emplace_front();
-				for(auto jt=(*it)->usercont->mention_index.cbegin(); jt!=(*it)->usercont->mention_index.cend(); ++jt) {
-					extra_idsets.front().insert(*jt);
-				}
-				idsets.push_front(&extra_idsets.front());
-			}
-		}
-	}
-	else return; //idsets.push_front(&storedids);
-
-	for(auto it=idsets.begin(); it!=idsets.end(); ++it) {
-		tweetidset::const_iterator stit;
-		if(lessthanid) stit=(*it)->upper_bound(lessthanid);	//finds the first id *less than* lessthanid
-		else stit=(*it)->cbegin();
-		if(stit==(*it)->cend()) continue;
-		its.push_front(std::make_pair(stit, (*it)->cend()));
-	}
-	for(unsigned int i=0; i<n; i++) {
-		uint64_t bestid=0;
-		tweetidset::const_iterator *bestfound=0;
-		for(auto it=its.begin(); it!=its.end(); ++it) {
-			if((*it).first==(*it).second) {		//no more ids left in set
-				continue;
-			}
-			uint64_t curid=*((*it).first);
-			if(curid==bestid) ++((*it).first);	//skip duplicate ids
-			else if(curid>bestid) {
-				bestfound=&((*it).first);
-				bestid=curid;
-			}
-		}
-		if(!bestid) break;
-		++(*bestfound);
-		uint64_t loadid=PushTweetOrRetLoadId(bestid);
-		if(loadid) {
-			LogMsgFormat(LFT_TPANEL, "tpanel::LoadMore loading from db id: %" wxLongLongFmtSpec "d", loadid);
-			if(!loadmsg) loadmsg=new dbseltweetmsg;
-			loadmsg->id_set.insert(loadid);
-		}
-	}
-	if(loadmsg) {
-		loadmsg->targ=&dbc;
-		loadmsg->cmdevtype=wxextDBCONN_NOTIFY;
-		loadmsg->winid=wxDBCONNEVT_ID_TPANELTWEETLOAD;
-		dbc.SendMessage(loadmsg);
 	}
 }
 
@@ -243,16 +168,20 @@ void tpanelnotebook::tabrightclickhandler(wxAuiNotebookEvent& event) {
 }
 
 DECLARE_EVENT_TYPE(wxextRESIZE_UPDATE_EVENT, -1)
+DECLARE_EVENT_TYPE(wxextTP_PAGEUP_EVENT, -1)
+DECLARE_EVENT_TYPE(wxextTP_PAGEDOWN_EVENT, -1)
 
 DEFINE_EVENT_TYPE(wxextRESIZE_UPDATE_EVENT)
+DEFINE_EVENT_TYPE(wxextTP_PAGEUP_EVENT)
+DEFINE_EVENT_TYPE(wxextTP_PAGEDOWN_EVENT)
 
-BEGIN_EVENT_TABLE(tpanelparentwin, wxScrolledWindow)
-	EVT_SIZE(tpanelparentwin::resizehandler)
-	EVT_COMMAND(wxID_ANY, wxextRESIZE_UPDATE_EVENT, tpanelparentwin::resizemsghandler)
+BEGIN_EVENT_TABLE(tpanelparentwin, wxPanel)
 	EVT_MENU(TPPWID_DETACH, tpanelparentwin::tabdetachhandler)
 	EVT_MENU(TPPWID_DUP, tpanelparentwin::tabduphandler)
 	EVT_MENU(TPPWID_DETACHDUP, tpanelparentwin::tabdetachedduphandler)
 	EVT_MENU(TPPWID_CLOSE, tpanelparentwin::tabclosehandler)
+	EVT_COMMAND(wxID_ANY, wxextTP_PAGEUP_EVENT, tpanelparentwin::pageupevthandler)
+	EVT_COMMAND(wxID_ANY, wxextTP_PAGEDOWN_EVENT, tpanelparentwin::pagedownevthandler)
 END_EVENT_TABLE()
 
 tpanelparentwin *tpanel::MkTPanelWin(mainframe *parent, bool select) {
@@ -260,7 +189,7 @@ tpanelparentwin *tpanel::MkTPanelWin(mainframe *parent, bool select) {
 }
 
 tpanelparentwin::tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select)
-: wxScrolledWindow(parent), tp(tp_), displayoffset(0), mindisplayid(0), resize_update_pending(false), owner(parent) {
+: wxPanel(parent), tp(tp_), displayoffset(0), owner(parent) {
 	LogMsgFormat(LFT_TPANEL, wxT("Creating tweet panel window %s"), wxstrstd(tp->name).c_str());
 
 	tp->twin.push_front(this);
@@ -271,81 +200,114 @@ tpanelparentwin::tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *
 	//vbox->Add(tpw, 1, wxALIGN_TOP | wxEXPAND, 0);
 	//SetSizer(vbox);
 
-	//wxBoxSizer* hsizer = new wxBoxSizer(wxHORIZONTAL);
+	wxBoxSizer* outersizer = new wxBoxSizer(wxVERTICAL);
+	scrollwin = new tpanelscrollwin(this);
+	clabel=new wxStaticText(this, wxID_ANY, wxT("No Tweets"));
+	outersizer->Add(clabel, 0, wxALL, 2);
+	outersizer->Add(scrollwin, 1, wxALL | wxEXPAND, 2);
+	outersizer->Add(new wxStaticText(this, wxID_ANY, wxT("Bar")), 0, wxALL, 2);
+
 	sizer = new wxBoxSizer(wxVERTICAL);
-	//hsizer->Add(sizer, 1, wxEXPAND);
-	SetSizer(sizer);
-        FitInside();
-        SetScrollRate(5, 5);
+	scrollwin->SetSizer(sizer);
+	SetSizer(outersizer);
+	scrollwin->SetScrollRate(1, 1);
+        scrollwin->FitInside();
+	FitInside();
 
-
+	LoadMore(gc.maxtweetsdisplayinpanel);
 	parent->auib->AddPage(this, wxstrstd(tp->dispname), select);
-	FillTweet(gc.maxtweetsdisplayinpanel);
 }
 
 tpanelparentwin::~tpanelparentwin() {
+	for(auto it=tpaneldbloadmap.begin(); it!=tpaneldbloadmap.end(); ) {
+		if((*it).second.win==this) {
+			auto todel=it;
+			it++;
+			tpaneldbloadmap.erase(todel);
+		}
+		else it++;
+	}
 	tp->OnTPanelWinClose(this);
 	tpanelparentwinlist.remove(this);
 }
 
-void tpanelparentwin::FillTweet(size_t max) {
-	size_t index=0;
-	Freeze();
-	for(auto it=tp->tweetlist.rbegin(); it!=tp->tweetlist.rend() && index<max; it++, index++) {
-		currentdisp.push_back(std::make_pair(it->second->id, PushTweet(it->second, index)));
+void tpanelparentwin::TweetPopTop() {
+	currentdisp.front().second->Destroy();
+	size_t offset=0;
+	wxSizer *sz=sizer->GetItem(offset)->GetSizer();
+	if(sz) {
+		sz->Clear(true);
+		sizer->Remove(offset);
 	}
-	Thaw();
+	currentdisp.pop_front();
 }
 
-void tpanelparentwin::PushTweet(const std::shared_ptr<tweet> &t) {
+void tpanelparentwin::TweetPopBottom() {
+	currentdisp.back().second->Destroy();
+	size_t offset=currentdisp.size()-1;
+	wxSizer *sz=sizer->GetItem(offset)->GetSizer();
+	if(sz) {
+		sz->Clear(true);
+		sizer->Remove(offset);
+	}
+	currentdisp.pop_back();
+}
+
+void tpanelparentwin::PushTweet(const std::shared_ptr<tweet> &t, unsigned int pushflags) {
+	scrollwin->Freeze();
+	LogMsgFormat(LFT_TPANEL, "tpanelparentwin::PushTweet, id: %" wxLongLongFmtSpec "d, %d, %X, %d", t->id, displayoffset, pushflags, currentdisp.size());
+	tppw_scrollfreeze sf;
+	StartScrollFreeze(sf);
 	uint64_t id=t->id;
-	if(mindisplayid) {
-		if(id>mindisplayid) {
-			displayoffset++;
-			return;
+	if(displayoffset) {
+		if(id>currentdisp.front().first) {
+			if(!(pushflags&TPPWPF_ABOVE)) {
+				displayoffset++;
+				return;
+			}
 		}
 	}
 	if(currentdisp.size()==gc.maxtweetsdisplayinpanel) {
-		if(t->id<currentdisp.back().first) return;		//off the end of the list
-		else {							//too many in list, remove the last one
-			currentdisp.back().second->Destroy();
-			wxSizer *sz=sizer->GetItem(gc.maxtweetsdisplayinpanel-1)->GetSizer();
-			if(sz) {
-				sz->Clear(true);
-				sizer->Remove(gc.maxtweetsdisplayinpanel-1);
+		if(t->id<currentdisp.back().first) {			//off the end of the list
+			if(pushflags&TPPWPF_BELOW) {
+				TweetPopTop();
+				displayoffset++;
 			}
-			currentdisp.pop_back();
+			else return;
 		}
+		else TweetPopBottom();					//too many in list, remove the last one
 	}
 	size_t index=0;
 	auto it=currentdisp.begin();
 	for(; it!=currentdisp.end(); it++, index++) {
 		if(it->first<id) break;	//insert before this iterator
 	}
-	tweetdispscr *td = PushTweet(t, index);
+	tweetdispscr *td = PushTweetIndex(t, index);
 	currentdisp.insert(it, std::make_pair(id, td));
+	UpdateCLabel();
+	EndScrollFreeze(sf);
+	scrollwin->Thaw();
 }
 
-tweetdispscr *tpanelparentwin::PushTweet(const std::shared_ptr<tweet> &t, size_t index) {
-	Freeze();
+tweetdispscr *tpanelparentwin::PushTweetIndex(const std::shared_ptr<tweet> &t, size_t index) {
 	wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
-	tweetdispscr *td=new tweetdispscr(t, this, hbox);
+	tweetdispscr *td=new tweetdispscr(t, scrollwin, this, hbox);
 
 	if(t->flags.Get('T')) {
-		td->bm = new wxStaticBitmap(this, wxID_ANY, t->user->cached_profile_img, wxPoint(-1000, -1000));
+		td->bm = new wxStaticBitmap(scrollwin, wxID_ANY, t->user->cached_profile_img, wxPoint(-1000, -1000));
 		hbox->Add(td->bm, 0, wxALL, 2);
 	}
 	else if(t->flags.Get('D') && t->user_recipient) {
 			t->user->ImgHalfIsReady();
 			t->user_recipient->ImgHalfIsReady();
-			td->bm = new wxStaticBitmap(this, wxID_ANY, t->user->cached_profile_img_half, wxPoint(-1000, -1000));
-			td->bm2 = new wxStaticBitmap(this, wxID_ANY, t->user_recipient->cached_profile_img_half, wxPoint(-1000, -1000));
+			td->bm = new wxStaticBitmap(scrollwin, wxID_ANY, t->user->cached_profile_img_half, wxPoint(-1000, -1000));
+			td->bm2 = new wxStaticBitmap(scrollwin, wxID_ANY, t->user_recipient->cached_profile_img_half, wxPoint(-1000, -1000));
 			int dim=gc.maxpanelprofimgsize/2;
 			if(tpg->arrow_dim!=dim) {
 				tpg->arrow=GetArrowIcon(dim);
 				tpg->arrow_dim=dim;
 			}
-			wxStaticBitmap *arrow = new wxStaticBitmap(this, wxID_ANY, tpg->arrow, wxPoint(-1000, -1000));
+			wxStaticBitmap *arrow = new wxStaticBitmap(scrollwin, wxID_ANY, tpg->arrow, wxPoint(-1000, -1000));
 			wxGridSizer *gs=new wxGridSizer(2,2,0,0);
 			gs->Add(td->bm, 0, 0, 0);
 			gs->AddStretchSpacer();
@@ -357,25 +319,134 @@ tweetdispscr *tpanelparentwin::PushTweet(const std::shared_ptr<tweet> &t, size_t
 	hbox->Add(td, 1, wxALL | wxEXPAND, 2);
 
 	sizer->Insert(index, hbox, 0, wxALL | wxEXPAND, 2);
-	FitInside();
 	td->LayoutContent();
-	Thaw();
+	scrollwin->FitInside();
 	return td;
 }
 
-void tpanelparentwin::resizehandler(wxSizeEvent &event) {
-	LogMsgFormat(LFT_TPANEL, wxT("tpanelparentwin::resizehandler"));
-	//FitInside();
-	//Refresh();
-	//Update();
+uint64_t tpanelparentwin::PushTweetOrRetLoadId(uint64_t id, unsigned int pushflags) {
+	std::shared_ptr<tweet> &tobj=ad.tweetobjs[id];
+	if(tobj) {
+		if(tobj->lflags&TLF_BEINGLOADEDFROMDB) {
+			bool found=false;
+			auto pit=tpaneldbloadmap.equal_range(id);
+			for(auto it=pit.first; it!=pit.second; ++it) {
+				if((*it).second.win==this) {
+					found=true;
+					break;
+				}
+			}
+			if(!found) tpaneldbloadmap.insert(std::make_pair(id, tpaneldbloadmap_data(this, pushflags))); //tpaneldbloadmap.emplace(id, this, pushflags);
+		}
+		else PushTweet(tobj, pushflags);
+		return 0;
+	}
+	else {
+		tobj=std::make_shared<tweet>();
+		tobj->id=id;
+		tobj->lflags=TLF_BEINGLOADEDFROMDB;
+		tpaneldbloadmap.insert(std::make_pair(id, tpaneldbloadmap_data(this, pushflags)));
+		return id;
+	}
 }
 
-void tpanelparentwin::resizemsghandler(wxCommandEvent &event) {
-	//wxLogWarning(wxT("tpanelparentwin::resizemsghandler"));
-	FitInside();
-	Refresh();
-	Update();
-	resize_update_pending=false;
+//if lessthanid is non-zero, is an exclusive upper id limit
+void tpanelparentwin::LoadMore(unsigned int n, uint64_t lessthanid, unsigned int pushflags) {
+	dbseltweetmsg *loadmsg=0;
+
+	tweetidset::const_iterator stit;
+	if(lessthanid) stit=tp->tweetlist.upper_bound(lessthanid);	//finds the first id *less than* lessthanid
+	else stit=tp->tweetlist.cbegin();
+
+	for(unsigned int i=0; i<n; i++) {
+		if(stit==tp->tweetlist.cend()) break;
+		uint64_t loadid=PushTweetOrRetLoadId(*stit, pushflags);
+		++stit;
+		if(loadid) {
+			LogMsgFormat(LFT_TPANEL, "tpanel::LoadMore loading from db id: %" wxLongLongFmtSpec "d", loadid);
+			if(!loadmsg) loadmsg=new dbseltweetmsg;
+			loadmsg->id_set.insert(loadid);
+		}
+	}
+	if(loadmsg) {
+		loadmsg->targ=&dbc;
+		loadmsg->cmdevtype=wxextDBCONN_NOTIFY;
+		loadmsg->winid=wxDBCONNEVT_ID_TPANELTWEETLOAD;
+		dbc.SendMessage(loadmsg);
+	}
+}
+
+void tpanelparentwin::pageupevthandler(wxCommandEvent &event) {
+	PageUpHandler();
+}
+void tpanelparentwin::pagedownevthandler(wxCommandEvent &event) {
+	PageDownHandler();
+}
+
+void tpanelparentwin::PageUpHandler() {
+	if(displayoffset) {
+		size_t pagemove=std::min((size_t) (gc.maxtweetsdisplayinpanel+1)/2, displayoffset);
+		auto it=tp->tweetlist.lower_bound(currentdisp.front().first);
+		for(unsigned int i=0; i<pagemove; i++) {
+			it--;
+			displayoffset--;
+			PushTweet(ad.tweetobjs[*it], TPPWPF_ABOVE);
+		}
+	}
+	scrollwin->page_scroll_blocked=false;
+}
+void tpanelparentwin::PageDownHandler() {
+	size_t curnum=currentdisp.size();
+	size_t tweetnum=tp->tweetlist.size();
+	if(curnum+displayoffset<tweetnum) {
+		size_t pagemove=std::min((size_t) (gc.maxtweetsdisplayinpanel+1)/2, tweetnum-(curnum+displayoffset));
+		uint64_t lessthanid=currentdisp.back().first;
+		LoadMore(pagemove, lessthanid, TPPWPF_BELOW);
+	}
+	scrollwin->page_scroll_blocked=false;
+}
+
+void tpanelparentwin::UpdateCLabel() {
+	size_t curnum=currentdisp.size();
+	if(curnum) clabel->SetLabel(wxString::Format(wxT("%d - %d of %d"), displayoffset+1, displayoffset+curnum, tp->tweetlist.size()));
+	else clabel->SetLabel(wxT("No Tweets"));
+}
+
+void tpanelparentwin::StartScrollFreeze(tppw_scrollfreeze &s) {
+	auto it=currentdisp.cbegin();
+	if(it!=currentdisp.cend()) ++it;
+	else {
+		s.scr=0;
+		s.extrapixels=0;
+		return;
+	}
+	auto endit=currentdisp.cend();
+	if(endit!=currentdisp.cbegin()) --endit;
+	else {
+		s.scr=0;
+		s.extrapixels=0;
+		return;
+	}
+	for(;it!=endit; ++it) {
+		int y;
+		(*it).second->GetPosition(0, &y);
+		if(y>=0) {
+			s.scr=(*it).second;
+			s.extrapixels=y;
+			return;
+		}
+	}
+}
+
+void tpanelparentwin::EndScrollFreeze(tppw_scrollfreeze &s) {
+	if(s.scr) {
+		int y;
+		s.scr->GetPosition(0, &y);
+		int scrollstart;
+		scrollwin->GetViewStart(0, &scrollstart);
+		scrollstart+=y-s.extrapixels;
+		scrollwin->Scroll(-1, std::max(0, scrollstart));
+	}
 }
 
 void tpanelparentwin::tabdetachhandler(wxCommandEvent &event) {
@@ -401,39 +472,85 @@ void tpanelparentwin::tabclosehandler(wxCommandEvent &event) {
 	Close();
 }
 
+BEGIN_EVENT_TABLE(tpanelscrollwin, wxScrolledWindow)
+	EVT_SIZE(tpanelscrollwin::resizehandler)
+	EVT_COMMAND(wxID_ANY, wxextRESIZE_UPDATE_EVENT, tpanelscrollwin::resizemsghandler)
+	EVT_SCROLLWIN_TOP(tpanelscrollwin::OnScrollHandler)
+	EVT_SCROLLWIN_BOTTOM(tpanelscrollwin::OnScrollHandler)
+	EVT_SCROLLWIN_LINEUP(tpanelscrollwin::OnScrollHandler)
+	EVT_SCROLLWIN_LINEDOWN(tpanelscrollwin::OnScrollHandler)
+	EVT_SCROLLWIN_PAGEUP(tpanelscrollwin::OnScrollHandler)
+	EVT_SCROLLWIN_PAGEDOWN(tpanelscrollwin::OnScrollHandler)
+	EVT_SCROLLWIN_THUMBRELEASE(tpanelscrollwin::OnScrollHandler)
+END_EVENT_TABLE()
 
-//tpanelwin::tpanelwin(tpanelparentwin *tppw_)
-//: wxRichTextCtrl(tppw_, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxRE_READONLY) {
-//	tp=tppw_->tp;
-//	GetCaret()->Hide();
-//}
-//
-//void tpanelwin::PushTweet(std::shared_ptr<tweetdisp> t) {
-//	std::shared_ptr<tweet> tw=t->t;
-//	std::shared_ptr<userdatacontainer> udc=tw->user;
-//	WriteImage(*udc->cached_profile_img);
-//	WriteText(wxstrstd(udc->user->screen_name));
-//	LineBreak();
-//	WriteText(wxstrstd(tw->text));
-//	LineBreak();
-//	LineBreak();
-//}
-//
-//tpanelwin::~tpanelwin() {
-//	if(tppw) {
-//		tppw->tpw=0;
-//		tppw=0;
-//	}
-//}
+tpanelscrollwin::tpanelscrollwin(tpanelparentwin *parent_)
+	: wxScrolledWindow(parent_), parent(parent_), resize_update_pending(false), page_scroll_blocked(false) {
+
+}
+
+void tpanelscrollwin::resizehandler(wxSizeEvent &event) {
+	//LogMsgFormat(LFT_TPANEL, wxT("tpanelscrollwin::resizehandler"));
+	//FitInside();
+	//Refresh();
+	//Update();
+}
+
+void tpanelscrollwin::resizemsghandler(wxCommandEvent &event) {
+	//wxLogWarning(wxT("tpanelscrollwin::resizemsghandler"));
+	FitInside();
+	Refresh();
+	Update();
+	resize_update_pending=false;
+}
+
+void tpanelscrollwin::OnScrollHandler(wxScrollWinEvent &event) {
+	if(event.GetOrientation()!=wxVERTICAL) {
+		event.Skip();
+		return;
+	}
+	wxEventType type=event.GetEventType();
+	bool upok=(type==wxEVT_SCROLLWIN_TOP || type==wxEVT_SCROLLWIN_LINEUP || type==wxEVT_SCROLLWIN_PAGEUP || type==wxEVT_SCROLLWIN_THUMBRELEASE);
+	bool downok=(type==wxEVT_SCROLLWIN_BOTTOM || type==wxEVT_SCROLLWIN_LINEDOWN || type==wxEVT_SCROLLWIN_PAGEDOWN || type==wxEVT_SCROLLWIN_THUMBRELEASE);
+
+	int y, sy, wy, cy;
+	GetViewStart(0, &y);
+	GetScrollPixelsPerUnit(0, &sy);
+	GetVirtualSize(0, &wy);
+	GetClientSize(0, &cy);
+	int endpos=(y*sy)+cy;
+	//LogMsgFormat(LFT_TPANEL, wxT("tpanelscrollwin::OnScrollHandler %d %d %d %d %d"), y, sy, wy, cy, endpos);
+	bool scrollup=(y==0 && upok);
+	bool scrolldown=(endpos>=wy && downok);
+	if(scrollup && !scrolldown && !page_scroll_blocked) {
+		wxCommandEvent evt(wxextTP_PAGEUP_EVENT);
+		parent->AddPendingEvent(evt);
+		page_scroll_blocked=true;
+	}
+	if(!scrollup && scrolldown && !page_scroll_blocked) {
+		wxCommandEvent evt(wxextTP_PAGEDOWN_EVENT);
+		parent->AddPendingEvent(evt);
+		page_scroll_blocked=true;
+	}
+
+	if(type==wxEVT_SCROLLWIN_LINEUP || type==wxEVT_SCROLLWIN_LINEDOWN) {
+		if(type==wxEVT_SCROLLWIN_LINEUP) y-=15;
+		else y+=15;
+		Scroll(-1, std::max(0, y));
+		return;
+	}
+
+	event.Skip();
+}
 
 BEGIN_EVENT_TABLE(tweetdispscr, wxRichTextCtrl)
 	EVT_TEXT_URL(wxID_ANY, tweetdispscr::urleventhandler)
 	EVT_MOUSEWHEEL(tweetdispscr::mousewheelhandler)
 END_EVENT_TABLE()
 
-tweetdispscr::tweetdispscr(std::shared_ptr<tweet> td_, tpanelparentwin *tppw_, wxBoxSizer *hbox_)
-: wxRichTextCtrl(tppw_, wxID_ANY, wxEmptyString, wxPoint(-1000, -1000), wxDefaultSize, wxRE_READONLY),
-td(td_), tppw(tppw_), hbox(hbox_), bm(0), bm2(0) {
+tweetdispscr::tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin *tppw_, wxBoxSizer *hbox_)
+: wxRichTextCtrl(parent, wxID_ANY, wxEmptyString, wxPoint(-1000, -1000), wxDefaultSize, wxRE_READONLY),
+td(td_), tppw(tppw_), tpsw(parent), hbox(hbox_), bm(0), bm2(0) {
 	GetCaret()->Hide();
 	DisplayTweet();
 }
@@ -618,11 +735,11 @@ void tweetdispscr::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 	hbox->SetItemMinSize(this, 10, newheight);
 	//hbox->SetMinSize(10, newheight+4);
 	//SetSize(wxDefaultCoord, wxDefaultCoord, wxDefaultCoord, newheight, wxSIZE_USE_EXISTING);
-	tppw->FitInside();
-	if(!tppw->resize_update_pending) {
-		tppw->resize_update_pending=true;
+	tpsw->FitInside();
+	if(!tpsw->resize_update_pending) {
+		tpsw->resize_update_pending=true;
 		wxCommandEvent event(wxextRESIZE_UPDATE_EVENT, GetId());
-		tppw->AddPendingEvent(event);
+		tpsw->AddPendingEvent(event);
 	}
 }
 
@@ -846,8 +963,8 @@ bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid) {
 		if(wind!=avoid && std::count(tpanelparentwinlist.begin(), tpanelparentwinlist.end(), wind)) {
 			tpanelparentwin *tppw=(tpanelparentwin*) wind;
 			//LogMsgFormat(LFT_TPANEL, wxT("Redirect MouseWheel: Dispatching to %s"), wxstrstd(tppw->tp->name).c_str());
-			event.SetEventObject(tppw);
-			tppw->GetEventHandler()->ProcessEvent(event);
+			event.SetEventObject(tppw->scrollwin);
+			tppw->scrollwin->GetEventHandler()->ProcessEvent(event);
 			return true;
 		}
 		wind=wind->GetParent();

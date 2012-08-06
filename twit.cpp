@@ -401,7 +401,7 @@ void userdatacontainer::UnmarkPending(const std::shared_ptr<tweet> &t) {
 		t->lflags&=~TLF_PENDINGINDBTPANELMAP;
 		t->lflags&=~TLF_BEINGLOADEDFROMDB;
 		auto itpair=tpaneldbloadmap.equal_range(t->id);
-		for(auto it=itpair.first; it!=itpair.second; ++it) (*it).second->PushTweet(t);
+		for(auto it=itpair.first; it!=itpair.second; ++it) (*it).second.win->PushTweet(t);
 		tpaneldbloadmap.erase(itpair.first, itpair.second);
 	}
 }

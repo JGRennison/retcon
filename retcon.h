@@ -62,6 +62,7 @@ struct entity;
 struct usevents;
 struct tweetdispscr;
 struct tpanelparentwin;
+struct tpanelscrollwin;
 struct mcurlconn;
 struct socketmanager;
 struct mainframe;

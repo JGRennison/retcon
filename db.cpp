@@ -476,7 +476,7 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 		if(user1ready && user2ready) {
 			t->lflags&=~TLF_BEINGLOADEDFROMDB;
 			auto itpair=tpaneldbloadmap.equal_range(dt.id);
-			for(auto it=itpair.first; it!=itpair.second; ++it) (*it).second->PushTweet(t);
+			for(auto jt=itpair.first; jt!=itpair.second; ++jt) (*jt).second.win->PushTweet(t, (*jt).second.pushflags);
 			tpaneldbloadmap.erase(itpair.first, itpair.second);
 		}
 		else {

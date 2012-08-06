@@ -11,11 +11,12 @@ typedef std::map<int,tpanelmenuitem> tpanelmenudata;
 struct tweetdispscr : public wxRichTextCtrl {
 	std::shared_ptr<tweet> td;
 	tpanelparentwin *tppw;
+	tpanelscrollwin *tpsw;
 	wxBoxSizer *hbox;
 	wxStaticBitmap *bm;
 	wxStaticBitmap *bm2;
 
-	tweetdispscr(std::shared_ptr<tweet> td_, tpanelparentwin *tppw_, wxBoxSizer *hbox_);
+	tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin *tppw_, wxBoxSizer *hbox_);
 	~tweetdispscr();
 	void DisplayTweet(bool redrawimg=false);
 	void DoResize();
@@ -46,7 +47,7 @@ enum {
 struct tpanel : std::enable_shared_from_this<tpanel> {
 	std::string name;
 	std::string dispname;
-	std::map<uint64_t,std::shared_ptr<tweet> > tweetlist;
+	tweetidset tweetlist;
 	std::forward_list<tpanelparentwin*> twin;
 	unsigned int flags;
 	std::shared_ptr<taccount> assoc_acc;
@@ -57,10 +58,8 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	~tpanel();
 
 	void PushTweet(const std::shared_ptr<tweet> &t);
-	uint64_t PushTweetOrRetLoadId(uint64_t id);
 	tpanelparentwin *MkTPanelWin(mainframe *parent, bool select=false);
 	void OnTPanelWinClose(tpanelparentwin *tppw);
-	void LoadMore(unsigned int n, uint64_t lessthanid=0);
 };
 
 struct tpanelnotebook : public wxAuiNotebook {
@@ -76,6 +75,12 @@ struct tpanelnotebook : public wxAuiNotebook {
 	DECLARE_EVENT_TABLE()
 };
 
+struct tppw_scrollfreeze {
+	tppw_scrollfreeze() : scr(0), extrapixels(0) { }
+	tweetdispscr *scr;
+	int extrapixels;
+};
+
 enum {
 	TPPWID_DETACH = 100,
 	TPPWID_DUP,
@@ -83,27 +88,53 @@ enum {
 	TPPWID_CLOSE,
 };
 
-struct tpanelparentwin : public wxScrolledWindow {
+enum {
+	TPPWPF_ABOVE	= 1<<0,
+	TPPWPF_BELOW	= 1<<1,
+};
+
+struct tpanelparentwin : public wxPanel {
 	//tpanelwin *tpw;
 	std::shared_ptr<tpanel> tp;
 	wxBoxSizer *sizer;
 	size_t displayoffset;
-	uint64_t mindisplayid;
 	std::list<std::pair<uint64_t, tweetdispscr *> > currentdisp;
-	bool resize_update_pending;
 	mainframe *owner;
+	tpanelscrollwin *scrollwin;
+	wxStaticText *clabel;
 
 	tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select=false);
 	~tpanelparentwin();
-	void PushTweet(const std::shared_ptr<tweet> &t);
-	tweetdispscr *PushTweet(const std::shared_ptr<tweet> &t, size_t index);
-	void FillTweet(size_t max);
-	void resizehandler(wxSizeEvent &event);
-	void resizemsghandler(wxCommandEvent &event);
+	void LoadMore(unsigned int n, uint64_t lessthanid=0, unsigned int pushflags=0);
+	uint64_t PushTweetOrRetLoadId(uint64_t id, unsigned int pushflags=0);
+	void PushTweet(const std::shared_ptr<tweet> &t, unsigned int pushflags=0);
+	tweetdispscr *PushTweetIndex(const std::shared_ptr<tweet> &t, size_t index);
 	void tabdetachhandler(wxCommandEvent &event);
 	void tabduphandler(wxCommandEvent &event);
 	void tabdetachedduphandler(wxCommandEvent &event);
 	void tabclosehandler(wxCommandEvent &event);
+	void PageUpHandler();
+	void PageDownHandler();
+	void pageupevthandler(wxCommandEvent &event);
+	void pagedownevthandler(wxCommandEvent &event);
+	void UpdateCLabel();
+	void TweetPopTop();
+	void TweetPopBottom();
+	void StartScrollFreeze(tppw_scrollfreeze &s);
+	void EndScrollFreeze(tppw_scrollfreeze &s);
+
+	DECLARE_EVENT_TABLE()
+};
+
+struct tpanelscrollwin : public wxScrolledWindow {
+	tpanelparentwin *parent;
+	bool resize_update_pending;
+	bool page_scroll_blocked;
+
+	tpanelscrollwin(tpanelparentwin *parent_);
+	void OnScrollHandler(wxScrollWinEvent &event);
+	void resizehandler(wxSizeEvent &event);
+	void resizemsghandler(wxCommandEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };
@@ -163,5 +194,11 @@ struct tpanelglobal {
 	tpanelglobal() : arrow_dim(0) { }
 };
 
-extern std::unordered_multimap<uint64_t, tpanel*> tpaneldbloadmap;
+struct tpaneldbloadmap_data {
+	tpaneldbloadmap_data(tpanelparentwin* win_, unsigned int pushflags_=0) : win(win_), pushflags(pushflags_) { }
+	tpanelparentwin* win;
+	unsigned int pushflags;
+};
+
+extern std::unordered_multimap<uint64_t, tpaneldbloadmap_data> tpaneldbloadmap;
 extern tpanelglobal *tpg;
