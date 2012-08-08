@@ -26,9 +26,6 @@ bool retcon::OnInit() {
 	if(!res) return false;
 	mainframe *top = new mainframe( wxT("Retcon"), wxPoint(50, 50), wxSize(450, 340) );
 
-	tpanel::MkTPanel("[default]", "[default]")->MkTPanelWin(top);
-	tpanel::MkTPanel("[default2]", "[default2]")->MkTPanelWin(top);
-
 	top->Show(true);
 	SetTopWindow(top);
 	for(auto it=alist.begin() ; it != alist.end(); it++ ) (*it)->Exec();

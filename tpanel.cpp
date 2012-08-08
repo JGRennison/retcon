@@ -413,6 +413,13 @@ void tpanelparentwin::UpdateCLabel() {
 }
 
 void tpanelparentwin::StartScrollFreeze(tppw_scrollfreeze &s) {
+	int scrollstart;
+	s.scr->GetViewStart(0, &scrollstart);
+	if(!scrollstart && !displayoffset) {
+		s.scr=0;
+		s.extrapixels=0;
+		return;
+	}
 	auto it=currentdisp.cbegin();
 	if(it!=currentdisp.cend()) ++it;
 	else {

@@ -11,7 +11,6 @@
 
 void HandleNewTweet(const std::shared_ptr<tweet> &t) {
 	//do some filtering, etc
-	ad.tpanels["[default]"]->PushTweet(t);
 
 	for(auto it=ad.tpanels.begin(); it!=ad.tpanels.end(); ++it) {
 		tpanel &tp=*(it->second);
