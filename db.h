@@ -13,6 +13,9 @@ typedef enum {
 	DBPSC_SELTWEET,
 	DBPSC_INSERTRBFSP,
 	DBPSC_SELMEDIA,
+	DBPSC_INSERTMEDIA,
+	DBPSC_UPDATEMEDIATHUMBCHKSM,
+	DBPSC_UPDATEMEDIAFULLCHKSM,
 
 	DBPSC_NUM_STATEMENTS,
 } DBPSC_TYPE;
@@ -53,6 +56,8 @@ typedef enum {
 	DBSM_INSERTUSER,
 	DBSM_MSGLIST,
 	DBSM_INSERTACC,
+	DBSM_INSERTMEDIA,
+	DBSM_UPDATEMEDIACHKSM,
 } DBSM_TYPE;
 
 struct dbsendmsg {
@@ -156,6 +161,19 @@ struct dbinsertaccmsg : public dbsendmsg_callback {
 	unsigned int dbindex;				//return data
 };
 
+struct dbinsertmediamsg : public dbsendmsg {
+	dbinsertmediamsg() : dbsendmsg(DBSM_INSERTMEDIA) { }
+	media_id_type media_id;
+	std::string url;
+};
+
+struct dbupdatemediachecksummsg : public dbsendmsg {
+	dbupdatemediachecksummsg(bool isfull_) : dbsendmsg(DBSM_UPDATEMEDIACHKSM), isfull(isfull_) { }
+	media_id_type media_id;
+	unsigned char chksm[20];
+	bool isfull;
+};
+
 DECLARE_EVENT_TYPE(wxextDBCONN_NOTIFY, -1)
 
 enum {
@@ -185,6 +203,8 @@ struct dbconn : public wxEvtHandler {
 	void InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string statjson, dbsendmsg_list *msglist=0);
 	void UpdateTweetDyn(const std::shared_ptr<tweet> &tobj, dbsendmsg_list *msglist=0);
 	void InsertUser(const std::shared_ptr<userdatacontainer> &u, dbsendmsg_list *msglist=0);
+	void InsertMedia(media_entity &me, dbsendmsg_list *msglist=0);
+	void UpdateMediaChecksum(media_entity &me, bool isfull, dbsendmsg_list *msglist=0);
 	void AccountSync(sqlite3 *adb);
 	void SyncWriteBackAllUsers(sqlite3 *adb);
 	void SyncReadInAllUsers(sqlite3 *adb);

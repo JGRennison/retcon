@@ -161,6 +161,7 @@ enum {
 	ME_SAVED_FULL	= 1<<4,
 	ME_LOAD_THUMB	= 1<<5,
 	ME_LOAD_FULL	= 1<<6,
+	ME_IN_DB	= 1<<7,
 };
 
 struct media_entity {

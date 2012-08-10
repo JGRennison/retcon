@@ -320,7 +320,6 @@ tweetdispscr *tpanelparentwin::PushTweetIndex(const std::shared_ptr<tweet> &t, s
 	hbox->Add(td, 1, wxALL | wxEXPAND, 2);
 
 	sizer->Insert(index, hbox, 0, wxALL | wxEXPAND, 2);
-	td->LayoutContent();
 	scrollwin->FitInside();
 	return td;
 }
@@ -328,19 +327,7 @@ tweetdispscr *tpanelparentwin::PushTweetIndex(const std::shared_ptr<tweet> &t, s
 uint64_t tpanelparentwin::PushTweetOrRetLoadId(uint64_t id, unsigned int pushflags) {
 	std::shared_ptr<tweet> &tobj=ad.tweetobjs[id];
 	if(tobj) {
-		if(tobj->lflags&TLF_BEINGLOADEDFROMDB) {
-			bool found=false;
-			auto pit=tpaneldbloadmap.equal_range(id);
-			for(auto it=pit.first; it!=pit.second; ++it) {
-				if((*it).second.win==this) {
-					found=true;
-					break;
-				}
-			}
-			if(!found) tpaneldbloadmap.insert(std::make_pair(id, tpaneldbloadmap_data(this, pushflags))); //tpaneldbloadmap.emplace(id, this, pushflags);
-		}
-		else PushTweet(tobj, pushflags);
-		return 0;
+		return PushTweetOrRetLoadId(tobj, pushflags);
 	}
 	else {
 		tobj=std::make_shared<tweet>();
@@ -349,6 +336,37 @@ uint64_t tpanelparentwin::PushTweetOrRetLoadId(uint64_t id, unsigned int pushfla
 		tpaneldbloadmap.insert(std::make_pair(id, tpaneldbloadmap_data(this, pushflags)));
 		return id;
 	}
+}
+
+uint64_t tpanelparentwin::PushTweetOrRetLoadId(const std::shared_ptr<tweet> &tobj, unsigned int pushflags) {
+	bool insertpending=false;
+	if(tobj->lflags&TLF_BEINGLOADEDFROMDB) {
+		insertpending=true;
+	}
+	else {
+		bool user1ready=tobj->user->IsReady(UPDCF_NOUSEREXPIRE|UPDCF_DOWNLOADIMG);
+		bool user2ready=(tobj->user_recipient)?tobj->user_recipient->IsReady(UPDCF_NOUSEREXPIRE|UPDCF_DOWNLOADIMG):1;
+
+		if(user1ready && user2ready) PushTweet(tobj, pushflags);
+		else {
+			insertpending=true;
+			tobj->lflags|=TLF_PENDINGINDBTPANELMAP;
+			if(!user1ready) tobj->tp_list.front().acc->MarkPending(tobj->user->id, tobj->user, tobj, true);
+			if(!user2ready) tobj->tp_list.front().acc->MarkPending(tobj->user_recipient->id, tobj->user_recipient, tobj, true);
+		}
+	}
+	if(insertpending) {
+		bool found=false;
+		auto pit=tpaneldbloadmap.equal_range(tobj->id);
+		for(auto it=pit.first; it!=pit.second; ++it) {
+			if((*it).second.win==this) {
+				found=true;
+				break;
+			}
+		}
+		if(!found) tpaneldbloadmap.insert(std::make_pair(tobj->id, tpaneldbloadmap_data(this, pushflags))); //tpaneldbloadmap.emplace(id, this, pushflags);
+	}
+	return 0;
 }
 
 //if lessthanid is non-zero, is an exclusive upper id limit
@@ -391,7 +409,11 @@ void tpanelparentwin::PageUpHandler() {
 		for(unsigned int i=0; i<pagemove; i++) {
 			it--;
 			displayoffset--;
-			PushTweet(ad.tweetobjs[*it], TPPWPF_ABOVE);
+			const std::shared_ptr<tweet> &t=ad.tweetobjs[*it];
+			bool user1ready=t->user->IsReady(UPDCF_NOUSEREXPIRE|UPDCF_DOWNLOADIMG);
+			bool user2ready=(t->user_recipient)?t->user_recipient->IsReady(UPDCF_NOUSEREXPIRE|UPDCF_DOWNLOADIMG):1;
+			if(user1ready && user2ready) PushTweet(t, TPPWPF_ABOVE);
+			//otherwise tweet is already on pending list
 		}
 	}
 	scrollwin->page_scroll_blocked=false;
@@ -710,7 +732,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 		Newline();
 		BeginAlignment(wxTEXT_ALIGNMENT_CENTRE);
 		for(auto it=me_list.begin(); it!=me_list.end(); ++it) {
-			BeginURL(wxString::Format(wxT("M%" wxLongLongFmtSpec "d"), (*it)->media_id));
+			BeginURL(wxString::Format(wxT("M%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), (int64_t) (*it)->media_id.m_id, (int64_t) (*it)->media_id.t_id));
 			if((*it)->flags&ME_HAVE_THUMB) {
 				AddImage((*it)->thumbimg);
 			}
@@ -723,6 +745,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 		}
 		EndAlignment();
 	}
+	LayoutContent();
 }
 
 void tweetdispscr::DoResize() {

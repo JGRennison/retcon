@@ -80,7 +80,7 @@ struct media_id_type {
 	uint64_t m_id;
 	uint64_t t_id;
 	media_id_type() : m_id(0), t_id(0) { }
-	operator bool() const { return m_id && t_id; }
+	operator bool() const { return m_id || t_id; }
 };
 
 inline bool operator==(const media_id_type &m1, const media_id_type &m2) {

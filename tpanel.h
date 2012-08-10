@@ -107,6 +107,7 @@ struct tpanelparentwin : public wxPanel {
 	~tpanelparentwin();
 	void LoadMore(unsigned int n, uint64_t lessthanid=0, unsigned int pushflags=0);
 	uint64_t PushTweetOrRetLoadId(uint64_t id, unsigned int pushflags=0);
+	uint64_t PushTweetOrRetLoadId(const std::shared_ptr<tweet> &tobj, unsigned int pushflags=0);
 	void PushTweet(const std::shared_ptr<tweet> &t, unsigned int pushflags=0);
 	tweetdispscr *PushTweetIndex(const std::shared_ptr<tweet> &t, size_t index);
 	void tabdetachhandler(wxCommandEvent &event);

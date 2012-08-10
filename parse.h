@@ -20,8 +20,8 @@ struct Handler : public rapidjson::Writer<writestream> {
 };
 
 struct genjsonparser {
-	static void ParseTweetStatics(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj, Handler *jw=0, bool isnew=false);
-	static void DoEntitiesParse(const rapidjson::Value& val, const std::shared_ptr<tweet> &t, bool isnew=false);
+	static void ParseTweetStatics(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj, Handler *jw=0, bool isnew=false, dbsendmsg_list *dbmsglist=0);
+	static void DoEntitiesParse(const rapidjson::Value& val, const std::shared_ptr<tweet> &t, bool isnew=false, dbsendmsg_list *dbmsglist=0);
 	static void ParseUserContents(const rapidjson::Value& val, userdata &userobj, bool is_ssl=0);
 	static void ParseTweetDyn(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj);
 };

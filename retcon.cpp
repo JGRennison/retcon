@@ -218,6 +218,8 @@ void taccount::ExecRBFS(restbackfillstate *rbfs) {
 }
 
 void taccount::StartRestQueryPendings() {
+	if(pendingusers.empty()) return;
+
 	std::shared_ptr<userlookup> ul=std::make_shared<userlookup>();
 	unsigned int numusers=0;
 

@@ -245,12 +245,28 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 			}
 			else me.thumbimg=img;
 			me.flags|=ME_HAVE_THUMB;
+			if(gc.cachethumbs) {
+				wxMemoryOutputStream memstr;
+				me.thumbimg.SaveFile(memstr, wxBITMAP_TYPE_PNG);
+				const unsigned char *data=(const unsigned char *) memstr.GetOutputStreamBuffer()->GetBufferStart();
+				size_t size=memstr.GetSize();
+				wxFile file(me.cached_thumb_filename(), wxFile::write);
+				file.Write(data, size);
+				SHA1(data, size, me.thumb_img_sha1);
+				dbc.UpdateMediaChecksum(me, false);
+			}
 		}
 
 		if(flags&MIDC_FULLIMG) {
 			me.fulldata=std::move(data);
 			me.flags|=ME_HAVE_FULL;
 			if(me.win) me.win->Update();
+			if(gc.cachemedia) {
+				wxFile file(me.cached_full_filename(), wxFile::write);
+				file.Write(me.fulldata.data(), me.fulldata.size());
+				SHA1((const unsigned char *) me.fulldata.data(), (unsigned long) me.fulldata.size(), me.full_img_sha1);
+				dbc.UpdateMediaChecksum(me, true);
+			}
 		}
 
 		if(flags&MIDC_REDRAW_TWEETS) {

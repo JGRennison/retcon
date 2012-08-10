@@ -66,10 +66,10 @@ void UpdateAllTweets(bool redrawimg) {
 
 
 wxString media_entity::cached_full_filename() {
-	return wxStandardPaths::Get().GetUserDataDir() + wxT("/media_") + hexify_wx(media_url);
+	return wxString::Format(wxT("%s%s%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), wxStandardPaths::Get().GetUserDataDir().c_str(), wxT("/media_"), media_id.m_id, media_id.t_id);
 }
 wxString media_entity::cached_thumb_filename() {
-	return wxStandardPaths::Get().GetUserDataDir() + wxT("/mediathumb_") + hexify_wx(media_url);
+	return wxString::Format(wxT("%s%s%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), wxStandardPaths::Get().GetUserDataDir().c_str(), wxT("/mediathumb_"), media_id.m_id, media_id.t_id);
 }
 
 userlookup::~userlookup() {

@@ -64,14 +64,14 @@ void DisplayParseErrorMsg(rapidjson::Document &dc, const wxString &name, const c
 }
 
 //if jw, caller should already have called jw->StartObject(), etc
-void genjsonparser::ParseTweetStatics(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj, Handler *jw, bool isnew) {
+void genjsonparser::ParseTweetStatics(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj, Handler *jw, bool isnew, dbsendmsg_list *dbmsglist) {
 	CheckTransJsonValueDef(tobj->in_reply_to_status_id, val, "in_reply_to_status_id", 0, jw);
 	CheckTransJsonValueDef(tobj->retweet_count, val, "retweet_count", 0, jw);
 	CheckTransJsonValueDef(tobj->source, val, "source", "", jw);
 	CheckTransJsonValueDef(tobj->text, val, "text", "", jw);
 	const rapidjson::Value &entv=val["entities"];
 	if(entv.IsObject()) {
-		DoEntitiesParse(entv, tobj, isnew);
+		DoEntitiesParse(entv, tobj, isnew, dbmsglist);
 		if(jw) {
 			jw->String("entities");
 			entv.Accept(*jw);
@@ -112,7 +112,7 @@ static bool ReadEntityIndices(entity &en, const rapidjson::Value& val) {
 	return ReadEntityIndices(en.start, en.end, val);
 }
 
-void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shared_ptr<tweet> &t, bool isnew) {
+void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shared_ptr<tweet> &t, bool isnew, dbsendmsg_list *dbmsglist) {
 	LogMsg(LFT_PARSE, wxT("jsonparser::DoEntitiesParse"));
 
 	auto &hashtags=val["hashtags"];
@@ -156,8 +156,16 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 					me=&ad.media_list[media_id];
 					me->media_id=media_id;
 					me->media_url=en->fullurl;
+					if(gc.cachethumbs || gc.cachemedia) dbc.InsertMedia(*me, dbmsglist);
 				}
 				else me=&it->second;
+
+				auto res=std::find_if(me->tweet_list.begin(), me->tweet_list.end(), [&](const std::shared_ptr<tweet> &tt) {
+					return tt->id==t->id;
+				});
+				if(res==me->tweet_list.end()) {
+					me->tweet_list.push_front(t);
+				}
 
 				if(me->flags&ME_LOAD_THUMB && !(me->flags&ME_HAVE_THUMB)) {
 					//try to load from file
@@ -165,13 +173,6 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 				}
 				if(!(me->flags&ME_HAVE_THUMB)) {
 					new mediaimgdlconn(me->media_url, media_id, MIDC_FULLIMG | MIDC_THUMBIMG | MIDC_REDRAW_TWEETS);
-				}
-
-				auto res=std::find_if(me->tweet_list.begin(), me->tweet_list.end(), [&](const std::shared_ptr<tweet> &tt) {
-					return tt->id==t->id;
-				});
-				if(res==me->tweet_list.end()) {
-					me->tweet_list.push_front(t);
 				}
 			}
 		}
@@ -227,8 +228,16 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 					}
 				}
 				me->media_url+=":large";
+				if(gc.cachethumbs || gc.cachemedia) dbc.InsertMedia(*me, dbmsglist);
 			}
 			else me=&it->second;
+
+			auto res=std::find_if(me->tweet_list.begin(), me->tweet_list.end(), [&](const std::shared_ptr<tweet> &tt) {
+				return tt->id==t->id;
+			});
+			if(res==me->tweet_list.end()) {
+				me->tweet_list.push_front(t);
+			}
 
 			if(me->flags&ME_LOAD_THUMB && !(me->flags&ME_HAVE_THUMB)) {
 				//try to load from file
@@ -237,13 +246,6 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 			if(!(me->flags&ME_HAVE_THUMB) && me->media_url.size()>6) {
 				std::string thumburl=me->media_url.substr(0, me->media_url.size()-6)+":thumb";
 				new mediaimgdlconn(me->media_url, en->media_id, MIDC_THUMBIMG | MIDC_REDRAW_TWEETS);
-			}
-
-			auto res=std::find_if(me->tweet_list.begin(), me->tweet_list.end(), [&](const std::shared_ptr<tweet> &tt) {
-				return tt->id==t->id;
-			});
-			if(res==me->tweet_list.end()) {
-				me->tweet_list.push_front(t);
 			}
 		}
 	}
@@ -412,7 +414,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, boo
 		writestream wr(json);
 		Handler jw(wr);
 		jw.StartObject();
-		ParseTweetStatics(val, tobj, &jw, true);
+		ParseTweetStatics(val, tobj, &jw, true, dbmsglist);
 		std::string created_at;
 		if(CheckTransJsonValueDef(created_at, val, "created_at", "", 0)) {
 			ParseTwitterDate(0, &tobj->createtime, created_at);

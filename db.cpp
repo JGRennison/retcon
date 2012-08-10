@@ -30,6 +30,9 @@ const char *sql[DBPSC_NUM_STATEMENTS]={
 	"SELECT statjson, dynjson, userid, userrecipid, flags, timestamp, medialist FROM tweets WHERE id == ?;",
 	"INSERT INTO rbfspending(accid, type, startid, endid, maxleft) VALUES (?, ?, ?, ?, ?);",
 	"SELECT url, fullchecksum, thumbchecksum FROM mediacache WHERE (mid == ? AND tid == ?);",
+	"INSERT OR IGNORE INTO mediacache(mid, tid, url) VALUES (?, ?, ?);"
+	"UPDATE OR IGNORE mediacache SET thumbchecksum = ? WHERE (mid == ? AND tid == ?);",
+	"UPDATE OR IGNORE mediacache SET fullchecksum = ? WHERE (mid == ? AND tid == ?);",
 };
 
 static void DBThreadSafeLogMsg(logflagtype logflags, const wxString &str) {
@@ -420,8 +423,8 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			sqlite3_bind_blob(stmt, 6, m->cached_profile_img_hash.data(), m->cached_profile_img_hash.size(), SQLITE_TRANSIENT);
 			sqlite3_bind_blob(stmt, 7, m->mentionindex, m->mentionindex_size, &free);
 			int res=sqlite3_step(stmt);
-			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_INSERTUSER got error: %d (%s) for id:%" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), m->id); }
-			else { DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_INSERTUSER inserted id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) m->id); }
+			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_INSERTUSER got error: %d (%s) for id: %" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), m->id); }
+			else { DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_INSERTUSER inserted id: %" wxLongLongFmtSpec "d"), (sqlite3_int64) m->id); }
 			sqlite3_reset(stmt);
 			break;
 		}
@@ -438,6 +441,30 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			sqlite3_reset(stmt);
 			m->SendReply(m);
 			return;
+		}
+		case DBSM_INSERTMEDIA: {
+			dbinsertmediamsg *m=(dbinsertmediamsg*) msg;
+			sqlite3_stmt *stmt=cache.GetStmt(db, DBPSC_INSERTMEDIA);
+			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->media_id.m_id);
+			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->media_id.t_id);
+			sqlite3_bind_text(stmt, 3, m->url.c_str(), -1, SQLITE_TRANSIENT);
+			int res=sqlite3_step(stmt);
+			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_INSERTMEDIA got error: %d (%s) for id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id); }
+			else { DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_INSERTMEDIA inserted media id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d"), (sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id); }
+			sqlite3_reset(stmt);
+			break;
+		}
+		case DBSM_UPDATEMEDIACHKSM: {
+			dbupdatemediachecksummsg *m=(dbupdatemediachecksummsg*) msg;
+			sqlite3_stmt *stmt=cache.GetStmt(db, m->isfull?DBPSC_UPDATEMEDIAFULLCHKSM:DBPSC_UPDATEMEDIATHUMBCHKSM);
+			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->media_id.m_id);
+			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->media_id.t_id);
+			sqlite3_bind_blob(stmt, 3, m->chksm, sizeof(m->chksm), SQLITE_TRANSIENT);
+			int res=sqlite3_step(stmt);
+			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_UPDATEMEDIACHKSM got error: %d (%s) for id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d (%d)"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id, m->isfull); }
+			else { DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_UPDATEMEDIACHKSM updated media checksum id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d (%d)"), (sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id, m->isfull); }
+			sqlite3_reset(stmt);
+			break;
 		}
 		case DBSM_MSGLIST: {
 			cache.ExecStmt(db, DBPSC_BEGIN);
@@ -515,9 +542,10 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 		}
 		if(dt.flags&ME_LOAD_FULL) memcpy(me.full_img_sha1, dt.full_img_sha1, sizeof(me.full_img_sha1));
 		if(dt.flags&ME_LOAD_THUMB) memcpy(me.thumb_img_sha1, dt.thumb_img_sha1, sizeof(me.thumb_img_sha1));
-		me.flags|=dt.flags;
+		me.flags|=dt.flags|ME_IN_DB;
 	}
 
+	bool checkpendings=false;
 	for(auto it=msg->data.begin(); it!=msg->data.end(); ++it) {
 		dbrettweetdata &dt=*it;
 		DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::OnTpanelTweetLoadFromDB got tweet: id:%" wxLongLongFmtSpec "d, statjson: %s, dynjson: %s"), dt.id, wxstrstd(dt.statjson).c_str(), wxstrstd(dt.dynjson).c_str());
@@ -555,9 +583,13 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 			t->lflags|=TLF_PENDINGINDBTPANELMAP;
 			if(!user1ready) t->tp_list.front().acc->MarkPending(t->user->id, t->user, t, true);
 			if(!user2ready) t->tp_list.front().acc->MarkPending(t->user_recipient->id, t->user_recipient, t, true);
+			checkpendings=true;
 		}
 	}
 	delete msg;
+	if(checkpendings) {
+		for(auto it=alist.begin(); it!=alist.end(); ++it) (*it)->StartRestQueryPendings();
+	}
 }
 
 void dbconn::OnDBThreadDebugMsg(wxCommandEvent &event) {
@@ -684,7 +716,7 @@ void dbconn::InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string stat
 		unsigned char *data=(unsigned char *) malloc(count*16);
 		unsigned char *curdata=data;
 		for(auto it=tobj->entlist.begin(); it!=tobj->entlist.end(); ++it) {
-			if(it->media_id) {
+			if(it->media_id && ad.media_list[it->media_id].flags&ME_IN_DB) {
 				writebeuint64(curdata, it->media_id.m_id);
 				writebeuint64(curdata+8, it->media_id.t_id);
 				curdata+=16;
@@ -719,6 +751,21 @@ void dbconn::InsertUser(const std::shared_ptr<userdatacontainer> &u, dbsendmsg_l
 	msg->cached_profile_img_hash.assign((const char*) u->cached_profile_img_sha1, sizeof(u->cached_profile_img_sha1));
 	msg->mentionindex=settocompressedblob(u->mention_index, msg->mentionindex_size);
 	u->lastupdate_wrotetodb=u->lastupdate;
+	SendMessageOrAddToList(msg, msglist);
+}
+
+void dbconn::InsertMedia(media_entity &me, dbsendmsg_list *msglist) {
+	dbinsertmediamsg *msg=new dbinsertmediamsg();
+	msg->media_id=me.media_id;
+	msg->url=std::string(me.media_url.begin(), me.media_url.end());
+	SendMessageOrAddToList(msg, msglist);
+	me.flags|=ME_IN_DB;
+}
+
+void dbconn::UpdateMediaChecksum(media_entity &me, bool isfull, dbsendmsg_list *msglist) {
+	dbupdatemediachecksummsg *msg=new dbupdatemediachecksummsg(isfull);
+	msg->media_id=me.media_id;
+	memcpy(msg->chksm, isfull?me.full_img_sha1:me.thumb_img_sha1, sizeof(me.thumb_img_sha1));
 	SendMessageOrAddToList(msg, msglist);
 }
 
