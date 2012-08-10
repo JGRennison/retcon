@@ -11,23 +11,25 @@ const unsigned char profimgdictionary[]="http://https://si0.twimg.com/profile_im
 
 const char *startup_sql=
 "PRAGMA locking_mode = EXCLUSIVE;"
-"CREATE TABLE IF NOT EXISTS tweets(id INTEGER PRIMARY KEY NOT NULL, statjson BLOB, dynjson BLOB, userid INTEGER, userrecipid INTEGER, flags INTEGER, timestamp INTEGER);"
+"CREATE TABLE IF NOT EXISTS tweets(id INTEGER PRIMARY KEY NOT NULL, statjson BLOB, dynjson BLOB, userid INTEGER, userrecipid INTEGER, flags INTEGER, timestamp INTEGER, medialist BLOB);"
 "CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY NOT NULL, json BLOB, cachedprofimgurl BLOB, createtimestamp INTEGER, lastupdatetimestamp INTEGER, cachedprofileimgchecksum BLOB, mentionindex BLOB);"
-"CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, json BLOB, tweetids BLOB, dmids BLOB, userid INTEGER);"
+"CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, dispname TEXT, json BLOB, tweetids BLOB, dmids BLOB, userid INTEGER);"
 "CREATE TABLE IF NOT EXISTS settings(accid BLOB, name TEXT, value BLOB, PRIMARY KEY (accid, name));"
 "CREATE TABLE IF NOT EXISTS rbfspending(accid INTEGER, type INTEGER, startid INTEGER, endid INTEGER, maxleft INTEGER);"
+"CREATE TABLE IF NOT EXISTS mediacache(mid INTEGER, tid INTEGER, url BLOB, fullchecksum BLOB, thumbchecksum BLOB, flags INTEGER, PRIMARY KEY (mid, tid));"
 "INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', 'dirtyflag', strftime('%s','now'));";
 
 const char *sql[DBPSC_NUM_STATEMENTS]={
-	"INSERT OR REPLACE INTO tweets(id, statjson, dynjson, userid, userrecipid, flags, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?);",
+	"INSERT OR REPLACE INTO tweets(id, statjson, dynjson, userid, userrecipid, flags, timestamp, medialist) VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
 	"UPDATE tweets SET dynjson = ?, flags = ? WHERE id == ?;",
 	"BEGIN;",
 	"COMMIT;",
 	"INSERT OR REPLACE INTO users(id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex) VALUES (?, ?, ?, ?, ?, ?, ?);",
-	"INSERT INTO acc(name, userid) VALUES (?, ?);",
-	"UPDATE acc SET tweetids = ?, dmids = ? WHERE id == ?;",
-	"SELECT statjson, dynjson, userid, userrecipid, flags, timestamp FROM tweets WHERE id == ?;",
+	"INSERT INTO acc(name, dispname, userid) VALUES (?, ?, ?);",
+	"UPDATE acc SET tweetids = ?, dmids = ?, dispname = ? WHERE id == ?;",
+	"SELECT statjson, dynjson, userid, userrecipid, flags, timestamp, medialist FROM tweets WHERE id == ?;",
 	"INSERT INTO rbfspending(accid, type, startid, endid, maxleft) VALUES (?, ?, ?, ?, ?);",
+	"SELECT url, fullchecksum, thumbchecksum FROM mediacache WHERE (mid == ? AND tid == ?);",
 };
 
 static void DBThreadSafeLogMsg(logflagtype logflags, const wxString &str) {
@@ -163,7 +165,7 @@ static void bind_compressed(sqlite3_stmt* stmt, int num, const std::string &in, 
 
 static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsize) {
 	if(!insize) {
-		DBLogMsg(LFT_ZLIBERR, wxT("DoDecompress: insize=0"));
+		DBLogMsg(LFT_ZLIBTRACE, wxT("DoDecompress: insize=0"));
 		outsize=0;
 		return 0;
 	}
@@ -290,6 +292,17 @@ template <typename C> void setfromcompressedblob(C func, sqlite3_stmt *stmt, int
 	free(blarray);
 }
 
+inline void writebeuint64(unsigned char* data, uint64_t id) {
+	data[0]=(id>>56)&0xFF;
+	data[1]=(id>>48)&0xFF;
+	data[2]=(id>>40)&0xFF;
+	data[3]=(id>>32)&0xFF;
+	data[4]=(id>>24)&0xFF;
+	data[5]=(id>>16)&0xFF;
+	data[6]=(id>>8)&0xFF;
+	data[7]=(id>>0)&0xFF;
+}
+
 static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cache) {
 	switch(msg->type) {
 		case DBSM_QUIT:
@@ -306,6 +319,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			sqlite3_bind_int64(stmt, 5, (sqlite3_int64) m->user2);
 			sqlite3_bind_int64(stmt, 6, (sqlite3_int64) m->flags);
 			sqlite3_bind_int64(stmt, 7, (sqlite3_int64) m->timestamp);
+			sqlite3_bind_blob(stmt, 8, m->mediaindex, m->mediaindex_size, &free);
 			int res=sqlite3_step(stmt);
 			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_INSERTTWEET got error: %d (%s) for id:%" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), m->id); }
 			else { DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_INSERTTWEET inserted row id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) m->id); }
@@ -328,6 +342,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			dbseltweetmsg *m=(dbseltweetmsg*) msg;
 			sqlite3_stmt *stmt=cache.GetStmt(db, DBPSC_SELTWEET);
 			std::forward_list<dbrettweetdata> recv_data;
+			std::forward_list<media_id_type> media_ids;
 			for(auto it=m->id_set.cbegin(); it!=m->id_set.cend(); ++it) {
 				sqlite3_bind_int64(stmt, 1, (sqlite3_int64) (*it));
 				int res=sqlite3_step(stmt);
@@ -343,9 +358,49 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 					rd.user2=(uint64_t) sqlite3_column_int64(stmt, 3);
 					rd.flags=(uint64_t) sqlite3_column_int64(stmt, 4);
 					rd.timestamp=(uint64_t) sqlite3_column_int64(stmt, 5);
+
+					size_t mediaidarraysize;
+					unsigned char *mediaidarray=(unsigned char*) column_get_compressed(stmt, 6, mediaidarraysize);
+					mediaidarraysize&=~15;
+					for(unsigned int i=0; i<mediaidarraysize; i+=16) {		//stored in big endian format
+						media_ids.emplace_front();
+						media_id_type &md=media_ids.front();
+						for(unsigned int j=0; j<8; j++) md.m_id<<=8, md.m_id|=mediaidarray[i+j];
+						for(unsigned int j=8; j<15; j++) md.t_id<<=8, md.t_id|=mediaidarray[i+j];
+					}
+					free(mediaidarray);
 				}
-				else { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_SELTWEET got error: %d (%s) for id:%" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) (*it)); }
+				else { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_SELTWEET got error: %d (%s) for id: %" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) (*it)); }
 				sqlite3_reset(stmt);
+			}
+			m->media_data.clear();
+			if(!media_ids.empty()) {
+				sqlite3_stmt *mstmt=cache.GetStmt(db, DBPSC_SELMEDIA);
+				for(auto it=media_ids.cbegin(); it!=media_ids.cend(); ++it) {
+					sqlite3_bind_int64(mstmt, 1, (sqlite3_int64) it->m_id);
+					sqlite3_bind_int64(mstmt, 2, (sqlite3_int64) it->t_id);
+					int res=sqlite3_step(mstmt);
+					if(res==SQLITE_ROW) {
+						m->media_data.emplace_front();
+						dbretmediadata &md=m->media_data.front();
+						md.media_id=*it;
+						md.flags=0;
+						size_t outsize;
+						md.url=column_get_compressed(mstmt, 0, outsize);
+						if(sqlite3_column_bytes(mstmt, 1)==sizeof(md.full_img_sha1)) {
+							memcpy(md.full_img_sha1, sqlite3_column_blob(mstmt, 1), sizeof(md.full_img_sha1));
+							md.flags|=ME_LOAD_FULL;
+						}
+						else memset(md.full_img_sha1, 0, sizeof(md.full_img_sha1));
+						if(sqlite3_column_bytes(mstmt, 2)==sizeof(md.thumb_img_sha1)) {
+							memcpy(md.thumb_img_sha1, sqlite3_column_blob(mstmt, 2), sizeof(md.thumb_img_sha1));
+							md.flags|=ME_LOAD_THUMB;
+						}
+						else memset(md.thumb_img_sha1, 0, sizeof(md.thumb_img_sha1));
+					}
+					else { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_SELTWEET (media load) got error: %d (%s) for id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) it->m_id, (sqlite3_int64) it->t_id); }
+					sqlite3_reset(mstmt);
+				}
 			}
 			if(!recv_data.empty()) {
 				m->data=std::move(recv_data);
@@ -374,7 +429,8 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			dbinsertaccmsg *m=(dbinsertaccmsg*) msg;
 			sqlite3_stmt *stmt=cache.GetStmt(db, DBPSC_INSERTNEWACC);
 			sqlite3_bind_text(stmt, 1, m->name.c_str(), -1, SQLITE_TRANSIENT);
-			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->userid);
+			sqlite3_bind_text(stmt, 2, m->dispname.c_str(), -1, SQLITE_TRANSIENT);
+			sqlite3_bind_int64(stmt, 3, (sqlite3_int64) m->userid);
 			int res=sqlite3_step(stmt);
 			m->dbindex=(unsigned int) sqlite3_last_insert_rowid(db);
 			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_INSERTACC got error: %d (%s) for user name: %s"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), wxstrstd(m->dispname).c_str()); }
@@ -446,6 +502,22 @@ END_EVENT_TABLE()
 
 void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 	dbseltweetmsg *msg=(dbseltweetmsg *) event.GetClientData();
+
+	for(auto it=msg->media_data.begin(); it!=msg->media_data.end(); ++it) {
+		dbretmediadata &dt=*it;
+		media_entity &me=ad.media_list[dt.media_id];
+		if(!me.media_id) {
+			me.media_id=dt.media_id;
+			me.media_url=dt.url;
+			if(me.media_url.size()) {
+				ad.img_media_map[me.media_url]=me.media_id;
+			}
+		}
+		if(dt.flags&ME_LOAD_FULL) memcpy(me.full_img_sha1, dt.full_img_sha1, sizeof(me.full_img_sha1));
+		if(dt.flags&ME_LOAD_THUMB) memcpy(me.thumb_img_sha1, dt.thumb_img_sha1, sizeof(me.thumb_img_sha1));
+		me.flags|=dt.flags;
+	}
+
 	for(auto it=msg->data.begin(); it!=msg->data.end(); ++it) {
 		dbrettweetdata &dt=*it;
 		DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::OnTpanelTweetLoadFromDB got tweet: id:%" wxLongLongFmtSpec "d, statjson: %s, dynjson: %s"), dt.id, wxstrstd(dt.statjson).c_str(), wxstrstd(dt.dynjson).c_str());
@@ -603,6 +675,29 @@ void dbconn::InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string stat
 	msg->user2=tobj->user_recipient?tobj->user_recipient->id:0;
 	msg->timestamp=tobj->createtime;
 	msg->flags=tobj->flags.Save();
+
+	unsigned int count=0;
+	for(auto it=tobj->entlist.begin(); it!=tobj->entlist.end(); ++it) {
+		if(it->media_id) count++;
+	}
+	if(count) {
+		unsigned char *data=(unsigned char *) malloc(count*16);
+		unsigned char *curdata=data;
+		for(auto it=tobj->entlist.begin(); it!=tobj->entlist.end(); ++it) {
+			if(it->media_id) {
+				writebeuint64(curdata, it->media_id.m_id);
+				writebeuint64(curdata+8, it->media_id.t_id);
+				curdata+=16;
+			}
+		}
+		msg->mediaindex=DoCompress(data, count*16, msg->mediaindex_size, 'Z');
+		free(data);
+	}
+	else {
+		msg->mediaindex=0;
+		msg->mediaindex_size=0;
+	}
+
 	SendMessageOrAddToList(msg, msglist);
 }
 
@@ -629,7 +724,7 @@ void dbconn::InsertUser(const std::shared_ptr<userdatacontainer> &u, dbsendmsg_l
 
 //tweetids, dmids are little endian in database
 void dbconn::AccountSync(sqlite3 *adb) {
-	const char getacc[]="SELECT id, name, tweetids, dmids, userid FROM acc;";
+	const char getacc[]="SELECT id, name, tweetids, dmids, userid, dispname FROM acc;";
 	sqlite3_stmt *getstmt=0;
 	sqlite3_prepare_v2(adb, getacc, sizeof(getacc)+1, &getstmt, 0);
 	do {
@@ -648,21 +743,11 @@ void dbconn::AccountSync(sqlite3 *adb) {
 			setfromcompressedblob([&](uint64_t &id) { ta->dm_ids.insert(id); }, getstmt, 3);
 			uint64_t userid=(uint64_t) sqlite3_column_int64(getstmt, 4);
 			ta->usercont=ad.GetUserContainerById(userid);
+			ta->dispname=wxString::FromUTF8((const char*) sqlite3_column_text(getstmt, 1));
 		}
 		else break;
 	} while(true);
 	sqlite3_finalize(getstmt);
-}
-
-inline void writebeuint64(unsigned char* data, uint64_t id) {
-	data[0]=(id>>56)&0xFF;
-	data[1]=(id>>48)&0xFF;
-	data[2]=(id>>40)&0xFF;
-	data[3]=(id>>32)&0xFF;
-	data[4]=(id>>24)&0xFF;
-	data[5]=(id>>16)&0xFF;
-	data[6]=(id>>8)&0xFF;
-	data[7]=(id>>0)&0xFF;
 }
 
 void dbconn::AccountIdListsSync(sqlite3 *adb) {
@@ -677,7 +762,9 @@ void dbconn::AccountIdListsSync(sqlite3 *adb) {
 		data=settocompressedblob((*it)->dm_ids, size);
 		sqlite3_bind_blob(setstmt, 2, data, size, &free);
 
-		sqlite3_bind_int(setstmt, 3, (*it)->dbindex);
+		sqlite3_bind_text(setstmt, 3, (*it)->dispname.ToUTF8(), -1, SQLITE_TRANSIENT);
+
+		sqlite3_bind_int(setstmt, 4, (*it)->dbindex);
 
 		int res=sqlite3_step(setstmt);
 		if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("dbconn::AccountIdListsSync got error: %d (%s) for user dbindex: %d, name: %s"), res, wxstrstd(sqlite3_errmsg(adb)).c_str(), (*it)->dbindex, (*it)->dispname.c_str()); }

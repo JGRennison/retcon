@@ -1,5 +1,6 @@
 #include "retcon.h"
 #include <cstdio>
+#include <openssl/sha.h>
 
 globconf gc;
 std::list<std::shared_ptr<taccount> > alist;
@@ -356,4 +357,66 @@ void FreezeAll() {
 }
 void ThawAll() {
 	for(auto it=mainframelist.begin(); it!=mainframelist.end(); ++it) (*it)->Thaw();
+}
+
+std::string hexify(const std::string &in) {
+	const char hex[]="0123456789ABCDEF";
+	size_t len = in.length();
+	std::string out;
+	out.reserve(2*len);
+	for(size_t i=0; i<len; i++) {
+		const unsigned char c = (const unsigned char) in[i];
+		out.push_back(hex[c>>4]);
+		out.push_back(hex[c&15]);
+	}
+	return out;
+}
+
+wxString hexify_wx(const std::string &in) {
+	const wxChar hex[]=wxT("0123456789ABCDEF");
+	size_t len = in.length();
+	wxString out;
+	out.Alloc(2*len);
+	for(size_t i=0; i<len; i++) {
+		const unsigned char c = (const unsigned char) in[i];
+		out.Append(hex[c>>4]);
+		out.Append(hex[c&15]);
+	}
+	return out;
+}
+
+bool LoadFromFileAndCheckHash(const wxString &filename, const unsigned char *hash, char *&data, size_t &size) {
+	wxFile file;
+	bool opened=file.Open(filename);
+	if(opened) {
+		wxFileOffset len=file.Length();
+		if(len && len<(50<<20)) {	//don't load empty absurdly large files
+			data=(char*) malloc(len);
+			size=file.Read(data, len);
+			if(size==len) {
+				unsigned char curhash[20];
+				SHA1((const unsigned char *) data, (unsigned long) len, curhash);
+				if(memcmp(curhash, hash, 20)==0) {
+					return true;
+				}
+			}
+			free(data);
+		}
+	}
+	data=0;
+	size=0;
+	return false;
+}
+
+bool LoadImageFromFileAndCheckHash(const wxString &filename, const unsigned char *hash, wxImage &img) {
+	char *data;
+	size_t size;
+	bool success=false;
+	if(LoadFromFileAndCheckHash(filename, hash, data, size)) {
+		wxMemoryInputStream memstream(data, size);
+		if(img.LoadFile(memstream, wxBITMAP_TYPE_ANY)) {
+			success=true;
+		}
+	}
+	return success;
 }

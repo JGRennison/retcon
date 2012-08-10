@@ -12,6 +12,7 @@ typedef enum {
 	DBPSC_UPDATEACCIDLISTS,
 	DBPSC_SELTWEET,
 	DBPSC_INSERTRBFSP,
+	DBPSC_SELMEDIA,
 
 	DBPSC_NUM_STATEMENTS,
 } DBPSC_TYPE;
@@ -86,6 +87,8 @@ struct dbinserttweetmsg : public dbsendmsg {
 	std::string dynjson;
 	uint64_t id, user1, user2, timestamp;
 	uint64_t flags;
+	unsigned char *mediaindex;			//already packed and compressed, must be malloced
+	size_t mediaindex_size;
 };
 
 struct dbupdatetweetmsg : public dbsendmsg {
@@ -110,11 +113,26 @@ struct dbrettweetdata {
 	dbrettweetdata(const dbrettweetdata& that) = delete;
 };
 
+struct dbretmediadata {
+	media_id_type media_id;
+	char *url;	//free when done
+	unsigned char full_img_sha1[20];
+	unsigned char thumb_img_sha1[20];
+	unsigned int flags;
+
+	dbretmediadata() : url(0) { }
+	~dbretmediadata() {
+		if(url) free(url);
+	}
+	dbretmediadata(const dbretmediadata& that) = delete;
+};
+
 struct dbseltweetmsg : public dbsendmsg_callback {
 	dbseltweetmsg() : dbsendmsg_callback(DBSM_SELTWEET) { }
 
 	std::set<uint64_t> id_set;			//ids to select
 	std::forward_list<dbrettweetdata> data;		//return data
+	std::forward_list<dbretmediadata> media_data;	//return data
 };
 
 struct dbinsertusermsg : public dbsendmsg {

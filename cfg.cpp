@@ -17,6 +17,8 @@ genoptglobconf gcglobdefaults {
 	{ wxT("40"), 1},
 	{ wxT("B@unb - T - FNC"), 1},
 	{ wxT("B@unb -> B@Unb - T - FNC"), 1},
+	{ wxT("1"), 1 },
+	{ wxT("0"), 1 },
 };
 
 taccount::taccount(genoptconf *incfg) {
@@ -78,6 +80,8 @@ void globconf::CFGParamConv() {
 	userexpiretime*=60;
 	gcfg.maxpanelprofimgsize.val.ToULong(&maxpanelprofimgsize);
 	gcfg.maxtweetsdisplayinpanel.val.ToULong(&maxtweetsdisplayinpanel);
+	cachethumbs=(gcfg.cachethumbs.val==wxT("1"));
+	cachemedia=(gcfg.cachemedia.val==wxT("1"));
 }
 
 void genoptconf::CFGWriteOutCurDir(DBWriteConfig &twfc) {
@@ -110,6 +114,8 @@ void genoptglobconf::CFGWriteOut(DBWriteConfig &twfc) {
 	maxtweetsdisplayinpanel.CFGWriteOutCurDir(twfc, "maxtweetsdisplayinpanel");
 	tweetdispformat.CFGWriteOutCurDir(twfc, "tweetdispformat");
 	dmdispformat.CFGWriteOutCurDir(twfc, "dmdispformat");
+	cachethumbs.CFGWriteOutCurDir(twfc, "cachethumbs");
+	cachemedia.CFGWriteOutCurDir(twfc, "cachemedia");
 }
 void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent) {
 	twfc.SetDBIndexGlobal();
@@ -119,6 +125,8 @@ void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent)
 	maxtweetsdisplayinpanel.CFGReadInCurDir(twfc, "maxtweetsdisplayinpanel", parent.maxtweetsdisplayinpanel.val);
 	tweetdispformat.CFGReadInCurDir(twfc, "tweetdispformat", parent.tweetdispformat.val);
 	dmdispformat.CFGReadInCurDir(twfc, "dmdispformat", parent.dmdispformat.val);
+	cachethumbs.CFGReadInCurDir(twfc, "cachethumbs", parent.cachethumbs.val);
+	cachemedia.CFGReadInCurDir(twfc, "cachemedia", parent.cachemedia.val);
 }
 
 void genopt::CFGWriteOutCurDir(DBWriteConfig &twfc, const char *name) {

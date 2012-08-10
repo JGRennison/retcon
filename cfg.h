@@ -26,6 +26,8 @@ struct genoptglobconf {
 	genopt maxtweetsdisplayinpanel;
 	genopt tweetdispformat;
 	genopt dmdispformat;
+	genopt cachethumbs;
+	genopt cachemedia;
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent);
 };
@@ -37,6 +39,8 @@ struct globconf {
 	unsigned long userexpiretime;
 	unsigned long maxpanelprofimgsize;
 	unsigned long maxtweetsdisplayinpanel;
+	bool cachethumbs;
+	bool cachemedia;
 
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc);

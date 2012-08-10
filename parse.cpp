@@ -141,34 +141,37 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 				en->type=ENT_URL_IMG;
 				t->flags.Set('I');
 
-				uint64_t &media_id=ad.img_media_map[en->fullurl];
+				media_id_type &media_id=ad.img_media_map[en->fullurl];
 
-				if(!media_id) {
-					media_id=ad.next_media_id;
+				if(!media_id.m_id) {
+					media_id.m_id=ad.next_media_id;
 					ad.next_media_id++;
+					media_id.t_id=t->id;
 				}
 				en->media_id=media_id;
 
+				media_entity *me=0;
 				auto it=ad.media_list.find(media_id);
 				if(it==ad.media_list.end()) {
-					media_entity &me=ad.media_list[media_id];
-					me.media_id=media_id;
-					me.fullsize.Set(200, 200);
-					me.media_url=en->fullurl;
-					me.tweet_list.push_front(t);
-					new mediaimgdlconn(me.media_url, media_id, MIDC_FULLIMG | MIDC_THUMBIMG | MIDC_REDRAW_TWEETS);
+					me=&ad.media_list[media_id];
+					me->media_id=media_id;
+					me->media_url=en->fullurl;
 				}
-				else {
-					media_entity &me=it->second;
-					auto res=std::find_if(me.tweet_list.begin(), me.tweet_list.end(), [&](std::shared_ptr<tweet> &tt) {
-						return tt->id==t->id;
-					});
+				else me=&it->second;
 
-					LogMsgFormat(LFT_PARSE, wxT("Parse: existing media image %s"), wxstrstd(me.media_url).c_str());
+				if(me->flags&ME_LOAD_THUMB && !(me->flags&ME_HAVE_THUMB)) {
+					//try to load from file
+					if(LoadImageFromFileAndCheckHash(me->cached_thumb_filename(), me->thumb_img_sha1, me->thumbimg)) me->flags|=ME_HAVE_THUMB;
+				}
+				if(!(me->flags&ME_HAVE_THUMB)) {
+					new mediaimgdlconn(me->media_url, media_id, MIDC_FULLIMG | MIDC_THUMBIMG | MIDC_REDRAW_TWEETS);
+				}
 
-					if(res==me.tweet_list.end()) {
-						me.tweet_list.push_front(t);
-					}
+				auto res=std::find_if(me->tweet_list.begin(), me->tweet_list.end(), [&](const std::shared_ptr<tweet> &tt) {
+					return tt->id==t->id;
+				});
+				if(res==me->tweet_list.end()) {
+					me->tweet_list.push_front(t);
 				}
 			}
 		}
@@ -202,53 +205,45 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 			if(!ReadEntityIndices(*en, media[i])) { t->entlist.pop_front(); continue; }
 			CheckTransJsonValueDef(en->text, media[i], "display_url", t->text.substr(en->start, en->end-en->start));
 			CheckTransJsonValueDef(en->fullurl, media[i], "expanded_url", en->text);
-			if(!CheckTransJsonValueDef(en->media_id, media[i], "id", 0)) { t->entlist.pop_front(); continue; }
+			if(!CheckTransJsonValueDef(en->media_id.m_id, media[i], "id", 0)) { t->entlist.pop_front(); continue; }
+			en->media_id.t_id=0;
 			//auto pair = ad.media_list.emplace(en->media_id);	//emplace is not yet implemented in libstdc
 			//if(pair.second) { //new element inserted
 			//	media_entity &me=*(pair.first);
+
+			media_entity *me=0;
 			auto it=ad.media_list.find(en->media_id);
 			if(it==ad.media_list.end()) {
-				media_entity &me=ad.media_list[en->media_id];
-				me.media_id=en->media_id;
+				me=&ad.media_list[en->media_id];
+				me->media_id=en->media_id;
 				if(t->flags.Get('s')) {
-					if(!CheckTransJsonValueDef(me.media_url, media[i], "media_url_https", "")) {
-						CheckTransJsonValueDef(me.media_url, media[i], "media_url", "");
+					if(!CheckTransJsonValueDef(me->media_url, media[i], "media_url_https", "")) {
+						CheckTransJsonValueDef(me->media_url, media[i], "media_url", "");
 					}
 				}
 				else {
-					if(!CheckTransJsonValueDef(me.media_url, media[i], "media_url", "")) {
-						CheckTransJsonValueDef(me.media_url, media[i], "media_url_https", "");
+					if(!CheckTransJsonValueDef(me->media_url, media[i], "media_url", "")) {
+						CheckTransJsonValueDef(me->media_url, media[i], "media_url_https", "");
 					}
 				}
-				auto &sizes=media[i]["sizes"]["large"];
-				int width;
-				int height;
-				if(sizes.IsObject()) {
-					width=CheckGetJsonValueDef<int>(sizes, "w", -1);
-					height=CheckGetJsonValueDef<int>(sizes, "h", -1);
-				}
-				else width=height=200;
-				me.fullsize.Set(width, height);
-
-				std::string thumburl=me.media_url+":thumb";
-				me.media_url+=":large";
-
-				LogMsgFormat(LFT_PARSE, wxT("Parse: media image %s, w: %d, h: %d"), wxstrstd(me.media_url).c_str(), width, height);
-
-				me.tweet_list.push_front(t);
-				new mediaimgdlconn(thumburl, en->media_id, MIDC_THUMBIMG | MIDC_REDRAW_TWEETS);
+				me->media_url+=":large";
 			}
-			else {
-				media_entity &me=it->second;
-				auto res=std::find_if(me.tweet_list.begin(), me.tweet_list.end(), [&](std::shared_ptr<tweet> &tt) {
-					return tt->id==t->id;
-				});
+			else me=&it->second;
 
-				LogMsgFormat(LFT_PARSE, wxT("Parse: existing media image %s"), wxstrstd(me.media_url).c_str());
+			if(me->flags&ME_LOAD_THUMB && !(me->flags&ME_HAVE_THUMB)) {
+				//try to load from file
+				if(LoadImageFromFileAndCheckHash(me->cached_thumb_filename(), me->thumb_img_sha1, me->thumbimg)) me->flags|=ME_HAVE_THUMB;
+			}
+			if(!(me->flags&ME_HAVE_THUMB) && me->media_url.size()>6) {
+				std::string thumburl=me->media_url.substr(0, me->media_url.size()-6)+":thumb";
+				new mediaimgdlconn(me->media_url, en->media_id, MIDC_THUMBIMG | MIDC_REDRAW_TWEETS);
+			}
 
-				if(res==me.tweet_list.end()) {
-					me.tweet_list.push_front(t);
-				}
+			auto res=std::find_if(me->tweet_list.begin(), me->tweet_list.end(), [&](const std::shared_ptr<tweet> &tt) {
+				return tt->id==t->id;
+			});
+			if(res==me->tweet_list.end()) {
+				me->tweet_list.push_front(t);
 			}
 		}
 	}
@@ -300,7 +295,8 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 		case CS_ACCVERIFY:
 			tac->usercont=DoUserParse(dc);
 			tac->usercont->udc_flags|=UDC_THIS_IS_ACC_USER_HINT;
-			tac->dispname=wxstrstd(tac->usercont->GetUser().name);
+			if(tac->usercont->GetUser().name.size()) tac->dispname=wxstrstd(tac->usercont->GetUser().name);
+			else tac->dispname=wxstrstd(tac->usercont->GetUser().screen_name);
 			tac->PostAccVerifyInit();
 			break;
 		case CS_USERLIST:

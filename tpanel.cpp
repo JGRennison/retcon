@@ -290,6 +290,7 @@ void tpanelparentwin::PushTweet(const std::shared_ptr<tweet> &t, unsigned int pu
 }
 
 tweetdispscr *tpanelparentwin::PushTweetIndex(const std::shared_ptr<tweet> &t, size_t index) {
+	LogMsgFormat(LFT_TPANEL, "tpanelparentwin::PushTweetIndex, id: %" wxLongLongFmtSpec "d, %d", t->id, index);
 	wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
 	tweetdispscr *td=new tweetdispscr(t, scrollwin, this, hbox);
 
@@ -414,7 +415,7 @@ void tpanelparentwin::UpdateCLabel() {
 
 void tpanelparentwin::StartScrollFreeze(tppw_scrollfreeze &s) {
 	int scrollstart;
-	s.scr->GetViewStart(0, &scrollstart);
+	scrollwin->GetViewStart(0, &scrollstart);
 	if(!scrollstart && !displayoffset) {
 		s.scr=0;
 		s.extrapixels=0;
@@ -758,19 +759,28 @@ void tweetdispscr::urleventhandler(wxTextUrlEvent &event) {
 	wxString url=textattr.GetURL();
 	LogMsgFormat(LFT_TPANEL, wxT("URL clicked, id: %s"), url.c_str());
 	if(url[0]=='M') {
-		uint64_t media_id=0;
+		media_id_type media_id;
 		//url.Mid(1).ToULongLong(&media_id);	//not implemented on some systems
 
 		//poor man's strtoull
-		for(unsigned int i=1; i<url.Len(); i++) {
+		unsigned int i=1;
+		for(; i<url.Len(); i++) {
 			if(url[i]>='0' && url[i]<='9') {
-				media_id*=10;
-				media_id+=url[i]-'0';
+				media_id.m_id*=10;
+				media_id.m_id+=url[i]-'0';
+			}
+			else break;
+		}
+		if(url[i]!='_') return;
+		for(i++; i<url.Len(); i++) {
+			if(url[i]>='0' && url[i]<='9') {
+				media_id.t_id*=10;
+				media_id.t_id+=url[i]-'0';
 			}
 			else break;
 		}
 
-		LogMsgFormat(LFT_TPANEL, wxT("Media image clicked, str: %s, id: %" wxLongLongFmtSpec "d"), url.Mid(1).c_str(), media_id);
+		LogMsgFormat(LFT_TPANEL, wxT("Media image clicked, str: %s, id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d"), url.Mid(1).c_str(), media_id.m_id, media_id.t_id);
 		if(ad.media_list[media_id].win) {
 			ad.media_list[media_id].win->Raise();
 		}
@@ -850,10 +860,25 @@ BEGIN_EVENT_TABLE(media_display_win, wxFrame)
 	EVT_MENU(MDID_SAVE,  media_display_win::OnSave)
 END_EVENT_TABLE()
 
-media_display_win::media_display_win(wxWindow *parent, uint64_t media_id_)
+media_display_win::media_display_win(wxWindow *parent, media_id_type media_id_)
 	: wxFrame(parent, wxID_ANY, wxstrstd(ad.media_list[media_id_].media_url)), media_id(media_id_), sb(0), st(0), sz(0) {
 	Freeze();
-	ad.media_list[media_id_].win=this;
+	media_entity *me=&ad.media_list[media_id_];
+	me->win=this;
+
+	if(me->flags&ME_LOAD_FULL && !(me->flags&ME_HAVE_FULL)) {
+		//try to load from file
+		char *data;
+		size_t size;
+		if(LoadFromFileAndCheckHash(me->cached_full_filename(), me->full_img_sha1, data, size)) {
+			me->flags|=ME_HAVE_FULL;
+			me->fulldata.assign(data, size);	//redundant copy, but oh well
+		}
+		free(data);
+	}
+	if(!(me->flags&ME_HAVE_FULL) && me->media_url.size()) {
+		new mediaimgdlconn(me->media_url, media_id_, MIDC_FULLIMG | MIDC_OPPORTUNIST_THUMB | MIDC_OPPORTUNIST_REDRAW_TWEETS);
+	}
 
 	wxMenu *menuF = new wxMenu;
 	savemenuitem=menuF->Append( MDID_SAVE, wxT("&Save Image"));
@@ -866,9 +891,6 @@ media_display_win::media_display_win(wxWindow *parent, uint64_t media_id_)
 	sz=new wxBoxSizer(wxVERTICAL);
 	SetSizer(sz);
 	Update();
-	if(!sb) {
-		new mediaimgdlconn(ad.media_list[media_id_].media_url, media_id_, MIDC_FULLIMG | MIDC_OPPORTUNIST_THUMB | MIDC_OPPORTUNIST_REDRAW_TWEETS);
-	}
 	Thaw();
 	Show();
 }
@@ -921,7 +943,6 @@ bool media_display_win::GetImage(wxImage &img, wxString &message) {
 		if(me->flags&ME_HAVE_FULL) {
 			wxMemoryInputStream memstream(me->fulldata.data(), me->fulldata.size());
 			img.LoadFile(memstream, wxBITMAP_TYPE_ANY);
-			me->fullsize.Set(img.GetWidth(),img.GetHeight());
 			return true;
 		}
 		else if(me->flags&ME_FULL_FAILED) {

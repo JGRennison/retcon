@@ -64,6 +64,14 @@ void UpdateAllTweets(bool redrawimg) {
 	}
 }
 
+
+wxString media_entity::cached_full_filename() {
+	return wxStandardPaths::Get().GetUserDataDir() + wxT("/media_") + hexify_wx(media_url);
+}
+wxString media_entity::cached_thumb_filename() {
+	return wxStandardPaths::Get().GetUserDataDir() + wxT("/mediathumb_") + hexify_wx(media_url);
+}
+
 userlookup::~userlookup() {
 	UnMarkAll();
 }
@@ -312,30 +320,10 @@ bool userdatacontainer::ImgIsReady(unsigned int updcf_flags) {
 	if(cached_profile_img_url.size() && !(udc_flags&UDC_PROFILE_BITMAP_SET))  {
 		wxImage img;
 		wxString filename;
-		bool success=false;
 		GetImageLocalFilename(filename);
-		wxFile file;
-		bool opened=file.Open(filename);
-		if(opened) {
-			wxFileOffset len=file.Length();
-			if(len && len<(50<<20)) {	//don't load empty absurdly large files
-				char *data=(char*) malloc(len);
-				size_t res=file.Read(data, len);
-				if(res==len) {
-					unsigned char hash[20];
-					SHA1((const unsigned char *) data, (unsigned long) len, hash);
-					if(memcmp(hash, cached_profile_img_sha1, 20)==0) {
-						wxMemoryInputStream memstream(data, len);
-						if(img.LoadFile(memstream, wxBITMAP_TYPE_ANY)) {
-							SetProfileBitmapFromwxImage(img);
-							success=true;
-						}
-					}
-				}
-				free(data);
-			}
-		}
-		if(!success) {
+		bool success=LoadImageFromFileAndCheckHash(filename, cached_profile_img_sha1, img);
+		if(success) SetProfileBitmapFromwxImage(img);
+		else {
 			LogMsgFormat(LFT_OTHERERR, wxT("userdatacontainer::ImgIsReady, cached profile image file for user id: %" wxLongLongFmtSpec "d (%s), file: %s, url: %s, missing, invalid or failed hash check"),
 				id, wxstrstd(GetUser().screen_name).c_str(), filename.c_str(), wxstrstd(cached_profile_img_url).c_str());
 			cached_profile_img_url.clear();
@@ -400,7 +388,7 @@ void userdatacontainer::UnmarkPending(const std::shared_ptr<tweet> &t) {
 		t->lflags&=~TLF_PENDINGINDBTPANELMAP;
 		t->lflags&=~TLF_BEINGLOADEDFROMDB;
 		auto itpair=tpaneldbloadmap.equal_range(t->id);
-		for(auto it=itpair.first; it!=itpair.second; ++it) (*it).second.win->PushTweet(t);
+		for(auto it=itpair.first; it!=itpair.second; ++it) (*it).second.win->PushTweet(t, (*it).second.pushflags);
 		tpaneldbloadmap.erase(itpair.first, itpair.second);
 	}
 }

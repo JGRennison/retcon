@@ -193,10 +193,10 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 	cp.Standby(this);
 }
 
-void mediaimgdlconn::Init(const std::string &imgurl_, uint64_t media_id_, unsigned int flags_) {
+void mediaimgdlconn::Init(const std::string &imgurl_, media_id_type media_id_, unsigned int flags_) {
 	media_id=media_id_;
 	flags=flags_;
-	LogMsgFormat(LFT_SOCKTRACE, wxT("Fetching media image %s, id: %" wxLongLongFmtSpec "d, flags: %X, conn: %p"), wxstrstd(imgurl_).c_str(), media_id_, flags_, this);
+	LogMsgFormat(LFT_SOCKTRACE, wxT("Fetching media image %s, id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, flags: %X, conn: %p"), wxstrstd(imgurl_).c_str(), media_id_.m_id, media_id_.t_id, flags_, this);
 	dlconn::Init(imgurl_);
 }
 

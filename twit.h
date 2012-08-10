@@ -148,28 +148,36 @@ struct entity {
 	std::string text;
 	std::string fullurl;
 	std::shared_ptr<userdatacontainer> user;
-	uint64_t media_id;
+	media_id_type media_id;
 
-	entity(ENT_ENUMTYPE t) : type(t), media_id(0) {}
+	entity(ENT_ENUMTYPE t) : type(t) {}
 };
 
 enum {
 	ME_HAVE_THUMB	= 1<<0,
 	ME_HAVE_FULL	= 1<<1,
 	ME_FULL_FAILED	= 1<<2,
+	ME_SAVED_THUMB	= 1<<3,
+	ME_SAVED_FULL	= 1<<4,
+	ME_LOAD_THUMB	= 1<<5,
+	ME_LOAD_FULL	= 1<<6,
 };
 
 struct media_entity {
-	uint64_t media_id;
+	media_id_type media_id; //compound type used to prevent id-clashes between media-entity images and non-media-entity images
 	std::string media_url;
 	std::string fulldata;	//the full unmodified content of the image data
-	wxSize fullsize;
 	wxImage thumbimg;
 	std::forward_list<std::shared_ptr<tweet> > tweet_list;
 	media_display_win *win;
 	unsigned int flags;
+	unsigned char full_img_sha1[20];
+	unsigned char thumb_img_sha1[20];
 
-	media_entity() : media_id(0), win(0), flags(0) { }
+	wxString cached_full_filename();
+	wxString cached_thumb_filename();
+
+	media_entity() : win(0), flags(0) { }
 };
 
 typedef enum {

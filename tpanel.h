@@ -156,14 +156,14 @@ enum {
 };
 
 struct media_display_win : public wxFrame {
-	uint64_t media_id;
+	media_id_type media_id;
 	std::string media_url;
 	image_panel *sb;
 	wxStaticText *st;
 	wxBoxSizer *sz;
 	wxMenuItem *savemenuitem;
 
-	media_display_win(wxWindow *parent, uint64_t media_id_);
+	media_display_win(wxWindow *parent, media_id_type media_id_);
 	~media_display_win();
 	void Update();
 	bool GetImage(wxImage &img, wxString &message);

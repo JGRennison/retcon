@@ -77,11 +77,11 @@ enum {
 };
 
 struct mediaimgdlconn : public dlconn {
-	uint64_t media_id;
+	media_id_type media_id;
 	unsigned int flags;
 
-	void Init(const std::string &imgurl_, uint64_t media_id_, unsigned int flags_=0);
-	mediaimgdlconn(const std::string &imgurl_, uint64_t media_id_, unsigned int flags_=0) { Init(imgurl_, media_id_, flags_); }
+	void Init(const std::string &imgurl_, media_id_type media_id_, unsigned int flags_=0);
+	mediaimgdlconn(const std::string &imgurl_, media_id_type media_id_, unsigned int flags_=0) { Init(imgurl_, media_id_, flags_); }
 
 	void NotifyDoneSuccess(CURL *easy, CURLcode res);
 	void Reset();

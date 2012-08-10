@@ -72,8 +72,30 @@ struct tpanel;
 struct dbsendmsg_list;
 struct DBWriteConfig;
 struct DBReadConfig;
+struct media_id_type;
 
 typedef std::set<uint64_t, std::greater<uint64_t> > tweetidset;		//std::set, sorted in opposite order
+
+struct media_id_type {
+	uint64_t m_id;
+	uint64_t t_id;
+	media_id_type() : m_id(0), t_id(0) { }
+	operator bool() const { return m_id && t_id; }
+};
+
+inline bool operator==(const media_id_type &m1, const media_id_type &m2) {
+	return (m1.m_id==m2.m_id) && (m1.t_id==m2.t_id);
+}
+
+namespace std {
+  template <> struct hash<media_id_type> : public unary_function<media_id_type, size_t>
+  {
+    inline size_t operator()(const media_id_type & x) const
+    {
+      return (hash<uint64_t>()(x.m_id)<<1) ^ hash<uint64_t>()(x.t_id);
+    }
+  };
+}
 
 #include "socket.h"
 #include "twit.h"
@@ -168,8 +190,8 @@ struct alldata {
 	std::unordered_map<uint64_t,std::shared_ptr<userdatacontainer> > userconts;
 	std::map<uint64_t,std::shared_ptr<tweet> > tweetobjs;
 	std::map<std::string,std::shared_ptr<tpanel> > tpanels;
-	std::unordered_map<uint64_t,media_entity> media_list;
-	std::unordered_map<std::string,uint64_t> img_media_map;
+	std::unordered_map<media_id_type,media_entity> media_list;
+	std::unordered_map<std::string,media_id_type> img_media_map;
 	unsigned int next_media_id;
 
 	std::shared_ptr<userdatacontainer> GetUserContainerById(uint64_t id);
@@ -220,10 +242,14 @@ inline wxString wxstrstd(const char *ch) {
 inline wxString wxstrstd(const char *ch, size_t len) {
 	return wxString::FromUTF8(ch, len);
 }
+std::string hexify(const std::string &in);
+wxString hexify_wx(const std::string &in);
 
 mainframe *GetMainframeAncestor(wxWindow *in, bool passtoplevels=false);
 void FreezeAll();
 void ThawAll();
+bool LoadImageFromFileAndCheckHash(const wxString &filename, const unsigned char *hash, wxImage &img);
+bool LoadFromFileAndCheckHash(const wxString &filename, const unsigned char *hash, char *&data, size_t &size);
 
 extern std::list<std::shared_ptr<taccount>> alist;
 extern socketmanager sm;
