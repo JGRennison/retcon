@@ -15,6 +15,9 @@ struct tweetdispscr : public wxRichTextCtrl {
 	wxBoxSizer *hbox;
 	wxStaticBitmap *bm;
 	wxStaticBitmap *bm2;
+	time_t updatetime;
+	long reltimestart;
+	long reltimeend;
 
 	tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin *tppw_, wxBoxSizer *hbox_);
 	~tweetdispscr();
@@ -176,6 +179,7 @@ struct media_display_win : public wxFrame {
 
 bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid=0);
 wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t timestamp=0, bool localtime=true);
+wxString getreltimestr(time_t timestamp, time_t &updatetime);
 void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map);
 void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent);
 
@@ -188,9 +192,14 @@ void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent);
 //	void PushTweet(std::shared_ptr<tweetdisp> t);
 //};
 
+struct tpanelreltimeupdater : public wxTimer {
+	void Notify();
+};
+
 struct tpanelglobal {
 	wxBitmap arrow;
 	int arrow_dim;
+	tpanelreltimeupdater minutetimer;
 
 	tpanelglobal() : arrow_dim(0) { }
 };
