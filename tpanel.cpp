@@ -391,6 +391,7 @@ void tpanelparentwin::LoadMore(unsigned int n, uint64_t lessthanid, unsigned int
 		loadmsg->targ=&dbc;
 		loadmsg->cmdevtype=wxextDBCONN_NOTIFY;
 		loadmsg->winid=wxDBCONNEVT_ID_TPANELTWEETLOAD;
+		if(!gc.persistentmediacache) loadmsg->flags|=DBSTMF_PULLMEDIA;
 		dbc.SendMessage(loadmsg);
 	}
 }

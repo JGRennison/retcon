@@ -19,6 +19,7 @@ genoptglobconf gcglobdefaults {
 	{ wxT("B@unb -> B@Unb - T - t - FNC"), 1},
 	{ wxT("1"), 1 },
 	{ wxT("0"), 1 },
+	{ wxT("1"), 1 },
 };
 
 taccount::taccount(genoptconf *incfg) {
@@ -82,6 +83,7 @@ void globconf::CFGParamConv() {
 	gcfg.maxtweetsdisplayinpanel.val.ToULong(&maxtweetsdisplayinpanel);
 	cachethumbs=(gcfg.cachethumbs.val==wxT("1"));
 	cachemedia=(gcfg.cachemedia.val==wxT("1"));
+	persistentmediacache=(gcfg.persistentmediacache.val==wxT("1"));
 }
 
 void genoptconf::CFGWriteOutCurDir(DBWriteConfig &twfc) {
@@ -116,6 +118,7 @@ void genoptglobconf::CFGWriteOut(DBWriteConfig &twfc) {
 	dmdispformat.CFGWriteOutCurDir(twfc, "dmdispformat");
 	cachethumbs.CFGWriteOutCurDir(twfc, "cachethumbs");
 	cachemedia.CFGWriteOutCurDir(twfc, "cachemedia");
+	persistentmediacache.CFGWriteOutCurDir(twfc, "persistentmediacache");
 }
 void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent) {
 	twfc.SetDBIndexGlobal();
@@ -127,6 +130,7 @@ void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent)
 	dmdispformat.CFGReadInCurDir(twfc, "dmdispformat", parent.dmdispformat.val);
 	cachethumbs.CFGReadInCurDir(twfc, "cachethumbs", parent.cachethumbs.val);
 	cachemedia.CFGReadInCurDir(twfc, "cachemedia", parent.cachemedia.val);
+	persistentmediacache.CFGReadInCurDir(twfc, "persistentmediacache", parent.persistentmediacache.val);
 }
 
 void genopt::CFGWriteOutCurDir(DBWriteConfig &twfc, const char *name) {

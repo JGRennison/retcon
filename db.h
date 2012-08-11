@@ -132,9 +132,14 @@ struct dbretmediadata {
 	dbretmediadata(const dbretmediadata& that) = delete;
 };
 
-struct dbseltweetmsg : public dbsendmsg_callback {
-	dbseltweetmsg() : dbsendmsg_callback(DBSM_SELTWEET) { }
+enum {
+	DBSTMF_PULLMEDIA	= 1<<0,
+};
 
+struct dbseltweetmsg : public dbsendmsg_callback {
+	dbseltweetmsg() : dbsendmsg_callback(DBSM_SELTWEET), flags(0) { }
+
+	unsigned int flags;
 	std::set<uint64_t> id_set;			//ids to select
 	std::forward_list<dbrettweetdata> data;		//return data
 	std::forward_list<dbretmediadata> media_data;	//return data
@@ -211,6 +216,7 @@ struct dbconn : public wxEvtHandler {
 	void AccountIdListsSync(sqlite3 *adb);
 	void SyncWriteOutRBFSs(sqlite3 *adb);
 	void SyncReadInRBFSs(sqlite3 *adb);
+	void SyncReadInAllMediaEntities(sqlite3 *adb);
 	void OnTpanelTweetLoadFromDB(wxCommandEvent &event);
 	void OnDBThreadDebugMsg(wxCommandEvent &event);
 	void OnDBNewAccountInsert(wxCommandEvent &event);

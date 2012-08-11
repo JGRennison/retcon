@@ -362,16 +362,18 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 					rd.flags=(uint64_t) sqlite3_column_int64(stmt, 4);
 					rd.timestamp=(uint64_t) sqlite3_column_int64(stmt, 5);
 
-					size_t mediaidarraysize;
-					unsigned char *mediaidarray=(unsigned char*) column_get_compressed(stmt, 6, mediaidarraysize);
-					mediaidarraysize&=~15;
-					for(unsigned int i=0; i<mediaidarraysize; i+=16) {		//stored in big endian format
-						media_ids.emplace_front();
-						media_id_type &md=media_ids.front();
-						for(unsigned int j=0; j<8; j++) md.m_id<<=8, md.m_id|=mediaidarray[i+j];
-						for(unsigned int j=8; j<15; j++) md.t_id<<=8, md.t_id|=mediaidarray[i+j];
+					if(m->flags&DBSTMF_PULLMEDIA) {
+						size_t mediaidarraysize;
+						unsigned char *mediaidarray=(unsigned char*) column_get_compressed(stmt, 6, mediaidarraysize);
+						mediaidarraysize&=~15;
+						for(unsigned int i=0; i<mediaidarraysize; i+=16) {		//stored in big endian format
+							media_ids.emplace_front();
+							media_id_type &md=media_ids.front();
+							for(unsigned int j=0; j<8; j++) md.m_id<<=8, md.m_id|=mediaidarray[i+j];
+							for(unsigned int j=8; j<15; j++) md.t_id<<=8, md.t_id|=mediaidarray[i+j];
+						}
+						free(mediaidarray);
 					}
-					free(mediaidarray);
 				}
 				else { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_SELTWEET got error: %d (%s) for id: %" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) (*it)); }
 				sqlite3_reset(stmt);
@@ -651,6 +653,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	ReadAllCFGIn(syncdb, gc, alist);
 	SyncReadInAllUsers(syncdb);
 	SyncReadInRBFSs(syncdb);
+	if(gc.persistentmediacache) SyncReadInAllMediaEntities(syncdb);
 
 	th=new dbiothread();
 	th->filename=filename;
@@ -950,6 +953,44 @@ void dbconn::SyncReadInRBFSs(sqlite3 *adb) {
 		else break;
 	} while(true);
 	sqlite3_finalize(stmt);
+}
+
+void dbconn::SyncReadInAllMediaEntities(sqlite3 *adb) {
+	const char sql[]="SELECT mid, tid, url, fullchecksum, thumbchecksum FROM mediacache;";
+	sqlite3_stmt *stmt=0;
+	sqlite3_prepare_v2(adb, sql, sizeof(sql)+1, &stmt, 0);
+
+	do {
+		int res=sqlite3_step(stmt);
+		if(res==SQLITE_ROW) {
+			media_id_type id;
+			id.m_id=(uint64_t) sqlite3_column_int64(stmt, 0);
+			id.t_id=(uint64_t) sqlite3_column_int64(stmt, 1);
+			media_entity &me=ad.media_list[id];
+			me.media_id=id;
+			size_t outsize;
+			char *url=column_get_compressed(stmt, 2, outsize);
+			if(url) {
+				me.media_url.assign(url, outsize);
+				ad.img_media_map[me.media_url]=me.media_id;
+			}
+			free(url);
+			if(sqlite3_column_bytes(stmt, 3)==sizeof(me.full_img_sha1)) {
+				memcpy(me.full_img_sha1, sqlite3_column_blob(stmt, 3), sizeof(me.full_img_sha1));
+				me.flags|=ME_LOAD_FULL;
+			}
+			else memset(me.full_img_sha1, 0, sizeof(me.full_img_sha1));
+			if(sqlite3_column_bytes(stmt, 4)==sizeof(me.thumb_img_sha1)) {
+				memcpy(me.thumb_img_sha1, sqlite3_column_blob(stmt, 4), sizeof(me.thumb_img_sha1));
+				me.flags|=ME_LOAD_THUMB;
+			}
+			else memset(me.thumb_img_sha1, 0, sizeof(me.thumb_img_sha1));
+			
+			DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncReadInAllMediaEntities retrieved media entity %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d"), id.m_id, id.t_id);
+		}
+		else if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("dbconn::SyncReadInAllMediaEntities got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
+		else break;
+	} while(true);
 }
 
 void dbsendmsg_callback::SendReply(void *data) {
