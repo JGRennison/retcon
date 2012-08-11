@@ -581,6 +581,7 @@ void socketmanager::InitMultiIOHandler() {
 	this->pipefd=pipefd[1];
 	th->Create();
 	th->Run();
+	LogMsgFormat(LFT_SOCKTRACE, wxT("socketmanager::InitMultiIOHandler(): Created socket poll() thread: %d"), th->GetId());
 	#endif
 
 	MultiIOHandlerInited=true;

@@ -1,5 +1,6 @@
 #include "retcon.h"
 #include <wx/tokenzr.h>
+#include <wx/filedlg.h>
 #ifdef __WINDOWS__
 #include "windows.h"
 #else
@@ -10,6 +11,9 @@ log_window *globallogwindow;
 
 logflagtype currentlogflags=0;
 std::forward_list<log_object*> logfunclist;
+
+static void dump_pending_acc(logflagtype logflags, const wxString &indent, const wxString &indentstep, taccount *acc);
+static void dump_pending_tpaneldbloadmap(logflagtype logflags, const wxString &indent);
 
 const wxChar *logflagsstrings[]={
 	wxT("curlverb"),
@@ -25,6 +29,7 @@ const wxChar *logflagsstrings[]={
 	wxT("zerr"),
 	wxT("othertrace"),
 	wxT("othererr"),
+	wxT("userreq"),
 };
 
 void Update_currentlogflags() {
@@ -133,6 +138,10 @@ END_EVENT_TABLE()
 
 BEGIN_EVENT_TABLE(log_window, wxFrame)
 	EVT_CLOSE(log_window::OnFrameClose)
+	EVT_MENU(wxID_SAVE, log_window::OnSave)
+	EVT_MENU(wxID_CLEAR, log_window::OnClear)
+	EVT_MENU(wxID_CLOSE, log_window::OnClose)
+	EVT_MENU(wxID_FILE1, log_window::OnDumpPending)
 END_EVENT_TABLE()
 
 static void log_window_AddChkBox(log_window *parent, logflagtype flags, const wxString &str, wxSizer *sz) {
@@ -158,6 +167,20 @@ log_window::log_window(wxWindow *parent, logflagtype flagmask, bool show)
 	}
 	bs->Add(hs, 0, wxALL, 2);
 	SetSizer(bs);
+
+	wxMenu *menuF = new wxMenu;
+	menuF->Append( wxID_SAVE, wxT("&Save Log"));
+	menuF->Append( wxID_CLEAR, wxT("Clear Log"));
+	menuF->Append( wxID_CLOSE, wxT("&Close"));
+	wxMenu *menuD = new wxMenu;
+	menuD->Append( wxID_FILE1, wxT("Dump &Pendings"));
+
+	wxMenuBar *menuBar = new wxMenuBar;
+	menuBar->Append(menuF, wxT("&File"));
+	menuBar->Append(menuD, wxT("&Debug"));
+
+	SetMenuBar(menuBar);
+
 	InitDialog();
 	if(show) LWShow();
 }
@@ -181,6 +204,31 @@ void log_window::OnFrameClose(wxCloseEvent &event) {
 	LWShow(false);
 	event.Veto();
 }
+
+void log_window::OnSave(wxCommandEvent &event) {
+	time_t now=time(0);
+	wxString hint=wxT("retcon-log-")+rc_wx_strftime(wxT("%Y%m%dT%H%M%SZ"), gmtime(&now), now, false);
+	wxString filename=wxFileSelector(wxT("Save Log"), wxT(""), hint, wxT("log"), wxT("*.*"), wxFD_SAVE | wxFD_OVERWRITE_PROMPT, this);
+	if(filename.Len()) {
+		txtct->SaveFile(filename);
+	}
+}
+
+void log_window::OnClear(wxCommandEvent &event) {
+	txtct->Clear();
+}
+
+void log_window::OnClose(wxCommandEvent &event) {
+	LWShow(false);
+}
+
+void log_window::OnDumpPending(wxCommandEvent &event) {
+	for(auto it=alist.begin(); it!=alist.end(); ++it) {
+		dump_pending_acc(LFT_USERREQ, wxT(""), wxT("\t"), (*it).get());
+		dump_pending_tpaneldbloadmap(LFT_USERREQ, wxT(""));
+	}
+}
+
 
 log_file::log_file(logflagtype flagmask, const char *filename) : log_object(flagmask), closefpondel(0) {
 	fp=fopen(filename, "a");
@@ -212,4 +260,28 @@ logflagtype StrToLogFlags(const wxString &str) {
 		}
 	}
 	return out;
+}
+
+static void dump_pending_tweet(logflagtype logflags, const wxString &indent, const wxString &indentstep, tweet *t) {
+	LogMsgFormat(logflags, wxT("%sTweet: %" wxLongLongFmtSpec "d (%.15s...) lflags: %X"), indent.c_str(), t->id, wxstrstd(t->text).c_str(), t->lflags);
+}
+
+static void dump_pending_user(logflagtype logflags, const wxString &indent, const wxString &indentstep, userdatacontainer *u) {
+	LogMsgFormat(logflags, wxT("%sUser: %" wxLongLongFmtSpec "d (%s)"), indent.c_str(), u->id, wxstrstd(u->GetUser().screen_name).c_str());
+	for(auto it=u->pendingtweets.begin(); it!=u->pendingtweets.end(); ++it) {
+		dump_pending_tweet(logflags, indent+indentstep, indentstep, (*it).get());
+	}
+}
+
+static void dump_pending_acc(logflagtype logflags, const wxString &indent, const wxString &indentstep, taccount *acc) {
+	LogMsgFormat(logflags, wxT("%sAccount: %s (%s)"), indent.c_str(), acc->name.c_str(), acc->dispname.c_str());
+	for(auto it=acc->pendingusers.begin(); it!=acc->pendingusers.end(); ++it) {
+		dump_pending_user(logflags, indent+indentstep, indentstep, (*it).second.get());
+	}
+}
+
+static void dump_pending_tpaneldbloadmap(logflagtype logflags, const wxString &indent) {
+	for(auto it=tpaneldbloadmap.begin(); it!=tpaneldbloadmap.end(); ++it) {
+		LogMsgFormat(logflags, wxT("%sLoad Map: %" wxLongLongFmtSpec "d (%.15s...) --> %s (%s) pushflags: %X"), indent.c_str(), it->first, wxstrstd(ad.tweetobjs[it->first]->text).c_str(), wxstrstd(it->second.win->tp->name).c_str(), wxstrstd(it->second.win->tp->dispname).c_str(), it->second.pushflags);
+	}
 }

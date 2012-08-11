@@ -447,7 +447,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			sqlite3_stmt *stmt=cache.GetStmt(db, DBPSC_INSERTMEDIA);
 			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->media_id.m_id);
 			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->media_id.t_id);
-			sqlite3_bind_text(stmt, 3, m->url.c_str(), -1, SQLITE_TRANSIENT);
+			bind_compressed(stmt, 3, m->url, 'P');
 			int res=sqlite3_step(stmt);
 			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_INSERTMEDIA got error: %d (%s) for id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id); }
 			else { DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_INSERTMEDIA inserted media id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d"), (sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id); }
@@ -667,6 +667,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	#endif
 	th->Create();
 	th->Run();
+	LogMsgFormat(LFT_DBTRACE, wxT("dbconn::Init(): Created database thread: %d"), th->GetId());
 
 	isinited=true;
 	return true;

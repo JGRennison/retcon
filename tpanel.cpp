@@ -698,7 +698,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 				if(!tpg->minutetimer.IsRunning()) tpg->minutetimer.Start(60000, wxTIMER_CONTINUOUS);
 				break;
 			case 'T':
-				str+=rc_wx_strftime(gc.gcfg.datetimeformat.val, localtime(&tw.createtime), tw.createtime);
+				str+=rc_wx_strftime(gc.gcfg.datetimeformat.val, localtime(&tw.createtime), tw.createtime, true);
 				break;
 			case 'B': flush(); BeginBold(); break;
 			case 'b': flush(); EndBold(); break;

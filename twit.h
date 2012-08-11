@@ -49,7 +49,7 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	void GetImageLocalFilename(wxString &filename);
 	inline userdata &GetUser() { return user; }
 	void MarkUpdated();
-	std::string mkjson();
+	std::string mkjson() const;
 	wxBitmap MkProfileBitmapFromwxImage(const wxImage &img, double limitscalefactor);
 	void SetProfileBitmapFromwxImage(const wxImage &img);
 	void Dump();
@@ -62,7 +62,7 @@ struct tweet_flags {
 	tweet_flags(unsigned long long val) : bits(val) { }
 	static constexpr ssize_t GetFlagNum(char in) { return (in>='0' && in<='9')?in-'0':((in>='a' && in<='z')?10+in-'a':((in>='A' && in<='Z')?10+26+in-'A':-1)); }
 	static constexpr char GetFlagChar(size_t in) { return (in<10)?in+'0':((in>=10 && in<36)?in+'a'-10:((in>=36 && in<62)?in+'A'-36:'?')); }
-	bool Get(char in) {
+	bool Get(char in) const {
 		ssize_t num=GetFlagNum(in);
 		if(num>=0) return bits.test(num);
 		else return 0;
@@ -71,8 +71,8 @@ struct tweet_flags {
 		ssize_t num=GetFlagNum(in);
 		if(num>=0) bits.set(num, value);
 	}
-	std::string GetString();
-	unsigned long long Save() { return bits.to_ullong(); }
+	std::string GetString() const;
+	unsigned long long Save() const { return bits.to_ullong(); }
 	protected:
 	std::bitset<62> bits;
 
@@ -89,11 +89,11 @@ struct tweet_perspective {
 
 	tweet_perspective(const std::shared_ptr<taccount> &tac) : acc(tac), flags(0) { }
 	void Load(unsigned int fl) { flags=fl; }
-	unsigned int Save() { return flags; }
+	unsigned int Save() const { return flags; }
 
-	bool IsArrivedHere() { return flags&TP_IAH; }
-	bool IsFavourited() { return flags&TP_FAV; }
-	bool IsRetweeted() { return flags&TP_RET; }
+	bool IsArrivedHere() const { return flags&TP_IAH; }
+	bool IsFavourited() const { return flags&TP_FAV; }
+	bool IsRetweeted() const { return flags&TP_RET; }
 	void SetArrivedHere(bool val) { if(val) flags|=TP_IAH; else flags&=~TP_IAH; }
 	void SetFavourited(bool val) { if(val) flags|=TP_FAV; else flags&=~TP_FAV; }
 	void SetRetweeted(bool val) { if(val) flags|=TP_RET; else flags&=~TP_RET; }
@@ -130,7 +130,7 @@ struct tweet {
 
 	void Dump();
 	tweet_perspective *AddTPToTweet(const std::shared_ptr<taccount> &tac, bool *isnew=0);
-	std::string mkdynjson();
+	std::string mkdynjson() const;
 };
 
 typedef enum {

@@ -15,8 +15,8 @@ genoptglobconf gcglobdefaults {
 	{ wxT("%Y-%m-%d %H:%M:%S"), 1},
 	{ wxT("48"), 1},
 	{ wxT("40"), 1},
-	{ wxT("B@unb - T - FNC"), 1},
-	{ wxT("B@unb -> B@Unb - T - FNC"), 1},
+	{ wxT("B@unb - T - t - FNC"), 1},
+	{ wxT("B@unb -> B@Unb - T - t - FNC"), 1},
 	{ wxT("1"), 1 },
 	{ wxT("0"), 1 },
 };

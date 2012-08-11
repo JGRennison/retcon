@@ -412,7 +412,7 @@ void userdatacontainer::MarkUpdated() {
 	}
 }
 
-std::string userdatacontainer::mkjson() {
+std::string userdatacontainer::mkjson() const {
 	std::string json;
 	writestream wr(json);
 	Handler jw(wr);
@@ -449,7 +449,7 @@ void userdatacontainer::SetProfileBitmapFromwxImage(const wxImage &img) {
 	udc_flags|=UDC_PROFILE_BITMAP_SET;
 }
 
-std::string tweet_flags::GetString() {
+std::string tweet_flags::GetString() const {
 	std::string out;
 	uint64_t bitint=bits.to_ullong();
 	while(bitint) {
@@ -501,7 +501,7 @@ void taccount::MarkPendingOrHandle(const std::shared_ptr<tweet> &t) {
 	}
 }
 
-std::string tweet::mkdynjson() {
+std::string tweet::mkdynjson() const {
 	std::string json;
 	writestream wr(json, 64);
 	Handler jw(wr);
