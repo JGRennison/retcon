@@ -320,7 +320,7 @@ tweetdispscr *tpanelparentwin::PushTweetIndex(const std::shared_ptr<tweet> &t, s
 	hbox->Add(td, 1, wxALL | wxEXPAND, 2);
 
 	sizer->Insert(index, hbox, 0, wxALL | wxEXPAND, 2);
-	scrollwin->FitInside();
+	td->DisplayTweet();
 	return td;
 }
 
@@ -583,7 +583,6 @@ tweetdispscr::tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *p
 : wxRichTextCtrl(parent, wxID_ANY, wxEmptyString, wxPoint(-1000, -1000), wxDefaultSize, wxRE_READONLY),
 td(td_), tppw(tppw_), tpsw(parent), hbox(hbox_), bm(0), bm2(0) {
 	GetCaret()->Hide();
-	DisplayTweet();
 }
 
 tweetdispscr::~tweetdispscr() {
@@ -755,6 +754,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 		EndAlignment();
 	}
 	LayoutContent();
+	tpsw->FitInside();
 }
 
 void tweetdispscr::DoResize() {
