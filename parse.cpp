@@ -431,7 +431,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 
 	if(is_new_tweet_perspective) {	//this filters out duplicate tweets from the same account
 		if(!(sflags&JDTP_ISDM)) {
-			tac->tweet_ids.insert(tweetid);
+			if(!(sflags&JDTP_ISRTSRC)) tac->tweet_ids.insert(tweetid);
 			uint64_t userid=val["user"]["id"].GetUint64();
 			tobj->user=CheckParseUserObj(userid, val["user"], *this);
 		}

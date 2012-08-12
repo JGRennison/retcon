@@ -214,10 +214,12 @@ void taccount::ExecRBFS(restbackfillstate *rbfs) {
 	twit->connmode=(rbfs->type==RBFS_TWEETS || rbfs->type==RBFS_MENTIONS)?CS_TIMELINE:CS_DMTIMELINE;
 	twit->SetNoPerformFlag(true);
 	twit->rbfs=rbfs;
+	twit->post_action_flags=PAF_RESOLVE_PENDINGS;
 	twit->ExecRestGetTweetBackfill();
 }
 
 void taccount::StartRestQueryPendings() {
+	LogMsgFormat(LFT_OTHERTRACE, wxT("taccount::StartRestQueryPendings: pending users: %d"), pendingusers.size());
 	if(pendingusers.empty()) return;
 
 	std::shared_ptr<userlookup> ul=std::make_shared<userlookup>();

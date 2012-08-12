@@ -364,29 +364,28 @@ bool userdatacontainer::IsReady(unsigned int updcf_flags) {
 }
 
 void userdatacontainer::CheckPendingTweets() {
-	if(IsReady()) {
-		FreezeAll();
-		pendingtweets.remove_if([&](const std::shared_ptr<tweet> &t) {
-			bool ready;
-			std::shared_ptr<taccount> curacc;
-			if(t->GetUsableAccount(curacc)) {
-				if(curacc->CheckMarkPending(t, true)) {
-					ready=true;
-				}
-				else {
-					ready=false;
-				}
+	FreezeAll();
+	pendingtweets.remove_if([&](const std::shared_ptr<tweet> &t) {
+		if(!IsReady(t->updcf_flags)) return false;
+		bool ready;
+		std::shared_ptr<taccount> curacc;
+		if(t->GetUsableAccount(curacc)) {
+			if(curacc->CheckMarkPending(t, true)) {
+				ready=true;
 			}
-			else ready=true;		//best effort, as no pendings can be resolved
-			
-			if(ready) {
-				UnmarkPendingTweet(t);
-				return true;
+			else {
+				ready=false;
 			}
-			else return false;
-		});
-		ThawAll();
-	}
+		}
+		else ready=true;		//best effort, as no pendings can be resolved
+		
+		if(ready) {
+			UnmarkPendingTweet(t);
+			return true;
+		}
+		else return false;
+	});
+	ThawAll();
 }
 
 void UnmarkPendingTweet(const std::shared_ptr<tweet> &t) {
