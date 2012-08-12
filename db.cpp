@@ -5,11 +5,41 @@
 #include <zlib.h>
 #include <wx/msgdlg.h>
 
-const unsigned char jsondictionary[]="<a href=\"http://retweet_countsourcetextentitiesindiceshashtagsurlsdisplayexpandedjpgpnguser_mentionsmediaidhttptweetusercreatedfavoritedscreen_namein_reply_to_user_idprofileprotectedfollowdescriptionfriends"
+//don't modify these
+static const unsigned char jsondictionary[]="<a href=\"http://retweet_countsourcetextentitiesindiceshashtagsurlsdisplayexpandedjpgpnguser_mentionsmediaidhttptweetusercreatedfavoritedscreen_namein_reply_to_user_idprofileprotectedfollowdescriptionfriends"
 				"typesizesthe[{\",\":\"}]";
-const unsigned char profimgdictionary[]="http://https://si0.twimg.com/profile_images/imagesmallnormal.png.jpg.jpeg.gif";
+static const unsigned char profimgdictionary[]="http://https://si0.twimg.com/profile_images/imagesmallnormal.png.jpg.jpeg.gif";
 
-const char *startup_sql=
+struct esctabledef {
+	unsigned char id;
+	const char *text;
+};
+
+struct esctable {
+	unsigned char tag;
+	const esctabledef *start;
+	size_t count;
+};
+
+//never remove or change an entry in these tables
+static esctabledef dynjsondefs[]={
+	{1, "{\"p\":[{\"f\":1,\"a\":1}]}" },
+	{2, "{\"p\":[{\"f\":1,\"a\":2}]}" },
+	{3, "{\"p\":[{\"f\":1,\"a\":3}]}" },
+	{4, "{\"p\":[{\"f\":1,\"a\":4}]}" },
+	{5, "{\"p\":[{\"f\":1,\"a\":5}]}" },
+	{6, "{\"p\":[{\"f\":1,\"a\":6}]}" },
+};
+
+static esctable allesctables[]={
+	{'S', dynjsondefs, sizeof(dynjsondefs)/sizeof(esctabledef) },
+};
+
+static const esctable *dynjsontable=&allesctables[0];
+
+
+
+static const char *startup_sql=
 "PRAGMA locking_mode = EXCLUSIVE;"
 "CREATE TABLE IF NOT EXISTS tweets(id INTEGER PRIMARY KEY NOT NULL, statjson BLOB, dynjson BLOB, userid INTEGER, userrecipid INTEGER, flags INTEGER, timestamp INTEGER, medialist BLOB, rtid INTEGER);"
 "CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY NOT NULL, json BLOB, cachedprofimgurl BLOB, createtimestamp INTEGER, lastupdatetimestamp INTEGER, cachedprofileimgchecksum BLOB, mentionindex BLOB);"
@@ -19,7 +49,7 @@ const char *startup_sql=
 "CREATE TABLE IF NOT EXISTS mediacache(mid INTEGER, tid INTEGER, url BLOB, fullchecksum BLOB, thumbchecksum BLOB, flags INTEGER, PRIMARY KEY (mid, tid));"
 "INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', 'dirtyflag', strftime('%s','now'));";
 
-const char *sql[DBPSC_NUM_STATEMENTS]={
+static const char *sql[DBPSC_NUM_STATEMENTS]={
 	"INSERT OR REPLACE INTO tweets(id, statjson, dynjson, userid, userrecipid, flags, timestamp, medialist, rtid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);",
 	"UPDATE tweets SET dynjson = ?, flags = ? WHERE id == ?;",
 	"BEGIN;",
@@ -45,7 +75,7 @@ static void DBThreadSafeLogMsg(logflagtype logflags, const wxString &str) {
 #define DBLogMsgFormat(l, ...) if( currentlogflags & (l) ) DBThreadSafeLogMsg(l, wxString::Format(__VA_ARGS__))
 #define DBLogMsg(l, s) if( currentlogflags & (l) ) DBThreadSafeLogMsg(l, s)
 
-int busy_handler_callback(void *ptr, int count) {
+static int busy_handler_callback(void *ptr, int count) {
 	if(count<20) {
 		unsigned int sleeplen=25<<count;
 		wxThread *th=wxThread::This();
@@ -102,66 +132,80 @@ static bool TagToDict(unsigned char tag, const unsigned char *&dict, size_t &dic
 
 #define HEADERSIZE 5
 
-static unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsigned char tag='Z', bool *iscompressed=0) {
-	unsigned char *data;
-	const unsigned char *dict;
-	size_t dict_size;
-	bool compress=TagToDict(tag, dict, dict_size);
-	if(compress && insize>=100) {
-		z_stream strm;
-		strm.zalloc = Z_NULL;
-		strm.zfree = Z_NULL;
-		strm.opaque = Z_NULL;
-		deflateInit(&strm, 9);
-
-		if(dict) deflateSetDictionary(&strm, dict, dict_size);
-		size_t maxsize=deflateBound(&strm, insize);
-		data=(unsigned char *) malloc(maxsize+HEADERSIZE);
-		data[0]=tag;
-		data[1]=(insize>>24)&0xFF;
-		data[2]=(insize>>16)&0xFF;
-		data[3]=(insize>>8)&0xFF;
-		data[4]=(insize>>0)&0xFF;
-		strm.avail_in=insize;
-		strm.next_in=(unsigned char *) in;
-		strm.avail_out=maxsize;
-		strm.next_out=data+HEADERSIZE;
-		int res=deflate(&strm, Z_FINISH);
-		//DBLogMsgFormat(LFT_ZLIBTRACE, wxT("deflate: %d, %d, %d"), res, strm.avail_in, strm.avail_out);
-		if(res!=Z_STREAM_END) { DBLogMsgFormat(LFT_ZLIBERR, wxT("DoCompress: deflate: error: res: %d (%s)"), res, wxstrstd(strm.msg).c_str()); }
-		sz=HEADERSIZE+maxsize-strm.avail_out;
-		deflateEnd(&strm);
-		if(iscompressed) *iscompressed=true;
+static unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsigned char tag='Z', bool *iscompressed=0, const esctable *et=0) {
+	unsigned char *data=0;
+	if(et) {
+		for(unsigned int i=0; i<et->count; i++) {
+			if(strlen(et->start[i].text)==insize && memcmp(et->start[i].text, in, insize)==0) {
+				data=(unsigned char *) malloc(2);
+				data[0]=et->tag;
+				data[1]=et->start[i].id;
+				sz=2;
+				if(iscompressed) *iscompressed=true;
+				break;
+			}
+		}
 	}
-	else {
-		data=(unsigned char *) malloc(insize+1);
-		data[0]='T';
-		if(in) memcpy(data+1, in, insize);
-		sz=insize+1;
-		if(iscompressed) *iscompressed=false;
+	if(!data) {
+		const unsigned char *dict;
+		size_t dict_size;
+		bool compress=TagToDict(tag, dict, dict_size);
+		if(compress && insize>=100) {
+			z_stream strm;
+			strm.zalloc = Z_NULL;
+			strm.zfree = Z_NULL;
+			strm.opaque = Z_NULL;
+			deflateInit(&strm, 9);
+
+			if(dict) deflateSetDictionary(&strm, dict, dict_size);
+			size_t maxsize=deflateBound(&strm, insize);
+			data=(unsigned char *) malloc(maxsize+HEADERSIZE);
+			data[0]=tag;
+			data[1]=(insize>>24)&0xFF;
+			data[2]=(insize>>16)&0xFF;
+			data[3]=(insize>>8)&0xFF;
+			data[4]=(insize>>0)&0xFF;
+			strm.avail_in=insize;
+			strm.next_in=(unsigned char *) in;
+			strm.avail_out=maxsize;
+			strm.next_out=data+HEADERSIZE;
+			int res=deflate(&strm, Z_FINISH);
+			//DBLogMsgFormat(LFT_ZLIBTRACE, wxT("deflate: %d, %d, %d"), res, strm.avail_in, strm.avail_out);
+			if(res!=Z_STREAM_END) { DBLogMsgFormat(LFT_ZLIBERR, wxT("DoCompress: deflate: error: res: %d (%s)"), res, wxstrstd(strm.msg).c_str()); }
+			sz=HEADERSIZE+maxsize-strm.avail_out;
+			deflateEnd(&strm);
+			if(iscompressed) *iscompressed=true;
+		}
+		else {
+			data=(unsigned char *) malloc(insize+1);
+			data[0]='T';
+			if(in) memcpy(data+1, in, insize);
+			sz=insize+1;
+			if(iscompressed) *iscompressed=false;
+		}
 	}
 
 	static size_t cumin=0;
 	static size_t cumout=0;
 	cumin+=insize;
 	cumout+=sz;
-	DBLogMsgFormat(LFT_ZLIBTRACE, wxT("zlib compress: %d -> %d, cum: %f"), insize, sz, (double) cumout/ (double) cumin);
+	DBLogMsgFormat(LFT_ZLIBTRACE, wxT("compress: %d -> %d, cum: %f"), insize, sz, (double) cumout/ (double) cumin);
 
 	return data;
 }
 
-static unsigned char *DoCompress(const std::string &in, size_t &sz, unsigned char tag='Z', bool *iscompressed=0) {
-	return DoCompress(in.data(), in.size(), sz, tag, iscompressed);
+static unsigned char *DoCompress(const std::string &in, size_t &sz, unsigned char tag='Z', bool *iscompressed=0, const esctable *et=0) {
+	return DoCompress(in.data(), in.size(), sz, tag, iscompressed, et);
 }
 
 enum {
 	BINDCF_NONTEXT		= 1<<0,
 };
 
-static void bind_compressed(sqlite3_stmt* stmt, int num, const std::string &in, unsigned char tag='Z', unsigned int flags=0) {
+static void bind_compressed(sqlite3_stmt* stmt, int num, const std::string &in, unsigned char tag='Z', unsigned int flags=0, const esctable *et=0) {
 	size_t comsize;
 	bool iscompressed;
-	unsigned char *com=DoCompress(in, comsize, tag, &iscompressed);
+	unsigned char *com=DoCompress(in, comsize, tag, &iscompressed, et);
 	if(iscompressed || flags&BINDCF_NONTEXT) sqlite3_bind_blob(stmt, num, com, comsize, &free);
 	else sqlite3_bind_text(stmt, num, (const char *) com, comsize, &free);
 }
@@ -171,6 +215,24 @@ static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsiz
 		DBLogMsg(LFT_ZLIBTRACE, wxT("DoDecompress: insize=0"));
 		outsize=0;
 		return 0;
+	}
+	if(insize==2) {
+		for(unsigned int i=0; i<sizeof(allesctables)/sizeof(esctable); i++) {
+			if(in[0]==allesctables[i].tag) {
+				for(unsigned int j=0; j<allesctables[i].count; j++) {
+					if(in[1]==allesctables[i].start[j].id) {
+						outsize=strlen(allesctables[i].start[j].text);
+						char *data=(char *) malloc(outsize+1);
+						memcpy(data, allesctables[i].start[j].text, outsize);
+						data[outsize]=0;
+						return data;
+					}
+				}
+				DBLogMsg(LFT_ZLIBERR, wxT("DoDecompress: Bad escape table identifier"));
+				outsize=0;
+				return 0;
+			}
+		}
 	}
 	const unsigned char *dict;
 	size_t dict_size;
@@ -235,7 +297,7 @@ static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsiz
 	inflateEnd(&strm);
 	data[outsize]=0;
 
-	DBLogMsgFormat(LFT_ZLIBTRACE,wxT("zlib decompress: %d -> %d, text: %s"), insize, outsize, wxstrstd((const char*) data).c_str());
+	DBLogMsgFormat(LFT_ZLIBTRACE,wxT("decompress: %d -> %d, text: %s"), insize, outsize, wxstrstd((const char*) data).c_str());
 	return (char *) data;
 }
 
@@ -355,7 +417,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			sqlite3_stmt *stmt=cache.GetStmt(db, DBPSC_INSTWEET);
 			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->id);
 			bind_compressed(stmt, 2, m->statjson, 'J');
-			bind_compressed(stmt, 3, m->dynjson, 'J');
+			bind_compressed(stmt, 3, m->dynjson, 'J', 0, dynjsontable);
 			sqlite3_bind_int64(stmt, 4, (sqlite3_int64) m->user1);
 			sqlite3_bind_int64(stmt, 5, (sqlite3_int64) m->user2);
 			sqlite3_bind_int64(stmt, 6, (sqlite3_int64) m->flags);
@@ -371,7 +433,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 		case DBSM_UPDATETWEET: {
 			dbupdatetweetmsg *m=(dbupdatetweetmsg*) msg;
 			sqlite3_stmt *stmt=cache.GetStmt(db, DBPSC_UPDTWEET);
-			bind_compressed(stmt, 1, m->dynjson, 'J');
+			bind_compressed(stmt, 1, m->dynjson, 'J', 0, dynjsontable);
 			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->flags);
 			sqlite3_bind_int64(stmt, 3, (sqlite3_int64) m->id);
 			int res=sqlite3_step(stmt);
