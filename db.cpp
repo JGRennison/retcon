@@ -67,7 +67,7 @@ static const char *sql[DBPSC_NUM_STATEMENTS]={
 
 static void DBThreadSafeLogMsg(logflagtype logflags, const wxString &str) {
 	wxCommandEvent evt(wxextDBCONN_NOTIFY, wxDBCONNEVT_ID_DEBUGMSG);
-	evt.SetString(str);
+	evt.SetString(str.c_str());	//prevent any COW semantics
 	evt.SetExtraLong(logflags);
 	dbc.AddPendingEvent(evt);
 }
