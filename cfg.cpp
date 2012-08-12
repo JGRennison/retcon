@@ -17,8 +17,10 @@ genoptglobconf gcglobdefaults {
 	{ wxT("40"), 1},
 	{ wxT("B@unb - T - t - FNC"), 1},
 	{ wxT("B@unb -> B@Unb - T - t - FNC"), 1},
+	{ wxT("B@rnb - 'RT by' B@unb - T - t - FNc"), 1},
 	{ wxT("1"), 1 },
 	{ wxT("0"), 1 },
+	{ wxT("1"), 1 },
 	{ wxT("1"), 1 },
 };
 
@@ -84,6 +86,7 @@ void globconf::CFGParamConv() {
 	cachethumbs=(gcfg.cachethumbs.val==wxT("1"));
 	cachemedia=(gcfg.cachemedia.val==wxT("1"));
 	persistentmediacache=(gcfg.persistentmediacache.val==wxT("1"));
+	rtdisp=(gcfg.rtdisp.val==wxT("1"));
 }
 
 void genoptconf::CFGWriteOutCurDir(DBWriteConfig &twfc) {
@@ -116,9 +119,11 @@ void genoptglobconf::CFGWriteOut(DBWriteConfig &twfc) {
 	maxtweetsdisplayinpanel.CFGWriteOutCurDir(twfc, "maxtweetsdisplayinpanel");
 	tweetdispformat.CFGWriteOutCurDir(twfc, "tweetdispformat");
 	dmdispformat.CFGWriteOutCurDir(twfc, "dmdispformat");
+	rtdispformat.CFGWriteOutCurDir(twfc, "rtdispformat");
 	cachethumbs.CFGWriteOutCurDir(twfc, "cachethumbs");
 	cachemedia.CFGWriteOutCurDir(twfc, "cachemedia");
 	persistentmediacache.CFGWriteOutCurDir(twfc, "persistentmediacache");
+	rtdisp.CFGWriteOutCurDir(twfc, "rtdisp");
 }
 void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent) {
 	twfc.SetDBIndexGlobal();
@@ -128,9 +133,11 @@ void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent)
 	maxtweetsdisplayinpanel.CFGReadInCurDir(twfc, "maxtweetsdisplayinpanel", parent.maxtweetsdisplayinpanel.val);
 	tweetdispformat.CFGReadInCurDir(twfc, "tweetdispformat", parent.tweetdispformat.val);
 	dmdispformat.CFGReadInCurDir(twfc, "dmdispformat", parent.dmdispformat.val);
+	rtdispformat.CFGReadInCurDir(twfc, "rtdispformat", parent.rtdispformat.val);
 	cachethumbs.CFGReadInCurDir(twfc, "cachethumbs", parent.cachethumbs.val);
 	cachemedia.CFGReadInCurDir(twfc, "cachemedia", parent.cachemedia.val);
 	persistentmediacache.CFGReadInCurDir(twfc, "persistentmediacache", parent.persistentmediacache.val);
+	rtdisp.CFGReadInCurDir(twfc, "rtdisp", parent.rtdisp.val);
 }
 
 void genopt::CFGWriteOutCurDir(DBWriteConfig &twfc, const char *name) {

@@ -2,6 +2,7 @@ void HandleNewTweet(const std::shared_ptr<tweet> &t);
 void UpdateTweet(const std::shared_ptr<tweet> &t, bool redrawimg=false);
 void UpdateAllTweets(bool redrawimg=false);
 void UpdateUsersTweet(uint64_t userid, bool redrawimg=false);
+void UnmarkPendingTweet(const std::shared_ptr<tweet> &t);
 
 struct userdata {
 	std::string name;
@@ -23,7 +24,7 @@ enum {
 };
 
 enum {	UPDCF_DOWNLOADIMG	= 1<<0,
-	UPDCF_NOUSEREXPIRE	= 1<<1,
+	UPDCF_USEREXPIRE	= 1<<1,
 	UPDCF_DEFAULT = UPDCF_DOWNLOADIMG,
 };
 
@@ -44,7 +45,6 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	bool NeedsUpdating(unsigned int updcf_flags=UPDCF_DEFAULT);
 	bool IsReady(unsigned int updcf_flags=UPDCF_DEFAULT);
 	void CheckPendingTweets();
-	void UnmarkPending(const std::shared_ptr<tweet> &t);
 	std::shared_ptr<taccount> GetAccountOfUser();
 	void GetImageLocalFilename(wxString &filename);
 	inline userdata &GetUser() { return user; }
@@ -111,6 +111,7 @@ enum {	//for tweet.lflags
 	TLF_BEINGLOADEDFROMDB	= 1<<1,
 	TLF_PENDINGINDBTPANELMAP= 1<<2,
 	TLF_PENDINGHANDLENEW	= 1<<3,
+	TLF_PENDINGINRTMAP	= 1<<4,
 };
 
 struct tweet {
@@ -124,6 +125,8 @@ struct tweet {
 	std::shared_ptr<userdatacontainer> user_recipient;	//for DMs this is the recipient, for tweets, unset
 	std::forward_list<entity> entlist;
 	std::forward_list<tweet_perspective> tp_list;
+	std::shared_ptr<tweet> rtsrc;				//for retweets, this is the source tweet
+	unsigned int updcf_flags;
 
 	tweet_flags flags;
 	unsigned int lflags;
@@ -131,6 +134,9 @@ struct tweet {
 	void Dump();
 	tweet_perspective *AddTPToTweet(const std::shared_ptr<taccount> &tac, bool *isnew=0);
 	std::string mkdynjson() const;
+	bool GetUsableAccount(std::shared_ptr<taccount> &tac);
+	bool IsReady();
+	tweet() : updcf_flags(UPDCF_DEFAULT), lflags(0) { };
 };
 
 typedef enum {
@@ -265,3 +271,5 @@ void ParseTwitterDate(struct tm *createtm, time_t *createtm_t, const std::string
 #ifdef __WINDOWS__
 	struct tm *gmtime_r (const time_t *timer, struct tm *result);
 #endif
+
+extern std::unordered_multimap<uint64_t, uint64_t> rtpendingmap;

@@ -169,6 +169,7 @@ struct taccount : std::enable_shared_from_this<taccount> {
 
 	void MarkPending(uint64_t userid, const std::shared_ptr<userdatacontainer> &user, const std::shared_ptr<tweet> &t, bool checkfirst=false);
 	void MarkPendingOrHandle(const std::shared_ptr<tweet> &t);
+	bool CheckMarkPending(const std::shared_ptr<tweet> &t, bool checkfirst=false);
 
 	std::unordered_map<uint64_t,std::shared_ptr<userdatacontainer> > pendingusers;
 	std::forward_list<restbackfillstate> pending_rbfs_list;
@@ -194,7 +195,8 @@ struct alldata {
 	std::unordered_map<std::string,media_id_type> img_media_map;
 	unsigned int next_media_id;
 
-	std::shared_ptr<userdatacontainer> GetUserContainerById(uint64_t id);
+	std::shared_ptr<userdatacontainer> &GetUserContainerById(uint64_t id);
+	std::shared_ptr<tweet> &GetTweetById(uint64_t id, bool *isnew=0);
 
 	alldata() : next_media_id(1) { }
 };

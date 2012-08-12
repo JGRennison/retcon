@@ -26,6 +26,11 @@ struct genjsonparser {
 	static void ParseTweetDyn(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj);
 };
 
+enum {
+	JDTP_ISDM	= 1<<0,
+	JDTP_ISRTSRC	= 1<<1,
+};
+
 struct jsonparser : public genjsonparser {
 	std::shared_ptr<taccount> tac;
 	CS_ENUMTYPE type;
@@ -35,7 +40,7 @@ struct jsonparser : public genjsonparser {
 
 	std::shared_ptr<userdatacontainer> DoUserParse(const rapidjson::Value& val);
 	void DoEventParse(const rapidjson::Value& val);
-	std::shared_ptr<tweet> DoTweetParse(const rapidjson::Value& val, bool isdm=false);
+	std::shared_ptr<tweet> DoTweetParse(const rapidjson::Value& val, unsigned int sflags=0);
 	void RestTweetUpdateParams(const tweet &t);
 
 	jsonparser(CS_ENUMTYPE t, std::shared_ptr<taccount> a, twitcurlext *tw = 0 /*optional*/)

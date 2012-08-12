@@ -90,7 +90,7 @@ struct dbinserttweetmsg : public dbsendmsg {
 
 	std::string statjson;
 	std::string dynjson;
-	uint64_t id, user1, user2, timestamp;
+	uint64_t id, user1, user2, rtid, timestamp;
 	uint64_t flags;
 	unsigned char *mediaindex;			//already packed and compressed, must be malloced
 	size_t mediaindex_size;
@@ -107,7 +107,7 @@ struct dbupdatetweetmsg : public dbsendmsg {
 struct dbrettweetdata {
 	char *statjson;	//free when done
 	char *dynjson;	//free when done
-	uint64_t id, user1, user2, timestamp;
+	uint64_t id, user1, user2, rtid, timestamp;
 	uint64_t flags;
 
 	dbrettweetdata() : statjson(0), dynjson(0) { }

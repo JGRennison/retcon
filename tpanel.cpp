@@ -295,7 +295,12 @@ tweetdispscr *tpanelparentwin::PushTweetIndex(const std::shared_ptr<tweet> &t, s
 	tweetdispscr *td=new tweetdispscr(t, scrollwin, this, hbox);
 
 	if(t->flags.Get('T')) {
-		td->bm = new wxStaticBitmap(scrollwin, wxID_ANY, t->user->cached_profile_img, wxPoint(-1000, -1000));
+		if(t->rtsrc && gc.rtdisp) {
+			td->bm = new wxStaticBitmap(scrollwin, wxID_ANY, t->rtsrc->user->cached_profile_img, wxPoint(-1000, -1000));
+		}
+		else {
+			td->bm = new wxStaticBitmap(scrollwin, wxID_ANY, t->user->cached_profile_img, wxPoint(-1000, -1000));
+		}
 		hbox->Add(td->bm, 0, wxALL, 2);
 	}
 	else if(t->flags.Get('D') && t->user_recipient) {
@@ -332,7 +337,7 @@ uint64_t tpanelparentwin::PushTweetOrRetLoadId(uint64_t id, unsigned int pushfla
 	else {
 		tobj=std::make_shared<tweet>();
 		tobj->id=id;
-		tobj->lflags=TLF_BEINGLOADEDFROMDB;
+		tobj->lflags=TLF_BEINGLOADEDFROMDB|TLF_PENDINGINDBTPANELMAP;
 		tpaneldbloadmap.insert(std::make_pair(id, tpaneldbloadmap_data(this, pushflags)));
 		return id;
 	}
@@ -344,18 +349,19 @@ uint64_t tpanelparentwin::PushTweetOrRetLoadId(const std::shared_ptr<tweet> &tob
 		insertpending=true;
 	}
 	else {
-		bool user1ready=tobj->user->IsReady(UPDCF_NOUSEREXPIRE|UPDCF_DOWNLOADIMG);
-		bool user2ready=(tobj->user_recipient)?tobj->user_recipient->IsReady(UPDCF_NOUSEREXPIRE|UPDCF_DOWNLOADIMG):1;
-
-		if(user1ready && user2ready) PushTweet(tobj, pushflags);
-		else {
-			insertpending=true;
-			tobj->lflags|=TLF_PENDINGINDBTPANELMAP;
-			if(!user1ready) tobj->tp_list.front().acc->MarkPending(tobj->user->id, tobj->user, tobj, true);
-			if(!user2ready) tobj->tp_list.front().acc->MarkPending(tobj->user_recipient->id, tobj->user_recipient, tobj, true);
+		std::shared_ptr<taccount> curacc;
+		if(tobj->GetUsableAccount(curacc)) {
+			if(curacc->CheckMarkPending(tobj, true)) {
+				PushTweet(tobj, pushflags);
+			}
+			else {
+				insertpending=true;
+			}
 		}
+		else PushTweet(tobj, pushflags);	//best effort, as no pendings can be resolved
 	}
 	if(insertpending) {
+		tobj->lflags|=TLF_PENDINGINDBTPANELMAP;
 		bool found=false;
 		auto pit=tpaneldbloadmap.equal_range(tobj->id);
 		for(auto it=pit.first; it!=pit.second; ++it) {
@@ -410,10 +416,8 @@ void tpanelparentwin::PageUpHandler() {
 		for(unsigned int i=0; i<pagemove; i++) {
 			it--;
 			displayoffset--;
-			const std::shared_ptr<tweet> &t=ad.tweetobjs[*it];
-			bool user1ready=t->user->IsReady(UPDCF_NOUSEREXPIRE|UPDCF_DOWNLOADIMG);
-			bool user2ready=(t->user_recipient)?t->user_recipient->IsReady(UPDCF_NOUSEREXPIRE|UPDCF_DOWNLOADIMG):1;
-			if(user1ready && user2ready) PushTweet(t, TPPWPF_ABOVE);
+			const std::shared_ptr<tweet> &t=ad.GetTweetById(*it);
+			if(t->IsReady()) PushTweet(t, TPPWPF_ABOVE);
 			//otherwise tweet is already on pending list
 		}
 	}
@@ -644,13 +648,17 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 			bm->SetBitmap(udc->cached_profile_img_half);
 			bm2->SetBitmap(udc_recip->cached_profile_img_half);
 		}
-		else if(bm) bm->SetBitmap(udc->cached_profile_img);
+		else if(bm) {
+			if(tw.rtsrc && gc.rtdisp) bm->SetBitmap(tw.rtsrc->user->cached_profile_img);
+			else bm->SetBitmap(udc->cached_profile_img);
+		}
 	}
 
 	Clear();
 	wxString format=wxT("");
 	wxString str=wxT("");
-	if(tw.flags.Get('T')) format=gc.gcfg.tweetdispformat.val;
+	if(tw.flags.Get('R') && gc.rtdisp) format=gc.gcfg.rtdispformat.val;
+	else if(tw.flags.Get('T')) format=gc.gcfg.tweetdispformat.val;
 	else if(tw.flags.Get('D')) format=gc.gcfg.dmdispformat.val;
 
 	auto flush=[&]() {
@@ -683,6 +691,10 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 				if(udc_recip) userfmt(udc_recip, i);
 				else i++;
 				break;
+			case 'r':
+				if(tw.rtsrc && gc.rtdisp) userfmt(tw.rtsrc->user.get(), i);
+				else userfmt(udc, i);
+				break;
 			case 'N':
 				flush();
 				Newline();
@@ -706,15 +718,17 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 			case 'l': flush(); EndUnderline(); break;
 			case 'I': flush(); BeginItalic(); break;
 			case 'i': flush(); EndItalic(); break;
-			case 'C': {
+			case 'C':
+			case 'c': {
 				flush();
+				tweet &twgen=(format[i]=='c' && gc.rtdisp)?*(tw.rtsrc):tw;
 				unsigned int nextoffset=0;
 				unsigned int entnum=0;
 				int track_byte=0;
 				int track_index=0;
-				for(auto it=tw.entlist.begin(); it!=tw.entlist.end(); it++, entnum++) {
+				for(auto it=twgen.entlist.begin(); it!=twgen.entlist.end(); it++, entnum++) {
 					entity &et=*it;
-					DoWriteSubstr(*this, tw.text, nextoffset, et.start, track_byte, track_index, false);
+					DoWriteSubstr(*this, twgen.text, nextoffset, et.start, track_byte, track_index, false);
 					BeginUnderline();
 					BeginURL(wxString::Format(wxT("%d"), entnum));
 					WriteText(wxstrstd(et.text));
@@ -726,7 +740,18 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 						last_me=me_list.insert_after(last_me, &me);
 					}
 				}
-				DoWriteSubstr(*this, tw.text, nextoffset, -1, track_byte, track_index, true);
+				DoWriteSubstr(*this, twgen.text, nextoffset, -1, track_byte, track_index, true);
+				break;
+			}
+			case '\'':
+			case '"': {
+				auto quotechar=format[i];
+				i++;
+				while(i<format.size()) {
+					if(format[i]==quotechar) break;
+					else str+=format[i];
+					i++;
+				}
 				break;
 			}
 			default:

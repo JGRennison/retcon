@@ -389,18 +389,14 @@ inline std::shared_ptr<userdatacontainer> CheckParseUserObj(uint64_t id, const r
 	}
 }
 
-std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, bool isdm) {
+std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, unsigned int sflags) {
 	uint64_t tweetid;
 	if(!CheckTransJsonValueDef(tweetid, val, "id", 0, 0)) return std::make_shared<tweet>();
 
-	std::shared_ptr<tweet> &tobj=ad.tweetobjs[tweetid];
-	bool is_new_tweet=!tobj;
-	if(!tobj) {
-		tobj=std::make_shared<tweet>();
-		tobj->id=tweetid;
-	}
+	bool is_new_tweet;
+	std::shared_ptr<tweet> &tobj=ad.GetTweetById(tweetid, &is_new_tweet);
 
-	if(isdm) tobj->flags.Set('D');
+	if(sflags&JDTP_ISDM) tobj->flags.Set('D');
 	else tobj->flags.Set('T');
 	if(tac->ssl) tobj->flags.Set('s');
 
@@ -424,12 +420,17 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, boo
 			tobj->createtime=time(0);
 		}
 		jw.EndObject();
+		auto &rtval=val["retweeted_status"];
+		if(rtval.IsObject()) {
+			tobj->rtsrc=DoTweetParse(rtval, sflags|JDTP_ISRTSRC);
+			tobj->flags.Set('R');
+		}
 	}
 
-	LogMsgFormat(LFT_PARSE, wxT("id: %" wxLongLongFmtSpec "d, is_new_tweet_perspective: %d, isdm: %d"), tobj->id, is_new_tweet_perspective, isdm);
+	LogMsgFormat(LFT_PARSE, wxT("id: %" wxLongLongFmtSpec "d, is_new_tweet_perspective: %d, isdm: %d"), tobj->id, is_new_tweet_perspective, !!(sflags&JDTP_ISDM));
 
 	if(is_new_tweet_perspective) {	//this filters out duplicate tweets from the same account
-		if(!isdm) {
+		if(!(sflags&JDTP_ISDM)) {
 			tac->tweet_ids.insert(tweetid);
 			uint64_t userid=val["user"]["id"].GetUint64();
 			tobj->user=CheckParseUserObj(userid, val["user"], *this);
@@ -441,20 +442,23 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, boo
 			tobj->user=CheckParseUserObj(senderid, val["sender"], *this);
 			tobj->user_recipient=CheckParseUserObj(recipientid, val["recipient"], *this);
 		}
-		tac->MarkPendingOrHandle(tobj);
+		tobj->updcf_flags|=UPDCF_USEREXPIRE;
+		if(!(sflags&JDTP_ISRTSRC)) tac->MarkPendingOrHandle(tobj);
 	}
 
-	if(isdm) {
-		if(tobj->user_recipient.get()==tac->usercont.get()) {	//received DM
-			if(tac->max_recvdm_id<tobj->id) tac->max_recvdm_id=tobj->id;
+	if(!(sflags&JDTP_ISRTSRC)) {
+		if(sflags&JDTP_ISDM) {
+			if(tobj->user_recipient.get()==tac->usercont.get()) {	//received DM
+				if(tac->max_recvdm_id<tobj->id) tac->max_recvdm_id=tobj->id;
+			}
+			else {
+				if(tac->max_sentdm_id<tobj->id) tac->max_sentdm_id=tobj->id;
+				tobj->flags.Set('S');
+			}
 		}
 		else {
-			if(tac->max_sentdm_id<tobj->id) tac->max_sentdm_id=tobj->id;
-			tobj->flags.Set('S');
+			if(tac->max_tweet_id<tobj->id) tac->max_tweet_id=tobj->id;
 		}
-	}
-	else {
-		if(tac->max_tweet_id<tobj->id) tac->max_tweet_id=tobj->id;
 	}
 
 	if(currentlogflags&LFT_PARSE) tobj->Dump();

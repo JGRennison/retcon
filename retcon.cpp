@@ -333,7 +333,7 @@ void taccount::MarkPending(uint64_t userid, const std::shared_ptr<userdatacontai
 	user->pendingtweets.push_front(t);
 }
 
-std::shared_ptr<userdatacontainer> alldata::GetUserContainerById(uint64_t id) {
+std::shared_ptr<userdatacontainer> &alldata::GetUserContainerById(uint64_t id) {
 	std::shared_ptr<userdatacontainer> &usercont=userconts[id];
 	if(!usercont) {
 		usercont=std::make_shared<userdatacontainer>();
@@ -343,6 +343,16 @@ std::shared_ptr<userdatacontainer> alldata::GetUserContainerById(uint64_t id) {
 		memset(usercont->cached_profile_img_sha1, 0, sizeof(usercont->cached_profile_img_sha1));
 	}
 	return usercont;
+}
+
+std::shared_ptr<tweet> &alldata::GetTweetById(uint64_t id, bool *isnew) {
+	std::shared_ptr<tweet> &t=tweetobjs[id];
+	if(isnew) *isnew=(!t);
+	if(!t) {
+		t=std::make_shared<tweet>();
+		t->id=id;
+	}
+	return t;
 }
 
 mainframe *GetMainframeAncestor(wxWindow *in, bool passtoplevels) {

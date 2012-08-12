@@ -9,6 +9,8 @@
 #endif
 #include <openssl/sha.h>
 
+std::unordered_multimap<uint64_t, uint64_t> rtpendingmap;	//source tweet, retweet
+
 void HandleNewTweet(const std::shared_ptr<tweet> &t) {
 	//do some filtering, etc
 
@@ -46,8 +48,14 @@ void UpdateUsersTweet(uint64_t userid, bool redrawimg) {
 	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
 		for(auto jt=(*it)->currentdisp.begin(); jt!=(*it)->currentdisp.end(); ++jt) {
 			tweetdispscr &tds=*(jt->second);
+			bool found=false;
 			if((tds.td->user && tds.td->user->id==userid)
-			 || (tds.td->user_recipient && tds.td->user_recipient->id==userid)) {
+				|| (tds.td->user_recipient && tds.td->user_recipient->id==userid)) found=true;
+			if(tds.td->rtsrc) {
+				if((tds.td->rtsrc->user && tds.td->rtsrc->user->id==userid)
+					|| (tds.td->rtsrc->user_recipient && tds.td->rtsrc->user_recipient->id==userid)) found=true;
+			}
+			if(found) {
 				LogMsgFormat(LFT_TPANEL, wxT("UpdateUsersTweet: Found Entry %" wxLongLongFmtSpec "d."), jt->first);
 				jt->second->DisplayTweet(redrawimg);
 				break;
@@ -309,7 +317,7 @@ void streamconntimeout::Notify() {
 
 bool userdatacontainer::NeedsUpdating(unsigned int updcf_flags) {
 	if(!lastupdate) return true;
-	else if(updcf_flags&UPDCF_NOUSEREXPIRE && GetUser().screen_name.size()) return false;
+	else if(!(updcf_flags&UPDCF_USEREXPIRE) && GetUser().screen_name.size()) return false;
 	else {
 		if((time(0)-lastupdate)>gc.userexpiretime) return true;
 		else return false;
@@ -350,7 +358,7 @@ bool userdatacontainer::ImgHalfIsReady(unsigned int updcf_flags) {
 bool userdatacontainer::IsReady(unsigned int updcf_flags) {
 	if(!ImgIsReady(updcf_flags)) return false;
 	if(NeedsUpdating(updcf_flags)) return false;
-	else if( updcf_flags&UPDCF_NOUSEREXPIRE ) return true;
+	else if( !(updcf_flags&UPDCF_USEREXPIRE) ) return true;
 	else if( udc_flags & (UDC_LOOKUP_IN_PROGRESS|UDC_IMAGE_DL_IN_PROGRESS)) return false;
 	else return true;
 }
@@ -359,27 +367,29 @@ void userdatacontainer::CheckPendingTweets() {
 	if(IsReady()) {
 		FreezeAll();
 		pendingtweets.remove_if([&](const std::shared_ptr<tweet> &t) {
-			if(!t->flags.Get('D')) {
-				UnmarkPending(t);
-				return true;
-			}
-			else {
-				if(t->user->IsReady() && t->user_recipient->IsReady()) {
-					UnmarkPending(t);
-					return true;
+			bool ready;
+			std::shared_ptr<taccount> curacc;
+			if(t->GetUsableAccount(curacc)) {
+				if(curacc->CheckMarkPending(t, true)) {
+					ready=true;
 				}
 				else {
-					if(!t->user->IsReady()) t->tp_list.front().acc->MarkPending(t->user->id, t->user, t, true);
-					if(!t->user_recipient->IsReady()) t->tp_list.front().acc->MarkPending(t->user_recipient->id, t->user_recipient, t, true);
-					return false;
+					ready=false;
 				}
 			}
+			else ready=true;		//best effort, as no pendings can be resolved
+			
+			if(ready) {
+				UnmarkPendingTweet(t);
+				return true;
+			}
+			else return false;
 		});
 		ThawAll();
 	}
 }
 
-void userdatacontainer::UnmarkPending(const std::shared_ptr<tweet> &t) {
+void UnmarkPendingTweet(const std::shared_ptr<tweet> &t) {
 	if(t->lflags&TLF_PENDINGHANDLENEW) {
 		t->lflags&=~TLF_PENDINGHANDLENEW;
 		HandleNewTweet(t);
@@ -391,6 +401,16 @@ void userdatacontainer::UnmarkPending(const std::shared_ptr<tweet> &t) {
 		for(auto it=itpair.first; it!=itpair.second; ++it) (*it).second.win->PushTweet(t, (*it).second.pushflags);
 		tpaneldbloadmap.erase(itpair.first, itpair.second);
 	}
+	if(t->lflags&TLF_PENDINGINDBTPANELMAP) {
+		t->lflags&=~TLF_PENDINGINDBTPANELMAP;
+		auto itpair=rtpendingmap.equal_range(t->id);
+		for(auto it=itpair.first; it!=itpair.second; ++it) {
+			auto &rt=ad.GetTweetById((*it).second);
+			if(rt->IsReady()) UnmarkPendingTweet(rt);
+		}
+		rtpendingmap.erase(itpair.first, itpair.second);
+	}
+	t->updcf_flags&=~UPDCF_USEREXPIRE;
 }
 
 std::shared_ptr<taccount> userdatacontainer::GetAccountOfUser() {
@@ -460,6 +480,33 @@ std::string tweet_flags::GetString() const {
 	return out;
 }
 
+bool tweet::GetUsableAccount(std::shared_ptr<taccount> &tac) {
+	for(auto it=tp_list.begin(); it!=tp_list.end(); ++it) {
+		if(it->IsArrivedHere()) {
+			if(it->acc->enabled) {
+				tac=it->acc;
+				return true;
+			}
+		}
+	}
+	//try again, but use any associated account
+	for(auto it=tp_list.begin(); it!=tp_list.end(); ++it) {
+		if(it->acc->enabled) {
+			tac=it->acc;
+			return true;
+		}
+	}
+	//use the first account which is actually enabled
+	for(auto it=alist.begin(); it!=alist.end(); ++it) {
+		if((*it)->enabled) {
+			tac=*it;
+			return true;
+		}
+	}
+	LogMsgFormat(LFT_OTHERERR, wxT("Tweet: %" wxLongLongFmtSpec "d (%.15s...), has no usable enabled account, cannot perform network actions on tweet"), id, wxstrstd(text).c_str());
+	return false;
+}
+
 tweet_perspective *tweet::AddTPToTweet(const std::shared_ptr<taccount> &tac, bool *isnew) {
 	for(auto it=tp_list.begin(); it!=tp_list.end(); it++) {
 		if(it->acc.get()==tac.get()) {
@@ -472,33 +519,49 @@ tweet_perspective *tweet::AddTPToTweet(const std::shared_ptr<taccount> &tac, boo
 	return &tp_list.front();
 }
 
-void taccount::MarkPendingOrHandle(const std::shared_ptr<tweet> &t) {
-	if(t->flags.Get('T')) {
-		if(t->user->IsReady()) {
-			HandleNewTweet(t);
-		}
-		else {
-			t->lflags|=TLF_PENDINGHANDLENEW;
-			MarkPending(t->user->id, t->user, t);
-		}
-	}
-	else if(t->flags.Get('D')) {
-		bool isready=true;
+//the following two procedures should be kept in sync
 
-		if(!t->user->IsReady()) {
-			t->lflags|=TLF_PENDINGHANDLENEW;
-			MarkPending(t->user->id, t->user, t);
+//returns true is ready, false is pending
+bool taccount::CheckMarkPending(const std::shared_ptr<tweet> &t, bool checkfirst) {
+	bool isready=true;
+	
+	if(t->rtsrc) {
+		bool rtsrcisready=CheckMarkPending(t->rtsrc, checkfirst);
+		if(!rtsrcisready) {
+			rtpendingmap.insert(std::make_pair(t->rtsrc->id, t->id));
+			t->rtsrc->lflags|=TLF_PENDINGINRTMAP;
 			isready=false;
-		}
-		if(!t->user_recipient->IsReady()) {
-			t->lflags|=TLF_PENDINGHANDLENEW;
-			MarkPending(t->user_recipient->id, t->user_recipient, t);
-			isready=false;
-		}
-		if(isready) {
-			HandleNewTweet(t);
 		}
 	}
+
+	if(!t->user->IsReady(t->updcf_flags)) {
+		MarkPending(t->user->id, t->user, t, checkfirst);
+		isready=false;
+	}
+	if(t->flags.Get('D') && !(t->user_recipient->IsReady(t->updcf_flags))) {
+		MarkPending(t->user_recipient->id, t->user_recipient, t, checkfirst);
+		isready=false;
+	}
+	return isready;
+}
+
+//returns true is ready, false is pending
+bool tweet::IsReady() {
+	bool isready=true;
+	
+	if(rtsrc) {
+		bool rtsrcisready=rtsrc->IsReady();
+		if(!rtsrcisready) isready=false;
+	}
+	if(!user->IsReady(updcf_flags)) isready=false;
+	if(flags.Get('D') && !(user_recipient->IsReady(updcf_flags))) isready=false;
+	return isready;
+}
+
+void taccount::MarkPendingOrHandle(const std::shared_ptr<tweet> &t) {
+	bool isready=CheckMarkPending(t);
+	if(isready) HandleNewTweet(t);
+	else t->lflags|=TLF_PENDINGHANDLENEW;
 }
 
 std::string tweet::mkdynjson() const {
