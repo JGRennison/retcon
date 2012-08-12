@@ -1,6 +1,7 @@
 #include "retcon.h"
 #include <cstring>
 #include <wx/uri.h>
+#include <wx/msgdlg.h>
 
 template <typename C> bool IsType(const rapidjson::Value& val);
 template <> bool IsType<bool>(const rapidjson::Value& val) { return val.IsBool(); }
@@ -294,13 +295,39 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 	}
 
 	switch(type) {
-		case CS_ACCVERIFY:
-			tac->usercont=DoUserParse(dc);
+		case CS_ACCVERIFY: {
+			std::shared_ptr<userdatacontainer> auser=DoUserParse(dc);
+			for(auto it=alist.begin(); it!=alist.end(); ++it) {
+				if(*it==tac) continue;
+				if(auser->id==(*it)->usercont->id) {
+					wxString message=wxString::Format(wxT("Error, attempted to assign more than one account to the same twitter account: %s, @%s, id: %" wxLongLongFmtSpec "d.\nThis account will be disabled, or not created. Re-authenticate or delete the offending account(s)."),
+						wxstrstd(auser->GetUser().name).c_str(), wxstrstd(auser->GetUser().screen_name).c_str(), auser->id);
+					LogMsg(LFT_OTHERERR, message);
+					wxMessageBox(message, wxT("Authentication Error"), wxOK | wxICON_ERROR);
+					free(json);
+					tac->userenabled=false;
+					return false;
+				}
+			}
+			
+			if(tac->usercont && tac->usercont->id && tac->usercont->id!=auser->id) {
+				wxString message=wxString::Format(wxT("Error, attempted to re-assign account to a different twitter account.\nAttempted to assign to: %s, @%s, id: %" wxLongLongFmtSpec "d\nInstead of: %s, @%s, id: %" wxLongLongFmtSpec "d\nThis account will be disabled. Re-authenticate the account to the correct twitter account."),
+					wxstrstd(auser->GetUser().name).c_str(), wxstrstd(auser->GetUser().screen_name).c_str(), auser->id,
+					wxstrstd(tac->usercont->GetUser().name).c_str(), wxstrstd(tac->usercont->GetUser().screen_name).c_str(), tac->usercont->id);
+				LogMsg(LFT_OTHERERR, message);
+				wxMessageBox(message, wxT("Authentication Error"), wxOK | wxICON_ERROR);
+				free(json);
+				tac->userenabled=false;
+				return false;
+			}
+
+			tac->usercont=auser;
 			tac->usercont->udc_flags|=UDC_THIS_IS_ACC_USER_HINT;
 			if(tac->usercont->GetUser().name.size()) tac->dispname=wxstrstd(tac->usercont->GetUser().name);
 			else tac->dispname=wxstrstd(tac->usercont->GetUser().screen_name);
 			tac->PostAccVerifyInit();
 			break;
+		}
 		case CS_USERLIST:
 			if(dc.IsArray()) {
 				dbmsglist=new dbsendmsg_list();

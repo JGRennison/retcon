@@ -29,7 +29,10 @@ bool retcon::OnInit() {
 
 	top->Show(true);
 	SetTopWindow(top);
-	for(auto it=alist.begin() ; it != alist.end(); it++ ) (*it)->Exec();
+	for(auto it=alist.begin() ; it != alist.end(); it++ ) {
+		(*it)->CalcEnabled();
+		(*it)->Exec();
+	}
 	return true;
 }
 
@@ -117,7 +120,7 @@ void mainframe::OnSettings(wxCommandEvent &event) {
 	sw->Destroy();
 }
 void mainframe::OnAccounts(wxCommandEvent &event) {
-	acc_window *acc=new acc_window(this, -1, wxT("Accounts"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE);
+	acc_window *acc=new acc_window(this, -1, wxT("Accounts"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
 	//acc->Show(true);
 	acc->ShowModal();
 	acc->Destroy();
@@ -321,6 +324,11 @@ void taccount::Exec() {
 		verifycredinprogress=false;
 		cp.ClearAllConns();
 	}
+}
+
+void taccount::CalcEnabled() {
+	if(userenabled && !beinginsertedintodb) enabled=true;
+	else enabled=false;
 }
 
 void taccount::MarkPending(uint64_t userid, const std::shared_ptr<userdatacontainer> &user, const std::shared_ptr<tweet> &t, bool checkfirst) {

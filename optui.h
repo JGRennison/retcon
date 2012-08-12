@@ -5,8 +5,16 @@ struct acc_window: public wxDialog {
 	void AccDel(wxCommandEvent &event);
 	void AccNew(wxCommandEvent &event);
 	void AccClose(wxCommandEvent &event);
+	void EnDisable(wxCommandEvent &event);
+	void ReAuth(wxCommandEvent &event);
+	void OnSelChange(wxCommandEvent &event) ;
 	void UpdateLB();
+	void UpdateButtons() ;
 	wxListBox *lb;
+	wxButton *editbtn;
+	wxButton *endisbtn;
+	wxButton *reauthbtn;
+	wxButton *delbtn;
 
 	DECLARE_EVENT_TABLE()
 };

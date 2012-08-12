@@ -241,13 +241,14 @@ bool twitcurlext::TwSyncStartupAccVerify() {
 	long httpcode;
 	curl_easy_getinfo(GetCurlHandle(), CURLINFO_RESPONSE_CODE, &httpcode);
 	if(httpcode==200) {
-		jsonparser jp(CS_ACCVERIFY, tacc.lock(), this);
+		auto acc=tacc.lock();
+		jsonparser jp(CS_ACCVERIFY, acc, this);
 		std::string str;
 		getLastWebResponse(str);
-		jp.ParseString(str);
+		bool res=jp.ParseString(str);
 		str.clear();
-		tacc.lock()->verifycredinprogress=false;
-		return true;
+		acc->verifycredinprogress=false;
+		return res;
 	}
 	else {
 		tacc.lock()->verifycredinprogress=false;
@@ -586,6 +587,7 @@ std::string tweet::mkdynjson() const {
 void StreamCallback( std::string &data, twitCurl* pTwitCurlObj, void *userdata ) {
 	twitcurlext *obj=(twitcurlext*) pTwitCurlObj;
 	std::shared_ptr<taccount> acc=obj->tacc.lock();
+	if(!acc) return;
 
 	LogMsgFormat(LFT_SOCKTRACE, wxT("StreamCallback: Received: %s"), wxstrstd(data).c_str());
 	jsonparser jp(CS_STREAM, acc, obj);

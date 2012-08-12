@@ -60,9 +60,10 @@ static const char *sql[DBPSC_NUM_STATEMENTS]={
 	"SELECT statjson, dynjson, userid, userrecipid, flags, timestamp, medialist, rtid FROM tweets WHERE id == ?;",
 	"INSERT INTO rbfspending(accid, type, startid, endid, maxleft) VALUES (?, ?, ?, ?, ?);",
 	"SELECT url, fullchecksum, thumbchecksum FROM mediacache WHERE (mid == ? AND tid == ?);",
-	"INSERT OR IGNORE INTO mediacache(mid, tid, url) VALUES (?, ?, ?);"
+	"INSERT OR IGNORE INTO mediacache(mid, tid, url) VALUES (?, ?, ?);",
 	"UPDATE OR IGNORE mediacache SET thumbchecksum = ? WHERE (mid == ? AND tid == ?);",
 	"UPDATE OR IGNORE mediacache SET fullchecksum = ? WHERE (mid == ? AND tid == ?);",
+	"DELETE FROM acc WHERE id == ?;",
 };
 
 static void DBThreadSafeLogMsg(logflagtype logflags, const wxString &str) {
@@ -510,11 +511,21 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			sqlite3_bind_int64(stmt, 3, (sqlite3_int64) m->userid);
 			int res=sqlite3_step(stmt);
 			m->dbindex=(unsigned int) sqlite3_last_insert_rowid(db);
-			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_INSERTACC got error: %d (%s) for user name: %s"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), wxstrstd(m->dispname).c_str()); }
-			else { DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_INSERTACC inserted user dbindex: %d, name: %s"), m->dbindex, wxstrstd(m->dispname).c_str()); }
+			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_INSERTACC got error: %d (%s) for account name: %s"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), wxstrstd(m->dispname).c_str()); }
+			else { DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_INSERTACC inserted account dbindex: %d, name: %s"), m->dbindex, wxstrstd(m->dispname).c_str()); }
 			sqlite3_reset(stmt);
 			m->SendReply(m);
 			return;
+		}
+		case DBSM_DELACC: {
+			dbdelaccmsg *m=(dbdelaccmsg*) msg;
+			sqlite3_stmt *stmt=cache.GetStmt(db, DBPSC_DELACC);
+			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->dbindex);
+			int res=sqlite3_step(stmt);
+			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_DELACC got error: %d (%s) for account dbindex: %d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), m->dbindex); }
+			else { DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_DELACC deleted account dbindex: %d"), m->dbindex); }
+			sqlite3_reset(stmt);
+			break;
 		}
 		case DBSM_INSERTMEDIA: {
 			dbinsertmediamsg *m=(dbinsertmediamsg*) msg;
@@ -682,7 +693,8 @@ void dbconn::OnDBNewAccountInsert(wxCommandEvent &event) {
 	for(auto it=alist.begin() ; it != alist.end(); ++it ) {
 		if((*it)->name==accname) {
 			(*it)->dbindex=msg->dbindex;
-			(*it)->enabled=true;
+			(*it)->beinginsertedintodb=false;
+			(*it)->CalcEnabled();
 			(*it)->Exec();
 		}
 	}

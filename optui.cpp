@@ -1,11 +1,20 @@
 #include "retcon.h"
 #include <wx/msgdlg.h>
 
+enum {
+	ACCWID_ENDISABLE=1,
+	ACCWID_REAUTH,
+
+};
+
 BEGIN_EVENT_TABLE(acc_window, wxDialog)
 	EVT_BUTTON(wxID_PROPERTIES, acc_window::AccEdit)
 	EVT_BUTTON(wxID_DELETE, acc_window::AccDel)
 	EVT_BUTTON(wxID_NEW, acc_window::AccNew)
 	EVT_BUTTON(wxID_CLOSE, acc_window::AccClose)
+	EVT_BUTTON(ACCWID_ENDISABLE, acc_window::EnDisable)
+	EVT_BUTTON(ACCWID_REAUTH, acc_window::ReAuth)
+	EVT_LISTBOX(wxID_FILE1, acc_window::OnSelChange)
 END_EVENT_TABLE()
 
 acc_window::acc_window(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name)
@@ -21,32 +30,67 @@ acc_window::acc_window(wxWindow* parent, wxWindowID id, const wxString& title, c
 
 	lb=new wxListBox(panel, wxID_FILE1, wxDefaultPosition, wxDefaultSize, 0, 0, wxLB_SINGLE | wxLB_SORT | wxLB_NEEDED_SB);
 	UpdateLB();
-	wxButton *editbtn=new wxButton(panel, wxID_PROPERTIES, wxT("Settings"));
-	wxButton *delbtn=new wxButton(panel, wxID_DELETE, wxT("Delete"));
+	editbtn=new wxButton(panel, wxID_PROPERTIES, wxT("Settings"));
+	endisbtn=new wxButton(panel, ACCWID_ENDISABLE, wxT("Disable"));
+	reauthbtn=new wxButton(panel, ACCWID_REAUTH, wxT("Re-Authenticate"));
+	delbtn=new wxButton(panel, wxID_DELETE, wxT("Delete"));
 	wxButton *newbtn=new wxButton(panel, wxID_NEW, wxT("Add account"));
 	wxButton *clsbtn=new wxButton(panel, wxID_CLOSE, wxT("Close"));
 
-	vbox->Add(hbox1, 0, wxALL | wxEXPAND , 4);
+	vbox->Add(hbox1, 1, wxALL | wxEXPAND , 4);
 	vbox->Add(hbox2, 0, wxALL | wxEXPAND , 4);
-	hbox1->Add(lb, 1, wxALL | wxALIGN_LEFT, 4);
+	hbox1->Add(lb, 1, wxALL | wxALIGN_LEFT | wxEXPAND, 4);
 	hbox1->Add(vboxr, 0, wxALL, 4);
-	vboxr->Add(editbtn, 0, wxALIGN_TOP, 0);
-	vboxr->Add(delbtn, 0, wxALIGN_TOP, 0);
+	vboxr->Add(editbtn, 0, wxALIGN_TOP | wxEXPAND, 0);
+	vboxr->Add(delbtn, 0, wxALIGN_TOP | wxEXPAND, 0);
+	vboxr->Add(endisbtn, 0, wxALIGN_TOP | wxEXPAND, 0);
+	vboxr->Add(reauthbtn, 0, wxALIGN_TOP | wxEXPAND, 0);
 	hbox2->Add(newbtn, 0, wxALIGN_LEFT, 0);
 	hbox2->AddStretchSpacer(1);
 	hbox2->Add(clsbtn, 0, wxALIGN_RIGHT, 0);
+	
+	UpdateButtons();
 
 	panel->SetSizer(vbox);
 	vbox->Fit(panel);
+	
+	wxSize initsize=GetSize();
+	SetSizeHints(initsize.GetWidth(), initsize.GetHeight(), 9001, 9001);
 }
 
 acc_window::~acc_window() {
 
 }
 
+void acc_window::OnSelChange(wxCommandEvent &event) {
+	UpdateButtons();
+}
+
+void acc_window::UpdateButtons() {
+	int selection=lb->GetSelection();
+	editbtn->Enable(selection!=wxNOT_FOUND);
+	endisbtn->Enable(selection!=wxNOT_FOUND);
+	reauthbtn->Enable(selection!=wxNOT_FOUND);
+	delbtn->Enable(selection!=wxNOT_FOUND);
+	if(selection!=wxNOT_FOUND) {
+		taccount *acc=(taccount *) lb->GetClientData(selection);
+		endisbtn->SetLabel(acc->userenabled?wxT("Disable"):wxT("Enable"));
+	}
+	else endisbtn->SetLabel(wxT("Disable"));
+}
+
 void acc_window::UpdateLB() {
+	int selection=lb->GetSelection();
+	taccount *acc;
+	if(selection!=wxNOT_FOUND) acc=(taccount *) lb->GetClientData(selection);
+	else acc=0;
 	lb->Clear();
-	for(auto it=alist.begin() ; it != alist.end(); it++ ) lb->Append((*it)->dispname,(*it).get());
+	for(auto it=alist.begin(); it != alist.end(); it++ ) {
+		wxString accname=(*it)->dispname;
+		if(!(*it)->userenabled) accname+=wxT(" [disabled]");
+		int index=lb->Append(accname,(*it).get());
+		if((*it).get()==acc) lb->SetSelection(index);
+	}
 }
 
 void acc_window::AccEdit(wxCommandEvent &event) {
@@ -62,11 +106,16 @@ void acc_window::AccDel(wxCommandEvent &event) {
 	int sel=lb->GetSelection();
 	if(sel==wxNOT_FOUND) return;
 	taccount *acc=(taccount *) lb->GetClientData(sel);
+	if(!acc->dbindex) return;
 	int answer=wxMessageBox(wxT("Are you sure that you want to delete account: ") + acc->dispname + wxT(".\nThis cannot be undone."), wxT("Confirm Account Deletion"), wxYES_NO | wxICON_EXCLAMATION, this);
 	if(answer==wxYES) {
-		acc->enabled=0;
+		acc->enabled=acc->userenabled=0;
 		acc->Exec();
+		dbdelaccmsg *delmsg=new dbdelaccmsg;
+		delmsg->dbindex=acc->dbindex;
+		dbc.SendMessage(delmsg);
 		alist.remove_if([&](const std::shared_ptr<taccount> &a) { return a.get()==acc; });
+		lb->SetSelection(wxNOT_FOUND);
 		UpdateLB();
 	}
 }
@@ -75,11 +124,22 @@ void acc_window::AccNew(wxCommandEvent &event) {
 	std::shared_ptr<taccount> ta(new taccount(&gc.cfg));
 	ta->enabled=false;
 	ta->dispname=wxT("<new account>");
-	//opportunity for OAuth settings and so on goes here
+	
+	int answer=wxMessageBox(wxT("Would you like to review the account settings before authenticating?"), wxT("Account Creation"), wxYES_NO | wxCANCEL | wxICON_QUESTION | wxNO_DEFAULT, this);
+	
+	if(answer==wxYES) {
+		settings_window *sw=new settings_window(this, -1, wxT("New Account Settings"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER, wxT("dialogBox"), ta.get());
+		sw->ShowModal();
+		sw->Destroy();
+	}
+	else if(answer==wxCANCEL) return;
+	
 	twitcurlext *twit=ta->cp.GetConn();
 	twit->TwInit(ta);
 	if(ta->TwDoOAuth(this, *twit)) {
 		if(twit->TwSyncStartupAccVerify()) {
+			ta->userenabled=true;
+			ta->beinginsertedintodb=true;
 			ta->name=wxString::Format(wxT("%" wxLongLongFmtSpec "d-%d"),ta->usercont->id,time(0));
 			alist.push_back(ta);
 			UpdateLB();
@@ -98,6 +158,36 @@ void acc_window::AccNew(wxCommandEvent &event) {
 }
 void acc_window::AccClose(wxCommandEvent &event) {
 	EndModal(0);
+}
+
+void acc_window::EnDisable(wxCommandEvent &event) {
+	int sel=lb->GetSelection();
+	if(sel==wxNOT_FOUND) return;
+	taccount *acc=(taccount *) lb->GetClientData(sel);
+	acc->userenabled=!acc->userenabled;
+	acc->CalcEnabled();
+	acc->Exec();
+	UpdateLB();
+	UpdateButtons();
+}
+
+void acc_window::ReAuth(wxCommandEvent &event) {
+	int sel=lb->GetSelection();
+	if(sel==wxNOT_FOUND) return;
+	taccount *acc=(taccount *) lb->GetClientData(sel);
+	acc->enabled=0;
+	acc->Exec();
+	twitcurlext *twit=acc->cp.GetConn();
+	twit->TwInit(acc->shared_from_this());
+	twit->getOAuth().setOAuthTokenKey("");		//remove existing oauth tokens
+	twit->getOAuth().setOAuthTokenSecret("");
+	if(acc->TwDoOAuth(this, *twit)) {
+		twit->TwSyncStartupAccVerify();
+	}
+	UpdateLB();
+	UpdateButtons();
+	acc->CalcEnabled();
+	acc->Exec();
 }
 
 enum {
@@ -318,6 +408,13 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 		else {
 			vbox->Hide(sbox);
 		}
+	}
+	if(defshow && current!=defshow) {	//for (new) accounts not (yet) in alist
+		wxStaticBoxSizer *sbox=AddGenoptconfSettingBlock(panel, vbox, defshow->dispname, defshow->cfg, gc.cfg, 0);
+		accmap[defshow]=sbox;
+		lb->Append(defshow->dispname, defshow);
+		lb->SetSelection(lb->GetCount()-1);
+		current=defshow;
 	}
 
 	if(current) vbox->Hide(defsbox);

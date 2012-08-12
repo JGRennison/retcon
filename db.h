@@ -16,6 +16,7 @@ typedef enum {
 	DBPSC_INSERTMEDIA,
 	DBPSC_UPDATEMEDIATHUMBCHKSM,
 	DBPSC_UPDATEMEDIAFULLCHKSM,
+	DBPSC_DELACC,
 
 	DBPSC_NUM_STATEMENTS,
 } DBPSC_TYPE;
@@ -58,6 +59,7 @@ typedef enum {
 	DBSM_INSERTACC,
 	DBSM_INSERTMEDIA,
 	DBSM_UPDATEMEDIACHKSM,
+	DBSM_DELACC,
 } DBSM_TYPE;
 
 struct dbsendmsg {
@@ -164,6 +166,12 @@ struct dbinsertaccmsg : public dbsendmsg_callback {
 	std::string dispname;				//account name
 	uint64_t userid;
 	unsigned int dbindex;				//return data
+};
+
+struct dbdelaccmsg : public dbsendmsg {
+	dbdelaccmsg() : dbsendmsg(DBSM_DELACC) { }
+
+	unsigned int dbindex;
 };
 
 struct dbinsertmediamsg : public dbsendmsg {

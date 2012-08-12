@@ -24,16 +24,13 @@ genoptglobconf gcglobdefaults {
 	{ wxT("1"), 1 },
 };
 
-taccount::taccount(genoptconf *incfg) {
+taccount::taccount(genoptconf *incfg)
+	: max_tweet_id(0), max_recvdm_id(0), max_sentdm_id(0), enabled(false), userenabled(false), active(false),
+		verifycreddone(false), verifycredinprogress(false), beinginsertedintodb(false)  {
 	if(incfg) {
 		cfg.InheritFromParent(*incfg);
 		CFGParamConv();
 	}
-	enabled=false;
-	verifycreddone=false;
-	verifycredinprogress=false;
-	active=false;
-	max_tweet_id=max_recvdm_id=max_sentdm_id=0;
 }
 
 
@@ -43,7 +40,7 @@ void taccount::CFGWriteOut(DBWriteConfig &twfc) {
 	cfg.CFGWriteOutCurDir(twfc);
 	twfc.Write("conk", conk);
 	twfc.Write("cons", cons);
-	twfc.WriteInt64("enabled", enabled);
+	twfc.WriteInt64("enabled", userenabled);
 	twfc.WriteInt64("max_tweet_id", max_tweet_id);
 	twfc.WriteInt64("max_recvdm_id", max_recvdm_id);
 	twfc.WriteInt64("max_sentdm_id", max_sentdm_id);
@@ -55,7 +52,7 @@ void taccount::CFGReadIn(DBReadConfig &twfc) {
 	cfg.CFGReadInCurDir(twfc, gc.cfg);
 	twfc.Read("conk", &conk, wxT(""));
 	twfc.Read("cons", &cons, wxT(""));
-	twfc.ReadBool("enabled", &enabled, false);
+	twfc.ReadBool("enabled", &userenabled, false);
 	twfc.ReadUInt64("max_tweet_id", &max_tweet_id, 0);
 	twfc.ReadUInt64("max_recvdm_id", &max_recvdm_id, 0);
 	twfc.ReadUInt64("max_sentdm_id", &max_sentdm_id, 0);

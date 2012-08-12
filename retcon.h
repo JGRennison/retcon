@@ -175,15 +175,18 @@ struct taccount : std::enable_shared_from_this<taccount> {
 	std::forward_list<restbackfillstate> pending_rbfs_list;
 
 	bool enabled;
+	bool userenabled;
 	bool active;
 	bool verifycreddone;
 	bool verifycredinprogress;
+	bool beinginsertedintodb;
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc);
 	void CFGParamConv();
 	bool TwDoOAuth(wxWindow *pf, twitcurlext &twit);
 	void PostAccVerifyInit();
 	void Exec();
+	void CalcEnabled();
 	taccount(genoptconf *incfg=0);
 };
 
