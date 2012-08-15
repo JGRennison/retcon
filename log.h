@@ -48,6 +48,7 @@ struct log_window : public log_object, public wxFrame {
 	void OnClear(wxCommandEvent &event);
 	void OnClose(wxCommandEvent &event);
 	void OnDumpPending(wxCommandEvent &event);
+	void OnDumpTPanelWins(wxCommandEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };

@@ -14,6 +14,7 @@ std::forward_list<log_object*> logfunclist;
 
 static void dump_pending_acc(logflagtype logflags, const wxString &indent, const wxString &indentstep, taccount *acc);
 static void dump_pending_tpaneldbloadmap(logflagtype logflags, const wxString &indent);
+static void dump_tpanel_scrollwin_data(logflagtype logflags, const wxString &indent, const wxString &indentstep, tpanelparentwin *tppw);
 
 const wxChar *logflagsstrings[]={
 	wxT("curlverb"),
@@ -143,6 +144,7 @@ BEGIN_EVENT_TABLE(log_window, wxFrame)
 	EVT_MENU(wxID_CLEAR, log_window::OnClear)
 	EVT_MENU(wxID_CLOSE, log_window::OnClose)
 	EVT_MENU(wxID_FILE1, log_window::OnDumpPending)
+	EVT_MENU(wxID_FILE2, log_window::OnDumpTPanelWins)
 END_EVENT_TABLE()
 
 static void log_window_AddChkBox(log_window *parent, logflagtype flags, const wxString &str, wxSizer *sz) {
@@ -175,6 +177,7 @@ log_window::log_window(wxWindow *parent, logflagtype flagmask, bool show)
 	menuF->Append( wxID_CLOSE, wxT("&Close"));
 	wxMenu *menuD = new wxMenu;
 	menuD->Append( wxID_FILE1, wxT("Dump &Pendings"));
+	menuD->Append( wxID_FILE2, wxT("Dump &Tpanel Window Data"));
 
 	wxMenuBar *menuBar = new wxMenuBar;
 	menuBar->Append(menuF, wxT("&File"));
@@ -230,6 +233,11 @@ void log_window::OnDumpPending(wxCommandEvent &event) {
 	}
 }
 
+void log_window::OnDumpTPanelWins(wxCommandEvent &event) {
+	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
+		dump_tpanel_scrollwin_data(LFT_USERREQ, wxT(""), wxT("\t"), (*it));
+	}
+}
 
 log_file::log_file(logflagtype flagmask, const char *filename) : log_object(flagmask), closefpondel(0) {
 	fp=fopen(filename, "a");
@@ -286,5 +294,24 @@ static void dump_pending_acc(logflagtype logflags, const wxString &indent, const
 static void dump_pending_tpaneldbloadmap(logflagtype logflags, const wxString &indent) {
 	for(auto it=tpaneldbloadmap.begin(); it!=tpaneldbloadmap.end(); ++it) {
 		LogMsgFormat(logflags, wxT("%sLoad Map: %" wxLongLongFmtSpec "d (%.15s...) --> %s (%s) pushflags: %X"), indent.c_str(), it->first, wxstrstd(ad.tweetobjs[it->first]->text).c_str(), wxstrstd(it->second.win->tp->name).c_str(), wxstrstd(it->second.win->tp->dispname).c_str(), it->second.pushflags);
+	}
+}
+
+static void dump_window_pos_data(logflagtype logflags, const wxString &indent, const wxString &indentstep, wxWindow *win) {
+	int x, y, px, py;
+	win->GetSize(&x, &y);
+	win->GetPosition(&px, &py);
+	LogMsgFormat(logflags, wxT("%sWindow: %p, size: %d, %d, pos: %d, %d"), indent.c_str(), win, x, y, px, py);
+}
+
+static void dump_tpanel_scrollwin_data(logflagtype logflags, const wxString &indent, const wxString &indentstep, tpanelparentwin *tppw) {
+	int x, y, vx, vy, vsx, vsy;
+	tppw->scrollwin->GetSize(&x, &y);
+	tppw->scrollwin->GetVirtualSize(&vx, &vy);
+	tppw->scrollwin->GetViewStart(&vsx, &vsy);
+	const wxWindowList& wl=tppw->scrollwin->GetChildren();
+	LogMsgFormat(logflags, wxT("%sTpanel: %s, size: %d, %d, vsize: %d, %d, vstart: %d, %d, children: %d, numcurdisp: %d"), indent.c_str(), wxstrstd(tppw->tp->name).c_str(), x, y, vx, vy, vsx, vsy, wl.GetCount(), tppw->currentdisp.size());
+	for(auto it=wl.begin(); it!=wl.end(); ++it) {
+		dump_window_pos_data(logflags, indent+indentstep, indentstep, (*it));
 	}
 }

@@ -232,7 +232,7 @@ tpanelparentwin::~tpanelparentwin() {
 }
 
 void tpanelparentwin::TweetPopTop() {
-	currentdisp.front().second->Destroy();
+	//currentdisp.front().second->Destroy();
 	size_t offset=0;
 	wxSizer *sz=sizer->GetItem(offset)->GetSizer();
 	if(sz) {
@@ -243,7 +243,7 @@ void tpanelparentwin::TweetPopTop() {
 }
 
 void tpanelparentwin::TweetPopBottom() {
-	currentdisp.back().second->Destroy();
+	//currentdisp.back().second->Destroy();
 	size_t offset=currentdisp.size()-1;
 	wxSizer *sz=sizer->GetItem(offset)->GetSizer();
 	if(sz) {
@@ -263,6 +263,7 @@ void tpanelparentwin::PushTweet(const std::shared_ptr<tweet> &t, unsigned int pu
 		if(id>currentdisp.front().first) {
 			if(!(pushflags&TPPWPF_ABOVE)) {
 				displayoffset++;
+				scrollwin->Thaw();
 				return;
 			}
 		}
@@ -273,7 +274,10 @@ void tpanelparentwin::PushTweet(const std::shared_ptr<tweet> &t, unsigned int pu
 				TweetPopTop();
 				displayoffset++;
 			}
-			else return;
+			else {
+				scrollwin->Thaw();
+				return;
+			}
 		}
 		else TweetPopBottom();					//too many in list, remove the last one
 	}
@@ -326,6 +330,7 @@ tweetdispscr *tpanelparentwin::PushTweetIndex(const std::shared_ptr<tweet> &t, s
 
 	sizer->Insert(index, hbox, 0, wxALL | wxEXPAND, 2);
 	td->DisplayTweet();
+	scrollwin->FitInside();
 	return td;
 }
 

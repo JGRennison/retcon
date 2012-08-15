@@ -50,8 +50,8 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	fill_accchoice();
 	wxFlexGridSizer *follow_grid=new wxFlexGridSizer(0, 2, 2, 2);
 	sb->Add(follow_grid, 0, wxALL, 2);
-	insert_uw_row(this, follow_grid, wxT("You follow:"), ifollow);
-	insert_uw_row(this, follow_grid, wxT("Following you:"), followsme);
+	insert_uw_row(this, follow_grid, wxT("Following:"), ifollow);
+	insert_uw_row(this, follow_grid, wxT("Followed By:"), followsme);
 
 	wxNotebook *nb=new wxNotebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxCLIP_CHILDREN | wxNB_TOP | wxNB_NOPAGETHEME);
 
@@ -142,7 +142,7 @@ void user_window::RefreshFollow() {
 					else value=wxT("No");
 
 					time_t updtime=ifollow?ur.ifollow_updtime:ur.followsme_updtime;
-					if(updtime) {
+					if(updtime && (time(0)-updtime)>180) {
 						time_t updatetime;	//not used
 						value=wxString::Format(wxT("%s as of %s (%s)"), value.c_str(), getreltimestr(updtime, updatetime).c_str(), rc_wx_strftime(gc.gcfg.datetimeformat.val, localtime(&updtime), updtime, true).c_str());
 					}
