@@ -30,6 +30,7 @@ const wxChar *logflagsstrings[]={
 	wxT("othertrace"),
 	wxT("othererr"),
 	wxT("userreq"),
+	wxT("pendingtrace"),
 };
 
 void Update_currentlogflags() {
@@ -241,6 +242,7 @@ log_file::~log_file() {
 
 void log_file::log_str(logflagtype logflags, const wxString &str) {
 	fprintf(fp, "%s", (const char *) str.ToUTF8());
+	fflush(fp);
 }
 
 logflagtype StrToLogFlags(const wxString &str) {
@@ -250,6 +252,7 @@ logflagtype StrToLogFlags(const wxString &str) {
 		wxString token = tkz.GetNextToken();
 		if(token==wxT("all")) out|=lfd_allmask;
 		else if(token==wxT("error")) out|=lfd_err;
+		else if(token==wxT("err")) out|=lfd_err;
 		else {
 			for(unsigned int i=0; i<sizeof(logflagsstrings)/sizeof(const wxChar *); i++) {
 				if(token==logflagsstrings[i]) {

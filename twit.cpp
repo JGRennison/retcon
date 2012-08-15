@@ -102,9 +102,9 @@ void userlookup::GetIdList(std::string &idlist) {
 	auto it=users_queried.cbegin();
 	while(true) {
 		idlist+=std::to_string((*it)->id);
-		if(it!=users_queried.cend()) break;
-		idlist+=",";
 		it++;
+		if(it==users_queried.cend()) break;
+		idlist+=",";
 	}
 }
 
@@ -168,8 +168,6 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 			1,
 			0
 		};
-		LogMsgFormat(LFT_TWITACT, wxT("acc: %s, type: %d, num: %d, start_id: %" wxLongLongFmtSpec "d, end_id: %" wxLongLongFmtSpec "d"),
-			acc->dispname.c_str(), rbfs->type, tweets_to_get, rbfs->start_tweet_id, rbfs->end_tweet_id);
 
 		switch(rbfs->type) {
 			case RBFS_TWEETS:
@@ -184,6 +182,13 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 			case RBFS_SENTDM:
 				directMessageGetSent(tmps);
 				break;
+		}
+		if(currentlogflags&LFT_TWITACT) {
+			char *url;
+			curl_easy_getinfo(GenGetCurlHandle(), CURLINFO_EFFECTIVE_URL, &url);
+			LogMsgFormat(LFT_TWITACT, wxT("REST timeline fetch: acc: %s, type: %d, num: %d, start_id: %" wxLongLongFmtSpec "d, end_id: %" wxLongLongFmtSpec "d"),
+				acc->dispname.c_str(), rbfs->type, tweets_to_get, rbfs->start_tweet_id, rbfs->end_tweet_id);
+			LogMsgFormat(LFT_TWITACT, wxT("Executing API call: for acc: %s, url: %s"), acc->dispname.c_str(), wxstrstd(url).c_str());
 		}
 		sm.AddConn(*this);
 	}
@@ -257,6 +262,20 @@ bool twitcurlext::TwSyncStartupAccVerify() {
 }
 
 void twitcurlext::Reset() {
+	if(tc_flags&TCF_ISSTREAM) {
+		if(auto acc=tacc.lock()) {
+			if(acc->ta_flags&TAF_STREAM_UP) {
+				acc->ta_flags&=~TAF_STREAM_UP;
+				time_t now=time(0);
+				acc->last_stream_end_time=now;
+				for(auto it=acc->user_relations.begin(); it!=acc->user_relations.end(); ++it) {
+					if(it->second.ifollow_updtime==0) it->second.ifollow_updtime=now;
+					if(it->second.followsme_updtime==0) it->second.followsme_updtime=now;
+				}
+			}
+		}
+	}
+	tc_flags=0;
 	scto.reset();
 	rbfs=0;
 	ul.reset();
@@ -296,9 +315,22 @@ void twitcurlext::QueueAsyncExec() {
 				}
 				return;
 			}
+			if(currentlogflags&LFT_TWITACT) {
+				auto acc=tacc.lock();
+				LogMsgFormat(LFT_TWITACT, wxT("About to lookup users: for acc: %s, user ids: %s"), acc?acc->dispname.c_str():wxT(""), wxstrstd(userliststr).c_str());
+			}
 			userLookup(userliststr, "", 0);
 			break;
 			}
+		case CS_FRIENDLOOKUP:
+			genericGet(genurl);
+			break;
+	}
+	if(currentlogflags&LFT_TWITACT) {
+		auto acc=tacc.lock();
+		char *url;
+		curl_easy_getinfo(GenGetCurlHandle(), CURLINFO_EFFECTIVE_URL, &url);
+		LogMsgFormat(LFT_TWITACT, wxT("Executing API call: for acc: %s, url: %s"), acc?acc->dispname.c_str():wxT(""), wxstrstd(url).c_str());
 	}
 	sm.AddConn(*this);
 }
@@ -368,19 +400,7 @@ void userdatacontainer::CheckPendingTweets() {
 	FreezeAll();
 	pendingtweets.remove_if([&](const std::shared_ptr<tweet> &t) {
 		if(!IsReady(t->updcf_flags)) return false;
-		bool ready;
-		std::shared_ptr<taccount> curacc;
-		if(t->GetUsableAccount(curacc)) {
-			if(curacc->CheckMarkPending(t, true)) {
-				ready=true;
-			}
-			else {
-				ready=false;
-			}
-		}
-		else ready=true;		//best effort, as no pendings can be resolved
-		
-		if(ready) {
+		if(CheckMarkPending_GetAcc(t, true)) {
 			UnmarkPendingTweet(t);
 			return true;
 		}
@@ -390,6 +410,7 @@ void userdatacontainer::CheckPendingTweets() {
 }
 
 void UnmarkPendingTweet(const std::shared_ptr<tweet> &t) {
+	LogMsgFormat(LFT_PENDTRACE, wxT("Unmark Pending: Tweet: %" wxLongLongFmtSpec "d (%.15s...), lflags: %X, updcf_flags: %X"), t->id, wxstrstd(t->text).c_str(), t->lflags, t->updcf_flags);
 	if(t->lflags&TLF_PENDINGHANDLENEW) {
 		t->lflags&=~TLF_PENDINGHANDLENEW;
 		HandleNewTweet(t);
@@ -441,14 +462,24 @@ std::string userdatacontainer::mkjson() const {
 	jw.String(user.name);
 	jw.String("screen_name");
 	jw.String(user.screen_name);
-
+	jw.String("description");
+	jw.String(user.description);
+	jw.String("url");
+	jw.String(user.userurl);
 	if(cached_profile_img_url!=user.profile_img_url) {	//don't bother writing it if it's the same as the cached image url
 		jw.String("profile_img_url");
 		jw.String(user.profile_img_url);
 	}
-
 	jw.String("protected");
-	jw.Bool(user.isprotected);
+	jw.Bool(user.u_flags&UF_ISPROTECTED);
+	jw.String("verified");
+	jw.Bool(user.u_flags&UF_ISVERIFIED);
+	jw.String("followers_count");
+	jw.Uint(user.followers_count);
+	jw.String("statuses_count");
+	jw.Uint(user.statuses_count);
+	jw.String("friends_count");
+	jw.Uint(user.friends_count);
 	jw.EndObject();
 	return json;
 }
@@ -519,30 +550,56 @@ tweet_perspective *tweet::AddTPToTweet(const std::shared_ptr<taccount> &tac, boo
 	return &tp_list.front();
 }
 
-//the following two procedures should be kept in sync
+//the following set of procedures should be kept in sync
 
 //returns true is ready, false is pending
 bool taccount::CheckMarkPending(const std::shared_ptr<tweet> &t, bool checkfirst) {
-	bool isready=true;
-	
-	if(t->rtsrc) {
-		bool rtsrcisready=CheckMarkPending(t->rtsrc, checkfirst);
-		if(!rtsrcisready) {
-			rtpendingmap.insert(std::make_pair(t->rtsrc->id, t->id));
-			t->rtsrc->lflags|=TLF_PENDINGINRTMAP;
-			isready=false;
-		}
+	unsigned int res=CheckTweetPendings(t);
+	if(!res) return true;
+	else {
+		FastMarkPending(t, res, checkfirst);
+		return false;
 	}
+}
 
+//mark *must* be exactly right
+void taccount::FastMarkPending(const std::shared_ptr<tweet> &t, unsigned int mark, bool checkfirst) {
+	if(mark&4) {
+		rtpendingmap.insert(std::make_pair(t->rtsrc->id, t->id));
+		t->rtsrc->lflags|=TLF_PENDINGINRTMAP;
+		MarkPending(t->rtsrc->user->id, t->rtsrc->user, t->rtsrc, checkfirst);
+	}
+	if(mark&1) MarkPending(t->user->id, t->user, t, checkfirst);
+	if(mark&2) MarkPending(t->user_recipient->id, t->user_recipient, t, checkfirst);
+}
+
+//returns non-zero if pending
+unsigned int CheckTweetPendings(const std::shared_ptr<tweet> &t) {
+	unsigned int retval=0;
+	if(t->rtsrc && !t->rtsrc->user->IsReady(t->rtsrc->updcf_flags)) {
+		retval|=4;
+	}
 	if(!t->user->IsReady(t->updcf_flags)) {
-		MarkPending(t->user->id, t->user, t, checkfirst);
-		isready=false;
+		retval|=1;
 	}
 	if(t->flags.Get('D') && !(t->user_recipient->IsReady(t->updcf_flags))) {
-		MarkPending(t->user_recipient->id, t->user_recipient, t, checkfirst);
-		isready=false;
+		retval|=2;
 	}
-	return isready;
+	return retval;
+}
+
+//returns true is ready, false is pending
+bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t, bool checkfirst) {
+	unsigned int res=CheckTweetPendings(t);
+	if(!res) return true;
+	else {
+		std::shared_ptr<taccount> curacc;
+		if(t->GetUsableAccount(curacc)) {
+			curacc->FastMarkPending(t, res, checkfirst);
+			return false;
+		}
+		else return true;
+	}
 }
 
 //returns true is ready, false is pending

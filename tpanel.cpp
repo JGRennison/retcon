@@ -296,18 +296,18 @@ tweetdispscr *tpanelparentwin::PushTweetIndex(const std::shared_ptr<tweet> &t, s
 
 	if(t->flags.Get('T')) {
 		if(t->rtsrc && gc.rtdisp) {
-			td->bm = new wxStaticBitmap(scrollwin, wxID_ANY, t->rtsrc->user->cached_profile_img, wxPoint(-1000, -1000));
+			td->bm = new profimg_staticbitmap(scrollwin, t->rtsrc->user->cached_profile_img, t->rtsrc->user->id, t->id);
 		}
 		else {
-			td->bm = new wxStaticBitmap(scrollwin, wxID_ANY, t->user->cached_profile_img, wxPoint(-1000, -1000));
+			td->bm = new profimg_staticbitmap(scrollwin, t->user->cached_profile_img, t->user->id, t->id);
 		}
 		hbox->Add(td->bm, 0, wxALL, 2);
 	}
 	else if(t->flags.Get('D') && t->user_recipient) {
-			t->user->ImgHalfIsReady();
-			t->user_recipient->ImgHalfIsReady();
-			td->bm = new wxStaticBitmap(scrollwin, wxID_ANY, t->user->cached_profile_img_half, wxPoint(-1000, -1000));
-			td->bm2 = new wxStaticBitmap(scrollwin, wxID_ANY, t->user_recipient->cached_profile_img_half, wxPoint(-1000, -1000));
+			t->user->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
+			t->user_recipient->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
+			td->bm = new profimg_staticbitmap(scrollwin, t->user->cached_profile_img_half, t->user->id, t->id);
+			td->bm2 = new profimg_staticbitmap(scrollwin, t->user_recipient->cached_profile_img_half, t->user_recipient->id, t->id);
 			int dim=gc.maxpanelprofimgsize/2;
 			if(tpg->arrow_dim!=dim) {
 				tpg->arrow=GetArrowIcon(dim);
@@ -349,16 +349,8 @@ uint64_t tpanelparentwin::PushTweetOrRetLoadId(const std::shared_ptr<tweet> &tob
 		insertpending=true;
 	}
 	else {
-		std::shared_ptr<taccount> curacc;
-		if(tobj->GetUsableAccount(curacc)) {
-			if(curacc->CheckMarkPending(tobj, true)) {
-				PushTweet(tobj, pushflags);
-			}
-			else {
-				insertpending=true;
-			}
-		}
-		else PushTweet(tobj, pushflags);	//best effort, as no pendings can be resolved
+		if(CheckMarkPending_GetAcc(tobj, true)) PushTweet(tobj, pushflags);
+		else insertpending=true;
 	}
 	if(insertpending) {
 		tobj->lflags|=TLF_PENDINGINDBTPANELMAP;
@@ -643,8 +635,8 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 
 	if(redrawimg) {
 		if(bm && bm2 && udc_recip) {
-			udc->ImgHalfIsReady();
-			udc_recip->ImgHalfIsReady();
+			udc->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
+			udc_recip->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
 			bm->SetBitmap(udc->cached_profile_img_half);
 			bm2->SetBitmap(udc_recip->cached_profile_img_half);
 		}
@@ -675,8 +667,16 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 				str+=wxstrstd(u->GetUser().screen_name);
 				break;
 			case 'N':
+				str+=wxstrstd(u->GetUser().name);
+				break;
+			case 'i':
 				str+=wxString::Format("%" wxLongLongFmtSpec "d", u->id);
 				break;
+			case 'Z': {
+				flush();
+				BeginURL(wxString::Format("U%" wxLongLongFmtSpec "d", u->id), GetDefaultStyleEx().GetCharacterStyleName());
+				break;
+			}
 			default:
 				break;
 		}
@@ -718,6 +718,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 			case 'l': flush(); EndUnderline(); break;
 			case 'I': flush(); BeginItalic(); break;
 			case 'i': flush(); EndItalic(); break;
+			case 'z': flush(); EndURL(); break;
 			case 'C':
 			case 'c': {
 				flush();
@@ -843,6 +844,21 @@ void tweetdispscr::urleventhandler(wxTextUrlEvent &event) {
 		}
 		else new media_display_win(this, media_id);
 	}
+	else if(url[0]=='U') {
+		uint64_t userid=0;
+		for(unsigned int i=1; i<url.Len(); i++) {
+			if(url[i]>='0' && url[i]<='9') {
+				userid*=10;
+				userid+=url[i]-'0';
+			}
+			else break;
+		}
+		if(userid) {
+			std::shared_ptr<taccount> acc_hint;
+			tw.GetUsableAccount(acc_hint);
+			user_window::MkWin(userid, acc_hint);
+		}
+	}
 	else {
 		unsigned long counter;
 		url.ToULong(&counter);
@@ -859,8 +875,12 @@ void tweetdispscr::urleventhandler(wxTextUrlEvent &event) {
 					case ENT_MEDIA:
 						::wxLaunchDefaultBrowser(wxstrstd(et.fullurl));
 						break;
-					case ENT_MENTION:
+					case ENT_MENTION: {
+						std::shared_ptr<taccount> acc_hint;
+						tw.GetUsableAccount(acc_hint);
+						user_window::MkWin(et.user->id, acc_hint);
 						break;
+						}
 				}
 				return;
 			}
@@ -1171,4 +1191,14 @@ void tpanelreltimeupdater::Notify() {
 			else break;
 		}
 	}
+}
+
+BEGIN_EVENT_TABLE(profimg_staticbitmap, wxStaticBitmap)
+	EVT_LEFT_DOWN(profimg_staticbitmap::ClickHandler)
+END_EVENT_TABLE()
+
+void profimg_staticbitmap::ClickHandler(wxMouseEvent &event) {
+	std::shared_ptr<taccount> acc_hint;
+	ad.GetTweetById(tweetid)->GetUsableAccount(acc_hint);
+	user_window::MkWin(userid, acc_hint);
 }

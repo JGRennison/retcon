@@ -331,6 +331,27 @@ void twitCurl::setProxyPassword( const std::string& proxyPassword )
 }
 
 /*++
+* @method: twitCurl::genericGet
+*
+* @description: method to execute generic Twitter API GET request.
+*
+* @input: url - URL to execute, excluding http:// or https://
+*
+* @output: true if GET is success, otherwise false. This does not check http
+*          response by twitter. Use getLastWebResponse() for that.
+*
+* @note: User should include format type in URL string.
+*
+*--*/
+bool twitCurl::genericGet( const std::string& url /* in */ ) {
+    /* Prepare URL */
+    std::string buildUrl = twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] + url;
+
+    /* Perform GET */
+    return performGet( buildUrl );
+}
+
+/*++
 * @method: twitCurl::search
 *
 * @description: method to return tweets that match a specified query.

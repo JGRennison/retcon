@@ -182,6 +182,9 @@ public:
     /* Twitter API type */
     void setTwitterApiType( twitCurlTypes::eTwitCurlApiFormatType eType );
     void setTwitterProcotolType( twitCurlTypes::eTwitCurlProtocolType eType );
+    
+    /* Generic Twitter API GET request */
+    bool genericGet( const std::string& url /* in */ );	/* http/https is prepended, otherwise url is unchanged */
 
     /* Twitter search APIs */
     bool search( const std::string& searchQuery /* in */ );

@@ -7,7 +7,7 @@
 #x64: set to true to compile for x86_64/win64
 
 
-OBJS:=retcon.o cfg.o optui.o parse.o socket.o tpanel.o twit.o db.o log.o cmdline.o
+OBJS:=retcon.o cfg.o optui.o parse.o socket.o tpanel.o twit.o db.o log.o cmdline.o userui.o
 TCOBJS:=libtwitcurl/base64.o libtwitcurl/HMAC_SHA1.o libtwitcurl/oauthlib.o libtwitcurl/SHA1.o libtwitcurl/twitcurl.o libtwitcurl/urlencode.o
 EXOBJS:=res.o
 OUTNAME:=retcon
@@ -102,7 +102,7 @@ $(TARGS): $(ALL_OBJS)
 $(TCOBJS): %.o$(POSTFIX): %.cpp
 	$(GCC) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(CXXFLAGS)
 
-$(OBJS): retcon.h socket.h cfg.h parse.h twit.h tpanel.h optui.h libtwitcurl/twitcurl.h db.h log.h cmdline.h
+$(OBJS): retcon.h socket.h cfg.h parse.h twit.h tpanel.h optui.h libtwitcurl/twitcurl.h db.h log.h cmdline.h userui.h
 res.o$(POSTFIX) tpanel.o$(POSTFIX): res.h
 $(TCOBJS): libtwitcurl/*.h
 ifeq ($(PLATFORM),WIN)

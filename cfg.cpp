@@ -15,9 +15,9 @@ genoptglobconf gcglobdefaults {
 	{ wxT("%Y-%m-%d %H:%M:%S"), 1},
 	{ wxT("48"), 1},
 	{ wxT("40"), 1},
-	{ wxT("B@unb - T - t - FNC"), 1},
-	{ wxT("B@unb -> B@Unb - T - t - FNC"), 1},
-	{ wxT("B@rnb - 'RT by' B@unb - T - t - FNc"), 1},
+	{ wxT("uZB@unbz - T - t - FNC"), 1},
+	{ wxT("uZB@unbz -> UZB@Unbz - T - t - FNC"), 1},
+	{ wxT("rZB@rnbz - 'RT by' uZB@unbz - T - t - FNc"), 1},
 	{ wxT("1"), 1 },
 	{ wxT("0"), 1 },
 	{ wxT("1"), 1 },
@@ -25,8 +25,8 @@ genoptglobconf gcglobdefaults {
 };
 
 taccount::taccount(genoptconf *incfg)
-	: max_tweet_id(0), max_recvdm_id(0), max_sentdm_id(0), enabled(false), userenabled(false), active(false),
-		verifycreddone(false), verifycredinprogress(false), beinginsertedintodb(false)  {
+	: ta_flags(0), max_tweet_id(0), max_recvdm_id(0), max_sentdm_id(0), last_stream_start_time(0), last_stream_end_time(0), enabled(false), userenabled(false),
+		active(false), verifycreddone(false), verifycredinprogress(false), beinginsertedintodb(false)  {
 	if(incfg) {
 		cfg.InheritFromParent(*incfg);
 		CFGParamConv();

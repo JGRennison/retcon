@@ -655,19 +655,7 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 		}
 
 		t->updcf_flags=UPDCF_DOWNLOADIMG;
-		bool ready;
-		std::shared_ptr<taccount> curacc;
-		if(t->GetUsableAccount(curacc)) {
-			if(curacc->CheckMarkPending(t, true)) {
-				ready=true;
-			}
-			else {
-				ready=false;
-			}
-		}
-		else ready=true;		//best effort, as no pendings can be resolved
-
-		if(ready) {
+		if(CheckMarkPending_GetAcc(t, true)) {
 			t->lflags&=~TLF_BEINGLOADEDFROMDB;
 			UnmarkPendingTweet(t);
 		}
@@ -769,6 +757,8 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 void dbconn::DeInit() {
 	if(!isinited) return;
 	isinited=false;
+	
+	LogMsg(LFT_DBTRACE, wxT("dbconn::DeInit"));
 
 	SendMessage(new dbsendmsg(DBSM_QUIT));
 

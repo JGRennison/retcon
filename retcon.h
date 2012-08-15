@@ -106,6 +106,7 @@ namespace std {
 #include "db.h"
 #include "log.h"
 #include "cmdline.h"
+#include "userui.h"
 
 enum
 {
@@ -116,6 +117,29 @@ enum
     ID_Viewlog,
 };
 
+//flags for user_relationship::ur_flags
+enum {
+	URF_FOLLOWSME_KNOWN	= 1<<0,
+	URF_FOLLOWSME_TRUE	= 1<<1,
+	URF_IFOLLOW_KNOWN	= 1<<2,
+	URF_IFOLLOW_TRUE	= 1<<3,
+	URF_FOLLOWSME_PENDING	= 1<<4,
+	URF_IFOLLOW_PENDING	= 1<<5,
+	URF_QUERY_PENDING	= 1<<6,
+};
+
+struct user_relationship {
+	unsigned int ur_flags;
+	time_t followsme_updtime;	//if these are 0 and the corresponding known flag is set, then the value is known to be correct whilst the stream is still up
+	time_t ifollow_updtime;
+	user_relationship() : ur_flags(0), followsme_updtime(0), ifollow_updtime(0) { }
+};
+
+//flags for taccount::ta_flags
+enum {
+	TAF_STREAM_UP			= 1<<0,
+};
+
 struct taccount : std::enable_shared_from_this<taccount> {
 	wxString name;
 	wxString dispname;
@@ -124,6 +148,7 @@ struct taccount : std::enable_shared_from_this<taccount> {
 	wxString cons;
 	bool ssl;
 	bool userstreams;
+	unsigned int ta_flags;
 	unsigned long restinterval;	//seconds
 	uint64_t max_tweet_id;
 	uint64_t max_recvdm_id;
@@ -139,37 +164,16 @@ struct taccount : std::enable_shared_from_this<taccount> {
 		}
 	}
 
+	time_t last_stream_start_time;
+	time_t last_stream_end_time;
 	unsigned int dbindex;
-
 	connpool<twitcurlext> cp;
-
 	std::shared_ptr<userdatacontainer> usercont;
-
-	std::unordered_map<uint64_t,std::shared_ptr<userdatacontainer> > usersfollowed;
-	std::unordered_map<uint64_t,std::weak_ptr<userdatacontainer> > usersfollowingthis; //partial list
+	std::unordered_map<uint64_t,user_relationship> user_relations;
 
 	//any tweet or DM in this list *must* be either in ad.tweetobjs, or in the database
 	tweetidset tweet_ids;
 	tweetidset dm_ids;
-
-	void ClearUsersFollowed();
-	void RemoveUserFollowed(std::shared_ptr<userdatacontainer> ptr);
-	void PostRemoveUserFollowed(std::shared_ptr<userdatacontainer> ptr);
-	void AddUserFollowed(std::shared_ptr<userdatacontainer> ptr);
-
-	void RemoveUserFollowingThis(std::shared_ptr<userdatacontainer> ptr);
-	void AddUserFollowingThis(std::shared_ptr<userdatacontainer> ptr);
-
-	void StartRestGetTweetBackfill(uint64_t start_tweet_id, uint64_t end_tweet_id, unsigned int max_tweets_to_read, RBFS_TYPE type=RBFS_TWEETS);
-	void ExecRBFS(restbackfillstate *rbfs);
-	void StartRestQueryPendings();
-	void DoPostAction(twitcurlext *lasttce);
-	void DoPostAction(unsigned int postflags);
-	void GetRestBackfill();
-
-	void MarkPending(uint64_t userid, const std::shared_ptr<userdatacontainer> &user, const std::shared_ptr<tweet> &t, bool checkfirst=false);
-	void MarkPendingOrHandle(const std::shared_ptr<tweet> &t);
-	bool CheckMarkPending(const std::shared_ptr<tweet> &t, bool checkfirst=false);
 
 	std::unordered_map<uint64_t,std::shared_ptr<userdatacontainer> > pendingusers;
 	std::forward_list<restbackfillstate> pending_rbfs_list;
@@ -180,6 +184,23 @@ struct taccount : std::enable_shared_from_this<taccount> {
 	bool verifycreddone;
 	bool verifycredinprogress;
 	bool beinginsertedintodb;
+
+	void ClearUsersIFollow();
+	void SetUserRelationship(uint64_t userid, unsigned int flags, const time_t &optime);
+
+	void StartRestGetTweetBackfill(uint64_t start_tweet_id, uint64_t end_tweet_id, unsigned int max_tweets_to_read, RBFS_TYPE type=RBFS_TWEETS);
+	void ExecRBFS(restbackfillstate *rbfs);
+	void StartRestQueryPendings();
+	void DoPostAction(twitcurlext *lasttce);
+	void DoPostAction(unsigned int postflags);
+	void GetRestBackfill();
+	void LookupFriendships(uint64_t userid);
+
+	void MarkPending(uint64_t userid, const std::shared_ptr<userdatacontainer> &user, const std::shared_ptr<tweet> &t, bool checkfirst=false);
+	void MarkPendingOrHandle(const std::shared_ptr<tweet> &t);
+	bool CheckMarkPending(const std::shared_ptr<tweet> &t, bool checkfirst=false);
+	void FastMarkPending(const std::shared_ptr<tweet> &t, unsigned int mark, bool checkfirst=false);
+
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc);
 	void CFGParamConv();

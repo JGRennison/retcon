@@ -37,6 +37,7 @@ bool retcon::OnInit() {
 }
 
 int retcon::OnExit() {
+	LogMsg(LFT_OTHERTRACE, wxT("retcon::OnExit"));
 	for(auto it=alist.begin() ; it != alist.end(); it++) {
 		(*it)->cp.ClearAllConns();
 	}
@@ -131,7 +132,10 @@ void mainframe::OnViewlog(wxCommandEvent &event) {
 }
 void mainframe::OnClose(wxCloseEvent &event) {
 	mainframelist.remove(this);
-	if(globallogwindow && mainframelist.empty()) globallogwindow->Destroy();
+	if(mainframelist.empty()) {
+		if(globallogwindow) globallogwindow->Destroy();
+		user_window::CloseAll();
+	}
 	Destroy();
 }
 
@@ -153,38 +157,67 @@ void mainframe::OnTPanelMenuCmd(wxCommandEvent &event) {
 	TPanelMenuAction(tpm, event.GetId(), this);
 }
 
-void taccount::ClearUsersFollowed() {
-	for(auto it=usersfollowed.begin() ; it != usersfollowed.end(); it++ ) {
-		PostRemoveUserFollowed((*it).second);
-	}
-	usersfollowed.clear();
-}
-
-void taccount::RemoveUserFollowed(std::shared_ptr<userdatacontainer> ptr) {
-	if(usersfollowed.erase(ptr->id)) {
-		PostRemoveUserFollowed(ptr);
-	}
-}
-void taccount::PostRemoveUserFollowed(std::shared_ptr<userdatacontainer> ptr) {
-	//action goes here
-}
-void taccount::AddUserFollowed(std::shared_ptr<userdatacontainer> ptr) {
-	if(usersfollowed.count(ptr->id)==0) {
-		usersfollowed[ptr->id]=ptr;
-		//action goes here
+void taccount::ClearUsersIFollow() {
+	for(auto it=user_relations.begin(); it!=user_relations.end(); ++it) {
+		it->second.ur_flags|=URF_IFOLLOW_KNOWN;
+		it->second.ur_flags&=~URF_IFOLLOW_TRUE;
+		it->second.ifollow_updtime=0;
 	}
 }
 
-void taccount::RemoveUserFollowingThis(std::shared_ptr<userdatacontainer> ptr) {
-	if(usersfollowingthis.erase(ptr->id)) {
-		//action goes here
+void taccount::SetUserRelationship(uint64_t userid, unsigned int flags, const time_t &optime) {
+	user_relationship &ur=user_relations[userid];
+	if(flags&URF_FOLLOWSME_KNOWN) {
+		ur.ur_flags&=~(URF_FOLLOWSME_PENDING|URF_FOLLOWSME_TRUE);
+		ur.ur_flags|=URF_FOLLOWSME_KNOWN|(flags&(URF_FOLLOWSME_TRUE|URF_FOLLOWSME_PENDING));
+		ur.followsme_updtime=optime;
 	}
+	if(flags&URF_IFOLLOW_KNOWN) {
+		ur.ur_flags&=~(URF_IFOLLOW_PENDING|URF_IFOLLOW_TRUE);
+		ur.ur_flags|=URF_IFOLLOW_KNOWN|(flags&(URF_IFOLLOW_TRUE|URF_IFOLLOW_PENDING));
+		ur.ifollow_updtime=optime;
+	}
+	ur.ur_flags&=~URF_QUERY_PENDING;
 }
-void taccount::AddUserFollowingThis(std::shared_ptr<userdatacontainer> ptr) {
-	if(usersfollowingthis.count(ptr->id)==0) {
-		usersfollowingthis[ptr->id]=ptr;
-		//action goes here
+
+void taccount::LookupFriendships(uint64_t userid) {
+	std::set<uint64_t> include;
+	if(userid) include.insert(userid);
+	
+	bool opportunist=true;
+	
+	if(opportunist) {
+		//find out more if users are followed by us or otherwise have a relationship with us
+		for(auto it=user_relations.begin(); it!=user_relations.end() && include.size()<100; ++it) {
+			if(it->second.ur_flags&URF_QUERY_PENDING) continue;
+			if(!(it->second.ur_flags&URF_FOLLOWSME_KNOWN) || !(it->second.ur_flags&URF_FOLLOWSME_KNOWN)) {
+				include.insert(it->first);
+				it->second.ur_flags|=URF_QUERY_PENDING;
+			}
+		}
+		
+		//fill up the rest of the query with users who we don't know if we have a relationship with
+		for(auto it=ad.userconts.begin(); it!=ad.userconts.end() && include.size()<100; ++it) {
+			if(user_relations.find(it->first)==user_relations.end()) include.insert(it->first);
+			user_relations[it->first].ur_flags|=URF_QUERY_PENDING;
+		}
 	}
+
+	if(include.empty()) return;
+	
+	auto it=include.begin();
+	std::string idlist="api.twitter.com/1/friendships/lookup.json?user_id=";
+	while(true) {
+		idlist+=std::to_string((*it));
+		it++;
+		if(it==include.end()) break;
+		idlist+=",";
+	}
+	twitcurlext *twit=cp.GetConn();
+	twit->TwInit(shared_from_this());
+	twit->connmode=CS_FRIENDLOOKUP;
+	twit->genurl=std::move(idlist);
+	twit->QueueAsyncExec();
 }
 
 void taccount::GetRestBackfill() {
@@ -234,7 +267,7 @@ void taccount::StartRestQueryPendings() {
 		std::shared_ptr<userdatacontainer> curobj=curit->second;
 		it++;
 		if(curobj->udc_flags&UDC_LOOKUP_IN_PROGRESS) ;	//do nothing
-		else if(curobj->NeedsUpdating()) {
+		else if(curobj->NeedsUpdating(UPDCF_USEREXPIRE)) {
 			ul->Mark(curobj);
 			numusers++;
 		}
@@ -313,6 +346,7 @@ void taccount::Exec() {
 		twitcurlext *twit_stream=cp.GetConn();
 		twit_stream->TwInit(shared_from_this());
 		twit_stream->connmode=CS_STREAM;
+		twit_stream->tc_flags|=TCF_ISSTREAM;
 		twit_stream->post_action_flags|=PAF_STREAM_CONN_READ_BACKFILL;
 		twit_stream->QueueAsyncExec();
 
@@ -327,8 +361,10 @@ void taccount::Exec() {
 }
 
 void taccount::CalcEnabled() {
+	bool oldenabled=enabled;
 	if(userenabled && !beinginsertedintodb) enabled=true;
 	else enabled=false;
+	if(oldenabled!=enabled) user_window::RefreshAll();
 }
 
 void taccount::MarkPending(uint64_t userid, const std::shared_ptr<userdatacontainer> &user, const std::shared_ptr<tweet> &t, bool checkfirst) {
@@ -340,6 +376,7 @@ void taccount::MarkPending(uint64_t userid, const std::shared_ptr<userdatacontai
 			return;
 		}
 	}
+	LogMsgFormat(LFT_PENDTRACE, wxT("Mark Pending: User: %" wxLongLongFmtSpec "d (@%s) --> Tweet: %" wxLongLongFmtSpec "d (%.15s...)"), userid, wxstrstd(user->GetUser().screen_name).c_str(), t->id, wxstrstd(t->text).c_str());
 	user->pendingtweets.push_front(t);
 }
 

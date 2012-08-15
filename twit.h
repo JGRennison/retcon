@@ -3,16 +3,27 @@ void UpdateTweet(const std::shared_ptr<tweet> &t, bool redrawimg=false);
 void UpdateAllTweets(bool redrawimg=false);
 void UpdateUsersTweet(uint64_t userid, bool redrawimg=false);
 void UnmarkPendingTweet(const std::shared_ptr<tweet> &t);
+bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t, bool checkfirst=false);
+unsigned int CheckTweetPendings(const std::shared_ptr<tweet> &t);
+
+enum {
+	UF_ISPROTECTED	= 1<<0,
+	UF_ISVERIFIED	= 1<<1,
+};
 
 struct userdata {
 	std::string name;
 	std::string screen_name;
 	std::string profile_img_url;
-	bool isprotected;
+	unsigned int u_flags;
 	time_t createtime;
 	std::string description;
+	unsigned int statuses_count;
+	unsigned int followers_count;	//users following this account
+	unsigned int friends_count;	//users this account is following
+	std::string userurl;
 
-	userdata() : isprotected(0), createtime(0) { }
+	userdata() : u_flags(0), createtime(0), statuses_count(0), followers_count(0), friends_count(0) { }
 };
 
 enum {
@@ -21,11 +32,7 @@ enum {
 	UDC_THIS_IS_ACC_USER_HINT	= 1<<2,
 	UDC_PROFILE_BITMAP_SET		= 1<<3,
 	UDC_HALF_PROFILE_BITMAP_SET	= 1<<4,
-};
-
-enum {	UPDCF_DOWNLOADIMG	= 1<<0,
-	UPDCF_USEREXPIRE	= 1<<1,
-	UPDCF_DEFAULT = UPDCF_DOWNLOADIMG,
+	UDC_WINDOWOPEN			= 1<<5,
 };
 
 struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
@@ -42,8 +49,8 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	std::forward_list<std::shared_ptr<tweet> > pendingtweets;
 	std::deque<uint64_t> mention_index;
 
-	bool NeedsUpdating(unsigned int updcf_flags=UPDCF_DEFAULT);
-	bool IsReady(unsigned int updcf_flags=UPDCF_DEFAULT);
+	bool NeedsUpdating(unsigned int updcf_flags);
+	bool IsReady(unsigned int updcf_flags);
 	void CheckPendingTweets();
 	std::shared_ptr<taccount> GetAccountOfUser();
 	void GetImageLocalFilename(wxString &filename);
@@ -53,8 +60,8 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	wxBitmap MkProfileBitmapFromwxImage(const wxImage &img, double limitscalefactor);
 	void SetProfileBitmapFromwxImage(const wxImage &img);
 	void Dump();
-	bool ImgIsReady(unsigned int updcf_flags=UPDCF_DEFAULT);
-	bool ImgHalfIsReady(unsigned int updcf_flags=UPDCF_DEFAULT);
+	bool ImgIsReady(unsigned int updcf_flags);
+	bool ImgHalfIsReady(unsigned int updcf_flags);
 };
 
 struct tweet_flags {
@@ -112,6 +119,12 @@ enum {	//for tweet.lflags
 	TLF_PENDINGINDBTPANELMAP= 1<<2,
 	TLF_PENDINGHANDLENEW	= 1<<3,
 	TLF_PENDINGINRTMAP	= 1<<4,
+};
+
+enum {	//for tweet.updcf_flags
+	UPDCF_DOWNLOADIMG	= 1<<0,
+	UPDCF_USEREXPIRE	= 1<<1,
+	UPDCF_DEFAULT = UPDCF_DOWNLOADIMG,
 };
 
 struct tweet {
@@ -192,7 +205,8 @@ typedef enum {
 	CS_TIMELINE,
 	CS_STREAM,
 	CS_USERLIST,
-	CS_DMTIMELINE
+	CS_DMTIMELINE,
+	CS_FRIENDLOOKUP,
 } CS_ENUMTYPE;
 
 //for post_action_flags
@@ -235,12 +249,20 @@ struct streamconntimeout : public wxTimer {
 	~streamconntimeout() { Stop(); }
 };
 
+enum {
+	TCF_ISSTREAM	= 1<<0,
+};
+
 struct twitcurlext: public twitCurl, public mcurlconn {
 	std::weak_ptr<taccount> tacc;
 	CS_ENUMTYPE connmode;
 	bool inited;
+	unsigned int tc_flags;
 	unsigned int post_action_flags;
 	std::shared_ptr<streamconntimeout> scto;
+	restbackfillstate *rbfs;
+	std::shared_ptr<userlookup> ul;
+	std::string genurl;
 
 	void NotifyDoneSuccess(CURL *easy, CURLcode res);
 	void TwInit(std::shared_ptr<taccount> acc);
@@ -255,11 +277,7 @@ struct twitcurlext: public twitCurl, public mcurlconn {
 	void DoRetry();
 	void HandleFailure();
 	void QueueAsyncExec();
-
-	restbackfillstate *rbfs;
 	void ExecRestGetTweetBackfill();
-
-	std::shared_ptr<userlookup> ul;
 
 	DECLARE_EVENT_TABLE()
 };

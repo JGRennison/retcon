@@ -59,7 +59,7 @@ acc_window::acc_window(wxWindow* parent, wxWindowID id, const wxString& title, c
 }
 
 acc_window::~acc_window() {
-
+	user_window::RefreshAllAcc();
 }
 
 void acc_window::OnSelChange(wxCommandEvent &event) {
@@ -434,6 +434,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 
 settings_window::~settings_window() {
 	UpdateAllTweets();
+	user_window::RefreshAll();
 }
 
 void settings_window::ChoiceCtrlChange(wxCommandEvent &event) {

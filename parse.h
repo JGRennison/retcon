@@ -40,6 +40,7 @@ struct jsonparser : public genjsonparser {
 
 	std::shared_ptr<userdatacontainer> DoUserParse(const rapidjson::Value& val);
 	void DoEventParse(const rapidjson::Value& val);
+	void DoFriendLookupParse(const rapidjson::Value& val);
 	std::shared_ptr<tweet> DoTweetParse(const rapidjson::Value& val, unsigned int sflags=0);
 	void RestTweetUpdateParams(const tweet &t);
 

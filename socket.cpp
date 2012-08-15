@@ -188,6 +188,7 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 		user->udc_flags&=~UDC_HALF_PROFILE_BITMAP_SET;
 		user->CheckPendingTweets();
 		UpdateUsersTweet(user->id, true);
+		if(user->udc_flags&UDC_WINDOWOPEN) user_window::CheckRefresh(user->id, true);
 	}
 	KillConn();
 	cp.Standby(this);
@@ -458,6 +459,7 @@ void socketmanager::NotifySockEventCmd(wxextSocketNotifyEvent &event) {
 #endif
 
 void socketmanager::InitMultiIOHandlerCommon() {
+	LogMsg(LFT_SOCKTRACE, wxT("socketmanager::InitMultiIOHandlerCommon"));
 	curlmulti=curl_multi_init();
 	curl_multi_setopt(curlmulti, CURLMOPT_SOCKETFUNCTION, sock_cb);
 	curl_multi_setopt(curlmulti, CURLMOPT_SOCKETDATA, this);
@@ -466,6 +468,7 @@ void socketmanager::InitMultiIOHandlerCommon() {
 }
 
 void socketmanager::DeInitMultiIOHandlerCommon() {
+	LogMsg(LFT_SOCKTRACE, wxT("socketmanager::DeInitMultiIOHandlerCommon"));
 	curl_multi_cleanup(curlmulti);
 }
 

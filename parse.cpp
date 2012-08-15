@@ -30,7 +30,7 @@ template <typename C, typename D> static bool CheckTransJsonValueDef(C &var, con
 	return res;
 }
 
-template <typename C, typename D> static bool CheckTransJsonValueDefFlag(C &var, C flagmask, const rapidjson::Value& val, const char *prop, bool def, Handler *handler=0) {
+template <typename C> static bool CheckTransJsonValueDefFlag(C &var, C flagmask, const rapidjson::Value& val, const char *prop, bool def, Handler *handler=0) {
 	const rapidjson::Value &subval=val[prop];
 	bool res=IsType<bool>(subval);
 	bool flagval=res?GetType<bool>(subval):def;
@@ -246,7 +246,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 			}
 			if(!(me->flags&ME_HAVE_THUMB) && me->media_url.size()>6) {
 				std::string thumburl=me->media_url.substr(0, me->media_url.size()-6)+":thumb";
-				new mediaimgdlconn(me->media_url, en->media_id, MIDC_THUMBIMG | MIDC_REDRAW_TWEETS);
+				new mediaimgdlconn(thumburl, en->media_id, MIDC_THUMBIMG | MIDC_REDRAW_TWEETS);
 			}
 		}
 	}
@@ -261,6 +261,8 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 void genjsonparser::ParseUserContents(const rapidjson::Value& val, userdata &userobj, bool is_ssl) {
 	CheckTransJsonValueDef(userobj.name, val, "name", "");
 	CheckTransJsonValueDef(userobj.screen_name, val, "screen_name", "");
+	CheckTransJsonValueDef(userobj.description, val, "description", "");
+	CheckTransJsonValueDef(userobj.userurl, val, "url", "");
 	if(is_ssl) {
 		if(!CheckTransJsonValueDef(userobj.profile_img_url, val, "profile_image_url_https", "")) {
 			CheckTransJsonValueDef(userobj.profile_img_url, val, "profile_img_url", "");
@@ -271,7 +273,11 @@ void genjsonparser::ParseUserContents(const rapidjson::Value& val, userdata &use
 			CheckTransJsonValueDef(userobj.profile_img_url, val, "profile_image_url_https", "");
 		}
 	}
-	CheckTransJsonValueDef(userobj.isprotected, val, "protected", false);
+	CheckTransJsonValueDefFlag(userobj.u_flags, (unsigned int) UF_ISPROTECTED, val, "protected", false);
+	CheckTransJsonValueDefFlag(userobj.u_flags, (unsigned int) UF_ISVERIFIED, val, "verified", false);
+	CheckTransJsonValueDef(userobj.followers_count, val, "followers_count", userobj.followers_count);
+	CheckTransJsonValueDef(userobj.statuses_count, val, "statuses_count", userobj.statuses_count);
+	CheckTransJsonValueDef(userobj.friends_count, val, "friends_count", userobj.friends_count);
 }
 
 void jsonparser::RestTweetUpdateParams(const tweet &t) {
@@ -279,6 +285,30 @@ void jsonparser::RestTweetUpdateParams(const tweet &t) {
 		if(twit->rbfs->max_tweets_left) twit->rbfs->max_tweets_left--;
 		if(!twit->rbfs->end_tweet_id || twit->rbfs->end_tweet_id>=t.id) twit->rbfs->end_tweet_id=t.id-1;
 		twit->rbfs->read_again=true;
+	}
+}
+
+void jsonparser::DoFriendLookupParse(const rapidjson::Value& val) {
+	time_t optime=(tac->ta_flags&TAF_STREAM_UP)?0:time(0);
+	if(val.IsArray()) {
+		for(rapidjson::SizeType i = 0; i < val.Size(); i++) {
+			uint64_t userid=CheckGetJsonValueDef<uint64_t>(val[i], "id", 0);
+			if(userid) {
+				const rapidjson::Value& cons=val[i]["connections"];
+				if(cons.IsArray()) {
+					tac->SetUserRelationship(userid, URF_IFOLLOW_KNOWN|URF_FOLLOWSME_KNOWN, optime);
+					for(rapidjson::SizeType j = 0; j < cons.Size(); j++) {
+						if(cons[j].IsString()) {
+							std::string type=cons[j].GetString();
+							if(type=="following") tac->SetUserRelationship(userid, URF_IFOLLOW_KNOWN|URF_IFOLLOW_TRUE, optime);
+							else if(type=="following_requested") tac->SetUserRelationship(userid, URF_IFOLLOW_KNOWN|URF_IFOLLOW_PENDING, optime);
+							else if(type=="followed_by") tac->SetUserRelationship(userid, URF_FOLLOWSME_KNOWN|URF_FOLLOWSME_TRUE, optime);
+							//else if(type=="none") tac->SetUserRelationship(userid, URF_IFOLLOW_KNOWN|URF_FOLLOWSME_KNOWN, optime);
+						}
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -355,11 +385,15 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			const rapidjson::Value& ival=dc["id"];
 			const rapidjson::Value& tval=dc["text"];
 			if(fval.IsArray()) {
-				tac->ClearUsersFollowed();
-				for(rapidjson::SizeType i = 0; i < fval.Size(); i++) tac->AddUserFollowed(ad.GetUserContainerById(fval[i].GetUint64()));
+				tac->ta_flags|=TAF_STREAM_UP;
+				tac->last_stream_start_time=time(0);
+				tac->ClearUsersIFollow();
+				time_t optime=0;
+				for(rapidjson::SizeType i = 0; i < fval.Size(); i++) tac->SetUserRelationship(fval[i].GetUint64(), URF_IFOLLOW_KNOWN | URF_IFOLLOW_TRUE, optime);
 				if(twit && (twit->post_action_flags&PAF_STREAM_CONN_READ_BACKFILL)) {
 					tac->GetRestBackfill();
 				}
+				user_window::RefreshAllFollow();
 			}
 			else if(eval.IsString()) {
 				DoEventParse(dc);
@@ -371,7 +405,12 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 				DoTweetParse(dc);
 			}
 			//else do nothing
+			break;
 		}
+		case CS_FRIENDLOOKUP:
+			DoFriendLookupParse(dc);
+			user_window::RefreshAllFollow();
+			break;
 	}
 	if(dbmsglist) {
 		if(!dbmsglist->msglist.empty()) dbc.SendMessage(dbmsglist);
@@ -395,6 +434,7 @@ std::shared_ptr<userdatacontainer> jsonparser::DoUserParse(const rapidjson::Valu
 		ParseTwitterDate(0, &userobj.createtime, created_at);
 		dbc.InsertUser(userdatacont, dbmsglist);
 	}
+	if(userdatacont->udc_flags&UDC_WINDOWOPEN) user_window::CheckRefresh(id, false);
 
 	userdatacont->MarkUpdated();
 
@@ -504,14 +544,15 @@ void jsonparser::DoEventParse(const rapidjson::Value& val) {
 	else if(str=="follow") {
 		auto targ=DoUserParse(val["target"]);
 		auto src=DoUserParse(val["source"]);
-		if(src->id==tac->usercont->id) tac->AddUserFollowed(targ);
-		if(targ->id==tac->usercont->id) tac->AddUserFollowingThis(targ);
+		time_t optime=0;
+		if(src->id==tac->usercont->id) tac->SetUserRelationship(targ->id, URF_IFOLLOW_KNOWN | URF_IFOLLOW_TRUE, optime);
+		if(targ->id==tac->usercont->id) tac->SetUserRelationship(targ->id, URF_FOLLOWSME_KNOWN | URF_FOLLOWSME_TRUE, optime);
 	}
 }
 
 void userdatacontainer::Dump() {
-	LogMsgFormat(LFT_PARSE, wxT("id: %" wxLongLongFmtSpec "d\nname: %s\nscreen_name: %s\npimg: %s\nprotected: %d"),
-		id, wxstrstd(GetUser().name).c_str(), wxstrstd(GetUser().screen_name).c_str(), wxstrstd(GetUser().profile_img_url).c_str(), GetUser().isprotected);
+	LogMsgFormat(LFT_PARSE, wxT("id: %" wxLongLongFmtSpec "d\nname: %s\nscreen_name: %s\npimg: %s\nprotected: %d\nverified: %d"),
+		id, wxstrstd(GetUser().name).c_str(), wxstrstd(GetUser().screen_name).c_str(), wxstrstd(GetUser().profile_img_url).c_str(), (bool) (GetUser().u_flags&UF_ISPROTECTED), (bool) (GetUser().u_flags&UF_ISVERIFIED));
 }
 
 void tweet::Dump() {
