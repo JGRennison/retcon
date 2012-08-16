@@ -267,7 +267,7 @@ void taccount::StartRestQueryPendings() {
 		std::shared_ptr<userdatacontainer> curobj=curit->second;
 		it++;
 		if(curobj->udc_flags&UDC_LOOKUP_IN_PROGRESS) ;	//do nothing
-		else if(curobj->NeedsUpdating(UPDCF_USEREXPIRE)) {
+		else if(curobj->NeedsUpdating(UPDCF_USEREXPIRE) || curobj->udc_flags&UDC_FORCE_REFRESH) {
 			ul->Mark(curobj);
 			numusers++;
 		}
@@ -275,6 +275,7 @@ void taccount::StartRestQueryPendings() {
 			pendingusers.erase(curit);		//user not pending, remove from list
 			curobj->CheckPendingTweets();
 		}
+		curobj->udc_flags&=~UDC_FORCE_REFRESH;
 	}
 	if(numusers) {
 		twitcurlext *twit=cp.GetConn();

@@ -5,6 +5,9 @@ std::unordered_map<uint64_t, user_window*> userwinmap;
 BEGIN_EVENT_TABLE(user_window, wxDialog)
 	EVT_CLOSE(user_window::OnClose)
 	EVT_CHOICE(wxID_FILE1, user_window::OnSelChange)
+	EVT_BUTTON(FOLLOWBTN_ID, user_window::OnFollowBtn)  
+	EVT_BUTTON(REFRESHBTN_ID, user_window::OnRefreshBtn)  
+	EVT_BUTTON(DMBTN_ID, user_window::OnDMBtn)  
 END_EVENT_TABLE()
 
 static void insert_uw_row(wxWindow *parent, wxSizer *sz, const wxString &label, wxStaticText *&targ) {
@@ -24,7 +27,7 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	CheckAccHint();
 
 	std::shared_ptr<taccount> acc=acc_hint.lock();
-	if(acc && acc->enabled && u->NeedsUpdating(0)) {
+	if(acc && acc->enabled && u->NeedsUpdating(0) && !(u->udc_flags&UDC_LOOKUP_IN_PROGRESS)) {
 		acc->pendingusers[userid_]=u;
 		acc->StartRestQueryPendings();
 	}
@@ -43,15 +46,27 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	infobox->Add(name, 0, wxALL, 2);
 	infobox->Add(screen_name, 0, wxALL, 2);
 
-	wxStaticBoxSizer *sb=new wxStaticBoxSizer(wxVERTICAL, this, wxT("Account"));
-	vbox->Add(sb, 0, wxALL, 2);
+	wxStaticBoxSizer *sb=new wxStaticBoxSizer(wxHORIZONTAL, this, wxT("Account"));
+	wxBoxSizer *sbvbox = new wxBoxSizer(wxVERTICAL);
+	vbox->Add(sb, 0, wxALL | wxEXPAND, 2);
+	sb->Add(sbvbox, 0, 0, 0);
 	accchoice=new wxChoice(this, wxID_FILE1);
-	sb->Add(accchoice, 0, wxALL, 2);
+	sbvbox->Add(accchoice, 0, wxALL, 2);
 	fill_accchoice();
 	wxFlexGridSizer *follow_grid=new wxFlexGridSizer(0, 2, 2, 2);
-	sb->Add(follow_grid, 0, wxALL, 2);
+	sbvbox->Add(follow_grid, 0, wxALL, 2);
 	insert_uw_row(this, follow_grid, wxT("Following:"), ifollow);
 	insert_uw_row(this, follow_grid, wxT("Followed By:"), followsme);
+	sb->AddStretchSpacer();
+	wxBoxSizer *accbuttonbox = new wxBoxSizer(wxVERTICAL);
+	sb->Add(accbuttonbox, 0, wxALIGN_RIGHT | wxALIGN_TOP, 0);
+	followbtn=new wxButton(this, FOLLOWBTN_ID, wxT(""));
+	refreshbtn=new wxButton(this, REFRESHBTN_ID, wxT("Refresh"));
+	dmbtn=new wxButton(this, DMBTN_ID, wxT("Send DM"));
+	accbuttonbox->Add(followbtn, 0, wxEXPAND | wxALIGN_TOP, 0);
+	accbuttonbox->Add(refreshbtn, 0, wxEXPAND | wxALIGN_TOP, 0);
+	accbuttonbox->Add(dmbtn, 0, wxEXPAND | wxALIGN_TOP, 0);
+	follow_btn_mode=FOLLOWBTNMODE::FBM_NONE;
 
 	wxNotebook *nb=new wxNotebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxCLIP_CHILDREN | wxNB_TOP | wxNB_NOPAGETHEME);
 
@@ -124,9 +139,10 @@ static void set_uw_time_val(wxStaticText *st, const time_t &input) {
 	else st->SetLabel(wxT(""));
 }
 
-void user_window::RefreshFollow() {
+void user_window::RefreshFollow(bool forcerefresh) {
 	std::shared_ptr<taccount> acc=acc_hint.lock();
 	bool needupdate=false;
+	FOLLOWBTNMODE fbm=FOLLOWBTNMODE::FBM_NONE;;
 
 	auto fill_follow_field=[&](wxStaticText *st, bool ifollow) {
 		bool known=false;
@@ -137,19 +153,30 @@ void user_window::RefreshFollow() {
 				user_relationship &ur=it->second;
 				if(ur.ur_flags&(ifollow?URF_IFOLLOW_KNOWN:URF_FOLLOWSME_KNOWN)) {
 					known=true;
-					if(ur.ur_flags&(ifollow?URF_IFOLLOW_TRUE:URF_FOLLOWSME_TRUE)) value=wxT("Yes");
-					else if(ur.ur_flags&(ifollow?URF_IFOLLOW_PENDING:URF_FOLLOWSME_PENDING)) value=wxT("Pending");
-					else value=wxT("No");
+					if(ur.ur_flags&(ifollow?URF_IFOLLOW_TRUE:URF_FOLLOWSME_TRUE)) {
+						if(ifollow) fbm=FOLLOWBTNMODE::FBM_UNFOLLOW;
+						value=wxT("Yes");
+					}
+					else if(ur.ur_flags&(ifollow?URF_IFOLLOW_PENDING:URF_FOLLOWSME_PENDING)) {
+						if(ifollow) fbm=FOLLOWBTNMODE::FBM_REMOVE_PENDING;
+						value=wxT("Pending");
+					}
+					else {
+						if(ifollow) fbm=FOLLOWBTNMODE::FBM_FOLLOW;
+						value=wxT("No");
+					}
 
 					time_t updtime=ifollow?ur.ifollow_updtime:ur.followsme_updtime;
 					if(updtime && (time(0)-updtime)>180) {
 						time_t updatetime;	//not used
 						value=wxString::Format(wxT("%s as of %s (%s)"), value.c_str(), getreltimestr(updtime, updatetime).c_str(), rc_wx_strftime(gc.gcfg.datetimeformat.val, localtime(&updtime), updtime, true).c_str());
 					}
+					if(updtime && forcerefresh) needupdate=true;
 					st->SetLabel(value);
 				}
 			}
 			if(!known) {
+				if(ifollow) fbm=FOLLOWBTNMODE::FBM_NONE;
 				if(acc->ta_flags&TAF_STREAM_UP && ifollow) st->SetLabel(wxT("No or Pending"));
 				else st->SetLabel(wxT("Unknown"));
 				needupdate=true;
@@ -165,10 +192,27 @@ void user_window::RefreshFollow() {
 	fill_follow_field(ifollow, true);
 	fill_follow_field(followsme, false);
 
+	switch(fbm) {
+		case FOLLOWBTNMODE::FBM_UNFOLLOW:
+			followbtn->SetLabel(wxT("Unfollow"));
+			break;
+		case FOLLOWBTNMODE::FBM_REMOVE_PENDING:
+			followbtn->SetLabel(wxT("Cancel Follow Request"));
+			break;
+		case FOLLOWBTNMODE::FBM_FOLLOW:
+		case FOLLOWBTNMODE::FBM_NONE:
+			followbtn->SetLabel(wxT("Follow"));
+			break;
+	}
+
+	followbtn->Enable(acc && acc->enabled && fbm!=FOLLOWBTNMODE::FBM_NONE);
+	refreshbtn->Enable(acc && acc->enabled);
+	dmbtn->Enable(acc && acc->enabled);
+
 	if(needupdate && acc && acc->enabled) {
 		acc->LookupFriendships(userid);
 	}
-	
+
 	Fit();
 }
 
@@ -178,7 +222,7 @@ void user_window::Refresh(bool refreshimg) {
 	screen_name->SetLabel(wxT("@") + wxstrstd(u->GetUser().screen_name));
 	name2->SetLabel(wxstrstd(u->GetUser().name));
 	screen_name2->SetLabel(wxT("@") + wxstrstd(u->GetUser().screen_name));
-	desc->SetLabel(wxstrstd(u->GetUser().description));
+	desc->SetLabel(wxstrstd(u->GetUser().description).Trim());
 	desc->Wrap(150);
 	isprotected->SetLabel((u->GetUser().u_flags&UF_ISPROTECTED)?wxT("Yes"):wxT("No"));
 	isverified->SetLabel((u->GetUser().u_flags&UF_ISVERIFIED)?wxT("Yes"):wxT("No"));
@@ -236,6 +280,24 @@ void user_window::CheckAccHint() {
 
 void user_window::OnClose(wxCloseEvent &event) {
 	Destroy();
+}
+
+void user_window::OnRefreshBtn(wxCommandEvent &event) {
+	std::shared_ptr<taccount> acc=acc_hint.lock();
+	if(acc && acc->enabled && !(u->udc_flags&UDC_LOOKUP_IN_PROGRESS)) {
+		acc->pendingusers[userid]=u;
+		u->udc_flags|=UDC_FORCE_REFRESH;
+		acc->StartRestQueryPendings();
+		RefreshFollow(true);
+	}
+}
+
+void user_window::OnFollowBtn(wxCommandEvent &event) {
+	
+}
+
+void user_window::OnDMBtn(wxCommandEvent &event) {
+	
 }
 
 user_window *user_window::GetWin(uint64_t userid_) {

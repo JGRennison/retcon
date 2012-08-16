@@ -29,14 +29,31 @@ struct user_window: public wxDialog {
 	wxStaticText *followsme;
 	wxChoice *accchoice;
 	
+	wxButton *followbtn;
+	wxButton *refreshbtn;
+	wxButton *dmbtn;
+	enum FOLLOWBTNMODE {
+		FBM_NONE=0, FBM_FOLLOW=1, FBM_UNFOLLOW, FBM_REMOVE_PENDING,
+	};
+	FOLLOWBTNMODE follow_btn_mode;
+	
+	enum {
+		FOLLOWBTN_ID=1,
+		REFRESHBTN_ID,
+		DMBTN_ID,
+	};
+	
 	user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_hint_);
 	~user_window();
-	void RefreshFollow();
+	void RefreshFollow(bool forcerefresh=false);
 	void Refresh(bool refreshimg=false);
 	void CheckAccHint();
 	void fill_accchoice();
 	void OnClose(wxCloseEvent &event);
 	void OnSelChange(wxCommandEvent &event);
+	void OnRefreshBtn(wxCommandEvent &event);
+	void OnFollowBtn(wxCommandEvent &event);
+	void OnDMBtn(wxCommandEvent &event);
 	static user_window *MkWin(uint64_t userid_, const std::shared_ptr<taccount> &acc_hint_);
 	static user_window *GetWin(uint64_t userid_);
 	static void CheckRefresh(uint64_t userid_, bool refreshimg=false);

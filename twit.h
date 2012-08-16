@@ -33,6 +33,7 @@ enum {
 	UDC_PROFILE_BITMAP_SET		= 1<<3,
 	UDC_HALF_PROFILE_BITMAP_SET	= 1<<4,
 	UDC_WINDOWOPEN			= 1<<5,
+	UDC_FORCE_REFRESH		= 1<<6,
 };
 
 struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {

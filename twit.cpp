@@ -406,6 +406,10 @@ void userdatacontainer::CheckPendingTweets() {
 		}
 		else return false;
 	});
+	if(udc_flags&UDC_WINDOWOPEN) {
+		user_window *uw=user_window::GetWin(id);
+		if(uw) uw->Refresh();
+	}
 	ThawAll();
 }
 
