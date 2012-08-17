@@ -679,7 +679,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 				break;
 			case 'Z': {
 				flush();
-				BeginURL(wxString::Format("U%" wxLongLongFmtSpec "d", u->id), GetDefaultStyleEx().GetCharacterStyleName());
+				this->BeginURL(wxString::Format("U%" wxLongLongFmtSpec "d", u->id), this->GetDefaultStyleEx().GetCharacterStyleName());
 				break;
 			}
 			default:

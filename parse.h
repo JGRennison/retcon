@@ -1,8 +1,12 @@
+#if wxCHECK_GCC_VERSION(4, 6)	//in old gccs, just leave the warnings turned off
 #pragma GCC diagnostic push
+#endif
 #pragma GCC diagnostic ignored "-Wtype-limits"
 #include "rapidjson/writer.h"
 #include "rapidjson/reader.h"
+#if wxCHECK_GCC_VERSION(4, 6)
 #pragma GCC diagnostic pop
+#endif
 
 struct writestream {
 	writestream(std::string &str_, size_t reshint=512 ) : str(str_) { str.clear(); str.reserve(reshint); }

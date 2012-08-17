@@ -47,11 +47,18 @@
 #include <wx/choice.h>
 #include <wx/stattext.h>
 #include <wx/file.h>
+#include <wx/version.h>
+
+#if wxCHECK_GCC_VERSION(4, 6)	//in old gccs, just leave the warnings turned off
 #pragma GCC diagnostic push
+#endif
 #pragma GCC diagnostic ignored "-Wtype-limits"
 #pragma GCC diagnostic ignored "-Wuninitialized"
 #include "rapidjson/document.h"
+#if wxCHECK_GCC_VERSION(4, 6)
 #pragma GCC diagnostic pop
+#endif
+
 
 struct userdata;
 struct userdatacontainer;
