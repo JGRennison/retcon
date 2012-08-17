@@ -1,3 +1,17 @@
+#if !(defined(RCS_GTKSOCKMODE) || defined(RCS_WSAASYNCSELMODE) || defined(RCS_POLLTHREADMODE) || defined(RCS_SIGNALMODE))
+	#if defined(__WXGTK__)
+		#define RCS_GTKSOCKMODE
+	#elif defined(__WINDOWS__)
+		#define RCS_WSAASYNCSELMODE
+	#else
+		#define RCS_POLLTHREADMODE
+	#endif
+#endif
+
+#ifdef RCS_GTKSOCKMODE
+	#include <glib.h>
+#endif
+
 //arrange in order of increasing severity
 typedef enum {
 	MCC_RETRY=0,
@@ -95,8 +109,7 @@ struct sockettimeout : public wxTimer {
 	void Notify();
 };
 
-#ifndef __WINDOWS__
-#ifndef SIGNALSAFE
+#ifdef RCS_POLLTHREADMODE
 
 typedef enum {
 	SPM_FDCHANGE=1,
@@ -118,6 +131,8 @@ struct socketpollthread : public wxThread {
 };
 
 #endif
+
+#if defined(RCS_POLLTHREADMODE) || defined(RCS_SIGNALMODE)
 
 DECLARE_EVENT_TYPE(wxextSOCK_NOTIFY, -1)
 
@@ -148,7 +163,7 @@ struct socketmanager : public wxEvtHandler {
 	void RemoveConn(CURL* ch);
 	void RegisterSockInterest(CURL *e, curl_socket_t s, int what);
 	void NotifySockEvent(curl_socket_t sockfd, int ev_bitmask);
-	#ifndef __WINDOWS__
+	#if defined(RCS_POLLTHREADMODE) || defined(RCS_SIGNALMODE)
 	void NotifySockEventCmd(wxextSocketNotifyEvent &event);
 	#endif
 	void InitMultiIOHandler();
@@ -160,12 +175,16 @@ struct socketmanager : public wxEvtHandler {
 	CURLM *curlmulti;
 	sockettimeout st;
 	int curnumsocks;
-	#ifdef __WINDOWS__
+	#ifdef RCS_WSAASYNCSELMODE
 	HWND wind;
-	#else
-	#ifndef SAFESIGNAL
+	#endif
+	#ifdef RCS_POLLTHREADMODE
 	int pipefd;
 	#endif
+	#ifdef RCS_GTKSOCKMODE
+	GSource *gs;
+	unsigned int source_id;
+	std::map<curl_socket_t,GPollFD> sockpollmap;
 	#endif
 	std::forward_list<CURL*> connlist;
 

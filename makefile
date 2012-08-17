@@ -17,7 +17,7 @@ CXXFLAGS:=-fno-rtti -std=gnu++0x
 
 ifdef debug
 CFLAGS:=-g -W -Wall
-AFLAGS:=-Wl,-d,--export-all-symbols
+#AFLAGS:=-Wl,-d,--export-all-symbols
 OUTNAME:=$(OUTNAME)_debug
 POSTFIX:=$(POSTFIX)_debug
 endif
@@ -58,12 +58,19 @@ GCC_MAJOR:=$(shell gcc -dumpversion | cut -d'.' -f1)
 GCC_MINOR:=$(shell gcc -dumpversion | cut -d'.' -f2)
 PLATFORM:=UNIX
 LIBS:=-lpcre -lrt `wx-config --libs` -lcurl -lsqlite3
-MCFLAGS= `wx-config --cxxflags`
+MCFLAGS:= `wx-config --cxxflags`
 GCC:=g++
 PACKER:=upx -9
 #HDEPS:=
 ARCH:=$(shell test $(GCC_MAJOR) -gt 4 -o \( $(GCC_MAJOR) -eq 4 -a $(GCC_MINOR) -ge 2 \) && echo native)
 EXECPREFIX:=./
+
+wxconf:=$(shell wx-config --selected-config)
+ifeq (gtk, $(findstring gtk,$(wxconf)))
+LIBS+=`pkg-config --libs glib-2.0`
+MCFLAGS+=`pkg-config --cflags glib-2.0`
+endif
+
 endif
 
 OBJS:=$(OBJS:.o=.o$(POSTFIX))
