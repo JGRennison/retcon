@@ -125,6 +125,7 @@ enum
     ID_Settings = 1,
     ID_Accounts,
     ID_Viewlog,
+    ID_UserLookup,
 };
 
 //flags for user_relationship::ur_flags
@@ -265,6 +266,7 @@ public:
 	void OnMouseWheel(wxMouseEvent &event);
 	void OnMenuOpen(wxMenuEvent &event);
 	void OnTPanelMenuCmd(wxCommandEvent &event);
+	void OnLookupUser(wxCommandEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };

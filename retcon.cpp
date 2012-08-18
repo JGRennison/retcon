@@ -1,4 +1,5 @@
 #include "retcon.h"
+#include "libtwitcurl/urlencode.h"
 #include <cstdio>
 #include <openssl/sha.h>
 
@@ -72,6 +73,7 @@ BEGIN_EVENT_TABLE(mainframe, wxFrame)
 	EVT_MENU(ID_Settings, mainframe::OnSettings)
 	EVT_MENU(ID_Accounts, mainframe::OnAccounts)
 	EVT_MENU(ID_Viewlog, mainframe::OnViewlog)
+	EVT_MENU(ID_UserLookup, mainframe::OnLookupUser)
 	EVT_CLOSE(mainframe::OnClose)
 	EVT_MOUSEWHEEL(mainframe::OnMouseWheel)
 	EVT_MENU_OPEN(mainframe::OnMenuOpen)
@@ -93,10 +95,13 @@ mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& si
 	menuO->Append( ID_Settings, wxT("&Settings"));
 	menuO->Append( ID_Accounts, wxT("&Accounts"));
 	tpmenu = new wxMenu;
+	wxMenu *searchmenu = new wxMenu;
+	searchmenu->Append( ID_UserLookup, wxT("&Lookup User"));
 
 	wxMenuBar *menuBar = new wxMenuBar;
 	menuBar->Append(menuF, wxT("&File"));
 	menuBar->Append(tpmenu, wxT("&Panels"));
+	menuBar->Append(searchmenu, wxT("&Search"));
 	menuBar->Append(menuO, wxT("&Options"));
 	menuBar->Append(menuH, wxT("&Help"));
 
@@ -153,6 +158,25 @@ void mainframe::OnMenuOpen(wxMenuEvent &event) {
 
 void mainframe::OnTPanelMenuCmd(wxCommandEvent &event) {
 	TPanelMenuAction(tpm, event.GetId(), this);
+}
+
+void mainframe::OnLookupUser(wxCommandEvent &event) {
+	//wxString username=::wxGetTextFromUser(wxT("Enter user screen name (eg. @twitter) or numeric identifier (eg. 783214) to look up."), wxT("Lookup User"), wxT(""), this, wxDefaultCoord, wxDefaultCoord, false);
+	int type;
+	wxString value;
+	std::shared_ptr<taccount> acctouse;
+	user_lookup_dlg uld(this, &type, &value, acctouse);
+	int res=uld.ShowModal();
+	if(res==wxID_OK && acctouse && type>=0 && type<=1) {
+		twitcurlext *twit=acctouse->cp.GetConn();
+		twit->TwInit(acctouse);
+		twit->connmode=CS_USERLOOKUPWIN;
+		twit->extra1=std::string(value.ToUTF8());
+		twit->genurl="api.twitter.com/1/users/show.json";
+		if(type==0) twit->genurl+="?screen_name="+urlencode(twit->extra1);
+		else if(type==1) twit->genurl+="?user_id="+urlencode(twit->extra1);
+		twit->QueueAsyncExec();
+	}
 }
 
 void taccount::ClearUsersIFollow() {

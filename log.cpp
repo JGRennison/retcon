@@ -261,6 +261,8 @@ logflagtype StrToLogFlags(const wxString &str) {
 		if(token==wxT("all")) out|=lfd_allmask;
 		else if(token==wxT("error")) out|=lfd_err;
 		else if(token==wxT("err")) out|=lfd_err;
+		else if(token==wxT("def")) out|=lfd_defaultwin;
+		else if(token==wxT("default")) out|=lfd_defaultwin;
 		else {
 			for(unsigned int i=0; i<sizeof(logflagsstrings)/sizeof(const wxChar *); i++) {
 				if(token==logflagsstrings[i]) {

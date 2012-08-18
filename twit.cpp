@@ -323,6 +323,7 @@ void twitcurlext::QueueAsyncExec() {
 			break;
 			}
 		case CS_FRIENDLOOKUP:
+		case CS_USERLOOKUPWIN:
 			genericGet(genurl);
 			break;
 	}

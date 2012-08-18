@@ -411,6 +411,9 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			DoFriendLookupParse(dc);
 			user_window::RefreshAllFollow();
 			break;
+		case CS_USERLOOKUPWIN:
+			user_window::MkWin(DoUserParse(dc)->id, tac);
+			break;
 	}
 	if(dbmsglist) {
 		if(!dbmsglist->msglist.empty()) dbc.SendMessage(dbmsglist);

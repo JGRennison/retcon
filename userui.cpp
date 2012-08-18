@@ -360,3 +360,104 @@ void user_window_timer::Notify() {
 }
 
 std::weak_ptr<user_window_timer> user_window::uwt_common;
+
+BEGIN_EVENT_TABLE(user_lookup_dlg, wxDialog)
+EVT_TEXT_ENTER(wxID_FILE2, user_lookup_dlg::OnTCEnter) 
+END_EVENT_TABLE()
+
+user_lookup_dlg::user_lookup_dlg(wxWindow *parent, int *type, wxString *value, std::shared_ptr<taccount> &acc)
+	: wxDialog(parent, wxID_ANY, wxT("Enter user name or ID to look up"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE), curacc(acc) {
+
+	const wxString opts[2]={wxT("User screen name"), wxT("User numeric identifier")};
+	wxRadioBox *rb=new wxRadioBox(this, wxID_FILE1, wxT("Type"), wxDefaultPosition, wxDefaultSize, 2, opts, 0, wxRA_SPECIFY_COLS, wxGenericValidator(type));
+	rb->SetSelection(0);
+	wxTextCtrl *tc=new wxTextCtrl(this, wxID_FILE2, wxT(""), wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER, wxGenericValidator(value));
+	wxButton *okbtn=new wxButton(this, wxID_OK, wxT("OK"));
+	wxButton *cancelbtn=new wxButton(this, wxID_CANCEL, wxT("Cancel"));
+	acc_choice *acd=new acc_choice(this, curacc, ACCCF_OKBTNCTRL|ACCCF_NOACCITEM);
+
+	wxBoxSizer *vbox = new wxBoxSizer(wxVERTICAL);
+	vbox->Add(acd, 0, wxALL, 2);
+	vbox->Add(rb, 0, wxALL, 2);
+	vbox->Add(tc, 0, wxALL | wxEXPAND, 2);
+	wxBoxSizer *hboxfooter = new wxBoxSizer(wxHORIZONTAL);
+	vbox->Add(hboxfooter, 0, wxALL | wxEXPAND, 2);
+	hboxfooter->AddStretchSpacer();
+	hboxfooter->Add(okbtn, 0, wxALL | wxALIGN_BOTTOM | wxALIGN_RIGHT, 2);
+	hboxfooter->Add(cancelbtn, 0, wxALL | wxALIGN_BOTTOM | wxALIGN_RIGHT, 2);
+	
+	tc->SetFocus();
+
+	SetSizer(vbox);
+	Fit();
+}
+
+void user_lookup_dlg::OnTCEnter(wxCommandEvent &event) {
+	wxCommandEvent evt(wxEVT_COMMAND_BUTTON_CLICKED, wxID_OK);
+	ProcessEvent(evt);
+}
+
+BEGIN_EVENT_TABLE(acc_choice, wxChoice)
+	EVT_CHOICE(wxID_ANY, acc_choice::OnSelChange)
+END_EVENT_TABLE()
+
+acc_choice::acc_choice(wxWindow *parent, std::shared_ptr<taccount> &acc, unsigned int flags_)
+	: wxChoice(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, 0, 0), curacc(acc), flags(flags_) {
+	if(!acc.get()) {
+		for(auto it=alist.begin(); it!=alist.end(); ++it) {
+			acc=(*it);
+			if((*it)->enabled) break;
+		}
+	}
+	fill_acc();
+	UpdateSel();
+}
+
+void acc_choice::fill_acc() {
+	Clear();
+	for(auto it=alist.begin(); it!=alist.end(); ++it) {
+		wxString accname=(*it)->dispname;
+		if(!(*it)->enabled) accname+=wxT(" [disabled]");
+		int index=Append(accname, (*it).get());
+		if((*it).get()==curacc.get()) SetSelection(index);
+	}
+	if(GetCount()==0 && flags&ACCCF_NOACCITEM) {
+		int index=Append(wxT("[No Accounts]"), (void *) 0);
+		SetSelection(index);
+	}
+}
+
+void acc_choice::OnSelChange(wxCommandEvent &event) {
+	UpdateSel();
+}
+
+void acc_choice::UpdateSel() {
+	bool havegoodacc=false;
+	bool haveanyacc=false;
+	int selection=GetSelection();
+	if(selection!=wxNOT_FOUND) {
+		taccount *accptr=(taccount *) GetClientData(selection);
+		for(auto it=alist.begin(); it!=alist.end(); ++it) {
+			if((*it).get()==accptr) {
+				haveanyacc=true;
+				curacc=(*it);
+				if((*it)->enabled) havegoodacc=true;
+				break;
+			}
+		}
+	}
+	if(!haveanyacc) {
+		curacc.reset();
+	}
+	if(flags&ACCCF_OKBTNCTRL) {
+		wxWindow *topparent=this;
+		while(topparent) {
+			if(topparent->IsTopLevel()) break;
+			else topparent=topparent->GetParent();
+		}
+		wxWindow *okbtn=wxWindow::FindWindowById(wxID_OK, topparent);
+		if(okbtn) {
+			okbtn->Enable(havegoodacc);
+		}
+	}
+}

@@ -69,3 +69,29 @@ struct user_window: public wxDialog {
 
 	DECLARE_EVENT_TABLE()
 };
+
+enum {
+	ACCCF_OKBTNCTRL		= 1<<0,
+	ACCCF_NOACCITEM		= 1<<1,
+};
+
+struct acc_choice: public wxChoice {
+	std::shared_ptr<taccount> &curacc;
+	unsigned int flags;
+
+	acc_choice(wxWindow *parent, std::shared_ptr<taccount> &acc, unsigned int flags_);
+	void UpdateSel();
+	void OnSelChange(wxCommandEvent &event);
+	void fill_acc();
+
+	DECLARE_EVENT_TABLE()
+};
+
+struct user_lookup_dlg: public wxDialog {
+	std::shared_ptr<taccount> &curacc;
+
+	user_lookup_dlg(wxWindow *parent, int *type, wxString *value, std::shared_ptr<taccount> &acc);
+	void OnTCEnter(wxCommandEvent &event);
+
+	DECLARE_EVENT_TABLE()
+};

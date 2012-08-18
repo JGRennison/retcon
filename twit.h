@@ -208,6 +208,7 @@ typedef enum {
 	CS_USERLIST,
 	CS_DMTIMELINE,
 	CS_FRIENDLOOKUP,
+	CS_USERLOOKUPWIN,
 } CS_ENUMTYPE;
 
 //for post_action_flags
@@ -264,6 +265,7 @@ struct twitcurlext: public twitCurl, public mcurlconn {
 	restbackfillstate *rbfs;
 	std::shared_ptr<userlookup> ul;
 	std::string genurl;
+	std::string extra1;
 
 	void NotifyDoneSuccess(CURL *easy, CURLcode res);
 	void TwInit(std::shared_ptr<taccount> acc);
