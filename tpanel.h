@@ -1,3 +1,15 @@
+struct tpanelreltimeupdater : public wxTimer {
+	void Notify();
+};
+
+struct tpanelglobal {
+	wxBitmap arrow;
+	int arrow_dim;
+	tpanelreltimeupdater minutetimer;
+
+	tpanelglobal() : arrow_dim(0) { }
+};
+
 enum { tpanelmenustartid=wxID_HIGHEST+8001 };
 enum { tpanelmenuendid=wxID_HIGHEST+12000 };
 
@@ -110,6 +122,7 @@ enum {
 struct tpanelparentwin : public wxPanel {
 	//tpanelwin *tpw;
 	std::shared_ptr<tpanel> tp;
+	std::shared_ptr<tpanelglobal> tpg;
 	wxBoxSizer *sizer;
 	size_t displayoffset;
 	std::list<std::pair<uint64_t, tweetdispscr *> > currentdisp;
@@ -203,18 +216,6 @@ void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent);
 //	void PushTweet(std::shared_ptr<tweetdisp> t);
 //};
 
-struct tpanelreltimeupdater : public wxTimer {
-	void Notify();
-};
-
-struct tpanelglobal {
-	wxBitmap arrow;
-	int arrow_dim;
-	tpanelreltimeupdater minutetimer;
-
-	tpanelglobal() : arrow_dim(0) { }
-};
-
 struct tpaneldbloadmap_data {
 	tpaneldbloadmap_data(tpanelparentwin* win_, unsigned int pushflags_=0) : win(win_), pushflags(pushflags_) { }
 	tpanelparentwin* win;
@@ -222,4 +223,3 @@ struct tpaneldbloadmap_data {
 };
 
 extern std::unordered_multimap<uint64_t, tpaneldbloadmap_data> tpaneldbloadmap;
-extern tpanelglobal *tpg;

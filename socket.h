@@ -173,7 +173,7 @@ struct socketmanager : public wxEvtHandler {
 	bool MultiIOHandlerInited;
 
 	CURLM *curlmulti;
-	sockettimeout st;
+	sockettimeout *st;
 	int curnumsocks;
 	#ifdef RCS_WSAASYNCSELMODE
 	HWND wind;

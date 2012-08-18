@@ -16,7 +16,6 @@ bool retcon::OnInit() {
 	//wxApp::OnInit();	//don't call this, it just calls the default command line processor
 	SetAppName(wxT("retcon"));
 	::wxInitAllImageHandlers();
-	tpg=new tpanelglobal;
 	cmdlineproc(argv, argc);
 	if(!globallogwindow) new log_window(0, lfd_defaultwin, false);
 	if(!::wxDirExists(wxStandardPaths::Get().GetUserDataDir())) {
@@ -29,7 +28,7 @@ bool retcon::OnInit() {
 
 	top->Show(true);
 	SetTopWindow(top);
-	for(auto it=alist.begin() ; it != alist.end(); it++ ) {
+	for(auto it=alist.begin(); it!=alist.end(); ++it) {
 		(*it)->CalcEnabled();
 		(*it)->Exec();
 	}
@@ -44,7 +43,6 @@ int retcon::OnExit() {
 	profileimgdlconn::cp.ClearAllConns();
 	sm.DeInitMultiIOHandler();
 	dbc.DeInit();
-	delete tpg;
 	return wxApp::OnExit();
 }
 
@@ -183,9 +181,9 @@ void taccount::SetUserRelationship(uint64_t userid, unsigned int flags, const ti
 void taccount::LookupFriendships(uint64_t userid) {
 	std::set<uint64_t> include;
 	if(userid) include.insert(userid);
-	
+
 	bool opportunist=true;
-	
+
 	if(opportunist) {
 		//find out more if users are followed by us or otherwise have a relationship with us
 		for(auto it=user_relations.begin(); it!=user_relations.end() && include.size()<100; ++it) {
@@ -195,7 +193,7 @@ void taccount::LookupFriendships(uint64_t userid) {
 				it->second.ur_flags|=URF_QUERY_PENDING;
 			}
 		}
-		
+
 		//fill up the rest of the query with users who we don't know if we have a relationship with
 		for(auto it=ad.userconts.begin(); it!=ad.userconts.end() && include.size()<100; ++it) {
 			if(user_relations.find(it->first)==user_relations.end()) include.insert(it->first);
@@ -204,7 +202,7 @@ void taccount::LookupFriendships(uint64_t userid) {
 	}
 
 	if(include.empty()) return;
-	
+
 	auto it=include.begin();
 	std::string idlist="api.twitter.com/1/friendships/lookup.json?user_id=";
 	while(true) {

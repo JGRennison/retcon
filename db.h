@@ -245,8 +245,8 @@ struct DBGenConfig {
 };
 
 struct DBWriteConfig : public DBGenConfig {
-	void Write(const char *name, const char *strval);
-	void Write(const char *name, const wxString &strval) { Write(name, strval.ToUTF8()); }
+	void WriteUTF8(const char *name, const char *strval);
+	void WriteWX(const char *name, const wxString &strval) { WriteUTF8(name, strval.ToUTF8()); }
 	void WriteInt64(const char *name, sqlite3_int64 val);
 	void Delete(const char *name);
 	void DeleteAll();

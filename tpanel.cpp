@@ -3,9 +3,10 @@
 #include "res.h"
 #include <wx/filename.h>
 #include <wx/filedlg.h>
+#include <wx/dcclient.h>
 
 std::unordered_multimap<uint64_t, tpaneldbloadmap_data> tpaneldbloadmap;
-tpanelglobal *tpg;
+std::weak_ptr<tpanelglobal> tpg_glob;
 
 static void PerAccTPanelMenu(wxMenu *menu, tpanelmenudata &map, int &nextid, unsigned int flagbase, unsigned int dbindex) {
 	map[nextid]={dbindex, flagbase|TPF_AUTO_TW};
@@ -194,6 +195,14 @@ tpanelparentwin::tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *
 
 	tp->twin.push_front(this);
 	tpanelparentwinlist.push_front(this);
+	
+	if(tpg_glob.expired()) {
+		tpg=std::make_shared<tpanelglobal>();
+		tpg_glob=tpg;
+	}
+	else {
+		tpg=tpg_glob.lock();
+	}
 
 	//tpw = new tpanelwin(this);
 	//wxBoxSizer *vbox = new wxBoxSizer(wxHORIZONTAL);
@@ -556,12 +565,12 @@ void tpanelscrollwin::OnScrollHandler(wxScrollWinEvent &event) {
 	bool scrolldown=(endpos>=wy && downok);
 	if(scrollup && !scrolldown && !page_scroll_blocked) {
 		wxCommandEvent evt(wxextTP_PAGEUP_EVENT);
-		parent->AddPendingEvent(evt);
+		parent->GetEventHandler()->AddPendingEvent(evt);
 		page_scroll_blocked=true;
 	}
 	if(!scrollup && scrolldown && !page_scroll_blocked) {
 		wxCommandEvent evt(wxextTP_PAGEDOWN_EVENT);
-		parent->AddPendingEvent(evt);
+		parent->GetEventHandler()->AddPendingEvent(evt);
 		page_scroll_blocked=true;
 	}
 
@@ -667,7 +676,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 	auto userfmt=[&](userdatacontainer *u, size_t &i) {
 		i++;
 		if(i>=format.size()) return;
-		switch(format[i]) {
+		switch((wxChar) format[i]) {
 			case 'n':
 				str+=wxstrstd(u->GetUser().screen_name);
 				break;
@@ -688,7 +697,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 	};
 
 	for(size_t i=0; i<format.size(); i++) {
-		switch(format[i]) {
+		switch((wxChar) format[i]) {
 			case 'u':
 				userfmt(udc, i);
 				break;
@@ -712,7 +721,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 				reltimestart=GetInsertionPoint();
 				WriteText(getreltimestr(tw.createtime, updatetime));
 				reltimeend=GetInsertionPoint();
-				if(!tpg->minutetimer.IsRunning()) tpg->minutetimer.Start(60000, wxTIMER_CONTINUOUS);
+				if(!tppw->tpg->minutetimer.IsRunning()) tppw->tpg->minutetimer.Start(60000, wxTIMER_CONTINUOUS);
 				break;
 			case 'T':
 				str+=rc_wx_strftime(gc.gcfg.datetimeformat.val, localtime(&tw.createtime), tw.createtime, true);
@@ -810,7 +819,7 @@ void tweetdispscr::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 	if(!tpsw->resize_update_pending) {
 		tpsw->resize_update_pending=true;
 		wxCommandEvent event(wxextRESIZE_UPDATE_EVENT, GetId());
-		tpsw->AddPendingEvent(event);
+		tpsw->GetEventHandler()->AddPendingEvent(event);
 	}
 }
 

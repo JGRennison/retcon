@@ -50,10 +50,13 @@
 #include <wx/version.h>
 
 #if wxCHECK_GCC_VERSION(4, 6)	//in old gccs, just leave the warnings turned off
-#pragma GCC diagnostic push
+#pragma GCC diagnostic push	
 #endif
 #pragma GCC diagnostic ignored "-Wtype-limits"
 #pragma GCC diagnostic ignored "-Wuninitialized"
+#if wxCHECK_GCC_VERSION(4, 7)
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 #include "rapidjson/document.h"
 #if wxCHECK_GCC_VERSION(4, 6)
 #pragma GCC diagnostic pop

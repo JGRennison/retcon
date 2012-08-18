@@ -38,13 +38,13 @@ taccount::taccount(genoptconf *incfg)
 void taccount::CFGWriteOut(DBWriteConfig &twfc) {
 	twfc.SetDBIndex(dbindex);
 	cfg.CFGWriteOutCurDir(twfc);
-	twfc.Write("conk", conk);
-	twfc.Write("cons", cons);
+	twfc.WriteWX("conk", conk);
+	twfc.WriteWX("cons", cons);
 	twfc.WriteInt64("enabled", userenabled);
 	twfc.WriteInt64("max_tweet_id", max_tweet_id);
 	twfc.WriteInt64("max_recvdm_id", max_recvdm_id);
 	twfc.WriteInt64("max_sentdm_id", max_sentdm_id);
-	twfc.Write("dispname", dispname);
+	twfc.WriteWX("dispname", dispname);
 }
 
 void taccount::CFGReadIn(DBReadConfig &twfc) {
@@ -138,7 +138,7 @@ void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent)
 }
 
 void genopt::CFGWriteOutCurDir(DBWriteConfig &twfc, const char *name) {
-	if(enable) twfc.Write(name, val);
+	if(enable) twfc.WriteWX(name, val);
 	else twfc.Delete(name);
 }
 void genopt::CFGReadInCurDir(DBReadConfig &twfc, const char *name, const wxString &parent) {

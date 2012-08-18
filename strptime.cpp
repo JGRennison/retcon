@@ -31,9 +31,9 @@ static const char *abmon[12] = {
      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
-static const char *am_pm[2] = {
+/*static const char *am_pm[2] = {
      "AM", "PM"
-};
+};*/
 
 
 char * strptime(const char *buf, const char *fmt, struct tm *tm)

@@ -323,6 +323,17 @@ static char *column_get_compressed_and_parse(sqlite3_stmt* stmt, int num, rapidj
 	return str;
 }
 
+inline void writebeuint64(unsigned char* data, uint64_t id) {
+	data[0]=(id>>56)&0xFF;
+	data[1]=(id>>48)&0xFF;
+	data[2]=(id>>40)&0xFF;
+	data[3]=(id>>32)&0xFF;
+	data[4]=(id>>24)&0xFF;
+	data[5]=(id>>16)&0xFF;
+	data[6]=(id>>8)&0xFF;
+	data[7]=(id>>0)&0xFF;
+}
+
 template <typename C> unsigned char *settoblob(const C &set, size_t &size) {
 	size=set.size()*8;
 	if(!size) return 0;
@@ -356,17 +367,6 @@ template <typename C> void setfromcompressedblob(C func, sqlite3_stmt *stmt, int
 		func(id);
 	}
 	free(blarray);
-}
-
-inline void writebeuint64(unsigned char* data, uint64_t id) {
-	data[0]=(id>>56)&0xFF;
-	data[1]=(id>>48)&0xFF;
-	data[2]=(id>>40)&0xFF;
-	data[3]=(id>>32)&0xFF;
-	data[4]=(id>>24)&0xFF;
-	data[5]=(id>>16)&0xFF;
-	data[6]=(id>>8)&0xFF;
-	data[7]=(id>>0)&0xFF;
 }
 
 static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetmsg *m, std::forward_list<dbrettweetdata> &recv_data, std::forward_list<media_id_type> &media_ids, uint64_t id) {
@@ -1116,7 +1116,7 @@ DBWriteConfig::~DBWriteConfig() {
 	sqlite3_finalize(stmt);
 	sqlite3_finalize(delstmt);
 }
-void DBWriteConfig::Write(const char *name, const char *strval) {
+void DBWriteConfig::WriteUTF8(const char *name, const char *strval) {
 	bind_accid_name(stmt, name);
 	sqlite3_bind_text(stmt, 3, strval, -1, SQLITE_TRANSIENT);
 	exec(stmt);

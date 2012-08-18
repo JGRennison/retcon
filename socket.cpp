@@ -353,7 +353,7 @@ static void check_multi_info(socketmanager *smp) {
 	}
 	if(sm.curnumsocks==0) {
 		LogMsgFormat(LFT_SOCKTRACE, wxT("No Sockets Left, Stopping Timer"));
-		smp->st.Stop();
+		smp->st->Stop();
 	}
 }
 
@@ -376,14 +376,14 @@ static int multi_timer_cb(CURLM *multi, long timeout_ms, socketmanager *smp) {
 
 	LogMsgFormat(LFT_SOCKTRACE, wxT("Socket Timer Callback: %d ms"), timeout_ms);
 
-	if(timeout_ms>0) smp->st.Start(timeout_ms,wxTIMER_ONE_SHOT);
-	else smp->st.Stop();
-	if(!timeout_ms) smp->st.Notify();
+	if(timeout_ms>0) smp->st->Start(timeout_ms,wxTIMER_ONE_SHOT);
+	else smp->st->Stop();
+	if(!timeout_ms) smp->st->Notify();
 
 	return 0;
 }
 
-socketmanager::socketmanager() : st(*this), curnumsocks(0) {
+socketmanager::socketmanager() : st(0), curnumsocks(0) {
 	MultiIOHandlerInited=false;
 }
 
@@ -433,6 +433,7 @@ END_EVENT_TABLE()
 
 void socketmanager::InitMultiIOHandlerCommon() {
 	LogMsg(LFT_SOCKTRACE, wxT("socketmanager::InitMultiIOHandlerCommon"));
+	st=new sockettimeout(*this);
 	curlmulti=curl_multi_init();
 	curl_multi_setopt(curlmulti, CURLMOPT_SOCKETFUNCTION, sock_cb);
 	curl_multi_setopt(curlmulti, CURLMOPT_SOCKETDATA, this);
@@ -443,6 +444,8 @@ void socketmanager::InitMultiIOHandlerCommon() {
 void socketmanager::DeInitMultiIOHandlerCommon() {
 	LogMsg(LFT_SOCKTRACE, wxT("socketmanager::DeInitMultiIOHandlerCommon"));
 	curl_multi_cleanup(curlmulti);
+	if(st) delete st;
+	st=0;
 }
 
 #ifdef RCS_WSAASYNCSELMODE

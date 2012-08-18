@@ -5,9 +5,9 @@ std::unordered_map<uint64_t, user_window*> userwinmap;
 BEGIN_EVENT_TABLE(user_window, wxDialog)
 	EVT_CLOSE(user_window::OnClose)
 	EVT_CHOICE(wxID_FILE1, user_window::OnSelChange)
-	EVT_BUTTON(FOLLOWBTN_ID, user_window::OnFollowBtn)  
-	EVT_BUTTON(REFRESHBTN_ID, user_window::OnRefreshBtn)  
-	EVT_BUTTON(DMBTN_ID, user_window::OnDMBtn)  
+	EVT_BUTTON(FOLLOWBTN_ID, user_window::OnFollowBtn)
+	EVT_BUTTON(REFRESHBTN_ID, user_window::OnRefreshBtn)
+	EVT_BUTTON(DMBTN_ID, user_window::OnDMBtn)
 END_EVENT_TABLE()
 
 static void insert_uw_row(wxWindow *parent, wxSizer *sz, const wxString &label, wxStaticText *&targ) {
@@ -98,7 +98,14 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	Refresh(false);
 	Thaw();
 
-	if(!uwt.IsRunning()) uwt.Start(90000, false);
+	if(uwt_common.expired()) {
+		uwt=std::make_shared<user_window_timer>();
+		uwt_common=uwt;
+		uwt->Start(90000, false);
+	}
+	else {
+		uwt=uwt_common.lock();
+	}
 
 	Show();
 }
@@ -243,7 +250,6 @@ void user_window::Refresh(bool refreshimg) {
 user_window::~user_window() {
 	userwinmap.erase(userid);
 	u->udc_flags&=~UDC_WINDOWOPEN;
-	if(userwinmap.empty()) uwt.Stop();
 }
 
 void user_window::CheckAccHint() {
@@ -293,11 +299,11 @@ void user_window::OnRefreshBtn(wxCommandEvent &event) {
 }
 
 void user_window::OnFollowBtn(wxCommandEvent &event) {
-	
+
 }
 
 void user_window::OnDMBtn(wxCommandEvent &event) {
-	
+
 }
 
 user_window *user_window::GetWin(uint64_t userid_) {
@@ -353,4 +359,4 @@ void user_window_timer::Notify() {
 	user_window::RefreshAll();
 }
 
-user_window_timer user_window::uwt;
+std::weak_ptr<user_window_timer> user_window::uwt_common;
