@@ -238,6 +238,7 @@ struct restbackfillstate {
 	uint64_t start_tweet_id;	//exclusive limit
 	uint64_t end_tweet_id;		//inclusive limit
 	unsigned int max_tweets_left;
+	unsigned int lastop_recvcount;
 	RBFS_TYPE type;
 	bool read_again;
 	bool started;

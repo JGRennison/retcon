@@ -139,7 +139,7 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 
 	bool cleanup=false;
 	unsigned int tweets_to_get=std::min((unsigned int) 200, rbfs->max_tweets_left);
-	if((rbfs->end_tweet_id && rbfs->start_tweet_id>rbfs->end_tweet_id) || !rbfs->read_again) {
+	if((rbfs->end_tweet_id && rbfs->start_tweet_id>rbfs->end_tweet_id) || !rbfs->read_again) {	
 		cleanup=true;
 	}
 	else if(!tweets_to_get) {
@@ -150,6 +150,9 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 		}
 		else cleanup=true;
 	}
+	else if(rbfs->lastop_recvcount>0 && rbfs->lastop_recvcount<175) {	//if less than 175 tweets received in last call, assume that there won't be any more
+		cleanup=true;
+	}
 
 	if(cleanup) {
 		//all done, can now clean up pending rbfs
@@ -159,6 +162,7 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 	}
 	else {
 		rbfs->read_again=false;
+		rbfs->lastop_recvcount=0;
 		struct timelineparams tmps={
 			tweets_to_get,
 			rbfs->start_tweet_id,

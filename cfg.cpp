@@ -24,17 +24,6 @@ genoptglobconf gcglobdefaults {
 	{ wxT("1"), 1 },
 };
 
-taccount::taccount(genoptconf *incfg)
-	: ta_flags(0), max_tweet_id(0), max_recvdm_id(0), max_sentdm_id(0), last_stream_start_time(0), last_stream_end_time(0), enabled(false), userenabled(false),
-		active(false), verifycreddone(false), verifycredinprogress(false), beinginsertedintodb(false)  {
-	if(incfg) {
-		cfg.InheritFromParent(*incfg);
-		CFGParamConv();
-	}
-}
-
-
-
 void taccount::CFGWriteOut(DBWriteConfig &twfc) {
 	twfc.SetDBIndex(dbindex);
 	cfg.CFGWriteOutCurDir(twfc);

@@ -50,7 +50,7 @@
 #include <wx/version.h>
 
 #if wxCHECK_GCC_VERSION(4, 6)	//in old gccs, just leave the warnings turned off
-#pragma GCC diagnostic push	
+#pragma GCC diagnostic push
 #endif
 #pragma GCC diagnostic ignored "-Wtype-limits"
 #pragma GCC diagnostic ignored "-Wuninitialized"
@@ -151,7 +151,11 @@ enum {
 	TAF_STREAM_UP			= 1<<0,
 };
 
-struct taccount : std::enable_shared_from_this<taccount> {
+enum {
+	TAF_WINID_RESTTIMER=1,
+};
+
+struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	wxString name;
 	wxString dispname;
 	genoptconf cfg;
@@ -192,9 +196,13 @@ struct taccount : std::enable_shared_from_this<taccount> {
 	bool enabled;
 	bool userenabled;
 	bool active;
+	bool streaming_on;
+	bool rest_on;
 	bool verifycreddone;
 	bool verifycredinprogress;
 	bool beinginsertedintodb;
+	time_t last_rest_backfill;
+	wxTimer *rest_timer;
 
 	void ClearUsersIFollow();
 	void SetUserRelationship(uint64_t userid, unsigned int flags, const time_t &optime);
@@ -212,6 +220,10 @@ struct taccount : std::enable_shared_from_this<taccount> {
 	bool CheckMarkPending(const std::shared_ptr<tweet> &t, bool checkfirst=false);
 	void FastMarkPending(const std::shared_ptr<tweet> &t, unsigned int mark, bool checkfirst=false);
 
+	void OnRestTimer(wxTimerEvent& event);
+	void SetupRestBackfillTimer();
+	void DeleteRestBackfillTimer();
+
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc);
 	void CFGParamConv();
@@ -220,6 +232,9 @@ struct taccount : std::enable_shared_from_this<taccount> {
 	void Exec();
 	void CalcEnabled();
 	taccount(genoptconf *incfg=0);
+	~taccount();
+
+	DECLARE_EVENT_TABLE()
 };
 
 struct alldata {

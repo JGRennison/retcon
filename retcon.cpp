@@ -179,6 +179,23 @@ void mainframe::OnLookupUser(wxCommandEvent &event) {
 	}
 }
 
+BEGIN_EVENT_TABLE(taccount, wxEvtHandler)
+    EVT_TIMER(TAF_WINID_RESTTIMER, taccount::OnRestTimer)
+END_EVENT_TABLE()
+
+taccount::taccount(genoptconf *incfg)
+	: ta_flags(0), max_tweet_id(0), max_recvdm_id(0), max_sentdm_id(0), last_stream_start_time(0), last_stream_end_time(0), enabled(false), userenabled(false),
+		active(false), streaming_on(false), rest_on(false), verifycreddone(false), verifycredinprogress(false), beinginsertedintodb(false), last_rest_backfill(0), rest_timer(0)  {
+	if(incfg) {
+		cfg.InheritFromParent(*incfg);
+		CFGParamConv();
+	}
+}
+
+taccount::~taccount() {
+	DeleteRestBackfillTimer();
+}
+
 void taccount::ClearUsersIFollow() {
 	for(auto it=user_relations.begin(); it!=user_relations.end(); ++it) {
 		it->second.ur_flags|=URF_IFOLLOW_KNOWN;
@@ -245,14 +262,41 @@ void taccount::LookupFriendships(uint64_t userid) {
 	twit->QueueAsyncExec();
 }
 
+void taccount::OnRestTimer(wxTimerEvent& event) {
+	SetupRestBackfillTimer();
+}
+
+void taccount::SetupRestBackfillTimer() {
+	if(!rest_on) return;
+	if(!rest_timer) rest_timer=new wxTimer(this, TAF_WINID_RESTTIMER);
+	time_t now=time(0);
+	time_t targettime=last_rest_backfill+restinterval;
+	int timeleft;
+	if(targettime<=(now+10)) {				//10s of error margin
+		GetRestBackfill();
+		timeleft=restinterval;
+	}
+	else {
+		timeleft=targettime-now;
+	}
+	LogMsgFormat(LFT_OTHERTRACE, wxT("Setting REST timer for %d seconds (%s)"), timeleft, dispname.c_str());
+	rest_timer->Start(timeleft*1000, wxTIMER_ONE_SHOT);
+}
+
+void taccount::DeleteRestBackfillTimer() {
+	if(rest_timer) {
+		LogMsgFormat(LFT_OTHERTRACE, wxT("Deleting REST timer (%s)"), dispname.c_str());
+		rest_timer->Stop();
+		delete rest_timer;
+		rest_timer=0;
+	}
+}
+
 void taccount::GetRestBackfill() {
+	last_rest_backfill=time(0);
 	StartRestGetTweetBackfill(GetMaxId(RBFS_TWEETS), 0, 800, RBFS_TWEETS);
 	StartRestGetTweetBackfill(GetMaxId(RBFS_RECVDM), 0, 800, RBFS_RECVDM);
 	StartRestGetTweetBackfill(GetMaxId(RBFS_SENTDM), 0, 800, RBFS_SENTDM);
-
-	//StartRestGetTweetBackfill(0, 0, 10, RBFS_TWEETS);
-	//StartRestGetTweetBackfill(0, 0, 5, RBFS_RECVDM);
-	//StartRestGetTweetBackfill(0, 0, 5, RBFS_SENTDM);
 }
 
 //limits are inclusive
@@ -265,6 +309,7 @@ void taccount::StartRestGetTweetBackfill(uint64_t start_tweet_id, uint64_t end_t
 	rbfs->read_again=true;
 	rbfs->type=type;
 	rbfs->started=false;
+	rbfs->lastop_recvcount=0;
 	ExecRBFS(rbfs);
 }
 
@@ -280,7 +325,7 @@ void taccount::ExecRBFS(restbackfillstate *rbfs) {
 }
 
 void taccount::StartRestQueryPendings() {
-	LogMsgFormat(LFT_OTHERTRACE, wxT("taccount::StartRestQueryPendings: pending users: %d"), pendingusers.size());
+	LogMsgFormat(LFT_OTHERTRACE, wxT("taccount::StartRestQueryPendings: pending users: %d, (%s)"), pendingusers.size(), dispname.c_str());
 	if(pendingusers.empty()) return;
 
 	std::shared_ptr<userlookup> ul=std::make_shared<userlookup>();
@@ -357,31 +402,58 @@ void taccount::PostAccVerifyInit() {
 
 void taccount::Exec() {
 	if(enabled && !verifycreddone) {
+		streaming_on=false;
+		rest_on=false;
+		active=false;
+		if(verifycredinprogress) return;
 		twitcurlext *twit=cp.GetConn();
 		twit->TwInit(shared_from_this());
 		twit->TwStartupAccVerify();
 	}
-	else if(enabled && !active) {
+	else if(enabled) {
+		bool target_streaming=userstreams;
+		if(!active) {
+			for(auto it=pending_rbfs_list.begin(); it!=pending_rbfs_list.end(); ++it) {
+				ExecRBFS(&(*it));
+			}
+		}
+		else {
+			if(!target_streaming && streaming_on) {
+				for(auto it=cp.activeset.begin(); it!=cp.activeset.end(); ++it) {
+					if((*it)->tc_flags&TCF_ISSTREAM) {
+						(*it)->KillConn();
+						cp.Standby(*it);	//kill stream
+						break;
+					}
+				}
+				streaming_on=false;
+			}
+			else if(target_streaming && rest_on) {
+				DeleteRestBackfillTimer();
+				rest_on=false;
+			}
+		}
 		active=true;
 
-		for(auto it=pending_rbfs_list.begin(); it!=pending_rbfs_list.end(); ++it) {
-			ExecRBFS(&(*it));
+		if(target_streaming && !streaming_on) {
+			streaming_on=true;
+			twitcurlext *twit_stream=cp.GetConn();
+			twit_stream->TwInit(shared_from_this());
+			twit_stream->connmode=CS_STREAM;
+			twit_stream->tc_flags|=TCF_ISSTREAM;
+			twit_stream->post_action_flags|=PAF_STREAM_CONN_READ_BACKFILL;
+			twit_stream->QueueAsyncExec();
 		}
-
-		//streams test
-		twitcurlext *twit_stream=cp.GetConn();
-		twit_stream->TwInit(shared_from_this());
-		twit_stream->connmode=CS_STREAM;
-		twit_stream->tc_flags|=TCF_ISSTREAM;
-		twit_stream->post_action_flags|=PAF_STREAM_CONN_READ_BACKFILL;
-		twit_stream->QueueAsyncExec();
-
-		//StartRestGetTweetBackfill(0, 0, 45);
-
+		if(!target_streaming && !rest_on) {
+			rest_on=true;
+			SetupRestBackfillTimer();
+		}
 	}
 	else if(!enabled && (active || verifycredinprogress)) {
 		active=false;
 		verifycredinprogress=false;
+		streaming_on=false;
+		rest_on=false;
 		cp.ClearAllConns();
 	}
 }

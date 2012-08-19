@@ -435,6 +435,10 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 settings_window::~settings_window() {
 	UpdateAllTweets();
 	user_window::RefreshAll();
+	for(auto it=alist.begin(); it!=alist.end(); ++it) {
+		(*it)->Exec();
+		(*it)->SetupRestBackfillTimer();
+	}
 }
 
 void settings_window::ChoiceCtrlChange(wxCommandEvent &event) {

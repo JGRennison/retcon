@@ -285,6 +285,7 @@ void jsonparser::RestTweetUpdateParams(const tweet &t) {
 		if(twit->rbfs->max_tweets_left) twit->rbfs->max_tweets_left--;
 		if(!twit->rbfs->end_tweet_id || twit->rbfs->end_tweet_id>=t.id) twit->rbfs->end_tweet_id=t.id-1;
 		twit->rbfs->read_again=true;
+		twit->rbfs->lastop_recvcount++;
 	}
 }
 
