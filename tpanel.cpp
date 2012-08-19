@@ -183,6 +183,7 @@ BEGIN_EVENT_TABLE(tpanelparentwin, wxPanel)
 	EVT_MENU(TPPWID_CLOSE, tpanelparentwin::tabclosehandler)
 	EVT_COMMAND(wxID_ANY, wxextTP_PAGEUP_EVENT, tpanelparentwin::pageupevthandler)
 	EVT_COMMAND(wxID_ANY, wxextTP_PAGEDOWN_EVENT, tpanelparentwin::pagedownevthandler)
+	EVT_BUTTON(TPPWID_TOPBTN, tpanelparentwin::pagetopevthandler)
 END_EVENT_TABLE()
 
 tpanelparentwin *tpanel::MkTPanelWin(mainframe *parent, bool select) {
@@ -190,7 +191,7 @@ tpanelparentwin *tpanel::MkTPanelWin(mainframe *parent, bool select) {
 }
 
 tpanelparentwin::tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select)
-: wxPanel(parent), tp(tp_), displayoffset(0), owner(parent) {
+: wxPanel(parent), tp(tp_), displayoffset(0), owner(parent), tppw_flags(0) {
 	LogMsgFormat(LFT_TPANEL, wxT("Creating tweet panel window %s"), wxstrstd(tp->name).c_str());
 
 	tp->twin.push_front(this);
@@ -210,9 +211,13 @@ tpanelparentwin::tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *
 	//SetSizer(vbox);
 
 	wxBoxSizer* outersizer = new wxBoxSizer(wxVERTICAL);
+	wxBoxSizer* headersizer = new wxBoxSizer(wxHORIZONTAL);
 	scrollwin = new tpanelscrollwin(this);
 	clabel=new wxStaticText(this, wxID_ANY, wxT("No Tweets"));
-	outersizer->Add(clabel, 0, wxALL, 2);
+	outersizer->Add(headersizer, 0, wxALL | wxEXPAND, 0);
+	headersizer->Add(clabel, 0, wxALL, 2);
+	headersizer->AddStretchSpacer();
+	headersizer->Add(new wxButton(this, TPPWID_TOPBTN, wxT("Top \x2191")), 0, wxALL, 2);
 	outersizer->Add(scrollwin, 1, wxALL | wxEXPAND, 2);
 	outersizer->Add(new wxStaticText(this, wxID_ANY, wxT("Bar")), 0, wxALL, 2);
 
@@ -297,7 +302,7 @@ void tpanelparentwin::PushTweet(const std::shared_ptr<tweet> &t, unsigned int pu
 	}
 	tweetdispscr *td = PushTweetIndex(t, index);
 	currentdisp.insert(it, std::make_pair(id, td));
-	UpdateCLabel();
+	if(!(tppw_flags&TPPWF_NOUPDATEONPUSH)) UpdateCLabel();
 	EndScrollFreeze(sf);
 	scrollwin->Thaw();
 }
@@ -339,7 +344,7 @@ tweetdispscr *tpanelparentwin::PushTweetIndex(const std::shared_ptr<tweet> &t, s
 
 	sizer->Insert(index, hbox, 0, wxALL | wxEXPAND, 2);
 	td->DisplayTweet();
-	scrollwin->FitInside();
+	if(!(tppw_flags&TPPWF_NOUPDATEONPUSH)) scrollwin->FitInside();
 	return td;
 }
 
@@ -406,6 +411,7 @@ void tpanelparentwin::LoadMore(unsigned int n, uint64_t lessthanid, unsigned int
 		if(!gc.persistentmediacache) loadmsg->flags|=DBSTMF_PULLMEDIA;
 		dbc.SendMessage(loadmsg);
 	}
+	dump_pending_tpaneldbloadmap(LFT_PENDTRACE, wxT(""));
 }
 
 void tpanelparentwin::pageupevthandler(wxCommandEvent &event) {
@@ -414,9 +420,13 @@ void tpanelparentwin::pageupevthandler(wxCommandEvent &event) {
 void tpanelparentwin::pagedownevthandler(wxCommandEvent &event) {
 	PageDownHandler();
 }
+void tpanelparentwin::pagetopevthandler(wxCommandEvent &event) {
+	PageTopHandler();
+}
 
 void tpanelparentwin::PageUpHandler() {
 	if(displayoffset) {
+		tppw_flags|=TPPWF_NOUPDATEONPUSH;
 		size_t pagemove=std::min((size_t) (gc.maxtweetsdisplayinpanel+1)/2, displayoffset);
 		auto it=tp->tweetlist.lower_bound(currentdisp.front().first);
 		for(unsigned int i=0; i<pagemove; i++) {
@@ -426,10 +436,14 @@ void tpanelparentwin::PageUpHandler() {
 			if(t->IsReady()) PushTweet(t, TPPWPF_ABOVE);
 			//otherwise tweet is already on pending list
 		}
+		tppw_flags&=~TPPWF_NOUPDATEONPUSH;
+		UpdateCLabel();
+		scrollwin->FitInside();
 	}
 	scrollwin->page_scroll_blocked=false;
 }
 void tpanelparentwin::PageDownHandler() {
+	tppw_flags|=TPPWF_NOUPDATEONPUSH;
 	size_t curnum=currentdisp.size();
 	size_t tweetnum=tp->tweetlist.size();
 	if(curnum+displayoffset<tweetnum) {
@@ -438,6 +452,25 @@ void tpanelparentwin::PageDownHandler() {
 		LoadMore(pagemove, lessthanid, TPPWPF_BELOW);
 	}
 	scrollwin->page_scroll_blocked=false;
+	tppw_flags&=~TPPWF_NOUPDATEONPUSH;
+	UpdateCLabel();
+	scrollwin->FitInside();
+}
+
+void tpanelparentwin::PageTopHandler() {
+	if(displayoffset) {
+		tppw_flags|=TPPWF_NOUPDATEONPUSH;
+		size_t pushcount=std::min(displayoffset, (size_t) gc.maxtweetsdisplayinpanel);
+		for(auto it=tp->tweetlist.begin(); it!=tp->tweetlist.end() && pushcount; ++it, --pushcount) {
+			const std::shared_ptr<tweet> &t=ad.GetTweetById(*it);
+			if(t->IsReady()) PushTweet(t, TPPWPF_ABOVE);
+		}
+		displayoffset=0;
+		tppw_flags&=~TPPWF_NOUPDATEONPUSH;
+		UpdateCLabel();
+		scrollwin->FitInside();
+	}
+	scrollwin->Scroll(-1, 0);
 }
 
 void tpanelparentwin::UpdateCLabel() {

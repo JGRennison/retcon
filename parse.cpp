@@ -440,6 +440,7 @@ std::shared_ptr<userdatacontainer> jsonparser::DoUserParse(const rapidjson::Valu
 	if(userdatacont->udc_flags&UDC_WINDOWOPEN) user_window::CheckRefresh(id, false);
 
 	userdatacont->MarkUpdated();
+	userdatacont->CheckPendingTweets();
 
 	if(currentlogflags&LFT_PARSE) userdatacont->Dump();
 	return userdatacont;

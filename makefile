@@ -80,6 +80,10 @@ endif
 GCCVER:=$(shell $(GCC) -dumpversion)
 
 ifeq (4.7.0, $(GCCVER))
+$(error GCC 4.7.0 has a nasty bug in std::unordered_multimap, this will cause problems)
+endif
+
+ifeq (4.7.1, $(GCCVER))
 CXXFLAGS+=-Wno-type-limits -Wno-uninitialized -Wno-maybe-uninitialized
 #these cannot be feasibly suppressed at the local level in gcc 4.7
 endif

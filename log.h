@@ -71,3 +71,7 @@ void Update_currentlogflags();
 
 extern log_window *globallogwindow;
 logflagtype StrToLogFlags(const wxString &str);
+
+void dump_pending_acc(logflagtype logflags, const wxString &indent, const wxString &indentstep, taccount *acc);
+void dump_pending_tpaneldbloadmap(logflagtype logflags, const wxString &indent);
+void dump_tpanel_scrollwin_data(logflagtype logflags, const wxString &indent, const wxString &indentstep, tpanelparentwin *tppw);

@@ -12,10 +12,6 @@ log_window *globallogwindow;
 logflagtype currentlogflags=0;
 std::forward_list<log_object*> logfunclist;
 
-static void dump_pending_acc(logflagtype logflags, const wxString &indent, const wxString &indentstep, taccount *acc);
-static void dump_pending_tpaneldbloadmap(logflagtype logflags, const wxString &indent);
-static void dump_tpanel_scrollwin_data(logflagtype logflags, const wxString &indent, const wxString &indentstep, tpanelparentwin *tppw);
-
 const wxChar *logflagsstrings[]={
 	wxT("curlverb"),
 	wxT("parsetrace"),
@@ -162,6 +158,7 @@ log_window::log_window(wxWindow *parent, logflagtype flagmask, bool show)
 	wxGridSizer *hs=new wxGridSizer(5, 1, 4);
 	log_window_AddChkBox(this, lfd_allmask, wxT("ALL"), hs);
 	log_window_AddChkBox(this, lfd_err, wxT("ERRORS"), hs);
+	log_window_AddChkBox(this, lfd_defaultwin, wxT("DEFAULTS"), hs);
 	for(size_t i=hs->GetChildren().GetCount(); (i%hs->GetCols())!=0; i++) hs->AddStretchSpacer();
 	for(unsigned int i=0; i<(sizeof(logflagtype)*8); i++) {
 		if((((logflagtype) 1)<<i)&lfd_stringmask) {
@@ -286,14 +283,14 @@ static void dump_pending_user(logflagtype logflags, const wxString &indent, cons
 	}
 }
 
-static void dump_pending_acc(logflagtype logflags, const wxString &indent, const wxString &indentstep, taccount *acc) {
+void dump_pending_acc(logflagtype logflags, const wxString &indent, const wxString &indentstep, taccount *acc) {
 	LogMsgFormat(logflags, wxT("%sAccount: %s (%s)"), indent.c_str(), acc->name.c_str(), acc->dispname.c_str());
 	for(auto it=acc->pendingusers.begin(); it!=acc->pendingusers.end(); ++it) {
 		dump_pending_user(logflags, indent+indentstep, indentstep, (*it).second.get());
 	}
 }
 
-static void dump_pending_tpaneldbloadmap(logflagtype logflags, const wxString &indent) {
+void dump_pending_tpaneldbloadmap(logflagtype logflags, const wxString &indent) {
 	for(auto it=tpaneldbloadmap.begin(); it!=tpaneldbloadmap.end(); ++it) {
 		LogMsgFormat(logflags, wxT("%sLoad Map: %" wxLongLongFmtSpec "d (%.15s...) --> %s (%s) pushflags: %X"), indent.c_str(), it->first, wxstrstd(ad.tweetobjs[it->first]->text).c_str(), wxstrstd(it->second.win->tp->name).c_str(), wxstrstd(it->second.win->tp->dispname).c_str(), it->second.pushflags);
 	}
@@ -306,7 +303,7 @@ static void dump_window_pos_data(logflagtype logflags, const wxString &indent, c
 	LogMsgFormat(logflags, wxT("%sWindow: %p, size: %d, %d, pos: %d, %d"), indent.c_str(), win, x, y, px, py);
 }
 
-static void dump_tpanel_scrollwin_data(logflagtype logflags, const wxString &indent, const wxString &indentstep, tpanelparentwin *tppw) {
+void dump_tpanel_scrollwin_data(logflagtype logflags, const wxString &indent, const wxString &indentstep, tpanelparentwin *tppw) {
 	int x, y, vx, vy, vsx, vsy;
 	tppw->scrollwin->GetSize(&x, &y);
 	tppw->scrollwin->GetVirtualSize(&vx, &vy);

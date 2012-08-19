@@ -2,11 +2,16 @@ void HandleNewTweet(const std::shared_ptr<tweet> &t);
 void UpdateTweet(const std::shared_ptr<tweet> &t, bool redrawimg=false);
 void UpdateAllTweets(bool redrawimg=false);
 void UpdateUsersTweet(uint64_t userid, bool redrawimg=false);
-void UnmarkPendingTweet(const std::shared_ptr<tweet> &t);
 bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t, bool checkfirst=false);
 unsigned int CheckTweetPendings(const std::shared_ptr<tweet> &t);
 
-enum {
+enum {	//for UnmarkPendingTweet: umpt_flags
+	UMPTF_TPDB_NOUPDF	= 1<<0,
+};
+
+void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, unsigned int umpt_flags=0);
+
+enum {	//for u_flags
 	UF_ISPROTECTED	= 1<<0,
 	UF_ISVERIFIED	= 1<<1,
 };

@@ -657,7 +657,7 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 		t->updcf_flags=UPDCF_DOWNLOADIMG;
 		if(CheckMarkPending_GetAcc(t, true)) {
 			t->lflags&=~TLF_BEINGLOADEDFROMDB;
-			UnmarkPendingTweet(t);
+			UnmarkPendingTweet(t, UMPTF_TPDB_NOUPDF);
 		}
 		else {
 			checkpendings=true;
@@ -667,6 +667,13 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 	if(checkpendings) {
 		for(auto it=alist.begin(); it!=alist.end(); ++it) {
 			if((*it)->enabled) (*it)->StartRestQueryPendings();
+		}
+	}
+	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
+		if((*it)->tppw_flags&TPPWF_NOUPDATEONPUSH) {
+			(*it)->tppw_flags&=~TPPWF_NOUPDATEONPUSH;
+			(*it)->UpdateCLabel();
+			(*it)->scrollwin->FitInside();
 		}
 	}
 }

@@ -414,17 +414,20 @@ void userdatacontainer::CheckPendingTweets() {
 	ThawAll();
 }
 
-void UnmarkPendingTweet(const std::shared_ptr<tweet> &t) {
+void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, unsigned int umpt_flags) {
 	LogMsgFormat(LFT_PENDTRACE, wxT("Unmark Pending: Tweet: %" wxLongLongFmtSpec "d (%.15s...), lflags: %X, updcf_flags: %X"), t->id, wxstrstd(t->text).c_str(), t->lflags, t->updcf_flags);
+	t->lflags&=~TLF_BEINGLOADEDFROMDB;
 	if(t->lflags&TLF_PENDINGHANDLENEW) {
 		t->lflags&=~TLF_PENDINGHANDLENEW;
 		HandleNewTweet(t);
 	}
 	if(t->lflags&TLF_PENDINGINDBTPANELMAP) {
 		t->lflags&=~TLF_PENDINGINDBTPANELMAP;
-		t->lflags&=~TLF_BEINGLOADEDFROMDB;
 		auto itpair=tpaneldbloadmap.equal_range(t->id);
-		for(auto it=itpair.first; it!=itpair.second; ++it) (*it).second.win->PushTweet(t, (*it).second.pushflags);
+		for(auto it=itpair.first; it!=itpair.second; ++it) {
+			if(umpt_flags&UMPTF_TPDB_NOUPDF) (*it).second.win->tppw_flags|=TPPWF_NOUPDATEONPUSH;
+			(*it).second.win->PushTweet(t, (*it).second.pushflags);
+		}
 		tpaneldbloadmap.erase(itpair.first, itpair.second);
 	}
 	if(t->lflags&TLF_PENDINGINDBTPANELMAP) {

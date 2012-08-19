@@ -107,20 +107,24 @@ struct tppw_scrollfreeze {
 	int extrapixels;
 };
 
-enum {
+enum {	//window IDs
 	TPPWID_DETACH = 100,
 	TPPWID_DUP,
 	TPPWID_DETACHDUP,
 	TPPWID_CLOSE,
+	TPPWID_TOPBTN,
 };
 
-enum {
+enum {	//for pushflags
 	TPPWPF_ABOVE	= 1<<0,
 	TPPWPF_BELOW	= 1<<1,
 };
 
+enum {	//for tppw_flags
+	TPPWF_NOUPDATEONPUSH	= 1<<0,
+};
+
 struct tpanelparentwin : public wxPanel {
-	//tpanelwin *tpw;
 	std::shared_ptr<tpanel> tp;
 	std::shared_ptr<tpanelglobal> tpg;
 	wxBoxSizer *sizer;
@@ -129,6 +133,7 @@ struct tpanelparentwin : public wxPanel {
 	mainframe *owner;
 	tpanelscrollwin *scrollwin;
 	wxStaticText *clabel;
+	unsigned int tppw_flags;
 
 	tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select=false);
 	~tpanelparentwin();
@@ -143,8 +148,10 @@ struct tpanelparentwin : public wxPanel {
 	void tabclosehandler(wxCommandEvent &event);
 	void PageUpHandler();
 	void PageDownHandler();
+	void PageTopHandler();
 	void pageupevthandler(wxCommandEvent &event);
 	void pagedownevthandler(wxCommandEvent &event);
+	void pagetopevthandler(wxCommandEvent &event);
 	void UpdateCLabel();
 	void TweetPopTop();
 	void TweetPopBottom();
