@@ -197,12 +197,15 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 twitcurlext::twitcurlext(std::shared_ptr<taccount> acc) {
 	inited=false;
 	post_action_flags=0;
+	extra_id=0;
+	rbfs=0;
 	TwInit(acc);
 }
 
 twitcurlext::twitcurlext() {
 	inited=false;
 	post_action_flags=0;
+	extra_id=0;
 	rbfs=0;
 }
 twitcurlext::~twitcurlext() {
@@ -326,6 +329,12 @@ void twitcurlext::QueueAsyncExec() {
 		case CS_USERLOOKUPWIN:
 			genericGet(genurl);
 			break;
+		case CS_FRIENDACTION_FOLLOW:
+			friendshipCreate(std::to_string(extra_id), true);
+			break;
+		case CS_FRIENDACTION_UNFOLLOW:
+			friendshipDestroy(std::to_string(extra_id), true);
+			break;
 	}
 	if(currentlogflags&LFT_TWITACT) {
 		auto acc=tacc.lock();
@@ -430,8 +439,8 @@ void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, unsigned int umpt_flags
 		}
 		tpaneldbloadmap.erase(itpair.first, itpair.second);
 	}
-	if(t->lflags&TLF_PENDINGINDBTPANELMAP) {
-		t->lflags&=~TLF_PENDINGINDBTPANELMAP;
+	if(t->lflags&TLF_PENDINGINRTMAP) {
+		t->lflags&=~TLF_PENDINGINRTMAP;
 		auto itpair=rtpendingmap.equal_range(t->id);
 		for(auto it=itpair.first; it!=itpair.second; ++it) {
 			auto &rt=ad.GetTweetById((*it).second);

@@ -149,7 +149,7 @@ static void set_uw_time_val(wxStaticText *st, const time_t &input) {
 void user_window::RefreshFollow(bool forcerefresh) {
 	std::shared_ptr<taccount> acc=acc_hint.lock();
 	bool needupdate=false;
-	FOLLOWBTNMODE fbm=FOLLOWBTNMODE::FBM_NONE;;
+	FOLLOWBTNMODE fbm=FOLLOWBTNMODE::FBM_NONE;
 
 	auto fill_follow_field=[&](wxStaticText *st, bool ifollow) {
 		bool known=false;
@@ -183,8 +183,8 @@ void user_window::RefreshFollow(bool forcerefresh) {
 				}
 			}
 			if(!known) {
-				if(ifollow) fbm=FOLLOWBTNMODE::FBM_NONE;
 				if(acc->ta_flags&TAF_STREAM_UP && ifollow) st->SetLabel(wxT("No or Pending"));
+				else if(ifollow) fbm=FOLLOWBTNMODE::FBM_NONE;
 				else st->SetLabel(wxT("Unknown"));
 				needupdate=true;
 			}
@@ -204,17 +204,18 @@ void user_window::RefreshFollow(bool forcerefresh) {
 			followbtn->SetLabel(wxT("Unfollow"));
 			break;
 		case FOLLOWBTNMODE::FBM_REMOVE_PENDING:
-			followbtn->SetLabel(wxT("Cancel Follow Request"));
-			break;
+			//followbtn->SetLabel(wxT("Cancel Follow Request"));
+			//break;	//not implemented in twitter API
 		case FOLLOWBTNMODE::FBM_FOLLOW:
 		case FOLLOWBTNMODE::FBM_NONE:
 			followbtn->SetLabel(wxT("Follow"));
 			break;
 	}
 
-	followbtn->Enable(acc && acc->enabled && fbm!=FOLLOWBTNMODE::FBM_NONE);
+	followbtn->Enable(acc && acc->enabled && fbm!=FOLLOWBTNMODE::FBM_NONE&& fbm!=FOLLOWBTNMODE::FBM_REMOVE_PENDING && !(u->udc_flags&UDC_FRIENDACT_IN_PROGRESS));
 	refreshbtn->Enable(acc && acc->enabled);
 	dmbtn->Enable(acc && acc->enabled);
+	follow_btn_mode=fbm;
 
 	if(needupdate && acc && acc->enabled) {
 		acc->LookupFriendships(userid);
@@ -299,7 +300,17 @@ void user_window::OnRefreshBtn(wxCommandEvent &event) {
 }
 
 void user_window::OnFollowBtn(wxCommandEvent &event) {
-
+	std::shared_ptr<taccount> acc=acc_hint.lock();
+	if(follow_btn_mode!=FOLLOWBTNMODE::FBM_NONE && acc && acc->enabled && !(u->udc_flags&UDC_FRIENDACT_IN_PROGRESS)) {
+		u->udc_flags|=UDC_FRIENDACT_IN_PROGRESS;
+		followbtn->Enable(false);
+		twitcurlext *twit=acc->cp.GetConn();
+		twit->TwInit(acc);
+		if(follow_btn_mode==FOLLOWBTNMODE::FBM_FOLLOW) twit->connmode=CS_FRIENDACTION_FOLLOW;
+		else twit->connmode=CS_FRIENDACTION_UNFOLLOW;
+		twit->extra_id=userid;
+		twit->QueueAsyncExec();
+	}
 }
 
 void user_window::OnDMBtn(wxCommandEvent &event) {

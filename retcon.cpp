@@ -204,7 +204,10 @@ void taccount::SetUserRelationship(uint64_t userid, unsigned int flags, const ti
 
 void taccount::LookupFriendships(uint64_t userid) {
 	std::set<uint64_t> include;
-	if(userid) include.insert(userid);
+	if(userid) {
+		if(user_relations[userid].ur_flags&URF_QUERY_PENDING) return;	//already being looked up, don't repeat query
+		include.insert(userid);
+	}
 
 	bool opportunist=true;
 

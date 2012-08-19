@@ -39,6 +39,7 @@ enum {
 	UDC_HALF_PROFILE_BITMAP_SET	= 1<<4,
 	UDC_WINDOWOPEN			= 1<<5,
 	UDC_FORCE_REFRESH		= 1<<6,
+	UDC_FRIENDACT_IN_PROGRESS	= 1<<7,
 };
 
 struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
@@ -214,6 +215,8 @@ typedef enum {
 	CS_DMTIMELINE,
 	CS_FRIENDLOOKUP,
 	CS_USERLOOKUPWIN,
+	CS_FRIENDACTION_FOLLOW,
+	CS_FRIENDACTION_UNFOLLOW
 } CS_ENUMTYPE;
 
 //for post_action_flags
@@ -271,6 +274,7 @@ struct twitcurlext: public twitCurl, public mcurlconn {
 	std::shared_ptr<userlookup> ul;
 	std::string genurl;
 	std::string extra1;
+	uint64_t extra_id;
 
 	void NotifyDoneSuccess(CURL *easy, CURLcode res);
 	void TwInit(std::shared_ptr<taccount> acc);

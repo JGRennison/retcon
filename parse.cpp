@@ -414,6 +414,13 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 		case CS_USERLOOKUPWIN:
 			user_window::MkWin(DoUserParse(dc)->id, tac);
 			break;
+		case CS_FRIENDACTION_FOLLOW:
+		case CS_FRIENDACTION_UNFOLLOW: {
+			std::shared_ptr<userdatacontainer> u=DoUserParse(dc);
+			u->udc_flags&=~UDC_FRIENDACT_IN_PROGRESS;
+			tac->LookupFriendships(u->id);
+			break;
+		}
 	}
 	if(dbmsglist) {
 		if(!dbmsglist->msglist.empty()) dbc.SendMessage(dbmsglist);

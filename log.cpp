@@ -273,11 +273,11 @@ logflagtype StrToLogFlags(const wxString &str) {
 }
 
 static void dump_pending_tweet(logflagtype logflags, const wxString &indent, const wxString &indentstep, tweet *t) {
-	LogMsgFormat(logflags, wxT("%sTweet: %" wxLongLongFmtSpec "d (%.15s...) lflags: %X"), indent.c_str(), t->id, wxstrstd(t->text).c_str(), t->lflags);
+	LogMsgFormat(logflags, wxT("%sTweet: %" wxLongLongFmtSpec "d (%.15s...) lflags: 0x%X, updcf_flags: 0x%X"), indent.c_str(), t->id, wxstrstd(t->text).c_str(), t->lflags, t->updcf_flags);
 }
 
 static void dump_pending_user(logflagtype logflags, const wxString &indent, const wxString &indentstep, userdatacontainer *u) {
-	LogMsgFormat(logflags, wxT("%sUser: %" wxLongLongFmtSpec "d (%s)"), indent.c_str(), u->id, wxstrstd(u->GetUser().screen_name).c_str());
+	LogMsgFormat(logflags, wxT("%sUser: %" wxLongLongFmtSpec "d (%s) udc_flags: 0x%X"), indent.c_str(), u->id, wxstrstd(u->GetUser().screen_name).c_str(), u->udc_flags);
 	for(auto it=u->pendingtweets.begin(); it!=u->pendingtweets.end(); ++it) {
 		dump_pending_tweet(logflags, indent+indentstep, indentstep, (*it).get());
 	}
@@ -292,7 +292,7 @@ void dump_pending_acc(logflagtype logflags, const wxString &indent, const wxStri
 
 void dump_pending_tpaneldbloadmap(logflagtype logflags, const wxString &indent) {
 	for(auto it=tpaneldbloadmap.begin(); it!=tpaneldbloadmap.end(); ++it) {
-		LogMsgFormat(logflags, wxT("%sLoad Map: %" wxLongLongFmtSpec "d (%.15s...) --> %s (%s) pushflags: %X"), indent.c_str(), it->first, wxstrstd(ad.tweetobjs[it->first]->text).c_str(), wxstrstd(it->second.win->tp->name).c_str(), wxstrstd(it->second.win->tp->dispname).c_str(), it->second.pushflags);
+		LogMsgFormat(logflags, wxT("%sLoad Map: %" wxLongLongFmtSpec "d (%.15s...) --> %s (%s) pushflags: 0x%X"), indent.c_str(), it->first, wxstrstd(ad.tweetobjs[it->first]->text).c_str(), wxstrstd(it->second.win->tp->name).c_str(), wxstrstd(it->second.win->tp->dispname).c_str(), it->second.pushflags);
 	}
 }
 
