@@ -35,7 +35,7 @@ void HandleNewTweet(const std::shared_ptr<tweet> &t) {
 void UpdateTweet(const std::shared_ptr<tweet> &t, bool redrawimg) {
 	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
 		for(auto jt=(*it)->currentdisp.begin(); jt!=(*it)->currentdisp.end(); ++jt) {
-			if(jt->first==t->id) {	//found matching entry
+			if(jt->first==t->id || jt->second->rtid==t->id) {	//found matching entry
 				LogMsgFormat(LFT_TPANEL, wxT("UpdateTweet: Found Entry %" wxLongLongFmtSpec "d."), t->id);
 				jt->second->DisplayTweet(redrawimg);
 				break;

@@ -41,6 +41,7 @@ struct tweetdispscr : public wxRichTextCtrl {
 	time_t updatetime;
 	long reltimestart;
 	long reltimeend;
+	uint64_t rtid;
 
 	tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin *tppw_, wxBoxSizer *hbox_);
 	~tweetdispscr();

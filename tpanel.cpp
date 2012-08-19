@@ -626,6 +626,8 @@ tweetdispscr::tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *p
 : wxRichTextCtrl(parent, wxID_ANY, wxEmptyString, wxPoint(-1000, -1000), wxDefaultSize, wxRE_READONLY),
 td(td_), tppw(tppw_), tpsw(parent), hbox(hbox_), bm(0), bm2(0) {
 	GetCaret()->Hide();
+	if(td_->rtsrc) rtid=td_->rtsrc->id;
+	else rtid=0;
 }
 
 tweetdispscr::~tweetdispscr() {

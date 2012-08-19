@@ -542,9 +542,9 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 		case DBSM_UPDATEMEDIACHKSM: {
 			dbupdatemediachecksummsg *m=(dbupdatemediachecksummsg*) msg;
 			sqlite3_stmt *stmt=cache.GetStmt(db, m->isfull?DBPSC_UPDATEMEDIAFULLCHKSM:DBPSC_UPDATEMEDIATHUMBCHKSM);
-			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->media_id.m_id);
-			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->media_id.t_id);
-			sqlite3_bind_blob(stmt, 3, m->chksm, sizeof(m->chksm), SQLITE_TRANSIENT);
+			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->media_id.m_id);
+			sqlite3_bind_int64(stmt, 3, (sqlite3_int64) m->media_id.t_id);
+			sqlite3_bind_blob(stmt, 1, m->chksm, sizeof(m->chksm), SQLITE_TRANSIENT);
 			int res=sqlite3_step(stmt);
 			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_UPDATEMEDIACHKSM got error: %d (%s) for id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d (%d)"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id, m->isfull); }
 			else { DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_UPDATEMEDIACHKSM updated media checksum id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d (%d)"), (sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id, m->isfull); }

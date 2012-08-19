@@ -227,7 +227,7 @@ void mediaimgdlconn::Reset() {
 
 void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 
-	LogMsgFormat(LFT_SOCKTRACE, wxT("Media image downloaded %s, id: %" wxLongLongFmtSpec "d, flags: %X"), wxstrstd(url).c_str(), media_id, flags);
+	LogMsgFormat(LFT_SOCKTRACE, wxT("Media image downloaded %s, id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, flags: %X"), wxstrstd(url).c_str(), media_id.m_id, media_id.t_id, flags);
 
 	auto it=ad.media_list.find(media_id);
 	if(it!=ad.media_list.end()) {
