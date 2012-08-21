@@ -150,6 +150,7 @@ void tpanelnotebook::dragdrophandler(wxAuiNotebookEvent& event) {
 	event.Allow();
 }
 void tpanelnotebook::dragdonehandler(wxAuiNotebookEvent& event) {
+	PostSplitSizeCorrect();
 	tabnumcheck();
 }
 void tpanelnotebook::tabclosedhandler(wxAuiNotebookEvent& event) {
@@ -235,7 +236,7 @@ tpanelparentwin *tpanel::MkTPanelWin(mainframe *parent, bool select) {
 }
 
 tpanelparentwin::tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select)
-: wxPanel(parent), tp(tp_), displayoffset(0), owner(parent), tppw_flags(0) {
+: wxPanel(parent, wxID_ANY, wxPoint(-1000, -1000)), tp(tp_), displayoffset(0), owner(parent), tppw_flags(0) {
 	LogMsgFormat(LFT_TPANEL, wxT("Creating tweet panel window %s"), wxstrstd(tp->name).c_str());
 
 	tp->twin.push_front(this);
@@ -257,13 +258,13 @@ tpanelparentwin::tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *
 	wxBoxSizer* outersizer = new wxBoxSizer(wxVERTICAL);
 	wxBoxSizer* headersizer = new wxBoxSizer(wxHORIZONTAL);
 	scrollwin = new tpanelscrollwin(this);
-	clabel=new wxStaticText(this, wxID_ANY, wxT("No Tweets"));
+	clabel=new wxStaticText(this, wxID_ANY, wxT("No Tweets"), wxPoint(-1000, -1000));
 	outersizer->Add(headersizer, 0, wxALL | wxEXPAND, 0);
 	headersizer->Add(clabel, 0, wxALL, 2);
 	headersizer->AddStretchSpacer();
-	headersizer->Add(new wxButton(this, TPPWID_TOPBTN, wxT("Top \x2191")), 0, wxALL, 2);
+	headersizer->Add(new wxButton(this, TPPWID_TOPBTN, wxT("Top \x2191"), wxPoint(-1000, -1000)), 0, wxALL, 2);
 	outersizer->Add(scrollwin, 1, wxALL | wxEXPAND, 2);
-	outersizer->Add(new wxStaticText(this, wxID_ANY, wxT("Bar")), 0, wxALL, 2);
+	outersizer->Add(new wxStaticText(this, wxID_ANY, wxT("Bar"), wxPoint(-1000, -1000)), 0, wxALL, 2);
 
 	sizer = new wxBoxSizer(wxVERTICAL);
 	scrollwin->SetSizer(sizer);
@@ -388,7 +389,6 @@ tweetdispscr *tpanelparentwin::PushTweetIndex(const std::shared_ptr<tweet> &t, s
 
 	sizer->Insert(index, hbox, 0, wxALL | wxEXPAND, 2);
 	td->DisplayTweet();
-	if(!(tppw_flags&TPPWF_NOUPDATEONPUSH)) scrollwin->FitInside();
 	return td;
 }
 
@@ -433,6 +433,9 @@ uint64_t tpanelparentwin::PushTweetOrRetLoadId(const std::shared_ptr<tweet> &tob
 //if lessthanid is non-zero, is an exclusive upper id limit
 void tpanelparentwin::LoadMore(unsigned int n, uint64_t lessthanid, unsigned int pushflags) {
 	dbseltweetmsg *loadmsg=0;
+	
+	Freeze();
+	tppw_flags|=TPPWF_NOUPDATEONPUSH;
 
 	tweetidset::const_iterator stit;
 	if(lessthanid) stit=tp->tweetlist.upper_bound(lessthanid);	//finds the first id *less than* lessthanid
@@ -456,6 +459,9 @@ void tpanelparentwin::LoadMore(unsigned int n, uint64_t lessthanid, unsigned int
 		dbc.SendMessage(loadmsg);
 	}
 	dump_pending_tpaneldbloadmap(LFT_PENDTRACE, wxT(""));
+	
+	Thaw();
+	CheckClearNoUpdateFlag();
 }
 
 void tpanelparentwin::pageupevthandler(wxCommandEvent &event) {
@@ -480,9 +486,7 @@ void tpanelparentwin::PageUpHandler() {
 			if(t->IsReady()) PushTweet(t, TPPWPF_ABOVE);
 			//otherwise tweet is already on pending list
 		}
-		tppw_flags&=~TPPWF_NOUPDATEONPUSH;
-		UpdateCLabel();
-		scrollwin->FitInside();
+		CheckClearNoUpdateFlag();
 	}
 	scrollwin->page_scroll_blocked=false;
 }
@@ -496,9 +500,7 @@ void tpanelparentwin::PageDownHandler() {
 		LoadMore(pagemove, lessthanid, TPPWPF_BELOW);
 	}
 	scrollwin->page_scroll_blocked=false;
-	tppw_flags&=~TPPWF_NOUPDATEONPUSH;
-	UpdateCLabel();
-	scrollwin->FitInside();
+	CheckClearNoUpdateFlag();
 }
 
 void tpanelparentwin::PageTopHandler() {
@@ -510,9 +512,7 @@ void tpanelparentwin::PageTopHandler() {
 			if(t->IsReady()) PushTweet(t, TPPWPF_ABOVE);
 		}
 		displayoffset=0;
-		tppw_flags&=~TPPWF_NOUPDATEONPUSH;
-		UpdateCLabel();
-		scrollwin->FitInside();
+		CheckClearNoUpdateFlag();
 	}
 	scrollwin->Scroll(-1, 0);
 }
@@ -521,6 +521,14 @@ void tpanelparentwin::UpdateCLabel() {
 	size_t curnum=currentdisp.size();
 	if(curnum) clabel->SetLabel(wxString::Format(wxT("%d - %d of %d"), displayoffset+1, displayoffset+curnum, tp->tweetlist.size()));
 	else clabel->SetLabel(wxT("No Tweets"));
+}
+
+void tpanelparentwin::CheckClearNoUpdateFlag() {
+	if(tppw_flags&TPPWF_NOUPDATEONPUSH) {
+		scrollwin->FitInside();
+		UpdateCLabel();
+		tppw_flags&=~TPPWF_NOUPDATEONPUSH;
+	}
 }
 
 void tpanelparentwin::StartScrollFreeze(tppw_scrollfreeze &s) {
@@ -613,7 +621,7 @@ BEGIN_EVENT_TABLE(tpanelscrollwin, wxScrolledWindow)
 END_EVENT_TABLE()
 
 tpanelscrollwin::tpanelscrollwin(tpanelparentwin *parent_)
-	: wxScrolledWindow(parent_), parent(parent_), resize_update_pending(false), page_scroll_blocked(false) {
+	: wxScrolledWindow(parent_, wxID_ANY, wxPoint(-1000, -1000)), parent(parent_), resize_update_pending(false), page_scroll_blocked(false) {
 
 }
 
@@ -883,7 +891,9 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 		EndAlignment();
 	}
 	LayoutContent();
-	tpsw->FitInside();
+	if(!(tppw->tppw_flags&TPPWF_NOUPDATEONPUSH)) {
+		tpsw->FitInside();
+	}
 }
 
 void tweetdispscr::DoResize() {

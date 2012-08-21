@@ -159,6 +159,7 @@ struct tpanelparentwin : public wxPanel {
 	void pagedownevthandler(wxCommandEvent &event);
 	void pagetopevthandler(wxCommandEvent &event);
 	void UpdateCLabel();
+	void CheckClearNoUpdateFlag();
 	void TweetPopTop();
 	void TweetPopBottom();
 	void StartScrollFreeze(tppw_scrollfreeze &s);

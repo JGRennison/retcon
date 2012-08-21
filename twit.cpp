@@ -66,9 +66,14 @@ void UpdateUsersTweet(uint64_t userid, bool redrawimg) {
 
 void UpdateAllTweets(bool redrawimg) {
 	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
+		(*it)->Freeze();
+		bool haveflag=((*it)->tppw_flags&TPPWF_NOUPDATEONPUSH);
+		(*it)->tppw_flags|=TPPWF_NOUPDATEONPUSH;
 		for(auto jt=(*it)->currentdisp.begin(); jt!=(*it)->currentdisp.end(); ++jt) {
 			jt->second->DisplayTweet(redrawimg);
 		}
+		(*it)->Thaw();
+		if(!haveflag) (*it)->CheckClearNoUpdateFlag();
 	}
 }
 

@@ -670,11 +670,7 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 		}
 	}
 	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
-		if((*it)->tppw_flags&TPPWF_NOUPDATEONPUSH) {
-			(*it)->tppw_flags&=~TPPWF_NOUPDATEONPUSH;
-			(*it)->UpdateCLabel();
-			(*it)->scrollwin->FitInside();
-		}
+		(*it)->CheckClearNoUpdateFlag();
 	}
 }
 
