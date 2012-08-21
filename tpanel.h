@@ -23,11 +23,11 @@ typedef std::map<int,tpanelmenuitem> tpanelmenudata;
 struct profimg_staticbitmap: public wxStaticBitmap {
 	uint64_t userid;
 	uint64_t tweetid;
-	
+
 	inline profimg_staticbitmap(wxWindow* parent, const wxBitmap& label, uint64_t userid_, uint64_t tweetid_)
 		: wxStaticBitmap(parent, wxID_ANY, label, wxPoint(-1000, -1000)), userid(userid_), tweetid(tweetid_) { }
 	void ClickHandler(wxMouseEvent &event);
-	
+
 	DECLARE_EVENT_TABLE()
 };
 
@@ -114,6 +114,7 @@ enum {	//window IDs
 	TPPWID_DETACHDUP,
 	TPPWID_CLOSE,
 	TPPWID_TOPBTN,
+	TPPWID_SPLIT,
 };
 
 enum {	//for pushflags
@@ -147,6 +148,7 @@ struct tpanelparentwin : public wxPanel {
 	void tabduphandler(wxCommandEvent &event);
 	void tabdetachedduphandler(wxCommandEvent &event);
 	void tabclosehandler(wxCommandEvent &event);
+	void tabsplitcmdhandler(wxCommandEvent &event);
 	void PageUpHandler();
 	void PageDownHandler();
 	void PageTopHandler();

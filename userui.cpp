@@ -184,8 +184,8 @@ void user_window::RefreshFollow(bool forcerefresh) {
 			}
 			if(!known) {
 				if(acc->ta_flags&TAF_STREAM_UP && ifollow) st->SetLabel(wxT("No or Pending"));
-				else if(ifollow) fbm=FOLLOWBTNMODE::FBM_NONE;
 				else st->SetLabel(wxT("Unknown"));
+				fbm=FOLLOWBTNMODE::FBM_NONE;
 				needupdate=true;
 			}
 		}

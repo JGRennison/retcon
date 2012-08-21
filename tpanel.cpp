@@ -122,15 +122,19 @@ void tpanel::OnTPanelWinClose(tpanelparentwin *tppw) {
 	}
 }
 
+enum {
+	NOTEBOOK_ID=42,
+};
+
 BEGIN_EVENT_TABLE(tpanelnotebook, wxAuiNotebook)
-	EVT_AUINOTEBOOK_ALLOW_DND(wxID_ANY, tpanelnotebook::dragdrophandler)
-	EVT_AUINOTEBOOK_DRAG_DONE(wxID_ANY, tpanelnotebook::dragdonehandler)
-	EVT_AUINOTEBOOK_TAB_RIGHT_DOWN(wxID_ANY, tpanelnotebook::tabrightclickhandler)
-	EVT_AUINOTEBOOK_PAGE_CLOSED(wxID_ANY, tpanelnotebook::tabclosedhandler)
+	EVT_AUINOTEBOOK_ALLOW_DND(NOTEBOOK_ID, tpanelnotebook::dragdrophandler)
+	EVT_AUINOTEBOOK_DRAG_DONE(NOTEBOOK_ID, tpanelnotebook::dragdonehandler)
+	EVT_AUINOTEBOOK_TAB_RIGHT_DOWN(NOTEBOOK_ID, tpanelnotebook::tabrightclickhandler)
+	EVT_AUINOTEBOOK_PAGE_CLOSED(NOTEBOOK_ID, tpanelnotebook::tabclosedhandler)
 END_EVENT_TABLE()
 
 tpanelnotebook::tpanelnotebook(mainframe *owner_, wxWindow *parent) :
-wxAuiNotebook(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxAUI_NB_TOP | wxAUI_NB_TAB_SPLIT | wxAUI_NB_TAB_MOVE | wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_TAB_EXTERNAL_MOVE | wxAUI_NB_CLOSE_ON_ALL_TABS | wxAUI_NB_WINDOWLIST_BUTTON),
+wxAuiNotebook(parent, NOTEBOOK_ID, wxDefaultPosition, wxDefaultSize, wxAUI_NB_TOP | wxAUI_NB_TAB_SPLIT | wxAUI_NB_TAB_MOVE | wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_TAB_EXTERNAL_MOVE | wxAUI_NB_CLOSE_ON_ALL_TABS | wxAUI_NB_WINDOWLIST_BUTTON),
 owner(owner_)
 {
 
@@ -160,6 +164,8 @@ void tpanelnotebook::tabrightclickhandler(wxAuiNotebookEvent& event) {
 	tpanelparentwin *tppw = (tpanelparentwin *) GetPage(event.GetSelection());
 	if(tppw) {
 		wxMenu menu;
+		menu.SetTitle(wxstrstd(tppw->tp->dispname));
+		menu.Append(TPPWID_SPLIT, wxT("Split"));
 		menu.Append(TPPWID_DETACH, wxT("Detach"));
 		menu.Append(TPPWID_DUP, wxT("Duplicate"));
 		menu.Append(TPPWID_DETACHDUP, wxT("Detached Duplicate"));
@@ -178,6 +184,7 @@ DEFINE_EVENT_TYPE(wxextTP_PAGEDOWN_EVENT)
 
 BEGIN_EVENT_TABLE(tpanelparentwin, wxPanel)
 	EVT_MENU(TPPWID_DETACH, tpanelparentwin::tabdetachhandler)
+	EVT_MENU(TPPWID_SPLIT, tpanelparentwin::tabsplitcmdhandler)
 	EVT_MENU(TPPWID_DUP, tpanelparentwin::tabduphandler)
 	EVT_MENU(TPPWID_DETACHDUP, tpanelparentwin::tabdetachedduphandler)
 	EVT_MENU(TPPWID_CLOSE, tpanelparentwin::tabclosehandler)
@@ -196,7 +203,7 @@ tpanelparentwin::tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *
 
 	tp->twin.push_front(this);
 	tpanelparentwinlist.push_front(this);
-	
+
 	if(tpg_glob.expired()) {
 		tpg=std::make_shared<tpanelglobal>();
 		tpg_glob=tpg;
@@ -544,6 +551,16 @@ void tpanelparentwin::tabclosehandler(wxCommandEvent &event) {
 	owner->auib->RemovePage(owner->auib->GetPageIndex(this));
 	owner->auib->tabnumcheck();
 	Close();
+}
+void tpanelparentwin::tabsplitcmdhandler(wxCommandEvent &event) {
+	size_t pagecount=owner->auib->GetPageCount();
+	wxPoint curpos=GetPosition();
+	unsigned int tally=0;
+	for(size_t i=0; i<pagecount; ++i) {
+		if(owner->auib->GetPage(i)->GetPosition()==curpos) tally++;
+	}
+	if(tally<2) return;
+	owner->auib->Split(owner->auib->GetPageIndex(this), wxRIGHT);
 }
 
 BEGIN_EVENT_TABLE(tpanelscrollwin, wxScrolledWindow)
