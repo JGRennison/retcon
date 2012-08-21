@@ -131,6 +131,7 @@ BEGIN_EVENT_TABLE(tpanelnotebook, wxAuiNotebook)
 	EVT_AUINOTEBOOK_DRAG_DONE(NOTEBOOK_ID, tpanelnotebook::dragdonehandler)
 	EVT_AUINOTEBOOK_TAB_RIGHT_DOWN(NOTEBOOK_ID, tpanelnotebook::tabrightclickhandler)
 	EVT_AUINOTEBOOK_PAGE_CLOSED(NOTEBOOK_ID, tpanelnotebook::tabclosedhandler)
+	EVT_SIZE(tpanelnotebook::onsizeevt) 
 END_EVENT_TABLE()
 
 tpanelnotebook::tpanelnotebook(mainframe *owner_, wxWindow *parent) :
@@ -152,6 +153,7 @@ void tpanelnotebook::dragdonehandler(wxAuiNotebookEvent& event) {
 	tabnumcheck();
 }
 void tpanelnotebook::tabclosedhandler(wxAuiNotebookEvent& event) {
+	PostSplitSizeCorrect();
 	tabnumcheck();
 }
 void tpanelnotebook::tabnumcheck() {
@@ -172,6 +174,41 @@ void tpanelnotebook::tabrightclickhandler(wxAuiNotebookEvent& event) {
 		menu.Append(TPPWID_CLOSE, wxT("Close"));
 		tppw->PopupMenu(&menu);
 	}
+}
+
+void tpanelnotebook::Split(size_t page, int direction) {
+	//owner->Freeze();
+	wxAuiNotebook::Split(page, direction);
+	PostSplitSizeCorrect();
+	//owner->Thaw();
+}
+
+void tpanelnotebook::PostSplitSizeCorrect() {
+	wxSize totalsize=GetClientSize();
+
+	wxAuiPaneInfoArray& all_panes = m_mgr.GetAllPanes();
+	size_t pane_count = all_panes.GetCount();
+	size_t tabctrl_count=0;
+	for(size_t i = 0; i < pane_count; ++i) if(all_panes.Item(i).name != wxT("dummy")) tabctrl_count++;
+	for(size_t i = 0; i < pane_count; ++i) {
+		if(all_panes.Item(i).name == wxT("dummy")) continue;
+
+		if(all_panes.Item(i).IsRightDockable()) {
+			all_panes.Item(i).BestSize(totalsize.GetWidth()/tabctrl_count, totalsize.GetHeight());
+			all_panes.Item(i).MaxSize(totalsize.GetWidth()/tabctrl_count, totalsize.GetHeight());
+			all_panes.Item(i).Fixed();
+			all_panes.Item(i).Layer(i);
+		}
+	}
+	m_mgr.Update();
+	
+	DoSizing();
+	owner->Refresh();
+}
+
+void tpanelnotebook::onsizeevt(wxSizeEvent &event) {
+	PostSplitSizeCorrect();
+	event.Skip();
 }
 
 DECLARE_EVENT_TYPE(wxextRESIZE_UPDATE_EVENT, -1)

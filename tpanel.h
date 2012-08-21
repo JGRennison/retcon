@@ -97,7 +97,10 @@ struct tpanelnotebook : public wxAuiNotebook {
 	void dragdonehandler(wxAuiNotebookEvent& event);
 	void tabrightclickhandler(wxAuiNotebookEvent& event);
 	void tabclosedhandler(wxAuiNotebookEvent& event);
+	void onsizeevt(wxSizeEvent &event);
 	void tabnumcheck();
+	virtual void Split(size_t page, int direction);
+	void PostSplitSizeCorrect();
 
 	DECLARE_EVENT_TABLE()
 };
