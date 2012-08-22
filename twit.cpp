@@ -36,8 +36,10 @@ void UpdateTweet(const std::shared_ptr<tweet> &t, bool redrawimg) {
 	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
 		for(auto jt=(*it)->currentdisp.begin(); jt!=(*it)->currentdisp.end(); ++jt) {
 			if(jt->first==t->id || jt->second->rtid==t->id) {	//found matching entry
+				(*it)->Freeze();
 				LogMsgFormat(LFT_TPANEL, wxT("UpdateTweet: Found Entry %" wxLongLongFmtSpec "d."), t->id);
 				jt->second->DisplayTweet(redrawimg);
+				(*it)->Thaw();
 				break;
 			}
 		}
@@ -46,6 +48,7 @@ void UpdateTweet(const std::shared_ptr<tweet> &t, bool redrawimg) {
 
 void UpdateUsersTweet(uint64_t userid, bool redrawimg) {
 	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
+		(*it)->Freeze();
 		for(auto jt=(*it)->currentdisp.begin(); jt!=(*it)->currentdisp.end(); ++jt) {
 			tweetdispscr &tds=*(jt->second);
 			bool found=false;
@@ -61,6 +64,7 @@ void UpdateUsersTweet(uint64_t userid, bool redrawimg) {
 				break;
 			}
 		}
+		(*it)->Thaw();
 	}
 }
 
