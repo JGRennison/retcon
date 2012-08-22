@@ -190,18 +190,48 @@ void tpanelnotebook::PostSplitSizeCorrect() {
 	wxAuiPaneInfoArray& all_panes = m_mgr.GetAllPanes();
 	size_t pane_count = all_panes.GetCount();
 	size_t tabctrl_count=0;
-	for(size_t i = 0; i < pane_count; ++i) if(all_panes.Item(i).name != wxT("dummy")) tabctrl_count++;
+	std::forward_list<wxAuiPaneInfo *> tabctrlarray;
 	for(size_t i = 0; i < pane_count; ++i) {
-		if(all_panes.Item(i).name == wxT("dummy")) continue;
-
-		if(all_panes.Item(i).IsRightDockable()) {
-			all_panes.Item(i).BestSize(totalsize.GetWidth()/tabctrl_count, totalsize.GetHeight());
-			all_panes.Item(i).MaxSize(totalsize.GetWidth()/tabctrl_count, totalsize.GetHeight());
-			all_panes.Item(i).Fixed();
-			all_panes.Item(i).Layer(i);
+		if(all_panes.Item(i).name != wxT("dummy")) {
+			tabctrl_count++;
+			tabctrlarray.push_front(&(all_panes.Item(i)));
+			LogMsgFormat(LFT_TPANEL, wxT("PostSplitSizeCorrect:: %d %d %d %d"), all_panes.Item(i).dock_direction, all_panes.Item(i).dock_layer, all_panes.Item(i).dock_row, all_panes.Item(i).dock_pos);
 		}
 	}
+	for(auto it=tabctrlarray.begin(); it!=tabctrlarray.end(); ++it) {
+		wxAuiPaneInfo &pane=**(it);
+		pane.BestSize(totalsize.GetWidth()/tabctrl_count, totalsize.GetHeight());
+		pane.MaxSize(totalsize.GetWidth()/tabctrl_count, totalsize.GetHeight());
+		pane.DockFixed();
+		if(pane.dock_direction!=wxAUI_DOCK_LEFT && pane.dock_direction!=wxAUI_DOCK_RIGHT && pane.dock_direction!=wxAUI_DOCK_CENTRE) {
+			pane.Right();
+			pane.dock_row=0;
+			pane.dock_pos=1;	//trigger code below
+		}
+		if(pane.dock_pos>0) {	//make a new row, bumping up any others to make room
+			if(pane.dock_direction==wxAUI_DOCK_LEFT) {
+				for(auto jt=tabctrlarray.begin(); jt!=tabctrlarray.end(); ++jt) {
+					if((*jt)->dock_direction==pane.dock_direction && (*jt)->dock_row>pane.dock_row && (*jt)->dock_layer==pane.dock_layer) (*jt)->dock_row++;
+				}
+				pane.dock_pos=0;
+				pane.dock_row++;
+			}
+			else {
+				for(auto jt=tabctrlarray.begin(); jt!=tabctrlarray.end(); ++jt) {
+					if((*jt)->dock_direction==pane.dock_direction && (*jt)->dock_row>=pane.dock_row && (*jt)->dock_layer==pane.dock_layer && (*jt)->dock_pos==0) (*jt)->dock_row++;
+				}
+				pane.dock_pos=0;
+			}
+		}
+	}
+	for(auto it=tabctrlarray.begin(); it!=tabctrlarray.end(); ++it) m_mgr.InsertPane((*it)->window, (**it), wxAUI_INSERT_ROW);
 	m_mgr.Update();
+
+	for(size_t i = 0; i < pane_count; ++i) {
+		if(all_panes.Item(i).name != wxT("dummy")) {
+			LogMsgFormat(LFT_TPANEL, wxT("PostSplitSizeCorrect:: %d %d %d %d"), all_panes.Item(i).dock_direction, all_panes.Item(i).dock_layer, all_panes.Item(i).dock_row, all_panes.Item(i).dock_pos);
+		}
+	}
 	
 	DoSizing();
 	owner->Refresh();
