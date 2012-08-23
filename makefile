@@ -7,9 +7,10 @@
 #x64: set to true to compile for x86_64/win64
 
 
-OBJS:=retcon.o cfg.o optui.o parse.o socket.o tpanel.o twit.o db.o log.o cmdline.o userui.o
+OBJS:=retcon.o cfg.o optui.o parse.o socket.o tpanel.o twit.o db.o log.o cmdline.o userui.o mainui.o
 TCOBJS:=libtwitcurl/base64.o libtwitcurl/HMAC_SHA1.o libtwitcurl/oauthlib.o libtwitcurl/SHA1.o libtwitcurl/twitcurl.o libtwitcurl/urlencode.o
 ROBJS:=res.o
+EXOBJS:=utf8proc/utf8proc.o
 OUTNAME:=retcon
 CFLAGS:=-O3 -Wextra -Wall -Wno-unused-parameter
 #-Wno-missing-braces -Wno-unused-parameter
@@ -32,7 +33,7 @@ AFLAGS+=-mwindows -s -static -LC:/SourceCode/Libraries/wxWidgets2.8/lib/gcc_lib 
 CFLAGS+=-D CURL_STATICLIB
 CXXFLAGS+=-fno-rtti
 SUFFIX:=.exe
-LIBS32=-lcurl -lwxmsw28u_richtext -lwxmsw28u_aui -lwxbase28u_xml -lwxexpat -lwxmsw28u_html -lwxmsw28u_adv -lwxmsw28u_media -lwxmsw28u_core -lwxbase28u -lwxjpeg -lwxpng -lwxtiff -lrtmp -lssh2 -lidn -lssl -lz -lcrypto -leay32 -lwldap32 -lws2_32 -lgdi32 -lshell32 -lole32 -luuid -lcomdlg32 -lwinspool -lcomctl32 -loleaut32 -lwinmm
+LIBS32=-lpcre -lcurl -lwxmsw28u_richtext -lwxmsw28u_aui -lwxbase28u_xml -lwxexpat -lwxmsw28u_html -lwxmsw28u_adv -lwxmsw28u_media -lwxmsw28u_core -lwxbase28u -lwxjpeg -lwxpng -lwxtiff -lrtmp -lssh2 -lidn -lssl -lz -lcrypto -leay32 -lwldap32 -lws2_32 -lgdi32 -lshell32 -lole32 -luuid -lcomdlg32 -lwinspool -lcomctl32 -loleaut32 -lwinmm
 LIBS64=
 GCC32=i686-w64-mingw32-g++
 GCC64=x86_64-w64-mingw32-g++
@@ -128,14 +129,15 @@ $(TCOBJS): %.o$(POSTFIX): %.cpp
 retcon.h.gch:
 	$(GCC) -c retcon.h -o retcon.h.gch $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(AFLAGS)
 
-HEADERS:=retcon.h socket.h cfg.h parse.h twit.h tpanel.h optui.h libtwitcurl/twitcurl.h db.h log.h cmdline.h userui.h
+HEADERS:=retcon.h socket.h cfg.h parse.h twit.h tpanel.h optui.h libtwitcurl/twitcurl.h db.h log.h cmdline.h userui.h mainui.h
 
 retcon.h.gch: $(HEADERS)
 $(OBJS): $(HEADERS) retcon.h.gch
 res.o$(POSTFIX) tpanel.o$(POSTFIX): res.h
 $(TCOBJS): libtwitcurl/*.h
+utf8proc/utf8proc.o$(POSTFIX) twit.o$(POSTFIX): utf8proc/utf8proc.h
 ifeq ($(PLATFORM),WIN)
-twit.o$(POSTFIX): timegm.cpp strptime.cpp
+twit.o$(POSTFIX): strptime.cpp
 endif
 
 

@@ -412,8 +412,8 @@ BEGIN_EVENT_TABLE(acc_choice, wxChoice)
 	EVT_CHOICE(wxID_ANY, acc_choice::OnSelChange)
 END_EVENT_TABLE()
 
-acc_choice::acc_choice(wxWindow *parent, std::shared_ptr<taccount> &acc, unsigned int flags_)
-	: wxChoice(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, 0, 0), curacc(acc), flags(flags_) {
+acc_choice::acc_choice(wxWindow *parent, std::shared_ptr<taccount> &acc, unsigned int flags_, int winid, acc_choice_callback callbck, void *extra)
+	: wxChoice(parent, winid, wxDefaultPosition, wxDefaultSize, 0, 0), curacc(acc), flags(flags_), fnptr(callbck), fnextra(extra) {
 	if(!acc.get()) {
 		for(auto it=alist.begin(); it!=alist.end(); ++it) {
 			acc=(*it);
@@ -421,7 +421,6 @@ acc_choice::acc_choice(wxWindow *parent, std::shared_ptr<taccount> &acc, unsigne
 		}
 	}
 	fill_acc();
-	UpdateSel();
 }
 
 void acc_choice::fill_acc() {
@@ -436,6 +435,7 @@ void acc_choice::fill_acc() {
 		int index=Append(wxT("[No Accounts]"), (void *) 0);
 		SetSelection(index);
 	}
+	UpdateSel();
 }
 
 void acc_choice::OnSelChange(wxCommandEvent &event) {
@@ -471,4 +471,5 @@ void acc_choice::UpdateSel() {
 			okbtn->Enable(havegoodacc);
 		}
 	}
+	if(fnptr) (*fnptr)(fnextra, this, havegoodacc);
 }

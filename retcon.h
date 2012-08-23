@@ -117,16 +117,7 @@ namespace std {
 #include "log.h"
 #include "cmdline.h"
 #include "userui.h"
-
-enum
-{
-    ID_Quit = wxID_EXIT,
-    ID_About = wxID_ABOUT,
-    ID_Settings = 1,
-    ID_Accounts,
-    ID_Viewlog,
-    ID_UserLookup,
-};
+#include "mainui.h"
 
 //flags for user_relationship::ur_flags
 enum {
@@ -258,34 +249,6 @@ class retcon: public wxApp
     int FilterEvent(wxEvent& event);
 };
 
-struct tweetpostwin : public wxPanel {
-
-};
-
-class mainframe: public wxFrame
-{
-public:
-	tpanelnotebook *auib;
-	tweetpostwin *tpw;
-	tpanelmenudata tpm;
-	wxMenu *tpmenu;
-
-	mainframe(const wxString& title, const wxPoint& pos, const wxSize& size);
-	~mainframe();
-	void OnQuit(wxCommandEvent &event);
-	void OnAbout(wxCommandEvent &event);
-	void OnSettings(wxCommandEvent &event);
-	void OnAccounts(wxCommandEvent &event);
-	void OnViewlog(wxCommandEvent &event);
-	void OnClose(wxCloseEvent &event);
-	void OnMouseWheel(wxMouseEvent &event);
-	void OnMenuOpen(wxMenuEvent &event);
-	void OnTPanelMenuCmd(wxCommandEvent &event);
-	void OnLookupUser(wxCommandEvent &event);
-
-	DECLARE_EVENT_TABLE()
-};
-
 inline wxString wxstrstd(const std::string &st) {
 	return wxString::FromUTF8(st.c_str());
 }
@@ -298,11 +261,10 @@ inline wxString wxstrstd(const char *ch, size_t len) {
 std::string hexify(const std::string &in);
 wxString hexify_wx(const std::string &in);
 
-mainframe *GetMainframeAncestor(wxWindow *in, bool passtoplevels=false);
-void FreezeAll();
-void ThawAll();
 bool LoadImageFromFileAndCheckHash(const wxString &filename, const unsigned char *hash, wxImage &img);
 bool LoadFromFileAndCheckHash(const wxString &filename, const unsigned char *hash, char *&data, size_t &size);
+
+void AccountChangeTrigger();
 
 extern std::list<std::shared_ptr<taccount>> alist;
 extern socketmanager sm;
@@ -327,4 +289,7 @@ namespace std
         return stream.str();// string_stream;
     }
 }
+#endif
+#ifdef __WINDOWS__
+#define strncasecmp _strnicmp
 #endif

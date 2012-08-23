@@ -8,6 +8,10 @@
 #pragma GCC diagnostic pop
 #endif
 #include <openssl/sha.h>
+#include "utf8proc/utf8proc.h"
+#include "utf8.h"
+#define PCRE_STATIC
+#include <pcre.h>
 
 std::unordered_multimap<uint64_t, uint64_t> rtpendingmap;	//source tweet, retweet
 
@@ -728,4 +732,155 @@ void ParseTwitterDate(struct tm *createtm, time_t *createtm_t, const std::string
 	   unsetenv("TZ");
 	tzset();
 	#endif
+}
+
+//adapted from twitter code: https://github.com/twitter/twitter-text-java/blob/master/src/com/twitter/Regex.java
+#define URL_VALID_PRECEEDING_CHARS "(?:[^A-Z0-9@\\x{FF20}$#\\x{FF03}\\x{202A}-\\x{202E}]|^)"
+#define LATIN_ACCENTS_CHARS \
+	"\\x{00c0}-\\x{00d6}\\x{00d8}-\\x{00f6}\\x{00f8}-\\x{00ff}" \
+	"\\x{0100}-\\x{024f}" \
+	"\\x{0253}\\x{0254}\\x{0256}\\x{0257}\\x{0259}\\x{025b}\\x{0263}\\x{0268}\\x{026f}\\x{0272}\\x{0289}\\x{028b}" \
+	"\\x{02bb}" \
+	"\\x{0300}-\\x{036f}" \
+	"\\x{1e00}-\\x{1eff}"
+#define URL_VALID_CHARS_NC "\\p{Xan}" LATIN_ACCENTS_CHARS
+#define URL_VALID_CHARS "[" URL_VALID_CHARS_NC "]"
+#define URL_VALID_SUBDOMAIN "(?:(?:" URL_VALID_CHARS "[\\-" URL_VALID_CHARS_NC "_]*)?" URL_VALID_CHARS "\\.)"
+#define URL_VALID_DOMAIN_NAME "(?:(?:" URL_VALID_CHARS "[\\-" URL_VALID_CHARS_NC "]*)?" URL_VALID_CHARS "\\.)"
+#define URL_VALID_GTLD \
+      "(?:(?:aero|asia|biz|cat|com|coop|edu|gov|info|int|jobs|mil|mobi|museum|name|net|org|pro|tel|travel|xxx)(?!\\p{Xan}))"
+#define  URL_VALID_CCTLD \
+      "(?:(?:ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|" \
+      "bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|" \
+      "er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|" \
+      "hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|" \
+      "lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|" \
+      "nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|sk|" \
+      "sl|sm|sn|so|sr|ss|st|su|sv|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|" \
+      "va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|za|zm|zw)(?!\\p{Xan}))"
+#define URL_PUNYCODE "(?:xn--[0-9a-z]+)"
+#define URL_VALID_UNICODE_CHARS "(?:\\.|[^\\s\\p{Z}\\p{P}])"
+// \\p{Punct}\\p{InGeneralPunctuation}
+#define URL_VALID_DOMAIN \
+    "(?:" \
+        URL_VALID_SUBDOMAIN "+" URL_VALID_DOMAIN_NAME \
+        "(?:" URL_VALID_GTLD "|" URL_VALID_CCTLD "|" URL_PUNYCODE ")" \
+      ")" \
+    "|(?:" \
+      URL_VALID_DOMAIN_NAME \
+      "(?:" URL_VALID_GTLD "|" URL_PUNYCODE ")" \
+    ")" \
+    "|(" "(?<=http://)" \
+      "(?:" \
+        "(?:" URL_VALID_DOMAIN_NAME URL_VALID_CCTLD ")" \
+        "|(?:" \
+          URL_VALID_UNICODE_CHARS "+\\." \
+          "(?:" URL_VALID_GTLD "|" URL_VALID_CCTLD ")" \
+        ")" \
+      ")" \
+    ")" \
+    "|(" "(?<=https://)" \
+      "(?:" \
+        "(?:" URL_VALID_DOMAIN_NAME URL_VALID_CCTLD ")" \
+        "|(?:" \
+          URL_VALID_UNICODE_CHARS "+\\." \
+          "(?:" URL_VALID_GTLD "|" URL_VALID_CCTLD ")" \
+        ")" \
+      ")" \
+    ")" \
+    "|(?:" \
+      URL_VALID_DOMAIN_NAME URL_VALID_CCTLD "(?=/)" \
+    ")"
+
+#define URL_VALID_PORT_NUMBER "[0-9]++"
+#define URL_VALID_GENERAL_PATH_CHARS "[a-z0-9!\\*';:=\\+,.\\$/%#\\x{5B}\\x{5D}\\-_~\\|&" LATIN_ACCENTS_CHARS "]"
+#define URL_BALANCED_PARENS "\\(" URL_VALID_GENERAL_PATH_CHARS "+\\)"
+#define URL_VALID_PATH_ENDING_CHARS "[a-z0-9=_#/\\-\\+" LATIN_ACCENTS_CHARS "]|(?:" URL_BALANCED_PARENS ")"
+#define URL_VALID_PATH "(?:" \
+    "(?:" \
+      URL_VALID_GENERAL_PATH_CHARS "*" \
+      "(?:" URL_BALANCED_PARENS URL_VALID_GENERAL_PATH_CHARS "*)*" \
+      URL_VALID_PATH_ENDING_CHARS \
+    ")|(?:@" URL_VALID_GENERAL_PATH_CHARS "+/)" \
+  ")"
+#define URL_VALID_URL_QUERY_CHARS "[a-z0-9!?\\*'\\(\\);:&=\\+\\$/%#\\x{5B}\\x{5D}\\-_\\.,~\\|]"
+#define URL_VALID_URL_QUERY_ENDING_CHARS "[a-z0-9_&=#/]"
+#define VALID_URL_PATTERN_STRING \
+  "(?:" \
+    "(" URL_VALID_PRECEEDING_CHARS ")" \
+    "(" \
+      "(https?://)?" \
+      "(?:" URL_VALID_DOMAIN ")" \
+      "(?::(?:" URL_VALID_PORT_NUMBER "))?" \
+      "(?:/" \
+        URL_VALID_PATH "*+" \
+      ")?" \
+      "(?:\\?" URL_VALID_URL_QUERY_CHARS "*" \
+              URL_VALID_URL_QUERY_ENDING_CHARS ")?" \
+    ")" \
+  ")"
+#define INVALID_URL_WITHOUT_PROTOCOL_MATCH_BEGIN "[-_./]$"
+#define VALID_TCO_URL "^https?://t\\.co/[a-z0-9]+"
+
+unsigned int TwitterCharCount(const char *in, size_t inlen) {
+	static pcre *pattern=0;
+	static pcre_extra *patextra=0;
+	static pcre *invprotpattern=0;
+	static pcre *tcopattern=0;
+	
+	if(!pattern) {
+		const char *errptr;
+		int erroffset;
+		const char *pat=VALID_URL_PATTERN_STRING;
+		pattern=pcre_compile(pat, PCRE_UCP | PCRE_NO_UTF8_CHECK | PCRE_CASELESS | PCRE_UTF8, &errptr, &erroffset, 0);
+		if(!pattern) {
+			LogMsgFormat(LFT_OTHERERR, wxT("TwitterCharCount: pcre_compile failed: %s (%d)\n%s"), wxstrstd(errptr).c_str(), erroffset, wxstrstd(pat).c_str());
+		}
+		patextra=pcre_study(pattern, 0, 0);
+		invprotpattern=pcre_compile(INVALID_URL_WITHOUT_PROTOCOL_MATCH_BEGIN, PCRE_UCP | PCRE_NO_UTF8_CHECK | PCRE_CASELESS | PCRE_UTF8, &errptr, &erroffset, 0);
+		tcopattern=pcre_compile(VALID_TCO_URL, PCRE_UCP | PCRE_NO_UTF8_CHECK | PCRE_CASELESS | PCRE_UTF8, &errptr, &erroffset, 0);
+	}
+	
+	char *comp=0;
+	unsigned int outsize=0;
+	ssize_t len=utf8proc_map((const uint8_t *) in, inlen, (uint8_t **) &comp, UTF8PROC_STABLE | UTF8PROC_COMPOSE);
+	if(len>0) {
+		outsize=strlen_utf8(comp);
+	}
+	if(outsize) {
+		int startoffset=0;
+		int rc;
+		do {
+			bool https=false;
+			int ovector[30];
+			rc=pcre_exec(pattern, patextra, comp, len, startoffset, 0, ovector, 30);
+			if(rc<=0) break;
+			startoffset=ovector[1];
+			if(rc<4 || ovector[6]==-1 ) {
+				int inv_ovector[30];
+				int rc_inv=pcre_exec(invprotpattern, 0, comp+ovector[2], ovector[3]-ovector[2], 0, 0, inv_ovector, 30);
+				if(rc_inv>0) continue;
+			}
+			else {
+				if(strncasecmp(comp+ovector[6], "https://", ovector[7]-ovector[6])==0) https=true;
+			}
+			int tc_ovector[30];
+			int tc_inv=pcre_exec(tcopattern, 0, comp+ovector[4], ovector[5]-ovector[4], 0, 0, tc_ovector, 30);
+			const char *start;
+			size_t bytes;
+			if(tc_inv>0) {
+				start=comp+ovector[4]+tc_ovector[0];
+				bytes=tc_ovector[1]-tc_ovector[0];
+			}
+			else {
+				start=comp+ovector[0];
+				bytes=ovector[5]-ovector[4];
+			}
+			size_t urllen=strlen_utf8(start, bytes);
+			outsize-=urllen;
+			outsize+=(https)?21:20;
+		} while(true);
+	}
+	free(comp);
+	return outsize;
 }

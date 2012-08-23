@@ -59,7 +59,7 @@ acc_window::acc_window(wxWindow* parent, wxWindowID id, const wxString& title, c
 }
 
 acc_window::~acc_window() {
-	user_window::RefreshAllAcc();
+	AccountChangeTrigger();
 }
 
 void acc_window::OnSelChange(wxCommandEvent &event) {
@@ -434,11 +434,11 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 
 settings_window::~settings_window() {
 	UpdateAllTweets();
-	user_window::RefreshAll();
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
 		(*it)->Exec();
 		(*it)->SetupRestBackfillTimer();
 	}
+	AccountChangeTrigger();
 }
 
 void settings_window::ChoiceCtrlChange(wxCommandEvent &event) {

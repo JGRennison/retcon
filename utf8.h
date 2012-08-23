@@ -22,7 +22,8 @@
 //==========================================================================
 
 //UTF-8 functions all assume perfectly valid UTF-8 for the most part
-inline int getcharfromstr_utf8(char *str) {
+
+inline int getcharfromstr_utf8(const char *str) {
 	char c1=str[0];
 	if(!(c1&0x80)) return c1;
 	else if((c1&0xE0)==0xC0) return ((c1&0x1F)<<6) + ((str[1]&0x3F));
@@ -58,7 +59,7 @@ inline int getcharfromstr_utf8_ret(char **str) {
 	}
 }
 
-inline int getcharfromstr_offset_utf8(char *str, int offset, int bytelength) {
+inline int getcharfromstr_offset_utf8(const char *str, int offset, int bytelength) {
 	int i;
 	for(i=0; i<bytelength; i++) {
 		if((str[i]&0xC0)==0x80) continue;
@@ -116,4 +117,27 @@ inline void setstrfromchar_utf8(int c, char *str) {
 		str[2]=0x80|((c>>6)&0x3F);
 		str[3]=0x80|(c&0x3F);
 	}
+}
+
+inline size_t strlen_utf8(const char *str) {
+	size_t len=0;
+	while(*str) {
+		int add=utf8firsttonumbytes(*str);
+		len++;
+		if(add) str+=add;
+		else break;
+	}
+	return len;
+}
+
+inline size_t strlen_utf8(const char *str, size_t bytes) {
+	size_t len=0;
+	const char *end=str+bytes;
+	while(str<end && *str) {
+		int add=utf8firsttonumbytes(*str);
+		len++;
+		if(add) str+=add;
+		else break;
+	}
+	return len;
 }

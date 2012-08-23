@@ -2,6 +2,8 @@
 #include <wx/radiobox.h>
 #include <wx/valgen.h>
 
+struct acc_choice;
+
 struct user_window_timer: public wxTimer {
 	void Notify();
 };
@@ -75,11 +77,15 @@ enum {
 	ACCCF_NOACCITEM		= 1<<1,
 };
 
+typedef void (*acc_choice_callback)(void *, acc_choice *, bool);
+
 struct acc_choice: public wxChoice {
 	std::shared_ptr<taccount> &curacc;
 	unsigned int flags;
+	acc_choice_callback fnptr;
+	void *fnextra;
 
-	acc_choice(wxWindow *parent, std::shared_ptr<taccount> &acc, unsigned int flags_);
+	acc_choice(wxWindow *parent, std::shared_ptr<taccount> &acc, unsigned int flags_, int winid=wxID_ANY, acc_choice_callback callbck=0, void *extra=0);
 	void UpdateSel();
 	void OnSelChange(wxCommandEvent &event);
 	void fill_acc();

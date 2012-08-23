@@ -14,7 +14,7 @@
 #define TM_YEAR_BASE   (1900)
 
 static   int conv_num(const char **, int *, int, int);
-static int strncasecmp(char *s1, char *s2, size_t n);
+static int st_strncasecmp(char *s1, char *s2, size_t n);
 
 static const char *day[7] = {
      "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday",
@@ -141,12 +141,12 @@ again:        switch (c = *fmt++)
                 {
                     /* Full name. */
                     len = strlen(day[i]);
-                    if (strncasecmp((char *)(day[i]), (char *)bp, len) == 0)
+                    if (st_strncasecmp((char *)(day[i]), (char *)bp, len) == 0)
                         break;
 
                     /* Abbreviated name. */
                     len = strlen(abday[i]);
-                    if (strncasecmp((char *)(abday[i]), (char *)bp, len) == 0)
+                    if (st_strncasecmp((char *)(abday[i]), (char *)bp, len) == 0)
                         break;
                 }
 
@@ -167,12 +167,12 @@ again:        switch (c = *fmt++)
                      /* Full name. */
 
                     len = strlen(mon[i]);
-                    if (strncasecmp((char *)(mon[i]), (char *)bp, len) == 0)
+                    if (st_strncasecmp((char *)(mon[i]), (char *)bp, len) == 0)
                         break;
 
                     /* Abbreviated name. */
                     len = strlen(abmon[i]);
-                    if (strncasecmp((char *)(abmon[i]),(char *) bp, len) == 0)
+                    if (st_strncasecmp((char *)(abmon[i]),(char *) bp, len) == 0)
                         break;
                 }
 
@@ -366,7 +366,7 @@ static int conv_num(const char **buf, int *dest, int llim, int ulim)
     return (1);
 }
 
-int strncasecmp(char *s1, char *s2, size_t n)
+int st_strncasecmp(char *s1, char *s2, size_t n)
 {
     if (n == 0)
         return 0;

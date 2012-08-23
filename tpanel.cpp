@@ -746,6 +746,15 @@ static void DoWriteSubstr(tweetdispscr &td, const std::string &str, int start, i
 			else if(str[track_byte+1]=='g' && str[track_byte+2]=='t' && str[track_byte+3]==';') {
 				rep='>';
 			}
+			else if(str[track_byte+1]=='q' && str[track_byte+2]=='u' && str[track_byte+3]=='o' && str[track_byte+4]=='t' && str[track_byte+5]==';') {
+				rep='\'';
+			}
+			else if(str[track_byte+1]=='#' && str[track_byte+2]=='3' && str[track_byte+3]=='9' && str[track_byte+4]==';') {
+				rep='"';
+			}
+			else if(str[track_byte+1]=='a' && str[track_byte+2]=='m' && str[track_byte+3]=='p' && str[track_byte+4]==';') {
+				rep='&';
+			}
 			if(rep) {
 				td.WriteText(wxString::FromUTF8(&str[start_offset], track_byte-start_offset));
 				track_index+=4;
