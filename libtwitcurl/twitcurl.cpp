@@ -388,7 +388,7 @@ bool twitCurl::search( const std::string& searchQuery )
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::statusUpdate( const std::string& newStatus, const std::string in_reply_to_status_id )
+bool twitCurl::statusUpdate( const std::string& newStatus, const std::string in_reply_to_status_id, signed char includeEntities )
 {
     bool retVal = false;
     if( newStatus.length() )
@@ -399,6 +399,9 @@ bool twitCurl::statusUpdate( const std::string& newStatus, const std::string in_
         {
             newStatusMsg += twitCurlDefaults::TWITCURL_URL_SEP_AMP + twitCurlDefaults::TWITCURL_REPLYSTATUSID + urlencode( in_reply_to_status_id );
         }
+	if(includeEntities) {
+            newStatusMsg += twitCurlDefaults::TWITCURL_URL_SEP_AMP + twitCurlDefaults::TWITCURL_INCENTITIES + ((includeEntities>0)?"1":"0");
+	}
 
         /* Perform POST */
         retVal = performPost( twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +

@@ -152,7 +152,7 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 
 	bool cleanup=false;
 	unsigned int tweets_to_get=std::min((unsigned int) 200, rbfs->max_tweets_left);
-	if((rbfs->end_tweet_id && rbfs->start_tweet_id>rbfs->end_tweet_id) || !rbfs->read_again) {	
+	if((rbfs->end_tweet_id && rbfs->start_tweet_id>rbfs->end_tweet_id) || !rbfs->read_again) {
 		cleanup=true;
 	}
 	else if(!tweets_to_get) {
@@ -351,6 +351,9 @@ void twitcurlext::QueueAsyncExec() {
 			break;
 		case CS_FRIENDACTION_UNFOLLOW:
 			friendshipDestroy(std::to_string(extra_id), true);
+			break;
+		case CS_POSTTWEET:
+			statusUpdate(extra1, extra_id?std::to_string(extra_id):"", 1);
 			break;
 	}
 	if(currentlogflags&LFT_TWITACT) {
@@ -639,7 +642,7 @@ bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t, bool checkfirst) {
 //returns true is ready, false is pending
 bool tweet::IsReady() {
 	bool isready=true;
-	
+
 	if(rtsrc) {
 		bool rtsrcisready=rtsrc->IsReady();
 		if(!rtsrcisready) isready=false;
@@ -827,7 +830,9 @@ unsigned int TwitterCharCount(const char *in, size_t inlen) {
 	static pcre_extra *patextra=0;
 	static pcre *invprotpattern=0;
 	static pcre *tcopattern=0;
-	
+
+	if(!inlen) return 0;
+
 	if(!pattern) {
 		const char *errptr;
 		int erroffset;
@@ -835,12 +840,14 @@ unsigned int TwitterCharCount(const char *in, size_t inlen) {
 		pattern=pcre_compile(pat, PCRE_UCP | PCRE_NO_UTF8_CHECK | PCRE_CASELESS | PCRE_UTF8, &errptr, &erroffset, 0);
 		if(!pattern) {
 			LogMsgFormat(LFT_OTHERERR, wxT("TwitterCharCount: pcre_compile failed: %s (%d)\n%s"), wxstrstd(errptr).c_str(), erroffset, wxstrstd(pat).c_str());
+			return 0;
 		}
-		patextra=pcre_study(pattern, 0, 0);
+		patextra=pcre_study(pattern, 0, &errptr);
 		invprotpattern=pcre_compile(INVALID_URL_WITHOUT_PROTOCOL_MATCH_BEGIN, PCRE_UCP | PCRE_NO_UTF8_CHECK | PCRE_CASELESS | PCRE_UTF8, &errptr, &erroffset, 0);
 		tcopattern=pcre_compile(VALID_TCO_URL, PCRE_UCP | PCRE_NO_UTF8_CHECK | PCRE_CASELESS | PCRE_UTF8, &errptr, &erroffset, 0);
+		if(!invprotpattern || !tcopattern) return 0;
 	}
-	
+
 	char *comp=0;
 	unsigned int outsize=0;
 	ssize_t len=utf8proc_map((const uint8_t *) in, inlen, (uint8_t **) &comp, UTF8PROC_STABLE | UTF8PROC_COMPOSE);

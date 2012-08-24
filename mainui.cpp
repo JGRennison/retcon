@@ -41,6 +41,7 @@ mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& si
 
 
 	auim=new wxAuiManager(this);
+	auim->SetDockSizeConstraint(1.0, 1.0);
 
 	auib = new tpanelnotebook(this, this);
 	auim->AddPane(auib, wxAuiPaneInfo().CentrePane().Resizable());
@@ -147,8 +148,52 @@ mainframe *GetMainframeAncestor(wxWindow *in, bool passtoplevels) {
 	return 0;
 }
 
+DECLARE_EVENT_TYPE(wxextTPRESIZE_UPDATE_EVENT, -1)
+DEFINE_EVENT_TYPE(wxextTPRESIZE_UPDATE_EVENT)
+
+BEGIN_EVENT_TABLE(tweetposttextbox, wxRichTextCtrl)
+	//EVT_RICHTEXT_CHARACTER(wxID_ANY, tweetposttextbox::OnTCChar)
+	EVT_TEXT(wxID_ANY, tweetposttextbox::OnTCUpdate)
+END_EVENT_TABLE()
+
+tweetposttextbox::tweetposttextbox(tweetpostwin *parent_, const wxString &deftext, wxWindowID id)
+	: wxRichTextCtrl(parent_, id, deftext, wxPoint(-1000, -1000), wxDefaultSize, wxRE_MULTILINE | wxWANTS_CHARS), parent(parent_), lastheight(0) {
+}
+
+tweetposttextbox::~tweetposttextbox() {
+	if(parent) {
+		parent->textctrl=0;
+	}
+}
+
+void tweetposttextbox::OnTCChar(wxRichTextEvent &event) {
+
+}
+
+void tweetposttextbox::OnTCUpdate(wxCommandEvent &event) {
+	if(parent) parent->OnTCChange();
+}
+
+void tweetposttextbox::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
+		       int noUnitsX, int noUnitsY,
+		       int xPos, int yPos,
+		       bool noRefresh ) {
+	wxRichTextCtrl::SetScrollbars(0, 0, 0, 0, 0, 0, noRefresh);
+	int newheight=(pixelsPerUnitY*noUnitsY)+4;
+	int curheight;
+	GetSize(0, &curheight);
+	if(parent && !parent->resize_update_pending && lastheight!=newheight && curheight!=newheight) {
+		parent->vbox->SetItemMinSize(this, 10, newheight);
+		parent->resize_update_pending=true;
+		lastheight=newheight;
+		wxCommandEvent event(wxextTPRESIZE_UPDATE_EVENT, GetId());
+		parent->GetEventHandler()->AddPendingEvent(event);
+	}
+}
+
 BEGIN_EVENT_TABLE(tweetpostwin, wxPanel)
 	EVT_BUTTON(TPWIN_SENDBTN, tweetpostwin::OnSendBtn)
+	EVT_COMMAND(wxID_ANY, wxextTPRESIZE_UPDATE_EVENT, tweetpostwin::resizemsghandler)
 END_EVENT_TABLE()
 
 void tpw_acc_callback(void *userdata, acc_choice *src, bool isgoodacc) {
@@ -158,12 +203,11 @@ void tpw_acc_callback(void *userdata, acc_choice *src, bool isgoodacc) {
 }
 
 tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *parentauim)
-	: wxPanel(parent, wxID_ANY, wxPoint(-1000, -1000)), parentwin(parent), mparentwin(mparent), pauim(0) {
+	: wxPanel(parent, wxID_ANY, wxPoint(-1000, -1000)), parentwin(parent), mparentwin(mparent), pauim(0), isshown(false), resize_update_pending(true) {
 
-	wxBoxSizer *vbox = new wxBoxSizer(wxVERTICAL);
-	SetSizer(vbox);
+	vbox = new wxBoxSizer(wxVERTICAL);
 	infost=new wxStaticText(this, wxID_ANY, wxT("0/140"), wxPoint(-1000, -1000));
-	textctrl=new wxTextCtrl(this, TPWID_TEXTCTRL, wxT(""), wxPoint(-1000, -1000), wxDefaultSize, wxTE_MULTILINE | wxTE_NOHIDESEL | wxTE_BESTWRAP);
+	textctrl=new tweetposttextbox(this, wxT(""), TPWID_TEXTCTRL);
 	vbox->Add(textctrl, 0, wxEXPAND | wxALL, 2);
 
 	wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
@@ -176,36 +220,46 @@ tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *p
 	hbox->Add(infost, 0, wxALL, 2);
 	hbox->Add(sendbtn, 0, wxALL, 2);
 
+	textctrl->Connect(wxEVT_SET_FOCUS, wxFocusEventHandler(tweetpostwin::OnTCFocus), 0, this);
+	textctrl->Connect(wxEVT_KILL_FOCUS, wxFocusEventHandler(tweetpostwin::OnTCUnFocus), 0, this);
+	accc->Connect(wxEVT_SET_FOCUS, wxFocusEventHandler(tweetpostwin::OnTCFocus), 0, this);
+	accc->Connect(wxEVT_KILL_FOCUS, wxFocusEventHandler(tweetpostwin::OnTCUnFocus), 0, this);
+	sendbtn->Connect(wxEVT_SET_FOCUS, wxFocusEventHandler(tweetpostwin::OnTCFocus), 0, this);
+	sendbtn->Connect(wxEVT_KILL_FOCUS, wxFocusEventHandler(tweetpostwin::OnTCUnFocus), 0, this);
+
 	SetSizer(vbox);
 	DoShowHide(false);
 
-	textctrl->Connect(wxEVT_SET_FOCUS, wxFocusEventHandler(tweetpostwin::OnTCFocus), 0, this);
-	textctrl->Connect(wxEVT_KILL_FOCUS, wxFocusEventHandler(tweetpostwin::OnTCUnFocus), 0, this);
-	textctrl->Connect(wxEVT_COMMAND_TEXT_UPDATED, wxCommandEventHandler(tweetpostwin::OnTCChange), 0, this);
-
 	Fit();
 	pauim=parentauim;
+	resize_update_pending=false;
 }
 
 tweetpostwin::~tweetpostwin() {
 	if(mparentwin) {
 		mparentwin->tpw=0;
 	}
+	if(textctrl) {
+		textctrl->parent=0;
+	}
 }
 
 void tweetpostwin::OnSendBtn(wxCommandEvent &event) {
-
+	if(isgoodacc && curacc && !textctrl->IsEmpty()) {
+		twitcurlext *twit=curacc->cp.GetConn();
+		twit->TwInit(curacc);
+		twit->connmode=CS_POSTTWEET;
+		twit->extra1=textctrl->GetValue().ToUTF8();
+		twit->extra_id=0;
+		twit->QueueAsyncExec();
+	}
 }
 
-void tweetpostwin::OnTCFocus(wxFocusEvent &event) {
-	DoShowHide(true);
-}
-void tweetpostwin::OnTCUnFocus(wxFocusEvent &event) {
-	if(textctrl->IsEmpty()) DoShowHide(false);
-}
 void tweetpostwin::DoShowHide(bool show) {
+	isshown=show;
 	accc->Show(show);
 	sendbtn->Show(show);
+	infost->Show(show);
 	if(pauim) {
 		wxAuiPaneInfo pi=pauim->GetPane(this);
 		pauim->DetachPane(this);
@@ -222,7 +276,26 @@ void tweetpostwin::DoShowHide(bool show) {
 	}
 }
 
-void tweetpostwin::OnTCChange(wxCommandEvent &event) {
+void tweetpostwin::OnTCFocus(wxFocusEvent &event) {
+	if(!isshown) DoShowHide(true);
+	event.Skip();
+}
+void tweetpostwin::OnTCUnFocus(wxFocusEvent &event) {
+	if(isshown && textctrl && textctrl->IsEmpty()) {
+		wxWindow *checkwin=event.GetWindow();
+		while(true) {
+			if(!checkwin) {
+				DoShowHide(false);
+				break;
+			}
+			else if(checkwin==this) break;
+			checkwin=checkwin->GetParent();
+		}
+	}
+	event.Skip();
+}
+
+void tweetpostwin::OnTCChange() {
 	unsigned int len=TwitterCharCount(std::string(textctrl->GetValue().ToUTF8()));
 	infost->SetLabel(wxString::Format(wxT("%d/140"), len));
 	CheckEnableSendBtn();
@@ -234,4 +307,9 @@ void tweetpostwin::UpdateAccount() {
 
 void tweetpostwin::CheckEnableSendBtn() {
 	sendbtn->Enable(isgoodacc && !(textctrl->IsEmpty()));
+}
+
+void tweetpostwin::resizemsghandler(wxCommandEvent &event) {
+	DoShowHide(isshown);
+	resize_update_pending=false;
 }

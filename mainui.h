@@ -40,8 +40,24 @@ enum {
 	TPWIN_SENDBTN,
 };
 
+struct tweetposttextbox : public wxRichTextCtrl {
+	tweetpostwin *parent;
+	int lastheight;
+
+	tweetposttextbox(tweetpostwin *parent_, const wxString &deftext, wxWindowID id);
+	~tweetposttextbox();
+	void OnTCChar(wxRichTextEvent &event);
+	void OnTCUpdate(wxCommandEvent &event);
+	void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
+                               int noUnitsX, int noUnitsY,
+                               int xPos = 0, int yPos = 0,
+                               bool noRefresh = false );	//virtual override
+
+	DECLARE_EVENT_TABLE()
+};
+
 struct tweetpostwin : public wxPanel {
-	wxTextCtrl *textctrl;
+	tweetposttextbox *textctrl;
 	wxWindow *parentwin;
 	mainframe *mparentwin;
 	acc_choice *accc;
@@ -50,16 +66,20 @@ struct tweetpostwin : public wxPanel {
 	wxAuiManager *pauim;
 	wxStaticText *infost;
 	bool isgoodacc;
+	bool isshown;
+	wxBoxSizer *vbox;
+	bool resize_update_pending;
 
 	tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *parentauim=0);
 	~tweetpostwin();
 	void OnSendBtn(wxCommandEvent &event);
-	void OnTCFocus(wxFocusEvent &event);
-	void OnTCUnFocus(wxFocusEvent &event);
-	void OnTCChange(wxCommandEvent &event);
 	void DoShowHide(bool show);
 	void UpdateAccount();
 	void CheckEnableSendBtn();
+	void OnTCChange();
+	void resizemsghandler(wxCommandEvent &event);
+	void OnTCFocus(wxFocusEvent &event);
+	void OnTCUnFocus(wxFocusEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };

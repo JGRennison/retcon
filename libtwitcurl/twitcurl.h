@@ -190,7 +190,7 @@ public:
     bool search( const std::string& searchQuery /* in */ );
 
     /* Twitter status APIs */
-    bool statusUpdate( const std::string& newStatus, const std::string in_reply_to_status_id = "" ); /* all parameters in */
+    bool statusUpdate( const std::string& newStatus, const std::string in_reply_to_status_id = "", signed char includeEntities = 0 ); /* all parameters in */
     bool statusShowById( const std::string& statusId /* in */ );
     bool statusDestroyById( const std::string& statusId /* in */ );
 
@@ -208,7 +208,7 @@ public:
 
     /* Twitter direct message APIs */
     bool directMessageGet( const struct timelineparams &tmps );
-    bool directMessageSend( const std::string& userInfo /* in */, const std::string& dMsg /* in */, bool isUserId = false /* in */ );
+    bool directMessageSend( const std::string& userInfo, const std::string& dMsg, bool isUserId = false );  /* all parameters in */
     bool directMessageGetSent( const struct timelineparams &tmps );
     bool directMessageDestroyById( const std::string& dMsgId /* in */ );
 

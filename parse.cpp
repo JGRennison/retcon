@@ -376,9 +376,9 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 		case CS_DMTIMELINE:
 			if(dc.IsArray()) {
 				dbmsglist=new dbsendmsg_list();
-				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) RestTweetUpdateParams(*DoTweetParse(dc[i], true));
+				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) RestTweetUpdateParams(*DoTweetParse(dc[i], JDTP_ISDM));
 			}
-			else RestTweetUpdateParams(*DoTweetParse(dc, true));
+			else RestTweetUpdateParams(*DoTweetParse(dc, JDTP_ISDM));
 			break;
 		case CS_STREAM: {
 			const rapidjson::Value& fval=dc["friends"];
@@ -422,6 +422,9 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			tac->LookupFriendships(u->id);
 			break;
 		}
+		case CS_POSTTWEET:
+			DoTweetParse(dc);
+			break;
 	}
 	if(dbmsglist) {
 		if(!dbmsglist->msglist.empty()) dbc.SendMessage(dbmsglist);
