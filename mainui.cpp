@@ -203,10 +203,11 @@ void tpw_acc_callback(void *userdata, acc_choice *src, bool isgoodacc) {
 }
 
 tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *parentauim)
-	: wxPanel(parent, wxID_ANY, wxPoint(-1000, -1000)), parentwin(parent), mparentwin(mparent), pauim(0), isshown(false), resize_update_pending(true) {
+	: wxPanel(parent, wxID_ANY, wxPoint(-1000, -1000)), parentwin(parent), mparentwin(mparent), pauim(0), isshown(false), resize_update_pending(true), currently_posting(false), current_length(0), length_oob(false) {
 
 	vbox = new wxBoxSizer(wxVERTICAL);
 	infost=new wxStaticText(this, wxID_ANY, wxT("0/140"), wxPoint(-1000, -1000));
+	statusst=new wxStaticText(this, wxID_ANY, wxT(""), wxPoint(-1000, -1000));
 	textctrl=new tweetposttextbox(this, wxT(""), TPWID_TEXTCTRL);
 	vbox->Add(textctrl, 0, wxEXPAND | wxALL, 2);
 
@@ -217,6 +218,7 @@ tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *p
 	accc=new acc_choice(this, curacc, 0, wxID_ANY, &tpw_acc_callback, this);
 	hbox->Add(accc, 0, wxALL, 2);
 	hbox->AddStretchSpacer();
+	hbox->Add(statusst, 0, wxALL, 2);
 	hbox->Add(infost, 0, wxALL, 2);
 	hbox->Add(sendbtn, 0, wxALL, 2);
 
@@ -245,12 +247,15 @@ tweetpostwin::~tweetpostwin() {
 }
 
 void tweetpostwin::OnSendBtn(wxCommandEvent &event) {
-	if(isgoodacc && curacc && !textctrl->IsEmpty()) {
+	if(isgoodacc && curacc && !currently_posting && !textctrl->IsEmpty() && current_length<=140) {
+		currently_posting=true;
+		OnTCChange();
 		twitcurlext *twit=curacc->cp.GetConn();
 		twit->TwInit(curacc);
 		twit->connmode=CS_POSTTWEET;
 		twit->extra1=textctrl->GetValue().ToUTF8();
 		twit->extra_id=0;
+		twit->ownermainframe=mparentwin;
 		twit->QueueAsyncExec();
 	}
 }
@@ -260,6 +265,7 @@ void tweetpostwin::DoShowHide(bool show) {
 	accc->Show(show);
 	sendbtn->Show(show);
 	infost->Show(show);
+	statusst->Show(show);
 	if(pauim) {
 		wxAuiPaneInfo pi=pauim->GetPane(this);
 		pauim->DetachPane(this);
@@ -296,9 +302,24 @@ void tweetpostwin::OnTCUnFocus(wxFocusEvent &event) {
 }
 
 void tweetpostwin::OnTCChange() {
-	unsigned int len=TwitterCharCount(std::string(textctrl->GetValue().ToUTF8()));
-	infost->SetLabel(wxString::Format(wxT("%d/140"), len));
+	current_length=TwitterCharCount(std::string(textctrl->GetValue().ToUTF8()));
+	if(current_length>140) {
+		if(!length_oob) {
+			infost_colout=infost->GetForegroundColour();
+			infost->SetOwnForegroundColour(*wxRED);
+			length_oob=true;
+		}
+	}
+	else {
+		if(length_oob) {
+			infost->SetOwnForegroundColour(infost_colout);
+			length_oob=false;
+		}
+	}
+	infost->SetLabel(wxString::Format(wxT("%d/140"), current_length));
+	statusst->SetLabel(currently_posting?wxT("Posting"):wxT(""));
 	CheckEnableSendBtn();
+	textctrl->Enable(!currently_posting);
 }
 
 void tweetpostwin::UpdateAccount() {
@@ -306,10 +327,16 @@ void tweetpostwin::UpdateAccount() {
 }
 
 void tweetpostwin::CheckEnableSendBtn() {
-	sendbtn->Enable(isgoodacc && !(textctrl->IsEmpty()));
+	sendbtn->Enable(isgoodacc && !currently_posting && !(textctrl->IsEmpty()) && current_length<=140);
 }
 
 void tweetpostwin::resizemsghandler(wxCommandEvent &event) {
 	DoShowHide(isshown);
 	resize_update_pending=false;
+}
+
+void tweetpostwin::NotifyPostResult(bool success) {
+	if(success) textctrl->Clear();
+	currently_posting=false;
+	OnTCChange();
 }

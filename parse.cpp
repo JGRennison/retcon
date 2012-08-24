@@ -324,6 +324,8 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 		free(json);
 		return false;
 	}
+	
+	if(twit && twit->ownermainframe && std::find(mainframelist.begin(), mainframelist.end(), twit->ownermainframe)==mainframelist.end()) twit->ownermainframe=0;
 
 	switch(type) {
 		case CS_ACCVERIFY: {
@@ -422,9 +424,11 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			tac->LookupFriendships(u->id);
 			break;
 		}
-		case CS_POSTTWEET:
+		case CS_POSTTWEET: {
 			DoTweetParse(dc);
+			if(twit && twit->ownermainframe && twit->ownermainframe->tpw) twit->ownermainframe->tpw->NotifyPostResult(true);
 			break;
+		}
 	}
 	if(dbmsglist) {
 		if(!dbmsglist->msglist.empty()) dbc.SendMessage(dbmsglist);

@@ -65,10 +65,15 @@ struct tweetpostwin : public wxPanel {
 	wxButton *sendbtn;
 	wxAuiManager *pauim;
 	wxStaticText *infost;
+	wxStaticText *statusst;
 	bool isgoodacc;
 	bool isshown;
 	wxBoxSizer *vbox;
 	bool resize_update_pending;
+	bool currently_posting;
+	unsigned int current_length;
+	bool length_oob;
+	wxColour infost_colout;
 
 	tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *parentauim=0);
 	~tweetpostwin();
@@ -80,6 +85,7 @@ struct tweetpostwin : public wxPanel {
 	void resizemsghandler(wxCommandEvent &event);
 	void OnTCFocus(wxFocusEvent &event);
 	void OnTCUnFocus(wxFocusEvent &event);
+	void NotifyPostResult(bool success);
 
 	DECLARE_EVENT_TABLE()
 };

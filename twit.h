@@ -277,6 +277,7 @@ struct twitcurlext: public twitCurl, public mcurlconn {
 	std::string genurl;
 	std::string extra1;
 	uint64_t extra_id;
+	mainframe *ownermainframe;
 
 	void NotifyDoneSuccess(CURL *easy, CURLcode res);
 	void TwInit(std::shared_ptr<taccount> acc);

@@ -216,6 +216,8 @@ twitcurlext::twitcurlext(std::shared_ptr<taccount> acc) {
 	post_action_flags=0;
 	extra_id=0;
 	rbfs=0;
+	ownermainframe=0;
+	extra_id=0;
 	TwInit(acc);
 }
 
@@ -224,6 +226,8 @@ twitcurlext::twitcurlext() {
 	post_action_flags=0;
 	extra_id=0;
 	rbfs=0;
+	ownermainframe=0;
+	extra_id=0;
 }
 twitcurlext::~twitcurlext() {
 	TwDeInit();
@@ -298,6 +302,8 @@ void twitcurlext::Reset() {
 	tc_flags=0;
 	scto.reset();
 	rbfs=0;
+	ownermainframe=0;
+	extra_id=0;
 	ul.reset();
 	post_action_flags=0;
 }
