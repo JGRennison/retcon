@@ -6,8 +6,16 @@ struct tpanelglobal {
 	wxBitmap arrow;
 	int arrow_dim;
 	tpanelreltimeupdater minutetimer;
+	wxBitmap infoicon;
+	wxImage infoicon_img;
+	wxBitmap replyicon;
+	wxImage replyicon_img;
+	wxBitmap favicon;
+	wxImage favicon_img;
+	wxBitmap favonicon;
+	wxImage favonicon_img;
 
-	tpanelglobal() : arrow_dim(0) { }
+	tpanelglobal();
 };
 
 enum { tpanelmenustartid=wxID_HIGHEST+8001 };

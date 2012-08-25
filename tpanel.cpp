@@ -4,6 +4,7 @@
 #include <wx/filename.h>
 #include <wx/filedlg.h>
 #include <wx/dcclient.h>
+#include <wx/dcscreen.h>
 
 std::unordered_multimap<uint64_t, tpaneldbloadmap_data> tpaneldbloadmap;
 std::weak_ptr<tpanelglobal> tpg_glob;
@@ -131,7 +132,7 @@ BEGIN_EVENT_TABLE(tpanelnotebook, wxAuiNotebook)
 	EVT_AUINOTEBOOK_DRAG_DONE(NOTEBOOK_ID, tpanelnotebook::dragdonehandler)
 	EVT_AUINOTEBOOK_TAB_RIGHT_DOWN(NOTEBOOK_ID, tpanelnotebook::tabrightclickhandler)
 	EVT_AUINOTEBOOK_PAGE_CLOSED(NOTEBOOK_ID, tpanelnotebook::tabclosedhandler)
-	EVT_SIZE(tpanelnotebook::onsizeevt) 
+	EVT_SIZE(tpanelnotebook::onsizeevt)
 END_EVENT_TABLE()
 
 tpanelnotebook::tpanelnotebook(mainframe *owner_, wxWindow *parent) :
@@ -232,7 +233,7 @@ void tpanelnotebook::PostSplitSizeCorrect() {
 			LogMsgFormat(LFT_TPANEL, wxT("PostSplitSizeCorrect:: %d %d %d %d"), all_panes.Item(i).dock_direction, all_panes.Item(i).dock_layer, all_panes.Item(i).dock_row, all_panes.Item(i).dock_pos);
 		}
 	}
-	
+
 	DoSizing();
 	owner->Refresh();
 }
@@ -463,7 +464,7 @@ uint64_t tpanelparentwin::PushTweetOrRetLoadId(const std::shared_ptr<tweet> &tob
 //if lessthanid is non-zero, is an exclusive upper id limit
 void tpanelparentwin::LoadMore(unsigned int n, uint64_t lessthanid, unsigned int pushflags) {
 	dbseltweetmsg *loadmsg=0;
-	
+
 	Freeze();
 	tppw_flags|=TPPWF_NOUPDATEONPUSH;
 
@@ -489,7 +490,7 @@ void tpanelparentwin::LoadMore(unsigned int n, uint64_t lessthanid, unsigned int
 		dbc.SendMessage(loadmsg);
 	}
 	dump_pending_tpaneldbloadmap(LFT_PENDTRACE, wxT(""));
-	
+
 	Thaw();
 	CheckClearNoUpdateFlag();
 }
@@ -892,6 +893,40 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 					}
 				}
 				DoWriteSubstr(*this, twgen.text, nextoffset, -1, track_byte, track_index, true);
+				break;
+			}
+			case 'X': {
+				i++;
+				if(i>=format.size()) break;
+				flush();
+				long curpos=GetInsertionPoint();
+				BeginURL(wxString::Format(wxT("X%c"), (wxChar) format[i]));
+				switch((wxChar) format[i]) {
+					case 'i': WriteImage(tppw->tpg->infoicon_img); break;
+					case 'f': {
+						wxImage &icon=tppw->tpg->favicon_img;
+						for(auto it=tw.tp_list.begin(); it!=tw.tp_list.end(); ++it) {
+							if(it->IsFavourited()) {
+								icon=tppw->tpg->favonicon_img;
+								break;
+							}
+						}
+						WriteImage(icon);
+						break;
+					}
+					case 'r': WriteImage(tppw->tpg->replyicon_img); break;
+					case 't': {
+						if(!tw.user_recipient && (tw.rtsrc || !(tw.user->GetUser().u_flags&UF_ISPROTECTED))) WriteText(wxT(" RT"));
+						break;
+					}
+					case 'd': WriteText(wxT(" DM")); break;
+					default: break;
+				}
+				EndURL();
+				SetInsertionPointEnd();
+				wxTextAttrEx attr;
+				attr.SetURL(wxString::Format(wxT("X%c"), (wxChar) format[i]));
+				SetStyleEx(curpos, GetInsertionPoint(), attr, wxRICHTEXT_SETSTYLE_OPTIMIZE);
 				break;
 			}
 			case '\'':
@@ -1353,4 +1388,22 @@ void profimg_staticbitmap::ClickHandler(wxMouseEvent &event) {
 	std::shared_ptr<taccount> acc_hint;
 	ad.GetTweetById(tweetid)->GetUsableAccount(acc_hint);
 	user_window::MkWin(userid, acc_hint);
+}
+
+tpanelglobal::tpanelglobal() : arrow_dim(0) {
+	int targheight=0;
+	wxVisualAttributes va=wxRichTextCtrl::GetClassDefaultAttributes();
+	if(va.font.IsOk()) {
+		wxSize res=wxScreenDC().GetPPI();
+		targheight=2+((((double) va.font.GetPointSize())/72.0) * ((double) res.GetHeight()));
+	}
+	targheight=std::max(targheight,16);
+	infoicon=GetInfoIcon(targheight);
+	infoicon_img=infoicon.ConvertToImage();
+	replyicon=GetReplyIcon(targheight);
+	replyicon_img=replyicon.ConvertToImage();
+	favicon=GetFavIcon(targheight);
+	favicon_img=favicon.ConvertToImage();
+	favonicon=GetFavOnIcon(targheight);
+	favonicon_img=favonicon.ConvertToImage();
 }

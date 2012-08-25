@@ -9,19 +9,20 @@
 
 OBJS:=retcon.o cfg.o optui.o parse.o socket.o tpanel.o twit.o db.o log.o cmdline.o userui.o mainui.o
 TCOBJS:=libtwitcurl/base64.o libtwitcurl/HMAC_SHA1.o libtwitcurl/oauthlib.o libtwitcurl/SHA1.o libtwitcurl/twitcurl.o libtwitcurl/urlencode.o
-ROBJS:=res.o
+SPOBJS:=res.o
+ROBJS:=$(patsubst %.png,%.o,$(wildcard res/*.png))
 EXOBJS:=utf8proc/utf8proc.o
 OUTNAME:=retcon
 CFLAGS:=-O3 -Wextra -Wall -Wno-unused-parameter
 #-Wno-missing-braces -Wno-unused-parameter
 CXXFLAGS:=-std=gnu++0x
 GCC:=g++
+LD:=ld
 
 ifdef debug
 CFLAGS:=-g -Wextra -Wall -Wno-unused-parameter
 #AFLAGS:=-Wl,-d,--export-all-symbols
-OUTNAME:=$(OUTNAME)_debug
-POSTFIX:=$(POSTFIX)_debug
+DEBUGPOSTFIX:=_debug
 endif
 
 GCCMACHINE:=$(shell $(GCC) -dumpmachine)
@@ -44,10 +45,9 @@ EXECPREFIX:=
 EXOBJS+=sqlite/sqlite3.o
 
 ifdef x64
-POSTFIX+=64
+SIZEPOSTFIX:=64
 GCC:=$(GCC64)
 LIBS:=$(LIBS64)
-OUTNAME:=$(OUTNAME)64
 CFLAGS2:=-mcx16
 PACKER:=mpress -s
 else
@@ -62,7 +62,6 @@ else
 PLATFORM:=UNIX
 LIBS:=-lpcre -lrt `wx-config --libs` -lcurl -lsqlite3
 MCFLAGS:= `wx-config --cxxflags`
-GCC:=g++
 PACKER:=upx -9
 #HDEPS:=
 GCC_MAJOR:=$(shell $(GCC) -dumpversion | cut -d'.' -f1)
@@ -77,6 +76,10 @@ MCFLAGS+=`pkg-config --cflags glib-2.0`
 endif
 
 endif
+
+POSTFIX:=$(SIZEPOSTFIX)$(DEBUGPOSTFIX)
+ND_POSTFIX:=$(SIZEPOSTFIX)
+OUTNAME:=$(OUTNAME)$(POSTFIX)
 
 GCCVER:=$(shell $(GCC) -dumpversion)
 
@@ -93,6 +96,8 @@ endif
 OBJS:=$(OBJS:.o=.o$(POSTFIX))
 TCOBJS:=$(TCOBJS:.o=.o$(POSTFIX))
 EXOBJS:=$(EXOBJS:.o=.o$(POSTFIX))
+ROBJS:=$(ROBJS:.o=.o$(ND_POSTFIX))
+SPOBJS:=$(SPOBJS:.o=.o$(POSTFIX))
 
 TARGS:=$(OUTNAME)$(SUFFIX)
 
@@ -101,7 +106,7 @@ CFLAGS+= -masm=intel -g --save-temps -Wa,-msyntax=intel,-aghlms=$*$(POSTFIX).lst
 AFLAGS:=$(AFLAGS) -Wl,-Map=$(OUTNAME)$(POSTFIX).map
 endif
 
-ALL_OBJS:=$(OBJS) $(TCOBJS) $(EXOBJS) $(ROBJS)
+ALL_OBJS:=$(OBJS) $(TCOBJS) $(EXOBJS) $(ROBJS) $(SPOBJS)
 
 ifneq ($(ARCH),)
 CFLAGS2 += -march=$(ARCH)
@@ -126,6 +131,14 @@ $(TARGS): $(ALL_OBJS)
 $(TCOBJS): %.o$(POSTFIX): %.cpp
 	$(GCC) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(CXXFLAGS)
 
+$(ROBJS): %.o$(ND_POSTFIX): %.png
+ifeq "$(PLATFORM)" "WIN"
+	$(GCC) -Wl,-r -Wl,-b,binary $< -o $@ -nostdlib
+else
+	$(LD) -r -b binary $< -o $@
+endif
+	objcopy --rename-section .data=.rodata,alloc,load,readonly,data,contents $@ $@
+
 retcon.h.gch:
 	$(GCC) -c retcon.h -o retcon.h.gch $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(AFLAGS)
 
@@ -145,13 +158,14 @@ endif
 
 quickclean:
 	rm -f $(OBJS) $(OBJS:.o=.o64) $(OBJS:.o=.ii) $(OBJS:.o=.lst) $(OBJS:.o=.s) $(OBJS:.o=.o_debug) $(OBJS:.o=.o64_debug) $(OUTNAME)$(SUFFIX) $(OUTNAME)_debug$(SUFFIX) retcon.h.gch
-	rm -f $(ROBJS) $(ROBJS:.o=.o64) $(ROBJS:.o=.ii) $(ROBJS:.o=.lst) $(ROBJS:.o=.s) $(ROBJS:.o=.o_debug) $(ROBJS:.o=.o64_debug)
 
 mostlyclean: quickclean
 	rm -f $(TCOBJS) $(TCOBJS:.o=.o64) $(TCOBJS:.o=.ii) $(TCOBJS:.o=.lst) $(TCOBJS:.o=.s) $(TCOBJS:.o=.o_debug) $(TCOBJS:.o=.o64_debug)
+	rm -f $(SPOBJS) $(SPOBJS:.o=.o64) $(SPOBJS:.o=.ii) $(SPOBJS:.o=.lst) $(SPOBJS:.o=.s) $(SPOBJS:.o=.o_debug) $(SPOBJS:.o=.o64_debug)
 
 clean: mostlyclean
 	rm -f $(EXOBJS) $(EXOBJS:.o=.o64) $(EXOBJS:.o=.ii) $(EXOBJS:.o=.lst) $(EXOBJS:.o=.s) $(EXOBJS:.o=.o_debug) $(EXOBJS:.o=.o64_debug)
+	rm -f $(ROBJS) $(ROBJS:.o=.o64)
 
 install:
 ifeq "$(PLATFORM)" "WIN"
