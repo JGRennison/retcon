@@ -12,6 +12,11 @@ wxBitmap MkScaledBitmap(const wxImage &img, int maxx, int maxy) {
 	else return wxBitmap(img);
 }
 
+void MkImgBitmap(const wxImage &inimg, wxBitmap *bmp, wxImage *img) {
+	if(img) *img=inimg;
+	if(bmp) *bmp=wxBitmap(inimg);
+}
+
 wxImage MkImage(unsigned char *data, size_t len) {
 	wxMemoryInputStream memstream(data, len);
 	wxImage img(memstream);

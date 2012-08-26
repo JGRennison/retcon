@@ -402,7 +402,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 				DoEventParse(dc);
 			}
 			else if(ival.IsNumber() && tval.IsString() && dc["recipient"].IsObject() && dc["sender"].IsObject()) {	//assume this is a direct message
-				DoTweetParse(dc, true);
+				DoTweetParse(dc, JDTP_ISDM);
 			}
 			else if(ival.IsNumber() && tval.IsString() && dc["user"].IsObject()) {	//assume that this is a tweet
 				DoTweetParse(dc);

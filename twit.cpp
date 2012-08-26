@@ -394,23 +394,30 @@ bool userdatacontainer::NeedsUpdating(unsigned int updcf_flags) {
 }
 
 bool userdatacontainer::ImgIsReady(unsigned int updcf_flags) {
-	if(cached_profile_img_url.size() && !(udc_flags&UDC_PROFILE_BITMAP_SET))  {
-		wxImage img;
-		wxString filename;
-		GetImageLocalFilename(filename);
-		bool success=LoadImageFromFileAndCheckHash(filename, cached_profile_img_sha1, img);
-		if(success) SetProfileBitmapFromwxImage(img);
-		else {
-			LogMsgFormat(LFT_OTHERERR, wxT("userdatacontainer::ImgIsReady, cached profile image file for user id: %" wxLongLongFmtSpec "d (%s), file: %s, url: %s, missing, invalid or failed hash check"),
-				id, wxstrstd(GetUser().screen_name).c_str(), filename.c_str(), wxstrstd(cached_profile_img_url).c_str());
-			cached_profile_img_url.clear();
-			if(updcf_flags&UPDCF_DOWNLOADIMG) {					//the saved image is not loadable, clear cache and re-download
-				profileimgdlconn::GetConn(user.profile_img_url, shared_from_this());
-			}
+	if(udc_flags & UDC_IMAGE_DL_IN_PROGRESS) return false;
+	if(user.profile_img_url.size()) {
+		if(cached_profile_img_url!=user.profile_img_url) {
+			profileimgdlconn::GetConn(user.profile_img_url, shared_from_this());
 			return false;
 		}
+		else if(cached_profile_img_url.size() && !(udc_flags&UDC_PROFILE_BITMAP_SET))  {
+			wxImage img;
+			wxString filename;
+			GetImageLocalFilename(filename);
+			bool success=LoadImageFromFileAndCheckHash(filename, cached_profile_img_sha1, img);
+			if(success) SetProfileBitmapFromwxImage(img);
+			else {
+				LogMsgFormat(LFT_OTHERERR, wxT("userdatacontainer::ImgIsReady, cached profile image file for user id: %" wxLongLongFmtSpec "d (%s), file: %s, url: %s, missing, invalid or failed hash check"),
+					id, wxstrstd(GetUser().screen_name).c_str(), filename.c_str(), wxstrstd(cached_profile_img_url).c_str());
+				cached_profile_img_url.clear();
+				if(updcf_flags&UPDCF_DOWNLOADIMG) {					//the saved image is not loadable, clear cache and re-download
+					profileimgdlconn::GetConn(user.profile_img_url, shared_from_this());
+				}
+				return false;
+			}
+		}
 	}
-	if(udc_flags & UDC_IMAGE_DL_IN_PROGRESS) return false;
+	else return false;
 	return true;
 }
 
@@ -489,11 +496,7 @@ void userdatacontainer::GetImageLocalFilename(wxString &filename) {
 
 void userdatacontainer::MarkUpdated() {
 	lastupdate=time(0);
-	if(user.profile_img_url.size()) {
-		if(cached_profile_img_url!=user.profile_img_url) {
-			profileimgdlconn::GetConn(user.profile_img_url, shared_from_this());
-		}
-	}
+	ImgIsReady(UPDCF_DOWNLOADIMG);
 }
 
 std::string userdatacontainer::mkjson() const {

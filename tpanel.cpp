@@ -281,6 +281,12 @@ tpanelparentwin::tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *
 		tpg=tpg_glob.lock();
 	}
 
+	// wxVisualAttributes va=wxRichTextCtrl::GetClassDefaultAttributes();
+	// wxColour col=va.colBg;
+	// if(!col.IsOk()) col=*wxWHITE;
+	// SetOwnBackgroundColour(col);
+	// SetBackgroundStyle(wxBG_STYLE_COLOUR);
+
 	//tpw = new tpanelwin(this);
 	//wxBoxSizer *vbox = new wxBoxSizer(wxHORIZONTAL);
 	//vbox->Add(tpw, 1, wxALIGN_TOP | wxEXPAND, 0);
@@ -404,7 +410,7 @@ tweetdispscr *tpanelparentwin::PushTweetIndex(const std::shared_ptr<tweet> &t, s
 			td->bm2 = new profimg_staticbitmap(scrollwin, t->user_recipient->cached_profile_img_half, t->user_recipient->id, t->id);
 			int dim=gc.maxpanelprofimgsize/2;
 			if(tpg->arrow_dim!=dim) {
-				tpg->arrow=GetArrowIcon(dim);
+				tpg->arrow=GetArrowIconDim(dim);
 				tpg->arrow_dim=dim;
 			}
 			wxStaticBitmap *arrow = new wxStaticBitmap(scrollwin, wxID_ANY, tpg->arrow, wxPoint(-1000, -1000));
@@ -416,9 +422,9 @@ tweetdispscr *tpanelparentwin::PushTweetIndex(const std::shared_ptr<tweet> &t, s
 			hbox->Add(gs, 0, wxALL, 2);
 	}
 
-	hbox->Add(td, 1, wxALL | wxEXPAND, 2);
+	hbox->Add(td, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
 
-	sizer->Insert(index, hbox, 0, wxALL | wxEXPAND, 2);
+	sizer->Insert(index, hbox, 0, wxALL | wxEXPAND, 1);
 	td->DisplayTweet();
 	return td;
 }
@@ -716,7 +722,7 @@ BEGIN_EVENT_TABLE(tweetdispscr, wxRichTextCtrl)
 END_EVENT_TABLE()
 
 tweetdispscr::tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin *tppw_, wxBoxSizer *hbox_)
-: wxRichTextCtrl(parent, wxID_ANY, wxEmptyString, wxPoint(-1000, -1000), wxDefaultSize, wxRE_READONLY | wxRE_MULTILINE),
+: wxRichTextCtrl(parent, wxID_ANY, wxEmptyString, wxPoint(-1000, -1000), wxDefaultSize, wxRE_READONLY | wxRE_MULTILINE | wxBORDER_NONE),
 td(td_), tppw(tppw_), tpsw(parent), hbox(hbox_), bm(0), bm2(0) {
 	GetCaret()->Hide();
 	if(td_->rtsrc) rtid=td_->rtsrc->id;
@@ -828,6 +834,19 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 				this->BeginURL(wxString::Format("U%" wxLongLongFmtSpec "d", u->id), this->GetDefaultStyleEx().GetCharacterStyleName());
 				break;
 			}
+			case 'p':
+				if(u->GetUser().u_flags&UF_ISPROTECTED) {
+					flush();
+					this->WriteImage(tppw->tpg->proticon_img);
+					SetInsertionPointEnd();
+				}
+				break;
+			case 'v':
+				if(u->GetUser().u_flags&UF_ISVERIFIED) {
+					flush();
+					this->WriteImage(tppw->tpg->verifiedicon_img);
+					SetInsertionPointEnd();
+				}
 			default:
 				break;
 		}
@@ -901,8 +920,9 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 				flush();
 				long curpos=GetInsertionPoint();
 				BeginURL(wxString::Format(wxT("X%c"), (wxChar) format[i]));
+				bool imginserted=false;
 				switch((wxChar) format[i]) {
-					case 'i': WriteImage(tppw->tpg->infoicon_img); break;
+					case 'i': WriteImage(tppw->tpg->infoicon_img); imginserted=true; break;
 					case 'f': {
 						wxImage &icon=tppw->tpg->favicon_img;
 						for(auto it=tw.tp_list.begin(); it!=tw.tp_list.end(); ++it) {
@@ -912,21 +932,34 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 							}
 						}
 						WriteImage(icon);
+						imginserted=true;
 						break;
 					}
-					case 'r': WriteImage(tppw->tpg->replyicon_img); break;
+					case 'r': WriteImage(tppw->tpg->replyicon_img); imginserted=true; break;
 					case 't': {
-						if(!tw.user_recipient && (tw.rtsrc || !(tw.user->GetUser().u_flags&UF_ISPROTECTED))) WriteText(wxT(" RT"));
+						if(!tw.user_recipient && (tw.rtsrc || !(tw.user->GetUser().u_flags&UF_ISPROTECTED))) {
+							wxImage &icon=tppw->tpg->retweeticon_img;
+							for(auto it=tw.tp_list.begin(); it!=tw.tp_list.end(); ++it) {
+								if(it->IsRetweeted()) {
+									icon=tppw->tpg->retweetonicon_img;
+									break;
+								}
+							}
+							WriteImage(icon);
+							imginserted=true;
+						}
 						break;
 					}
-					case 'd': WriteText(wxT(" DM")); break;
+					case 'd': WriteImage(tppw->tpg->dmreplyicon_img); imginserted=true; break;
 					default: break;
 				}
 				EndURL();
-				SetInsertionPointEnd();
-				wxTextAttrEx attr;
-				attr.SetURL(wxString::Format(wxT("X%c"), (wxChar) format[i]));
-				SetStyleEx(curpos, GetInsertionPoint(), attr, wxRICHTEXT_SETSTYLE_OPTIMIZE);
+				if(imginserted) {
+					SetInsertionPointEnd();
+					wxTextAttrEx attr;
+					attr.SetURL(wxString::Format(wxT("X%c"), (wxChar) format[i]));
+					SetStyleEx(curpos, GetInsertionPoint(), attr, wxRICHTEXT_SETSTYLE_OPTIMIZE);
+				}
 				break;
 			}
 			case '\'':
@@ -1045,6 +1078,9 @@ void tweetdispscr::urleventhandler(wxTextUrlEvent &event) {
 			tw.GetUsableAccount(acc_hint);
 			user_window::MkWin(userid, acc_hint);
 		}
+	}
+	else if(url[0]=='X') {
+
 	}
 	else {
 		unsigned long counter;
@@ -1391,19 +1427,20 @@ void profimg_staticbitmap::ClickHandler(wxMouseEvent &event) {
 }
 
 tpanelglobal::tpanelglobal() : arrow_dim(0) {
-	int targheight=0;
-	wxVisualAttributes va=wxRichTextCtrl::GetClassDefaultAttributes();
-	if(va.font.IsOk()) {
-		wxSize res=wxScreenDC().GetPPI();
-		targheight=2+((((double) va.font.GetPointSize())/72.0) * ((double) res.GetHeight()));
-	}
-	targheight=std::max(targheight,16);
-	infoicon=GetInfoIcon(targheight);
-	infoicon_img=infoicon.ConvertToImage();
-	replyicon=GetReplyIcon(targheight);
-	replyicon_img=replyicon.ConvertToImage();
-	favicon=GetFavIcon(targheight);
-	favicon_img=favicon.ConvertToImage();
-	favonicon=GetFavOnIcon(targheight);
-	favonicon_img=favonicon.ConvertToImage();
+	// int targheight=0;
+	// wxVisualAttributes va=wxRichTextCtrl::GetClassDefaultAttributes();
+	// if(va.font.IsOk()) {
+		// wxSize res=wxScreenDC().GetPPI();
+		// targheight=2+((((double) va.font.GetPointSize())/72.0) * ((double) res.GetHeight()));
+	// }
+	// targheight=std::max(targheight,16);
+	GetInfoIcon(&infoicon, &infoicon_img);
+	GetReplyIcon(&replyicon, &replyicon_img);
+	GetFavIcon(&favicon, &favicon_img);
+	GetFavOnIcon(&favonicon, &favonicon_img);
+	GetRetweetIcon(&retweeticon, &retweeticon_img);
+	GetRetweetOnIcon(&retweetonicon, &retweetonicon_img);
+	GetDMreplyIcon(&dmreplyicon, &dmreplyicon_img);
+	GetLockIcon(&proticon, &proticon_img);
+	GetVerifiedIcon(&verifiedicon, &verifiedicon_img);
 }

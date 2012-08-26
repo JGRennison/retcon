@@ -14,6 +14,16 @@ struct tpanelglobal {
 	wxImage favicon_img;
 	wxBitmap favonicon;
 	wxImage favonicon_img;
+	wxBitmap retweeticon;
+	wxImage retweeticon_img;
+	wxBitmap retweetonicon;
+	wxImage retweetonicon_img;
+	wxBitmap dmreplyicon;
+	wxImage dmreplyicon_img;
+	wxBitmap proticon;
+	wxImage proticon_img;
+	wxBitmap verifiedicon;
+	wxImage verifiedicon_img;
 
 	tpanelglobal();
 };
