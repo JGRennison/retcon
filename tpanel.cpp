@@ -7,7 +7,13 @@
 #include <wx/dcscreen.h>
 
 std::unordered_multimap<uint64_t, tpaneldbloadmap_data> tpaneldbloadmap;
-std::weak_ptr<tpanelglobal> tpg_glob;
+
+std::shared_ptr<tpanelglobal> tpanelglobal::Get() {
+	if(!tpg_glob) tpg_glob=std::make_shared<tpanelglobal>();
+	return tpg_glob;
+}
+
+std::shared_ptr<tpanelglobal> tpanelglobal::tpg_glob;
 
 static void PerAccTPanelMenu(wxMenu *menu, tpanelmenudata &map, int &nextid, unsigned int flagbase, unsigned int dbindex) {
 	map[nextid]={dbindex, flagbase|TPF_AUTO_TW};
@@ -273,13 +279,7 @@ tpanelparentwin::tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *
 	tp->twin.push_front(this);
 	tpanelparentwinlist.push_front(this);
 
-	if(tpg_glob.expired()) {
-		tpg=std::make_shared<tpanelglobal>();
-		tpg_glob=tpg;
-	}
-	else {
-		tpg=tpg_glob.lock();
-	}
+	tpg=tpanelglobal::Get();
 
 	// wxVisualAttributes va=wxRichTextCtrl::GetClassDefaultAttributes();
 	// wxColour col=va.colBg;
@@ -299,7 +299,7 @@ tpanelparentwin::tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *
 	outersizer->Add(headersizer, 0, wxALL | wxEXPAND, 0);
 	headersizer->Add(clabel, 0, wxALL, 2);
 	headersizer->AddStretchSpacer();
-	headersizer->Add(new wxButton(this, TPPWID_TOPBTN, wxT("Top \x2191"), wxPoint(-1000, -1000)), 0, wxALL, 2);
+	headersizer->Add(new wxButton(this, TPPWID_TOPBTN, wxT("Top \x2191"), wxPoint(-1000, -1000), wxDefaultSize, wxBU_EXACTFIT), 0, wxALL, 2);
 	outersizer->Add(scrollwin, 1, wxALL | wxEXPAND, 2);
 	outersizer->Add(new wxStaticText(this, wxID_ANY, wxT("Bar"), wxPoint(-1000, -1000)), 0, wxALL, 2);
 
@@ -838,15 +838,27 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 				if(u->GetUser().u_flags&UF_ISPROTECTED) {
 					flush();
 					this->WriteImage(tppw->tpg->proticon_img);
-					SetInsertionPointEnd();
+					this->SetInsertionPointEnd();
 				}
 				break;
 			case 'v':
 				if(u->GetUser().u_flags&UF_ISVERIFIED) {
 					flush();
 					this->WriteImage(tppw->tpg->verifiedicon_img);
-					SetInsertionPointEnd();
+					this->SetInsertionPointEnd();
 				}
+				break;
+			case 'd': {
+				long curpos=this->GetInsertionPoint();
+				this->BeginURL(wxString::Format(wxT("Xd%" wxLongLongFmtSpec "d"), u->id));
+				this->WriteImage(tppw->tpg->dmreplyicon_img);
+				this->EndURL();
+				this->SetInsertionPointEnd();
+				wxTextAttrEx attr;
+				attr.SetURL(wxString::Format(wxT("Xd%" wxLongLongFmtSpec "d"), u->id));
+				this->SetStyleEx(curpos, this->GetInsertionPoint(), attr, wxRICHTEXT_SETSTYLE_OPTIMIZE);
+				break;
+			}
 			default:
 				break;
 		}
@@ -950,7 +962,6 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 						}
 						break;
 					}
-					case 'd': WriteImage(tppw->tpg->dmreplyicon_img); imginserted=true; break;
 					default: break;
 				}
 				EndURL();
@@ -1080,7 +1091,23 @@ void tweetdispscr::urleventhandler(wxTextUrlEvent &event) {
 		}
 	}
 	else if(url[0]=='X') {
-
+		switch((wxChar) url[1]) {
+			case 'd': { //send dm
+				uint64_t userid;
+				ownstrtonum(userid, (wxChar*) &url[2], -1);
+				tppw->owner->tpw->SetDMTarget(ad.GetUserContainerById(userid));
+				break;
+			}
+			case 'r': //reply
+				tppw->owner->tpw->SetReplyTarget(td);
+				break;
+			case 'f': //fav
+				break;
+			case 't': //retweet
+				break;
+			case 'i': //info
+				break;
+		}
 	}
 	else {
 		unsigned long counter;

@@ -293,3 +293,14 @@ namespace std
 #ifdef __WINDOWS__
 #define strncasecmp _strnicmp
 #endif
+
+template <typename C, typename D> inline void ownstrtonum(C &val, D *str, ssize_t len) {
+	val=0;
+	for(ssize_t i=0; len<0 || i<len; i++) {
+		if(str[i]>='0' && str[i]<='9') {
+			val*=10;
+			val+=str[i]-'0';
+		}
+		else break;
+	}
+}

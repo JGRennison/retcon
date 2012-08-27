@@ -361,6 +361,9 @@ void twitcurlext::QueueAsyncExec() {
 		case CS_POSTTWEET:
 			statusUpdate(extra1, extra_id?std::to_string(extra_id):"", 1);
 			break;
+		case CS_SENDDM:
+			directMessageSend(std::to_string(extra_id), extra1, 1);
+			break;
 	}
 	if(currentlogflags&LFT_TWITACT) {
 		auto acc=tacc.lock();

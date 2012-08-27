@@ -25,7 +25,10 @@ struct tpanelglobal {
 	wxBitmap verifiedicon;
 	wxImage verifiedicon_img;
 
-	tpanelglobal();
+	static std::shared_ptr<tpanelglobal> Get();
+	static std::shared_ptr<tpanelglobal> tpg_glob;
+
+	tpanelglobal();	//use Get() instead
 };
 
 enum { tpanelmenustartid=wxID_HIGHEST+8001 };

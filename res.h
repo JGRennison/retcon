@@ -1,17 +1,18 @@
 #include <wx/image.h>
 #include <wx/bitmap.h>
 
+#define IMG_EXTERN(obj) \
+	extern "C" unsigned char res_##obj##_png_start[] asm("_binary_res_" #obj "_png_start"); \
+	extern "C" unsigned char res_##obj##_png_end[] asm("_binary_res_" #obj "_png_end");
 #define IMG_MACRO_DIM(name, obj) \
-	extern "C" unsigned char binary_res_##obj##_png_start[]; \
-	extern "C" unsigned char binary_res_##obj##_png_end[]; \
+	IMG_EXTERN(obj) \
 	inline wxBitmap Get##name##IconDim(int dim) { \
-		return MkScaledBitmap(MkImage(binary_res_##obj##_png_start, binary_res_##obj##_png_end-binary_res_##obj##_png_start), dim, dim); \
+		return MkScaledBitmap(MkImage(res_##obj##_png_start, res_##obj##_png_end-res_##obj##_png_start), dim, dim); \
 	}
 #define IMG_MACRO(name, obj) \
-	extern "C" unsigned char binary_res_##obj##_png_start[]; \
-	extern "C" unsigned char binary_res_##obj##_png_end[]; \
+	IMG_EXTERN(obj) \
 	inline void Get##name##Icon(wxBitmap *bmp, wxImage *img) { \
-		MkImgBitmap(MkImage(binary_res_##obj##_png_start, binary_res_##obj##_png_end-binary_res_##obj##_png_start), bmp, img); \
+		MkImgBitmap(MkImage(res_##obj##_png_start, res_##obj##_png_end-res_##obj##_png_start), bmp, img); \
 	}
 
 wxBitmap MkScaledBitmap(const wxImage &img, int maxx, int maxy);

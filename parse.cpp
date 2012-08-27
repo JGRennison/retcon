@@ -324,7 +324,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 		free(json);
 		return false;
 	}
-	
+
 	if(twit && twit->ownermainframe && std::find(mainframelist.begin(), mainframelist.end(), twit->ownermainframe)==mainframelist.end()) twit->ownermainframe=0;
 
 	switch(type) {
@@ -342,7 +342,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 					return false;
 				}
 			}
-			
+
 			if(tac->usercont && tac->usercont->id && tac->usercont->id!=auser->id) {
 				wxString message=wxString::Format(wxT("Error, attempted to re-assign account to a different twitter account.\nAttempted to assign to: %s, @%s, id: %" wxLongLongFmtSpec "d\nInstead of: %s, @%s, id: %" wxLongLongFmtSpec "d\nThis account will be disabled. Re-authenticate the account to the correct twitter account."),
 					wxstrstd(auser->GetUser().name).c_str(), wxstrstd(auser->GetUser().screen_name).c_str(), auser->id,
@@ -426,6 +426,11 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 		}
 		case CS_POSTTWEET: {
 			DoTweetParse(dc);
+			if(twit && twit->ownermainframe && twit->ownermainframe->tpw) twit->ownermainframe->tpw->NotifyPostResult(true);
+			break;
+		}
+		case CS_SENDDM: {
+			DoTweetParse(dc, JDTP_ISDM);
 			if(twit && twit->ownermainframe && twit->ownermainframe->tpw) twit->ownermainframe->tpw->NotifyPostResult(true);
 			break;
 		}

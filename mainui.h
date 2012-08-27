@@ -35,11 +35,6 @@ public:
 	DECLARE_EVENT_TABLE()
 };
 
-enum {
-	TPWID_TEXTCTRL = 1,
-	TPWIN_SENDBTN,
-};
-
 struct tweetposttextbox : public wxRichTextCtrl {
 	tweetpostwin *parent;
 	int lastheight;
@@ -52,8 +47,15 @@ struct tweetposttextbox : public wxRichTextCtrl {
                                int noUnitsX, int noUnitsY,
                                int xPos = 0, int yPos = 0,
                                bool noRefresh = false );	//virtual override
+	void SetCursorToEnd();
 
 	DECLARE_EVENT_TABLE()
+};
+
+enum {
+	TPWID_TEXTCTRL = 1,
+	TPWIN_SENDBTN,
+	TPWID_CLOSEREPDESC,
 };
 
 struct tweetpostwin : public wxPanel {
@@ -71,9 +73,14 @@ struct tweetpostwin : public wxPanel {
 	wxBoxSizer *vbox;
 	bool resize_update_pending;
 	bool currently_posting;
+	bool tc_has_focus;
 	unsigned int current_length;
 	bool length_oob;
 	wxColour infost_colout;
+	wxStaticText *replydesc;
+	wxBitmapButton *replydesclosebtn;
+	std::shared_ptr<tweet> tweet_reply_targ;
+	std::shared_ptr<userdatacontainer> dm_targ;
 
 	tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *parentauim=0);
 	~tweetpostwin();
@@ -86,6 +93,11 @@ struct tweetpostwin : public wxPanel {
 	void OnTCFocus(wxFocusEvent &event);
 	void OnTCUnFocus(wxFocusEvent &event);
 	void NotifyPostResult(bool success);
+	void UpdateReplyDesc();
+	void SetReplyTarget(const std::shared_ptr<tweet> &targ);
+	void SetDMTarget(const std::shared_ptr<userdatacontainer> &targ);
+	void DoCheckFocusDisplay(bool force=false);
+	void OnCloseReplyDescBtn(wxCommandEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };

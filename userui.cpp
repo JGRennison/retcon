@@ -314,7 +314,11 @@ void user_window::OnFollowBtn(wxCommandEvent &event) {
 }
 
 void user_window::OnDMBtn(wxCommandEvent &event) {
-
+	mainframe *win=GetMainframeAncestor(this);
+	if(!win) win=mainframelist.front();
+	if(win) {
+		win->tpw->SetDMTarget(u);
+	}
 }
 
 user_window *user_window::GetWin(uint64_t userid_) {
@@ -373,7 +377,7 @@ void user_window_timer::Notify() {
 std::weak_ptr<user_window_timer> user_window::uwt_common;
 
 BEGIN_EVENT_TABLE(user_lookup_dlg, wxDialog)
-EVT_TEXT_ENTER(wxID_FILE2, user_lookup_dlg::OnTCEnter) 
+EVT_TEXT_ENTER(wxID_FILE2, user_lookup_dlg::OnTCEnter)
 END_EVENT_TABLE()
 
 user_lookup_dlg::user_lookup_dlg(wxWindow *parent, int *type, wxString *value, std::shared_ptr<taccount> &acc)
@@ -396,7 +400,7 @@ user_lookup_dlg::user_lookup_dlg(wxWindow *parent, int *type, wxString *value, s
 	hboxfooter->AddStretchSpacer();
 	hboxfooter->Add(okbtn, 0, wxALL | wxALIGN_BOTTOM | wxALIGN_RIGHT, 2);
 	hboxfooter->Add(cancelbtn, 0, wxALL | wxALIGN_BOTTOM | wxALIGN_RIGHT, 2);
-	
+
 	tc->SetFocus();
 
 	SetSizer(vbox);

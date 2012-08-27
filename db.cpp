@@ -760,7 +760,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 void dbconn::DeInit() {
 	if(!isinited) return;
 	isinited=false;
-	
+
 	LogMsg(LFT_DBTRACE, wxT("dbconn::DeInit"));
 
 	SendMessage(new dbsendmsg(DBSM_QUIT));
@@ -879,7 +879,7 @@ void dbconn::AccountSync(sqlite3 *adb) {
 			setfromcompressedblob([&](uint64_t &id) { ta->dm_ids.insert(id); }, getstmt, 3);
 			uint64_t userid=(uint64_t) sqlite3_column_int64(getstmt, 4);
 			ta->usercont=ad.GetUserContainerById(userid);
-			ta->dispname=wxString::FromUTF8((const char*) sqlite3_column_text(getstmt, 1));
+			ta->dispname=wxString::FromUTF8((const char*) sqlite3_column_text(getstmt, 5));
 		}
 		else break;
 	} while(true);
@@ -944,10 +944,8 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 		int res=sqlite3_step(stmt);
 		if(res==SQLITE_ROW) {
 			uint64_t id=(uint64_t) sqlite3_column_int64(stmt, 0);
-			std::shared_ptr<userdatacontainer> &ref=ad.userconts[id]=std::make_shared<userdatacontainer>();
+			std::shared_ptr<userdatacontainer> &ref=ad.GetUserContainerById(id);
 			userdatacontainer &u=*ref.get();
-			u.id=id;
-			u.udc_flags=0;
 			rapidjson::Document dc;
 			char *json=column_get_compressed_and_parse(stmt, 1, dc);
 			if(dc.IsObject()) genjsonparser::ParseUserContents(dc, u.user);
@@ -1070,7 +1068,7 @@ void dbconn::SyncReadInAllMediaEntities(sqlite3 *adb) {
 				me.flags|=ME_LOAD_THUMB;
 			}
 			else memset(me.thumb_img_sha1, 0, sizeof(me.thumb_img_sha1));
-			
+
 			DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncReadInAllMediaEntities retrieved media entity %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d"), id.m_id, id.t_id);
 		}
 		else if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("dbconn::SyncReadInAllMediaEntities got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }

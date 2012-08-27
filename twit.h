@@ -218,6 +218,7 @@ typedef enum {
 	CS_FRIENDACTION_FOLLOW,
 	CS_FRIENDACTION_UNFOLLOW,
 	CS_POSTTWEET,
+	CS_SENDDM,
 } CS_ENUMTYPE;
 
 //for post_action_flags

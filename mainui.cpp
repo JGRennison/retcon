@@ -191,8 +191,15 @@ void tweetposttextbox::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 	}
 }
 
+void tweetposttextbox::SetCursorToEnd() {
+	SetCaretPosition(GetLastPosition());
+	SetFocus();
+	if(parent && parent->mparentwin) parent->mparentwin->Raise();
+}
+
 BEGIN_EVENT_TABLE(tweetpostwin, wxPanel)
 	EVT_BUTTON(TPWIN_SENDBTN, tweetpostwin::OnSendBtn)
+	EVT_BUTTON(TPWID_CLOSEREPDESC, tweetpostwin::OnCloseReplyDescBtn)
 	EVT_COMMAND(wxID_ANY, wxextTPRESIZE_UPDATE_EVENT, tweetpostwin::resizemsghandler)
 END_EVENT_TABLE()
 
@@ -203,13 +210,23 @@ void tpw_acc_callback(void *userdata, acc_choice *src, bool isgoodacc) {
 }
 
 tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *parentauim)
-	: wxPanel(parent, wxID_ANY, wxPoint(-1000, -1000)), parentwin(parent), mparentwin(mparent), pauim(0), isshown(false), resize_update_pending(true), currently_posting(false), current_length(0), length_oob(false) {
+	: wxPanel(parent, wxID_ANY, wxPoint(-1000, -1000)), parentwin(parent), mparentwin(mparent),
+	pauim(0), isshown(false), resize_update_pending(true), currently_posting(false), tc_has_focus(false),
+	current_length(0), length_oob(false) {
 
 	vbox = new wxBoxSizer(wxVERTICAL);
 	infost=new wxStaticText(this, wxID_ANY, wxT("0/140"), wxPoint(-1000, -1000));
 	statusst=new wxStaticText(this, wxID_ANY, wxT(""), wxPoint(-1000, -1000));
+	replydesc=new wxStaticText(this, wxID_ANY, wxT(""), wxPoint(-1000, -1000), wxDefaultSize, wxST_NO_AUTORESIZE);
+	replydesclosebtn=new wxBitmapButton(this, TPWID_CLOSEREPDESC, tpanelglobal::Get()->infoicon, wxPoint(-1000, -1000));
+	wxBoxSizer *replydescbox= new wxBoxSizer(wxHORIZONTAL);
+	replydescbox->Add(replydesc, 1, wxEXPAND | wxALL, 1);
+	replydescbox->Add(replydesclosebtn, 0, wxALL, 1);
 	textctrl=new tweetposttextbox(this, wxT(""), TPWID_TEXTCTRL);
+	vbox->Add(replydescbox, 0, wxEXPAND | wxALL, 2);
 	vbox->Add(textctrl, 0, wxEXPAND | wxALL, 2);
+	replydesc->Show(false);
+	replydescbox->Show(false);
 
 	wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
 	vbox->Add(hbox, 0, wxEXPAND | wxALL, 2);
@@ -252,9 +269,15 @@ void tweetpostwin::OnSendBtn(wxCommandEvent &event) {
 		OnTCChange();
 		twitcurlext *twit=curacc->cp.GetConn();
 		twit->TwInit(curacc);
-		twit->connmode=CS_POSTTWEET;
 		twit->extra1=textctrl->GetValue().ToUTF8();
-		twit->extra_id=0;
+		if(dm_targ) {
+			twit->connmode=CS_SENDDM;
+			twit->extra_id=dm_targ->id;
+		}
+		else {
+			twit->connmode=CS_POSTTWEET;
+			twit->extra_id=(tweet_reply_targ)?tweet_reply_targ->id:0;
+		}
 		twit->ownermainframe=mparentwin;
 		twit->QueueAsyncExec();
 	}
@@ -277,28 +300,37 @@ void tweetpostwin::DoShowHide(bool show) {
 		pauim->AddPane(this, pi);
 		pauim->Update();
 	}
-	else {
+	else {textctrl->SetCursorToEnd();
 		Fit();
 	}
 }
 
 void tweetpostwin::OnTCFocus(wxFocusEvent &event) {
-	if(!isshown) DoShowHide(true);
+	tc_has_focus=true;
+	DoCheckFocusDisplay();
 	event.Skip();
 }
+
 void tweetpostwin::OnTCUnFocus(wxFocusEvent &event) {
-	if(isshown && textctrl && textctrl->IsEmpty()) {
-		wxWindow *checkwin=event.GetWindow();
-		while(true) {
-			if(!checkwin) {
-				DoShowHide(false);
-				break;
-			}
-			else if(checkwin==this) break;
-			checkwin=checkwin->GetParent();
+	wxWindow *checkwin=event.GetWindow();
+	while(true) {
+		if(!checkwin) {
+			tc_has_focus=false;
+			DoCheckFocusDisplay();
+			break;
 		}
+		else if(checkwin==this) break;
+		checkwin=checkwin->GetParent();
 	}
 	event.Skip();
+}
+
+void tweetpostwin::DoCheckFocusDisplay(bool force) {
+	bool shouldshow=false;
+	if(!textctrl->IsEmpty()) shouldshow=true;
+	if(dm_targ || tweet_reply_targ) shouldshow=true;
+	if(tc_has_focus) shouldshow=true;
+	if(isshown != shouldshow || force) DoShowHide(shouldshow);
 }
 
 void tweetpostwin::OnTCChange() {
@@ -339,4 +371,50 @@ void tweetpostwin::NotifyPostResult(bool success) {
 	if(success) textctrl->Clear();
 	currently_posting=false;
 	OnTCChange();
+}
+
+void tweetpostwin::UpdateReplyDesc() {
+	if(tweet_reply_targ) {
+		replydesc->SetLabel(wxT("Reply to: @") + wxstrstd(tweet_reply_targ->user->GetUser().screen_name) + wxT(": ") + wxstrstd(tweet_reply_targ->text));
+		replydesc->Show(true);
+		replydesclosebtn->Show(true);
+		sendbtn->SetLabel(wxT("Reply"));
+	}
+	else if(dm_targ) {
+		replydesc->SetLabel(wxT("Direct Message: @") + wxstrstd(dm_targ->GetUser().screen_name));
+		replydesc->Show(true);
+		replydesclosebtn->Show(true);
+		sendbtn->SetLabel(wxT("Send DM"));
+	}
+	else {
+		replydesc->Show(false);
+		replydesclosebtn->Show(false);
+		sendbtn->SetLabel(wxT("Send"));
+	}
+	DoCheckFocusDisplay(true);
+}
+
+void tweetpostwin::OnCloseReplyDescBtn(wxCommandEvent &event) {
+	tweet_reply_targ.reset();
+	dm_targ.reset();
+	UpdateReplyDesc();
+}
+
+void tweetpostwin::SetReplyTarget(const std::shared_ptr<tweet> &targ) {
+	wxString curtext=textctrl->GetValue();
+	if(targ && true) {	//regex goes here
+		textctrl->SetInsertionPoint(0);
+		textctrl->WriteText(wxT("@") + wxstrstd(targ->user->GetUser().screen_name) + wxT(" "));
+		OnTCChange();
+	}
+	tweet_reply_targ=targ;
+	dm_targ.reset();
+	UpdateReplyDesc();
+	textctrl->SetCursorToEnd();
+}
+void tweetpostwin::SetDMTarget(const std::shared_ptr<userdatacontainer> &targ) {
+	tweet_reply_targ.reset();
+	dm_targ=targ;
+	UpdateReplyDesc();
+	textctrl->SetCursorToEnd();
 }
