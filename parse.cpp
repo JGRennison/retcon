@@ -189,8 +189,9 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 			uint64_t userid;
 			if(!CheckTransJsonValueDef(userid, user_mentions[i], "id", 0)) { t->entlist.pop_front(); continue; }
 			if(!CheckTransJsonValueDef(en->text, user_mentions[i], "screen_name", "")) { t->entlist.pop_front(); continue; }
-			en->text="@"+en->text;
 			en->user=ad.GetUserContainerById(userid);
+			if(en->user->GetUser().screen_name.empty()) en->user->GetUser().screen_name=en->text;
+			en->text="@"+en->text;
 			if(en->user->udc_flags&UDC_THIS_IS_ACC_USER_HINT) t->flags.Set('M', true);
 			if(isnew) {
 				en->user->mention_index.push_back(t->id);

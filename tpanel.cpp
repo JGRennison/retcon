@@ -9,11 +9,15 @@
 std::unordered_multimap<uint64_t, tpaneldbloadmap_data> tpaneldbloadmap;
 
 std::shared_ptr<tpanelglobal> tpanelglobal::Get() {
-	if(!tpg_glob) tpg_glob=std::make_shared<tpanelglobal>();
-	return tpg_glob;
+	if(tpg_glob.expired()) {
+		std::shared_ptr<tpanelglobal> tmp=std::make_shared<tpanelglobal>();
+		tpg_glob=tmp;
+		return tmp;
+	}
+	else return tpg_glob.lock();
 }
 
-std::shared_ptr<tpanelglobal> tpanelglobal::tpg_glob;
+std::weak_ptr<tpanelglobal> tpanelglobal::tpg_glob;
 
 static void PerAccTPanelMenu(wxMenu *menu, tpanelmenudata &map, int &nextid, unsigned int flagbase, unsigned int dbindex) {
 	map[nextid]={dbindex, flagbase|TPF_AUTO_TW};
@@ -747,25 +751,31 @@ static void DoWriteSubstr(tweetdispscr &td, const std::string &str, int start, i
 		if(track_index==end) break;
 		if(str[track_byte]=='&') {
 			char rep=0;
+			int delta=0;
 			if(str[track_byte+1]=='l' && str[track_byte+2]=='t' && str[track_byte+3]==';') {
 				rep='<';
+				delta=4;
 			}
 			else if(str[track_byte+1]=='g' && str[track_byte+2]=='t' && str[track_byte+3]==';') {
 				rep='>';
+				delta=4;
 			}
 			else if(str[track_byte+1]=='q' && str[track_byte+2]=='u' && str[track_byte+3]=='o' && str[track_byte+4]=='t' && str[track_byte+5]==';') {
 				rep='\'';
+				delta=6;
 			}
 			else if(str[track_byte+1]=='#' && str[track_byte+2]=='3' && str[track_byte+3]=='9' && str[track_byte+4]==';') {
 				rep='"';
+				delta=5;
 			}
 			else if(str[track_byte+1]=='a' && str[track_byte+2]=='m' && str[track_byte+3]=='p' && str[track_byte+4]==';') {
 				rep='&';
+				delta=5;
 			}
 			if(rep) {
 				td.WriteText(wxString::FromUTF8(&str[start_offset], track_byte-start_offset));
-				track_index+=4;
-				track_byte+=4;
+				track_index+=delta;
+				track_byte+=delta;
 				td.WriteText(wxString((wxChar) rep));
 				start_offset=track_byte;
 				continue;
@@ -1470,4 +1480,5 @@ tpanelglobal::tpanelglobal() : arrow_dim(0) {
 	GetDMreplyIcon(&dmreplyicon, &dmreplyicon_img);
 	GetLockIcon(&proticon, &proticon_img);
 	GetVerifiedIcon(&verifiedicon, &verifiedicon_img);
+	GetCloseIcon(&closeicon, 0);
 }

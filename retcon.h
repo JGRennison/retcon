@@ -157,13 +157,14 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	unsigned int ta_flags;
 	unsigned long restinterval;	//seconds
 	uint64_t max_tweet_id;
+	uint64_t max_mention_id;
 	uint64_t max_recvdm_id;
 	uint64_t max_sentdm_id;
 
 	uint64_t &GetMaxId(RBFS_TYPE type) {
 		switch(type) {
 			case RBFS_TWEETS: return max_tweet_id;
-			case RBFS_MENTIONS: return max_tweet_id;
+			case RBFS_MENTIONS: return (gc.assumementionistweet)?max_tweet_id:max_mention_id;
 			case RBFS_RECVDM: return max_recvdm_id;
 			case RBFS_SENTDM: return max_sentdm_id;
 			default: return max_tweet_id;
@@ -257,6 +258,9 @@ inline wxString wxstrstd(const char *ch) {
 }
 inline wxString wxstrstd(const char *ch, size_t len) {
 	return wxString::FromUTF8(ch, len);
+}
+inline std::string stdstrwx(const wxString &st) {
+	return std::string(st.ToUTF8());
 }
 std::string hexify(const std::string &in);
 wxString hexify_wx(const std::string &in);

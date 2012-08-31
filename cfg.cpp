@@ -22,6 +22,7 @@ genoptglobconf gcglobdefaults {
 	{ wxT("0"), 1 },
 	{ wxT("1"), 1 },
 	{ wxT("1"), 1 },
+	{ wxT("0"), 1 },
 };
 
 void taccount::CFGWriteOut(DBWriteConfig &twfc) {
@@ -33,6 +34,7 @@ void taccount::CFGWriteOut(DBWriteConfig &twfc) {
 	twfc.WriteInt64("max_tweet_id", max_tweet_id);
 	twfc.WriteInt64("max_recvdm_id", max_recvdm_id);
 	twfc.WriteInt64("max_sentdm_id", max_sentdm_id);
+	twfc.WriteInt64("max_mention_id", max_mention_id);
 	twfc.WriteWX("dispname", dispname);
 }
 
@@ -45,6 +47,7 @@ void taccount::CFGReadIn(DBReadConfig &twfc) {
 	twfc.ReadUInt64("max_tweet_id", &max_tweet_id, 0);
 	twfc.ReadUInt64("max_recvdm_id", &max_recvdm_id, 0);
 	twfc.ReadUInt64("max_sentdm_id", &max_sentdm_id, 0);
+	twfc.ReadUInt64("max_mention_id", &max_mention_id, 0);
 	twfc.Read("dispname", &dispname, wxT(""));
 	CFGParamConv();
 }
@@ -73,6 +76,7 @@ void globconf::CFGParamConv() {
 	cachemedia=(gcfg.cachemedia.val==wxT("1"));
 	persistentmediacache=(gcfg.persistentmediacache.val==wxT("1"));
 	rtdisp=(gcfg.rtdisp.val==wxT("1"));
+	assumementionistweet=(gcfg.assumementionistweet.val==wxT("1"));
 }
 
 void genoptconf::CFGWriteOutCurDir(DBWriteConfig &twfc) {
@@ -110,6 +114,7 @@ void genoptglobconf::CFGWriteOut(DBWriteConfig &twfc) {
 	cachemedia.CFGWriteOutCurDir(twfc, "cachemedia");
 	persistentmediacache.CFGWriteOutCurDir(twfc, "persistentmediacache");
 	rtdisp.CFGWriteOutCurDir(twfc, "rtdisp");
+	assumementionistweet.CFGWriteOutCurDir(twfc, "assumementionistweet");
 }
 void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent) {
 	twfc.SetDBIndexGlobal();
@@ -124,6 +129,7 @@ void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent)
 	cachemedia.CFGReadInCurDir(twfc, "cachemedia", parent.cachemedia.val);
 	persistentmediacache.CFGReadInCurDir(twfc, "persistentmediacache", parent.persistentmediacache.val);
 	rtdisp.CFGReadInCurDir(twfc, "rtdisp", parent.rtdisp.val);
+	assumementionistweet.CFGReadInCurDir(twfc, "assumementionistweet", parent.assumementionistweet.val);
 }
 
 void genopt::CFGWriteOutCurDir(DBWriteConfig &twfc, const char *name) {

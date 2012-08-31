@@ -1,5 +1,6 @@
 #include "retcon.h"
 #include "libtwitcurl/urlencode.h"
+#include <wx/msgdlg.h>
 
 BEGIN_EVENT_TABLE(mainframe, wxFrame)
 	EVT_MENU(ID_Quit,  mainframe::OnQuit)
@@ -218,7 +219,7 @@ tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *p
 	infost=new wxStaticText(this, wxID_ANY, wxT("0/140"), wxPoint(-1000, -1000));
 	statusst=new wxStaticText(this, wxID_ANY, wxT(""), wxPoint(-1000, -1000));
 	replydesc=new wxStaticText(this, wxID_ANY, wxT(""), wxPoint(-1000, -1000), wxDefaultSize, wxST_NO_AUTORESIZE);
-	replydesclosebtn=new wxBitmapButton(this, TPWID_CLOSEREPDESC, tpanelglobal::Get()->infoicon, wxPoint(-1000, -1000));
+	replydesclosebtn=new wxBitmapButton(this, TPWID_CLOSEREPDESC, tpanelglobal::Get()->closeicon, wxPoint(-1000, -1000));
 	wxBoxSizer *replydescbox= new wxBoxSizer(wxHORIZONTAL);
 	replydescbox->Add(replydesc, 1, wxEXPAND | wxALL, 1);
 	replydescbox->Add(replydesclosebtn, 0, wxALL, 1);
@@ -264,12 +265,17 @@ tweetpostwin::~tweetpostwin() {
 }
 
 void tweetpostwin::OnSendBtn(wxCommandEvent &event) {
+	std::string curtext=stdstrwx(textctrl->GetValue());
 	if(isgoodacc && curacc && !currently_posting && !textctrl->IsEmpty() && current_length<=140) {
+		if(tweet_reply_targ && !IsUserMentioned(curtext, tweet_reply_targ->user)) {
+			int res=::wxMessageBox(wxString::Format(wxT("User: @%s is not mentioned in this tweet. Reply anyway?"), wxstrstd(tweet_reply_targ->user->GetUser().screen_name).c_str()), wxT("Confirm"), wxYES_NO | wxICON_QUESTION, this);
+			if(res!=wxYES) return;
+		}
 		currently_posting=true;
 		OnTCChange();
 		twitcurlext *twit=curacc->cp.GetConn();
 		twit->TwInit(curacc);
-		twit->extra1=textctrl->GetValue().ToUTF8();
+		twit->extra1=curtext;
 		if(dm_targ) {
 			twit->connmode=CS_SENDDM;
 			twit->extra_id=dm_targ->id;
@@ -400,13 +406,29 @@ void tweetpostwin::OnCloseReplyDescBtn(wxCommandEvent &event) {
 	UpdateReplyDesc();
 }
 
-void tweetpostwin::SetReplyTarget(const std::shared_ptr<tweet> &targ) {
-	wxString curtext=textctrl->GetValue();
-	if(targ && true) {	//regex goes here
-		textctrl->SetInsertionPoint(0);
-		textctrl->WriteText(wxT("@") + wxstrstd(targ->user->GetUser().screen_name) + wxT(" "));
-		OnTCChange();
+void CheckUserMentioned(bool &changed, const std::shared_ptr<userdatacontainer> &user, tweetposttextbox *textctrl) {
+	if(user && !IsUserMentioned(stdstrwx(textctrl->GetValue()), user)) {
+		textctrl->WriteText(wxT("@") + wxstrstd(user->GetUser().screen_name) + wxT(" "));
+		changed=true;
 	}
+}
+
+void tweetpostwin::SetReplyTarget(const std::shared_ptr<tweet> &targ) {
+	textctrl->SetInsertionPoint(0);
+	bool changed=false;
+	if(targ) {
+		const std::shared_ptr<tweet> *checktweet;
+		CheckUserMentioned(changed, targ->user, textctrl);
+		if(targ->rtsrc) {
+			CheckUserMentioned(changed, targ->rtsrc->user, textctrl);
+			checktweet=&targ->rtsrc;
+		}
+		else checktweet=&targ;
+		for(auto it=(*checktweet)->entlist.begin(); it!=(*checktweet)->entlist.end(); ++it) {
+			if(it->type==ENT_MENTION) CheckUserMentioned(changed, it->user, textctrl);
+		}
+	}
+	if(changed) OnTCChange();
 	tweet_reply_targ=targ;
 	dm_targ.reset();
 	UpdateReplyDesc();

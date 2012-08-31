@@ -156,7 +156,7 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 		cleanup=true;
 	}
 	else if(!tweets_to_get) {
-		if(rbfs->type==RBFS_TWEETS) {
+		if(rbfs->type==RBFS_TWEETS && gc.assumementionistweet) {
 			rbfs->max_tweets_left=800;
 			tweets_to_get=200;
 			rbfs->type=RBFS_MENTIONS;
@@ -837,6 +837,17 @@ void ParseTwitterDate(struct tm *createtm, time_t *createtm_t, const std::string
 #define INVALID_URL_WITHOUT_PROTOCOL_MATCH_BEGIN "[-_./]$"
 #define VALID_TCO_URL "^https?://t\\.co/[a-z0-9]+"
 
+#define UNICODE_SPACES "[\\x{0009}-\\x{000d}\\x{0020}\\x{0085}\\x{00a0}\\x{1680}\\x{180E}\\x{2000}-\\x{200a}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}]"
+#define AT_SIGNS_CHARS "@\\x{FF20}"
+#define AT_SIGNS "[" AT_SIGNS_CHARS "]"
+#define VALID_REPLY "^(?:" UNICODE_SPACES ")*" AT_SIGNS "([a-z0-9_]{1,20})"
+#define VALID_MENTION_OR_LIST "([^a-z0-9_!#$%&*" AT_SIGNS_CHARS "]|^|RT:?)(" AT_SIGNS "+)([a-z0-9_]{1,20})(/[a-z][a-z0-9_\\-]{0,24})?"
+#define INVALID_MENTION_MATCH_END "^(?:[" AT_SIGNS_CHARS LATIN_ACCENTS_CHARS "]|://)"
+#define MENTION_NEG_ASSERT "(?![" AT_SIGNS_CHARS LATIN_ACCENTS_CHARS "]|://)"
+#define VALID_MENTION_OR_LIST_ASSERT VALID_MENTION_OR_LIST MENTION_NEG_ASSERT
+#define IS_USER_MENTIONED_1ST "([^a-z0-9_!#$%&*" AT_SIGNS_CHARS "]|^|RT:?)(" AT_SIGNS "+)("
+#define IS_USER_MENTIONED_2ND ")(/[a-z][a-z0-9_\\-]{0,24})?" MENTION_NEG_ASSERT
+
 unsigned int TwitterCharCount(const char *in, size_t inlen) {
 	static pcre *pattern=0;
 	static pcre_extra *patextra=0;
@@ -902,4 +913,18 @@ unsigned int TwitterCharCount(const char *in, size_t inlen) {
 	}
 	free(comp);
 	return outsize;
+}
+
+bool IsUserMentioned(const char *in, size_t inlen, const std::shared_ptr<userdatacontainer> &u) {
+	const char *errptr;
+	int erroffset;
+	std::string pat=IS_USER_MENTIONED_1ST + u->GetUser().screen_name + IS_USER_MENTIONED_2ND;
+	pcre *pattern=pcre_compile(pat.c_str(), PCRE_UCP | PCRE_NO_UTF8_CHECK | PCRE_CASELESS | PCRE_UTF8, &errptr, &erroffset, 0);
+	if(!pattern) {
+		LogMsgFormat(LFT_OTHERERR, wxT("IsUserMentioned: pcre_compile failed: %s (%d)\n%s"), wxstrstd(errptr).c_str(), erroffset, wxstrstd(pat).c_str());
+		return 0;
+	}
+	int ovector[30];
+	int rc=pcre_exec(pattern, 0, in, inlen, 0, 0, ovector, 30);
+	return (rc>0);
 }

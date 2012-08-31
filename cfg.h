@@ -31,6 +31,7 @@ struct genoptglobconf {
 	genopt cachemedia;
 	genopt persistentmediacache;
 	genopt rtdisp;
+	genopt assumementionistweet;
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent);
 };
@@ -46,6 +47,7 @@ struct globconf {
 	bool cachemedia;
 	bool persistentmediacache;
 	bool rtdisp;
+	bool assumementionistweet;
 
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc);

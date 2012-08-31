@@ -304,6 +304,8 @@ void StreamActivityCallback(twitCurl* pTwitCurlObj, void *userdata);
 void ParseTwitterDate(struct tm *createtm, time_t *createtm_t, const std::string &created_at);
 unsigned int TwitterCharCount(const char *in, size_t inlen);
 inline unsigned int TwitterCharCount(const std::string &str) { return TwitterCharCount(str.c_str(), str.size()); }
+bool IsUserMentioned(const char *in, size_t inlen, const std::shared_ptr<userdatacontainer> &u);
+inline bool IsUserMentioned(const std::string &str, const std::shared_ptr<userdatacontainer> &u) { return IsUserMentioned(str.c_str(), str.size(), u); }
 #ifdef __WINDOWS__
 	struct tm *gmtime_r (const time_t *timer, struct tm *result);
 #endif

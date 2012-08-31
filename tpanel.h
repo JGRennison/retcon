@@ -24,9 +24,10 @@ struct tpanelglobal {
 	wxImage proticon_img;
 	wxBitmap verifiedicon;
 	wxImage verifiedicon_img;
+	wxBitmap closeicon;
 
 	static std::shared_ptr<tpanelglobal> Get();
-	static std::shared_ptr<tpanelglobal> tpg_glob;
+	static std::weak_ptr<tpanelglobal> tpg_glob;
 
 	tpanelglobal();	//use Get() instead
 };
