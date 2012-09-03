@@ -382,7 +382,7 @@ bool twitCurl::search( const std::string& searchQuery )
 *
 * @description: method to update new status message in twitter profile
 *
-* @input: newStatus
+* @input: newStatus, in_reply_to_status_id, includeEntities
 *
 * @output: true if POST is success, otherwise false. This does not check http
 *          response by twitter. Use getLastWebResponse() for that.
@@ -408,6 +408,31 @@ bool twitCurl::statusUpdate( const std::string& newStatus, const std::string in_
                               twitterDefaults::TWITCURL_STATUSUPDATE_URL +
                               twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType],
                               newStatusMsg );
+    }
+    return retVal;
+}
+
+/*++
+* @method: twitCurl::statusReTweet
+*
+* @description: method to retweet status message in twitter profile
+*
+* @input: statusId, includeEntities
+*
+* @output: true if POST is success, otherwise false. This does not check http
+*          response by twitter. Use getLastWebResponse() for that.
+*
+*--*/
+bool twitCurl::statusReTweet( const std::string& statusId, signed char includeEntities ) {
+    bool retVal = false;
+    if( statusId.length() )
+    {
+        /* Perform POST */
+        retVal = performPost( twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
+                              twitterDefaults::TWITCURL_STATUSRETWEET_URL +
+			      statusId +
+                              twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType],
+                              includeEntities ? twitCurlDefaults::TWITCURL_INCENTITIES + ((includeEntities>0)?"1":"0") : "" );
     }
     return retVal;
 }

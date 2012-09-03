@@ -34,13 +34,36 @@ struct tpanelglobal {
 
 enum { tpanelmenustartid=wxID_HIGHEST+8001 };
 enum { tpanelmenuendid=wxID_HIGHEST+12000 };
+enum { tweetactmenustartid=wxID_HIGHEST+12001 };
+enum { tweetactmenuendid=wxID_HIGHEST+16000 };
 
 struct tpanelmenuitem {
 	unsigned int dbindex;
 	unsigned int flags;
 };
 
+typedef enum {
+	TAMI_RETWEET=1,
+	TAMI_FAV,
+	TAMI_UNFAV,
+	TAMI_REPLY,
+	TAMI_BROWSER,
+	TAMI_COPYTEXT,
+	TAMI_COPYID,
+	TAMI_COPYLINK,
+	TAMI_DELETE,
+} TAMI_TYPE;
+
+struct tweetactmenuitem {
+	std::shared_ptr<tweet> tw;
+	std::shared_ptr<userdatacontainer> user;
+	TAMI_TYPE type;
+	unsigned int dbindex;
+	unsigned int flags;
+};
+
 typedef std::map<int,tpanelmenuitem> tpanelmenudata;
+typedef std::map<int,tweetactmenuitem> tweetactmenudata;
 
 struct profimg_staticbitmap: public wxStaticBitmap {
 	uint64_t userid;
@@ -64,11 +87,13 @@ struct tweetdispscr : public wxRichTextCtrl {
 	long reltimestart;
 	long reltimeend;
 	uint64_t rtid;
+	static tweetactmenudata tamd;
 
 	tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin *tppw_, wxBoxSizer *hbox_);
 	~tweetdispscr();
 	void DisplayTweet(bool redrawimg=false);
 	void DoResize();
+	void OnTweetActMenuCmd(wxCommandEvent &event);
 
 	void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
                                int noUnitsX, int noUnitsY,

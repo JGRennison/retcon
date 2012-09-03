@@ -435,6 +435,28 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			if(twit && twit->ownermainframe && twit->ownermainframe->tpw) twit->ownermainframe->tpw->NotifyPostResult(true);
 			break;
 		}
+		case CS_RT: {
+			DoTweetParse(dc);
+			break;
+		}
+		case CS_FAV: {
+			DoTweetParse(dc, JDTP_FAV);
+			break;
+		}
+		case CS_UNFAV: {
+			DoTweetParse(dc, JDTP_UNFAV);
+			break;
+		}
+		case CS_DELETETWEET: {
+			DoTweetParse(dc, JDTP_DEL);
+			break;
+		}
+		case CS_DELETEDM: {
+			DoTweetParse(dc, JDTP_ISDM | JDTP_DEL);
+			break;
+		}
+		case CS_NULL:
+			break;
 	}
 	if(dbmsglist) {
 		if(!dbmsglist->msglist.empty()) dbc.SendMessage(dbmsglist);
@@ -491,11 +513,14 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 	if(sflags&JDTP_ISDM) tobj->flags.Set('D');
 	else tobj->flags.Set('T');
 	if(tac->ssl) tobj->flags.Set('s');
+	if(sflags&JDTP_DEL) tobj->flags.Set('X');
 
 	tweet_perspective *tp=tobj->AddTPToTweet(tac);
 	bool is_new_tweet_perspective=!tp->IsArrivedHere();
 	tp->SetArrivedHere(true);
 	ParsePerspectivalTweetProps(val, tp, 0);
+	if(sflags&JDTP_FAV) tp->SetFavourited(true);
+	if(sflags&JDTP_UNFAV) tp->SetFavourited(false);
 
 	std::string json;
 	if(is_new_tweet) {
@@ -537,6 +562,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 		tobj->updcf_flags|=UPDCF_USEREXPIRE;
 		if(!(sflags&JDTP_ISRTSRC)) tac->MarkPendingOrHandle(tobj);
 	}
+	else UpdateTweet(tobj);
 
 	if(!(sflags&JDTP_ISRTSRC)) {
 		if(sflags&JDTP_ISDM) {
@@ -575,12 +601,12 @@ void jsonparser::DoEventParse(const rapidjson::Value& val) {
 	}
 }
 
-void userdatacontainer::Dump() {
+void userdatacontainer::Dump() const {
 	LogMsgFormat(LFT_PARSE, wxT("id: %" wxLongLongFmtSpec "d\nname: %s\nscreen_name: %s\npimg: %s\nprotected: %d\nverified: %d"),
 		id, wxstrstd(GetUser().name).c_str(), wxstrstd(GetUser().screen_name).c_str(), wxstrstd(GetUser().profile_img_url).c_str(), (bool) (GetUser().u_flags&UF_ISPROTECTED), (bool) (GetUser().u_flags&UF_ISVERIFIED));
 }
 
-void tweet::Dump() {
+void tweet::Dump() const {
 	LogMsgFormat(LFT_PARSE, wxT("id: %" wxLongLongFmtSpec "d\nreply_id: %" wxLongLongFmtSpec "d\nretweet_count: %d\n"
 		"source: %s\ntext: %s\ncreated_at: %s"),
 		id, in_reply_to_status_id, retweet_count, wxstrstd(source).c_str(),

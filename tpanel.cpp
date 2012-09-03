@@ -5,6 +5,7 @@
 #include <wx/filedlg.h>
 #include <wx/dcclient.h>
 #include <wx/dcscreen.h>
+#include <wx/clipbrd.h>
 
 std::unordered_multimap<uint64_t, tpaneldbloadmap_data> tpaneldbloadmap;
 
@@ -18,6 +19,7 @@ std::shared_ptr<tpanelglobal> tpanelglobal::Get() {
 }
 
 std::weak_ptr<tpanelglobal> tpanelglobal::tpg_glob;
+tweetactmenudata tweetdispscr::tamd;
 
 static void PerAccTPanelMenu(wxMenu *menu, tpanelmenudata &map, int &nextid, unsigned int flagbase, unsigned int dbindex) {
 	map[nextid]={dbindex, flagbase|TPF_AUTO_TW};
@@ -78,6 +80,111 @@ void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent) {
 
 	auto tp=tpanel::MkTPanel(panelname, paneldispname, flags, acc);
 	tp->MkTPanelWin(parent, true);
+}
+
+void MakeRetweetMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw) {
+	for(auto it=alist.begin(); it!=alist.end(); ++it) {
+		wxMenuItem *menuitem=menuP->Append(nextid, (*it)->dispname);
+		menuitem->Enable((*it)->enabled);
+		map[nextid]={tw, std::shared_ptr<userdatacontainer>(), TAMI_RETWEET, (*it)->dbindex, 0};
+		nextid++;
+	}
+}
+
+void MakeFavMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw) {
+	for(auto it=alist.begin(); it!=alist.end(); ++it) {
+		tweet_perspective *tp=tw->GetTweetTP(*it);
+		bool known=(tp!=0);
+		bool faved=false;
+		if(tp && tp->IsFavourited()) faved=true;
+
+		wxMenu *submenu = new wxMenu;
+		menuP->AppendSubMenu(submenu, (known?(faved?wxT("\x2713 "):wxT("\x2715 ")):wxT("? ")) + (*it)->dispname);
+		submenu->SetTitle(known?(faved?wxT("Favourited"):wxT("Not Favourited")):wxT("Unknown"));
+
+		wxMenuItem *menuitem=submenu->Append(nextid, wxT("Favourite"));
+		menuitem->Enable((*it)->enabled && (!known || !faved));
+		map[nextid]={tw, std::shared_ptr<userdatacontainer>(), TAMI_FAV, (*it)->dbindex, 0};
+		nextid++;
+
+		menuitem=submenu->Append(nextid, wxT("Remove Favourite"));
+		menuitem->Enable((*it)->enabled && (!known || faved));
+		map[nextid]={tw, std::shared_ptr<userdatacontainer>(), TAMI_UNFAV, (*it)->dbindex, 0};
+		nextid++;
+	}
+}
+
+void MakeCopyMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw) {
+	menuP->Append(nextid, wxT("Copy Text"));
+	map[nextid++]={tw, std::shared_ptr<userdatacontainer>(), TAMI_COPYTEXT, 0, 0};
+	menuP->Append(nextid, wxT("Copy Link"));
+	map[nextid++]={tw, std::shared_ptr<userdatacontainer>(), TAMI_COPYLINK, 0, 0};
+	menuP->Append(nextid, wxString::Format(wxT("Copy ID (%" wxLongLongFmtSpec "d)"), tw->id));
+	map[nextid++]={tw, std::shared_ptr<userdatacontainer>(), TAMI_COPYID, 0, 0};
+}
+
+void TweetActMenuAction(tweetactmenudata &map, int curid, tpanelparentwin *tppw=0) {
+	unsigned int dbindex=map[curid].dbindex;
+	std::shared_ptr<taccount> *acc=0;
+	if(dbindex) {
+		for(auto it=alist.begin(); it!=alist.end(); ++it) {
+			if((*it)->dbindex==dbindex) {
+				acc=&(*it);
+				break;
+			}
+		}
+	}
+
+	CS_ENUMTYPE type=CS_NULL;
+	switch(map[curid].type) {
+		case TAMI_REPLY: if(tppw) tppw->owner->tpw->SetReplyTarget(map[curid].tw); break;
+		case TAMI_RETWEET: type=CS_RT; break;
+		case TAMI_FAV: type=CS_FAV; break;
+		case TAMI_UNFAV: type=CS_UNFAV; break;
+		case TAMI_DELETE: {
+			if(map[curid].tw->flags.Get('D')) type=CS_DELETEDM;
+			else type=CS_DELETETWEET;
+			break;
+		}
+		case TAMI_COPYLINK: {
+			std::string url=map[curid].tw->GetPermalink();
+			if(url.size()) {
+				if(wxTheClipboard->Open()) {
+					wxTheClipboard->SetData(new wxTextDataObject(wxstrstd(url)));
+					wxTheClipboard->Close();
+				}
+			}
+			break;
+		}
+		case TAMI_BROWSER: {
+			std::string url=map[curid].tw->GetPermalink();
+			if(url.size()) {
+				::wxLaunchDefaultBrowser(wxstrstd(url));
+			}
+			break;
+		}
+		case TAMI_COPYTEXT: {
+			if(wxTheClipboard->Open()) {
+				wxTheClipboard->SetData(new wxTextDataObject(wxstrstd(map[curid].tw->text)));
+				wxTheClipboard->Close();
+			}
+			break;
+		}
+		case TAMI_COPYID: {
+			if(wxTheClipboard->Open()) {
+				wxTheClipboard->SetData(new wxTextDataObject(wxString::Format(wxT("%") wxLongLongFmtSpec wxT("d"), map[curid].tw->id)));
+				wxTheClipboard->Close();
+			}
+			break;
+		}
+	}
+	if(type!=CS_NULL && acc && *acc) {
+			twitcurlext *twit=(*acc)->cp.GetConn();
+			twit->TwInit(*acc);
+			twit->connmode=type;
+			twit->extra_id=map[curid].tw->id;
+			twit->QueueAsyncExec();
+	}
 }
 
 void tpanel::PushTweet(const std::shared_ptr<tweet> &t) {
@@ -723,6 +830,7 @@ void tpanelscrollwin::OnScrollHandler(wxScrollWinEvent &event) {
 BEGIN_EVENT_TABLE(tweetdispscr, wxRichTextCtrl)
 	EVT_TEXT_URL(wxID_ANY, tweetdispscr::urleventhandler)
 	EVT_MOUSEWHEEL(tweetdispscr::mousewheelhandler)
+	EVT_MENU_RANGE(tweetactmenustartid, tweetactmenuendid, tweetdispscr::OnTweetActMenuCmd)
 END_EVENT_TABLE()
 
 tweetdispscr::tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin *tppw_, wxBoxSizer *hbox_)
@@ -946,28 +1054,28 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 				switch((wxChar) format[i]) {
 					case 'i': WriteImage(tppw->tpg->infoicon_img); imginserted=true; break;
 					case 'f': {
-						wxImage &icon=tppw->tpg->favicon_img;
+						wxImage *icon=&tppw->tpg->favicon_img;
 						for(auto it=tw.tp_list.begin(); it!=tw.tp_list.end(); ++it) {
 							if(it->IsFavourited()) {
-								icon=tppw->tpg->favonicon_img;
+								icon=&tppw->tpg->favonicon_img;
 								break;
 							}
 						}
-						WriteImage(icon);
+						WriteImage(*icon);
 						imginserted=true;
 						break;
 					}
 					case 'r': WriteImage(tppw->tpg->replyicon_img); imginserted=true; break;
 					case 't': {
 						if(!tw.user_recipient && (tw.rtsrc || !(tw.user->GetUser().u_flags&UF_ISPROTECTED))) {
-							wxImage &icon=tppw->tpg->retweeticon_img;
+							wxImage *icon=&tppw->tpg->retweeticon_img;
 							for(auto it=tw.tp_list.begin(); it!=tw.tp_list.end(); ++it) {
 								if(it->IsRetweeted()) {
-									icon=tppw->tpg->retweetonicon_img;
+									icon=&tppw->tpg->retweetonicon_img;
 									break;
 								}
 							}
-							WriteImage(icon);
+							WriteImage(*icon);
 							imginserted=true;
 						}
 						break;
@@ -1111,12 +1219,77 @@ void tweetdispscr::urleventhandler(wxTextUrlEvent &event) {
 			case 'r': //reply
 				tppw->owner->tpw->SetReplyTarget(td);
 				break;
-			case 'f': //fav
+			case 'f': {//fav
+				tamd.clear();
+				int nextid=tweetactmenustartid;
+				wxMenu menu;
+				menu.SetTitle(wxT("Favourite:"));
+				MakeFavMenu(&menu, tamd, nextid, td);
+				PopupMenu(&menu);
 				break;
-			case 't': //retweet
+			}
+			case 't': {//retweet
+				tamd.clear();
+				int nextid=tweetactmenustartid;
+				wxMenu menu;
+				menu.SetTitle(wxT("Retweet:"));
+				MakeRetweetMenu(&menu, tamd, nextid, td);
+				PopupMenu(&menu);
 				break;
-			case 'i': //info
+			}
+			case 'i': {//info
+				tamd.clear();
+				int nextid=tweetactmenustartid;
+				wxMenu menu, rtsubmenu, favsubmenu, copysubmenu;
+				menu.Append(nextid, wxT("Reply"));
+				tamd[nextid++]={td, std::shared_ptr<userdatacontainer>(), TAMI_REPLY, 0, 0};
+				menu.Append(nextid, wxT("Open in Browser"));
+				tamd[nextid++]={td, std::shared_ptr<userdatacontainer>(), TAMI_BROWSER, 0, 0};
+				menu.AppendSubMenu(&rtsubmenu, wxT("Retweet"));
+				menu.AppendSubMenu(&favsubmenu, wxT("Favourite"));
+				menu.AppendSubMenu(&copysubmenu, wxT("Copy"));
+
+				bool deletable=false;
+				bool deletable2=false;
+				unsigned int delcount=0;
+				unsigned int deldbindex=0;
+				unsigned int deldbindex2=0;
+				std::shared_ptr<taccount> cacc;
+				std::shared_ptr<taccount> cacc2;
+				if(td->flags.Get('D')) {
+					cacc=td->user_recipient->GetAccountOfUser();
+					if(cacc) delcount++;
+					if(cacc && cacc->enabled) {
+						deletable=true;
+						deldbindex=cacc->dbindex;
+					}
+				}
+				cacc2=td->user->GetAccountOfUser();
+				if(cacc2) delcount++;
+				if(cacc2 && cacc2->enabled) {
+					deletable2=true;
+					deldbindex2=cacc2->dbindex;
+				}
+				if(delcount>1) {	//user has DMd another of their own accounts :/
+					wxMenuItem *delmenuitem=menu.Append(nextid, wxT("Delete: ") + cacc->dispname);
+					delmenuitem->Enable(deletable);
+					tamd[nextid++]={td, std::shared_ptr<userdatacontainer>(), TAMI_DELETE, deldbindex, 0};
+					delmenuitem=menu.Append(nextid, wxT("Delete: ") + cacc2->dispname);
+					delmenuitem->Enable(deletable2);
+					tamd[nextid++]={td, std::shared_ptr<userdatacontainer>(), TAMI_DELETE, deldbindex2, 0};
+				}
+				else {
+					wxMenuItem *delmenuitem=menu.Append(nextid, wxT("Delete"));
+					delmenuitem->Enable(deletable|deletable2);
+					tamd[nextid++]={td, std::shared_ptr<userdatacontainer>(), TAMI_DELETE, deldbindex2?deldbindex2:deldbindex, 0};
+				}
+
+				MakeRetweetMenu(&rtsubmenu, tamd, nextid, td);
+				MakeFavMenu(&favsubmenu, tamd, nextid, td);
+				MakeCopyMenu(&copysubmenu, tamd, nextid, td);
+				PopupMenu(&menu);
 				break;
+			}
 		}
 	}
 	else {
@@ -1156,6 +1329,10 @@ void tweetdispscr::mousewheelhandler(wxMouseEvent &event) {
 	//LogMsg(LFT_TPANEL, wxT("MouseWheel"));
 	event.SetEventObject(GetParent());
 	GetParent()->GetEventHandler()->ProcessEvent(event);
+}
+
+void tweetdispscr::OnTweetActMenuCmd(wxCommandEvent &event) {
+	TweetActMenuAction(tamd, event.GetId(), tppw);
 }
 
 BEGIN_EVENT_TABLE(image_panel, wxPanel)

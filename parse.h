@@ -33,6 +33,9 @@ struct genjsonparser {
 enum {
 	JDTP_ISDM	= 1<<0,
 	JDTP_ISRTSRC	= 1<<1,
+	JDTP_FAV	= 1<<2,
+	JDTP_UNFAV	= 1<<3,
+	JDTP_DEL	= 1<<4,
 };
 
 struct jsonparser : public genjsonparser {

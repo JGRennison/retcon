@@ -56,17 +56,18 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	std::forward_list<std::shared_ptr<tweet> > pendingtweets;
 	std::deque<uint64_t> mention_index;
 
-	bool NeedsUpdating(unsigned int updcf_flags);
+	bool NeedsUpdating(unsigned int updcf_flags) const;
 	bool IsReady(unsigned int updcf_flags);
 	void CheckPendingTweets();
-	std::shared_ptr<taccount> GetAccountOfUser();
-	void GetImageLocalFilename(wxString &filename);
+	std::shared_ptr<taccount> GetAccountOfUser() const;
+	void GetImageLocalFilename(wxString &filename)  const;
 	inline userdata &GetUser() { return user; }
+	inline const userdata &GetUser() const { return user; }
 	void MarkUpdated();
 	std::string mkjson() const;
 	wxBitmap MkProfileBitmapFromwxImage(const wxImage &img, double limitscalefactor);
 	void SetProfileBitmapFromwxImage(const wxImage &img);
-	void Dump();
+	void Dump() const;
 	bool ImgIsReady(unsigned int updcf_flags);
 	bool ImgHalfIsReady(unsigned int updcf_flags);
 };
@@ -151,12 +152,14 @@ struct tweet {
 	tweet_flags flags;
 	unsigned int lflags;
 
-	void Dump();
-	tweet_perspective *AddTPToTweet(const std::shared_ptr<taccount> &tac, bool *isnew=0);
-	std::string mkdynjson() const;
-	bool GetUsableAccount(std::shared_ptr<taccount> &tac);
-	bool IsReady();
 	tweet() : updcf_flags(UPDCF_DEFAULT), lflags(0) { };
+	void Dump() const;
+	tweet_perspective *AddTPToTweet(const std::shared_ptr<taccount> &tac, bool *isnew=0);
+	tweet_perspective *GetTweetTP(const std::shared_ptr<taccount> &tac);
+	std::string mkdynjson() const;
+	bool GetUsableAccount(std::shared_ptr<taccount> &tac) const;
+	bool IsReady();
+	std::string GetPermalink() const;
 };
 
 typedef enum {
@@ -201,13 +204,14 @@ struct media_entity {
 	unsigned char full_img_sha1[20];
 	unsigned char thumb_img_sha1[20];
 
-	wxString cached_full_filename();
-	wxString cached_thumb_filename();
+	wxString cached_full_filename() const;
+	wxString cached_thumb_filename() const;
 
 	media_entity() : win(0), flags(0) { }
 };
 
 typedef enum {
+	CS_NULL=0,
 	CS_ACCVERIFY=1,
 	CS_TIMELINE,
 	CS_STREAM,
@@ -219,6 +223,11 @@ typedef enum {
 	CS_FRIENDACTION_UNFOLLOW,
 	CS_POSTTWEET,
 	CS_SENDDM,
+	CS_FAV,
+	CS_UNFAV,
+	CS_RT,
+	CS_DELETETWEET,
+	CS_DELETEDM,
 } CS_ENUMTYPE;
 
 //for post_action_flags
@@ -251,7 +260,7 @@ struct userlookup {
 	~userlookup();
 	void UnMarkAll();
 	void Mark(std::shared_ptr<userdatacontainer> udc);
-	void GetIdList(std::string &idlist);
+	void GetIdList(std::string &idlist) const;
 };
 
 struct streamconntimeout : public wxTimer {

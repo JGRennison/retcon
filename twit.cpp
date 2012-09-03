@@ -86,10 +86,10 @@ void UpdateAllTweets(bool redrawimg) {
 }
 
 
-wxString media_entity::cached_full_filename() {
+wxString media_entity::cached_full_filename() const {
 	return wxString::Format(wxT("%s%s%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), wxStandardPaths::Get().GetUserDataDir().c_str(), wxT("/media_"), media_id.m_id, media_id.t_id);
 }
-wxString media_entity::cached_thumb_filename() {
+wxString media_entity::cached_thumb_filename() const {
 	return wxString::Format(wxT("%s%s%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), wxStandardPaths::Get().GetUserDataDir().c_str(), wxT("/mediathumb_"), media_id.m_id, media_id.t_id);
 }
 
@@ -109,7 +109,7 @@ void userlookup::Mark(std::shared_ptr<userdatacontainer> udc) {
 	users_queried.push_front(udc);
 }
 
-void userlookup::GetIdList(std::string &idlist) {
+void userlookup::GetIdList(std::string &idlist) const {
 	idlist.clear();
 	if(users_queried.empty()) return;
 	auto it=users_queried.cbegin();
@@ -364,6 +364,23 @@ void twitcurlext::QueueAsyncExec() {
 		case CS_SENDDM:
 			directMessageSend(std::to_string(extra_id), extra1, 1);
 			break;
+		case CS_RT:
+			statusReTweet(std::to_string(extra_id), 1);
+			break;
+		case CS_FAV:
+			favoriteCreate(std::to_string(extra_id));
+			break;
+		case CS_UNFAV:
+			favoriteDestroy(std::to_string(extra_id));
+			break;
+		case CS_DELETETWEET:
+			statusDestroyById(std::to_string(extra_id));
+			break;
+		case CS_DELETEDM:
+			directMessageDestroyById(std::to_string(extra_id));
+			break;
+		case CS_NULL:
+			break;
 	}
 	if(currentlogflags&LFT_TWITACT) {
 		auto acc=tacc.lock();
@@ -387,7 +404,7 @@ void streamconntimeout::Notify() {
 	tw->HandleError(tw->GetCurlHandle(),0,CURLE_OPERATION_TIMEDOUT);
 }
 
-bool userdatacontainer::NeedsUpdating(unsigned int updcf_flags) {
+bool userdatacontainer::NeedsUpdating(unsigned int updcf_flags) const {
 	if(!lastupdate) return true;
 	else if(!(updcf_flags&UPDCF_USEREXPIRE) && GetUser().screen_name.size()) return false;
 	else {
@@ -487,12 +504,12 @@ void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, unsigned int umpt_flags
 	t->updcf_flags&=~UPDCF_USEREXPIRE;
 }
 
-std::shared_ptr<taccount> userdatacontainer::GetAccountOfUser() {
+std::shared_ptr<taccount> userdatacontainer::GetAccountOfUser() const {
 	for(auto it=alist.begin() ; it != alist.end(); it++ ) if( (*it)->usercont.get()==this ) return *it;
 	return std::shared_ptr<taccount>();
 }
 
-void userdatacontainer::GetImageLocalFilename(wxString &filename) {
+void userdatacontainer::GetImageLocalFilename(wxString &filename) const {
 	filename.Printf(wxT("/img_%" wxLongLongFmtSpec "d"), id);
 	filename.Prepend(wxStandardPaths::Get().GetUserDataDir());
 }
@@ -560,7 +577,7 @@ std::string tweet_flags::GetString() const {
 	return out;
 }
 
-bool tweet::GetUsableAccount(std::shared_ptr<taccount> &tac) {
+bool tweet::GetUsableAccount(std::shared_ptr<taccount> &tac) const {
 	for(auto it=tp_list.begin(); it!=tp_list.end(); ++it) {
 		if(it->IsArrivedHere()) {
 			if(it->acc->enabled) {
@@ -597,6 +614,15 @@ tweet_perspective *tweet::AddTPToTweet(const std::shared_ptr<taccount> &tac, boo
 	tp_list.emplace_front(tac);
 	if(isnew) *isnew=true;
 	return &tp_list.front();
+}
+
+tweet_perspective *tweet::GetTweetTP(const std::shared_ptr<taccount> &tac) {
+	for(auto it=tp_list.begin(); it!=tp_list.end(); it++) {
+		if(it->acc.get()==tac.get()) {
+			return &(*it);
+		}
+	}
+	return 0;
 }
 
 //the following set of procedures should be kept in sync
@@ -688,6 +714,11 @@ std::string tweet::mkdynjson() const {
 	jw.EndArray();
 	jw.EndObject();
 	return json;
+}
+
+std::string tweet::GetPermalink() const {
+	if(!user || !user->GetUser().screen_name.size()) return "";
+	return "http" + std::string(flags.Get('s')?"s":"") + "://twitter.com/" + user->GetUser().screen_name + "/status/" + std::to_string(id);
 }
 
 void StreamCallback( std::string &data, twitCurl* pTwitCurlObj, void *userdata ) {

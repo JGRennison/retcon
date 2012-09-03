@@ -86,6 +86,7 @@ namespace twitterDefaults
 
     /* Status URLs */
     const std::string TWITCURL_STATUSUPDATE_URL = "api.twitter.com/1/statuses/update";
+    const std::string TWITCURL_STATUSRETWEET_URL = "api.twitter.com/1/statuses/retweet/";
     const std::string TWITCURL_STATUSSHOW_URL = "api.twitter.com/1/statuses/show/";
     const std::string TWITCURL_STATUDESTROY_URL = "api.twitter.com/1/statuses/destroy/";
 
@@ -191,6 +192,7 @@ public:
 
     /* Twitter status APIs */
     bool statusUpdate( const std::string& newStatus, const std::string in_reply_to_status_id = "", signed char includeEntities = 0 ); /* all parameters in */
+    bool statusReTweet( const std::string& statusId, signed char includeEntities = 0 ); /* all parameters in */
     bool statusShowById( const std::string& statusId /* in */ );
     bool statusDestroyById( const std::string& statusId /* in */ );
 
