@@ -8,7 +8,7 @@ socketmanager sm;
 dbconn dbc;
 alldata ad;
 std::forward_list<mainframe*> mainframelist;
-std::forward_list<tpanelparentwin*> tpanelparentwinlist;
+std::forward_list<tpanelparentwin_nt*> tpanelparentwinlist;
 
 IMPLEMENT_APP(retcon)
 

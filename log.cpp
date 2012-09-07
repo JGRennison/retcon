@@ -303,7 +303,7 @@ static void dump_window_pos_data(logflagtype logflags, const wxString &indent, c
 	LogMsgFormat(logflags, wxT("%sWindow: %p, size: %d, %d, pos: %d, %d"), indent.c_str(), win, x, y, px, py);
 }
 
-void dump_tpanel_scrollwin_data(logflagtype logflags, const wxString &indent, const wxString &indentstep, tpanelparentwin *tppw) {
+void dump_tpanel_scrollwin_data(logflagtype logflags, const wxString &indent, const wxString &indentstep, tpanelparentwin_nt *tppw) {
 	int x, y, vx, vy, vsx, vsy;
 	tppw->scrollwin->GetSize(&x, &y);
 	tppw->scrollwin->GetVirtualSize(&vx, &vy);

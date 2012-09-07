@@ -72,6 +72,7 @@ struct entity;
 struct usevents;
 struct tweetdispscr;
 struct tpanelparentwin;
+struct tpanelparentwin_nt;
 struct tpanelscrollwin;
 struct mcurlconn;
 struct socketmanager;
@@ -275,7 +276,7 @@ extern socketmanager sm;
 extern dbconn dbc;
 extern alldata ad;
 extern std::forward_list<mainframe*> mainframelist;
-extern std::forward_list<tpanelparentwin*> tpanelparentwinlist;
+extern std::forward_list<tpanelparentwin_nt*> tpanelparentwinlist;
 
 //fix for MinGW, from http://pastebin.com/7rhvv92A
 #ifdef __MINGW32__
