@@ -411,6 +411,7 @@ tpanelparentwin *tpanel::MkTPanelWin(mainframe *parent, bool select) {
 
 tpanelparentwin::tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select) 
 	: tpanelparentwin_nt(tp_, parent, select), owner(parent) {
+	LoadMore(gc.maxtweetsdisplayinpanel);
 	parent->auib->AddPage(this, wxstrstd(tp->dispname), select);
 }
 
@@ -451,8 +452,6 @@ tpanelparentwin_nt::tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWin
 	scrollwin->SetScrollRate(1, 1);
         scrollwin->FitInside();
 	FitInside();
-
-	LoadMore(gc.maxtweetsdisplayinpanel);
 }
 
 tpanelparentwin_nt::~tpanelparentwin_nt() {
