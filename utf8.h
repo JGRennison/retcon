@@ -1,6 +1,6 @@
-//  npipe
+//  retcon
 //
-//  WEBSITE: http://npipe.sourceforge.net
+//  WEBSITE: http://retcon.sourceforge.net
 //
 //  NOTE: This software is licensed under the GPL. See: COPYING-GPL.txt
 //
