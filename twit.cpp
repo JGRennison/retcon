@@ -61,10 +61,11 @@ void HandleNewTweet(const std::shared_ptr<tweet> &t) {
 void UpdateTweet(const std::shared_ptr<tweet> &t, bool redrawimg) {
 	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
 		for(auto jt=(*it)->currentdisp.begin(); jt!=(*it)->currentdisp.end(); ++jt) {
-			if(jt->first==t->id || jt->second->rtid==t->id) {	//found matching entry
+			tweetdispscr *tds=(tweetdispscr *) jt->second;
+			if(jt->first==t->id || tds->rtid==t->id) {	//found matching entry
 				(*it)->Freeze();
 				LogMsgFormat(LFT_TPANEL, wxT("UpdateTweet: Found Entry %" wxLongLongFmtSpec "d."), t->id);
-				jt->second->DisplayTweet(redrawimg);
+				tds->DisplayTweet(redrawimg);
 				(*it)->Thaw();
 				break;
 			}
@@ -76,7 +77,7 @@ void UpdateUsersTweet(uint64_t userid, bool redrawimg) {
 	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
 		(*it)->Freeze();
 		for(auto jt=(*it)->currentdisp.begin(); jt!=(*it)->currentdisp.end(); ++jt) {
-			tweetdispscr &tds=*(jt->second);
+			tweetdispscr &tds=(tweetdispscr &) *(jt->second);
 			bool found=false;
 			if((tds.td->user && tds.td->user->id==userid)
 				|| (tds.td->user_recipient && tds.td->user_recipient->id==userid)) found=true;
@@ -86,7 +87,7 @@ void UpdateUsersTweet(uint64_t userid, bool redrawimg) {
 			}
 			if(found) {
 				LogMsgFormat(LFT_TPANEL, wxT("UpdateUsersTweet: Found Entry %" wxLongLongFmtSpec "d."), jt->first);
-				jt->second->DisplayTweet(redrawimg);
+				tds.DisplayTweet(redrawimg);
 				break;
 			}
 		}
@@ -100,7 +101,8 @@ void UpdateAllTweets(bool redrawimg) {
 		bool haveflag=((*it)->tppw_flags&TPPWF_NOUPDATEONPUSH);
 		(*it)->tppw_flags|=TPPWF_NOUPDATEONPUSH;
 		for(auto jt=(*it)->currentdisp.begin(); jt!=(*it)->currentdisp.end(); ++jt) {
-			jt->second->DisplayTweet(redrawimg);
+			tweetdispscr *tds=(tweetdispscr *) jt->second;
+			tds->DisplayTweet(redrawimg);
 		}
 		(*it)->Thaw();
 		if(!haveflag) (*it)->CheckClearNoUpdateFlag();

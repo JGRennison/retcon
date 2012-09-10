@@ -99,11 +99,23 @@ struct profimg_staticbitmap: public wxStaticBitmap {
 	DECLARE_EVENT_TABLE()
 };
 
-struct tweetdispscr : public wxRichTextCtrl {
-	std::shared_ptr<tweet> td;
-	tpanelparentwin_nt *tppw;
+struct dispscr_base : public wxRichTextCtrl {
+	panelparentwin_base *tppw;
 	tpanelscrollwin *tpsw;
 	wxBoxSizer *hbox;
+
+	dispscr_base(tpanelscrollwin *parent, panelparentwin_base *tppw_, wxBoxSizer *hbox_);
+	void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
+                               int noUnitsX, int noUnitsY,
+                               int xPos = 0, int yPos = 0,
+                               bool noRefresh = false );	//virtual override
+	void mousewheelhandler(wxMouseEvent &event);
+
+	DECLARE_EVENT_TABLE()
+};
+
+struct tweetdispscr : public dispscr_base {
+	std::shared_ptr<tweet> td;
 	profimg_staticbitmap *bm;
 	profimg_staticbitmap *bm2;
 	time_t updatetime;
@@ -115,16 +127,9 @@ struct tweetdispscr : public wxRichTextCtrl {
 	tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_);
 	~tweetdispscr();
 	void DisplayTweet(bool redrawimg=false);
-	void DoResize();
 	void OnTweetActMenuCmd(wxCommandEvent &event);
 
-	void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
-                               int noUnitsX, int noUnitsY,
-                               int xPos = 0, int yPos = 0,
-                               bool noRefresh = false );	//virtual override
-
 	void urleventhandler(wxTextUrlEvent &event);
-	void mousewheelhandler(wxMouseEvent &event);
 
 	DECLARE_EVENT_TABLE()
 
@@ -181,7 +186,7 @@ struct tpanelnotebook : public wxAuiNotebook {
 
 struct tppw_scrollfreeze {
 	tppw_scrollfreeze() : scr(0), extrapixels(0) { }
-	tweetdispscr *scr;
+	dispscr_base *scr;
 	int extrapixels;
 };
 
@@ -206,35 +211,49 @@ enum {	//for tppw_flags
 	TPPWF_CANALWAYSSCROLLDOWN	= 1<<1,
 };
 
-struct tpanelparentwin_nt : public wxPanel {
-	std::shared_ptr<tpanel> tp;
+struct panelparentwin_base : public wxPanel {
 	std::shared_ptr<tpanelglobal> tpg;
 	wxBoxSizer *sizer;
 	size_t displayoffset;
-	std::list<std::pair<uint64_t, tweetdispscr *> > currentdisp;
 	wxWindow *parent_win;
 	tpanelscrollwin *scrollwin;
 	wxStaticText *clabel;
 	unsigned int tppw_flags;
 
-	tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent);
-	virtual ~tpanelparentwin_nt();
+	std::list<std::pair<uint64_t, dispscr_base *> > currentdisp;
+
+	panelparentwin_base(wxWindow *parent, bool fitnow=true);
+	virtual ~panelparentwin_base() { }
 	virtual void LoadMore(unsigned int n, uint64_t lessthanid=0, unsigned int pushflags=0) { }
 	virtual mainframe *GetMainframe() { return 0; }
-	void PushTweet(const std::shared_ptr<tweet> &t, unsigned int pushflags=0);
-	tweetdispscr *PushTweetIndex(const std::shared_ptr<tweet> &t, size_t index);
-	void PageUpHandler();
-	void PageDownHandler();
-	void PageTopHandler();
+	virtual void PageUpHandler() { };
+	virtual void PageDownHandler() { };
+	virtual void PageTopHandler() { };
 	void pageupevthandler(wxCommandEvent &event);
 	void pagedownevthandler(wxCommandEvent &event);
 	void pagetopevthandler(wxCommandEvent &event);
-	void UpdateCLabel();
+	virtual void UpdateCLabel() { }
 	void CheckClearNoUpdateFlag();
-	void TweetPopTop();
-	void TweetPopBottom();
+	void PopTop();
+	void PopBottom();
 	void StartScrollFreeze(tppw_scrollfreeze &s);
 	void EndScrollFreeze(tppw_scrollfreeze &s);
+
+	DECLARE_EVENT_TABLE()
+};
+
+struct tpanelparentwin_nt : public panelparentwin_base {
+	std::shared_ptr<tpanel> tp;
+
+	tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent);
+	virtual ~tpanelparentwin_nt();
+	virtual void LoadMore(unsigned int n, uint64_t lessthanid=0, unsigned int pushflags=0) { }
+	void PushTweet(const std::shared_ptr<tweet> &t, unsigned int pushflags=0);
+	tweetdispscr *PushTweetIndex(const std::shared_ptr<tweet> &t, size_t index);
+	virtual void UpdateCLabel();
+	virtual void PageUpHandler();
+	virtual void PageDownHandler();
+	virtual void PageTopHandler();
 
 	DECLARE_EVENT_TABLE()
 };
@@ -273,11 +292,11 @@ struct tpanelparentwin_usertweets : public tpanelparentwin_nt {
 };
 
 struct tpanelscrollwin : public wxScrolledWindow {
-	tpanelparentwin_nt *parent;
+	panelparentwin_base *parent;
 	bool resize_update_pending;
 	bool page_scroll_blocked;
 
-	tpanelscrollwin(tpanelparentwin_nt *parent_);
+	tpanelscrollwin(panelparentwin_base *parent_);
 	void OnScrollHandler(wxScrollWinEvent &event);
 	void resizehandler(wxSizeEvent &event);
 	void resizemsghandler(wxCommandEvent &event);
