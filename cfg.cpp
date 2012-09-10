@@ -24,9 +24,7 @@
 #include "retcon.h"
 
 genoptconf gcdefaults {
-	//{ wxT("vlC5S1NCMHHg8mD1ghPRkA"), 1},
 	{ wxT("qUfhKgogatGDPDeBaP1qBw"), 1},
-	//{ wxT("3w4cIrHyI3IYUZW5O2ppcFXmsACDaENzFdLIKmEU84"), 1},
 	{ wxT("dvJVLBwaJhmSyTxSUe7T8qz84lrydtFbxQ4snZxmYgM"), 1},
 	{ wxT("1"), 1},
 	{ wxT("1"), 1},
@@ -38,9 +36,9 @@ genoptglobconf gcglobdefaults {
 	{ wxT("%Y-%m-%d %H:%M:%S"), 1},
 	{ wxT("48"), 1},
 	{ wxT("40"), 1},
-	{ wxT("uZB@unbz - T - t - FNC"), 1},
-	{ wxT("uZB@unbz -> UZB@Unbz - T - t - FNC"), 1},
-	{ wxT("rZB@rnbz - 'RT by' uZB@unbz - T - t - FNc"), 1},
+	{ wxT("uZB@unbzuvup - T - t - F - XiXrXtXfXdNC"), 1},
+	{ wxT("uZB@unbzuvup -> UZB@UnbzUvUp - T - t - F - XiXtXfXdNC"), 1},
+	{ wxT("rZB@rnbzrvrp 'RT by' uZB@unbzuvup - T - t - F - XiXrXtXfXdNc"), 1},
 	{ wxT("1"), 1 },
 	{ wxT("0"), 1 },
 	{ wxT("1"), 1 },
