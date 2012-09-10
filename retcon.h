@@ -223,7 +223,7 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	void ClearUsersIFollow();
 	void SetUserRelationship(uint64_t userid, unsigned int flags, const time_t &optime);
 
-	void StartRestGetTweetBackfill(uint64_t start_tweet_id, uint64_t end_tweet_id, unsigned int max_tweets_to_read, RBFS_TYPE type=RBFS_TWEETS);
+	void StartRestGetTweetBackfill(uint64_t start_tweet_id /*lower limit, exclusive*/, uint64_t end_tweet_id /*upper limit, inclusive*/, unsigned int max_tweets_to_read, RBFS_TYPE type=RBFS_TWEETS, uint64_t userid=0);
 	void ExecRBFS(restbackfillstate *rbfs);
 	void StartRestQueryPendings();
 	void DoPostAction(twitcurlext *lasttce);
@@ -263,6 +263,7 @@ struct alldata {
 
 	std::shared_ptr<userdatacontainer> &GetUserContainerById(uint64_t id);
 	std::shared_ptr<tweet> &GetTweetById(uint64_t id, bool *isnew=0);
+	void UnlinkTweetById(uint64_t id);
 
 	alldata() : next_media_id(1) { }
 };

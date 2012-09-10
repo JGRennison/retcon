@@ -139,6 +139,7 @@ enum {
 	TPF_AUTO_ACC			= 1<<5,
 	TPF_AUTO_ALLACCS		= 1<<6,
 	TPF_AUTO_MN			= 1<<7,
+	TPF_USER_TIMELINE		= 1<<8,
 };
 
 struct tpanel : std::enable_shared_from_this<tpanel> {
@@ -147,6 +148,8 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	tweetidset tweetlist;
 	std::forward_list<tpanelparentwin_nt*> twin;
 	unsigned int flags;
+	uint64_t upperid;
+	uint64_t lowerid;
 	std::shared_ptr<taccount> assoc_acc;
 	//tweetidset storedids;		//any tweet or DM in this list *must* be either in ad.tweetobjs, or in the database
 
@@ -154,7 +157,8 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	tpanel(const std::string &name_, const std::string &dispname_, unsigned int flags_=0, std::shared_ptr<taccount> *acc=0);		//don't use this directly
 	~tpanel();
 
-	void PushTweet(const std::shared_ptr<tweet> &t);
+	void PushTweet(const std::shared_ptr<tweet> &t, unsigned int pushflags=0);
+	bool RegisterTweet(const std::shared_ptr<tweet> &t);
 	tpanelparentwin *MkTPanelWin(mainframe *parent, bool select=false);
 	void OnTPanelWinClose(tpanelparentwin_nt *tppw);
 };
@@ -193,10 +197,13 @@ enum {	//window IDs
 enum {	//for pushflags
 	TPPWPF_ABOVE	= 1<<0,
 	TPPWPF_BELOW	= 1<<1,
+	TPPWPF_USERTL	= 1<<2,
+	TPPWPF_SETNOUPDATEFLAG	= 1<<3,
 };
 
 enum {	//for tppw_flags
 	TPPWF_NOUPDATEONPUSH	= 1<<0,
+	TPPWF_CANALWAYSSCROLLDOWN	= 1<<1,
 };
 
 struct tpanelparentwin_nt : public wxPanel {
@@ -210,7 +217,7 @@ struct tpanelparentwin_nt : public wxPanel {
 	wxStaticText *clabel;
 	unsigned int tppw_flags;
 
-	tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent, bool select=false);
+	tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent);
 	virtual ~tpanelparentwin_nt();
 	virtual void LoadMore(unsigned int n, uint64_t lessthanid=0, unsigned int pushflags=0) { }
 	virtual mainframe *GetMainframe() { return 0; }
@@ -245,6 +252,22 @@ struct tpanelparentwin : public tpanelparentwin_nt {
 	void tabdetachedduphandler(wxCommandEvent &event);
 	void tabclosehandler(wxCommandEvent &event);
 	void tabsplitcmdhandler(wxCommandEvent &event);
+
+	DECLARE_EVENT_TABLE()
+};
+
+struct tpanelparentwin_usertweets : public tpanelparentwin_nt {
+	std::shared_ptr<userdatacontainer> user;
+	std::weak_ptr<taccount> acc;
+	static std::unordered_map<uint64_t, std::shared_ptr<tpanel> > usertpanelmap;
+	bool havestarted;
+
+	tpanelparentwin_usertweets(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent, std::weak_ptr<taccount> &acc_);
+	~tpanelparentwin_usertweets();
+	virtual void LoadMore(unsigned int n, uint64_t lessthanid=0, unsigned int pushflags=0);
+	virtual mainframe *GetMainframe();
+	static std::shared_ptr<tpanel> MkUserTweetTPanel(const std::shared_ptr<userdatacontainer> &user);
+	static std::shared_ptr<tpanel> GetUserTweetTPanel(uint64_t userid);
 
 	DECLARE_EVENT_TABLE()
 };
@@ -301,6 +324,7 @@ wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t time
 wxString getreltimestr(time_t timestamp, time_t &updatetime);
 void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map);
 void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent);
+void CheckClearNoUpdateFlag_All();
 
 //struct tpanelwin : public wxRichTextCtrl {
 //	tpanelparentwin *tppw;
@@ -311,10 +335,14 @@ void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent);
 //	void PushTweet(std::shared_ptr<tweetdisp> t);
 //};
 
-struct tpaneldbloadmap_data {
-	tpaneldbloadmap_data(tpanelparentwin* win_, unsigned int pushflags_=0) : win(win_), pushflags(pushflags_) { }
-	tpanelparentwin* win;
+struct tpanelloadmap_data {
+	tpanelparentwin_nt* win;
+	std::weak_ptr<tpanel> pushtpanel;
 	unsigned int pushflags;
+
+	tpanelloadmap_data(tpanelparentwin_nt* win_, unsigned int pushflags_=0, std::shared_ptr<tpanel> *pushtpanel_=0) : win(win_), pushflags(pushflags_) {
+		if(pushtpanel_) pushtpanel=*pushtpanel_;
+	}
 };
 
-extern std::unordered_multimap<uint64_t, tpaneldbloadmap_data> tpaneldbloadmap;
+extern std::unordered_multimap<uint64_t, tpanelloadmap_data> tpanelloadmap;

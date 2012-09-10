@@ -27,6 +27,14 @@
 
 struct acc_choice;
 
+struct notebook_event_prehandler : public wxEvtHandler {
+	void OnPageChange(wxNotebookEvent &event);
+	wxNotebook *nb;
+	tpanelparentwin_usertweets *timeline_pane;
+
+	DECLARE_EVENT_TABLE()
+};
+
 struct user_window_timer: public wxTimer {
 	void Notify();
 };
@@ -51,6 +59,9 @@ struct user_window: public wxDialog {
 	wxHyperlinkCtrl *url;
 	wxStaticText *lastupdate;
 	wxStaticText *id_str;
+	tpanelparentwin_usertweets *timeline_pane;
+	notebook_event_prehandler nb_prehndlr;
+	wxNotebook *nb;
 
 	wxStaticText *ifollow;
 	wxStaticText *followsme;

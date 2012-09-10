@@ -27,6 +27,7 @@ void UpdateAllTweets(bool redrawimg=false);
 void UpdateUsersTweet(uint64_t userid, bool redrawimg=false);
 bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t, bool checkfirst=false);
 unsigned int CheckTweetPendings(const std::shared_ptr<tweet> &t);
+bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_nt* win_, unsigned int pushflags=0, std::shared_ptr<tpanel> *pushtpanel_=0);
 
 enum {	//for UnmarkPendingTweet: umpt_flags
 	UMPTF_TPDB_NOUPDF	= 1<<0,
@@ -123,6 +124,7 @@ struct tweet_perspective {
 		TP_IAH	= 1<<0,
 		TP_FAV	= 1<<1,
 		TP_RET	= 1<<2,
+		TP_RECV	= 1<<3,
 	};
 
 	tweet_perspective(const std::shared_ptr<taccount> &tac) : acc(tac), flags(0) { }
@@ -132,9 +134,11 @@ struct tweet_perspective {
 	bool IsArrivedHere() const { return flags&TP_IAH; }
 	bool IsFavourited() const { return flags&TP_FAV; }
 	bool IsRetweeted() const { return flags&TP_RET; }
+	bool IsReceivedHere() const { return flags&TP_RECV; }
 	void SetArrivedHere(bool val) { if(val) flags|=TP_IAH; else flags&=~TP_IAH; }
 	void SetFavourited(bool val) { if(val) flags|=TP_FAV; else flags&=~TP_FAV; }
 	void SetRetweeted(bool val) { if(val) flags|=TP_RET; else flags&=~TP_RET; }
+	void SetReceivedHere(bool val) { if(val) flags|=TP_RECV; else flags&=~TP_RECV; }
 
 	protected:
 	unsigned int flags;
@@ -147,9 +151,10 @@ struct tweet_perspective {
 enum {	//for tweet.lflags
 	TLF_DYNDIRTY		= 1<<0,
 	TLF_BEINGLOADEDFROMDB	= 1<<1,
-	TLF_PENDINGINDBTPANELMAP= 1<<2,
+	TLF_PENDINGINTPANELMAP	= 1<<2,
 	TLF_PENDINGHANDLENEW	= 1<<3,
 	TLF_PENDINGINRTMAP	= 1<<4,
+	TLF_SAVED_IN_DB		= 1<<5,
 };
 
 enum {	//for tweet.updcf_flags
@@ -251,6 +256,7 @@ typedef enum {
 	CS_RT,
 	CS_DELETETWEET,
 	CS_DELETEDM,
+	CS_USERTIMELINE,
 } CS_ENUMTYPE;
 
 //for post_action_flags
@@ -265,12 +271,14 @@ typedef enum {			//do not change these values, they are saved/loaded to/from the
 	RBFS_MENTIONS,
 	RBFS_RECVDM,
 	RBFS_SENTDM,
+	RBFS_USER_TIMELINE,
 	RBFS_MAX = RBFS_SENTDM,
 } RBFS_TYPE;
 
 struct restbackfillstate {
 	uint64_t start_tweet_id;	//exclusive limit
 	uint64_t end_tweet_id;		//inclusive limit
+	uint64_t userid;
 	unsigned int max_tweets_left;
 	unsigned int lastop_recvcount;
 	RBFS_TYPE type;

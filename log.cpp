@@ -314,7 +314,7 @@ void dump_pending_acc(logflagtype logflags, const wxString &indent, const wxStri
 }
 
 void dump_pending_tpaneldbloadmap(logflagtype logflags, const wxString &indent) {
-	for(auto it=tpaneldbloadmap.begin(); it!=tpaneldbloadmap.end(); ++it) {
+	for(auto it=tpanelloadmap.begin(); it!=tpanelloadmap.end(); ++it) {
 		LogMsgFormat(logflags, wxT("%sLoad Map: %" wxLongLongFmtSpec "d (%.15s...) --> %s (%s) pushflags: 0x%X"), indent.c_str(), it->first, wxstrstd(ad.tweetobjs[it->first]->text).c_str(), wxstrstd(it->second.win->tp->name).c_str(), wxstrstd(it->second.win->tp->dispname).c_str(), it->second.pushflags);
 	}
 }

@@ -221,6 +221,9 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 			case RBFS_SENTDM:
 				directMessageGetSent(tmps);
 				break;
+			case RBFS_USER_TIMELINE:
+				timelineUserGet(tmps, std::to_string(rbfs->userid), true);
+				break;
 		}
 		if(currentlogflags&LFT_TWITACT) {
 			char *url;
@@ -343,6 +346,7 @@ void twitcurlext::QueueAsyncExec() {
 			break;
 		case CS_TIMELINE:
 		case CS_DMTIMELINE:
+		case CS_USERTIMELINE:
 			return ExecRestGetTweetBackfill();
 		case CS_STREAM:
 			LogMsgFormat(LFT_TWITACT, wxT("Queue Stream Connection"));
@@ -505,14 +509,18 @@ void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, unsigned int umpt_flags
 		t->lflags&=~TLF_PENDINGHANDLENEW;
 		HandleNewTweet(t);
 	}
-	if(t->lflags&TLF_PENDINGINDBTPANELMAP) {
-		t->lflags&=~TLF_PENDINGINDBTPANELMAP;
-		auto itpair=tpaneldbloadmap.equal_range(t->id);
+	if(t->lflags&TLF_PENDINGINTPANELMAP) {
+		t->lflags&=~TLF_PENDINGINTPANELMAP;
+		auto itpair=tpanelloadmap.equal_range(t->id);
 		for(auto it=itpair.first; it!=itpair.second; ++it) {
-			if(umpt_flags&UMPTF_TPDB_NOUPDF) (*it).second.win->tppw_flags|=TPPWF_NOUPDATEONPUSH;
-			(*it).second.win->PushTweet(t, (*it).second.pushflags);
+			std::shared_ptr<tpanel> tp=(*it).second.pushtpanel.lock();
+			if(tp) tp->PushTweet(t);
+			if((*it).second.win) {
+				if(umpt_flags&UMPTF_TPDB_NOUPDF) (*it).second.win->tppw_flags|=TPPWF_NOUPDATEONPUSH;
+				(*it).second.win->PushTweet(t, (*it).second.pushflags);
+			}
 		}
-		tpaneldbloadmap.erase(itpair.first, itpair.second);
+		tpanelloadmap.erase(itpair.first, itpair.second);
 	}
 	if(t->lflags&TLF_PENDINGINRTMAP) {
 		t->lflags&=~TLF_PENDINGINRTMAP;
@@ -697,6 +705,25 @@ bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t, bool checkfirst) {
 		}
 		else return true;
 	}
+}
+
+bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_nt* win_, unsigned int pushflags, std::shared_ptr<tpanel> *pushtpanel_) {
+	tobj->lflags|=TLF_PENDINGINTPANELMAP;
+	auto pit=tpanelloadmap.equal_range(tobj->id);
+	tpanel *tp=0;
+	if(pushtpanel_) tp=(*pushtpanel_).get();
+	bool found=false;
+	for(auto it=pit.first; it!=pit.second; ++it) {
+		if(!win_ && (*it).second.win!=win_) continue;
+		if(!tp) {
+			std::shared_ptr<tpanel> test_tp=(*it).second.pushtpanel.lock();
+			if(test_tp.get()!=tp) continue;
+		}
+		found=true;
+		break;
+	}
+	if(!found) tpanelloadmap.insert(std::make_pair(tobj->id, tpanelloadmap_data(win_, pushflags, pushtpanel_)));
+	return found;
 }
 
 //returns true is ready, false is pending

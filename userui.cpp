@@ -25,6 +25,23 @@
 
 std::unordered_map<uint64_t, user_window*> userwinmap;
 
+BEGIN_EVENT_TABLE(notebook_event_prehandler, wxEvtHandler)
+	EVT_NOTEBOOK_PAGE_CHANGED(wxID_ANY, notebook_event_prehandler::OnPageChange)
+END_EVENT_TABLE()
+
+void notebook_event_prehandler::OnPageChange(wxNotebookEvent &event) {
+	int i=event.GetSelection();
+	if(i>=0) {
+		if(nb->GetPage(i)==timeline_pane) {
+			if(!timeline_pane->havestarted) {
+				timeline_pane->havestarted=true;
+				timeline_pane->LoadMore(gc.maxtweetsdisplayinpanel);
+			}
+		}
+	}
+	event.Skip();
+}
+
 BEGIN_EVENT_TABLE(user_window, wxDialog)
 	EVT_CLOSE(user_window::OnClose)
 	EVT_CHOICE(wxID_FILE1, user_window::OnSelChange)
@@ -91,7 +108,7 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	accbuttonbox->Add(dmbtn, 0, wxEXPAND | wxALIGN_TOP, 0);
 	follow_btn_mode=FOLLOWBTNMODE::FBM_NONE;
 
-	wxNotebook *nb=new wxNotebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxCLIP_CHILDREN | wxNB_TOP | wxNB_NOPAGETHEME);
+	nb=new wxNotebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxCLIP_CHILDREN | wxNB_TOP | wxNB_NOPAGETHEME);
 
 	wxPanel *infopanel=new wxPanel(nb, wxID_ANY);
 	vbox->Add(nb, 0, wxALL | wxEXPAND, 4);
@@ -115,6 +132,13 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	insert_uw_row(infopanel, if_grid, wxT("Account ID:"), id_str);
 
 	nb->AddPage(infopanel, wxT("Info"), true);
+
+	timeline_pane=new tpanelparentwin_usertweets(u, nb, acc_hint);
+	nb->AddPage(timeline_pane, wxT("Timeline"), false);
+
+	nb_prehndlr.timeline_pane=timeline_pane;
+	nb_prehndlr.nb=nb;
+	nb->PushEventHandler(&nb_prehndlr);
 
 	SetSizer(vbox);
 
@@ -272,6 +296,7 @@ void user_window::Refresh(bool refreshimg) {
 
 
 user_window::~user_window() {
+	nb->PopEventHandler();
 	userwinmap.erase(userid);
 	u->udc_flags&=~UDC_WINDOWOPEN;
 }

@@ -211,7 +211,7 @@ void taccount::GetRestBackfill() {
 }
 
 //limits are inclusive
-void taccount::StartRestGetTweetBackfill(uint64_t start_tweet_id, uint64_t end_tweet_id, unsigned int max_tweets_to_read, RBFS_TYPE type) {
+void taccount::StartRestGetTweetBackfill(uint64_t start_tweet_id, uint64_t end_tweet_id, unsigned int max_tweets_to_read, RBFS_TYPE type, uint64_t userid) {
 	pending_rbfs_list.emplace_front();
 	restbackfillstate *rbfs=&pending_rbfs_list.front();
 	rbfs->start_tweet_id=start_tweet_id;
@@ -221,6 +221,7 @@ void taccount::StartRestGetTweetBackfill(uint64_t start_tweet_id, uint64_t end_t
 	rbfs->type=type;
 	rbfs->started=false;
 	rbfs->lastop_recvcount=0;
+	rbfs->userid=userid;
 	ExecRBFS(rbfs);
 }
 
@@ -228,7 +229,19 @@ void taccount::ExecRBFS(restbackfillstate *rbfs) {
 	if(rbfs->started) return;
 	twitcurlext *twit=cp.GetConn();
 	twit->TwInit(shared_from_this());
-	twit->connmode=(rbfs->type==RBFS_TWEETS || rbfs->type==RBFS_MENTIONS)?CS_TIMELINE:CS_DMTIMELINE;
+	switch(rbfs->type) {
+		case RBFS_TWEETS:
+		case RBFS_MENTIONS:
+			twit->connmode=CS_TIMELINE;
+			break;
+		case RBFS_RECVDM:
+		case RBFS_SENTDM:
+			twit->connmode=CS_DMTIMELINE;
+			break;
+		case RBFS_USER_TIMELINE:
+			twit->connmode=CS_USERTIMELINE;
+			break;
+	}
 	twit->SetNoPerformFlag(true);
 	twit->rbfs=rbfs;
 	twit->post_action_flags=PAF_RESOLVE_PENDINGS;
@@ -416,6 +429,10 @@ std::shared_ptr<tweet> &alldata::GetTweetById(uint64_t id, bool *isnew) {
 		t->id=id;
 	}
 	return t;
+}
+
+void alldata::UnlinkTweetById(uint64_t id) {
+	tweetobjs.erase(id);
 }
 
 std::string hexify(const std::string &in) {

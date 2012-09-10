@@ -478,6 +478,14 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			DoTweetParse(dc, JDTP_ISDM | JDTP_DEL);
 			break;
 		}
+		case CS_USERTIMELINE: {
+			if(dc.IsArray()) {
+				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) DoTweetParse(dc[i], JDTP_USERTIMELINE);
+			}
+			else DoTweetParse(dc, JDTP_USERTIMELINE);
+			CheckClearNoUpdateFlag_All();
+			break;
+		}
 		case CS_NULL:
 			break;
 	}
@@ -539,8 +547,10 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 	if(sflags&JDTP_DEL) tobj->flags.Set('X');
 
 	tweet_perspective *tp=tobj->AddTPToTweet(tac);
-	bool is_new_tweet_perspective=!tp->IsArrivedHere();
-	tp->SetArrivedHere(true);
+	bool is_new_tweet_perspective=!tp->IsReceivedHere();
+	bool has_just_arrived=!tp->IsArrivedHere();
+	if(!(sflags&JDTP_USERTIMELINE)) tp->SetArrivedHere(true);
+	tp->SetReceivedHere(true);
 	ParsePerspectivalTweetProps(val, tp, 0);
 	if(sflags&JDTP_FAV) tp->SetFavourited(true);
 	if(sflags&JDTP_UNFAV) tp->SetFavourited(false);
@@ -583,11 +593,10 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 			tobj->user_recipient=CheckParseUserObj(recipientid, val["recipient"], *this);
 		}
 		tobj->updcf_flags|=UPDCF_USEREXPIRE;
-		if(!(sflags&JDTP_ISRTSRC)) tac->MarkPendingOrHandle(tobj);
 	}
 	else UpdateTweet(tobj);
 
-	if(!(sflags&JDTP_ISRTSRC)) {
+	if(!(sflags&JDTP_ISRTSRC) && !(sflags&JDTP_USERTIMELINE)) {
 		if(sflags&JDTP_ISDM) {
 			if(tobj->user_recipient.get()==tac->usercont.get()) {	//received DM
 				if(tac->max_recvdm_id<tobj->id) tac->max_recvdm_id=tobj->id;
@@ -598,14 +607,41 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 			}
 		}
 		else {
-			if(tac->max_tweet_id<tobj->id) tac->max_tweet_id=tobj->id;
+			if(twit && twit->rbfs) {
+				if(twit->rbfs->type==RBFS_TWEETS) {
+					if(tac->max_tweet_id<tobj->id) tac->max_tweet_id=tobj->id;
+				}
+				else if(twit->rbfs->type==RBFS_MENTIONS) {
+					if(tac->max_mention_id<tobj->id) tac->max_mention_id=tobj->id;
+				}
+			}
+			else {	//streaming mode
+				if(tac->max_tweet_id<tobj->id) tac->max_tweet_id=tobj->id;
+				if(tac->max_mention_id<tobj->id) tac->max_mention_id=tobj->id;
+			}
 		}
 	}
 
 	if(currentlogflags&LFT_PARSE) tobj->Dump();
 
-	if(is_new_tweet) dbc.InsertNewTweet(tobj, std::move(json), dbmsglist);
-	else dbc.UpdateTweetDyn(tobj, dbmsglist);
+	if(has_just_arrived && !(sflags&JDTP_ISRTSRC) && !(sflags&JDTP_USERTIMELINE)) tac->MarkPendingOrHandle(tobj);
+
+	if(sflags&JDTP_USERTIMELINE) {
+		if(twit && twit->rbfs) {
+			std::shared_ptr<tpanel> tp=tpanelparentwin_usertweets::GetUserTweetTPanel(twit->rbfs->userid);
+			if(tp) {
+				if(tac->CheckMarkPending(tobj)) tp->PushTweet(tobj, TPPWPF_USERTL | TPPWPF_SETNOUPDATEFLAG);
+				else MarkPending_TPanelMap(tobj, 0, TPPWPF_USERTL, &tp);
+			}
+		}
+	}
+	else {
+		if(!(tobj->lflags&TLF_SAVED_IN_DB)) {
+			dbc.InsertNewTweet(tobj, std::move(json), dbmsglist);
+			tobj->lflags|=TLF_SAVED_IN_DB;
+		}
+		else dbc.UpdateTweetDyn(tobj, dbmsglist);
+	}
 
 	return tobj;
 }
