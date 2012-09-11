@@ -226,6 +226,9 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 			case RBFS_USER_TIMELINE:
 				timelineUserGet(tmps, std::to_string(rbfs->userid), true);
 				break;
+			case RBFS_USER_FAVS:
+				favoriteGet(tmps, std::to_string(rbfs->userid), true);
+				break;
 		}
 		if(currentlogflags&LFT_TWITACT) {
 			char *url;
@@ -349,6 +352,7 @@ void twitcurlext::QueueAsyncExec() {
 		case CS_TIMELINE:
 		case CS_DMTIMELINE:
 		case CS_USERTIMELINE:
+		case CS_USERFAVS:
 			return ExecRestGetTweetBackfill();
 		case CS_STREAM:
 			LogMsgFormat(LFT_TWITACT, wxT("Queue Stream Connection"));
@@ -487,12 +491,12 @@ bool userdatacontainer::IsReady(unsigned int updcf_flags) {
 	else return true;
 }
 
-void userdatacontainer::CheckPendingTweets() {
+void userdatacontainer::CheckPendingTweets(unsigned int umpt_flags) {
 	FreezeAll();
 	pendingtweets.remove_if([&](const std::shared_ptr<tweet> &t) {
 		if(!IsReady(t->updcf_flags)) return false;
 		if(CheckMarkPending_GetAcc(t, true)) {
-			UnmarkPendingTweet(t);
+			UnmarkPendingTweet(t, umpt_flags);
 			return true;
 		}
 		else return false;
@@ -529,7 +533,7 @@ void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, unsigned int umpt_flags
 		auto itpair=rtpendingmap.equal_range(t->id);
 		for(auto it=itpair.first; it!=itpair.second; ++it) {
 			auto &rt=ad.GetTweetById((*it).second);
-			if(rt->IsReady()) UnmarkPendingTweet(rt);
+			if(rt->IsReady()) UnmarkPendingTweet(rt, umpt_flags);
 		}
 		rtpendingmap.erase(itpair.first, itpair.second);
 	}

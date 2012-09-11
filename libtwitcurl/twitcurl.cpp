@@ -1067,18 +1067,29 @@ bool twitCurl::accountVerifyCredGet()
 *
 * @description: method to get favorite users' statuses
 *
-* @input: none
+* @input: timeline parameters, user id (optional), screen name (optional)
 *
 * @output: true if GET is success, otherwise false. This does not check http
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::favoriteGet()
+bool twitCurl::favoriteGet( const struct timelineparams &tmps /* in */, const std::string &userInfo /* in */, bool isUserId /* in */)
 {
+    std::string URLext;
+    UtilTimelineProcessParams(tmps, URLext);
+
+    std::string buildUrl=twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
+                         twitterDefaults::TWITCURL_FAVORITESGET_URL +
+                         twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType];
+
+    if( userInfo.size() )
+    {
+        URLext += twitCurlDefaults::TWITCURL_URL_SEP_AMP + ((isUserId)?twitCurlDefaults::TWITCURL_USERID:twitCurlDefaults::TWITCURL_SCREENNAME) + userInfo;
+    }
+    if(URLext.size()) buildUrl+=twitCurlDefaults::TWITCURL_URL_SEP_QUES + URLext.substr(1);	//chop off first &
+    
     /* Perform GET */
-    return performGet( twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
-                       twitterDefaults::TWITCURL_FAVORITESGET_URL +
-                       twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType] );
+    return performGet( buildUrl );
 }
 
 /*++

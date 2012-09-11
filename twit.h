@@ -82,7 +82,7 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 
 	bool NeedsUpdating(unsigned int updcf_flags) const;
 	bool IsReady(unsigned int updcf_flags);
-	void CheckPendingTweets();
+	void CheckPendingTweets(unsigned int umpt_flags=0);
 	std::shared_ptr<taccount> GetAccountOfUser() const;
 	void GetImageLocalFilename(wxString &filename)  const;
 	inline userdata &GetUser() { return user; }
@@ -257,6 +257,7 @@ typedef enum {
 	CS_DELETETWEET,
 	CS_DELETEDM,
 	CS_USERTIMELINE,
+	CS_USERFAVS,
 } CS_ENUMTYPE;
 
 //for post_action_flags
@@ -272,6 +273,7 @@ typedef enum {			//do not change these values, they are saved/loaded to/from the
 	RBFS_RECVDM,
 	RBFS_SENTDM,
 	RBFS_USER_TIMELINE,
+	RBFS_USER_FAVS,
 	RBFS_MAX = RBFS_SENTDM,
 } RBFS_TYPE;
 

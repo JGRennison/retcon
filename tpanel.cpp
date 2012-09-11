@@ -881,27 +881,27 @@ void tpanelscrollwin::OnScrollHandler(wxScrollWinEvent &event) {
 BEGIN_EVENT_TABLE(tpanelparentwin_usertweets, tpanelparentwin_nt)
 END_EVENT_TABLE()
 
-std::unordered_map<uint64_t, std::shared_ptr<tpanel> > tpanelparentwin_usertweets::usertpanelmap;
+std::map<std::pair<uint64_t, RBFS_TYPE>, std::shared_ptr<tpanel> > tpanelparentwin_usertweets::usertpanelmap;
 
-tpanelparentwin_usertweets::tpanelparentwin_usertweets(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent, std::weak_ptr<taccount> &acc_)
-	: tpanelparentwin_nt(MkUserTweetTPanel(user_), parent), user(user_), acc(acc_), havestarted(false) {
+tpanelparentwin_usertweets::tpanelparentwin_usertweets(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent, std::weak_ptr<taccount> &acc_, RBFS_TYPE type_)
+	: tpanelparentwin_nt(MkUserTweetTPanel(user_, type_), parent), user(user_), acc(acc_), havestarted(false), type(type_) {
 	tppw_flags|=TPPWF_CANALWAYSSCROLLDOWN;
 }
 
 tpanelparentwin_usertweets::~tpanelparentwin_usertweets() {
-	usertpanelmap.erase(user->id);
+	usertpanelmap.erase(std::make_pair(user->id, type));
 }
 
-std::shared_ptr<tpanel> tpanelparentwin_usertweets::MkUserTweetTPanel(const std::shared_ptr<userdatacontainer> &user) {
-	std::shared_ptr<tpanel> &tp=usertpanelmap[user->id];
+std::shared_ptr<tpanel> tpanelparentwin_usertweets::MkUserTweetTPanel(const std::shared_ptr<userdatacontainer> &user, RBFS_TYPE type_) {
+	std::shared_ptr<tpanel> &tp=usertpanelmap[std::make_pair(user->id, type_)];
 	if(!tp) {
-		tp=tpanel::MkTPanel("___UTL_" + std::to_string(user->id), "User Timeline: @" + user->GetUser().screen_name, TPF_DELETEONWINCLOSE|TPF_USER_TIMELINE);
+		tp=tpanel::MkTPanel("___UTL_" + std::to_string(user->id) + "_" + std::to_string((size_t) type_), "User Timeline: @" + user->GetUser().screen_name, TPF_DELETEONWINCLOSE|TPF_USER_TIMELINE);
 	}
 	return tp;
 }
 
-std::shared_ptr<tpanel> tpanelparentwin_usertweets::GetUserTweetTPanel(uint64_t userid) {
-	auto it=usertpanelmap.find(userid);
+std::shared_ptr<tpanel> tpanelparentwin_usertweets::GetUserTweetTPanel(uint64_t userid, RBFS_TYPE type_) {
+	auto it=usertpanelmap.find(std::make_pair(userid, type_));
 	if(it!=usertpanelmap.end()) {
 		return it->second;
 	}
@@ -940,7 +940,7 @@ void tpanelparentwin_usertweets::LoadMore(unsigned int n, uint64_t lessthanid, u
 		else {
 			if(tp->tweetlist.begin()!=tp->tweetlist.end()) lower_id=*(tp->tweetlist.begin());
 		}
-		tac->StartRestGetTweetBackfill(lower_id /*lower limit, exclusive*/, upper_id /*upper limit, inclusive*/, numleft, RBFS_USER_TIMELINE, user->id);
+		tac->StartRestGetTweetBackfill(lower_id /*lower limit, exclusive*/, upper_id /*upper limit, inclusive*/, numleft, type, user->id);
 	}
 
 	Thaw();

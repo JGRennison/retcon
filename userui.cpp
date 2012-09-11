@@ -32,10 +32,12 @@ END_EVENT_TABLE()
 void notebook_event_prehandler::OnPageChange(wxNotebookEvent &event) {
 	int i=event.GetSelection();
 	if(i>=0) {
-		if(nb->GetPage(i)==timeline_pane) {
-			if(!timeline_pane->havestarted) {
-				timeline_pane->havestarted=true;
-				timeline_pane->LoadMore(gc.maxtweetsdisplayinpanel);
+		for(auto it=timeline_pane_list.begin(); it!=timeline_pane_list.end(); ++it) {
+			if(nb->GetPage(i)==(*it)) {
+				if(!(*it)->havestarted) {
+					(*it)->havestarted=true;
+					(*it)->LoadMore(gc.maxtweetsdisplayinpanel);
+				}
 			}
 		}
 	}
@@ -135,8 +137,10 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 
 	timeline_pane=new tpanelparentwin_usertweets(u, nb, acc_hint);
 	nb->AddPage(timeline_pane, wxT("Timeline"), false);
-
-	nb_prehndlr.timeline_pane=timeline_pane;
+	fav_timeline_pane=new tpanelparentwin_usertweets(u, nb, acc_hint, RBFS_USER_FAVS);
+	nb->AddPage(fav_timeline_pane, wxT("Favourites"), false);
+	nb_prehndlr.timeline_pane_list.push_front(timeline_pane);
+	nb_prehndlr.timeline_pane_list.push_front(fav_timeline_pane);
 	nb_prehndlr.nb=nb;
 	nb->PushEventHandler(&nb_prehndlr);
 

@@ -388,7 +388,8 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 		case CS_USERLIST:
 			if(dc.IsArray()) {
 				dbmsglist=new dbsendmsg_list();
-				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) DoUserParse(dc[i]);
+				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) DoUserParse(dc[i], UMPTF_TPDB_NOUPDF);
+				CheckClearNoUpdateFlag_All();
 			}
 			else DoUserParse(dc);
 			break;
@@ -478,7 +479,8 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			DoTweetParse(dc, JDTP_ISDM | JDTP_DEL);
 			break;
 		}
-		case CS_USERTIMELINE: {
+		case CS_USERTIMELINE:
+		case CS_USERFAVS: {
 			if(dc.IsArray()) {
 				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) DoTweetParse(dc[i], JDTP_USERTIMELINE);
 			}
@@ -499,7 +501,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 }
 
 //don't use this for perspectival attributes
-std::shared_ptr<userdatacontainer> jsonparser::DoUserParse(const rapidjson::Value& val) {
+std::shared_ptr<userdatacontainer> jsonparser::DoUserParse(const rapidjson::Value& val, unsigned int umpt_flags) {
 	uint64_t id;
 	CheckTransJsonValueDef(id, val, "id", 0);
 	auto userdatacont = ad.GetUserContainerById(id);
@@ -514,7 +516,7 @@ std::shared_ptr<userdatacontainer> jsonparser::DoUserParse(const rapidjson::Valu
 	if(userdatacont->udc_flags&UDC_WINDOWOPEN) user_window::CheckRefresh(id, false);
 
 	userdatacont->MarkUpdated();
-	userdatacont->CheckPendingTweets();
+	userdatacont->CheckPendingTweets(umpt_flags);
 
 	if(currentlogflags&LFT_PARSE) userdatacont->Dump();
 	return userdatacont;
@@ -627,8 +629,8 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 	if(has_just_arrived && !(sflags&JDTP_ISRTSRC) && !(sflags&JDTP_USERTIMELINE)) tac->MarkPendingOrHandle(tobj);
 
 	if(sflags&JDTP_USERTIMELINE) {
-		if(twit && twit->rbfs) {
-			std::shared_ptr<tpanel> tp=tpanelparentwin_usertweets::GetUserTweetTPanel(twit->rbfs->userid);
+		if(twit && twit->rbfs && !(sflags&JDTP_ISRTSRC)) {
+			std::shared_ptr<tpanel> tp=tpanelparentwin_usertweets::GetUserTweetTPanel(twit->rbfs->userid, twit->rbfs->type);
 			if(tp) {
 				if(tac->CheckMarkPending(tobj)) tp->PushTweet(tobj, TPPWPF_USERTL | TPPWPF_SETNOUPDATEFLAG);
 				else MarkPending_TPanelMap(tobj, 0, TPPWPF_USERTL, &tp);

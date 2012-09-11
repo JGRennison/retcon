@@ -69,7 +69,7 @@ struct jsonparser : public genjsonparser {
 	rapidjson::Document dc;
 	dbsendmsg_list *dbmsglist;
 
-	std::shared_ptr<userdatacontainer> DoUserParse(const rapidjson::Value& val);
+	std::shared_ptr<userdatacontainer> DoUserParse(const rapidjson::Value& val, unsigned int umpt_flags=0);
 	void DoEventParse(const rapidjson::Value& val);
 	void DoFriendLookupParse(const rapidjson::Value& val);
 	std::shared_ptr<tweet> DoTweetParse(const rapidjson::Value& val, unsigned int sflags=0);

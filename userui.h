@@ -30,7 +30,7 @@ struct acc_choice;
 struct notebook_event_prehandler : public wxEvtHandler {
 	void OnPageChange(wxNotebookEvent &event);
 	wxNotebook *nb;
-	tpanelparentwin_usertweets *timeline_pane;
+	std::forward_list<tpanelparentwin_usertweets *> timeline_pane_list;
 
 	DECLARE_EVENT_TABLE()
 };
@@ -60,6 +60,7 @@ struct user_window: public wxDialog {
 	wxStaticText *lastupdate;
 	wxStaticText *id_str;
 	tpanelparentwin_usertweets *timeline_pane;
+	tpanelparentwin_usertweets *fav_timeline_pane;
 	notebook_event_prehandler nb_prehndlr;
 	wxNotebook *nb;
 

@@ -278,15 +278,16 @@ struct tpanelparentwin : public tpanelparentwin_nt {
 struct tpanelparentwin_usertweets : public tpanelparentwin_nt {
 	std::shared_ptr<userdatacontainer> user;
 	std::weak_ptr<taccount> acc;
-	static std::unordered_map<uint64_t, std::shared_ptr<tpanel> > usertpanelmap;
+	static std::map<std::pair<uint64_t, RBFS_TYPE>, std::shared_ptr<tpanel> > usertpanelmap;	//use map rather than unordered_map due to the hassle associated with specialising std::hash
 	bool havestarted;
+	RBFS_TYPE type;
 
-	tpanelparentwin_usertweets(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent, std::weak_ptr<taccount> &acc_);
+	tpanelparentwin_usertweets(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent, std::weak_ptr<taccount> &acc_, RBFS_TYPE type_=RBFS_USER_TIMELINE);
 	~tpanelparentwin_usertweets();
 	virtual void LoadMore(unsigned int n, uint64_t lessthanid=0, unsigned int pushflags=0);
 	virtual mainframe *GetMainframe();
-	static std::shared_ptr<tpanel> MkUserTweetTPanel(const std::shared_ptr<userdatacontainer> &user);
-	static std::shared_ptr<tpanel> GetUserTweetTPanel(uint64_t userid);
+	static std::shared_ptr<tpanel> MkUserTweetTPanel(const std::shared_ptr<userdatacontainer> &user, RBFS_TYPE type_=RBFS_USER_TIMELINE);
+	static std::shared_ptr<tpanel> GetUserTweetTPanel(uint64_t userid, RBFS_TYPE type_=RBFS_USER_TIMELINE);
 
 	DECLARE_EVENT_TABLE()
 };
