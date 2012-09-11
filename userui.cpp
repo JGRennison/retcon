@@ -124,6 +124,7 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	insert_uw_row(infopanel, if_grid, wxT("Tweets:"), tweets);
 	insert_uw_row(infopanel, if_grid, wxT("Followers:"), followers);
 	insert_uw_row(infopanel, if_grid, wxT("Following:"), follows);
+	insert_uw_row(infopanel, if_grid, wxT("Has Favourited:"), faved);
 
 	if_grid->Add(new wxStaticText(infopanel, wxID_ANY, wxT("Web URL:")), 0, wxALL, 2);
 	url=new wxHyperlinkCtrl(infopanel, wxID_ANY, wxT(""), wxT(""), wxDefaultPosition, wxDefaultSize, wxNO_BORDER|wxHL_CONTEXTMENU|wxHL_ALIGN_LEFT);
@@ -288,6 +289,7 @@ void user_window::Refresh(bool refreshimg) {
 	tweets->SetLabel(wxString::Format(wxT("%d"), u->GetUser().statuses_count));
 	followers->SetLabel(wxString::Format(wxT("%d"), u->GetUser().followers_count));
 	follows->SetLabel(wxString::Format(wxT("%d"), u->GetUser().friends_count));
+	faved->SetLabel(wxString::Format(wxT("%d"), u->GetUser().favourites_count));
 	url->SetLabel(wxstrstd(u->GetUser().userurl));
 	url->SetURL(wxstrstd(u->GetUser().userurl));
 	set_uw_time_val(createtime, u->GetUser().createtime);

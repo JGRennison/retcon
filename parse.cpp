@@ -302,6 +302,7 @@ void genjsonparser::ParseUserContents(const rapidjson::Value& val, userdata &use
 	CheckTransJsonValueDef(userobj.followers_count, val, "followers_count", userobj.followers_count);
 	CheckTransJsonValueDef(userobj.statuses_count, val, "statuses_count", userobj.statuses_count);
 	CheckTransJsonValueDef(userobj.friends_count, val, "friends_count", userobj.friends_count);
+	CheckTransJsonValueDef(userobj.favourites_count, val, "favourites_count", userobj.favourites_count);
 }
 
 void jsonparser::RestTweetUpdateParams(const tweet &t) {

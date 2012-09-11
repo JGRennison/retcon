@@ -50,9 +50,10 @@ struct userdata {
 	unsigned int statuses_count;
 	unsigned int followers_count;	//users following this account
 	unsigned int friends_count;	//users this account is following
+	unsigned int favourites_count;	//tweets this account has faved
 	std::string userurl;
 
-	userdata() : u_flags(0), createtime(0), statuses_count(0), followers_count(0), friends_count(0) { }
+	userdata() : u_flags(0), createtime(0), statuses_count(0), followers_count(0), friends_count(0), favourites_count(0) { }
 };
 
 enum {

@@ -286,6 +286,7 @@ struct tpanelparentwin_usertweets : public tpanelparentwin_nt {
 	~tpanelparentwin_usertweets();
 	virtual void LoadMore(unsigned int n, uint64_t lessthanid=0, unsigned int pushflags=0);
 	virtual mainframe *GetMainframe();
+	virtual void UpdateCLabel();
 	static std::shared_ptr<tpanel> MkUserTweetTPanel(const std::shared_ptr<userdatacontainer> &user, RBFS_TYPE type_=RBFS_USER_TIMELINE);
 	static std::shared_ptr<tpanel> GetUserTweetTPanel(uint64_t userid, RBFS_TYPE type_=RBFS_USER_TIMELINE);
 

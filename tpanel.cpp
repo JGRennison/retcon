@@ -951,6 +951,20 @@ mainframe *tpanelparentwin_usertweets::GetMainframe() {
 	return GetMainframeAncestor(this);
 }
 
+void tpanelparentwin_usertweets::UpdateCLabel() {
+	size_t curnum=currentdisp.size();
+	size_t varmax=0;
+	wxString emptymsg=wxT("No Tweets");
+	switch(type) {
+		case RBFS_USER_TIMELINE: varmax=user->GetUser().statuses_count; break;
+		case RBFS_USER_FAVS: varmax=user->GetUser().favourites_count; emptymsg=wxT("No Favourites"); break;
+		default: break;
+	}
+	size_t curtotal=std::max(tp->tweetlist.size(), varmax);
+	if(curnum) clabel->SetLabel(wxString::Format(wxT("%d - %d of %d"), displayoffset+1, displayoffset+curnum, curtotal));
+	else clabel->SetLabel(emptymsg);
+}
+
 BEGIN_EVENT_TABLE(dispscr_base, wxRichTextCtrl)
 	EVT_MOUSEWHEEL(dispscr_base::mousewheelhandler)
 END_EVENT_TABLE()

@@ -55,6 +55,7 @@ struct user_window: public wxDialog {
 	wxStaticText *tweets;
 	wxStaticText *followers;
 	wxStaticText *follows;
+	wxStaticText *faved;
 	wxStaticText *createtime;
 	wxHyperlinkCtrl *url;
 	wxStaticText *lastupdate;
