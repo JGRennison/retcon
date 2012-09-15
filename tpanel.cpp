@@ -807,6 +807,104 @@ void tpanelparentwin::tabsplitcmdhandler(wxCommandEvent &event) {
 	owner->auib->Split(owner->auib->GetPageIndex(this), wxRIGHT);
 }
 
+BEGIN_EVENT_TABLE(tpanelparentwin_user, panelparentwin_base)
+END_EVENT_TABLE()
+
+tpanelparentwin_user::tpanelparentwin_user(wxWindow *parent)
+	: panelparentwin_base(parent) { }
+
+void tpanelparentwin_user::PageUpHandler() {
+	if(displayoffset) {
+		tppw_flags|=TPPWF_NOUPDATEONPUSH;
+		size_t pagemove=std::min((size_t) (gc.maxtweetsdisplayinpanel+1)/2, displayoffset);
+		auto it=userlist.begin()+displayoffset;
+		for(unsigned int i=0; i<pagemove; i++) {
+			it--;
+			displayoffset--;
+			const std::shared_ptr<userdatacontainer> &u=*it;
+			if(u->IsReady(UPDCF_DOWNLOADIMG)) UpdateUser(u, displayoffset);
+		}
+		CheckClearNoUpdateFlag();
+	}
+	scrollwin->page_scroll_blocked=false;
+}
+void tpanelparentwin_user::PageDownHandler() {
+	tppw_flags|=TPPWF_NOUPDATEONPUSH;
+	size_t curnum=currentdisp.size();
+	size_t num=userlist.size();
+	if(curnum+displayoffset<num || tppw_flags&TPPWF_CANALWAYSSCROLLDOWN) {
+		size_t pagemove;
+		if(tppw_flags&TPPWF_CANALWAYSSCROLLDOWN) pagemove=(gc.maxtweetsdisplayinpanel+1)/2;
+		else pagemove=std::min((size_t) (gc.maxtweetsdisplayinpanel+1)/2, num-(curnum+displayoffset));
+		LoadMoreToBack(pagemove);
+	}
+	scrollwin->page_scroll_blocked=false;
+	CheckClearNoUpdateFlag();
+}
+
+void tpanelparentwin_user::PageTopHandler() {
+	if(displayoffset) {
+		tppw_flags|=TPPWF_NOUPDATEONPUSH;
+		size_t pushcount=std::min(displayoffset, (size_t) gc.maxtweetsdisplayinpanel);
+		displayoffset=0;
+		size_t i=0;
+		for(auto it=userlist.begin(); it!=userlist.end() && pushcount; ++it, --pushcount, i++) {
+			const std::shared_ptr<userdatacontainer> &u=*it;
+			if(u->IsReady(UPDCF_DOWNLOADIMG)) UpdateUser(u, i);
+		}
+		CheckClearNoUpdateFlag();
+	}
+	scrollwin->Scroll(-1, 0);
+}
+
+void tpanelparentwin_user::PushBackUser(const std::shared_ptr<userdatacontainer> &u) {
+	bool havealready=false;
+	size_t offset;
+	for(auto it=userlist.begin(); it!=userlist.end(); ++it) {
+		if((*it).get()==u.get()) {
+			havealready=true;
+			offset=std::distance(userlist.begin(), it);
+			break;
+		}
+	}
+	if(!havealready) {
+		userlist.push_back(u);
+		offset=userlist.size()-1;
+	}
+	UpdateUser(u, offset);
+}
+
+void tpanelparentwin_user::UpdateUser(const std::shared_ptr<userdatacontainer> &u, size_t offset) {
+	size_t index=0;
+	auto jt=userlist.begin();
+	size_t i=0;
+	for(auto it=currentdisp.begin(); it!=currentdisp.end(); ++it, i++) {
+		for(;jt!=userlist.end(); ++jt) {
+			if(it->first==(*jt)->id) {
+				if(it->first==u->id) {
+					((userdispscr *) it->second)->Display();
+					return;
+				}
+				else if(offset> (size_t) std::distance(userlist.begin(), jt)) {
+					index=i+1;
+				}
+				break;
+			}
+		}
+	}
+
+	wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
+	userdispscr *td=new userdispscr(u, scrollwin, this, hbox);
+
+	td->bm = new profimg_staticbitmap(scrollwin, u->cached_profile_img, u->id, 0);
+	hbox->Add(td->bm, 0, wxALL, 2);
+
+	hbox->Add(td, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
+
+	sizer->Insert(index, hbox, 0, wxALL | wxEXPAND, 1);
+	td->Display();
+}
+
 BEGIN_EVENT_TABLE(tpanelscrollwin, wxScrolledWindow)
 	EVT_SIZE(tpanelscrollwin::resizehandler)
 	EVT_COMMAND(wxID_ANY, wxextRESIZE_UPDATE_EVENT, tpanelscrollwin::resizemsghandler)
@@ -1061,6 +1159,111 @@ static void DoWriteSubstr(tweetdispscr &td, const std::string &str, int start, i
 	if(wstr.Len()) td.WriteText(wstr);
 }
 
+inline void GenFlush(dispscr_base *obj, wxString &str) {
+	if(str.size()) {
+		obj->WriteText(str);
+		str.clear();
+	}
+}
+
+void GenUserFmt(dispscr_base *obj, userdatacontainer *u, size_t &i, const wxString &format, wxString &str) {
+	i++;
+	if(i>=format.size()) return;
+	switch((wxChar) format[i]) {
+		case 'n':
+			str+=wxstrstd(u->GetUser().screen_name);
+			break;
+		case 'N':
+			str+=wxstrstd(u->GetUser().name);
+			break;
+		case 'i':
+			str+=wxString::Format("%" wxLongLongFmtSpec "d", u->id);
+			break;
+		case 'Z': {
+			GenFlush(obj, str);
+			obj->BeginURL(wxString::Format("U%" wxLongLongFmtSpec "d", u->id), obj->GetDefaultStyleEx().GetCharacterStyleName());
+			break;
+		}
+		case 'p':
+			if(u->GetUser().u_flags&UF_ISPROTECTED) {
+				GenFlush(obj, str);
+				obj->WriteImage(obj->tppw->tpg->proticon_img);
+				obj->SetInsertionPointEnd();
+			}
+			break;
+		case 'v':
+			if(u->GetUser().u_flags&UF_ISVERIFIED) {
+				GenFlush(obj, str);
+				obj->WriteImage(obj->tppw->tpg->verifiedicon_img);
+				obj->SetInsertionPointEnd();
+			}
+			break;
+		case 'd': {
+			GenFlush(obj, str);
+			long curpos=obj->GetInsertionPoint();
+			obj->BeginURL(wxString::Format(wxT("Xd%" wxLongLongFmtSpec "d"), u->id));
+			obj->WriteImage(obj->tppw->tpg->dmreplyicon_img);
+			obj->EndURL();
+			obj->SetInsertionPointEnd();
+			wxTextAttrEx attr;
+			attr.SetURL(wxString::Format(wxT("Xd%" wxLongLongFmtSpec "d"), u->id));
+			obj->SetStyleEx(curpos, obj->GetInsertionPoint(), attr, wxRICHTEXT_SETSTYLE_OPTIMIZE);
+			break;
+		}
+		case 'w': {
+			if(u->GetUser().userurl.size()) {
+				GenFlush(obj, str);
+				obj->BeginURL(wxT("W") + wxstrstd(u->GetUser().userurl));
+				obj->WriteText(wxstrstd(u->GetUser().userurl));
+				obj->EndURL();
+			}
+			break;
+		}
+		case 'D': {
+			str+=wxstrstd(u->GetUser().description);
+		}
+		case 'l': {
+			str+=wxstrstd(u->GetUser().location);
+		}
+		default:
+			break;
+	}
+}
+
+void GenFmtCodeProc(dispscr_base *obj, size_t &i, const wxString &format, wxString &str) {
+	switch((wxChar) format[i]) {
+		case 'B': GenFlush(obj, str); obj->BeginBold(); break;
+		case 'b': GenFlush(obj, str); obj->EndBold(); break;
+		case 'L': GenFlush(obj, str); obj->BeginUnderline(); break;
+		case 'l': GenFlush(obj, str); obj->EndUnderline(); break;
+		case 'I': GenFlush(obj, str); obj->BeginItalic(); break;
+		case 'i': GenFlush(obj, str); obj->EndItalic(); break;
+		case 'z': GenFlush(obj, str); obj->EndURL(); break;
+		case 'N': GenFlush(obj, str); obj->Newline(); break;
+		case 'n': {
+			GenFlush(obj, str);
+			long y;
+			obj->PositionToXY(obj->GetInsertionPoint(), 0, &y);
+			if(obj->GetLineLength(y)) obj->Newline();
+			break;
+		}
+		case '\'':
+		case '"': {
+			auto quotechar=format[i];
+			i++;
+			while(i<format.size()) {
+				if(format[i]==quotechar) break;
+				else str+=format[i];
+				i++;
+			}
+			break;
+		}
+		default:
+			str+=format[i];
+			break;
+	}
+}
+
 void tweetdispscr::DisplayTweet(bool redrawimg) {
 	updatetime=0;
 	std::forward_list<media_entity*> me_list;
@@ -1091,57 +1294,10 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 	else if(tw.flags.Get('D')) format=gc.gcfg.dmdispformat.val;
 
 	auto flush=[&]() {
-		if(str.size()) {
-			this->WriteText(str);
-			str.clear();
-		}
+		GenFlush(this, str);
 	};
 	auto userfmt=[&](userdatacontainer *u, size_t &i) {
-		i++;
-		if(i>=format.size()) return;
-		switch((wxChar) format[i]) {
-			case 'n':
-				str+=wxstrstd(u->GetUser().screen_name);
-				break;
-			case 'N':
-				str+=wxstrstd(u->GetUser().name);
-				break;
-			case 'i':
-				str+=wxString::Format("%" wxLongLongFmtSpec "d", u->id);
-				break;
-			case 'Z': {
-				flush();
-				this->BeginURL(wxString::Format("U%" wxLongLongFmtSpec "d", u->id), this->GetDefaultStyleEx().GetCharacterStyleName());
-				break;
-			}
-			case 'p':
-				if(u->GetUser().u_flags&UF_ISPROTECTED) {
-					flush();
-					this->WriteImage(tppw->tpg->proticon_img);
-					this->SetInsertionPointEnd();
-				}
-				break;
-			case 'v':
-				if(u->GetUser().u_flags&UF_ISVERIFIED) {
-					flush();
-					this->WriteImage(tppw->tpg->verifiedicon_img);
-					this->SetInsertionPointEnd();
-				}
-				break;
-			case 'd': {
-				long curpos=this->GetInsertionPoint();
-				this->BeginURL(wxString::Format(wxT("Xd%" wxLongLongFmtSpec "d"), u->id));
-				this->WriteImage(tppw->tpg->dmreplyicon_img);
-				this->EndURL();
-				this->SetInsertionPointEnd();
-				wxTextAttrEx attr;
-				attr.SetURL(wxString::Format(wxT("Xd%" wxLongLongFmtSpec "d"), u->id));
-				this->SetStyleEx(curpos, this->GetInsertionPoint(), attr, wxRICHTEXT_SETSTYLE_OPTIMIZE);
-				break;
-			}
-			default:
-				break;
-		}
+		GenUserFmt(this, u, i, format, str);
 	};
 
 	for(size_t i=0; i<format.size(); i++) {
@@ -1157,10 +1313,6 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 				if(tw.rtsrc && gc.rtdisp) userfmt(tw.rtsrc->user.get(), i);
 				else userfmt(udc, i);
 				break;
-			case 'N':
-				flush();
-				Newline();
-				break;
 			case 'F':
 				str+=wxstrstd(tw.flags.GetString());
 				break;
@@ -1174,13 +1326,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 			case 'T':
 				str+=rc_wx_strftime(gc.gcfg.datetimeformat.val, localtime(&tw.createtime), tw.createtime, true);
 				break;
-			case 'B': flush(); BeginBold(); break;
-			case 'b': flush(); EndBold(); break;
-			case 'L': flush(); BeginUnderline(); break;
-			case 'l': flush(); EndUnderline(); break;
-			case 'I': flush(); BeginItalic(); break;
-			case 'i': flush(); EndItalic(); break;
-			case 'z': flush(); EndURL(); break;
+
 			case 'C':
 			case 'c': {
 				flush();
@@ -1253,20 +1399,10 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 				}
 				break;
 			}
-			case '\'':
-			case '"': {
-				auto quotechar=format[i];
-				i++;
-				while(i<format.size()) {
-					if(format[i]==quotechar) break;
-					else str+=format[i];
-					i++;
-				}
+			default: {
+				GenFmtCodeProc(this, i, format, str);
 				break;
 			}
-			default:
-				str+=format[i];
-				break;
 		}
 	}
 	flush();
@@ -1343,6 +1479,9 @@ void tweetdispscr::urleventhandler(wxTextUrlEvent &event) {
 			tw.GetUsableAccount(acc_hint);
 			user_window::MkWin(userid, acc_hint);
 		}
+	}
+	else if(url[0]=='W') {
+		::wxLaunchDefaultBrowser(url.Mid(1));
 	}
 	else if(url[0]=='X') {
 		switch((wxChar) url[1]) {
@@ -1472,6 +1611,71 @@ void dispscr_base::mousewheelhandler(wxMouseEvent &event) {
 
 void tweetdispscr::OnTweetActMenuCmd(wxCommandEvent &event) {
 	TweetActMenuAction(tamd, event.GetId(), (tpanelparentwin_nt*) tppw);
+}
+
+BEGIN_EVENT_TABLE(userdispscr, dispscr_base)
+	EVT_TEXT_URL(wxID_ANY, userdispscr::urleventhandler)
+END_EVENT_TABLE()
+
+userdispscr::userdispscr(const std::shared_ptr<userdatacontainer> &u_, tpanelscrollwin *parent, tpanelparentwin_user *tppw_, wxBoxSizer *hbox_)
+: dispscr_base(parent, tppw_, hbox_), u(u_), bm(0) { }
+
+userdispscr::~userdispscr() { }
+
+void userdispscr::Display(bool redrawimg) {
+	if(redrawimg) {
+		if(bm) {
+			bm->SetBitmap(u->cached_profile_img);
+		}
+	}
+
+	Clear();
+	wxString format=gc.gcfg.userdispformat.val;
+	wxString str=wxT("");
+
+	for(size_t i=0; i<format.size(); i++) {
+		switch((wxChar) format[i]) {
+			case 'u':
+				GenUserFmt(this, u.get(), i, format, str);
+				break;
+			default: {
+				GenFmtCodeProc(this, i, format, str);
+				break;
+			}
+		}
+	}
+	GenFlush(this, str);
+
+	LayoutContent();
+	if(!(tppw->tppw_flags&TPPWF_NOUPDATEONPUSH)) {
+		tpsw->FitInside();
+	}
+}
+
+void userdispscr::urleventhandler(wxTextUrlEvent &event) {
+	long start=event.GetURLStart();
+	wxRichTextAttr textattr;
+	GetStyle(start, textattr);
+	wxString url=textattr.GetURL();
+	LogMsgFormat(LFT_TPANEL, wxT("URL clicked, id: %s"), url.c_str());
+	if(url[0]=='U') {
+		uint64_t userid=0;
+		for(unsigned int i=1; i<url.Len(); i++) {
+			if(url[i]>='0' && url[i]<='9') {
+				userid*=10;
+				userid+=url[i]-'0';
+			}
+			else break;
+		}
+		if(userid) {
+			std::shared_ptr<taccount> acc_hint;
+			u->GetUsableAccount(acc_hint);
+			user_window::MkWin(userid, acc_hint);
+		}
+	}
+	else if(url[0]=='W') {
+		::wxLaunchDefaultBrowser(url.Mid(1));
+	}
 }
 
 BEGIN_EVENT_TABLE(image_panel, wxPanel)

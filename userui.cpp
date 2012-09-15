@@ -119,6 +119,7 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	insert_uw_row(infopanel, if_grid, wxT("Name:"), name2);
 	insert_uw_row(infopanel, if_grid, wxT("Screen Name:"), screen_name2);
 	insert_uw_row(infopanel, if_grid, wxT("Description:"), desc);
+	insert_uw_row(infopanel, if_grid, wxT("Location:"), location);
 	insert_uw_row(infopanel, if_grid, wxT("Protected:"), isprotected);
 	insert_uw_row(infopanel, if_grid, wxT("Verified Account:"), isverified);
 	insert_uw_row(infopanel, if_grid, wxT("Tweets:"), tweets);
@@ -284,6 +285,7 @@ void user_window::Refresh(bool refreshimg) {
 	screen_name2->SetLabel(wxT("@") + wxstrstd(u->GetUser().screen_name));
 	desc->SetLabel(wxstrstd(u->GetUser().description).Trim());
 	desc->Wrap(150);
+	location->SetLabel(wxstrstd(u->GetUser().location).Trim());
 	isprotected->SetLabel((u->GetUser().u_flags&UF_ISPROTECTED)?wxT("Yes"):wxT("No"));
 	isverified->SetLabel((u->GetUser().u_flags&UF_ISVERIFIED)?wxT("Yes"):wxT("No"));
 	tweets->SetLabel(wxString::Format(wxT("%d"), u->GetUser().statuses_count));
@@ -308,35 +310,9 @@ user_window::~user_window() {
 }
 
 void user_window::CheckAccHint() {
-	// if(auto tac=acc_hint.lock()) {
-		// if(!tac->enabled) acc_hint.reset();
-	// }
-
-	if(acc_hint.expired()) {
-		for(auto it=alist.begin(); it!=alist.end(); ++it) {	//look for users who we follow, or who follow us
-			taccount &acc=**it;
-			//if(acc.enabled) {
-				auto rel=acc.user_relations.find(userid);
-				if(rel!=acc.user_relations.end()) {
-					if(rel->second.ur_flags&(URF_FOLLOWSME_TRUE|URF_IFOLLOW_TRUE)) {
-						acc_hint=*it;
-						break;
-					}
-				}
-			//}
-		}
-	}
-	if(acc_hint.expired()) {					//otherwise find the first enabled account
-		for(auto it=alist.begin(); it!=alist.end(); ++it) {
-			if((*it)->enabled) {
-				acc_hint=*it;
-				break;
-			}
-		}
-	}
-	if(acc_hint.expired()) {					//otherwise find the first account
-		if(!alist.empty()) acc_hint=alist.front();
-	}
+	std::shared_ptr<taccount> acc_sp=acc_hint.lock();
+	u->GetUsableAccount(acc_sp, false);
+	acc_hint=acc_sp;
 }
 
 void user_window::OnClose(wxCloseEvent &event) {

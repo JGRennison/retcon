@@ -50,6 +50,7 @@ struct genoptglobconf {
 	genopt tweetdispformat;
 	genopt dmdispformat;
 	genopt rtdispformat;
+	genopt userdispformat;
 	genopt cachethumbs;
 	genopt cachemedia;
 	genopt persistentmediacache;

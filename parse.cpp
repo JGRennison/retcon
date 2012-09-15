@@ -286,6 +286,7 @@ void genjsonparser::ParseUserContents(const rapidjson::Value& val, userdata &use
 	CheckTransJsonValueDef(userobj.name, val, "name", "");
 	CheckTransJsonValueDef(userobj.screen_name, val, "screen_name", "");
 	CheckTransJsonValueDef(userobj.description, val, "description", "");
+	CheckTransJsonValueDef(userobj.location, val, "location", "");
 	CheckTransJsonValueDef(userobj.userurl, val, "url", "");
 	if(is_ssl) {
 		if(!CheckTransJsonValueDef(userobj.profile_img_url, val, "profile_image_url_https", "")) {

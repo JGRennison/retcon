@@ -602,6 +602,37 @@ void userdatacontainer::SetProfileBitmapFromwxImage(const wxImage &img) {
 	udc_flags|=UDC_PROFILE_BITMAP_SET;
 }
 
+bool userdatacontainer::GetUsableAccount(std::shared_ptr<taccount> &tac, bool enabledonly) const {
+	if(!tac) {
+		for(auto it=alist.begin(); it!=alist.end(); ++it) {	//look for users who we follow, or who follow us
+			taccount &acc=**it;
+			if(!enabledonly || acc.enabled) {
+				auto rel=acc.user_relations.find(id);
+				if(rel!=acc.user_relations.end()) {
+					if(rel->second.ur_flags&(URF_FOLLOWSME_TRUE|URF_IFOLLOW_TRUE)) {
+						tac=*it;
+						break;
+					}
+				}
+			}
+		}
+	}
+	if(!tac) {					//otherwise find the first enabled account
+		for(auto it=alist.begin(); it!=alist.end(); ++it) {
+			if((*it)->enabled) {
+				tac=*it;
+				break;
+			}
+		}
+	}
+	if(!tac) {					//otherwise find the first account
+		if(!alist.empty()) tac=alist.front();
+	}
+	if(!tac) return false;
+	if(!enabledonly || tac->enabled) return true;
+	else return false;
+}
+
 std::string tweet_flags::GetString() const {
 	std::string out;
 	uint64_t bitint=bits.to_ullong();

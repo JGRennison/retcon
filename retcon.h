@@ -97,6 +97,7 @@ struct tweetdispscr;
 struct dispscr_base;
 struct tpanelparentwin;
 struct tpanelparentwin_nt;
+struct tpanelparentwin_user;
 struct panelparentwin_base;
 struct tpanelscrollwin;
 struct mcurlconn;

@@ -50,6 +50,7 @@ struct user_window: public wxDialog {
 	wxStaticText *name2;
 	wxStaticText *screen_name2;
 	wxStaticText *desc;
+	wxStaticText *location;
 	wxStaticText *isprotected;
 	wxStaticText *isverified;
 	wxStaticText *tweets;

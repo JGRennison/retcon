@@ -135,6 +135,19 @@ struct tweetdispscr : public dispscr_base {
 
 };
 
+struct userdispscr : public dispscr_base {
+	std::shared_ptr<userdatacontainer> u;
+	profimg_staticbitmap *bm;
+
+	userdispscr(const std::shared_ptr<userdatacontainer> &u_, tpanelscrollwin *parent, tpanelparentwin_user *tppw_, wxBoxSizer *hbox_);
+	~userdispscr();
+	void Display(bool redrawimg=false);
+
+	void urleventhandler(wxTextUrlEvent &event);
+
+	DECLARE_EVENT_TABLE()
+};
+
 enum {
 	TPF_DELETEONWINCLOSE		= 1<<0,
 	TPF_ISAUTO			= 1<<1,
@@ -224,7 +237,6 @@ struct panelparentwin_base : public wxPanel {
 
 	panelparentwin_base(wxWindow *parent, bool fitnow=true);
 	virtual ~panelparentwin_base() { }
-	virtual void LoadMore(unsigned int n, uint64_t lessthanid=0, unsigned int pushflags=0) { }
 	virtual mainframe *GetMainframe() { return 0; }
 	virtual void PageUpHandler() { };
 	virtual void PageDownHandler() { };
@@ -247,9 +259,9 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 
 	tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent);
 	virtual ~tpanelparentwin_nt();
-	virtual void LoadMore(unsigned int n, uint64_t lessthanid=0, unsigned int pushflags=0) { }
 	void PushTweet(const std::shared_ptr<tweet> &t, unsigned int pushflags=0);
 	tweetdispscr *PushTweetIndex(const std::shared_ptr<tweet> &t, size_t index);
+	virtual void LoadMore(unsigned int n, uint64_t lessthanid=0, unsigned int pushflags=0) { }
 	virtual void UpdateCLabel();
 	virtual void PageUpHandler();
 	virtual void PageDownHandler();
@@ -289,6 +301,20 @@ struct tpanelparentwin_usertweets : public tpanelparentwin_nt {
 	virtual void UpdateCLabel();
 	static std::shared_ptr<tpanel> MkUserTweetTPanel(const std::shared_ptr<userdatacontainer> &user, RBFS_TYPE type_=RBFS_USER_TIMELINE);
 	static std::shared_ptr<tpanel> GetUserTweetTPanel(uint64_t userid, RBFS_TYPE type_=RBFS_USER_TIMELINE);
+
+	DECLARE_EVENT_TABLE()
+};
+
+struct tpanelparentwin_user : public panelparentwin_base {
+	std::deque< std::shared_ptr<userdatacontainer> > userlist;
+
+	tpanelparentwin_user(wxWindow *parent);
+	void PushBackUser(const std::shared_ptr<userdatacontainer> &u);
+	void UpdateUser(const std::shared_ptr<userdatacontainer> &u, size_t offset);
+	virtual void LoadMoreToBack(unsigned int n) { }
+	virtual void PageUpHandler();
+	virtual void PageDownHandler();
+	virtual void PageTopHandler();
 
 	DECLARE_EVENT_TABLE()
 };

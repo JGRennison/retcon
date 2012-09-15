@@ -39,6 +39,7 @@ genoptglobconf gcglobdefaults {
 	{ wxT("uZB@unbzuvup - T - t - F - XiXrXtXfXdNC"), 1},
 	{ wxT("uZB@unbzuvup -> UZB@UnbzUvUp - T - t - F - XiXtXfXdNC"), 1},
 	{ wxT("rZB@rnbzrvrp 'RT by' uZB@unbzuvup - T - t - F - XiXrXtXfXdNc"), 1},
+	{ wxT("uZB@unbzuvup - uN - ulNuDNuw"), 1},
 	{ wxT("1"), 1 },
 	{ wxT("0"), 1 },
 	{ wxT("1"), 1 },
@@ -131,6 +132,7 @@ void genoptglobconf::CFGWriteOut(DBWriteConfig &twfc) {
 	tweetdispformat.CFGWriteOutCurDir(twfc, "tweetdispformat");
 	dmdispformat.CFGWriteOutCurDir(twfc, "dmdispformat");
 	rtdispformat.CFGWriteOutCurDir(twfc, "rtdispformat");
+	userdispformat.CFGWriteOutCurDir(twfc, "userdispformat");
 	cachethumbs.CFGWriteOutCurDir(twfc, "cachethumbs");
 	cachemedia.CFGWriteOutCurDir(twfc, "cachemedia");
 	persistentmediacache.CFGWriteOutCurDir(twfc, "persistentmediacache");
@@ -146,6 +148,7 @@ void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent)
 	tweetdispformat.CFGReadInCurDir(twfc, "tweetdispformat", parent.tweetdispformat.val);
 	dmdispformat.CFGReadInCurDir(twfc, "dmdispformat", parent.dmdispformat.val);
 	rtdispformat.CFGReadInCurDir(twfc, "rtdispformat", parent.rtdispformat.val);
+	userdispformat.CFGReadInCurDir(twfc, "userdispformat", parent.userdispformat.val);
 	cachethumbs.CFGReadInCurDir(twfc, "cachethumbs", parent.cachethumbs.val);
 	cachemedia.CFGReadInCurDir(twfc, "cachemedia", parent.cachemedia.val);
 	persistentmediacache.CFGReadInCurDir(twfc, "persistentmediacache", parent.persistentmediacache.val);

@@ -47,6 +47,7 @@ struct userdata {
 	unsigned int u_flags;
 	time_t createtime;
 	std::string description;
+	std::string location;
 	unsigned int statuses_count;
 	unsigned int followers_count;	//users following this account
 	unsigned int friends_count;	//users this account is following
@@ -95,6 +96,7 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	void Dump() const;
 	bool ImgIsReady(unsigned int updcf_flags);
 	bool ImgHalfIsReady(unsigned int updcf_flags);
+	bool GetUsableAccount(std::shared_ptr<taccount> &tac, bool enabledonly=true) const;
 };
 
 struct tweet_flags {
