@@ -834,6 +834,9 @@ void tpanelparentwin_user::PageUpHandler() {
 	if(displayoffset) {
 		tppw_flags|=TPPWF_NOUPDATEONPUSH;
 		size_t pagemove=std::min((size_t) (gc.maxtweetsdisplayinpanel+1)/2, displayoffset);
+		size_t curnum=currentdisp.size();
+		size_t bottomdrop=std::min(curnum, (size_t) (curnum+pagemove-gc.maxtweetsdisplayinpanel));
+		for(size_t i=0; i<bottomdrop; i++) PopBottom();
 		auto it=userlist.begin()+displayoffset;
 		for(unsigned int i=0; i<pagemove; i++) {
 			it--;
@@ -848,11 +851,14 @@ void tpanelparentwin_user::PageUpHandler() {
 void tpanelparentwin_user::PageDownHandler() {
 	tppw_flags|=TPPWF_NOUPDATEONPUSH;
 	size_t curnum=currentdisp.size();
-	size_t num=userlist.size();
+	size_t num=ItemCount();
 	if(curnum+displayoffset<num || tppw_flags&TPPWF_CANALWAYSSCROLLDOWN) {
 		size_t pagemove;
 		if(tppw_flags&TPPWF_CANALWAYSSCROLLDOWN) pagemove=(gc.maxtweetsdisplayinpanel+1)/2;
-		else pagemove=std::min((size_t) (gc.maxtweetsdisplayinpanel+1)/2, num-(curnum+displayoffset));
+		else pagemove=std::min((size_t) (gc.maxtweetsdisplayinpanel+1)/2, (size_t) (num-(curnum+displayoffset)));
+		size_t topdrop=std::min(curnum, (size_t) (curnum+pagemove-gc.maxtweetsdisplayinpanel));
+		for(size_t i=0; i<topdrop; i++) PopTop();
+		displayoffset+=topdrop;
 		LoadMoreToBack(pagemove);
 	}
 	scrollwin->page_scroll_blocked=false;
@@ -863,6 +869,10 @@ void tpanelparentwin_user::PageTopHandler() {
 	if(displayoffset) {
 		tppw_flags|=TPPWF_NOUPDATEONPUSH;
 		size_t pushcount=std::min(displayoffset, (size_t) gc.maxtweetsdisplayinpanel);
+		ssize_t bottomdrop=((ssize_t) pushcount+currentdisp.size())-gc.maxtweetsdisplayinpanel;
+		if(bottomdrop>0) {
+			for(ssize_t i=0; i<bottomdrop; i++) PopBottom();
+		}
 		displayoffset=0;
 		size_t i=0;
 		for(auto it=userlist.begin(); it!=userlist.end() && pushcount; ++it, --pushcount, i++) {
@@ -874,7 +884,7 @@ void tpanelparentwin_user::PageTopHandler() {
 	scrollwin->Scroll(-1, 0);
 }
 
-void tpanelparentwin_user::PushBackUser(const std::shared_ptr<userdatacontainer> &u) {
+bool tpanelparentwin_user::PushBackUser(const std::shared_ptr<userdatacontainer> &u) {
 	bool havealready=false;
 	size_t offset;
 	for(auto it=userlist.begin(); it!=userlist.end(); ++it) {
@@ -888,7 +898,7 @@ void tpanelparentwin_user::PushBackUser(const std::shared_ptr<userdatacontainer>
 		userlist.push_back(u);
 		offset=userlist.size()-1;
 	}
-	UpdateUser(u, offset);
+	return UpdateUser(u, offset);
 }
 
 //returns true if marked pending
@@ -906,7 +916,7 @@ bool tpanelparentwin_user::UpdateUser(const std::shared_ptr<userdatacontainer> &
 				else if(offset> (size_t) std::distance(userlist.begin(), jt)) {
 					index=i+1;
 				}
-				else break;
+				break;
 			}
 		}
 	}
@@ -1140,13 +1150,10 @@ void tpanelparentwin_userproplisting::LoadMoreToBack(unsigned int n) {
 	size_t index=userlist.size();
 	for(size_t i=0; i<n && index<useridlist.size(); i++, index++) {
 		std::shared_ptr<userdatacontainer> u=ad.GetUserContainerById(useridlist[index]);
-		if(u->IsReady(UPDCF_DOWNLOADIMG|UPDCF_USEREXPIRE)) PushBackUser(u);
-		else {
-			if(UpdateUser(u, index)) {
-				u->udc_flags|=UDC_CHECK_USERLISTWIN;
-				tac->pendingusers[u->id]=u;
-				querypendings=true;
-			}
+		if(PushBackUser(u)) {
+			u->udc_flags|=UDC_CHECK_USERLISTWIN;
+			tac->pendingusers[u->id]=u;
+			querypendings=true;
 		}
 	}
 	if(querypendings) {

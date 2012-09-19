@@ -311,12 +311,13 @@ struct tpanelparentwin_user : public panelparentwin_base {
 
 	tpanelparentwin_user(wxWindow *parent);
 	~tpanelparentwin_user();
-	void PushBackUser(const std::shared_ptr<userdatacontainer> &u);
+	bool PushBackUser(const std::shared_ptr<userdatacontainer> &u);
 	bool UpdateUser(const std::shared_ptr<userdatacontainer> &u, size_t offset);
 	virtual void LoadMoreToBack(unsigned int n) { }
 	virtual void PageUpHandler();
 	virtual void PageDownHandler();
 	virtual void PageTopHandler();
+	virtual size_t ItemCount() { return userlist.size(); }
 
 	DECLARE_EVENT_TABLE()
 };
@@ -333,6 +334,7 @@ struct tpanelparentwin_userproplisting : public tpanelparentwin_user {
 	virtual void LoadMoreToBack(unsigned int n);
 	virtual void UpdateCLabel();
 	virtual void Init();
+	virtual size_t ItemCount() { return useridlist.size(); }
 
 	DECLARE_EVENT_TABLE()
 };
