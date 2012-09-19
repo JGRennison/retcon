@@ -134,6 +134,7 @@ namespace std {
   };
 }
 
+#include "magic_ptr.h"
 #include "socket.h"
 #include "twit.h"
 #include "cfg.h"

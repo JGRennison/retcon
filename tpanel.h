@@ -224,7 +224,7 @@ enum {	//for tppw_flags
 	TPPWF_CANALWAYSSCROLLDOWN	= 1<<1,
 };
 
-struct panelparentwin_base : public wxPanel {
+struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	std::shared_ptr<tpanelglobal> tpg;
 	wxBoxSizer *sizer;
 	size_t displayoffset;
@@ -237,7 +237,7 @@ struct panelparentwin_base : public wxPanel {
 
 	panelparentwin_base(wxWindow *parent, bool fitnow=true);
 	virtual ~panelparentwin_base() { }
-	virtual mainframe *GetMainframe() { return 0; }
+	virtual mainframe *GetMainframe();
 	virtual void PageUpHandler() { };
 	virtual void PageDownHandler() { };
 	virtual void PageTopHandler() { };
@@ -297,7 +297,6 @@ struct tpanelparentwin_usertweets : public tpanelparentwin_nt {
 	tpanelparentwin_usertweets(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent, std::weak_ptr<taccount> &acc_, RBFS_TYPE type_=RBFS_USER_TIMELINE);
 	~tpanelparentwin_usertweets();
 	virtual void LoadMore(unsigned int n, uint64_t lessthanid=0, unsigned int pushflags=0);
-	virtual mainframe *GetMainframe();
 	virtual void UpdateCLabel();
 	static std::shared_ptr<tpanel> MkUserTweetTPanel(const std::shared_ptr<userdatacontainer> &user, RBFS_TYPE type_=RBFS_USER_TIMELINE);
 	static std::shared_ptr<tpanel> GetUserTweetTPanel(uint64_t userid, RBFS_TYPE type_=RBFS_USER_TIMELINE);
@@ -307,14 +306,33 @@ struct tpanelparentwin_usertweets : public tpanelparentwin_nt {
 
 struct tpanelparentwin_user : public panelparentwin_base {
 	std::deque< std::shared_ptr<userdatacontainer> > userlist;
+	
+	static std::multimap<uint64_t, tpanelparentwin_user*> pendingmap;
 
 	tpanelparentwin_user(wxWindow *parent);
+	~tpanelparentwin_user();
 	void PushBackUser(const std::shared_ptr<userdatacontainer> &u);
-	void UpdateUser(const std::shared_ptr<userdatacontainer> &u, size_t offset);
+	bool UpdateUser(const std::shared_ptr<userdatacontainer> &u, size_t offset);
 	virtual void LoadMoreToBack(unsigned int n) { }
 	virtual void PageUpHandler();
 	virtual void PageDownHandler();
 	virtual void PageTopHandler();
+
+	DECLARE_EVENT_TABLE()
+};
+
+struct tpanelparentwin_userproplisting : public tpanelparentwin_user {
+	std::deque<uint64_t> useridlist;
+	std::shared_ptr<userdatacontainer> user;
+	std::weak_ptr<taccount> acc;
+	bool havestarted;
+	CS_ENUMTYPE type;
+
+	tpanelparentwin_userproplisting(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent, std::weak_ptr<taccount> &acc_, CS_ENUMTYPE type_);
+	~tpanelparentwin_userproplisting();
+	virtual void LoadMoreToBack(unsigned int n);
+	virtual void UpdateCLabel();
+	virtual void Init();
 
 	DECLARE_EVENT_TABLE()
 };

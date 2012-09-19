@@ -490,6 +490,19 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			CheckClearNoUpdateFlag_All();
 			break;
 		}
+		case CS_USERFOLLOWING:
+		case CS_USERFOLLOWERS: {
+			auto win=MagicWindowCast<tpanelparentwin_userproplisting>(twit->mp);
+			if(win) {
+				if(dc.IsObject()) {
+					auto &dci=dc["ids"];
+					if(dci.IsArray()) {
+						for(rapidjson::SizeType i = 0; i < dci.Size(); i++) win->useridlist.push_back(dci[i].GetUint64());
+					}
+				}
+			}
+			break;
+		}
 		case CS_NULL:
 			break;
 	}

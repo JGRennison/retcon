@@ -537,6 +537,10 @@ void panelparentwin_base::EndScrollFreeze(tppw_scrollfreeze &s) {
 	}
 }
 
+mainframe *panelparentwin_base::GetMainframe() {
+	return GetMainframeAncestor(this);
+}
+
 BEGIN_EVENT_TABLE(tpanelparentwin_nt, panelparentwin_base)
 END_EVENT_TABLE()
 
@@ -810,8 +814,21 @@ void tpanelparentwin::tabsplitcmdhandler(wxCommandEvent &event) {
 BEGIN_EVENT_TABLE(tpanelparentwin_user, panelparentwin_base)
 END_EVENT_TABLE()
 
+std::multimap<uint64_t, tpanelparentwin_user*> tpanelparentwin_user::pendingmap;
+
 tpanelparentwin_user::tpanelparentwin_user(wxWindow *parent)
 	: panelparentwin_base(parent) { }
+
+tpanelparentwin_user::~tpanelparentwin_user() {
+	for(auto it=pendingmap.begin(); it!=pendingmap.end(); ) {
+		if((*it).second==this) {
+			auto todel=it;
+			it++;
+			pendingmap.erase(todel);
+		}
+		else it++;
+	}
+}
 
 void tpanelparentwin_user::PageUpHandler() {
 	if(displayoffset) {
@@ -874,7 +891,8 @@ void tpanelparentwin_user::PushBackUser(const std::shared_ptr<userdatacontainer>
 	UpdateUser(u, offset);
 }
 
-void tpanelparentwin_user::UpdateUser(const std::shared_ptr<userdatacontainer> &u, size_t offset) {
+//returns true if marked pending
+bool tpanelparentwin_user::UpdateUser(const std::shared_ptr<userdatacontainer> &u, size_t offset) {
 	size_t index=0;
 	auto jt=userlist.begin();
 	size_t i=0;
@@ -883,7 +901,7 @@ void tpanelparentwin_user::UpdateUser(const std::shared_ptr<userdatacontainer> &
 			if(it->first==(*jt)->id) {
 				if(it->first==u->id) {
 					((userdispscr *) it->second)->Display();
-					return;
+					return false;
 				}
 				else if(offset> (size_t) std::distance(userlist.begin(), jt)) {
 					index=i+1;
@@ -892,17 +910,29 @@ void tpanelparentwin_user::UpdateUser(const std::shared_ptr<userdatacontainer> &
 			}
 		}
 	}
+	if(u->IsReady(UPDCF_DOWNLOADIMG|UPDCF_USEREXPIRE)) {
+		wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
+		userdispscr *td=new userdispscr(u, scrollwin, this, hbox);
 
-	wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
-	userdispscr *td=new userdispscr(u, scrollwin, this, hbox);
+		td->bm = new profimg_staticbitmap(scrollwin, u->cached_profile_img, u->id, 0);
+		hbox->Add(td->bm, 0, wxALL, 2);
 
-	td->bm = new profimg_staticbitmap(scrollwin, u->cached_profile_img, u->id, 0);
-	hbox->Add(td->bm, 0, wxALL, 2);
+		hbox->Add(td, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
 
-	hbox->Add(td, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
-
-	sizer->Insert(index, hbox, 0, wxALL | wxEXPAND, 1);
-	td->Display();
+		sizer->Insert(index, hbox, 0, wxALL | wxEXPAND, 1);
+		td->Display();
+		return false;
+	}
+	else {
+		auto pit=pendingmap.equal_range(u->id);
+		for(auto it=pit.first; it!=pit.second; ) {
+			if((*it).second==this) {
+				return true;
+			}
+		}
+		pendingmap.insert(std::make_pair(u->id, this));
+		return true;
+	}
 }
 
 BEGIN_EVENT_TABLE(tpanelscrollwin, wxScrolledWindow)
@@ -1045,10 +1075,6 @@ void tpanelparentwin_usertweets::LoadMore(unsigned int n, uint64_t lessthanid, u
 	CheckClearNoUpdateFlag();
 }
 
-mainframe *tpanelparentwin_usertweets::GetMainframe() {
-	return GetMainframeAncestor(this);
-}
-
 void tpanelparentwin_usertweets::UpdateCLabel() {
 	size_t curnum=currentdisp.size();
 	size_t varmax=0;
@@ -1061,6 +1087,70 @@ void tpanelparentwin_usertweets::UpdateCLabel() {
 	size_t curtotal=std::max(tp->tweetlist.size(), varmax);
 	if(curnum) clabel->SetLabel(wxString::Format(wxT("%d - %d of %d"), displayoffset+1, displayoffset+curnum, curtotal));
 	else clabel->SetLabel(emptymsg);
+}
+
+BEGIN_EVENT_TABLE(tpanelparentwin_userproplisting, tpanelparentwin_user)
+END_EVENT_TABLE()
+
+tpanelparentwin_userproplisting::tpanelparentwin_userproplisting(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent, std::weak_ptr<taccount> &acc_, CS_ENUMTYPE type_)
+	: tpanelparentwin_user(parent), user(user_), acc(acc_), havestarted(false), type(type_) {
+
+}
+
+tpanelparentwin_userproplisting::~tpanelparentwin_userproplisting() {
+}
+
+void tpanelparentwin_userproplisting::Init() {
+	std::shared_ptr<taccount> tac=acc.lock();
+	if(tac) {
+		twitcurlext *twit=tac->cp.GetConn();
+		twit->TwInit(tac);
+		twit->connmode=type;
+		twit->extra_id=user->id;
+		twit->mp=this;
+		twit->QueueAsyncExec();
+	}
+}
+
+void tpanelparentwin_userproplisting::UpdateCLabel() {
+	size_t curnum=currentdisp.size();
+	size_t varmax=0;
+	wxString emptymsg;
+	switch(type) {
+		case CS_USERFOLLOWING: varmax=user->GetUser().friends_count; emptymsg=wxT("No Friends"); break;
+		case CS_USERFOLLOWERS: varmax=user->GetUser().followers_count; emptymsg=wxT("No Followers"); break;
+		default: break;
+	}
+	size_t curtotal=std::max(useridlist.size(), varmax);
+	if(curnum) clabel->SetLabel(wxString::Format(wxT("%d - %d of %d"), displayoffset+1, displayoffset+curnum, curtotal));
+	else clabel->SetLabel(emptymsg);
+}
+
+void tpanelparentwin_userproplisting::LoadMoreToBack(unsigned int n) {
+	std::shared_ptr<taccount> tac=acc.lock();
+	if(!tac) return;
+	Freeze();
+	tppw_flags|=TPPWF_NOUPDATEONPUSH;
+
+	bool querypendings=false;
+	size_t index=userlist.size();
+	for(size_t i=0; i<n && index<useridlist.size(); i++, index++) {
+		std::shared_ptr<userdatacontainer> u=ad.GetUserContainerById(useridlist[index]);
+		if(u->IsReady(UPDCF_DOWNLOADIMG|UPDCF_USEREXPIRE)) PushBackUser(u);
+		else {
+			if(UpdateUser(u, index)) {
+				u->udc_flags|=UDC_CHECK_USERLISTWIN;
+				tac->pendingusers[u->id]=u;
+				querypendings=true;
+			}
+		}
+	}
+	if(querypendings) {
+		tac->StartRestQueryPendings();
+	}
+
+	Thaw();
+	CheckClearNoUpdateFlag();
 }
 
 BEGIN_EVENT_TABLE(dispscr_base, wxRichTextCtrl)

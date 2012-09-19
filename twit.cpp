@@ -411,6 +411,12 @@ void twitcurlext::QueueAsyncExec() {
 		case CS_DELETEDM:
 			directMessageDestroyById(std::to_string(extra_id));
 			break;
+		case CS_USERFOLLOWING:
+			friendsIdsGet(std::to_string(extra_id), true);
+			break;
+		case CS_USERFOLLOWERS:
+			followersIdsGet(std::to_string(extra_id), true);
+			break;
 		case CS_NULL:
 			break;
 	}
@@ -504,6 +510,12 @@ void userdatacontainer::CheckPendingTweets(unsigned int umpt_flags) {
 	if(udc_flags&UDC_WINDOWOPEN) {
 		user_window *uw=user_window::GetWin(id);
 		if(uw) uw->Refresh();
+	}
+	if(udc_flags&UDC_CHECK_USERLISTWIN) {
+		auto pit=tpanelparentwin_user::pendingmap.equal_range(id);
+		for(auto it=pit.first; it!=pit.second; ) {
+			it->second->PushBackUser(shared_from_this());
+		}
 	}
 	ThawAll();
 }

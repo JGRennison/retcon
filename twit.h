@@ -66,6 +66,7 @@ enum {
 	UDC_WINDOWOPEN			= 1<<5,
 	UDC_FORCE_REFRESH		= 1<<6,
 	UDC_FRIENDACT_IN_PROGRESS	= 1<<7,
+	UDC_CHECK_USERLISTWIN		= 1<<8,
 };
 
 struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
@@ -261,6 +262,8 @@ typedef enum {
 	CS_DELETEDM,
 	CS_USERTIMELINE,
 	CS_USERFAVS,
+	CS_USERFOLLOWING,
+	CS_USERFOLLOWERS,
 } CS_ENUMTYPE;
 
 //for post_action_flags
@@ -277,7 +280,7 @@ typedef enum {			//do not change these values, they are saved/loaded to/from the
 	RBFS_SENTDM,
 	RBFS_USER_TIMELINE,
 	RBFS_USER_FAVS,
-	RBFS_MAX = RBFS_SENTDM,
+	RBFS_MAX = RBFS_USER_FAVS,
 } RBFS_TYPE;
 
 struct restbackfillstate {
@@ -324,6 +327,7 @@ struct twitcurlext: public twitCurl, public mcurlconn {
 	std::string extra1;
 	uint64_t extra_id;
 	mainframe *ownermainframe;
+	magic_ptr mp;
 
 	void NotifyDoneSuccess(CURL *easy, CURLcode res);
 	void TwInit(std::shared_ptr<taccount> acc);

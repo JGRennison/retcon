@@ -32,7 +32,7 @@ PLATFORM:=WIN
 AFLAGS+=-mwindows -s -static -LC:/SourceCode/Libraries/wxWidgets2.8/lib/gcc_lib -L.
 #-LC:/SourceCode/wxwidgets/source/lib/gcc_lib
 CFLAGS+=-D CURL_STATICLIB
-CXXFLAGS+=-fno-rtti
+#CXXFLAGS+=
 SUFFIX:=.exe
 LIBS32=-lpcre -lcurl -lwxmsw28u_richtext -lwxmsw28u_aui -lwxbase28u_xml -lwxexpat -lwxmsw28u_html -lwxmsw28u_adv -lwxmsw28u_media -lwxmsw28u_core -lwxbase28u -lwxjpeg -lwxpng -lwxtiff -lrtmp -lssh2 -lidn -lssl -lz -lcrypto -leay32 -lwldap32 -lws2_32 -lgdi32 -lshell32 -lole32 -luuid -lcomdlg32 -lwinspool -lcomctl32 -loleaut32 -lwinmm
 LIBS64=
@@ -142,7 +142,7 @@ endif
 retcon.h.gch:
 	$(GCC) -c retcon.h -o retcon.h.gch $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(AFLAGS)
 
-HEADERS:=retcon.h socket.h cfg.h parse.h twit.h tpanel.h optui.h libtwitcurl/twitcurl.h db.h log.h cmdline.h userui.h mainui.h
+HEADERS:=retcon.h socket.h cfg.h parse.h twit.h tpanel.h optui.h libtwitcurl/twitcurl.h db.h log.h cmdline.h userui.h mainui.h magic_window_ptr.h
 
 retcon.h.gch: $(HEADERS)
 $(OBJS): $(HEADERS) retcon.h.gch
