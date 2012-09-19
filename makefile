@@ -142,7 +142,7 @@ endif
 retcon.h.gch:
 	$(GCC) -c retcon.h -o retcon.h.gch $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(AFLAGS)
 
-HEADERS:=retcon.h socket.h cfg.h parse.h twit.h tpanel.h optui.h libtwitcurl/twitcurl.h db.h log.h cmdline.h userui.h mainui.h magic_window_ptr.h
+HEADERS:=retcon.h socket.h cfg.h parse.h twit.h tpanel.h optui.h libtwitcurl/twitcurl.h db.h log.h cmdline.h userui.h mainui.h magic_ptr.h
 
 retcon.h.gch: $(HEADERS)
 $(OBJS): $(HEADERS) retcon.h.gch

@@ -906,10 +906,12 @@ bool tpanelparentwin_user::UpdateUser(const std::shared_ptr<userdatacontainer> &
 				else if(offset> (size_t) std::distance(userlist.begin(), jt)) {
 					index=i+1;
 				}
-				break;
+				else break;
 			}
 		}
 	}
+	auto pos=currentdisp.begin();
+	std::advance(pos, index);
 	if(u->IsReady(UPDCF_DOWNLOADIMG|UPDCF_USEREXPIRE)) {
 		wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
 		userdispscr *td=new userdispscr(u, scrollwin, this, hbox);
@@ -920,7 +922,9 @@ bool tpanelparentwin_user::UpdateUser(const std::shared_ptr<userdatacontainer> &
 		hbox->Add(td, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
 
 		sizer->Insert(index, hbox, 0, wxALL | wxEXPAND, 1);
+		currentdisp.insert(pos, std::make_pair(u->id, td));
 		td->Display();
+		if(!(tppw_flags&TPPWF_NOUPDATEONPUSH)) UpdateCLabel();
 		return false;
 	}
 	else {

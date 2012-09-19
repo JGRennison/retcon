@@ -40,6 +40,14 @@ void notebook_event_prehandler::OnPageChange(wxNotebookEvent &event) {
 				}
 			}
 		}
+		for(auto it=userlist_pane_list.begin(); it!=userlist_pane_list.end(); ++it) {
+			if(nb->GetPage(i)==(*it)) {
+				if(!(*it)->havestarted) {
+					(*it)->havestarted=true;
+					(*it)->Init();
+				}
+			}
+		}
 	}
 	event.Skip();
 }
@@ -141,8 +149,14 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	nb->AddPage(timeline_pane, wxT("Timeline"), false);
 	fav_timeline_pane=new tpanelparentwin_usertweets(u, nb, acc_hint, RBFS_USER_FAVS);
 	nb->AddPage(fav_timeline_pane, wxT("Favourites"), false);
+	followers_pane=new tpanelparentwin_userproplisting(u, nb, acc_hint, CS_USERFOLLOWERS);
+	nb->AddPage(followers_pane, wxT("Followers"), false);
+	friends_pane=new tpanelparentwin_userproplisting(u, nb, acc_hint, CS_USERFOLLOWING);
+	nb->AddPage(friends_pane, wxT("Following"), false);
 	nb_prehndlr.timeline_pane_list.push_front(timeline_pane);
 	nb_prehndlr.timeline_pane_list.push_front(fav_timeline_pane);
+	nb_prehndlr.userlist_pane_list.push_front(followers_pane);
+	nb_prehndlr.userlist_pane_list.push_front(friends_pane);
 	nb_prehndlr.nb=nb;
 	nb->PushEventHandler(&nb_prehndlr);
 

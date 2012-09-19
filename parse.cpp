@@ -500,6 +500,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 						for(rapidjson::SizeType i = 0; i < dci.Size(); i++) win->useridlist.push_back(dci[i].GetUint64());
 					}
 				}
+				win->LoadMoreToBack(gc.maxtweetsdisplayinpanel);
 			}
 			break;
 		}

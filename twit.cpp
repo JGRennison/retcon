@@ -513,7 +513,7 @@ void userdatacontainer::CheckPendingTweets(unsigned int umpt_flags) {
 	}
 	if(udc_flags&UDC_CHECK_USERLISTWIN) {
 		auto pit=tpanelparentwin_user::pendingmap.equal_range(id);
-		for(auto it=pit.first; it!=pit.second; ) {
+		for(auto it=pit.first; it!=pit.second; ++it) {
 			it->second->PushBackUser(shared_from_this());
 		}
 	}

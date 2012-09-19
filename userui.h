@@ -31,6 +31,7 @@ struct notebook_event_prehandler : public wxEvtHandler {
 	void OnPageChange(wxNotebookEvent &event);
 	wxNotebook *nb;
 	std::forward_list<tpanelparentwin_usertweets *> timeline_pane_list;
+	std::forward_list<tpanelparentwin_userproplisting *> userlist_pane_list;
 
 	DECLARE_EVENT_TABLE()
 };
@@ -63,6 +64,8 @@ struct user_window: public wxDialog {
 	wxStaticText *id_str;
 	tpanelparentwin_usertweets *timeline_pane;
 	tpanelparentwin_usertweets *fav_timeline_pane;
+	tpanelparentwin_userproplisting *followers_pane;
+	tpanelparentwin_userproplisting *friends_pane;
 	notebook_event_prehandler nb_prehndlr;
 	wxNotebook *nb;
 
