@@ -311,7 +311,7 @@ struct streamconntimeout : public wxTimer {
 };
 
 enum {
-	TCF_ISSTREAM	= 1<<0,
+	TCF_ISSTREAM		= 1<<0,
 };
 
 struct twitcurlext: public twitCurl, public mcurlconn {
@@ -340,7 +340,7 @@ struct twitcurlext: public twitCurl, public mcurlconn {
 	~twitcurlext();
 	void Reset();
 	void DoRetry();
-	void HandleFailure();
+	void HandleFailure(long httpcode, CURLcode res);
 	void QueueAsyncExec();
 	void ExecRestGetTweetBackfill();
 

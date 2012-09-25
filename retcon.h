@@ -217,6 +217,7 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	bool userenabled;
 	bool active;
 	bool streaming_on;
+	unsigned int stream_fail_count;
 	bool rest_on;
 	bool verifycreddone;
 	bool verifycredinprogress;

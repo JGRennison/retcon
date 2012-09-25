@@ -53,14 +53,16 @@ struct mcurlconn : public wxEvtHandler {
 	void HandleError(CURL *easy, long httpcode, CURLcode res);
 	void RetryNotify(wxTimerEvent& event);
 	void StandbyTidy();
+	void SetRetryTimer(int ms);
 	wxTimer *tm;
 	unsigned int errorcount;
 	unsigned int mcflags;
 	mcurlconn() : tm(0), errorcount(0), mcflags(0) {}
+	~mcurlconn();
 
 	virtual void NotifyDoneSuccess(CURL *easy, CURLcode res)=0;
 	virtual void DoRetry()=0;
-	virtual void HandleFailure()=0;
+	virtual void HandleFailure(long httpcode, CURLcode res)=0;
 	virtual void KillConn();
 	virtual MCC_HTTPERRTYPE CheckHTTPErrType(long httpcode);
 	virtual CURL *GenGetCurlHandle()=0;
@@ -100,7 +102,7 @@ struct profileimgdlconn : public dlconn {
 	void NotifyDoneSuccess(CURL *easy, CURLcode res);
 	void Reset();
 	void DoRetry();
-	void HandleFailure();
+	void HandleFailure(long httpcode, CURLcode res);
 	static profileimgdlconn *GetConn(const std::string &imgurl_, const std::shared_ptr<userdatacontainer> &user_);
 
 };
@@ -123,7 +125,7 @@ struct mediaimgdlconn : public dlconn {
 	void NotifyDoneSuccess(CURL *easy, CURLcode res);
 	void Reset();
 	void DoRetry();
-	void HandleFailure();
+	void HandleFailure(long httpcode, CURLcode res);
 };
 
 struct sockettimeout : public wxTimer {

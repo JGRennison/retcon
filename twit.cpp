@@ -34,6 +34,7 @@
 #include "utf8.h"
 #define PCRE_STATIC
 #include <pcre.h>
+#include <wx/msgdlg.h>
 
 std::unordered_multimap<uint64_t, uint64_t> rtpendingmap;	//source tweet, retweet
 
@@ -150,7 +151,10 @@ END_EVENT_TABLE()
 
 void twitcurlext::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 	std::shared_ptr<taccount> acc=tacc.lock();
-	if(!acc) return;
+	if(!acc) {
+		KillConn();
+		return;
+	}
 
 	jsonparser jp(connmode, acc, this);
 	std::string str;
@@ -343,6 +347,16 @@ void twitcurlext::DoRetry() {
 }
 
 void twitcurlext::QueueAsyncExec() {
+	auto acc=tacc.lock();
+	if(!acc) delete this;
+	if(!acc->enabled) {
+		if(connmode==CS_POSTTWEET || connmode==CS_SENDDM) {
+			if(ownermainframe && ownermainframe->tpw) ownermainframe->tpw->NotifyPostResult(false);
+		}
+		acc->cp.Standby(this);
+		return;
+	}
+	
 	SetNoPerformFlag(true);
 	switch(connmode) {
 		case CS_ACCVERIFY:
@@ -366,11 +380,7 @@ void twitcurlext::QueueAsyncExec() {
 			std::string userliststr;
 			ul->GetIdList(userliststr);
 			if(userliststr.empty()) {	//nothing left to look up
-				auto acc=tacc.lock();
-				if(!acc) delete this;
-				else {
-					acc->cp.Standby(this);
-				}
+				acc->cp.Standby(this);
 				return;
 			}
 			if(currentlogflags&LFT_TWITACT) {
@@ -421,7 +431,6 @@ void twitcurlext::QueueAsyncExec() {
 			break;
 	}
 	if(currentlogflags&LFT_TWITACT) {
-		auto acc=tacc.lock();
 		char *url;
 		curl_easy_getinfo(GenGetCurlHandle(), CURLINFO_EFFECTIVE_URL, &url);
 		LogMsgFormat(LFT_TWITACT, wxT("Executing API call: for acc: %s, url: %s"), acc?acc->dispname.c_str():wxT(""), wxstrstd(url).c_str());
@@ -429,8 +438,73 @@ void twitcurlext::QueueAsyncExec() {
 	sm.AddConn(*this);
 }
 
-void twitcurlext::HandleFailure() {
+void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
+	auto acc=tacc.lock();
+	if(!acc) return;
 
+	std::string action;
+	bool msgbox=false;
+	bool retry=false;
+	switch(connmode) {
+		case CS_STREAM: {
+			acc->stream_fail_count++;
+			acc->Exec();
+			LogMsgFormat(LFT_SOCKERR, wxT("Stream connection failed, switching to REST api: for acc: %s"), acc->dispname.c_str());
+			return;
+		}
+		case CS_ACCVERIFY: {
+			action="Verifying twitter account credentials";
+			retry=true;
+			break;
+		}
+		case CS_TIMELINE:
+		case CS_DMTIMELINE: action="Tweet or DM timeline retrieval"; break;
+		case CS_USERTIMELINE: action="User timeline retrieval"; break;
+		case CS_USERFAVS: action="User favourites retrieval"; break;
+		case CS_USERLIST: action="User lookup"; break;
+		case CS_FRIENDLOOKUP: action="Friend/follower lookup"; break;
+		case CS_USERLOOKUPWIN: action="User lookup (user window)"; break;
+		case CS_FRIENDACTION_FOLLOW: action="Follow user"; msgbox=true; break;
+		case CS_FRIENDACTION_UNFOLLOW: action="Unfollow user"; msgbox=true; break;
+		case CS_POSTTWEET: {
+			action="Posting tweet"; msgbox=true;
+			if(ownermainframe && ownermainframe->tpw) ownermainframe->tpw->NotifyPostResult(false);
+			break;
+		}
+		case CS_SENDDM: {
+			action="Sending DM"; msgbox=true;
+			if(ownermainframe && ownermainframe->tpw) ownermainframe->tpw->NotifyPostResult(false);
+			break;
+		}
+		case CS_RT: action="Retweeting"; msgbox=true; break;
+		case CS_FAV: action="Favouriting tweet"; msgbox=true; break;
+		case CS_DELETETWEET: action="Deleting tweet"; msgbox=true; break;
+		case CS_DELETEDM: action="Deleting DM"; msgbox=true; break;
+		case CS_USERFOLLOWING: action="Retrieving follower list"; break;
+		case CS_USERFOLLOWERS: action="Retrieving friends list"; break;
+		default: action="Generic twitter API call"; break;
+	}
+	LogMsgFormat(LFT_SOCKERR, wxT("%s failed, for acc: %s"), wxstrstd(action).c_str(), acc->dispname.c_str());
+	if(msgbox) {
+		wxString msg, errtype;
+		if(res==CURLE_OK) errtype.Printf(wxT("HTTP error code: %d"), httpcode);
+		else errtype.Printf(wxT("Socket error: CURL error code: %d, %s"), res, wxstrstd(curl_easy_strerror(res)).c_str());
+		msg.Printf(wxT("Twitter API call of type: %s, has failed\nAccount name: %s\n%s"), wxstrstd(action).c_str(), acc->dispname.c_str(), errtype.c_str());
+		::wxMessageBox(msg, wxT("Operation Failed"), wxOK | wxICON_ERROR);
+	}
+	if(rbfs) {
+		bool delrbfs=false;
+		if(connmode==CS_USERTIMELINE || connmode==CS_USERFAVS) delrbfs=true;
+		if(rbfs->end_tweet_id==0) delrbfs=true;
+		if(delrbfs) {
+			acc->pending_rbfs_list.remove_if([&](restbackfillstate &r) { return (&r==rbfs); });
+		}
+		else retry=true;
+	}
+	if(retry && acc->enabled) {
+		//do something
+	}
+	else acc->cp.Standby(this);
 }
 
 void streamconntimeout::Arm() {
@@ -824,6 +898,7 @@ void StreamCallback( std::string &data, twitCurl* pTwitCurlObj, void *userdata )
 	std::shared_ptr<taccount> acc=obj->tacc.lock();
 	if(!acc) return;
 
+	acc->stream_fail_count=0;
 	LogMsgFormat(LFT_SOCKTRACE, wxT("StreamCallback: Received: %s"), wxstrstd(data).c_str());
 	jsonparser jp(CS_STREAM, acc, obj);
 	jp.ParseString(data);

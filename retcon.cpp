@@ -95,7 +95,7 @@ END_EVENT_TABLE()
 
 taccount::taccount(genoptconf *incfg)
 	: ta_flags(0), max_tweet_id(0), max_recvdm_id(0), max_sentdm_id(0), last_stream_start_time(0), last_stream_end_time(0), enabled(false), userenabled(false),
-		active(false), streaming_on(false), rest_on(false), verifycreddone(false), verifycredinprogress(false), beinginsertedintodb(false), last_rest_backfill(0), rest_timer(0)  {
+		active(false), streaming_on(false), stream_fail_count(0), rest_on(false), verifycreddone(false), verifycredinprogress(false), beinginsertedintodb(false), last_rest_backfill(0), rest_timer(0)  {
 	if(incfg) {
 		cfg.InheritFromParent(*incfg);
 		CFGParamConv();
@@ -338,14 +338,14 @@ void taccount::Exec() {
 		twit->TwStartupAccVerify();
 	}
 	else if(enabled) {
-		bool target_streaming=userstreams;
+		bool target_streaming=userstreams && !stream_fail_count;
 		if(!active) {
 			for(auto it=pending_rbfs_list.begin(); it!=pending_rbfs_list.end(); ++it) {
 				ExecRBFS(&(*it));
 			}
 		}
 		else {
-			if(!target_streaming && streaming_on) {
+			if(!target_streaming) {
 				for(auto it=cp.activeset.begin(); it!=cp.activeset.end(); ++it) {
 					if((*it)->tc_flags&TCF_ISSTREAM) {
 						(*it)->KillConn();

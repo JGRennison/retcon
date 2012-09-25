@@ -53,6 +53,13 @@ void SetCurlHandleVerboseState(CURL *easy, bool verbose) {
 	curl_easy_setopt(easy, CURLOPT_VERBOSE, verbose);
 }
 
+mcurlconn::~mcurlconn() {
+	if(tm) {
+		delete tm;
+		tm=0;
+	}
+}
+
 void mcurlconn::KillConn() {
 	LogMsgFormat(LFT_SOCKTRACE, wxT("KillConn: conn: %p"), this);
 	sm.RemoveConn(GenGetCurlHandle());
@@ -81,6 +88,11 @@ void mcurlconn::NotifyDone(CURL *easy, CURLcode res) {
 	}
 }
 
+void mcurlconn::SetRetryTimer(int ms) {
+	if(!tm) tm = new wxTimer(this, MCCT_RETRY);
+	tm->Start(ms, true);
+}
+
 void mcurlconn::HandleError(CURL *easy, long httpcode, CURLcode res) {
 	errorcount++;
 	MCC_HTTPERRTYPE err=MCC_RETRY;
@@ -92,11 +104,10 @@ void mcurlconn::HandleError(CURL *easy, long httpcode, CURLcode res) {
 	}
 	switch(err) {
 		case MCC_RETRY:
-			tm = new wxTimer(this, MCCT_RETRY);
-			tm->Start(2500 * (1<<errorcount), true);	//1 shot timer, 5s for first error, 10s for second, etc
+			SetRetryTimer(2500 * (1<<errorcount));	//1 shot timer, 5s for first error, 10s for second, etc
 			break;
 		case MCC_FAILED:
-			HandleFailure();
+			HandleFailure(httpcode, res);
 			break;
 	}
 }
@@ -166,7 +177,7 @@ void profileimgdlconn::DoRetry() {
 	else cp.Standby(this);
 }
 
-void profileimgdlconn::HandleFailure() {
+void profileimgdlconn::HandleFailure(long httpcode, CURLcode res) {
 	if(url==user->GetUser().profile_img_url) {
 		if(!user->udc_flags&UDC_PROFILE_BITMAP_SET) {	//generate a placeholder image
 			user->cached_profile_img.Create(48,48,-1);
@@ -232,7 +243,7 @@ void mediaimgdlconn::DoRetry() {
 	Init(url, media_id, flags);
 }
 
-void mediaimgdlconn::HandleFailure() {
+void mediaimgdlconn::HandleFailure(long httpcode, CURLcode res) {
 	auto it=ad.media_list.find(media_id);
 	if(it!=ad.media_list.end()) {
 		media_entity &me=it->second;
