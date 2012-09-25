@@ -256,31 +256,33 @@ void taccount::StartRestQueryPendings() {
 	if(pendingusers.empty()) return;
 
 	std::shared_ptr<userlookup> ul=std::make_shared<userlookup>();
-	unsigned int numusers=0;
 
 	auto it=pendingusers.begin();
-	while(it!=pendingusers.end() && numusers<100) {
-		auto curit=it;
-		std::shared_ptr<userdatacontainer> curobj=curit->second;
-		it++;
-		if(curobj->udc_flags&UDC_LOOKUP_IN_PROGRESS) ;	//do nothing
-		else if(curobj->NeedsUpdating(UPDCF_USEREXPIRE) || curobj->udc_flags&UDC_FORCE_REFRESH) {
-			ul->Mark(curobj);
-			numusers++;
+	while(it!=pendingusers.end()) {
+		unsigned int numusers=0;
+		while(it!=pendingusers.end() && numusers<100) {
+			auto curit=it;
+			std::shared_ptr<userdatacontainer> curobj=curit->second;
+			it++;
+			if(curobj->udc_flags&UDC_LOOKUP_IN_PROGRESS) ;	//do nothing
+			else if(curobj->NeedsUpdating(UPDCF_USEREXPIRE) || curobj->udc_flags&UDC_FORCE_REFRESH) {
+				ul->Mark(curobj);
+				numusers++;
+			}
+			else {
+				pendingusers.erase(curit);		//user not pending, remove from list
+				curobj->CheckPendingTweets();
+			}
+			curobj->udc_flags&=~UDC_FORCE_REFRESH;
 		}
-		else {
-			pendingusers.erase(curit);		//user not pending, remove from list
-			curobj->CheckPendingTweets();
+		if(numusers) {
+			twitcurlext *twit=cp.GetConn();
+			twit->TwInit(shared_from_this());
+			twit->connmode=CS_USERLIST;
+			twit->ul=ul;
+			twit->post_action_flags=PAF_RESOLVE_PENDINGS;
+			twit->QueueAsyncExec();
 		}
-		curobj->udc_flags&=~UDC_FORCE_REFRESH;
-	}
-	if(numusers) {
-		twitcurlext *twit=cp.GetConn();
-		twit->TwInit(shared_from_this());
-		twit->connmode=CS_USERLIST;
-		twit->ul=ul;
-		twit->post_action_flags=PAF_RESOLVE_PENDINGS;
-		twit->QueueAsyncExec();
 	}
 }
 
