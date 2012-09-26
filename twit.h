@@ -191,6 +191,8 @@ struct tweet {
 	std::string mkdynjson() const;
 	bool GetUsableAccount(std::shared_ptr<taccount> &tac) const;
 	bool IsReady();
+	bool IsFavouritable() const;
+	bool IsRetweetable() const;
 	std::string GetPermalink() const;
 };
 

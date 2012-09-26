@@ -37,7 +37,7 @@ genoptglobconf gcglobdefaults {
 	{ wxT("48"), 1},
 	{ wxT("40"), 1},
 	{ wxT("uZB@unbzuvup - T - t - F - XiXrXtXfXdNC"), 1},
-	{ wxT("uZB@unbzuvup -> UZB@UnbzUvUp - T - t - F - XiXtXfXdNC"), 1},
+	{ wxT("uZB@unbzuvup -> UZB@UnbzUvUp - T - t - F - XiXdNC"), 1},
 	{ wxT("rZB@rnbzrvrp 'RT by' uZB@unbzuvup - T - t - F - XiXrXtXfXdNc"), 1},
 	{ wxT("uZB@unbzuvup - uN - ulNuDNuw"), 1},
 	{ wxT("1"), 1 },

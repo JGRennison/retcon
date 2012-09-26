@@ -893,6 +893,14 @@ std::string tweet::GetPermalink() const {
 	return "http" + std::string(flags.Get('s')?"s":"") + "://twitter.com/" + user->GetUser().screen_name + "/status/" + std::to_string(id);
 }
 
+bool tweet::IsFavouritable() const {
+	return flags.Get('T');
+}
+
+bool tweet::IsRetweetable() const {
+	return (flags.Get('T') && (rtsrc || !(user->GetUser().u_flags&UF_ISPROTECTED)));
+}
+
 void StreamCallback( std::string &data, twitCurl* pTwitCurlObj, void *userdata ) {
 	twitcurlext *obj=(twitcurlext*) pTwitCurlObj;
 	std::shared_ptr<taccount> acc=obj->tacc.lock();

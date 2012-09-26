@@ -1458,25 +1458,36 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 				if(i>=format.size()) break;
 				flush();
 				long curpos=GetInsertionPoint();
-				BeginURL(wxString::Format(wxT("X%c"), (wxChar) format[i]));
+				wxString url=wxString::Format(wxT("X%c"), (wxChar) format[i]);
+				BeginURL(url);
 				bool imginserted=false;
 				switch((wxChar) format[i]) {
 					case 'i': WriteImage(tppw->tpg->infoicon_img); imginserted=true; break;
 					case 'f': {
-						wxImage *icon=&tppw->tpg->favicon_img;
-						for(auto it=tw.tp_list.begin(); it!=tw.tp_list.end(); ++it) {
-							if(it->IsFavourited()) {
-								icon=&tppw->tpg->favonicon_img;
-								break;
+						if(tw.IsFavouritable()) {
+							wxImage *icon=&tppw->tpg->favicon_img;
+							for(auto it=tw.tp_list.begin(); it!=tw.tp_list.end(); ++it) {
+								if(it->IsFavourited()) {
+									icon=&tppw->tpg->favonicon_img;
+									break;
+								}
 							}
+							WriteImage(*icon);
+							imginserted=true;
 						}
-						WriteImage(*icon);
-						imginserted=true;
 						break;
 					}
 					case 'r': WriteImage(tppw->tpg->replyicon_img); imginserted=true; break;
+					case 'd': {
+						EndURL();
+						std::shared_ptr<userdatacontainer> targ=tw.user_recipient;
+						if(!targ || targ->udc_flags&UDC_THIS_IS_ACC_USER_HINT) targ=targ=tw.user;
+						url=wxString::Format(wxT("Xd%" wxLongLongFmtSpec "d"), targ->id);
+						BeginURL(url);
+						WriteImage(tppw->tpg->dmreplyicon_img); imginserted=true; break;
+					}
 					case 't': {
-						if(!tw.user_recipient && (tw.rtsrc || !(tw.user->GetUser().u_flags&UF_ISPROTECTED))) {
+						if(tw.IsRetweetable()) {
 							wxImage *icon=&tppw->tpg->retweeticon_img;
 							for(auto it=tw.tp_list.begin(); it!=tw.tp_list.end(); ++it) {
 								if(it->IsRetweeted()) {
@@ -1495,7 +1506,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 				if(imginserted) {
 					SetInsertionPointEnd();
 					wxTextAttrEx attr;
-					attr.SetURL(wxString::Format(wxT("X%c"), (wxChar) format[i]));
+					attr.SetURL(url);
 					SetStyleEx(curpos, GetInsertionPoint(), attr, wxRICHTEXT_SETSTYLE_OPTIMIZE);
 				}
 				break;
@@ -1624,8 +1635,8 @@ void tweetdispscr::urleventhandler(wxTextUrlEvent &event) {
 				tamd[nextid++]={td, std::shared_ptr<userdatacontainer>(), TAMI_REPLY, 0, 0};
 				menu.Append(nextid, wxT("Open in Browser"));
 				tamd[nextid++]={td, std::shared_ptr<userdatacontainer>(), TAMI_BROWSER, 0, 0};
-				menu.AppendSubMenu(&rtsubmenu, wxT("Retweet"));
-				menu.AppendSubMenu(&favsubmenu, wxT("Favourite"));
+				if(td->IsRetweetable()) menu.AppendSubMenu(&rtsubmenu, wxT("Retweet"));
+				if(td->IsFavouritable()) menu.AppendSubMenu(&favsubmenu, wxT("Favourite"));
 				menu.AppendSubMenu(&copysubmenu, wxT("Copy"));
 
 				bool deletable=false;
