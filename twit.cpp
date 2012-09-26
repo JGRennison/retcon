@@ -450,9 +450,15 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
 	bool retry=false;
 	switch(connmode) {
 		case CS_STREAM: {
+			bool was_stream_mode=(acc->stream_fail_count==0);
 			acc->stream_fail_count++;
 			acc->Exec();
-			LogMsgFormat(LFT_SOCKERR, wxT("Stream connection failed, switching to REST api: for account: %s"), acc->dispname.c_str());
+			if(was_stream_mode) {
+				LogMsgFormat(LFT_SOCKERR, wxT("Stream connection failed, switching to REST api: for account: %s"), acc->dispname.c_str());
+			}
+			else {
+				LogMsgFormat(LFT_SOCKERR, wxT("Stream reconnection attempt failed: for account: %s"), acc->dispname.c_str());
+			}
 			return;
 		}
 		case CS_ACCVERIFY: {
@@ -911,7 +917,12 @@ void StreamCallback( std::string &data, twitCurl* pTwitCurlObj, void *userdata )
 	std::shared_ptr<taccount> acc=obj->tacc.lock();
 	if(!acc) return;
 
-	acc->stream_fail_count=0;
+	if(acc->stream_fail_count) {
+		acc->stream_fail_count=0;
+		acc->streaming_on=true;
+		acc->Exec();
+	}
+	
 	LogMsgFormat(LFT_SOCKTRACE, wxT("StreamCallback: Received: %s"), wxstrstd(data).c_str());
 	jsonparser jp(CS_STREAM, acc, obj);
 	jp.ParseString(data);
@@ -923,7 +934,9 @@ void StreamActivityCallback( twitCurl* pTwitCurlObj, void *userdata ) {
 	obj->scto->Arm();
 	LogMsgFormat(LFT_SOCKTRACE, wxT("Reset timeout on stream connection %p"), obj);
 	std::shared_ptr<taccount> acc=obj->tacc.lock();
-	if(acc) acc->CheckFailedPendingConns();
+	if(acc) {
+		acc->CheckFailedPendingConns();
+	}
 }
 
 #ifdef __WINDOWS__

@@ -92,10 +92,11 @@ int retcon::FilterEvent(wxEvent& event) {
 BEGIN_EVENT_TABLE(taccount, wxEvtHandler)
     EVT_TIMER(TAF_WINID_RESTTIMER, taccount::OnRestTimer)
     EVT_TIMER(TAF_FAILED_PENDING_CONN_RETRY_TIMER, taccount::OnFailedPendingConnRetryTimer)
+    EVT_TIMER(TAF_STREAM_RESTART_TIMER, taccount::OnStreamRestartTimer)
 END_EVENT_TABLE()
 
 taccount::taccount(genoptconf *incfg)
-	: ta_flags(0), max_tweet_id(0), max_recvdm_id(0), max_sentdm_id(0), last_stream_start_time(0), last_stream_end_time(0), pending_failed_conn_retry_timer(0), enabled(false), userenabled(false), init(false),
+	: ta_flags(0), max_tweet_id(0), max_recvdm_id(0), max_sentdm_id(0), last_stream_start_time(0), last_stream_end_time(0), pending_failed_conn_retry_timer(0), stream_restart_timer(0), enabled(false), userenabled(false), init(false),
 		active(false), streaming_on(false), stream_fail_count(0), rest_on(false), verifycredstatus(ACT_NOTDONE), beinginsertedintodb(false), last_rest_backfill(0), rest_timer(0)  {
 	if(incfg) {
 		cfg.InheritFromParent(*incfg);
@@ -105,6 +106,7 @@ taccount::taccount(genoptconf *incfg)
 
 taccount::~taccount() {
 	if(pending_failed_conn_retry_timer) delete pending_failed_conn_retry_timer;
+	if(stream_restart_timer) delete stream_restart_timer;
 	DeleteRestBackfillTimer();
 }
 
@@ -355,7 +357,7 @@ void taccount::Exec() {
 				for(auto it=cp.activeset.begin(); it!=cp.activeset.end(); ++it) {
 					if((*it)->tc_flags&TCF_ISSTREAM) {
 						(*it)->KillConn();
-						cp.Standby(*it);	//kill stream
+						cp.Standby(*it);	//kill stream, note this also modifies cp.activeset
 						break;
 					}
 				}
@@ -370,11 +372,7 @@ void taccount::Exec() {
 
 		if(target_streaming && !streaming_on) {
 			streaming_on=true;
-			twitcurlext *twit_stream=cp.GetConn();
-			twit_stream->TwInit(shared_from_this());
-			twit_stream->connmode=CS_STREAM;
-			twit_stream->tc_flags|=TCF_ISSTREAM;
-			twit_stream->post_action_flags|=PAF_STREAM_CONN_READ_BACKFILL;
+			twitcurlext *twit_stream=PrepareNewStreamConn();
 			twit_stream->QueueAsyncExec();
 		}
 		if(!target_streaming && !rest_on) {
@@ -390,6 +388,15 @@ void taccount::Exec() {
 		failed_pending_conns.clear();
 		cp.ClearAllConns();
 	}
+}
+
+twitcurlext *taccount::PrepareNewStreamConn() {
+	twitcurlext *twit_stream=cp.GetConn();
+	twit_stream->TwInit(shared_from_this());
+	twit_stream->connmode=CS_STREAM;
+	twit_stream->tc_flags|=TCF_ISSTREAM;
+	twit_stream->post_action_flags|=PAF_STREAM_CONN_READ_BACKFILL;
+	return twit_stream;
 }
 
 void taccount::CalcEnabled() {
@@ -439,6 +446,10 @@ void taccount::CheckFailedPendingConns() {
 		failed_pending_conns.pop_front();
 	}
 	if(pending_failed_conn_retry_timer) pending_failed_conn_retry_timer->Stop();
+	if(stream_fail_count && enabled && userstreams && !streaming_on) {
+		if(!stream_restart_timer) stream_restart_timer=new wxTimer(this, TAF_STREAM_RESTART_TIMER);
+		if(!stream_restart_timer->IsRunning()) stream_restart_timer->Start(90*1000, wxTIMER_ONE_SHOT);	//give a little time for any other operations to try to connect first
+	}
 }
 
 void taccount::AddFailedPendingConn(twitcurlext *conn) {
@@ -450,6 +461,19 @@ void taccount::AddFailedPendingConn(twitcurlext *conn) {
 
 void taccount::OnFailedPendingConnRetryTimer(wxTimerEvent& event) {
 	CheckFailedPendingConns();
+}
+
+void taccount::OnStreamRestartTimer(wxTimerEvent& event) {
+	for(auto it=cp.activeset.begin(); it!=cp.activeset.end(); ++it) {
+		if((*it)->tc_flags&TCF_ISSTREAM) {
+			return;				//stream connection already present
+		}
+	}
+	if(stream_fail_count && enabled && userstreams && !streaming_on) {
+		twitcurlext *twit_stream=PrepareNewStreamConn();
+		twit_stream->errorcount=255;	//disable retry attempts
+		twit_stream->QueueAsyncExec();
+	}
 }
 
 void AccountChangeTrigger() {

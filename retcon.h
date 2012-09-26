@@ -175,6 +175,7 @@ enum {
 enum {
 	TAF_WINID_RESTTIMER=1,
 	TAF_FAILED_PENDING_CONN_RETRY_TIMER,
+	TAF_STREAM_RESTART_TIMER,
 };
 
 struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
@@ -218,9 +219,11 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 
 	std::forward_list<twitcurlext *> failed_pending_conns;	//strict subset of cp.activeset
 	wxTimer *pending_failed_conn_retry_timer;
+	wxTimer *stream_restart_timer;
 	void CheckFailedPendingConns();
 	void AddFailedPendingConn(twitcurlext *conn);
 	void OnFailedPendingConnRetryTimer(wxTimerEvent& event);
+	void OnStreamRestartTimer(wxTimerEvent& event);
 
 	bool enabled;
 	bool userenabled;
@@ -261,6 +264,7 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	void PostAccVerifyInit();
 	void Exec();
 	void CalcEnabled();
+	twitcurlext *PrepareNewStreamConn();
 	wxString GetStatusString(bool notextifok=false);
 	taccount(genoptconf *incfg=0);
 	~taccount();
