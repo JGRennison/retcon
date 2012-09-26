@@ -123,6 +123,8 @@ void mcurlconn::StandbyTidy() {
 		delete tm;
 		tm=0;
 	}
+	errorcount=0;
+	mcflags=0;
 }
 
 MCC_HTTPERRTYPE mcurlconn::CheckHTTPErrType(long httpcode) {
@@ -356,9 +358,8 @@ template <typename C> C *connpool<C>::GetConn() {
 template twitcurlext *connpool<twitcurlext>::GetConn();
 
 template <typename C> void connpool<C>::Standby(C *obj) {
-	obj->StandbyTidy();
 	obj->Reset();
-	obj->mcflags=0;
+	obj->StandbyTidy();
 	idlestack.push(obj);
 	activeset.erase(obj);
 }

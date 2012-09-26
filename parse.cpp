@@ -315,6 +315,10 @@ void jsonparser::RestTweetUpdateParams(const tweet &t) {
 	}
 }
 
+void jsonparser::RestTweetPreParseUpdateParams() {
+	if(twit && twit->rbfs) twit->rbfs->read_again=false;
+}
+
 void jsonparser::DoFriendLookupParse(const rapidjson::Value& val) {
 	time_t optime=(tac->ta_flags&TAF_STREAM_UP)?0:time(0);
 	if(val.IsArray()) {
@@ -396,6 +400,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			else DoUserParse(dc);
 			break;
 		case CS_TIMELINE:
+			RestTweetPreParseUpdateParams();
 			if(dc.IsArray()) {
 				dbmsglist=new dbsendmsg_list();
 				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) RestTweetUpdateParams(*DoTweetParse(dc[i]));
@@ -403,6 +408,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			else RestTweetUpdateParams(*DoTweetParse(dc));
 			break;
 		case CS_DMTIMELINE:
+			RestTweetPreParseUpdateParams();
 			if(dc.IsArray()) {
 				dbmsglist=new dbsendmsg_list();
 				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) RestTweetUpdateParams(*DoTweetParse(dc[i], JDTP_ISDM));
@@ -483,6 +489,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 		}
 		case CS_USERTIMELINE:
 		case CS_USERFAVS: {
+			RestTweetPreParseUpdateParams();
 			if(dc.IsArray()) {
 				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) DoTweetParse(dc[i], JDTP_USERTIMELINE);
 			}

@@ -74,6 +74,7 @@ struct jsonparser : public genjsonparser {
 	void DoFriendLookupParse(const rapidjson::Value& val);
 	std::shared_ptr<tweet> DoTweetParse(const rapidjson::Value& val, unsigned int sflags=0);
 	void RestTweetUpdateParams(const tweet &t);
+	void RestTweetPreParseUpdateParams();
 
 	jsonparser(CS_ENUMTYPE t, std::shared_ptr<taccount> a, twitcurlext *tw = 0 /*optional*/)
 		: tac(a), type(t), twit(tw), dbmsglist(0) { }

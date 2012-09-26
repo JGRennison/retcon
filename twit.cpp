@@ -205,7 +205,6 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 		acc->DoPostAction(this);
 	}
 	else {
-		rbfs->read_again=false;
 		rbfs->lastop_recvcount=0;
 		struct timelineparams tmps={
 			tweets_to_get,
