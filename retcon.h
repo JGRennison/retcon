@@ -113,6 +113,8 @@ struct media_id_type;
 
 typedef std::set<uint64_t, std::greater<uint64_t> > tweetidset;		//std::set, sorted in opposite order
 
+typedef enum { ACT_NOTDONE, ACT_INPROGRESS, ACT_FAILED, ACT_DONE } ACT_STATUS;
+
 struct media_id_type {
 	uint64_t m_id;
 	uint64_t t_id;
@@ -172,6 +174,7 @@ enum {
 
 enum {
 	TAF_WINID_RESTTIMER=1,
+	TAF_FAILED_PENDING_CONN_RETRY_TIMER,
 };
 
 struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
@@ -213,14 +216,20 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	std::unordered_map<uint64_t,std::shared_ptr<userdatacontainer> > pendingusers;
 	std::forward_list<restbackfillstate> pending_rbfs_list;
 
+	std::forward_list<twitcurlext *> failed_pending_conns;	//strict subset of cp.activeset
+	wxTimer *pending_failed_conn_retry_timer;
+	void CheckFailedPendingConns();
+	void AddFailedPendingConn(twitcurlext *conn);
+	void OnFailedPendingConnRetryTimer(wxTimerEvent& event);
+
 	bool enabled;
 	bool userenabled;
+	bool init;
 	bool active;
 	bool streaming_on;
 	unsigned int stream_fail_count;
 	bool rest_on;
-	bool verifycreddone;
-	bool verifycredinprogress;
+	ACT_STATUS verifycredstatus;
 	bool beinginsertedintodb;
 	time_t last_rest_backfill;
 	wxTimer *rest_timer;
@@ -252,6 +261,7 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	void PostAccVerifyInit();
 	void Exec();
 	void CalcEnabled();
+	wxString GetStatusString(bool notextifok=false);
 	taccount(genoptconf *incfg=0);
 	~taccount();
 

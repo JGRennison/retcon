@@ -475,7 +475,8 @@ void acc_choice::fill_acc() {
 	Clear();
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
 		wxString accname=(*it)->dispname;
-		if(!(*it)->enabled) accname+=wxT(" [disabled]");
+		wxString status=(*it)->GetStatusString(true);
+		if(status.size()) accname+=wxT(" [") + status + wxT("]");
 		int index=Append(accname, (*it).get());
 		if((*it).get()==curacc.get()) SetSelection(index);
 	}

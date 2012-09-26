@@ -38,6 +38,8 @@ struct acc_window: public wxDialog {
 	wxButton *endisbtn;
 	wxButton *reauthbtn;
 	wxButton *delbtn;
+	
+	static std::set<acc_window *> currentset;
 
 	DECLARE_EVENT_TABLE()
 };

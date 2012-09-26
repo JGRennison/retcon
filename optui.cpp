@@ -40,6 +40,8 @@ BEGIN_EVENT_TABLE(acc_window, wxDialog)
 	EVT_LISTBOX(wxID_FILE1, acc_window::OnSelChange)
 END_EVENT_TABLE()
 
+std::set<acc_window *> acc_window::currentset;
+
 acc_window::acc_window(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name)
 	: wxDialog(parent, id, title, pos, size, style, name) {
 
@@ -79,9 +81,12 @@ acc_window::acc_window(wxWindow* parent, wxWindowID id, const wxString& title, c
 	
 	wxSize initsize=GetSize();
 	SetSizeHints(initsize.GetWidth(), initsize.GetHeight(), 9001, 9001);
+	
+	currentset.insert(this);
 }
 
 acc_window::~acc_window() {
+	currentset.erase(this);
 	AccountChangeTrigger();
 }
 
@@ -109,8 +114,7 @@ void acc_window::UpdateLB() {
 	else acc=0;
 	lb->Clear();
 	for(auto it=alist.begin(); it != alist.end(); it++ ) {
-		wxString accname=(*it)->dispname;
-		if(!(*it)->userenabled) accname+=wxT(" [disabled]");
+		wxString accname=(*it)->dispname + wxT(" [") + (*it)->GetStatusString(false) + wxT("]");;
 		int index=lb->Append(accname,(*it).get());
 		if((*it).get()==acc) lb->SetSelection(index);
 	}
@@ -180,6 +184,7 @@ void acc_window::AccNew(wxCommandEvent &event) {
 	ta->cp.Standby(twit);
 }
 void acc_window::AccClose(wxCommandEvent &event) {
+	currentset.erase(this);
 	EndModal(0);
 }
 

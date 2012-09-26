@@ -164,6 +164,7 @@ void twitcurlext::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 
 	KillConn();
 	if(connmode==CS_STREAM && acc->enabled) {
+		LogMsgFormat(LFT_SOCKERR, wxT("Stream connection interrupted, reconnecting: for account: %s"), acc->dispname.c_str());
 		DoRetry();
 	}
 	else if(rbfs) {
@@ -172,6 +173,8 @@ void twitcurlext::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 	else {
 		acc->DoPostAction(this);
 	}
+	
+	acc->CheckFailedPendingConns();
 }
 
 void twitcurlext::ExecRestGetTweetBackfill() {
@@ -239,7 +242,7 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 			curl_easy_getinfo(GenGetCurlHandle(), CURLINFO_EFFECTIVE_URL, &url);
 			LogMsgFormat(LFT_TWITACT, wxT("REST timeline fetch: acc: %s, type: %d, num: %d, start_id: %" wxLongLongFmtSpec "d, end_id: %" wxLongLongFmtSpec "d"),
 				acc->dispname.c_str(), rbfs->type, tweets_to_get, rbfs->start_tweet_id, rbfs->end_tweet_id);
-			LogMsgFormat(LFT_TWITACT, wxT("Executing API call: for acc: %s, url: %s"), acc->dispname.c_str(), wxstrstd(url).c_str());
+			LogMsgFormat(LFT_TWITACT, wxT("Executing API call: for account: %s, url: %s"), acc->dispname.c_str(), wxstrstd(url).c_str());
 		}
 		sm.AddConn(*this);
 	}
@@ -292,13 +295,13 @@ void twitcurlext::TwDeInit() {
 }
 
 void twitcurlext::TwStartupAccVerify() {
-	tacc.lock()->verifycredinprogress=true;
+	tacc.lock()->verifycredstatus=ACT_INPROGRESS;
 	connmode=CS_ACCVERIFY;
 	QueueAsyncExec();
 }
 
 bool twitcurlext::TwSyncStartupAccVerify() {
-	tacc.lock()->verifycredinprogress=true;
+	tacc.lock()->verifycredstatus=ACT_INPROGRESS;
 	SetNoPerformFlag(false);
 	accountVerifyCredGet();
 	long httpcode;
@@ -310,11 +313,11 @@ bool twitcurlext::TwSyncStartupAccVerify() {
 		getLastWebResponse(str);
 		bool res=jp.ParseString(str);
 		str.clear();
-		acc->verifycredinprogress=false;
+		acc->verifycredstatus=ACT_DONE;
 		return res;
 	}
 	else {
-		tacc.lock()->verifycredinprogress=false;
+		tacc.lock()->verifycredstatus=ACT_FAILED;
 		return false;
 	}
 }
@@ -349,7 +352,8 @@ void twitcurlext::DoRetry() {
 void twitcurlext::QueueAsyncExec() {
 	auto acc=tacc.lock();
 	if(!acc) delete this;
-	if(!acc->enabled) {
+	if(acc->init && connmode==CS_ACCVERIFY) { }	//OK
+	else if(!acc->enabled) {
 		if(connmode==CS_POSTTWEET || connmode==CS_SENDDM) {
 			if(ownermainframe && ownermainframe->tpw) ownermainframe->tpw->NotifyPostResult(false);
 		}
@@ -385,7 +389,7 @@ void twitcurlext::QueueAsyncExec() {
 			}
 			if(currentlogflags&LFT_TWITACT) {
 				auto acc=tacc.lock();
-				LogMsgFormat(LFT_TWITACT, wxT("About to lookup users: for acc: %s, user ids: %s"), acc?acc->dispname.c_str():wxT(""), wxstrstd(userliststr).c_str());
+				LogMsgFormat(LFT_TWITACT, wxT("About to lookup users: for account: %s, user ids: %s"), acc?acc->dispname.c_str():wxT(""), wxstrstd(userliststr).c_str());
 			}
 			userLookup(userliststr, "", 0);
 			break;
@@ -433,7 +437,7 @@ void twitcurlext::QueueAsyncExec() {
 	if(currentlogflags&LFT_TWITACT) {
 		char *url;
 		curl_easy_getinfo(GenGetCurlHandle(), CURLINFO_EFFECTIVE_URL, &url);
-		LogMsgFormat(LFT_TWITACT, wxT("Executing API call: for acc: %s, url: %s"), acc?acc->dispname.c_str():wxT(""), wxstrstd(url).c_str());
+		LogMsgFormat(LFT_TWITACT, wxT("Executing API call: for account: %s, url: %s"), acc?acc->dispname.c_str():wxT(""), wxstrstd(url).c_str());
 	}
 	sm.AddConn(*this);
 }
@@ -449,12 +453,14 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
 		case CS_STREAM: {
 			acc->stream_fail_count++;
 			acc->Exec();
-			LogMsgFormat(LFT_SOCKERR, wxT("Stream connection failed, switching to REST api: for acc: %s"), acc->dispname.c_str());
+			LogMsgFormat(LFT_SOCKERR, wxT("Stream connection failed, switching to REST api: for account: %s"), acc->dispname.c_str());
 			return;
 		}
 		case CS_ACCVERIFY: {
 			action="Verifying twitter account credentials";
+			acc->verifycredstatus=ACT_FAILED;
 			retry=true;
+			AccountChangeTrigger();
 			break;
 		}
 		case CS_TIMELINE:
@@ -484,7 +490,7 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
 		case CS_USERFOLLOWERS: action="Retrieving friends list"; break;
 		default: action="Generic twitter API call"; break;
 	}
-	LogMsgFormat(LFT_SOCKERR, wxT("%s failed, for acc: %s"), wxstrstd(action).c_str(), acc->dispname.c_str());
+	LogMsgFormat(LFT_SOCKERR, wxT("%s failed, for account: %s"), wxstrstd(action).c_str(), acc->dispname.c_str());
 	if(msgbox) {
 		wxString msg, errtype;
 		if(res==CURLE_OK) errtype.Printf(wxT("HTTP error code: %d"), httpcode);
@@ -501,8 +507,8 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
 		}
 		else retry=true;
 	}
-	if(retry && acc->enabled) {
-		//do something
+	if(retry && (acc->enabled || acc->init)) {
+		acc->AddFailedPendingConn(this);
 	}
 	else acc->cp.Standby(this);
 }
@@ -917,6 +923,8 @@ void StreamActivityCallback( twitCurl* pTwitCurlObj, void *userdata ) {
 	twitcurlext *obj=(twitcurlext*) pTwitCurlObj;
 	obj->scto->Arm();
 	LogMsgFormat(LFT_SOCKTRACE, wxT("Reset timeout on stream connection %p"), obj);
+	std::shared_ptr<taccount> acc=obj->tacc.lock();
+	if(acc) acc->CheckFailedPendingConns();
 }
 
 #ifdef __WINDOWS__

@@ -91,11 +91,12 @@ int retcon::FilterEvent(wxEvent& event) {
 
 BEGIN_EVENT_TABLE(taccount, wxEvtHandler)
     EVT_TIMER(TAF_WINID_RESTTIMER, taccount::OnRestTimer)
+    EVT_TIMER(TAF_FAILED_PENDING_CONN_RETRY_TIMER, taccount::OnFailedPendingConnRetryTimer)
 END_EVENT_TABLE()
 
 taccount::taccount(genoptconf *incfg)
-	: ta_flags(0), max_tweet_id(0), max_recvdm_id(0), max_sentdm_id(0), last_stream_start_time(0), last_stream_end_time(0), enabled(false), userenabled(false),
-		active(false), streaming_on(false), stream_fail_count(0), rest_on(false), verifycreddone(false), verifycredinprogress(false), beinginsertedintodb(false), last_rest_backfill(0), rest_timer(0)  {
+	: ta_flags(0), max_tweet_id(0), max_recvdm_id(0), max_sentdm_id(0), last_stream_start_time(0), last_stream_end_time(0), pending_failed_conn_retry_timer(0), enabled(false), userenabled(false), init(false),
+		active(false), streaming_on(false), stream_fail_count(0), rest_on(false), verifycredstatus(ACT_NOTDONE), beinginsertedintodb(false), last_rest_backfill(0), rest_timer(0)  {
 	if(incfg) {
 		cfg.InheritFromParent(*incfg);
 		CFGParamConv();
@@ -103,6 +104,7 @@ taccount::taccount(genoptconf *incfg)
 }
 
 taccount::~taccount() {
+	if(pending_failed_conn_retry_timer) delete pending_failed_conn_retry_timer;
 	DeleteRestBackfillTimer();
 }
 
@@ -324,20 +326,22 @@ bool taccount::TwDoOAuth(wxWindow *pf, twitcurlext &twit) {
 }
 
 void taccount::PostAccVerifyInit() {
-	verifycreddone=true;
-	verifycredinprogress=false;
+	verifycredstatus=ACT_DONE;
+	CalcEnabled();
 	Exec();
 }
 
 void taccount::Exec() {
-	if(enabled && !verifycreddone) {
-		streaming_on=false;
-		rest_on=false;
-		active=false;
-		if(verifycredinprogress) return;
-		twitcurlext *twit=cp.GetConn();
-		twit->TwInit(shared_from_this());
-		twit->TwStartupAccVerify();
+	if(init) {
+		if(verifycredstatus!=ACT_DONE) {
+			streaming_on=false;
+			rest_on=false;
+			active=false;
+			if(verifycredstatus==ACT_INPROGRESS) return;
+			twitcurlext *twit=cp.GetConn();
+			twit->TwInit(shared_from_this());
+			twit->TwStartupAccVerify();
+		}
 	}
 	else if(enabled) {
 		bool target_streaming=userstreams && !stream_fail_count;
@@ -378,20 +382,29 @@ void taccount::Exec() {
 			SetupRestBackfillTimer();
 		}
 	}
-	else if(!enabled && (active || verifycredinprogress)) {
+	else if(!enabled && (active || (verifycredstatus==ACT_INPROGRESS))) {
 		active=false;
-		verifycredinprogress=false;
+		verifycredstatus=ACT_NOTDONE;
 		streaming_on=false;
 		rest_on=false;
+		failed_pending_conns.clear();
 		cp.ClearAllConns();
 	}
 }
 
 void taccount::CalcEnabled() {
 	bool oldenabled=enabled;
-	if(userenabled && !beinginsertedintodb) enabled=true;
-	else enabled=false;
-	if(oldenabled!=enabled) {
+	bool oldinit=init;
+	if(userenabled && !beinginsertedintodb) {
+		enabled=(verifycredstatus==ACT_DONE);
+		init=!enabled;
+	}
+	else {
+		enabled=false;
+		init=false;
+	}
+	
+	if(oldenabled!=enabled || oldinit!=init) {
 		AccountChangeTrigger();
 	}
 }
@@ -409,9 +422,42 @@ void taccount::MarkPending(uint64_t userid, const std::shared_ptr<userdatacontai
 	user->pendingtweets.push_front(t);
 }
 
+wxString taccount::GetStatusString(bool notextifok) {
+	if(init) {
+		if(verifycredstatus==ACT_FAILED) return wxT("authentication failed");
+		else return wxT("authenticating");
+	}
+	else if(!userenabled) return wxT("disabled");
+	else if(!enabled) return wxT("not active");
+	else if(!notextifok) return wxT("active");
+	else return wxT("");
+}
+
+void taccount::CheckFailedPendingConns() {
+	while(!failed_pending_conns.empty()) {
+		failed_pending_conns.front()->QueueAsyncExec();
+		failed_pending_conns.pop_front();
+	}
+	if(pending_failed_conn_retry_timer) pending_failed_conn_retry_timer->Stop();
+}
+
+void taccount::AddFailedPendingConn(twitcurlext *conn) {
+	LogMsgFormat(LFT_SOCKERR, wxT("Connection failed (account: %s). Next reconnection attempt in 512 seconds, or upon successful network activity on this account (whichever is first)."), dispname.c_str());
+	failed_pending_conns.push_front(conn);
+	if(!pending_failed_conn_retry_timer) pending_failed_conn_retry_timer=new wxTimer(this, TAF_FAILED_PENDING_CONN_RETRY_TIMER);
+	if(!pending_failed_conn_retry_timer->IsRunning()) pending_failed_conn_retry_timer->Start(512*1000, wxTIMER_ONE_SHOT);
+}
+
+void taccount::OnFailedPendingConnRetryTimer(wxTimerEvent& event) {
+	CheckFailedPendingConns();
+}
+
 void AccountChangeTrigger() {
 	user_window::RefreshAll();
 	AccountUpdateAllMainframes();
+	for(auto it=acc_window::currentset.begin(); it!=acc_window::currentset.end(); ++it) {
+		(*it)->UpdateLB();
+	}
 }
 
 std::shared_ptr<userdatacontainer> &alldata::GetUserContainerById(uint64_t id) {
