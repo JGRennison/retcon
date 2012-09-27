@@ -217,7 +217,7 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	std::unordered_map<uint64_t,std::shared_ptr<userdatacontainer> > pendingusers;
 	std::forward_list<restbackfillstate> pending_rbfs_list;
 
-	std::forward_list<twitcurlext *> failed_pending_conns;	//strict subset of cp.activeset
+	std::deque<twitcurlext *> failed_pending_conns;	//strict subset of cp.activeset
 	wxTimer *pending_failed_conn_retry_timer;
 	wxTimer *stream_restart_timer;
 	void CheckFailedPendingConns();

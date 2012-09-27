@@ -72,6 +72,7 @@ struct log_window : public log_object, public wxFrame {
 	void OnClose(wxCommandEvent &event);
 	void OnDumpPending(wxCommandEvent &event);
 	void OnDumpTPanelWins(wxCommandEvent &event);
+	void OnDumpConnInfo(wxCommandEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };
@@ -98,3 +99,6 @@ logflagtype StrToLogFlags(const wxString &str);
 void dump_pending_acc(logflagtype logflags, const wxString &indent, const wxString &indentstep, taccount *acc);
 void dump_pending_tpaneldbloadmap(logflagtype logflags, const wxString &indent);
 void dump_tpanel_scrollwin_data(logflagtype logflags, const wxString &indent, const wxString &indentstep, tpanelparentwin_nt *tppw);
+void dump_pending_acc_failed_conns(logflagtype logflags, const wxString &indent, const wxString &indentstep, taccount *acc);
+void dump_pending_retry_conn(logflagtype logflags, const wxString &indent, const wxString &indentstep);
+void dump_acc_socket_flags(logflagtype logflags, const wxString &indent, taccount *acc);

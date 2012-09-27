@@ -39,6 +39,7 @@ bool retcon::OnInit() {
 	//wxApp::OnInit();	//don't call this, it just calls the default command line processor
 	SetAppName(wxT("retcon"));
 	::wxInitAllImageHandlers();
+	srand((unsigned int) time(0));
 	cmdlineproc(argv, argc);
 	if(!globallogwindow) new log_window(0, lfd_defaultwin, false);
 	if(!::wxDirExists(wxStandardPaths::Get().GetUserDataDir())) {
@@ -105,8 +106,14 @@ taccount::taccount(genoptconf *incfg)
 }
 
 taccount::~taccount() {
-	if(pending_failed_conn_retry_timer) delete pending_failed_conn_retry_timer;
-	if(stream_restart_timer) delete stream_restart_timer;
+	if(pending_failed_conn_retry_timer) {
+		delete pending_failed_conn_retry_timer;
+		pending_failed_conn_retry_timer=0;
+	}
+	if(stream_restart_timer) {
+		delete stream_restart_timer;
+		stream_restart_timer=0;
+	}
 	DeleteRestBackfillTimer();
 }
 
@@ -200,22 +207,32 @@ void taccount::SetupRestBackfillTimer() {
 void taccount::DeleteRestBackfillTimer() {
 	if(rest_timer) {
 		LogMsgFormat(LFT_OTHERTRACE, wxT("Deleting REST timer (%s)"), dispname.c_str());
-		rest_timer->Stop();
 		delete rest_timer;
 		rest_timer=0;
 	}
 }
 
 void taccount::GetRestBackfill() {
+	auto oktostart=[&](RBFS_TYPE type) {
+		for(auto it=cp.activeset.begin(); it!=cp.activeset.end(); ++it) {
+			if((*it)->rbfs && (*it)->rbfs->type==type && (*it)->rbfs->end_tweet_id==0) {
+				return false;	//already present
+			}
+		}
+		return true;
+	};
+
 	last_rest_backfill=time(0);
-	StartRestGetTweetBackfill(GetMaxId(RBFS_TWEETS), 0, 800, RBFS_TWEETS);
-	StartRestGetTweetBackfill(GetMaxId(RBFS_RECVDM), 0, 800, RBFS_RECVDM);
-	StartRestGetTweetBackfill(GetMaxId(RBFS_SENTDM), 0, 800, RBFS_SENTDM);
-	if(!gc.assumementionistweet) StartRestGetTweetBackfill(GetMaxId(RBFS_MENTIONS), 0, 800, RBFS_MENTIONS);
+	if(oktostart(RBFS_TWEETS)) StartRestGetTweetBackfill(GetMaxId(RBFS_TWEETS), 0, 800, RBFS_TWEETS);
+	if(oktostart(RBFS_RECVDM)) StartRestGetTweetBackfill(GetMaxId(RBFS_RECVDM), 0, 800, RBFS_RECVDM);
+	if(oktostart(RBFS_SENTDM)) StartRestGetTweetBackfill(GetMaxId(RBFS_SENTDM), 0, 800, RBFS_SENTDM);
+	if(!gc.assumementionistweet) {
+		if(oktostart(RBFS_MENTIONS)) StartRestGetTweetBackfill(GetMaxId(RBFS_MENTIONS), 0, 800, RBFS_MENTIONS);
+	}
 }
 
 //limits are inclusive
-void taccount::StartRestGetTweetBackfill(uint64_t start_tweet_id, uint64_t end_tweet_id, unsigned int max_tweets_to_read, RBFS_TYPE type, uint64_t userid) {
+void taccount::StartRestGetTweetBackfill(uint64_t start_tweet_id, uint64_t end_tweet_id, unsigned int max_tweets_to_read, RBFS_TYPE type, uint64_t userid) {	
 	pending_rbfs_list.emplace_front();
 	restbackfillstate *rbfs=&pending_rbfs_list.front();
 	rbfs->start_tweet_id=start_tweet_id;
@@ -441,11 +458,13 @@ wxString taccount::GetStatusString(bool notextifok) {
 }
 
 void taccount::CheckFailedPendingConns() {
-	while(!failed_pending_conns.empty()) {
+	if(!failed_pending_conns.empty()) {			//only try one, to avoid excessive connection cycling
+								//if it is successful the remainder will be successively queued
 		failed_pending_conns.front()->QueueAsyncExec();
 		failed_pending_conns.pop_front();
 	}
 	if(pending_failed_conn_retry_timer) pending_failed_conn_retry_timer->Stop();
+	//LogMsgFormat(LFT_SOCKERR, wxT("taccount::CheckFailedPendingConns(), stream_fail_count: %d, enabled: %d, userstreams: %d, streaming_on: %d, for account: %s"), stream_fail_count, enabled, userstreams, streaming_on, dispname.c_str());
 	if(stream_fail_count && enabled && userstreams && !streaming_on) {
 		if(!stream_restart_timer) stream_restart_timer=new wxTimer(this, TAF_STREAM_RESTART_TIMER);
 		if(!stream_restart_timer->IsRunning()) stream_restart_timer->Start(90*1000, wxTIMER_ONE_SHOT);	//give a little time for any other operations to try to connect first
@@ -453,8 +472,8 @@ void taccount::CheckFailedPendingConns() {
 }
 
 void taccount::AddFailedPendingConn(twitcurlext *conn) {
-	LogMsgFormat(LFT_SOCKERR, wxT("Connection failed (account: %s). Next reconnection attempt in 512 seconds, or upon successful network activity on this account (whichever is first)."), dispname.c_str());
-	failed_pending_conns.push_front(conn);
+	//LogMsgFormat(LFT_SOCKERR, wxT("Connection failed (account: %s). Next reconnection attempt in 512 seconds, or upon successful network activity on this account (whichever is first)."), dispname.c_str());
+	failed_pending_conns.push_back(conn);
 	if(!pending_failed_conn_retry_timer) pending_failed_conn_retry_timer=new wxTimer(this, TAF_FAILED_PENDING_CONN_RETRY_TIMER);
 	if(!pending_failed_conn_retry_timer->IsRunning()) pending_failed_conn_retry_timer->Start(512*1000, wxTIMER_ONE_SHOT);
 }
@@ -464,11 +483,14 @@ void taccount::OnFailedPendingConnRetryTimer(wxTimerEvent& event) {
 }
 
 void taccount::OnStreamRestartTimer(wxTimerEvent& event) {
+	//LogMsgFormat(LFT_SOCKERR, wxT("taccount::OnStreamRestartTimer(), stream_fail_count: %d, enabled: %d, userstreams: %d, streaming_on: %d, for account: %s"), stream_fail_count, enabled, userstreams, streaming_on, dispname.c_str());
 	for(auto it=cp.activeset.begin(); it!=cp.activeset.end(); ++it) {
 		if((*it)->tc_flags&TCF_ISSTREAM) {
+			//LogMsgFormat(LFT_SOCKERR, wxT("taccount::OnStreamRestartTimer(), stream connection already active, aborting"));
 			return;				//stream connection already present
 		}
 	}
+	
 	if(stream_fail_count && enabled && userstreams && !streaming_on) {
 		twitcurlext *twit_stream=PrepareNewStreamConn();
 		twit_stream->errorcount=255;	//disable retry attempts

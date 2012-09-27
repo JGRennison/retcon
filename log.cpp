@@ -164,6 +164,7 @@ BEGIN_EVENT_TABLE(log_window, wxFrame)
 	EVT_MENU(wxID_CLOSE, log_window::OnClose)
 	EVT_MENU(wxID_FILE1, log_window::OnDumpPending)
 	EVT_MENU(wxID_FILE2, log_window::OnDumpTPanelWins)
+	EVT_MENU(wxID_FILE3, log_window::OnDumpConnInfo)
 END_EVENT_TABLE()
 
 static void log_window_AddChkBox(log_window *parent, logflagtype flags, const wxString &str, wxSizer *sz) {
@@ -198,6 +199,7 @@ log_window::log_window(wxWindow *parent, logflagtype flagmask, bool show)
 	wxMenu *menuD = new wxMenu;
 	menuD->Append( wxID_FILE1, wxT("Dump &Pendings"));
 	menuD->Append( wxID_FILE2, wxT("Dump &Tpanel Window Data"));
+	menuD->Append( wxID_FILE3, wxT("Dump Pending/Restartable Failed &Socket Data"));
 
 	wxMenuBar *menuBar = new wxMenuBar;
 	menuBar->Append(menuF, wxT("&File"));
@@ -249,13 +251,20 @@ void log_window::OnClose(wxCommandEvent &event) {
 void log_window::OnDumpPending(wxCommandEvent &event) {
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
 		dump_pending_acc(LFT_USERREQ, wxT(""), wxT("\t"), (*it).get());
-		dump_pending_tpaneldbloadmap(LFT_USERREQ, wxT(""));
 	}
+	dump_pending_tpaneldbloadmap(LFT_USERREQ, wxT(""));
 }
 
 void log_window::OnDumpTPanelWins(wxCommandEvent &event) {
 	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
 		dump_tpanel_scrollwin_data(LFT_USERREQ, wxT(""), wxT("\t"), (*it));
+	}
+}
+
+void log_window::OnDumpConnInfo(wxCommandEvent &event) {
+	dump_pending_retry_conn(LFT_USERREQ, wxT(""), wxT("\t"));
+	for(auto it=alist.begin(); it!=alist.end(); ++it) {
+		dump_pending_acc_failed_conns(LFT_USERREQ, wxT(""), wxT("\t"), (*it).get());
 	}
 }
 
@@ -336,4 +345,24 @@ void dump_tpanel_scrollwin_data(logflagtype logflags, const wxString &indent, co
 	for(auto it=wl.begin(); it!=wl.end(); ++it) {
 		dump_window_pos_data(logflags, indent+indentstep, indentstep, (*it));
 	}
+}
+
+void dump_pending_acc_failed_conns(logflagtype logflags, const wxString &indent, const wxString &indentstep, taccount *acc) {
+	LogMsgFormat(logflags, wxT("%sAccount: %s (%s) - Restartable Failed Connections:"), indent.c_str(), acc->name.c_str(), acc->dispname.c_str());
+	dump_acc_socket_flags(logflags, indent, acc);
+	for(auto it=acc->failed_pending_conns.begin(); it!=acc->failed_pending_conns.end(); ++it) {
+		LogMsgFormat(logflags, wxT("%s%sSocket: %s, %p, Error Count: %d"), indent.c_str(), indentstep.c_str(), (*it)->GetConnTypeName().c_str(), (*it), (*it)->errorcount);
+	}
+}
+
+void dump_pending_retry_conn(logflagtype logflags, const wxString &indent, const wxString &indentstep) {
+	LogMsgFormat(logflags, wxT("%ssocktmanager connections pending retry attempts"), indent.c_str());
+	for(auto it=sm.retry_conns.begin(); it!=sm.retry_conns.end(); ++it) {
+		if(!(*it)) continue;
+		LogMsgFormat(logflags, wxT("%s%sSocket: %s, %p, Error Count: %d"), indent.c_str(), indentstep.c_str(), (*it)->GetConnTypeName().c_str(), (*it), (*it)->errorcount);
+	}
+}
+
+void dump_acc_socket_flags(logflagtype logflags, const wxString &indent, taccount *acc) {
+	LogMsgFormat(logflags, wxT("%sssl: %d, userstreams: %d, ta_flags: 0x%X, restinterval: %ds, enabled: %d, userenabled: %d, init: %d, active: %d, streaming_on: %d, stream_fail_count: %d, rest_on: %d"), indent.c_str(), acc->ssl, acc->userstreams, acc->ta_flags, acc->restinterval, acc->enabled, acc->userenabled, acc->init, acc->active, acc->streaming_on, acc->stream_fail_count, acc->rest_on);
 }

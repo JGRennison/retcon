@@ -45,20 +45,19 @@ enum {	MCCT_RETRY=wxID_HIGHEST+1,
 };
 
 enum {
-	MCF_NOTIMEOUT	= 1<<0,
+	MCF_NOTIMEOUT		= 1<<0,
+	MCF_IN_RETRY_QUEUE	= 1<<1,
+	MCF_RETRY_NOW_ON_SUCCESS= 1<<2,
 };
 
 struct mcurlconn : public wxEvtHandler {
 	void NotifyDone(CURL *easy, CURLcode res);
 	void HandleError(CURL *easy, long httpcode, CURLcode res);
-	void RetryNotify(wxTimerEvent& event);
 	void StandbyTidy();
-	void SetRetryTimer(int ms);
-	wxTimer *tm;
 	unsigned int errorcount;
 	unsigned int mcflags;
-	mcurlconn() : tm(0), errorcount(0), mcflags(0) {}
-	~mcurlconn();
+	mcurlconn() : errorcount(0), mcflags(0) {}
+	virtual ~mcurlconn();
 
 	virtual void NotifyDoneSuccess(CURL *easy, CURLcode res)=0;
 	virtual void DoRetry()=0;
@@ -66,6 +65,7 @@ struct mcurlconn : public wxEvtHandler {
 	virtual void KillConn();
 	virtual MCC_HTTPERRTYPE CheckHTTPErrType(long httpcode);
 	virtual CURL *GenGetCurlHandle()=0;
+	virtual wxString GetConnTypeName() { return wxT(""); }
 
 	DECLARE_EVENT_TABLE()
 };
@@ -104,7 +104,7 @@ struct profileimgdlconn : public dlconn {
 	void DoRetry();
 	void HandleFailure(long httpcode, CURLcode res);
 	static profileimgdlconn *GetConn(const std::string &imgurl_, const std::shared_ptr<userdatacontainer> &user_);
-
+	virtual wxString GetConnTypeName();
 };
 
 enum {
@@ -126,6 +126,7 @@ struct mediaimgdlconn : public dlconn {
 	void Reset();
 	void DoRetry();
 	void HandleFailure(long httpcode, CURLcode res);
+	virtual wxString GetConnTypeName();
 };
 
 struct sockettimeout : public wxTimer {
@@ -195,7 +196,12 @@ struct socketmanager : public wxEvtHandler {
 	void DeInitMultiIOHandler();
 	void InitMultiIOHandlerCommon();
 	void DeInitMultiIOHandlerCommon();
+	void RetryConn(mcurlconn *cs);
+	void RetryConnNow();
+	void RetryConnLater();
+	void RetryNotify(wxTimerEvent& event);
 	bool MultiIOHandlerInited;
+	void UnregisterRetryConn(mcurlconn *cs);
 
 	CURLM *curlmulti;
 	sockettimeout *st;
@@ -212,6 +218,8 @@ struct socketmanager : public wxEvtHandler {
 	std::map<curl_socket_t,GPollFD> sockpollmap;
 	#endif
 	std::forward_list<CURL*> connlist;
+	std::deque<mcurlconn *> retry_conns;
+	wxTimer *retry;
 
 	DECLARE_EVENT_TABLE()
 };

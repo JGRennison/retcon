@@ -339,12 +339,13 @@ struct twitcurlext: public twitCurl, public mcurlconn {
 	CURL *GenGetCurlHandle() { return GetCurlHandle(); }
 	twitcurlext(std::shared_ptr<taccount> acc);
 	twitcurlext();
-	~twitcurlext();
+	virtual ~twitcurlext();
 	void Reset();
 	void DoRetry();
 	void HandleFailure(long httpcode, CURLcode res);
 	void QueueAsyncExec();
 	void ExecRestGetTweetBackfill();
+	virtual wxString GetConnTypeName();
 
 	DECLARE_EVENT_TABLE()
 };

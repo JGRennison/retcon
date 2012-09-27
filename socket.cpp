@@ -38,7 +38,6 @@
 
 
 BEGIN_EVENT_TABLE( mcurlconn, wxEvtHandler )
-	EVT_TIMER(MCCT_RETRY, mcurlconn::RetryNotify)
 END_EVENT_TABLE()
 
 int curl_debug_func(CURL *cl, curl_infotype ci, char *txt, size_t len, void *extra) {
@@ -54,10 +53,7 @@ void SetCurlHandleVerboseState(CURL *easy, bool verbose) {
 }
 
 mcurlconn::~mcurlconn() {
-	if(tm) {
-		delete tm;
-		tm=0;
-	}
+	StandbyTidy();
 }
 
 void mcurlconn::KillConn() {
@@ -74,23 +70,22 @@ void mcurlconn::NotifyDone(CURL *easy, CURLcode res) {
 		if(res==CURLE_OK) {
 			char *url;
 			curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &url);
-			LogMsgFormat(LFT_SOCKERR, wxT("Request failed: conn: %p, code: %d, url: %s"), this, httpcode, wxstrstd(url).c_str());
+			LogMsgFormat(LFT_SOCKERR, wxT("Request failed: type: %s, conn: %p, code: %d, url: %s"), GetConnTypeName().c_str(), this, httpcode, wxstrstd(url).c_str());
 		}
 		else {
-			LogMsgFormat(LFT_SOCKERR, wxT("Socket error: conn: %p, code: %d, message: %s"), this, res, wxstrstd(curl_easy_strerror(res)).c_str());
+			LogMsgFormat(LFT_SOCKERR, wxT("Socket error: type: %s, conn: %p, code: %d, message: %s"), GetConnTypeName().c_str(), this, res, wxstrstd(curl_easy_strerror(res)).c_str());
 		}
 		KillConn();
 		HandleError(easy, httpcode, res);
 	}
 	else {
+		if(mcflags&MCF_RETRY_NOW_ON_SUCCESS) {
+			sm.RetryConnNow();
+		}
 		errorcount=0;
 		NotifyDoneSuccess(easy, res);
 	}
-}
-
-void mcurlconn::SetRetryTimer(int ms) {
-	if(!tm) tm = new wxTimer(this, MCCT_RETRY);
-	tm->Start(ms, true);
+	mcflags&=~MCF_RETRY_NOW_ON_SUCCESS;
 }
 
 void mcurlconn::HandleError(CURL *easy, long httpcode, CURLcode res) {
@@ -99,30 +94,22 @@ void mcurlconn::HandleError(CURL *easy, long httpcode, CURLcode res) {
 	if(res==CURLE_OK) {	//http error, not socket error
 		err=CheckHTTPErrType(httpcode);
 	}
-	if(errorcount>=5 && err<MCC_FAILED) {
+	if(errorcount>=3 && err<MCC_FAILED) {
 		err=MCC_FAILED;
 	}
 	switch(err) {
 		case MCC_RETRY:
-			SetRetryTimer(2500 * (1<<errorcount));	//1 shot timer, 5s for first error, 10s for second, etc
+			sm.RetryConn(this);
 			break;
 		case MCC_FAILED:
 			HandleFailure(httpcode, res);
+			sm.RetryConnLater();
 			break;
 	}
 }
 
-void mcurlconn::RetryNotify(wxTimerEvent& event) {
-	delete tm;
-	tm=0;
-	DoRetry();
-}
-
 void mcurlconn::StandbyTidy() {
-	if(tm) {
-		delete tm;
-		tm=0;
-	}
+	sm.UnregisterRetryConn(this);
 	errorcount=0;
 	mcflags=0;
 }
@@ -234,6 +221,10 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 	cp.Standby(this);
 }
 
+wxString profileimgdlconn::GetConnTypeName() {
+	return wxT("Profile image download");
+}
+
 void mediaimgdlconn::Init(const std::string &imgurl_, media_id_type media_id_, unsigned int flags_) {
 	media_id=media_id_;
 	flags=flags_;
@@ -322,6 +313,10 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 
 	KillConn();
 	delete this;
+}
+
+wxString mediaimgdlconn::GetConnTypeName() {
+	return wxT("Media image download");
 }
 
 template <typename C> connpool<C>::~connpool() {
@@ -418,11 +413,21 @@ static int multi_timer_cb(CURLM *multi, long timeout_ms, socketmanager *smp) {
 	return 0;
 }
 
-socketmanager::socketmanager() : st(0), curnumsocks(0) {
+socketmanager::socketmanager() : st(0), curnumsocks(0), retry(0) {
 	MultiIOHandlerInited=false;
 }
 
 socketmanager::~socketmanager() {
+	LogMsgFormat(LFT_SOCKERR, wxT("socketmanager::~socketmanager()"));
+	if(retry) {
+		delete retry;
+		retry=0;
+	}
+	while(!retry_conns.empty()) {
+		mcurlconn *cs=retry_conns.front();
+		retry_conns.pop_front();
+		if(cs) cs->mcflags&=~MCF_IN_RETRY_QUEUE;
+	}
 	DeInitMultiIOHandler();
 }
 
@@ -461,8 +466,9 @@ void socketmanager::NotifySockEvent(curl_socket_t sockfd, int ev_bitmask) {
 }
 
 BEGIN_EVENT_TABLE(socketmanager, wxEvtHandler)
+	EVT_TIMER(MCCT_RETRY, socketmanager::RetryNotify)
 #if defined(RCS_POLLTHREADMODE) || defined(RCS_SIGNALMODE)
-  EVT_EXTSOCKETNOTIFY(wxID_ANY, socketmanager::NotifySockEventCmd)
+	EVT_EXTSOCKETNOTIFY(wxID_ANY, socketmanager::NotifySockEventCmd)
 #endif
 END_EVENT_TABLE()
 
@@ -479,8 +485,61 @@ void socketmanager::InitMultiIOHandlerCommon() {
 void socketmanager::DeInitMultiIOHandlerCommon() {
 	LogMsg(LFT_SOCKTRACE, wxT("socketmanager::DeInitMultiIOHandlerCommon"));
 	curl_multi_cleanup(curlmulti);
-	if(st) delete st;
-	st=0;
+	if(st) {
+		delete st;
+		st=0;
+	}
+	if(retry) {
+		delete retry;
+		retry=0;
+	}
+}
+
+void socketmanager::RetryConn(mcurlconn *cs) {
+	retry_conns.push_back(cs);
+	cs->mcflags|=MCF_IN_RETRY_QUEUE;
+	RetryConnLater();
+}
+
+void socketmanager::UnregisterRetryConn(mcurlconn *cs) {
+	if(!(cs->mcflags&MCF_IN_RETRY_QUEUE)) return;
+	for(auto it=retry_conns.begin(); it!=retry_conns.end(); ++it) {
+		if(*it==cs) *it=0;
+	}
+	cs->mcflags&=~MCF_IN_RETRY_QUEUE;
+}
+
+void socketmanager::RetryConnNow() {
+	mcurlconn *cs;
+	while(true) {
+		if(retry_conns.empty()) return;
+		cs=retry_conns.front();
+		retry_conns.pop_front();
+		if(cs) break;
+	}
+	cs->mcflags&=~MCF_IN_RETRY_QUEUE;
+	cs->mcflags|=MCF_RETRY_NOW_ON_SUCCESS;
+	cs->DoRetry();
+}
+
+void socketmanager::RetryConnLater() {
+	mcurlconn *cs;
+	while(true) {
+		if(retry_conns.empty()) return;
+		cs=retry_conns.front();
+		if(cs) break;
+		else retry_conns.pop_front();
+	}
+	if(!retry) retry=new wxTimer(this, MCCT_RETRY);
+	if(!retry->IsRunning()) {
+		uint64_t ms=5000 * (1<<cs->errorcount);
+		ms+=(ms*((uint64_t) rand()))/RAND_MAX;
+		retry->Start((int) ms, wxTIMER_ONE_SHOT);
+	}
+}
+
+void socketmanager::RetryNotify(wxTimerEvent& event) {
+	RetryConnNow();
 }
 
 #ifdef RCS_WSAASYNCSELMODE
