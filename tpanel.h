@@ -402,14 +402,3 @@ void CheckClearNoUpdateFlag_All();
 //	void PushTweet(std::shared_ptr<tweetdisp> t);
 //};
 
-struct tpanelloadmap_data {
-	tpanelparentwin_nt* win;
-	std::weak_ptr<tpanel> pushtpanel;
-	unsigned int pushflags;
-
-	tpanelloadmap_data(tpanelparentwin_nt* win_, unsigned int pushflags_=0, std::shared_ptr<tpanel> *pushtpanel_=0) : win(win_), pushflags(pushflags_) {
-		if(pushtpanel_) pushtpanel=*pushtpanel_;
-	}
-};
-
-extern std::unordered_multimap<uint64_t, tpanelloadmap_data> tpanelloadmap;

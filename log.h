@@ -97,8 +97,9 @@ extern log_window *globallogwindow;
 logflagtype StrToLogFlags(const wxString &str);
 
 void dump_pending_acc(logflagtype logflags, const wxString &indent, const wxString &indentstep, taccount *acc);
-void dump_pending_tpaneldbloadmap(logflagtype logflags, const wxString &indent);
+void dump_tweet_pendings(logflagtype logflags, const wxString &indent, const wxString &indentstep);
 void dump_tpanel_scrollwin_data(logflagtype logflags, const wxString &indent, const wxString &indentstep, tpanelparentwin_nt *tppw);
 void dump_pending_acc_failed_conns(logflagtype logflags, const wxString &indent, const wxString &indentstep, taccount *acc);
 void dump_pending_retry_conn(logflagtype logflags, const wxString &indent, const wxString &indentstep);
+void dump_pending_active_conn(logflagtype logflags, const wxString &indent, const wxString &indentstep);
 void dump_acc_socket_flags(logflagtype logflags, const wxString &indent, taccount *acc);

@@ -155,16 +155,42 @@ struct tweet_perspective {
 enum {	//for tweet.lflags
 	TLF_DYNDIRTY		= 1<<0,
 	TLF_BEINGLOADEDFROMDB	= 1<<1,
-	TLF_PENDINGINTPANELMAP	= 1<<2,
-	TLF_PENDINGHANDLENEW	= 1<<3,
-	TLF_PENDINGINRTMAP	= 1<<4,
-	TLF_SAVED_IN_DB		= 1<<5,
+	TLF_PENDINGHANDLENEW	= 1<<2,
+	TLF_SAVED_IN_DB		= 1<<3,
 };
 
 enum {	//for tweet.updcf_flags
 	UPDCF_DOWNLOADIMG	= 1<<0,
 	UPDCF_USEREXPIRE	= 1<<1,
 	UPDCF_DEFAULT = UPDCF_DOWNLOADIMG,
+};
+
+struct pending_op {
+	virtual ~pending_op() { }
+	
+	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags)=0;
+	virtual wxString dump()=0;
+};
+
+struct rt_pending_op : public pending_op {
+	std::shared_ptr<tweet> target_retweet;
+	rt_pending_op(const std::shared_ptr<tweet> &t) : target_retweet(t) { }
+	
+	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags);
+	virtual wxString dump();
+};
+
+struct tpanelload_pending_op : public pending_op {
+	magic_ptr_ts<tpanelparentwin_nt> win;
+	std::weak_ptr<tpanel> pushtpanel;
+	unsigned int pushflags;
+
+	tpanelload_pending_op(tpanelparentwin_nt* win_, unsigned int pushflags_=0, std::shared_ptr<tpanel> *pushtpanel_=0) : win(win_), pushflags(pushflags_) {
+		if(pushtpanel_) pushtpanel=*pushtpanel_;
+	}
+	
+	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags);
+	virtual wxString dump();
 };
 
 struct tweet {
@@ -180,6 +206,7 @@ struct tweet {
 	std::forward_list<tweet_perspective> tp_list;
 	std::shared_ptr<tweet> rtsrc;				//for retweets, this is the source tweet
 	unsigned int updcf_flags;
+	std::forward_list<std::unique_ptr<pending_op> > pending_ops;
 
 	tweet_flags flags;
 	unsigned int lflags;
@@ -361,5 +388,3 @@ inline bool IsUserMentioned(const std::string &str, const std::shared_ptr<userda
 #ifdef __WINDOWS__
 	struct tm *gmtime_r (const time_t *timer, struct tm *result);
 #endif
-
-extern std::unordered_multimap<uint64_t, uint64_t> rtpendingmap;

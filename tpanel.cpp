@@ -30,8 +30,6 @@
 #include <wx/dcscreen.h>
 #include <wx/clipbrd.h>
 
-std::unordered_multimap<uint64_t, tpanelloadmap_data> tpanelloadmap;
-
 std::shared_ptr<tpanelglobal> tpanelglobal::Get() {
 	if(tpg_glob.expired()) {
 		std::shared_ptr<tpanelglobal> tmp=std::make_shared<tpanelglobal>();
@@ -557,14 +555,6 @@ tpanelparentwin_nt::tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWin
 }
 
 tpanelparentwin_nt::~tpanelparentwin_nt() {
-	for(auto it=tpanelloadmap.begin(); it!=tpanelloadmap.end(); ) {
-		if((*it).second.win==this) {
-			auto todel=it;
-			it++;
-			tpanelloadmap.erase(todel);
-		}
-		else it++;
-	}
 	tp->OnTPanelWinClose(this);
 	tpanelparentwinlist.remove(this);
 }
@@ -716,15 +706,14 @@ tpanelparentwin::tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *
 }
 
 uint64_t tpanelparentwin::PushTweetOrRetLoadId(uint64_t id, unsigned int pushflags) {
-	std::shared_ptr<tweet> &tobj=ad.tweetobjs[id];
-	if(tobj) {
+	bool isnew;
+	std::shared_ptr<tweet> tobj=ad.GetTweetById(id, &isnew);
+	if(!isnew) {
 		return PushTweetOrRetLoadId(tobj, pushflags);
 	}
 	else {
-		tobj=std::make_shared<tweet>();
-		tobj->id=id;
-		tobj->lflags=TLF_BEINGLOADEDFROMDB|TLF_PENDINGINTPANELMAP;
-		tpanelloadmap.insert(std::make_pair(id, tpanelloadmap_data(this, pushflags)));
+		tobj->lflags|=TLF_BEINGLOADEDFROMDB;
+		MarkPending_TPanelMap(tobj, this, pushflags);
 		return id;
 	}
 }
@@ -772,7 +761,7 @@ void tpanelparentwin::LoadMore(unsigned int n, uint64_t lessthanid, unsigned int
 		if(!gc.persistentmediacache) loadmsg->flags|=DBSTMF_PULLMEDIA;
 		dbc.SendMessage(loadmsg);
 	}
-	dump_pending_tpaneldbloadmap(LFT_PENDTRACE, wxT(""));
+	if(currentlogflags&LFT_PENDTRACE) dump_tweet_pendings(LFT_PENDTRACE, wxT(""), wxT("\t"));
 
 	Thaw();
 	CheckClearNoUpdateFlag();

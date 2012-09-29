@@ -200,9 +200,9 @@ struct socketmanager : public wxEvtHandler {
 	void RetryConnNow();
 	void RetryConnLater();
 	void RetryNotify(wxTimerEvent& event);
-	bool MultiIOHandlerInited;
 	void UnregisterRetryConn(mcurlconn *cs);
 
+	bool MultiIOHandlerInited;
 	CURLM *curlmulti;
 	sockettimeout *st;
 	int curnumsocks;
@@ -217,7 +217,7 @@ struct socketmanager : public wxEvtHandler {
 	unsigned int source_id;
 	std::map<curl_socket_t,GPollFD> sockpollmap;
 	#endif
-	std::forward_list<CURL*> connlist;
+	std::forward_list<std::pair<CURL*, mcurlconn *> > connlist;
 	std::deque<mcurlconn *> retry_conns;
 	wxTimer *retry;
 

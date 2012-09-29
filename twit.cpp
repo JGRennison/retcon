@@ -36,8 +36,6 @@
 #include <pcre.h>
 #include <wx/msgdlg.h>
 
-std::unordered_multimap<uint64_t, uint64_t> rtpendingmap;	//source tweet, retweet
-
 void HandleNewTweet(const std::shared_ptr<tweet> &t) {
 	//do some filtering, etc
 
@@ -658,6 +656,30 @@ void userdatacontainer::CheckPendingTweets(unsigned int umpt_flags) {
 	ThawAll();
 }
 
+void rt_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags) {
+	if(target_retweet->IsReady()) UnmarkPendingTweet(target_retweet, umpt_flags);
+}
+
+wxString rt_pending_op::dump() {
+	return wxString::Format(wxT("Retweet depends on this: %" wxLongLongFmtSpec "d (%.20s...)"), target_retweet->id, wxstrstd(target_retweet->text).c_str());
+}
+
+void tpanelload_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags) {
+	std::shared_ptr<tpanel> tp=pushtpanel.lock();
+	if(tp) tp->PushTweet(t);
+	tpanelparentwin_nt *window=win.get();
+	if(window) {
+		if(umpt_flags&UMPTF_TPDB_NOUPDF) window->tppw_flags|=TPPWF_NOUPDATEONPUSH;
+		window->PushTweet(t, pushflags);
+	}
+}
+
+wxString tpanelload_pending_op::dump() {
+	std::shared_ptr<tpanel> tp=pushtpanel.lock();
+	tpanelparentwin_nt *window=win.get();
+	return wxString::Format(wxT("Push tweet to tpanel: %s, window: %p, pushflags: 0x%X"), (tp)?wxstrstd(tp->dispname).c_str():wxT("N/A"), window, pushflags);
+}
+
 void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, unsigned int umpt_flags) {
 	LogMsgFormat(LFT_PENDTRACE, wxT("Unmark Pending: Tweet: %" wxLongLongFmtSpec "d (%.15s...), lflags: %X, updcf_flags: %X"), t->id, wxstrstd(t->text).c_str(), t->lflags, t->updcf_flags);
 	t->lflags&=~TLF_BEINGLOADEDFROMDB;
@@ -665,28 +687,10 @@ void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, unsigned int umpt_flags
 		t->lflags&=~TLF_PENDINGHANDLENEW;
 		HandleNewTweet(t);
 	}
-	if(t->lflags&TLF_PENDINGINTPANELMAP) {
-		t->lflags&=~TLF_PENDINGINTPANELMAP;
-		auto itpair=tpanelloadmap.equal_range(t->id);
-		for(auto it=itpair.first; it!=itpair.second; ++it) {
-			std::shared_ptr<tpanel> tp=(*it).second.pushtpanel.lock();
-			if(tp) tp->PushTweet(t);
-			if((*it).second.win) {
-				if(umpt_flags&UMPTF_TPDB_NOUPDF) (*it).second.win->tppw_flags|=TPPWF_NOUPDATEONPUSH;
-				(*it).second.win->PushTweet(t, (*it).second.pushflags);
-			}
-		}
-		tpanelloadmap.erase(itpair.first, itpair.second);
+	for(auto it=t->pending_ops.begin(); it!=t->pending_ops.end(); ++it) {
+		(*it)->MarkUnpending(t, umpt_flags);
 	}
-	if(t->lflags&TLF_PENDINGINRTMAP) {
-		t->lflags&=~TLF_PENDINGINRTMAP;
-		auto itpair=rtpendingmap.equal_range(t->id);
-		for(auto it=itpair.first; it!=itpair.second; ++it) {
-			auto &rt=ad.GetTweetById((*it).second);
-			if(rt->IsReady()) UnmarkPendingTweet(rt, umpt_flags);
-		}
-		rtpendingmap.erase(itpair.first, itpair.second);
-	}
+	t->pending_ops.clear();
 	t->updcf_flags&=~UPDCF_USEREXPIRE;
 }
 
@@ -857,8 +861,7 @@ bool taccount::CheckMarkPending(const std::shared_ptr<tweet> &t, bool checkfirst
 //mark *must* be exactly right
 void taccount::FastMarkPending(const std::shared_ptr<tweet> &t, unsigned int mark, bool checkfirst) {
 	if(mark&4) {
-		rtpendingmap.insert(std::make_pair(t->rtsrc->id, t->id));
-		t->rtsrc->lflags|=TLF_PENDINGINRTMAP;
+		t->rtsrc->pending_ops.emplace_front(new rt_pending_op(t));
 		MarkPending(t->rtsrc->user->id, t->rtsrc->user, t->rtsrc, checkfirst);
 	}
 	if(mark&1) MarkPending(t->user->id, t->user, t, checkfirst);
@@ -895,21 +898,21 @@ bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t, bool checkfirst) {
 }
 
 bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_nt* win_, unsigned int pushflags, std::shared_ptr<tpanel> *pushtpanel_) {
-	tobj->lflags|=TLF_PENDINGINTPANELMAP;
-	auto pit=tpanelloadmap.equal_range(tobj->id);
 	tpanel *tp=0;
 	if(pushtpanel_) tp=(*pushtpanel_).get();
 	bool found=false;
-	for(auto it=pit.first; it!=pit.second; ++it) {
-		if(!win_ && (*it).second.win!=win_) continue;
-		if(!tp) {
-			std::shared_ptr<tpanel> test_tp=(*it).second.pushtpanel.lock();
+	for(auto it=tobj->pending_ops.begin(); it!=tobj->pending_ops.end(); ++it) {
+		tpanelload_pending_op *op=dynamic_cast<tpanelload_pending_op *>((*it).get());
+		if(!op) continue;
+		if(win_ && op->win.get()!=win_) continue;
+		if(tp) {
+			std::shared_ptr<tpanel> test_tp=op->pushtpanel.lock();
 			if(test_tp.get()!=tp) continue;
 		}
 		found=true;
 		break;
 	}
-	if(!found) tpanelloadmap.insert(std::make_pair(tobj->id, tpanelloadmap_data(win_, pushflags, pushtpanel_)));
+	if(!found) tobj->pending_ops.emplace_front(new tpanelload_pending_op(win_, pushflags, pushtpanel_));
 	return found;
 }
 
@@ -921,8 +924,12 @@ bool tweet::IsReady() {
 		bool rtsrcisready=rtsrc->IsReady();
 		if(!rtsrcisready) isready=false;
 	}
-	if(!user->IsReady(updcf_flags)) isready=false;
-	if(flags.Get('D') && !(user_recipient->IsReady(updcf_flags))) isready=false;
+	if(!user) isready=false;
+	else if(!user->IsReady(updcf_flags)) isready=false;
+	if(flags.Get('D')) {
+		if(!user_recipient) isready=false;
+		else if(!(user_recipient->IsReady(updcf_flags))) isready=false;
+	}
 	return isready;
 }
 

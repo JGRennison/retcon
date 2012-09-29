@@ -39,7 +39,7 @@ struct magic_ptr_base {
 	void Unmark(magic_ptr* t);
 };
 
-struct magic_ptr {
+struct magic_ptr final {
 	friend struct magic_ptr_base;
 
 	protected:
@@ -59,7 +59,12 @@ struct magic_ptr {
 		return ptr;
 	}
 	magic_ptr(magic_ptr &p) {
-		set(p.ptr);
+		ptr=p.get();
+		if(ptr) ptr->Mark(this);
+	}
+	magic_ptr(magic_ptr_base *t) {
+		ptr=t;
+		if(ptr) ptr->Mark(this);
 	}
 	magic_ptr & operator=(const magic_ptr &p) {
 		set(p.ptr);
@@ -88,3 +93,27 @@ inline void magic_ptr_base::Unmark(magic_ptr* t) {
 template <typename C> C *MagicWindowCast(magic_ptr &in) {
 	return dynamic_cast<C*>(in.get());
 }
+
+template <typename C> struct magic_ptr_ts {
+	private:
+	magic_ptr ptr;
+	
+	public:
+	magic_ptr_ts() : ptr() { }
+	void set(C *t) {
+		ptr.set(t);
+	}
+	C *get() {
+		return (C*) ptr.get();
+	}
+	magic_ptr_ts(magic_ptr_ts<C> &p) : ptr(p.get()) { }
+	magic_ptr_ts(C *t) : ptr(t) { }
+	magic_ptr_ts & operator=(const magic_ptr_ts<C> &p) {
+		set(p.get());
+		return *this;
+	}
+	magic_ptr_ts & operator=(C *in) {
+		set(in);
+		return *this;
+	}
+};

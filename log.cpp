@@ -60,7 +60,7 @@ void Update_currentlogflags() {
 	currentlogflags=t_currentlogflags;
 	if((old_currentlogflags ^ currentlogflags) & LFT_CURLVERB) {
 		for(auto it=sm.connlist.begin(); it!=sm.connlist.end(); ++it) {
-			SetCurlHandleVerboseState(*it, currentlogflags&LFT_CURLVERB);
+			SetCurlHandleVerboseState(it->first, currentlogflags&LFT_CURLVERB);
 		}
 	}
 }
@@ -199,7 +199,7 @@ log_window::log_window(wxWindow *parent, logflagtype flagmask, bool show)
 	wxMenu *menuD = new wxMenu;
 	menuD->Append( wxID_FILE1, wxT("Dump &Pendings"));
 	menuD->Append( wxID_FILE2, wxT("Dump &Tpanel Window Data"));
-	menuD->Append( wxID_FILE3, wxT("Dump Pending/Restartable Failed &Socket Data"));
+	menuD->Append( wxID_FILE3, wxT("Dump &Socket Data"));
 
 	wxMenuBar *menuBar = new wxMenuBar;
 	menuBar->Append(menuF, wxT("&File"));
@@ -252,7 +252,7 @@ void log_window::OnDumpPending(wxCommandEvent &event) {
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
 		dump_pending_acc(LFT_USERREQ, wxT(""), wxT("\t"), (*it).get());
 	}
-	dump_pending_tpaneldbloadmap(LFT_USERREQ, wxT(""));
+	dump_tweet_pendings(LFT_USERREQ, wxT(""), wxT("\t"));
 }
 
 void log_window::OnDumpTPanelWins(wxCommandEvent &event) {
@@ -262,9 +262,11 @@ void log_window::OnDumpTPanelWins(wxCommandEvent &event) {
 }
 
 void log_window::OnDumpConnInfo(wxCommandEvent &event) {
+	dump_pending_active_conn(LFT_USERREQ, wxT(""), wxT("\t"));
 	dump_pending_retry_conn(LFT_USERREQ, wxT(""), wxT("\t"));
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
-		dump_pending_acc_failed_conns(LFT_USERREQ, wxT(""), wxT("\t"), (*it).get());
+		LogMsgFormat(LFT_USERREQ, wxT("Account: %s (%s)"), (*it)->name.c_str(), (*it)->dispname.c_str());
+		dump_pending_acc_failed_conns(LFT_USERREQ, wxT("\t"), wxT("\t"), (*it).get());
 	}
 }
 
@@ -322,9 +324,15 @@ void dump_pending_acc(logflagtype logflags, const wxString &indent, const wxStri
 	}
 }
 
-void dump_pending_tpaneldbloadmap(logflagtype logflags, const wxString &indent) {
-	for(auto it=tpanelloadmap.begin(); it!=tpanelloadmap.end(); ++it) {
-		LogMsgFormat(logflags, wxT("%sLoad Map: %" wxLongLongFmtSpec "d (%.15s...) --> %s (%s) pushflags: 0x%X"), indent.c_str(), it->first, wxstrstd(ad.tweetobjs[it->first]->text).c_str(), wxstrstd(it->second.win->tp->name).c_str(), wxstrstd(it->second.win->tp->dispname).c_str(), it->second.pushflags);
+void dump_tweet_pendings(logflagtype logflags, const wxString &indent, const wxString &indentstep) {
+	for(auto it=ad.tweetobjs.begin(); it!=ad.tweetobjs.end(); ++it) {
+		const tweet *t=it->second.get();
+		if(t && !(t->pending_ops.empty())) {
+			LogMsgFormat(logflags, wxT("%sTweet with operations pending ready state: %" wxLongLongFmtSpec "d (%.20s...)"), indent.c_str(), t->id, wxstrstd(t->text).c_str());
+			for(auto jt=t->pending_ops.begin(); jt!=t->pending_ops.end(); ++jt) {
+				LogMsgFormat(logflags, wxT("%s%s%s"), indent.c_str(), indentstep.c_str(), (*jt)->dump().c_str());
+			}
+		}
 	}
 }
 
@@ -348,18 +356,29 @@ void dump_tpanel_scrollwin_data(logflagtype logflags, const wxString &indent, co
 }
 
 void dump_pending_acc_failed_conns(logflagtype logflags, const wxString &indent, const wxString &indentstep, taccount *acc) {
-	LogMsgFormat(logflags, wxT("%sAccount: %s (%s) - Restartable Failed Connections:"), indent.c_str(), acc->name.c_str(), acc->dispname.c_str());
 	dump_acc_socket_flags(logflags, indent, acc);
+	LogMsgFormat(logflags, wxT("%sRestartable Failed Connections: %d"), indent.c_str(), acc->failed_pending_conns.size());
 	for(auto it=acc->failed_pending_conns.begin(); it!=acc->failed_pending_conns.end(); ++it) {
-		LogMsgFormat(logflags, wxT("%s%sSocket: %s, %p, Error Count: %d"), indent.c_str(), indentstep.c_str(), (*it)->GetConnTypeName().c_str(), (*it), (*it)->errorcount);
+		LogMsgFormat(logflags, wxT("%s%sSocket: %s, %p, Error Count: %d, mcflags: 0x"), indent.c_str(), indentstep.c_str(), (*it)->GetConnTypeName().c_str(), (*it), (*it)->errorcount, (*it)->mcflags);
+	}
+}
+
+void dump_pending_active_conn(logflagtype logflags, const wxString &indent, const wxString &indentstep) {
+	LogMsgFormat(logflags, wxT("%sActive connections: %d"), indent.c_str(), std::distance(sm.connlist.begin(), sm.connlist.end()));
+	for(auto it=sm.connlist.begin(); it!=sm.connlist.end(); ++it) {
+		LogMsgFormat(logflags, wxT("%s%sSocket: %s, %p, Error Count: %d, mcflags: 0x%X"), indent.c_str(), indentstep.c_str(), it->second->GetConnTypeName().c_str(), it->second, it->second->errorcount, it->second->mcflags);
 	}
 }
 
 void dump_pending_retry_conn(logflagtype logflags, const wxString &indent, const wxString &indentstep) {
-	LogMsgFormat(logflags, wxT("%ssocktmanager connections pending retry attempts"), indent.c_str());
+	size_t count=0;
+	for(auto it=sm.retry_conns.begin(); it!=sm.retry_conns.end(); ++it) {
+		if((*it)) count++;
+	}
+	LogMsgFormat(logflags, wxT("%sConnections pending retry attempts: %d"), indent.c_str(), count);
 	for(auto it=sm.retry_conns.begin(); it!=sm.retry_conns.end(); ++it) {
 		if(!(*it)) continue;
-		LogMsgFormat(logflags, wxT("%s%sSocket: %s, %p, Error Count: %d"), indent.c_str(), indentstep.c_str(), (*it)->GetConnTypeName().c_str(), (*it), (*it)->errorcount);
+		LogMsgFormat(logflags, wxT("%s%sSocket: %s, %p, Error Count: %d, mcflags: 0x"), indent.c_str(), indentstep.c_str(), (*it)->GetConnTypeName().c_str(), (*it), (*it)->errorcount, (*it)->mcflags);
 	}
 }
 

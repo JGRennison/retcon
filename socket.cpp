@@ -432,7 +432,7 @@ socketmanager::~socketmanager() {
 }
 
 bool socketmanager::AddConn(CURL* ch, mcurlconn *cs) {
-	connlist.push_front(ch);
+	connlist.push_front(std::make_pair(ch, cs));
 	SetCurlHandleVerboseState(ch, currentlogflags&LFT_CURLVERB);
 	curl_easy_setopt(ch, CURLOPT_TIMEOUT, (cs->mcflags&MCF_NOTIMEOUT)?0:180);
 	curl_easy_setopt(ch, CURLOPT_PRIVATE, cs);
@@ -448,7 +448,7 @@ bool socketmanager::AddConn(twitcurlext &cs) {
 
 void socketmanager::RemoveConn(CURL* ch) {
 	curl_multi_remove_handle(curlmulti, ch);
-	connlist.remove(ch);
+	connlist.remove_if([&](const std::pair<CURL*, mcurlconn *> &p) { return p.first==ch; });
 	curl_multi_socket_action(curlmulti, 0, 0, &curnumsocks);
 }
 
