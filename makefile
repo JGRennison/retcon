@@ -3,6 +3,7 @@
 #GCC: path to g++
 #debug: set to true to for a debug build
 #list: set to true to enable listings
+#map: set to true to enable linker map
 #On windows only:
 #x64: set to true to compile for x86_64/win64
 
@@ -103,6 +104,9 @@ TARGS:=$(OUTNAME)$(SUFFIX)
 
 ifdef list
 CFLAGS+= -masm=intel -g --save-temps -Wa,-msyntax=intel,-aghlms=$*$(POSTFIX).lst
+endif
+
+ifdef map
 AFLAGS:=$(AFLAGS) -Wl,-Map=$(OUTNAME)$(POSTFIX).map
 endif
 
@@ -123,10 +127,10 @@ $(TARGS): $(ALL_OBJS)
 .SUFFIXES: .cpp .c .o$(POSTFIX)
 
 .cpp.o$(POSTFIX):
-	$(GCC) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(AFLAGS)
+	$(GCC) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS)
 
 .c.o$(POSTFIX):
-	$(GCC:++=cc) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(AFLAGS)
+	$(GCC:++=cc) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2)
 
 $(TCOBJS): %.o$(POSTFIX): %.cpp
 	$(GCC) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(CXXFLAGS)
@@ -140,7 +144,7 @@ endif
 	objcopy --rename-section .data=.rodata,alloc,load,readonly,data,contents $@ $@
 
 retcon.h.gch:
-	$(GCC) -c retcon.h -o retcon.h.gch $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(AFLAGS)
+	$(GCC) -c retcon.h -o retcon.h.gch $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS)
 
 HEADERS:=retcon.h socket.h cfg.h parse.h twit.h tpanel.h optui.h libtwitcurl/twitcurl.h db.h log.h cmdline.h userui.h mainui.h magic_ptr.h
 
