@@ -313,6 +313,7 @@ bool LoadImageFromFileAndCheckHash(const wxString &filename, const unsigned char
 bool LoadFromFileAndCheckHash(const wxString &filename, const unsigned char *hash, char *&data, size_t &size);
 
 void AccountChangeTrigger();
+bool GetAccByDBIndex(unsigned int dbindex, std::shared_ptr<taccount> &acc);
 
 extern std::list<std::shared_ptr<taccount>> alist;
 extern socketmanager sm;

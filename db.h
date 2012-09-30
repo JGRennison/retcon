@@ -159,6 +159,8 @@ struct dbretmediadata {
 
 enum {
 	DBSTMF_PULLMEDIA	= 1<<0,
+	DBSTMF_NO_ERR		= 1<<1,
+	DBSTMF_NET_FALLBACK	= 1<<2,
 };
 
 struct dbseltweetmsg : public dbsendmsg_callback {
@@ -168,6 +170,14 @@ struct dbseltweetmsg : public dbsendmsg_callback {
 	std::set<uint64_t> id_set;			//ids to select
 	std::forward_list<dbrettweetdata> data;		//return data
 	std::forward_list<dbretmediadata> media_data;	//return data
+};
+
+struct dbseltweetmsg_netfallback : public dbseltweetmsg {
+	dbseltweetmsg_netfallback() : dbseltweetmsg(), dbindex(0) {
+		flags|=DBSTMF_NET_FALLBACK;
+	}
+
+	unsigned int dbindex;				//for the use of the main thread only
 };
 
 struct dbinsertusermsg : public dbsendmsg {

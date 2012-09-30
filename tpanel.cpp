@@ -72,20 +72,16 @@ void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map) {
 void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent) {
 	unsigned int dbindex=map[curid].dbindex;
 	unsigned int flags=map[curid].flags;
-	std::shared_ptr<taccount> *acc=0;
+	std::shared_ptr<taccount> acc;
 	wxString name;
 	wxString accname;
 	wxString type;
 	if(dbindex) {
-		for(auto it=alist.begin(); it!=alist.end(); ++it) {
-			if((*it)->dbindex==dbindex) {
-				acc=&(*it);
-				name=(*it)->dispname;
-				accname=(*it)->name;
-				break;
-			}
+		if(GetAccByDBIndex(dbindex, acc)) {
+			name=acc->dispname;
+			accname=acc->name;
 		}
-		if(!acc) return;
+		else return;
 	}
 	else {
 		name=wxT("All Accounts");
@@ -99,7 +95,7 @@ void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent) {
 	std::string paneldispname=std::string(wxString::Format(wxT("[%s - %s]"), name.c_str(), type.c_str()).ToUTF8());
 	std::string panelname=std::string(wxString::Format(wxT("___ATL_%s_%s"), accname.c_str(), type.c_str()).ToUTF8());
 
-	auto tp=tpanel::MkTPanel(panelname, paneldispname, flags, acc);
+	auto tp=tpanel::MkTPanel(panelname, paneldispname, flags, &acc);
 	tp->MkTPanelWin(parent, true);
 }
 
@@ -603,7 +599,9 @@ void tpanelparentwin_nt::PushTweet(const std::shared_ptr<tweet> &t, unsigned int
 tweetdispscr *tpanelparentwin_nt::PushTweetIndex(const std::shared_ptr<tweet> &t, size_t index) {
 	LogMsgFormat(LFT_TPANEL, "tpanelparentwin_nt::PushTweetIndex, id: %" wxLongLongFmtSpec "d, %d", t->id, index);
 	wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
-	tweetdispscr *td=new tweetdispscr(t, scrollwin, this, hbox);
+	wxBoxSizer *vbox = new wxBoxSizer(wxVERTICAL);
+	
+	tweetdispscr *td=new tweetdispscr(t, scrollwin, this, vbox);
 
 	if(t->flags.Get('T')) {
 		if(t->rtsrc && gc.rtdisp) {
@@ -633,10 +631,20 @@ tweetdispscr *tpanelparentwin_nt::PushTweetIndex(const std::shared_ptr<tweet> &t
 			hbox->Add(gs, 0, wxALL, 2);
 	}
 
-	hbox->Add(td, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
+	vbox->Add(td, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
+	hbox->Add(vbox, 1, wxEXPAND, 0);
 
 	sizer->Insert(index, hbox, 0, wxALL | wxEXPAND, 1);
 	td->DisplayTweet();
+	
+	if(t->in_reply_to_status_id) {
+		std::shared_ptr<tweet> subt=ad.GetTweetById(t->in_reply_to_status_id);
+		std::shared_ptr<taccount> pacc;
+		t->GetUsableAccount(pacc);
+		subt->pending_ops.emplace_front(new tpanel_subtweet_pending_op(vbox, this, td));
+		if(CheckFetchPendingSingleTweet(subt, pacc)) UnmarkPendingTweet(subt, 0);
+	}
+	
 	return td;
 }
 
@@ -1295,7 +1303,7 @@ void GenUserFmt(dispscr_base *obj, userdatacontainer *u, size_t &i, const wxStri
 			obj->WriteImage(obj->tppw->tpg->dmreplyicon_img);
 			obj->EndURL();
 			obj->SetInsertionPointEnd();
-			wxTextAttrEx attr;
+			wxTextAttrEx attr(obj->GetDefaultStyleEx());
 			attr.SetURL(wxString::Format(wxT("Xd%" wxLongLongFmtSpec "d"), u->id));
 			obj->SetStyleEx(curpos, obj->GetInsertionPoint(), attr, wxRICHTEXT_SETSTYLE_OPTIMIZE);
 			break;
@@ -1494,7 +1502,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 				EndURL();
 				if(imginserted) {
 					SetInsertionPointEnd();
-					wxTextAttrEx attr;
+					wxTextAttrEx attr(GetDefaultStyleEx());
 					attr.SetURL(url);
 					SetStyleEx(curpos, GetInsertionPoint(), attr, wxRICHTEXT_SETSTYLE_OPTIMIZE);
 				}

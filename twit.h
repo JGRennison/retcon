@@ -28,6 +28,7 @@ void UpdateUsersTweet(uint64_t userid, bool redrawimg=false);
 bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t, bool checkfirst=false);
 unsigned int CheckTweetPendings(const std::shared_ptr<tweet> &t);
 bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_nt* win_, unsigned int pushflags=0, std::shared_ptr<tpanel> *pushtpanel_=0);
+bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::shared_ptr<taccount> acc_hint);
 
 enum {	//for UnmarkPendingTweet: umpt_flags
 	UMPTF_TPDB_NOUPDF	= 1<<0,
@@ -157,6 +158,7 @@ enum {	//for tweet.lflags
 	TLF_BEINGLOADEDFROMDB	= 1<<1,
 	TLF_PENDINGHANDLENEW	= 1<<2,
 	TLF_SAVED_IN_DB		= 1<<3,
+	TLF_BEINGLOADEDOVERNET	= 1<<4,
 };
 
 enum {	//for tweet.updcf_flags
@@ -167,7 +169,7 @@ enum {	//for tweet.updcf_flags
 
 struct pending_op {
 	virtual ~pending_op() { }
-	
+
 	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags)=0;
 	virtual wxString dump()=0;
 };
@@ -175,7 +177,7 @@ struct pending_op {
 struct rt_pending_op : public pending_op {
 	std::shared_ptr<tweet> target_retweet;
 	rt_pending_op(const std::shared_ptr<tweet> &t) : target_retweet(t) { }
-	
+
 	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags);
 	virtual wxString dump();
 };
@@ -188,7 +190,18 @@ struct tpanelload_pending_op : public pending_op {
 	tpanelload_pending_op(tpanelparentwin_nt* win_, unsigned int pushflags_=0, std::shared_ptr<tpanel> *pushtpanel_=0) : win(win_), pushflags(pushflags_) {
 		if(pushtpanel_) pushtpanel=*pushtpanel_;
 	}
+
+	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags);
+	virtual wxString dump();
+};
+
+struct tpanel_subtweet_pending_op : public pending_op {
+	wxSizer *vbox;
+	magic_ptr_ts<tpanelparentwin_nt> win;
+	magic_ptr_ts<tweetdispscr> parent_td;
 	
+	tpanel_subtweet_pending_op(wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *t) : vbox(v), win(s), parent_td(t) { }
+
 	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags);
 	virtual wxString dump();
 };
@@ -216,7 +229,7 @@ struct tweet {
 	tweet_perspective *AddTPToTweet(const std::shared_ptr<taccount> &tac, bool *isnew=0);
 	tweet_perspective *GetTweetTP(const std::shared_ptr<taccount> &tac);
 	std::string mkdynjson() const;
-	bool GetUsableAccount(std::shared_ptr<taccount> &tac) const;
+	bool GetUsableAccount(std::shared_ptr<taccount> &tac, bool checkexisting=false) const;
 	bool IsReady();
 	bool IsFavouritable() const;
 	bool IsRetweetable() const;
@@ -293,6 +306,7 @@ typedef enum {
 	CS_USERFAVS,
 	CS_USERFOLLOWING,
 	CS_USERFOLLOWERS,
+	CS_SINGLETWEET,
 } CS_ENUMTYPE;
 
 //for post_action_flags

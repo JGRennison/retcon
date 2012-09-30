@@ -423,7 +423,7 @@ static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetm
 			free(mediaidarray);
 		}
 	}
-	else { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_SELTWEET got error: %d (%s) for id: %" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) id); }
+	else { DBLogMsgFormat((m->flags&DBSTMF_NO_ERR)?LFT_DBTRACE:LFT_DBERR, wxT("DBSM_SELTWEET got error: %d (%s) for id: %" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) id); }
 	sqlite3_reset(stmt);
 	if(rtid) {
 		ProcessMessage_SelTweet(db, stmt, m, recv_data, media_ids, rtid);
@@ -637,6 +637,36 @@ END_EVENT_TABLE()
 
 void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 	dbseltweetmsg *msg=(dbseltweetmsg *) event.GetClientData();
+
+	if(msg->flags&DBSTMF_NET_FALLBACK) {
+		dbseltweetmsg_netfallback *fmsg = dynamic_cast<dbseltweetmsg_netfallback *>(msg);
+		std::shared_ptr<taccount> acc;
+		if(fmsg) {
+			GetAccByDBIndex(fmsg->dbindex, acc);
+		}
+		std::set<uint64_t> missing_id_set=msg->id_set;
+		for(auto it=msg->data.begin(); it!=msg->data.end(); ++it) {
+			missing_id_set.erase(it->id);
+		}
+		for(auto it=missing_id_set.begin(); it!=missing_id_set.end(); ++it) {
+			std::shared_ptr<tweet> t=ad.GetTweetById(*it);
+
+			if(!t->text.size() && !(t->lflags&TLF_BEINGLOADEDOVERNET)) {	//tweet still not loaded at all
+
+				std::shared_ptr<taccount> curacc=acc;
+				if(t->GetUsableAccount(curacc, true)) {
+					t->lflags&=~TLF_BEINGLOADEDFROMDB;
+					t->lflags|=TLF_BEINGLOADEDOVERNET;
+					twitcurlext *twit=acc->cp.GetConn();
+					twit->TwInit(acc);
+					twit->connmode=CS_SINGLETWEET;
+					twit->extra_id=t->id;
+					twit->extra_id=*it;
+					twit->QueueAsyncExec();
+				}
+			}
+		}
+	}
 
 	for(auto it=msg->media_data.begin(); it!=msg->media_data.end(); ++it) {
 		dbretmediadata &dt=*it;

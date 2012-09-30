@@ -99,7 +99,7 @@ struct profimg_staticbitmap: public wxStaticBitmap {
 	DECLARE_EVENT_TABLE()
 };
 
-struct dispscr_base : public wxRichTextCtrl {
+struct dispscr_base : public wxRichTextCtrl, public magic_ptr_base {
 	panelparentwin_base *tppw;
 	tpanelscrollwin *tpsw;
 	wxBoxSizer *hbox;

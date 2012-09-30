@@ -511,6 +511,9 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			}
 			break;
 		}
+		case CS_SINGLETWEET: {
+			break;
+		}
 		case CS_NULL:
 			break;
 	}
@@ -648,24 +651,29 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 	}
 
 	if(currentlogflags&LFT_PARSE) tobj->Dump();
-
-	if(has_just_arrived && !(sflags&JDTP_ISRTSRC) && !(sflags&JDTP_USERTIMELINE)) tac->MarkPendingOrHandle(tobj);
-
-	if(sflags&JDTP_USERTIMELINE) {
-		if(twit && twit->rbfs && !(sflags&JDTP_ISRTSRC)) {
-			std::shared_ptr<tpanel> tp=tpanelparentwin_usertweets::GetUserTweetTPanel(twit->rbfs->userid, twit->rbfs->type);
-			if(tp) {
-				if(tac->CheckMarkPending(tobj)) tp->PushTweet(tobj, TPPWPF_USERTL | TPPWPF_SETNOUPDATEFLAG);
-				else MarkPending_TPanelMap(tobj, 0, TPPWPF_USERTL, &tp);
-			}
-		}
+	
+	if(sflags&JDTP_CHECKPENDINGONLY) {
+		tac->CheckMarkPending(tobj, true);
 	}
 	else {
-		if(!(tobj->lflags&TLF_SAVED_IN_DB)) {
-			dbc.InsertNewTweet(tobj, std::move(json), dbmsglist);
-			tobj->lflags|=TLF_SAVED_IN_DB;
+		if(has_just_arrived && !(sflags&JDTP_ISRTSRC) && !(sflags&JDTP_USERTIMELINE)) tac->MarkPendingOrHandle(tobj);
+
+		if(sflags&JDTP_USERTIMELINE) {
+			if(twit && twit->rbfs && !(sflags&JDTP_ISRTSRC)) {
+				std::shared_ptr<tpanel> tp=tpanelparentwin_usertweets::GetUserTweetTPanel(twit->rbfs->userid, twit->rbfs->type);
+				if(tp) {
+					if(tac->CheckMarkPending(tobj)) tp->PushTweet(tobj, TPPWPF_USERTL | TPPWPF_SETNOUPDATEFLAG);
+					else MarkPending_TPanelMap(tobj, 0, TPPWPF_USERTL, &tp);
+				}
+			}
 		}
-		else dbc.UpdateTweetDyn(tobj, dbmsglist);
+		else {
+			if(!(tobj->lflags&TLF_SAVED_IN_DB)) {
+				dbc.InsertNewTweet(tobj, std::move(json), dbmsglist);
+				tobj->lflags|=TLF_SAVED_IN_DB;
+			}
+			else dbc.UpdateTweetDyn(tobj, dbmsglist);
+		}
 	}
 
 	return tobj;

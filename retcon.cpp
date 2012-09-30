@@ -498,6 +498,16 @@ void taccount::OnStreamRestartTimer(wxTimerEvent& event) {
 	}
 }
 
+bool GetAccByDBIndex(unsigned int dbindex, std::shared_ptr<taccount> &acc) {
+	for(auto it=alist.begin(); it!=alist.end(); ++it) {
+		if((*it)->dbindex==dbindex) {
+			acc=(*it);
+			return true;
+		}
+	}
+	return false;
+}
+
 void AccountChangeTrigger() {
 	user_window::RefreshAll();
 	AccountUpdateAllMainframes();

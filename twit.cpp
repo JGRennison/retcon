@@ -171,7 +171,7 @@ void twitcurlext::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 	else {
 		acc->DoPostAction(this);
 	}
-	
+
 	acc->CheckFailedPendingConns();
 }
 
@@ -357,7 +357,7 @@ void twitcurlext::QueueAsyncExec() {
 		acc->cp.Standby(this);
 		return;
 	}
-	
+
 	SetNoPerformFlag(true);
 	switch(connmode) {
 		case CS_ACCVERIFY:
@@ -428,6 +428,9 @@ void twitcurlext::QueueAsyncExec() {
 		case CS_USERFOLLOWERS:
 			followersIdsGet(std::to_string(extra_id), true);
 			break;
+		case CS_SINGLETWEET:
+			statusShowById(std::to_string(extra_id));
+			break;
 		case CS_NULL:
 			break;
 	}
@@ -461,6 +464,7 @@ wxString twitcurlext::GetConnTypeName() {
 		case CS_DELETEDM: action=wxT("Deleting DM"); break;
 		case CS_USERFOLLOWING: action=wxT("Retrieving follower list"); break;
 		case CS_USERFOLLOWERS: action=wxT("Retrieving friends list"); break;
+		case CS_SINGLETWEET: action=wxT("Retrieving single tweet"); break;
 		default: action=wxT("Generic twitter API call"); break;
 	}
 	if(rbfs) {
@@ -544,6 +548,7 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
 		case CS_DELETEDM: msgbox=true; break;
 		case CS_USERFOLLOWING: break;
 		case CS_USERFOLLOWERS: break;
+		case CS_SINGLETWEET: retry=true; break;
 		default: break;
 	}
 	LogMsgFormat(LFT_SOCKERR, wxT("%s failed"), action.c_str(), acc->dispname.c_str());
@@ -680,6 +685,47 @@ wxString tpanelload_pending_op::dump() {
 	return wxString::Format(wxT("Push tweet to tpanel: %s, window: %p, pushflags: 0x%X"), (tp)?wxstrstd(tp->dispname).c_str():wxT("N/A"), window, pushflags);
 }
 
+void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags) {
+	tweetdispscr *tds=parent_td.get();
+	tpanelparentwin_nt *window=win.get();
+	if(!tds || !window) return;
+	
+	if(umpt_flags&UMPTF_TPDB_NOUPDF) window->tppw_flags|=TPPWF_NOUPDATEONPUSH;
+
+	wxBoxSizer *subhbox = new wxBoxSizer(wxHORIZONTAL);
+	vbox->Add(subhbox, 0, wxALL | wxEXPAND, 1);
+
+	tweetdispscr *subtd=new tweetdispscr(t, window->scrollwin, window, subhbox);
+
+	if(t->rtsrc && gc.rtdisp) {
+		t->rtsrc->user->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
+		subtd->bm = new profimg_staticbitmap(window->scrollwin, t->rtsrc->user->cached_profile_img_half, t->rtsrc->user->id, t->id);
+	}
+	else {
+		t->user->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
+		subtd->bm = new profimg_staticbitmap(window->scrollwin, t->user->cached_profile_img_half, t->user->id, t->id);
+	}
+	subhbox->Add(subtd->bm, 0, wxALL, 1);
+	subhbox->Add(subtd, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
+	
+	wxTextAttrEx tae(subtd->GetDefaultStyleEx());
+	wxFont newfont(tae.GetFont());
+	int newsize=((newfont.GetPointSize()*3)+2)/4;
+	if(!newsize) newsize=7;
+	newfont.SetPointSize(newsize);
+	tae.SetFont(newfont);
+	subtd->SetFont(newfont);
+	subtd->SetDefaultStyle(tae);
+	
+	subtd->DisplayTweet();
+	
+	if(!(window->tppw_flags&TPPWF_NOUPDATEONPUSH)) window->scrollwin->FitInside();
+}
+
+wxString tpanel_subtweet_pending_op::dump() {
+	return wxString::Format(wxT("Push inline tweet reply to tpanel: %p, %p, %p"), vbox, win.get(), parent_td.get());
+}
+
 void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, unsigned int umpt_flags) {
 	LogMsgFormat(LFT_PENDTRACE, wxT("Unmark Pending: Tweet: %" wxLongLongFmtSpec "d (%.15s...), lflags: %X, updcf_flags: %X"), t->id, wxstrstd(t->text).c_str(), t->lflags, t->updcf_flags);
 	t->lflags&=~TLF_BEINGLOADEDFROMDB;
@@ -798,7 +844,10 @@ std::string tweet_flags::GetString() const {
 	return out;
 }
 
-bool tweet::GetUsableAccount(std::shared_ptr<taccount> &tac) const {
+bool tweet::GetUsableAccount(std::shared_ptr<taccount> &tac, bool checkexisting) const {
+	if(checkexisting) {
+		if(tac && tac->enabled) return true;
+	}
 	for(auto it=tp_list.begin(); it!=tp_list.end(); ++it) {
 		if(it->IsArrivedHere()) {
 			if(it->acc->enabled) {
@@ -889,7 +938,7 @@ bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t, bool checkfirst) {
 	if(!res) return true;
 	else {
 		std::shared_ptr<taccount> curacc;
-		if(t->GetUsableAccount(curacc)) {
+		if(t->GetUsableAccount(curacc, true)) {
 			curacc->FastMarkPending(t, res, checkfirst);
 			return false;
 		}
@@ -914,6 +963,35 @@ bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_n
 	}
 	if(!found) tobj->pending_ops.emplace_front(new tpanelload_pending_op(win_, pushflags, pushtpanel_));
 	return found;
+}
+
+//return true if ready now
+bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::shared_ptr<taccount> acc_hint) {
+	if(tobj->text.size()) {
+		unsigned int res=CheckTweetPendings(tobj);
+		if(!res) return true;
+		else {
+			if(tobj->GetUsableAccount(acc_hint, true)) {
+				acc_hint->FastMarkPending(tobj, res, true);
+				return false;
+			}
+			else return true;
+		}
+	}
+	else {	//tweet not loaded at all
+		if(!(tobj->lflags&TLF_BEINGLOADEDFROMDB) && !(tobj->lflags&TLF_BEINGLOADEDOVERNET)) {
+			dbseltweetmsg_netfallback *loadmsg=new dbseltweetmsg_netfallback;
+			loadmsg->id_set.insert(tobj->id);
+			loadmsg->targ=&dbc;
+			loadmsg->cmdevtype=wxextDBCONN_NOTIFY;
+			loadmsg->winid=wxDBCONNEVT_ID_TPANELTWEETLOAD;
+			loadmsg->flags|=DBSTMF_NO_ERR;
+			if(acc_hint) loadmsg->dbindex=acc_hint->dbindex;
+			if(!gc.persistentmediacache) loadmsg->flags|=DBSTMF_PULLMEDIA;
+			dbc.SendMessage(loadmsg);
+		}
+		return false;
+	}
 }
 
 //returns true is ready, false is pending
@@ -983,7 +1061,7 @@ void StreamCallback( std::string &data, twitCurl* pTwitCurlObj, void *userdata )
 		acc->Exec();
 	}
 	sm.RetryConnLater();
-	
+
 	LogMsgFormat(LFT_SOCKTRACE, wxT("StreamCallback: Received: %s"), wxstrstd(data).c_str());
 	jsonparser jp(CS_STREAM, acc, obj);
 	jp.ParseString(data);

@@ -60,6 +60,7 @@ enum {
 	JDTP_UNFAV	= 1<<3,
 	JDTP_DEL	= 1<<4,
 	JDTP_USERTIMELINE	= 1<<5,
+	JDTP_CHECKPENDINGONLY	= 1<<6
 };
 
 struct jsonparser : public genjsonparser {
