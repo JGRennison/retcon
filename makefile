@@ -31,6 +31,7 @@ ifeq (mingw, $(findstring mingw,$(GCCMACHINE)))
 #WIN
 PLATFORM:=WIN
 AFLAGS+=-mwindows -s -static -LC:/SourceCode/Libraries/wxWidgets2.8/lib/gcc_lib -L.
+GFLAGS:=-mthreads
 #-LC:/SourceCode/wxwidgets/source/lib/gcc_lib
 CFLAGS+=-D CURL_STATICLIB
 #CXXFLAGS+=
@@ -121,19 +122,19 @@ endif
 all: $(TARGS)
 
 $(TARGS): $(ALL_OBJS)
-	$(GCC) $(ALL_OBJS) -o $(OUTNAME)$(SUFFIX) $(LIBS) $(AFLAGS)
+	$(GCC) $(ALL_OBJS) -o $(OUTNAME)$(SUFFIX) $(LIBS) $(AFLAGS) $(GFLAGS)
 
 
 .SUFFIXES: .cpp .c .o$(POSTFIX)
 
 .cpp.o$(POSTFIX):
-	$(GCC) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS)
+	$(GCC) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS)
 
 .c.o$(POSTFIX):
-	$(GCC:++=cc) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2)
+	$(GCC:++=cc) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(GFLAGS)
 
 $(TCOBJS): %.o$(POSTFIX): %.cpp
-	$(GCC) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(CXXFLAGS)
+	$(GCC) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS)
 
 $(ROBJS): %.o$(ND_POSTFIX): %.png
 ifeq "$(PLATFORM)" "WIN"
@@ -144,7 +145,7 @@ endif
 	objcopy --rename-section .data=.rodata,alloc,load,readonly,data,contents $@ $@
 
 retcon.h.gch:
-	$(GCC) -c retcon.h -o retcon.h.gch $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS)
+	$(GCC) -c retcon.h -o retcon.h.gch $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS)
 
 HEADERS:=retcon.h socket.h cfg.h parse.h twit.h tpanel.h optui.h libtwitcurl/twitcurl.h db.h log.h cmdline.h userui.h mainui.h magic_ptr.h
 

@@ -54,7 +54,7 @@ static void PerAccTPanelMenu(wxMenu *menu, tpanelmenudata &map, int &nextid, uns
 }
 
 void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map) {
-	wxMenuItemList& items=menuP->GetMenuItems();
+	wxMenuItemList items=menuP->GetMenuItems();		//make a copy to avoid memory issues if Destroy modifies the list
 	for(auto it=items.begin(); it!=items.end(); ++it) {
 		menuP->Destroy(*it);
 	}
