@@ -575,7 +575,7 @@ bool LoadFromFileAndCheckHash(const wxString &filename, const unsigned char *has
 	bool opened=file.Open(filename);
 	if(opened) {
 		wxFileOffset len=file.Length();
-		if(len && len<(50<<20)) {	//don't load empty absurdly large files
+		if(len && len<(50<<20)) {	//don't load empty or absurdly large files
 			data=(char*) malloc(len);
 			size=file.Read(data, len);
 			if(size==len) {
