@@ -15,7 +15,7 @@ COBJS_SRC:=utf8proc/utf8proc.c
 OUTNAME:=retcon
 CFLAGS=-O3 -Wextra -Wall -Wno-unused-parameter -I$(OBJDIR)/pch
 #-Wno-missing-braces -Wno-unused-parameter
-CXXFLAGS=-std=gnu++0x
+CXXFLAGS=-std=gnu++0x -fno-exceptions
 GCC:=g++
 LD:=ld
 OBJDIR:=objs
