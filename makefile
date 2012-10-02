@@ -8,30 +8,32 @@
 #x64: set to true to compile for x86_64/win64
 
 
-OBJS:=retcon.o cfg.o optui.o parse.o socket.o tpanel.o twit.o db.o log.o cmdline.o userui.o mainui.o
-TCOBJS:=libtwitcurl/base64.o libtwitcurl/HMAC_SHA1.o libtwitcurl/oauthlib.o libtwitcurl/SHA1.o libtwitcurl/twitcurl.o libtwitcurl/urlencode.o
-SPOBJS:=res.o
-ROBJS:=$(patsubst %.png,%.o,$(wildcard res/*.png))
-EXOBJS:=utf8proc/utf8proc.o
+OBJS_SRC:=retcon.cpp cfg.cpp optui.cpp parse.cpp socket.cpp tpanel.cpp twit.cpp db.cpp log.cpp cmdline.cpp userui.cpp mainui.cpp
+TCOBJS_SRC:=libtwitcurl/base64.cpp libtwitcurl/HMAC_SHA1.cpp libtwitcurl/oauthlib.cpp libtwitcurl/SHA1.cpp libtwitcurl/twitcurl.cpp libtwitcurl/urlencode.cpp
+SPOBJS_SRC:=res.cpp
+COBJS_SRC:=utf8proc/utf8proc.c
 OUTNAME:=retcon
-CFLAGS:=-O3 -Wextra -Wall -Wno-unused-parameter
+CFLAGS=-O3 -Wextra -Wall -Wno-unused-parameter -I$(OBJDIR)/pch
 #-Wno-missing-braces -Wno-unused-parameter
-CXXFLAGS:=-std=gnu++0x
+CXXFLAGS=-std=gnu++0x
 GCC:=g++
 LD:=ld
+OBJDIR:=objs
+DIRS=$(OBJDIR) $(OBJDIR)$(PATHSEP)pch $(OBJDIR)$(PATHSEP)libtwitcurl $(OBJDIR)$(PATHSEP)res $(OBJDIR)$(PATHSEP)utf8proc
 
 ifdef debug
-CFLAGS:=-g -Wextra -Wall -Wno-unused-parameter
+CFLAGS=-g -Wextra -Wall -Wno-unused-parameter
 #AFLAGS:=-Wl,-d,--export-all-symbols
 DEBUGPOSTFIX:=_debug
+OBJDIR=objs$(DEBUGPOSTFIX)
 endif
 
 GCCMACHINE:=$(shell $(GCC) -dumpmachine)
 ifeq (mingw, $(findstring mingw,$(GCCMACHINE)))
 #WIN
 PLATFORM:=WIN
-AFLAGS+=-mwindows -s -static -LC:/SourceCode/Libraries/wxWidgets2.8/lib/gcc_lib -L.
-GFLAGS:=-mthreads
+AFLAGS+=-mwindows -s -static -LC:/SourceCode/Libraries/wxWidgets2.8/lib/gcc_lib -Llib
+GFLAGS=-mthreads
 #-LC:/SourceCode/wxwidgets/source/lib/gcc_lib
 CFLAGS+=-D CURL_STATICLIB
 #CXXFLAGS+=
@@ -40,14 +42,17 @@ LIBS32=-lpcre -lcurl -lwxmsw28u_richtext -lwxmsw28u_aui -lwxbase28u_xml -lwxexpa
 LIBS64=
 GCC32=i686-w64-mingw32-g++
 GCC64=x86_64-w64-mingw32-g++
-MCFLAGS= -Icurl -IC:/SourceCode/Libraries/wxWidgets2.8/include -Isqlite -Izlib -I.
+MCFLAGS= -Icurl -IC:/SourceCode/Libraries/wxWidgets2.8/include -Isqlite -Izlib -Isrc -I.
 #-IC:/SourceCode/wxwidgets/source/include
 HDEPS:=
 EXECPREFIX:=
-EXOBJS+=sqlite/sqlite3.o
+EXCOBJS_SRC+=sqlite/sqlite3.c
+PATHSEP:=\\
+DIRS+=$(OBJDIR)$(PATHSEP)deps$(PATHSEP)sqlite
 
 ifdef x64
 SIZEPOSTFIX:=64
+OBJDIR+=$(SIZEPOSTFIX)
 GCC:=$(GCC64)
 LIBS:=$(LIBS64)
 CFLAGS2:=-mcx16
@@ -70,6 +75,7 @@ GCC_MAJOR:=$(shell $(GCC) -dumpversion | cut -d'.' -f1)
 GCC_MINOR:=$(shell $(GCC) -dumpversion | cut -d'.' -f2)
 ARCH:=$(shell test $(GCC_MAJOR) -gt 4 -o \( $(GCC_MAJOR) -eq 4 -a $(GCC_MINOR) -ge 2 \) && echo native)
 EXECPREFIX:=./
+PATHSEP:=/
 
 wxconf:=$(shell wx-config --selected-config)
 ifeq (gtk, $(findstring gtk,$(wxconf)))
@@ -79,9 +85,7 @@ endif
 
 endif
 
-POSTFIX:=$(SIZEPOSTFIX)$(DEBUGPOSTFIX)
-ND_POSTFIX:=$(SIZEPOSTFIX)
-OUTNAME:=$(OUTNAME)$(POSTFIX)
+OUTNAME:=$(OUTNAME)$(SIZEPOSTFIX)$(DEBUGPOSTFIX)
 
 GCCVER:=$(shell $(GCC) -dumpversion)
 
@@ -94,24 +98,24 @@ CXXFLAGS+=-Wno-type-limits -Wno-uninitialized -Wno-maybe-uninitialized
 #these cannot be feasibly suppressed at the local level in gcc 4.7
 endif
 
-
-OBJS:=$(OBJS:.o=.o$(POSTFIX))
-TCOBJS:=$(TCOBJS:.o=.o$(POSTFIX))
-EXOBJS:=$(EXOBJS:.o=.o$(POSTFIX))
-ROBJS:=$(ROBJS:.o=.o$(ND_POSTFIX))
-SPOBJS:=$(SPOBJS:.o=.o$(POSTFIX))
-
 TARGS:=$(OUTNAME)$(SUFFIX)
 
 ifdef list
-CFLAGS+= -masm=intel -g --save-temps -Wa,-msyntax=intel,-aghlms=$*$(POSTFIX).lst
+CFLAGS+= -masm=intel -g --save-temps -Wa,-msyntax=intel,-aghlms=$*.lst
 endif
 
 ifdef map
-AFLAGS:=$(AFLAGS) -Wl,-Map=$(OUTNAME)$(POSTFIX).map
+AFLAGS:=$(AFLAGS) -Wl,-Map=$(OUTNAME).map
 endif
 
-ALL_OBJS:=$(OBJS) $(TCOBJS) $(EXOBJS) $(ROBJS) $(SPOBJS)
+OBJS:=$(patsubst src/%.cpp,$(OBJDIR)/%.o,$(addprefix src/,$(OBJS_SRC)))
+TCOBJS:=$(patsubst src/%.cpp,$(OBJDIR)/%.o,$(addprefix src/,$(TCOBJS_SRC)))
+COBJS:=$(patsubst src/%.c,$(OBJDIR)/%.o,$(addprefix src/,$(COBJS_SRC)))
+SPOBJS:=$(patsubst src/%.cpp,$(OBJDIR)/%.o,$(addprefix src/,$(SPOBJS_SRC)))
+ROBJS:=$(patsubst src/res/%.png,$(OBJDIR)/res/%.o,$(wildcard src/res/*.png))
+EXOBJS:=$(patsubst %.c,$(OBJDIR)/deps/%.o,$(EXCOBJS_SRC))
+
+ALL_OBJS:=$(OBJS) $(TCOBJS) $(COBJS) $(SPOBJS) $(ROBJS) $(EXOBJS)
 
 ifneq ($(ARCH),)
 CFLAGS2 += -march=$(ARCH)
@@ -124,19 +128,16 @@ all: $(TARGS)
 $(TARGS): $(ALL_OBJS)
 	$(GCC) $(ALL_OBJS) -o $(OUTNAME)$(SUFFIX) $(LIBS) $(AFLAGS) $(GFLAGS)
 
-
-.SUFFIXES: .cpp .c .o$(POSTFIX)
-
-.cpp.o$(POSTFIX):
+$(OBJDIR)/%.o: src/%.cpp
 	$(GCC) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS)
 
-.c.o$(POSTFIX):
+$(OBJDIR)/%.o: src/%.c
 	$(GCC:++=cc) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(GFLAGS)
 
-$(TCOBJS): %.o$(POSTFIX): %.cpp
+$(TCOBJS): $(OBJDIR)/%.o: src/%.cpp
 	$(GCC) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS)
 
-$(ROBJS): %.o$(ND_POSTFIX): %.png
+$(ROBJS): $(OBJDIR)/%.o: src/%.png
 ifeq "$(PLATFORM)" "WIN"
 	$(GCC) -Wl,-r -Wl,-b,binary $< -o $@ -nostdlib
 else
@@ -144,33 +145,41 @@ else
 endif
 	objcopy --rename-section .data=.rodata,alloc,load,readonly,data,contents $@ $@
 
-retcon.h.gch:
-	$(GCC) -c retcon.h -o retcon.h.gch $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS)
+$(EXOBJS): $(OBJDIR)/deps/%.o: %.c
+	$(GCC:++=cc) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(GFLAGS)
 
-HEADERS:=retcon.h socket.h cfg.h parse.h twit.h tpanel.h optui.h libtwitcurl/twitcurl.h db.h log.h cmdline.h userui.h mainui.h magic_ptr.h
+$(OBJDIR)/pch/retcon.h.gch:
+	$(GCC) -c src/retcon.h -o $(OBJDIR)/pch/retcon.h.gch $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS)
 
-retcon.h.gch: $(HEADERS)
-$(OBJS): $(HEADERS) retcon.h.gch
-res.o$(POSTFIX) tpanel.o$(POSTFIX): res.h
-$(TCOBJS): libtwitcurl/*.h
-utf8proc/utf8proc.o$(POSTFIX) twit.o$(POSTFIX): utf8proc/utf8proc.h
+$(ALL_OBJS) src/pch/retcon.h.gch: | $(DIRS)
+
+$(DIRS):  
+	-mkdir $@
+
+HEADERS:=src/retcon.h src/socket.h src/cfg.h src/parse.h src/twit.h src/tpanel.h src/optui.h src/libtwitcurl/twitcurl.h src/db.h src/log.h src/cmdline.h src/userui.h src/mainui.h src/magic_ptr.h
+
+$(OBJDIR)/pch/retcon.h.gch: $(HEADERS)
+$(OBJS): $(HEADERS) $(OBJDIR)/pch/retcon.h.gch
+$(OBJDIR)/res.o $(OBJDIR)/tpanel.o: src/res.h
+$(TCOBJS): src/libtwitcurl/*.h
+$(OBJDIR)/utf8proc/utf8proc.o $(OBJDIR)/twit.o: src/utf8proc/utf8proc.h
 ifeq ($(PLATFORM),WIN)
-twit.o$(POSTFIX): strptime.cpp
+$(OBJDIR)/twit.o: src/strptime.cpp
 endif
 
 
 .PHONY: clean mostlyclean quickclean install uninstall all
 
 quickclean:
-	rm -f $(OBJS) $(OBJS:.o=.o64) $(OBJS:.o=.ii) $(OBJS:.o=.lst) $(OBJS:.o=.s) $(OBJS:.o=.o_debug) $(OBJS:.o=.o64_debug) $(OUTNAME)$(SUFFIX) $(OUTNAME)_debug$(SUFFIX) retcon.h.gch
+	rm -f $(OBJS) $(OBJS:.o=.ii) $(OBJS:.o=.lst) $(OBJS:.o=.s) $(OUTNAME)$(SUFFIX) $(OUTNAME)_debug$(SUFFIX) retcon.h.gch
 
 mostlyclean: quickclean
-	rm -f $(TCOBJS) $(TCOBJS:.o=.o64) $(TCOBJS:.o=.ii) $(TCOBJS:.o=.lst) $(TCOBJS:.o=.s) $(TCOBJS:.o=.o_debug) $(TCOBJS:.o=.o64_debug)
-	rm -f $(SPOBJS) $(SPOBJS:.o=.o64) $(SPOBJS:.o=.ii) $(SPOBJS:.o=.lst) $(SPOBJS:.o=.s) $(SPOBJS:.o=.o_debug) $(SPOBJS:.o=.o64_debug)
+	rm -f $(TCOBJS) $(TCOBJS:.o=.ii) $(TCOBJS:.o=.lst) $(TCOBJS:.o=.s)
+	rm -f $(SPOBJS) $(SPOBJS:.o=.ii) $(SPOBJS:.o=.lst) $(SPOBJS:.o=.s)
 
 clean: mostlyclean
-	rm -f $(EXOBJS) $(EXOBJS:.o=.o64) $(EXOBJS:.o=.ii) $(EXOBJS:.o=.lst) $(EXOBJS:.o=.s) $(EXOBJS:.o=.o_debug) $(EXOBJS:.o=.o64_debug)
-	rm -f $(ROBJS) $(ROBJS:.o=.o64)
+	rm -f $(COBJS) $(COBJS:.o=.ii) $(COBJS:.o=.lst) $(COBJS:.o=.s)
+	rm -f $(ROBJS)
 
 install:
 ifeq "$(PLATFORM)" "WIN"

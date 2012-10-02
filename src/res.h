@@ -25,8 +25,8 @@
 #include <wx/bitmap.h>
 
 #define IMG_EXTERN(obj) \
-	extern "C" unsigned char res_##obj##_png_start[] asm("_binary_res_" #obj "_png_start"); \
-	extern "C" unsigned char res_##obj##_png_end[] asm("_binary_res_" #obj "_png_end");
+	extern "C" unsigned char res_##obj##_png_start[] asm("_binary_src_res_" #obj "_png_start"); \
+	extern "C" unsigned char res_##obj##_png_end[] asm("_binary_src_res_" #obj "_png_end");
 #define IMG_MACRO_DIM(name, obj) \
 	IMG_EXTERN(obj) \
 	inline wxBitmap Get##name##IconDim(int dim) { \
