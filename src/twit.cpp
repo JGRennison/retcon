@@ -922,13 +922,13 @@ void taccount::FastMarkPending(const std::shared_ptr<tweet> &t, unsigned int mar
 //returns non-zero if pending
 unsigned int CheckTweetPendings(const std::shared_ptr<tweet> &t) {
 	unsigned int retval=0;
-	if(t->rtsrc && !t->rtsrc->user->IsReady(t->rtsrc->updcf_flags)) {
+	if(t->rtsrc && t->rtsrc->user && !t->rtsrc->user->IsReady(t->rtsrc->updcf_flags)) {
 		retval|=4;
 	}
-	if(!t->user->IsReady(t->updcf_flags)) {
+	if(t->user && !t->user->IsReady(t->updcf_flags)) {
 		retval|=1;
 	}
-	if(t->flags.Get('D') && !(t->user_recipient->IsReady(t->updcf_flags))) {
+	if(t->flags.Get('D') && t->user_recipient && !(t->user_recipient->IsReady(t->updcf_flags))) {
 		retval|=2;
 	}
 	return retval;
