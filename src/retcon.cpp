@@ -276,7 +276,7 @@ void taccount::StartRestQueryPendings() {
 	LogMsgFormat(LFT_OTHERTRACE, wxT("taccount::StartRestQueryPendings: pending users: %d, (%s)"), pendingusers.size(), dispname.c_str());
 	if(pendingusers.empty()) return;
 
-	std::shared_ptr<userlookup> ul=std::make_shared<userlookup>();
+	std::unique_ptr<userlookup> ul=0;
 
 	auto it=pendingusers.begin();
 	while(it!=pendingusers.end()) {
@@ -287,6 +287,7 @@ void taccount::StartRestQueryPendings() {
 			it++;
 			if(curobj->udc_flags&UDC_LOOKUP_IN_PROGRESS) ;	//do nothing
 			else if(curobj->NeedsUpdating(UPDCF_USEREXPIRE) || curobj->udc_flags&UDC_FORCE_REFRESH) {
+				if(!ul) ul.reset(new userlookup());
 				ul->Mark(curobj);
 				numusers++;
 			}
@@ -296,11 +297,12 @@ void taccount::StartRestQueryPendings() {
 			}
 			curobj->udc_flags&=~UDC_FORCE_REFRESH;
 		}
-		if(numusers) {
+		if(numusers && ul) {
 			twitcurlext *twit=cp.GetConn();
 			twit->TwInit(shared_from_this());
 			twit->connmode=CS_USERLIST;
-			twit->ul=ul;
+			twit->ul=std::move(ul);
+			ul=0;
 			twit->post_action_flags=PAF_RESOLVE_PENDINGS;
 			twit->QueueAsyncExec();
 		}

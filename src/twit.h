@@ -371,7 +371,7 @@ struct twitcurlext: public twitCurl, public mcurlconn {
 	unsigned int post_action_flags;
 	std::shared_ptr<streamconntimeout> scto;
 	restbackfillstate *rbfs;
-	std::shared_ptr<userlookup> ul;
+	std::unique_ptr<userlookup> ul;
 	std::string genurl;
 	std::string extra1;
 	uint64_t extra_id;
