@@ -39,7 +39,7 @@ struct magic_ptr_base {
 	void Unmark(magic_ptr* t);
 };
 
-struct magic_ptr final {
+struct magic_ptr /*final*/ {
 	friend struct magic_ptr_base;
 
 	protected:
@@ -110,7 +110,7 @@ template <typename C> C *MagicWindowCast(magic_ptr &in) {
 template <typename C> struct magic_ptr_ts {
 	private:
 	magic_ptr ptr;
-	
+
 	public:
 	magic_ptr_ts() : ptr() { }
 	void set(C *t) {
