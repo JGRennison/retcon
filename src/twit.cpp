@@ -689,7 +689,7 @@ void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, 
 	tweetdispscr *tds=parent_td.get();
 	tpanelparentwin_nt *window=win.get();
 	if(!tds || !window) return;
-	
+
 	if(umpt_flags&UMPTF_TPDB_NOUPDF) window->tppw_flags|=TPPWF_NOUPDATEONPUSH;
 
 	wxBoxSizer *subhbox = new wxBoxSizer(wxHORIZONTAL);
@@ -707,7 +707,7 @@ void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, 
 	}
 	subhbox->Add(subtd->bm, 0, wxALL, 1);
 	subhbox->Add(subtd, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
-	
+
 	wxTextAttrEx tae(subtd->GetDefaultStyleEx());
 	wxFont newfont(tae.GetFont());
 	int newsize=((newfont.GetPointSize()*3)+2)/4;
@@ -716,9 +716,9 @@ void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, 
 	tae.SetFont(newfont);
 	subtd->SetFont(newfont);
 	subtd->SetDefaultStyle(tae);
-	
+
 	subtd->DisplayTweet();
-	
+
 	if(!(window->tppw_flags&TPPWF_NOUPDATEONPUSH)) window->scrollwin->FitInside();
 }
 
@@ -844,13 +844,13 @@ std::string tweet_flags::GetString() const {
 	return out;
 }
 
-bool tweet::GetUsableAccount(std::shared_ptr<taccount> &tac, bool checkexisting) const {
-	if(checkexisting) {
+bool tweet::GetUsableAccount(std::shared_ptr<taccount> &tac, unsigned int guaflags) const {
+	if(guaflags&GUAF_CHECKEXISTING) {
 		if(tac && tac->enabled) return true;
 	}
 	for(auto it=tp_list.begin(); it!=tp_list.end(); ++it) {
 		if(it->IsArrivedHere()) {
-			if(it->acc->enabled) {
+			if(it->acc->enabled || (guaflags&GUAF_USERENABLED && it->acc->userenabled)) {
 				tac=it->acc;
 				return true;
 			}
@@ -858,19 +858,21 @@ bool tweet::GetUsableAccount(std::shared_ptr<taccount> &tac, bool checkexisting)
 	}
 	//try again, but use any associated account
 	for(auto it=tp_list.begin(); it!=tp_list.end(); ++it) {
-		if(it->acc->enabled) {
+		if(it->acc->enabled || (guaflags&GUAF_USERENABLED && it->acc->userenabled)) {
 			tac=it->acc;
 			return true;
 		}
 	}
 	//use the first account which is actually enabled
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
-		if((*it)->enabled) {
+		if((*it)->enabled || (guaflags&GUAF_USERENABLED && (*it)->userenabled)) {
 			tac=*it;
 			return true;
 		}
 	}
-	LogMsgFormat(LFT_OTHERERR, wxT("Tweet: %" wxLongLongFmtSpec "d (%.15s...), has no usable enabled account, cannot perform network actions on tweet"), id, wxstrstd(text).c_str());
+	if(!(guaflags&GUAF_NOERR)) {
+		LogMsgFormat(LFT_OTHERERR, wxT("Tweet: %" wxLongLongFmtSpec "d (%.15s...), has no usable enabled account, cannot perform network actions on tweet"), id, wxstrstd(text).c_str());
+	}
 	return false;
 }
 
@@ -971,7 +973,8 @@ bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::share
 		unsigned int res=CheckTweetPendings(tobj);
 		if(!res) return true;
 		else {
-			if(tobj->GetUsableAccount(acc_hint, true)) {
+			if(tobj->GetUsableAccount(acc_hint, GUAF_CHECKEXISTING|GUAF_NOERR) ||
+					tobj->GetUsableAccount(acc_hint, GUAF_CHECKEXISTING|GUAF_NOERR|GUAF_USERENABLED)) {
 				acc_hint->FastMarkPending(tobj, res, true);
 				return false;
 			}

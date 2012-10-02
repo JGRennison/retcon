@@ -600,7 +600,7 @@ tweetdispscr *tpanelparentwin_nt::PushTweetIndex(const std::shared_ptr<tweet> &t
 	LogMsgFormat(LFT_TPANEL, "tpanelparentwin_nt::PushTweetIndex, id: %" wxLongLongFmtSpec "d, %d", t->id, index);
 	wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
 	wxBoxSizer *vbox = new wxBoxSizer(wxVERTICAL);
-	
+
 	tweetdispscr *td=new tweetdispscr(t, scrollwin, this, vbox);
 
 	if(t->flags.Get('T')) {
@@ -636,15 +636,15 @@ tweetdispscr *tpanelparentwin_nt::PushTweetIndex(const std::shared_ptr<tweet> &t
 
 	sizer->Insert(index, hbox, 0, wxALL | wxEXPAND, 1);
 	td->DisplayTweet();
-	
+
 	if(t->in_reply_to_status_id) {
 		std::shared_ptr<tweet> subt=ad.GetTweetById(t->in_reply_to_status_id);
 		std::shared_ptr<taccount> pacc;
-		t->GetUsableAccount(pacc);
+		t->GetUsableAccount(pacc, GUAF_NOERR) || t->GetUsableAccount(pacc, GUAF_NOERR|GUAF_USERENABLED);
 		subt->pending_ops.emplace_front(new tpanel_subtweet_pending_op(vbox, this, td));
 		if(CheckFetchPendingSingleTweet(subt, pacc)) UnmarkPendingTweet(subt, 0);
 	}
-	
+
 	return td;
 }
 

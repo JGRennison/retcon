@@ -199,11 +199,17 @@ struct tpanel_subtweet_pending_op : public pending_op {
 	wxSizer *vbox;
 	magic_ptr_ts<tpanelparentwin_nt> win;
 	magic_ptr_ts<tweetdispscr> parent_td;
-	
+
 	tpanel_subtweet_pending_op(wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *t) : vbox(v), win(s), parent_td(t) { }
 
 	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags);
 	virtual wxString dump();
+};
+
+enum {
+	GUAF_CHECKEXISTING	= 1<<0,
+	GUAF_NOERR			= 1<<1,
+	GUAF_USERENABLED	= 1<<2,
 };
 
 struct tweet {
@@ -229,7 +235,7 @@ struct tweet {
 	tweet_perspective *AddTPToTweet(const std::shared_ptr<taccount> &tac, bool *isnew=0);
 	tweet_perspective *GetTweetTP(const std::shared_ptr<taccount> &tac);
 	std::string mkdynjson() const;
-	bool GetUsableAccount(std::shared_ptr<taccount> &tac, bool checkexisting=false) const;
+	bool GetUsableAccount(std::shared_ptr<taccount> &tac, unsigned int guaflags=0) const;
 	bool IsReady();
 	bool IsFavouritable() const;
 	bool IsRetweetable() const;

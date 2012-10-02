@@ -325,7 +325,7 @@ user_window::~user_window() {
 
 void user_window::CheckAccHint() {
 	std::shared_ptr<taccount> acc_sp=acc_hint.lock();
-	u->GetUsableAccount(acc_sp, false);
+	u->GetUsableAccount(acc_sp);
 	acc_hint=acc_sp;
 }
 

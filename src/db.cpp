@@ -654,7 +654,7 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 			if(!t->text.size() && !(t->lflags&TLF_BEINGLOADEDOVERNET)) {	//tweet still not loaded at all
 
 				std::shared_ptr<taccount> curacc=acc;
-				if(t->GetUsableAccount(curacc, true)) {
+				if(t->GetUsableAccount(curacc, GUAF_CHECKEXISTING)) {
 					t->lflags&=~TLF_BEINGLOADEDFROMDB;
 					t->lflags|=TLF_BEINGLOADEDOVERNET;
 					twitcurlext *twit=acc->cp.GetConn();
