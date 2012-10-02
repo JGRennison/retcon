@@ -594,7 +594,7 @@ bool LoadFromFileAndCheckHash(const wxString &filename, const unsigned char *has
 }
 
 bool LoadImageFromFileAndCheckHash(const wxString &filename, const unsigned char *hash, wxImage &img) {
-	char *data;
+	char *data=0;
 	size_t size;
 	bool success=false;
 	if(LoadFromFileAndCheckHash(filename, hash, data, size)) {
@@ -603,5 +603,6 @@ bool LoadImageFromFileAndCheckHash(const wxString &filename, const unsigned char
 			success=true;
 		}
 	}
+	if(data) free(data);
 	return success;
 }

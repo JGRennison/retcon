@@ -1834,13 +1834,13 @@ media_display_win::media_display_win(wxWindow *parent, media_id_type media_id_)
 
 	if(me->flags&ME_LOAD_FULL && !(me->flags&ME_HAVE_FULL)) {
 		//try to load from file
-		char *data;
+		char *data=0;
 		size_t size;
 		if(LoadFromFileAndCheckHash(me->cached_full_filename(), me->full_img_sha1, data, size)) {
 			me->flags|=ME_HAVE_FULL;
 			me->fulldata.assign(data, size);	//redundant copy, but oh well
 		}
-		free(data);
+		if(data) free(data);
 	}
 	if(!(me->flags&ME_HAVE_FULL) && me->media_url.size()) {
 		new mediaimgdlconn(me->media_url, media_id_, MIDC_FULLIMG | MIDC_OPPORTUNIST_THUMB | MIDC_OPPORTUNIST_REDRAW_TWEETS);
