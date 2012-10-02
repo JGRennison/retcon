@@ -121,6 +121,7 @@ struct tweetpostwin : public wxPanel {
 	void SetDMTarget(const std::shared_ptr<userdatacontainer> &targ);
 	void DoCheckFocusDisplay(bool force=false);
 	void OnCloseReplyDescBtn(wxCommandEvent &event);
+	void AUIMNoLongerValid();
 
 	DECLARE_EVENT_TABLE()
 };

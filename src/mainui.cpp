@@ -112,7 +112,9 @@ mainframe::~mainframe() {
 	mainframelist.remove(this);	//OK to try this twice, must definitely happen at least once though
 	if(tpw) {
 		tpw->mparentwin=0;
+		tpw->AUIMNoLongerValid();
 	}
+
 	auim->UnInit();
 	delete auim;
 }
@@ -462,4 +464,8 @@ void tweetpostwin::SetDMTarget(const std::shared_ptr<userdatacontainer> &targ) {
 	dm_targ=targ;
 	UpdateReplyDesc();
 	textctrl->SetCursorToEnd();
+}
+
+void tweetpostwin::AUIMNoLongerValid() {
+	pauim=0;
 }
