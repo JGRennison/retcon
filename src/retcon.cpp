@@ -232,7 +232,7 @@ void taccount::GetRestBackfill() {
 }
 
 //limits are inclusive
-void taccount::StartRestGetTweetBackfill(uint64_t start_tweet_id, uint64_t end_tweet_id, unsigned int max_tweets_to_read, RBFS_TYPE type, uint64_t userid) {	
+void taccount::StartRestGetTweetBackfill(uint64_t start_tweet_id, uint64_t end_tweet_id, unsigned int max_tweets_to_read, RBFS_TYPE type, uint64_t userid) {
 	pending_rbfs_list.emplace_front();
 	restbackfillstate *rbfs=&pending_rbfs_list.front();
 	rbfs->start_tweet_id=start_tweet_id;
@@ -276,7 +276,7 @@ void taccount::StartRestQueryPendings() {
 	LogMsgFormat(LFT_OTHERTRACE, wxT("taccount::StartRestQueryPendings: pending users: %d, (%s)"), pendingusers.size(), dispname.c_str());
 	if(pendingusers.empty()) return;
 
-	std::unique_ptr<userlookup> ul=0;
+	std::unique_ptr<userlookup> ul;
 
 	auto it=pendingusers.begin();
 	while(it!=pendingusers.end()) {
@@ -429,7 +429,7 @@ void taccount::CalcEnabled() {
 		enabled=false;
 		init=false;
 	}
-	
+
 	if(oldenabled!=enabled || oldinit!=init) {
 		AccountChangeTrigger();
 	}
@@ -492,7 +492,7 @@ void taccount::OnStreamRestartTimer(wxTimerEvent& event) {
 			return;				//stream connection already present
 		}
 	}
-	
+
 	if(stream_fail_count && enabled && userstreams && !streaming_on) {
 		twitcurlext *twit_stream=PrepareNewStreamConn();
 		twit_stream->errorcount=255;	//disable retry attempts
