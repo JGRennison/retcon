@@ -105,7 +105,8 @@ CFLAGS+= -masm=intel -g --save-temps -Wa,-msyntax=intel,-aghlms=$*.lst
 endif
 
 ifdef map
-AFLAGS:=$(AFLAGS) -Wl,-Map=$(OUTNAME).map
+AFLAGS+=-Wl,-Map=$(OUTNAME).map
+TARGS+=$(OUTNAME).map
 endif
 
 OBJS:=$(patsubst src/%.cpp,$(OBJDIR)/%.o,$(addprefix src/,$(OBJS_SRC)))
