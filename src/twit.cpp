@@ -149,6 +149,7 @@ END_EVENT_TABLE()
 
 void twitcurlext::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 	std::shared_ptr<taccount> acc=tacc.lock();
+	LogMsgFormat(LFT_OTHERTRACE, wxT("twitcurlext::NotifyDoneSuccess: for conn: %s, account: %s"), GetConnTypeName().c_str(), acc?acc->dispname.c_str():wxT("none"));
 	if(!acc) {
 		KillConn();
 		return;
@@ -234,12 +235,12 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 				favoriteGet(tmps, std::to_string(rbfs->userid), true);
 				break;
 		}
-		if(currentlogflags&LFT_TWITACT) {
+		if(currentlogflags&LFT_NETACT) {
 			char *url;
 			curl_easy_getinfo(GenGetCurlHandle(), CURLINFO_EFFECTIVE_URL, &url);
-			LogMsgFormat(LFT_TWITACT, wxT("REST timeline fetch: acc: %s, type: %d, num: %d, start_id: %" wxLongLongFmtSpec "d, end_id: %" wxLongLongFmtSpec "d"),
+			LogMsgFormat(LFT_NETACT, wxT("REST timeline fetch: acc: %s, type: %d, num: %d, start_id: %" wxLongLongFmtSpec "d, end_id: %" wxLongLongFmtSpec "d"),
 				acc->dispname.c_str(), rbfs->type, tweets_to_get, rbfs->start_tweet_id, rbfs->end_tweet_id);
-			LogMsgFormat(LFT_TWITACT, wxT("Executing API call: for account: %s, url: %s"), acc->dispname.c_str(), wxstrstd(url).c_str());
+			LogMsgFormat(LFT_NETACT, wxT("Executing API call: for account: %s, url: %s"), acc->dispname.c_str(), wxstrstd(url).c_str());
 		}
 		sm.AddConn(*this);
 	}
@@ -361,7 +362,7 @@ void twitcurlext::QueueAsyncExec() {
 	SetNoPerformFlag(true);
 	switch(connmode) {
 		case CS_ACCVERIFY:
-			LogMsgFormat(LFT_TWITACT, wxT("Queue AccVerify"));
+			LogMsgFormat(LFT_NETACT, wxT("Queue AccVerify"));
 			accountVerifyCredGet();
 			break;
 		case CS_TIMELINE:
@@ -370,7 +371,7 @@ void twitcurlext::QueueAsyncExec() {
 		case CS_USERFAVS:
 			return ExecRestGetTweetBackfill();
 		case CS_STREAM:
-			LogMsgFormat(LFT_TWITACT, wxT("Queue Stream Connection"));
+			LogMsgFormat(LFT_NETACT, wxT("Queue Stream Connection"));
 			mcflags|=MCF_NOTIMEOUT;
 			scto=std::make_shared<streamconntimeout>(this);
 			SetStreamApiCallback(&StreamCallback, 0);
@@ -384,9 +385,9 @@ void twitcurlext::QueueAsyncExec() {
 				acc->cp.Standby(this);
 				return;
 			}
-			if(currentlogflags&LFT_TWITACT) {
+			if(currentlogflags&LFT_NETACT) {
 				auto acc=tacc.lock();
-				LogMsgFormat(LFT_TWITACT, wxT("About to lookup users: for account: %s, user ids: %s"), acc?acc->dispname.c_str():wxT(""), wxstrstd(userliststr).c_str());
+				LogMsgFormat(LFT_NETACT, wxT("About to lookup users: for account: %s, user ids: %s"), acc?acc->dispname.c_str():wxT(""), wxstrstd(userliststr).c_str());
 			}
 			userLookup(userliststr, "", 0);
 			break;
@@ -434,10 +435,10 @@ void twitcurlext::QueueAsyncExec() {
 		case CS_NULL:
 			break;
 	}
-	if(currentlogflags&LFT_TWITACT) {
+	if(currentlogflags&LFT_NETACT) {
 		char *url;
 		curl_easy_getinfo(GenGetCurlHandle(), CURLINFO_EFFECTIVE_URL, &url);
-		LogMsgFormat(LFT_TWITACT, wxT("Executing API call: for account: %s, url: %s"), acc?acc->dispname.c_str():wxT(""), wxstrstd(url).c_str());
+		LogMsgFormat(LFT_NETACT, wxT("Executing API call: for account: %s, url: %s"), acc?acc->dispname.c_str():wxT(""), wxstrstd(url).c_str());
 	}
 	sm.AddConn(*this);
 }
@@ -596,7 +597,7 @@ bool userdatacontainer::ImgIsReady(unsigned int updcf_flags) {
 	if(udc_flags & UDC_IMAGE_DL_IN_PROGRESS) return false;
 	if(user.profile_img_url.size()) {
 		if(cached_profile_img_url!=user.profile_img_url) {
-			profileimgdlconn::GetConn(user.profile_img_url, shared_from_this());
+			if(updcf_flags&UPDCF_DOWNLOADIMG) profileimgdlconn::GetConn(user.profile_img_url, shared_from_this());
 			return false;
 		}
 		else if(cached_profile_img_url.size() && !(udc_flags&UDC_PROFILE_BITMAP_SET))  {
@@ -604,7 +605,10 @@ bool userdatacontainer::ImgIsReady(unsigned int updcf_flags) {
 			wxString filename;
 			GetImageLocalFilename(filename);
 			bool success=LoadImageFromFileAndCheckHash(filename, cached_profile_img_sha1, img);
-			if(success) SetProfileBitmapFromwxImage(img);
+			if(success) {
+				SetProfileBitmapFromwxImage(img);
+				return true;
+			}
 			else {
 				LogMsgFormat(LFT_OTHERERR, wxT("userdatacontainer::ImgIsReady, cached profile image file for user id: %" wxLongLongFmtSpec "d (%s), file: %s, url: %s, missing, invalid or failed hash check"),
 					id, wxstrstd(GetUser().screen_name).c_str(), filename.c_str(), wxstrstd(cached_profile_img_url).c_str());
@@ -615,9 +619,11 @@ bool userdatacontainer::ImgIsReady(unsigned int updcf_flags) {
 				return false;
 			}
 		}
+		else {
+			return true;
+		}
 	}
 	else return false;
-	return true;
 }
 
 bool userdatacontainer::ImgHalfIsReady(unsigned int updcf_flags) {
@@ -640,14 +646,26 @@ bool userdatacontainer::IsReady(unsigned int updcf_flags) {
 
 void userdatacontainer::CheckPendingTweets(unsigned int umpt_flags) {
 	FreezeAll();
+	std::forward_list<std::pair<int, std::shared_ptr<tweet> > > stillpending;
 	pendingtweets.remove_if([&](const std::shared_ptr<tweet> &t) {
-		if(!IsReady(t->updcf_flags)) return false;
-		if(CheckMarkPending_GetAcc(t, true)) {
+		int res=CheckTweetPendings(t);
+		if(res==0) {
 			UnmarkPendingTweet(t, umpt_flags);
 			return true;
 		}
-		else return false;
+		else {
+			stillpending.push_front(std::make_pair(res, t));
+			return false;
+		}
 	});
+
+	for(auto it=stillpending.begin(); it!=stillpending.end(); ++it) {	//this is done to avoid possible issues wrt FastMarkPending and friends modifying pendingtweets
+		std::shared_ptr<taccount> curacc;
+		if(it->second->GetUsableAccount(curacc, true)) {
+			curacc->FastMarkPending(it->second, it->first, true);
+		}
+	}
+
 	if(udc_flags&UDC_WINDOWOPEN) {
 		user_window *uw=user_window::GetWin(id);
 		if(uw) uw->Refresh();

@@ -273,7 +273,7 @@ void taccount::ExecRBFS(restbackfillstate *rbfs) {
 }
 
 void taccount::StartRestQueryPendings() {
-	LogMsgFormat(LFT_OTHERTRACE, wxT("taccount::StartRestQueryPendings: pending users: %d, (%s)"), pendingusers.size(), dispname.c_str());
+	LogMsgFormat(LFT_PENDTRACE, wxT("taccount::StartRestQueryPendings: pending users: %d, (%s)"), pendingusers.size(), dispname.c_str());
 	if(pendingusers.empty()) return;
 
 	std::unique_ptr<userlookup> ul;

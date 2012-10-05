@@ -42,7 +42,7 @@ const wxChar *logflagsstrings[]={
 	wxT("socktrace"),
 	wxT("sockerr"),
 	wxT("tpanel"),
-	wxT("twitact"),
+	wxT("netaction"),
 	wxT("dbtrace"),
 	wxT("dberr"),
 	wxT("ztrace"),
@@ -306,14 +306,21 @@ logflagtype StrToLogFlags(const wxString &str) {
 	return out;
 }
 
-static void dump_pending_tweet(logflagtype logflags, const wxString &indent, const wxString &indentstep, tweet *t) {
+static void dump_pending_user_line(logflagtype logflags, const wxString &indent, userdatacontainer *u) {
+	time_t now=time(0);
+	LogMsgFormat(logflags, wxT("%sUser: %" wxLongLongFmtSpec "d (%s) udc_flags: 0x%X, last update: %" wxLongLongFmtSpec "ds ago, last DB update: %" wxLongLongFmtSpec "ds ago, image ready: %d"), indent.c_str(), u->id, wxstrstd(u->GetUser().screen_name).c_str(), u->udc_flags, (uint64_t) (now-u->lastupdate), (uint64_t) (now-u->lastupdate_wrotetodb), u->ImgIsReady(0));
+}
+
+static void dump_pending_tweet(logflagtype logflags, const wxString &indent, const wxString &indentstep, tweet *t, userdatacontainer *exclude_user) {
 	LogMsgFormat(logflags, wxT("%sTweet: %" wxLongLongFmtSpec "d (%.15s...) lflags: 0x%X, updcf_flags: 0x%X"), indent.c_str(), t->id, wxstrstd(t->text).c_str(), t->lflags, t->updcf_flags);
+	if(t->user && t->user.get()!=exclude_user) dump_pending_user_line(logflags, indent+indentstep, t->user.get());
+	if(t->user_recipient && t->user_recipient.get()!=exclude_user) dump_pending_user_line(logflags, indent+indentstep, t->user_recipient.get());
 }
 
 static void dump_pending_user(logflagtype logflags, const wxString &indent, const wxString &indentstep, userdatacontainer *u) {
-	LogMsgFormat(logflags, wxT("%sUser: %" wxLongLongFmtSpec "d (%s) udc_flags: 0x%X"), indent.c_str(), u->id, wxstrstd(u->GetUser().screen_name).c_str(), u->udc_flags);
+	dump_pending_user_line(logflags, indent, u);
 	for(auto it=u->pendingtweets.begin(); it!=u->pendingtweets.end(); ++it) {
-		dump_pending_tweet(logflags, indent+indentstep, indentstep, (*it).get());
+		dump_pending_tweet(logflags, indent+indentstep, indentstep, (*it).get(), u);
 	}
 }
 
