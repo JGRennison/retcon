@@ -198,6 +198,9 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 
 	LogMsgFormat(LFT_NETACT, wxT("Profile image downloaded: %s for user id %" wxLongLongFmtSpec "d (@%s), conn: %p"), wxstrstd(url).c_str(), user->id, wxstrstd(user->GetUser().screen_name).c_str(), this);
 
+	user->udc_flags&=~UDC_IMAGE_DL_IN_PROGRESS;
+	user->udc_flags&=~UDC_HALF_PROFILE_BITMAP_SET;
+	
 	if(url==user->GetUser().profile_img_url) {
 		wxString filename;
 		user->GetImageLocalFilename(filename);
@@ -214,8 +217,6 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 		user->lastupdate_wrotetodb=0;		//force user to be written out to database
 		dbc.InsertUser(user);
 		data.clear();
-		user->udc_flags&=~UDC_IMAGE_DL_IN_PROGRESS;
-		user->udc_flags&=~UDC_HALF_PROFILE_BITMAP_SET;
 		user->CheckPendingTweets();
 		UpdateUsersTweet(user->id, true);
 		if(user->udc_flags&UDC_WINDOWOPEN) user_window::CheckRefresh(user->id, true);

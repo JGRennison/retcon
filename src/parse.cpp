@@ -394,7 +394,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 		case CS_USERLIST:
 			if(dc.IsArray()) {
 				dbmsglist=new dbsendmsg_list();
-				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) DoUserParse(dc[i], UMPTF_TPDB_NOUPDF);
+				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) DoUserParse(dc[i], UMPTF_TPDB_NOUPDF | UMPTF_RMV_LKPINPRGFLG);
 				CheckClearNoUpdateFlag_All();
 			}
 			else DoUserParse(dc);
@@ -532,6 +532,7 @@ std::shared_ptr<userdatacontainer> jsonparser::DoUserParse(const rapidjson::Valu
 	uint64_t id;
 	CheckTransJsonValueDef(id, val, "id", 0);
 	auto userdatacont = ad.GetUserContainerById(id);
+	if(umpt_flags&UMPTF_RMV_LKPINPRGFLG) userdatacont->udc_flags&=~UDC_LOOKUP_IN_PROGRESS;
 	userdata &userobj=userdatacont->GetUser();
 	ParseUserContents(val, userobj, tac->ssl);
 	if(!userobj.createtime) {				//this means that the object is new
@@ -695,8 +696,9 @@ void jsonparser::DoEventParse(const rapidjson::Value& val) {
 }
 
 void userdatacontainer::Dump() const {
-	LogMsgFormat(LFT_PARSE, wxT("id: %" wxLongLongFmtSpec "d\nname: %s\nscreen_name: %s\npimg: %s\nprotected: %d\nverified: %d"),
-		id, wxstrstd(GetUser().name).c_str(), wxstrstd(GetUser().screen_name).c_str(), wxstrstd(GetUser().profile_img_url).c_str(), (bool) (GetUser().u_flags&UF_ISPROTECTED), (bool) (GetUser().u_flags&UF_ISVERIFIED));
+	time_t now=time(0);
+	LogMsgFormat(LFT_PARSE, wxT("id: %" wxLongLongFmtSpec "d, name: %s, screen_name: %s\nprofile image url: %s, cached url: %s\n protected: %d, verified: %d, udc_flags: 0x%X, last update: %" wxLongLongFmtSpec "ds ago, last DB update %" wxLongLongFmtSpec "ds ago"),
+		id, wxstrstd(GetUser().name).c_str(), wxstrstd(GetUser().screen_name).c_str(), wxstrstd(GetUser().profile_img_url).c_str(), wxstrstd(cached_profile_img_url).c_str(), (bool) (GetUser().u_flags&UF_ISPROTECTED), (bool) (GetUser().u_flags&UF_ISVERIFIED), udc_flags, (int64_t) (now-lastupdate), (int64_t) (now-lastupdate_wrotetodb));
 }
 
 void tweet::Dump() const {

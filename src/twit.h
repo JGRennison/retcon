@@ -32,6 +32,7 @@ bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::share
 
 enum {	//for UnmarkPendingTweet: umpt_flags
 	UMPTF_TPDB_NOUPDF	= 1<<0,
+	UMPTF_RMV_LKPINPRGFLG	= 1<<1,
 };
 
 void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, unsigned int umpt_flags=0);
