@@ -512,6 +512,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			break;
 		}
 		case CS_SINGLETWEET: {
+			DoTweetParse(dc, JDTP_CHECKPENDINGONLY);
 			break;
 		}
 		case CS_NULL:
@@ -577,7 +578,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 	tweet_perspective *tp=tobj->AddTPToTweet(tac);
 	bool is_new_tweet_perspective=!tp->IsReceivedHere();
 	bool has_just_arrived=!tp->IsArrivedHere();
-	if(!(sflags&JDTP_USERTIMELINE)) tp->SetArrivedHere(true);
+	if(!(sflags&JDTP_USERTIMELINE) && !(sflags&JDTP_CHECKPENDINGONLY)) tp->SetArrivedHere(true);
 	tp->SetReceivedHere(true);
 	ParsePerspectivalTweetProps(val, tp, 0);
 	if(sflags&JDTP_FAV) tp->SetFavourited(true);
