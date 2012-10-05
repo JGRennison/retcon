@@ -647,19 +647,18 @@ bool userdatacontainer::IsReady(unsigned int updcf_flags) {
 void userdatacontainer::CheckPendingTweets(unsigned int umpt_flags) {
 	FreezeAll();
 	std::forward_list<std::pair<int, std::shared_ptr<tweet> > > stillpending;
-	pendingtweets.remove_if([&](const std::shared_ptr<tweet> &t) {
-		int res=CheckTweetPendings(t);
+	for(auto it=pendingtweets.begin(); it!=pendingtweets.end(); ++it) {
+		int res=CheckTweetPendings(*it);
 		if(res==0) {
-			UnmarkPendingTweet(t, umpt_flags);
-			return true;
+			UnmarkPendingTweet(*it, umpt_flags);
 		}
 		else {
-			stillpending.push_front(std::make_pair(res, t));
-			return false;
+			stillpending.push_front(std::make_pair(res, *it));
 		}
-	});
+	}
+	pendingtweets.clear();
 
-	for(auto it=stillpending.begin(); it!=stillpending.end(); ++it) {	//this is done to avoid possible issues wrt FastMarkPending and friends modifying pendingtweets
+	for(auto it=stillpending.begin(); it!=stillpending.end(); ++it) {
 		std::shared_ptr<taccount> curacc;
 		if(it->second->GetUsableAccount(curacc, true)) {
 			curacc->FastMarkPending(it->second, it->first, true);
