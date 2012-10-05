@@ -26,15 +26,17 @@
 
 typedef CSimpleOptTempl<wxChar> CSO;
 
-enum { OPT_LOGWIN, OPT_FILE, OPT_STDERR };
+enum { OPT_LOGWIN, OPT_FILE, OPT_STDERR, OPT_FILEAUTO };
 
 CSO::SOption g_rgOptions[] =
 {
 	{ OPT_LOGWIN,  wxT("-w"),             SO_REQ_SHRT  },
 	{ OPT_FILE,    wxT("-f"),             SO_REQ_SHRT  },
 	{ OPT_STDERR,  wxT("-s"),             SO_REQ_SHRT  },
+	{ OPT_FILEAUTO,wxT("-a"),             SO_REQ_SHRT  },
 	{ OPT_LOGWIN,  wxT("--log-window"),   SO_REQ_SHRT  },
 	{ OPT_FILE,    wxT("--log-file"),     SO_REQ_SHRT  },
+	{ OPT_FILEAUTO,wxT("--log-file-auto"),SO_REQ_SHRT  },
 	{ OPT_STDERR,  wxT("--log-stderr"),   SO_REQ_SHRT  },
 
 	SO_END_OF_OPTIONS
@@ -83,6 +85,13 @@ int cmdlineproc(wxChar ** argv, int argc) {
 				}
 				logflagtype flagmask=StrToLogFlags(args.OptionArg());
 				wxString filename=args.m_argv[args.m_nNextOption++];
+				new log_file(flagmask, filename.char_str());
+				break;
+			}
+			case OPT_FILEAUTO: {
+				time_t now=time(0);
+				wxString filename=wxT("retcon-log-")+rc_wx_strftime(wxT("%Y%m%dT%H%M%SZ.log"), gmtime(&now), now, false);
+				logflagtype flagmask=StrToLogFlags(args.OptionArg());
 				new log_file(flagmask, filename.char_str());
 				break;
 			}
