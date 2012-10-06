@@ -35,6 +35,8 @@ log_window *globallogwindow;
 logflagtype currentlogflags=0;
 std::forward_list<log_object*> logfunclist;
 
+static void dump_non_acc_user_pendings(logflagtype logflags, const wxString &indent, const wxString &indentstep);
+
 const wxChar *logflagsstrings[]={
 	wxT("curlverb"),
 	wxT("parsetrace"),
@@ -252,6 +254,7 @@ void log_window::OnDumpPending(wxCommandEvent &event) {
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
 		dump_pending_acc(LFT_USERREQ, wxT(""), wxT("\t"), (*it).get());
 	}
+	dump_non_acc_user_pendings(LFT_USERREQ, wxT(""), wxT("\t"));
 	dump_tweet_pendings(LFT_USERREQ, wxT(""), wxT("\t"));
 }
 
@@ -338,6 +341,23 @@ void dump_tweet_pendings(logflagtype logflags, const wxString &indent, const wxS
 			LogMsgFormat(logflags, wxT("%sTweet with operations pending ready state: %" wxLongLongFmtSpec "d (%.20s...)"), indent.c_str(), t->id, wxstrstd(t->text).c_str());
 			for(auto jt=t->pending_ops.begin(); jt!=t->pending_ops.end(); ++jt) {
 				LogMsgFormat(logflags, wxT("%s%s%s"), indent.c_str(), indentstep.c_str(), (*jt)->dump().c_str());
+			}
+		}
+	}
+}
+
+static void dump_non_acc_user_pendings(logflagtype logflags, const wxString &indent, const wxString &indentstep) {
+	std::set<uint64_t> acc_pending_users;
+	for(auto it=alist.begin(); it!=alist.end(); ++it) {
+		for(auto jt=(*it)->pendingusers.begin(); jt!=(*it)->pendingusers.end(); ++jt) {
+			acc_pending_users.insert(jt->second->id);
+		}
+	}
+	LogMsgFormat(logflags, wxT("%sOther pending users:"), indent.c_str());
+	for(auto it=ad.userconts.begin(); it!=ad.userconts.begin(); ++it) {
+		if(!(it->second->pendingtweets.empty())) {
+			if(acc_pending_users.find(it->first)==acc_pending_users.end()) {
+				dump_pending_user(logflags, indent, indentstep, it->second.get());
 			}
 		}
 	}

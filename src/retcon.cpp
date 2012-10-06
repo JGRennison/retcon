@@ -435,17 +435,11 @@ void taccount::CalcEnabled() {
 	}
 }
 
-void taccount::MarkPending(uint64_t userid, const std::shared_ptr<userdatacontainer> &user, const std::shared_ptr<tweet> &t, bool checkfirst) {
-	pendingusers[userid]=user;
-	if(checkfirst) {
-		if(std::find_if(user->pendingtweets.begin(), user->pendingtweets.end(), [&](const std::shared_ptr<tweet> &tw) {
-			return (t->id==tw->id);
-		})!=user->pendingtweets.end()) {
-			return;
-		}
+void taccount::MarkUserPending(const std::shared_ptr<userdatacontainer> &user) {
+	auto retval=pendingusers.insert(std::make_pair(user->id, user));
+	if(retval.second) {
+		LogMsgFormat(LFT_PENDTRACE, wxT("Mark Pending: User: %" wxLongLongFmtSpec "d (@%s) for account: %s (%s)"), user->id, wxstrstd(user->GetUser().screen_name).c_str(), name.c_str(), dispname.c_str());
 	}
-	LogMsgFormat(LFT_PENDTRACE, wxT("Mark Pending: User: %" wxLongLongFmtSpec "d (@%s) --> Tweet: %" wxLongLongFmtSpec "d (%.15s...)"), userid, wxstrstd(user->GetUser().screen_name).c_str(), t->id, wxstrstd(t->text).c_str());
-	user->pendingtweets.push_front(t);
 }
 
 wxString taccount::GetStatusString(bool notextifok) {

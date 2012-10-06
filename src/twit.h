@@ -88,6 +88,7 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	bool NeedsUpdating(unsigned int updcf_flags) const;
 	bool IsReady(unsigned int updcf_flags);
 	void CheckPendingTweets(unsigned int umpt_flags=0);
+	void MarkTweetPending(const std::shared_ptr<tweet> &t, bool checkfirst=false);
 	std::shared_ptr<taccount> GetAccountOfUser() const;
 	void GetImageLocalFilename(wxString &filename)  const;
 	inline userdata &GetUser() { return user; }

@@ -678,6 +678,18 @@ void userdatacontainer::CheckPendingTweets(unsigned int umpt_flags) {
 	ThawAll();
 }
 
+void userdatacontainer::MarkTweetPending(const std::shared_ptr<tweet> &t, bool checkfirst) {
+	if(checkfirst) {
+		if(std::find_if(pendingtweets.begin(), pendingtweets.end(), [&](const std::shared_ptr<tweet> &tw) {
+			return (t->id==tw->id);
+		})!=pendingtweets.end()) {
+			return;
+		}
+	}
+	pendingtweets.push_front(t);
+	LogMsgFormat(LFT_PENDTRACE, wxT("Mark Pending: User: %" wxLongLongFmtSpec "d (@%s) --> Tweet: %" wxLongLongFmtSpec "d (%.15s...)"), id, wxstrstd(GetUser().screen_name).c_str(), t->id, wxstrstd(t->text).c_str());
+}
+
 void rt_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags) {
 	if(target_retweet->IsReady()) UnmarkPendingTweet(target_retweet, umpt_flags);
 }
@@ -928,27 +940,48 @@ bool taccount::CheckMarkPending(const std::shared_ptr<tweet> &t, bool checkfirst
 
 //mark *must* be exactly right
 void taccount::FastMarkPending(const std::shared_ptr<tweet> &t, unsigned int mark, bool checkfirst) {
+	if(mark&1) t->user->MarkTweetPending(t, checkfirst);
+	if(mark&2) t->user_recipient->MarkTweetPending(t, checkfirst);
 	if(mark&4) {
-		t->rtsrc->pending_ops.emplace_front(new rt_pending_op(t));
-		MarkPending(t->rtsrc->user->id, t->rtsrc->user, t->rtsrc, checkfirst);
+		bool insertnewrtpo=true;
+		for(auto it=t->rtsrc->pending_ops.begin(); it!=t->rtsrc->pending_ops.end(); ++it) {
+			rt_pending_op *rtpo = dynamic_cast<rt_pending_op*>((*it).get());
+			if(rtpo && rtpo->target_retweet==t) {
+				insertnewrtpo=false;
+				break;
+			}
+		}
+		if(insertnewrtpo) t->rtsrc->pending_ops.emplace_front(new rt_pending_op(t));
+		t->rtsrc->user->MarkTweetPending(t->rtsrc, checkfirst);
 	}
-	if(mark&1) MarkPending(t->user->id, t->user, t, checkfirst);
-	if(mark&2) MarkPending(t->user_recipient->id, t->user_recipient, t, checkfirst);
+	
+	if(mark&8) MarkUserPending(t->user);
+	if(mark&16) MarkUserPending(t->user_recipient);
+	if(mark&32) MarkUserPending(t->rtsrc->user);
 }
 
 //returns non-zero if pending
 unsigned int CheckTweetPendings(const std::shared_ptr<tweet> &t) {
 	unsigned int retval=0;
-	if(t->rtsrc && t->rtsrc->user && !t->rtsrc->user->IsReady(t->rtsrc->updcf_flags)) {
-		retval|=4;
-	}
 	if(t->user && !t->user->IsReady(t->updcf_flags)) {
+		if(t->user->NeedsUpdating(t->updcf_flags)) retval|=8;
 		retval|=1;
 	}
 	if(t->flags.Get('D') && t->user_recipient && !(t->user_recipient->IsReady(t->updcf_flags))) {
+		if(t->user_recipient->NeedsUpdating(t->updcf_flags)) retval|=16;
 		retval|=2;
 	}
+	if(t->rtsrc && t->rtsrc->user && !t->rtsrc->user->IsReady(t->rtsrc->updcf_flags)) {
+		if(t->rtsrc->user->NeedsUpdating(t->rtsrc->updcf_flags)) retval|=32;
+		retval|=4;
+	}
 	return retval;
+}
+
+void RemoveUserFromAccPendingLists(uint64_t userid) {
+	for(auto it=alist.begin(); it!=alist.end(); ++it) {
+		(*it)->pendingusers.erase(userid);
+	}
 }
 
 //returns true is ready, false is pending
