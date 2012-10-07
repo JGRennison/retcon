@@ -10,7 +10,7 @@
 
 OBJS_SRC:=retcon.cpp cfg.cpp optui.cpp parse.cpp socket.cpp tpanel.cpp twit.cpp db.cpp log.cpp cmdline.cpp userui.cpp mainui.cpp
 TCOBJS_SRC:=libtwitcurl/base64.cpp libtwitcurl/HMAC_SHA1.cpp libtwitcurl/oauthlib.cpp libtwitcurl/SHA1.cpp libtwitcurl/twitcurl.cpp libtwitcurl/urlencode.cpp
-SPOBJS_SRC:=res.cpp version.cpp
+SPOBJS_SRC:=res.cpp version.cpp aboutwin.cpp
 COBJS_SRC:=utf8proc/utf8proc.c
 OUTNAME:=retcon
 CFLAGS=-O3 -Wextra -Wall -Wno-unused-parameter -I$(OBJDIR)/pch
@@ -163,6 +163,8 @@ $(OBJDIR)/pch/retcon.h.gch: $(HEADERS)
 $(OBJS): $(HEADERS) $(OBJDIR)/pch/retcon.h.gch
 $(OBJDIR)/res.o $(OBJDIR)/tpanel.o: src/res.h
 $(OBJDIR)/retcon.o $(OBJDIR)/tpanel.o $(OBJDIR)/version.o: src/version.h src/univdefs.h
+$(OBJDIR)/aboutwin.o: src/aboutwin.h src/version.h src/univdefs.h
+$(OBJDIR)/mainui.o: src/aboutwin.h
 $(TCOBJS): src/libtwitcurl/*.h
 $(OBJDIR)/utf8proc/utf8proc.o $(OBJDIR)/twit.o: src/utf8proc/utf8proc.h
 ifeq ($(PLATFORM),WIN)

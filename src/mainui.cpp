@@ -23,6 +23,7 @@
 
 #include "retcon.h"
 #include "libtwitcurl/urlencode.h"
+#include "aboutwin.h"
 #include <wx/msgdlg.h>
 
 BEGIN_EVENT_TABLE(mainframe, wxFrame)
@@ -82,7 +83,7 @@ void mainframe::OnQuit(wxCommandEvent &event) {
 	Close(true);
 }
 void mainframe::OnAbout(wxCommandEvent &event) {
-
+	OpenAboutWindow();
 }
 void mainframe::OnSettings(wxCommandEvent &event) {
 	settings_window *sw=new settings_window(this, -1, wxT("Settings"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
