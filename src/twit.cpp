@@ -728,11 +728,11 @@ void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, 
 
 	if(t->rtsrc && gc.rtdisp) {
 		t->rtsrc->user->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
-		subtd->bm = new profimg_staticbitmap(window->scrollwin, t->rtsrc->user->cached_profile_img_half, t->rtsrc->user->id, t->id);
+		subtd->bm = new profimg_staticbitmap(window->scrollwin, t->rtsrc->user->cached_profile_img_half, t->rtsrc->user->id, t->id, window->GetMainframe());
 	}
 	else {
 		t->user->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
-		subtd->bm = new profimg_staticbitmap(window->scrollwin, t->user->cached_profile_img_half, t->user->id, t->id);
+		subtd->bm = new profimg_staticbitmap(window->scrollwin, t->user->cached_profile_img_half, t->user->id, t->id, window->GetMainframe());
 	}
 	subhbox->Add(subtd->bm, 0, wxALL, 1);
 	subhbox->Add(subtd, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);

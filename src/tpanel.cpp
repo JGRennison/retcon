@@ -40,7 +40,7 @@ std::shared_ptr<tpanelglobal> tpanelglobal::Get() {
 }
 
 std::weak_ptr<tpanelglobal> tpanelglobal::tpg_glob;
-tweetactmenudata tweetdispscr::tamd;
+tweetactmenudata tamd;
 
 static media_id_type ParseMediaID(wxString url) {
 	unsigned int i=1;
@@ -175,7 +175,7 @@ void MakeCopyMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::
 	AppendToTAMIMenuMap(map, nextid, TAMI_COPYID, tw);
 }
 
-void TweetActMenuAction(tweetactmenudata &map, int curid, tpanelparentwin_nt *tppw=0, tweetdispscr *tds=0) {
+void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin=0) {
 	unsigned int dbindex=map[curid].dbindex;
 	std::shared_ptr<taccount> *acc=0;
 	if(dbindex) {
@@ -189,7 +189,8 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, tpanelparentwin_nt *tp
 
 	CS_ENUMTYPE type=CS_NULL;
 	switch(map[curid].type) {
-		case TAMI_REPLY: if(tppw && tppw->GetMainframe()) tppw->GetMainframe()->tpw->SetReplyTarget(map[curid].tw); break;
+		case TAMI_REPLY: if(mainwin) mainwin->tpw->SetReplyTarget(map[curid].tw); break;
+		case TAMI_DM: if(mainwin) mainwin->tpw->SetDMTarget(map[curid].user); break;
 		case TAMI_RETWEET: type=CS_RT; break;
 		case TAMI_FAV: type=CS_FAV; break;
 		case TAMI_UNFAV: type=CS_UNFAV; break;
@@ -245,7 +246,7 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, tpanelparentwin_nt *tp
 			if(ad.media_list[media_id].win) {
 				ad.media_list[media_id].win->Raise();
 			}
-			else new media_display_win(tds, media_id);
+			else new media_display_win(mainwin, media_id);
 			break;
 		}
 		case TAMI_USERWINDOW: {
@@ -665,18 +666,18 @@ tweetdispscr *tpanelparentwin_nt::PushTweetIndex(const std::shared_ptr<tweet> &t
 
 	if(t->flags.Get('T')) {
 		if(t->rtsrc && gc.rtdisp) {
-			td->bm = new profimg_staticbitmap(scrollwin, t->rtsrc->user->cached_profile_img, t->rtsrc->user->id, t->id);
+			td->bm = new profimg_staticbitmap(scrollwin, t->rtsrc->user->cached_profile_img, t->rtsrc->user->id, t->id, GetMainframe());
 		}
 		else {
-			td->bm = new profimg_staticbitmap(scrollwin, t->user->cached_profile_img, t->user->id, t->id);
+			td->bm = new profimg_staticbitmap(scrollwin, t->user->cached_profile_img, t->user->id, t->id, GetMainframe());
 		}
 		hbox->Add(td->bm, 0, wxALL, 2);
 	}
 	else if(t->flags.Get('D') && t->user_recipient) {
 			t->user->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
 			t->user_recipient->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
-			td->bm = new profimg_staticbitmap(scrollwin, t->user->cached_profile_img_half, t->user->id, t->id);
-			td->bm2 = new profimg_staticbitmap(scrollwin, t->user_recipient->cached_profile_img_half, t->user_recipient->id, t->id);
+			td->bm = new profimg_staticbitmap(scrollwin, t->user->cached_profile_img_half, t->user->id, t->id, GetMainframe());
+			td->bm2 = new profimg_staticbitmap(scrollwin, t->user_recipient->cached_profile_img_half, t->user_recipient->id, t->id, GetMainframe());
 			int dim=gc.maxpanelprofimgsize/2;
 			if(tpg->arrow_dim!=dim) {
 				tpg->arrow=GetArrowIconDim(dim);
@@ -1666,10 +1667,18 @@ void tweetdispscr::urlhandler(wxString url) {
 				tamd.clear();
 				int nextid=tweetactmenustartid;
 				wxMenu menu, rtsubmenu, favsubmenu, copysubmenu;
+
 				menu.Append(nextid, wxT("Reply"));
 				AppendToTAMIMenuMap(tamd, nextid, TAMI_REPLY, td);
+
+				std::shared_ptr<userdatacontainer> targ=td->user_recipient;
+				if(!targ || targ->udc_flags&UDC_THIS_IS_ACC_USER_HINT) targ=targ=td->user;
+				menu.Append(nextid, wxT("Send DM"));
+				AppendToTAMIMenuMap(tamd, nextid, TAMI_DM, td, 0, targ);
+
 				menu.Append(nextid, wxT("Open in Browser"));
 				AppendToTAMIMenuMap(tamd, nextid, TAMI_BROWSER, td);
+
 				if(td->IsRetweetable()) menu.AppendSubMenu(&rtsubmenu, wxT("Retweet"));
 				if(td->IsFavouritable()) menu.AppendSubMenu(&favsubmenu, wxT("Favourite"));
 				menu.AppendSubMenu(&copysubmenu, wxT("Copy"));
@@ -1753,11 +1762,17 @@ void tweetdispscr::urlhandler(wxString url) {
 static void AppendUserMenuItems(wxMenu &menu, tweetactmenudata &map, int &nextid, std::shared_ptr<userdatacontainer> user, std::shared_ptr<tweet> tw) {
 	menu.Append(nextid, wxT("Open User Window"));
 	AppendToTAMIMenuMap(map, nextid, TAMI_USERWINDOW, tw, 0, user);
+
 	menu.Append(nextid, wxT("Open Twitter Profile in Browser"));
 	AppendToTAMIMenuMap(map, nextid, TAMI_BROWSEREXTRA, tw, 0, user, 0, wxstrstd(user->GetPermalink(tw->flags.Get('s'))));
+
+	menu.Append(nextid, wxT("Send DM"));
+	AppendToTAMIMenuMap(map, nextid, TAMI_DM, tw, 0, user);
+
 	wxString username=wxstrstd(user->GetUser().screen_name);
 	menu.Append(nextid, wxString::Format(wxT("Copy User Name (%s)"), username.c_str()));
 	AppendToTAMIMenuMap(map, nextid, TAMI_COPYEXTRA, tw, 0, user, 0, username);
+
 	wxString useridstr=wxString::Format(wxT("%" wxLongLongFmtSpec "d"), user->id);
 	menu.Append(nextid, wxString::Format(wxT("Copy User ID (%s)"), useridstr.c_str()));
 	AppendToTAMIMenuMap(map, nextid, TAMI_COPYEXTRA, tw, 0, user, 0, useridstr);
@@ -1846,7 +1861,7 @@ void dispscr_base::mousewheelhandler(wxMouseEvent &event) {
 }
 
 void tweetdispscr::OnTweetActMenuCmd(wxCommandEvent &event) {
-	TweetActMenuAction(tamd, event.GetId(), (tpanelparentwin_nt*) tppw, this);
+	TweetActMenuAction(tamd, event.GetId(), tppw->GetMainframe());
 }
 
 BEGIN_EVENT_TABLE(userdispscr, dispscr_base)
@@ -2211,12 +2226,28 @@ void tpanelreltimeupdater::Notify() {
 
 BEGIN_EVENT_TABLE(profimg_staticbitmap, wxStaticBitmap)
 	EVT_LEFT_DOWN(profimg_staticbitmap::ClickHandler)
+	EVT_RIGHT_UP(profimg_staticbitmap::RightClickHandler)
+	EVT_MENU_RANGE(tweetactmenustartid, tweetactmenuendid, profimg_staticbitmap::OnTweetActMenuCmd)
 END_EVENT_TABLE()
 
 void profimg_staticbitmap::ClickHandler(wxMouseEvent &event) {
 	std::shared_ptr<taccount> acc_hint;
 	ad.GetTweetById(tweetid)->GetUsableAccount(acc_hint);
 	user_window::MkWin(userid, acc_hint);
+}
+
+void profimg_staticbitmap::RightClickHandler(wxMouseEvent &event) {
+	if(owner) {
+		wxMenu menu;
+		int nextid=tweetactmenustartid;
+		tamd.clear();
+		AppendUserMenuItems(menu, tamd, nextid, ad.GetUserContainerById(userid), ad.GetTweetById(tweetid));
+		PopupMenu(&menu);
+	}
+}
+
+void profimg_staticbitmap::OnTweetActMenuCmd(wxCommandEvent &event) {
+	TweetActMenuAction(tamd, event.GetId(), owner);
 }
 
 tpanelglobal::tpanelglobal() : arrow_dim(0) {

@@ -79,6 +79,7 @@ typedef enum {
 	TAMI_BROWSEREXTRA,
 	TAMI_MEDIAWIN,
 	TAMI_USERWINDOW,
+	TAMI_DM,
 } TAMI_TYPE;
 
 struct tweetactmenuitem {
@@ -93,13 +94,18 @@ struct tweetactmenuitem {
 typedef std::map<int,tpanelmenuitem> tpanelmenudata;
 typedef std::map<int,tweetactmenuitem> tweetactmenudata;
 
+extern tweetactmenudata tamd;
+
 struct profimg_staticbitmap: public wxStaticBitmap {
 	uint64_t userid;
 	uint64_t tweetid;
+	mainframe *owner;
 
-	inline profimg_staticbitmap(wxWindow* parent, const wxBitmap& label, uint64_t userid_, uint64_t tweetid_)
-		: wxStaticBitmap(parent, wxID_ANY, label, wxPoint(-1000, -1000)), userid(userid_), tweetid(tweetid_) { }
+	inline profimg_staticbitmap(wxWindow* parent, const wxBitmap& label, uint64_t userid_, uint64_t tweetid_, mainframe *owner_=0)
+		: wxStaticBitmap(parent, wxID_ANY, label, wxPoint(-1000, -1000)), userid(userid_), tweetid(tweetid_), owner(owner_) { }
 	void ClickHandler(wxMouseEvent &event);
+	void RightClickHandler(wxMouseEvent &event);
+	void OnTweetActMenuCmd(wxCommandEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };
@@ -127,7 +133,6 @@ struct tweetdispscr : public dispscr_base {
 	long reltimestart;
 	long reltimeend;
 	uint64_t rtid;
-	static tweetactmenudata tamd;
 
 	tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_);
 	~tweetdispscr();
