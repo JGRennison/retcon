@@ -21,9 +21,7 @@
 //  2012 - j.g.rennison@gmail.com
 //==========================================================================
 
-#define wxUSE_UNICODE 1
-#define _UNICODE 1
-#define UNICODE 1
+#include "univdefs.h"
 
 #include "libtwitcurl/twitcurl.h"
 #include <memory>

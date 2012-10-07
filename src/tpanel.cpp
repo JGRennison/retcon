@@ -24,6 +24,7 @@
 #include "retcon.h"
 #include "utf8.h"
 #include "res.h"
+#include "version.h"
 #include <wx/filename.h>
 #include <wx/filedlg.h>
 #include <wx/dcclient.h>
@@ -837,7 +838,7 @@ void tpanelparentwin::LoadMore(unsigned int n, uint64_t lessthanid, unsigned int
 }
 
 void tpanelparentwin::tabdetachhandler(wxCommandEvent &event) {
-	mainframe *top = new mainframe( wxT("Retcon"), wxDefaultPosition, wxDefaultSize );
+	mainframe *top = new mainframe( appversionname, wxDefaultPosition, wxDefaultSize );
 	int index=owner->auib->GetPageIndex(this);
 	wxString text=owner->auib->GetPageText(index);
 	owner->auib->RemovePage(index);
@@ -849,7 +850,7 @@ void tpanelparentwin::tabduphandler(wxCommandEvent &event) {
 	tp->MkTPanelWin(owner);
 }
 void tpanelparentwin::tabdetachedduphandler(wxCommandEvent &event) {
-	mainframe *top = new mainframe( wxT("Retcon"), wxDefaultPosition, wxDefaultSize );
+	mainframe *top = new mainframe( appversionname, wxDefaultPosition, wxDefaultSize );
 	tp->MkTPanelWin(top);
 	top->Show(true);
 }

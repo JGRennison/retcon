@@ -22,6 +22,7 @@
 //==========================================================================
 
 #include "retcon.h"
+#include "version.h"
 
 #ifdef __WINDOWS__
 #pragma GCC diagnostic push

@@ -22,6 +22,7 @@
 //==========================================================================
 
 #include "retcon.h"
+#include "version.h"
 #include <cstdio>
 #include <openssl/sha.h>
 
@@ -37,7 +38,7 @@ IMPLEMENT_APP(retcon)
 
 bool retcon::OnInit() {
 	//wxApp::OnInit();	//don't call this, it just calls the default command line processor
-	SetAppName(wxT("retcon"));
+	SetAppName(appname);
 	::wxInitAllImageHandlers();
 	srand((unsigned int) time(0));
 	cmdlineproc(argv, argc);
@@ -48,7 +49,7 @@ bool retcon::OnInit() {
 	sm.InitMultiIOHandler();
 	bool res=dbc.Init(std::string((wxStandardPaths::Get().GetUserDataDir() + wxT("/retcondb.sqlite3")).ToUTF8()));
 	if(!res) return false;
-	mainframe *top = new mainframe( wxT("Retcon"), wxPoint(50, 50), wxSize(450, 340) );
+	mainframe *top = new mainframe( appversionname, wxPoint(50, 50), wxSize(450, 340) );
 
 	top->Show(true);
 	SetTopWindow(top);
