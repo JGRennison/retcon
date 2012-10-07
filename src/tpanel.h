@@ -75,6 +75,10 @@ typedef enum {
 	TAMI_COPYID,
 	TAMI_COPYLINK,
 	TAMI_DELETE,
+	TAMI_COPYEXTRA,
+	TAMI_BROWSEREXTRA,
+	TAMI_MEDIAWIN,
+	TAMI_USERWINDOW,
 } TAMI_TYPE;
 
 struct tweetactmenuitem {
@@ -83,6 +87,7 @@ struct tweetactmenuitem {
 	TAMI_TYPE type;
 	unsigned int dbindex;
 	unsigned int flags;
+	wxString extra;
 };
 
 typedef std::map<int,tpanelmenuitem> tpanelmenudata;
@@ -129,7 +134,9 @@ struct tweetdispscr : public dispscr_base {
 	void DisplayTweet(bool redrawimg=false);
 	void OnTweetActMenuCmd(wxCommandEvent &event);
 
+	void urlhandler(wxString url);
 	void urleventhandler(wxTextUrlEvent &event);
+	void rightclickhandler(wxMouseEvent &event);
 
 	DECLARE_EVENT_TABLE()
 
@@ -306,7 +313,7 @@ struct tpanelparentwin_usertweets : public tpanelparentwin_nt {
 
 struct tpanelparentwin_user : public panelparentwin_base {
 	std::deque< std::shared_ptr<userdatacontainer> > userlist;
-	
+
 	static std::multimap<uint64_t, tpanelparentwin_user*> pendingmap;
 
 	tpanelparentwin_user(wxWindow *parent);

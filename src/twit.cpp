@@ -1095,6 +1095,11 @@ std::string tweet::GetPermalink() const {
 	return "http" + std::string(flags.Get('s')?"s":"") + "://twitter.com/" + user->GetUser().screen_name + "/status/" + std::to_string(id);
 }
 
+std::string userdatacontainer::GetPermalink(bool ssl) const {
+	if(!GetUser().screen_name.size()) return "";
+	return "http" + std::string(ssl?"s":"") + "://twitter.com/" + GetUser().screen_name;
+}
+
 bool tweet::IsFavouritable() const {
 	return flags.Get('T');
 }

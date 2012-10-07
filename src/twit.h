@@ -101,6 +101,7 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	bool ImgIsReady(unsigned int updcf_flags);
 	bool ImgHalfIsReady(unsigned int updcf_flags);
 	bool GetUsableAccount(std::shared_ptr<taccount> &tac, bool enabledonly=true) const;
+	std::string GetPermalink(bool ssl) const;
 };
 
 struct tweet_flags {
