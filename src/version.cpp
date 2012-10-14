@@ -24,5 +24,5 @@
 #include "univdefs.h"
 #include "version.h"
 
-const wxString appname(wxT("Retcon"));
+const wxString appname(wxT("retcon"));
 const wxString appversionname(wxT("Retcon v") RETCON_VERSION_STR);
