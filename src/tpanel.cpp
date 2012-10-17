@@ -291,6 +291,9 @@ bool tpanel::RegisterTweet(const std::shared_ptr<tweet> &t) {
 		if(t->id>upperid) upperid=t->id;
 		if(t->id<lowerid || lowerid==0) lowerid=t->id;
 		tweetlist.insert(t->id);
+		if(!t->flags.Get('r')) {
+			unreadtweetids.insert(t->id);
+		}
 		return true;
 	}
 }
@@ -310,6 +313,7 @@ tpanel::tpanel(const std::string &name_, const std::string &dispname_, unsigned 
 			if(flags&TPF_AUTO_DM) tweetlist.insert((*it)->dm_ids.begin(), (*it)->dm_ids.end());
 			if(flags&TPF_AUTO_TW) tweetlist.insert((*it)->tweet_ids.begin(), (*it)->tweet_ids.end());
 			if(flags&TPF_AUTO_MN) tweetlist.insert((*it)->usercont->mention_index.begin(), (*it)->usercont->mention_index.end());
+			std::set_intersection(tweetlist.begin(), tweetlist.end(), ad.unreadids.begin(), ad.unreadids.end(), std::inserter(unreadtweetids, unreadtweetids.end()));
 		}
 	}
 	else return;
@@ -545,7 +549,11 @@ void panelparentwin_base::CheckClearNoUpdateFlag() {
 	if(tppw_flags&TPPWF_NOUPDATEONPUSH) {
 		scrollwin->FitInside();
 		UpdateCLabel();
-		tppw_flags&=~TPPWF_NOUPDATEONPUSH;
+		tppw_flags&=~(TPPWF_NOUPDATEONPUSH|TPPWF_CLABELUPDATEPENDING);
+	}
+	else if(tppw_flags&TPPWF_CLABELUPDATEPENDING) {
+		UpdateCLabel();
+		tppw_flags&=~TPPWF_CLABELUPDATEPENDING;
 	}
 }
 
@@ -757,7 +765,13 @@ void tpanelparentwin_nt::PageTopHandler() {
 
 void tpanelparentwin_nt::UpdateCLabel() {
 	size_t curnum=currentdisp.size();
-	if(curnum) clabel->SetLabel(wxString::Format(wxT("%d - %d of %d"), displayoffset+1, displayoffset+curnum, tp->tweetlist.size()));
+	if(curnum) {
+		wxString msg=wxString::Format(wxT("%d - %d of %d"), displayoffset+1, displayoffset+curnum, tp->tweetlist.size());
+		if(tp->unreadtweetids.size()) {
+			msg.append(wxString::Format(wxT(", %d unread"), tp->unreadtweetids.size()));
+		}
+		clabel->SetLabel(msg);
+	}
 	else clabel->SetLabel(wxT("No Tweets"));
 }
 

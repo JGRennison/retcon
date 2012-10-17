@@ -261,6 +261,8 @@ struct dbconn : public wxEvtHandler {
 	void OnTpanelTweetLoadFromDB(wxCommandEvent &event);
 	void OnDBThreadDebugMsg(wxCommandEvent &event);
 	void OnDBNewAccountInsert(wxCommandEvent &event);
+	void SyncReadInUnreadList(sqlite3 *adb);
+	void SyncWriteBackUnreadList(sqlite3 *adb);
 
 	DECLARE_EVENT_TABLE()
 };

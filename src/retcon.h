@@ -277,6 +277,7 @@ struct alldata {
 	std::unordered_map<media_id_type,media_entity> media_list;
 	std::unordered_map<std::string,media_id_type> img_media_map;
 	unsigned int next_media_id;
+	tweetidset unreadids;
 
 	std::shared_ptr<userdatacontainer> &GetUserContainerById(uint64_t id);
 	std::shared_ptr<tweet> &GetTweetById(uint64_t id, bool *isnew=0);

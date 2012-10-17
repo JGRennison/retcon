@@ -58,13 +58,13 @@ void HandleNewTweet(const std::shared_ptr<tweet> &t) {
 	}
 }
 
-void UpdateTweet(const std::shared_ptr<tweet> &t, bool redrawimg) {
+void UpdateTweet(const tweet &t, bool redrawimg) {
 	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
 		for(auto jt=(*it)->currentdisp.begin(); jt!=(*it)->currentdisp.end(); ++jt) {
 			tweetdispscr *tds=(tweetdispscr *) jt->second;
-			if(jt->first==t->id || tds->rtid==t->id) {	//found matching entry
+			if(jt->first==t.id || tds->rtid==t.id) {	//found matching entry
 				(*it)->Freeze();
-				LogMsgFormat(LFT_TPANEL, wxT("UpdateTweet: Found Entry %" wxLongLongFmtSpec "d."), t->id);
+				LogMsgFormat(LFT_TPANEL, wxT("UpdateTweet: Found Entry %" wxLongLongFmtSpec "d."), t.id);
 				tds->DisplayTweet(redrawimg);
 				(*it)->Thaw();
 				break;
@@ -927,6 +927,26 @@ tweet_perspective *tweet::GetTweetTP(const std::shared_ptr<taccount> &tac) {
 	return 0;
 }
 
+void tweet::MarkAsRead(tpanel *exclude) {
+	if(!flags.Get('r')) {
+		flags.Set('r');
+		for(auto it=ad.tpanels.begin(); it!=ad.tpanels.end(); ++it) {
+			if(it->second.get()==exclude) continue;
+
+			tweetidset &unread=(it->second)->unreadtweetids;
+			auto unread_it=unread.find(id);
+			if(unread_it!=unread.end()) {
+				unread.erase(*unread_it);
+				for(auto jt=it->second->twin.begin(); jt!=it->second->twin.end(); ++jt) {
+					(*jt)->tppw_flags|=TPPWF_CLABELUPDATEPENDING;
+				}
+			}
+		}
+		UpdateTweet(*this, false);
+		ad.unreadids.erase(id);
+	}
+}
+
 //the following set of procedures should be kept in sync
 
 //returns true is ready, false is pending
@@ -955,7 +975,7 @@ void taccount::FastMarkPending(const std::shared_ptr<tweet> &t, unsigned int mar
 		if(insertnewrtpo) t->rtsrc->pending_ops.emplace_front(new rt_pending_op(t));
 		t->rtsrc->user->MarkTweetPending(t->rtsrc, checkfirst);
 	}
-	
+
 	if(mark&8) MarkUserPending(t->user);
 	if(mark&16) MarkUserPending(t->user_recipient);
 	if(mark&32) MarkUserPending(t->rtsrc->user);

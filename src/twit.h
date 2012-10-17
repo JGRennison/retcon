@@ -22,7 +22,7 @@
 //==========================================================================
 
 void HandleNewTweet(const std::shared_ptr<tweet> &t);
-void UpdateTweet(const std::shared_ptr<tweet> &t, bool redrawimg=false);
+void UpdateTweet(const tweet &t, bool redrawimg=false);
 void UpdateAllTweets(bool redrawimg=false);
 void UpdateUsersTweet(uint64_t userid, bool redrawimg=false);
 bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t, bool checkfirst=false);
@@ -243,6 +243,7 @@ struct tweet {
 	bool IsFavouritable() const;
 	bool IsRetweetable() const;
 	std::string GetPermalink() const;
+	void MarkAsRead(tpanel *exclude=0);
 };
 
 typedef enum {

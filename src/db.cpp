@@ -789,6 +789,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	SyncReadInAllUsers(syncdb);
 	SyncReadInRBFSs(syncdb);
 	if(gc.persistentmediacache) SyncReadInAllMediaEntities(syncdb);
+	SyncReadInUnreadList(syncdb);
 
 	th=new dbiothread();
 	th->filename=filename;
@@ -833,6 +834,7 @@ void dbconn::DeInit() {
 	AccountIdListsSync(syncdb);
 	SyncWriteOutRBFSs(syncdb);
 	WriteAllCFGOut(syncdb, gc, alist);
+	SyncWriteBackUnreadList(syncdb);
 
 	sqlite3_close(syncdb);
 }
@@ -938,6 +940,34 @@ void dbconn::AccountSync(sqlite3 *adb) {
 		else break;
 	} while(true);
 	sqlite3_finalize(getstmt);
+}
+
+void dbconn::SyncReadInUnreadList(sqlite3 *adb) {
+	const char getunreadlist[]="SELECT value FROM settings WHERE name == 'unreadids';";
+	sqlite3_stmt *getstmt=0;
+	sqlite3_prepare_v2(adb, getunreadlist, sizeof(getunreadlist)+1, &getstmt, 0);
+	do {
+		int res=sqlite3_step(getstmt);
+		if(res==SQLITE_ROW) {
+			setfromcompressedblob([&](uint64_t &id) { ad.unreadids.insert(id); }, getstmt, 0);
+		}
+		else break;
+	} while(true);
+	sqlite3_finalize(getstmt);
+}
+
+void dbconn::SyncWriteBackUnreadList(sqlite3 *adb) {
+	const char setunreadlist[]="INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', 'unreadids', ?);";
+	
+	sqlite3_stmt *setstmt=0;
+	sqlite3_prepare_v2(adb, setunreadlist, sizeof(setunreadlist)+1, &setstmt, 0);
+	
+	size_t unreadindex_size;
+	unsigned char *unreadindex=settocompressedblob(ad.unreadids, unreadindex_size);
+	sqlite3_bind_blob(setstmt, 1, unreadindex, unreadindex_size, &free);
+	int res=sqlite3_step(setstmt);
+	if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("dbconn::SyncWriteBackUnreadList got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
+	sqlite3_reset(setstmt);
 }
 
 void dbconn::AccountIdListsSync(sqlite3 *adb) {
