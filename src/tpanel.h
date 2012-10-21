@@ -222,6 +222,7 @@ enum {	//window IDs
 	TPPWID_CLOSE,
 	TPPWID_TOPBTN,
 	TPPWID_SPLIT,
+	TPPWID_MARKALLREADBTN,
 };
 
 enum {	//for pushflags
@@ -245,6 +246,7 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	tpanelscrollwin *scrollwin;
 	wxStaticText *clabel;
 	unsigned int tppw_flags;
+	wxButton *MarkReadBtn;
 
 	std::list<std::pair<uint64_t, dispscr_base *> > currentdisp;
 
@@ -279,6 +281,7 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	virtual void PageUpHandler();
 	virtual void PageDownHandler();
 	virtual void PageTopHandler();
+	void markallreadevthandler(wxCommandEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };

@@ -471,9 +471,9 @@ DEFINE_EVENT_TYPE(wxextTP_PAGEUP_EVENT)
 DEFINE_EVENT_TYPE(wxextTP_PAGEDOWN_EVENT)
 
 BEGIN_EVENT_TABLE(panelparentwin_base, wxPanel)
-	EVT_COMMAND(wxID_ANY, wxextTP_PAGEUP_EVENT, tpanelparentwin_nt::pageupevthandler)
-	EVT_COMMAND(wxID_ANY, wxextTP_PAGEDOWN_EVENT, tpanelparentwin_nt::pagedownevthandler)
-	EVT_BUTTON(TPPWID_TOPBTN, tpanelparentwin_nt::pagetopevthandler)
+	EVT_COMMAND(wxID_ANY, wxextTP_PAGEUP_EVENT, panelparentwin_base::pageupevthandler)
+	EVT_COMMAND(wxID_ANY, wxextTP_PAGEDOWN_EVENT, panelparentwin_base::pagedownevthandler)
+	EVT_BUTTON(TPPWID_TOPBTN, panelparentwin_base::pagetopevthandler)
 END_EVENT_TABLE()
 
 panelparentwin_base::panelparentwin_base(wxWindow *parent, bool fitnow)
@@ -499,6 +499,9 @@ panelparentwin_base::panelparentwin_base(wxWindow *parent, bool fitnow)
 	outersizer->Add(headersizer, 0, wxALL | wxEXPAND, 0);
 	headersizer->Add(clabel, 0, wxALL, 2);
 	headersizer->AddStretchSpacer();
+	MarkReadBtn=new wxButton(this, TPPWID_MARKALLREADBTN, wxT("Mark All Read"), wxPoint(-1000, -1000), wxDefaultSize, wxBU_EXACTFIT);
+	MarkReadBtn->Show(false);
+	headersizer->Add(MarkReadBtn, 0, wxALL, 2);
 	headersizer->Add(new wxButton(this, TPPWID_TOPBTN, wxT("Top \x2191"), wxPoint(-1000, -1000), wxDefaultSize, wxBU_EXACTFIT), 0, wxALL, 2);
 	outersizer->Add(scrollwin, 1, wxALL | wxEXPAND, 2);
 	outersizer->Add(new wxStaticText(this, wxID_ANY, wxT("Bar"), wxPoint(-1000, -1000)), 0, wxALL, 2);
@@ -606,6 +609,7 @@ mainframe *panelparentwin_base::GetMainframe() {
 }
 
 BEGIN_EVENT_TABLE(tpanelparentwin_nt, panelparentwin_base)
+EVT_BUTTON(TPPWID_MARKALLREADBTN, tpanelparentwin_nt::markallreadevthandler)
 END_EVENT_TABLE()
 
 tpanelparentwin_nt::tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent)
@@ -773,6 +777,16 @@ void tpanelparentwin_nt::UpdateCLabel() {
 		clabel->SetLabel(msg);
 	}
 	else clabel->SetLabel(wxT("No Tweets"));
+	MarkReadBtn->Show(!tp->unreadtweetids.empty());
+}
+
+void tpanelparentwin_nt::markallreadevthandler(wxCommandEvent &event) {
+	MarkTweetIDSetAsRead(tp->unreadtweetids, tp.get());
+	tp->unreadtweetids.clear();
+	for(auto jt=tp->twin.begin(); jt!=tp->twin.end(); ++jt) {
+		(*jt)->tppw_flags|=TPPWF_CLABELUPDATEPENDING;
+	}
+	CheckClearNoUpdateFlag_All();
 }
 
 BEGIN_EVENT_TABLE(tpanelparentwin, tpanelparentwin_nt)

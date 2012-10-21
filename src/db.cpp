@@ -87,6 +87,7 @@ static const char *sql[DBPSC_NUM_STATEMENTS]={
 	"UPDATE OR IGNORE mediacache SET thumbchecksum = ? WHERE (mid == ? AND tid == ?);",
 	"UPDATE OR IGNORE mediacache SET fullchecksum = ? WHERE (mid == ? AND tid == ?);",
 	"DELETE FROM acc WHERE id == ?;",
+	"UPDATE tweets SET flags = ? | (flags & ?) WHERE id == ?;",
 };
 
 static void DBThreadSafeLogMsg(logflagtype logflags, const wxString &str) {
@@ -572,6 +573,19 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_UPDATEMEDIACHKSM got error: %d (%s) for id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d (%d)"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id, m->isfull); }
 			else { DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_UPDATEMEDIACHKSM updated media checksum id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d (%d)"), (sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id, m->isfull); }
 			sqlite3_reset(stmt);
+			break;
+		}
+		case DBSM_UPDATETWEETSETFLAGS: {
+			dbupdatetweetsetflagsmsg *m=(dbupdatetweetsetflagsmsg*) msg;
+			sqlite3_stmt *stmt=cache.GetStmt(db, DBPSC_UPDATETWEETFLAGSMASKED);
+			for(auto it=m->ids.begin(); it!=m->ids.end(); ++it) {
+				sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->setmask);
+				sqlite3_bind_int64(stmt, 2, (sqlite3_int64) (~m->unsetmask));
+				sqlite3_bind_int64(stmt, 3, (sqlite3_int64) *it);
+				int res=sqlite3_step(stmt);
+				if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_UPDATETWEETSETFLAGS got error: %d (%s) for id: %" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), *it); }
+				sqlite3_reset(stmt);
+			}
 			break;
 		}
 		case DBSM_MSGLIST: {

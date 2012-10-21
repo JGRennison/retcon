@@ -40,6 +40,7 @@ typedef enum {
 	DBPSC_UPDATEMEDIATHUMBCHKSM,
 	DBPSC_UPDATEMEDIAFULLCHKSM,
 	DBPSC_DELACC,
+	DBPSC_UPDATETWEETFLAGSMASKED,
 
 	DBPSC_NUM_STATEMENTS,
 } DBPSC_TYPE;
@@ -83,6 +84,7 @@ typedef enum {
 	DBSM_INSERTMEDIA,
 	DBSM_UPDATEMEDIACHKSM,
 	DBSM_DELACC,
+	DBSM_UPDATETWEETSETFLAGS,
 } DBSM_TYPE;
 
 struct dbsendmsg {
@@ -218,6 +220,14 @@ struct dbupdatemediachecksummsg : public dbsendmsg {
 	media_id_type media_id;
 	unsigned char chksm[20];
 	bool isfull;
+};
+
+struct dbupdatetweetsetflagsmsg : public dbsendmsg {
+	dbupdatetweetsetflagsmsg(tweetidset &&ids_, uint64_t setmask_, uint64_t unsetmask_) : dbsendmsg(DBSM_UPDATETWEETSETFLAGS), ids(ids_), setmask(setmask_), unsetmask(unsetmask_) { }
+	
+	tweetidset ids;
+	uint64_t setmask;
+	uint64_t unsetmask;
 };
 
 DECLARE_EVENT_TYPE(wxextDBCONN_NOTIFY, -1)

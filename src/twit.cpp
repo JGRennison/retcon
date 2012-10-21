@@ -927,24 +927,40 @@ tweet_perspective *tweet::GetTweetTP(const std::shared_ptr<taccount> &tac) {
 	return 0;
 }
 
-void tweet::MarkAsRead(tpanel *exclude) {
+void tweet::UpdateMarkedAsRead(const tpanel *exclude) {
 	if(!flags.Get('r')) {
 		flags.Set('r');
-		for(auto it=ad.tpanels.begin(); it!=ad.tpanels.end(); ++it) {
-			if(it->second.get()==exclude) continue;
+		UpdateTweet(*this, false);
+	}
+}
 
-			tweetidset &unread=(it->second)->unreadtweetids;
-			auto unread_it=unread.find(id);
-			if(unread_it!=unread.end()) {
-				unread.erase(*unread_it);
-				for(auto jt=it->second->twin.begin(); jt!=it->second->twin.end(); ++jt) {
-					(*jt)->tppw_flags|=TPPWF_CLABELUPDATEPENDING;
-				}
+void MarkTweetIdAsRead(uint64_t id, const tpanel *exclude) {
+	for(auto it=ad.tpanels.begin(); it!=ad.tpanels.end(); ++it) {
+		if(it->second.get()==exclude) continue;
+
+		tweetidset &unread=(it->second)->unreadtweetids;
+		auto unread_it=unread.find(id);
+		if(unread_it!=unread.end()) {
+			unread.erase(*unread_it);
+			for(auto jt=it->second->twin.begin(); jt!=it->second->twin.end(); ++jt) {
+				(*jt)->tppw_flags|=TPPWF_CLABELUPDATEPENDING;
 			}
 		}
-		UpdateTweet(*this, false);
-		ad.unreadids.erase(id);
 	}
+	ad.unreadids.erase(id);
+}
+
+void MarkTweetIDSetAsRead(const tweetidset &ids, const tpanel *exclude) {
+	tweetidset cached_ids=ids;
+	for(auto it=cached_ids.begin(); it!=cached_ids.end(); ++it) {
+		MarkTweetIdAsRead(*it, exclude);
+		auto twshpp=ad.GetExistingTweetById(*it);
+		if(twshpp) {
+			(*twshpp)->UpdateMarkedAsRead(exclude);
+		}
+	}
+	dbupdatetweetsetflagsmsg *msg=new dbupdatetweetsetflagsmsg(std::move(cached_ids), ((uint64_t) 1)<<tweet_flags::GetFlagNum('r'), 0);
+	dbc.SendMessage(msg);
 }
 
 //the following set of procedures should be kept in sync
