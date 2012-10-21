@@ -1419,6 +1419,72 @@ void GenUserFmt(dispscr_base *obj, userdatacontainer *u, size_t &i, const wxStri
 	}
 }
 
+void SkipOverFalseCond(size_t &i, const wxString &format) {
+	size_t recursion=1;
+	for(i++; i<format.size(); i++) {
+		switch((wxChar) format[i]) {
+			case '(': {
+				recursion++;
+				break;
+			}
+			case ')': {
+				recursion--;
+				if(!recursion) return;
+				break;
+			}
+			case '\'':
+			case '"': {
+				wxChar quotechar=format[i];
+				while(i<format.size()) {
+					if(format[i]==quotechar) break;
+					i++;
+				}
+			}
+		}
+	}
+}
+
+bool CondCodeProc(dispscr_base *obj, size_t &i, const wxString &format, wxString &str) {
+	i++;
+	bool result=false;
+	switch((wxChar) format[i]) {
+		case 'F': {
+			uint64_t any=0;
+			uint64_t all=0;
+			uint64_t none=0;
+			uint64_t missing=0;
+
+			uint64_t *current=&any;
+
+			for(i++; i<format.size(); i++) {
+				switch((wxChar) format[i]) {
+					case '(': goto loopexit;
+					case '+': current=&any; break;
+					case '=': current=&all; break;
+					case '-': current=&none; break;
+					case '/': current=&missing; break;
+					default: *current|=tweet_flags::GetFlagValue(format[i]);
+				}
+			}
+			loopexit:
+			
+			tweetdispscr *tds=dynamic_cast<tweetdispscr *>(obj);
+			if(!tds) break;
+
+			result=true;
+			uint64_t curflags=tds->td->flags.Save();
+			if(any && !(curflags&any)) result=false;
+			if(all && (curflags&all)!=all) result=false;
+			if(none && (curflags&none)) result=false;
+			if(missing && (curflags|missing)==curflags) result=false;
+
+			break;
+		}
+	}
+	if(format[i]!='(') return false;
+	return result;
+}
+
 void GenFmtCodeProc(dispscr_base *obj, size_t &i, const wxString &format, wxString &str) {
 	switch((wxChar) format[i]) {
 		case 'B': GenFlush(obj, str); obj->BeginBold(); break;
@@ -1436,6 +1502,12 @@ void GenFmtCodeProc(dispscr_base *obj, size_t &i, const wxString &format, wxStri
 			if(obj->GetLineLength(y)) obj->Newline();
 			break;
 		}
+		case 'Q': {
+			if(!CondCodeProc(obj, i, format, str)) {
+				SkipOverFalseCond(i, format);
+			}
+			break;
+		}
 		case '\'':
 		case '"': {
 			auto quotechar=format[i];
@@ -1447,6 +1519,7 @@ void GenFmtCodeProc(dispscr_base *obj, size_t &i, const wxString &format, wxStri
 			}
 			break;
 		}
+		case ')': break;
 		default:
 			str+=format[i];
 			break;
