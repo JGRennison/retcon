@@ -133,6 +133,7 @@ struct tweetdispscr : public dispscr_base {
 	long reltimestart;
 	long reltimeend;
 	uint64_t rtid;
+	std::forward_list<magic_ptr_ts<tweetdispscr> > subtweets;
 
 	tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_);
 	~tweetdispscr();
