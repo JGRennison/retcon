@@ -658,7 +658,12 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 		tac->CheckMarkPending(tobj, true);
 	}
 	else {
-		if(has_just_arrived && !(sflags&JDTP_ISRTSRC) && !(sflags&JDTP_USERTIMELINE)) tac->MarkPendingOrHandle(tobj);
+		if(has_just_arrived && !(sflags&JDTP_ISRTSRC) && !(sflags&JDTP_USERTIMELINE)) {
+			if(!tobj->flags.Get('r')) {
+				ad.unreadids.insert(tobj->id);
+			}
+			tac->MarkPendingOrHandle(tobj);
+		}
 	}
 
 	if(sflags&JDTP_USERTIMELINE) {
@@ -676,9 +681,6 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 			tobj->lflags|=TLF_SAVED_IN_DB;
 		}
 		else dbc.UpdateTweetDyn(tobj, dbmsglist);
-		if(!tobj->flags.Get('r')) {
-			ad.unreadids.insert(tobj->id);
-		}
 	}
 
 	return tobj;
