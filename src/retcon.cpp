@@ -535,6 +535,16 @@ std::shared_ptr<tweet> &alldata::GetTweetById(uint64_t id, bool *isnew) {
 	return t;
 }
 
+std::shared_ptr<tweet> *alldata::GetExistingTweetById(uint64_t id) {
+	auto it=tweetobjs.find(id);
+	if(it!=tweetobjs.end()) {
+		return &(it->second);
+	}
+	else {
+		return 0;
+	}
+}
+
 void alldata::UnlinkTweetById(uint64_t id) {
 	tweetobjs.erase(id);
 }

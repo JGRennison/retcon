@@ -291,6 +291,9 @@ bool tpanel::RegisterTweet(const std::shared_ptr<tweet> &t) {
 		if(t->id>upperid) upperid=t->id;
 		if(t->id<lowerid || lowerid==0) lowerid=t->id;
 		tweetlist.insert(t->id);
+		if(!t->flags.Get('r')) {
+			unreadtweetids.insert(t->id);
+		}
 		return true;
 	}
 }
@@ -310,6 +313,7 @@ tpanel::tpanel(const std::string &name_, const std::string &dispname_, unsigned 
 			if(flags&TPF_AUTO_DM) tweetlist.insert((*it)->dm_ids.begin(), (*it)->dm_ids.end());
 			if(flags&TPF_AUTO_TW) tweetlist.insert((*it)->tweet_ids.begin(), (*it)->tweet_ids.end());
 			if(flags&TPF_AUTO_MN) tweetlist.insert((*it)->usercont->mention_index.begin(), (*it)->usercont->mention_index.end());
+			std::set_intersection(tweetlist.begin(), tweetlist.end(), ad.unreadids.begin(), ad.unreadids.end(), std::inserter(unreadtweetids, unreadtweetids.end()));
 		}
 	}
 	else return;
@@ -467,9 +471,9 @@ DEFINE_EVENT_TYPE(wxextTP_PAGEUP_EVENT)
 DEFINE_EVENT_TYPE(wxextTP_PAGEDOWN_EVENT)
 
 BEGIN_EVENT_TABLE(panelparentwin_base, wxPanel)
-	EVT_COMMAND(wxID_ANY, wxextTP_PAGEUP_EVENT, tpanelparentwin_nt::pageupevthandler)
-	EVT_COMMAND(wxID_ANY, wxextTP_PAGEDOWN_EVENT, tpanelparentwin_nt::pagedownevthandler)
-	EVT_BUTTON(TPPWID_TOPBTN, tpanelparentwin_nt::pagetopevthandler)
+	EVT_COMMAND(wxID_ANY, wxextTP_PAGEUP_EVENT, panelparentwin_base::pageupevthandler)
+	EVT_COMMAND(wxID_ANY, wxextTP_PAGEDOWN_EVENT, panelparentwin_base::pagedownevthandler)
+	EVT_BUTTON(TPPWID_TOPBTN, panelparentwin_base::pagetopevthandler)
 END_EVENT_TABLE()
 
 panelparentwin_base::panelparentwin_base(wxWindow *parent, bool fitnow)
@@ -495,6 +499,9 @@ panelparentwin_base::panelparentwin_base(wxWindow *parent, bool fitnow)
 	outersizer->Add(headersizer, 0, wxALL | wxEXPAND, 0);
 	headersizer->Add(clabel, 0, wxALL, 2);
 	headersizer->AddStretchSpacer();
+	MarkReadBtn=new wxButton(this, TPPWID_MARKALLREADBTN, wxT("Mark All Read"), wxPoint(-1000, -1000), wxDefaultSize, wxBU_EXACTFIT);
+	MarkReadBtn->Show(false);
+	headersizer->Add(MarkReadBtn, 0, wxALL, 2);
 	headersizer->Add(new wxButton(this, TPPWID_TOPBTN, wxT("Top \x2191"), wxPoint(-1000, -1000), wxDefaultSize, wxBU_EXACTFIT), 0, wxALL, 2);
 	outersizer->Add(scrollwin, 1, wxALL | wxEXPAND, 2);
 	outersizer->Add(new wxStaticText(this, wxID_ANY, wxT("Bar"), wxPoint(-1000, -1000)), 0, wxALL, 2);
@@ -545,7 +552,11 @@ void panelparentwin_base::CheckClearNoUpdateFlag() {
 	if(tppw_flags&TPPWF_NOUPDATEONPUSH) {
 		scrollwin->FitInside();
 		UpdateCLabel();
-		tppw_flags&=~TPPWF_NOUPDATEONPUSH;
+		tppw_flags&=~(TPPWF_NOUPDATEONPUSH|TPPWF_CLABELUPDATEPENDING);
+	}
+	else if(tppw_flags&TPPWF_CLABELUPDATEPENDING) {
+		UpdateCLabel();
+		tppw_flags&=~TPPWF_CLABELUPDATEPENDING;
 	}
 }
 
@@ -598,6 +609,7 @@ mainframe *panelparentwin_base::GetMainframe() {
 }
 
 BEGIN_EVENT_TABLE(tpanelparentwin_nt, panelparentwin_base)
+EVT_BUTTON(TPPWID_MARKALLREADBTN, tpanelparentwin_nt::markallreadevthandler)
 END_EVENT_TABLE()
 
 tpanelparentwin_nt::tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent)
@@ -757,8 +769,24 @@ void tpanelparentwin_nt::PageTopHandler() {
 
 void tpanelparentwin_nt::UpdateCLabel() {
 	size_t curnum=currentdisp.size();
-	if(curnum) clabel->SetLabel(wxString::Format(wxT("%d - %d of %d"), displayoffset+1, displayoffset+curnum, tp->tweetlist.size()));
+	if(curnum) {
+		wxString msg=wxString::Format(wxT("%d - %d of %d"), displayoffset+1, displayoffset+curnum, tp->tweetlist.size());
+		if(tp->unreadtweetids.size()) {
+			msg.append(wxString::Format(wxT(", %d unread"), tp->unreadtweetids.size()));
+		}
+		clabel->SetLabel(msg);
+	}
 	else clabel->SetLabel(wxT("No Tweets"));
+	MarkReadBtn->Show(!tp->unreadtweetids.empty());
+}
+
+void tpanelparentwin_nt::markallreadevthandler(wxCommandEvent &event) {
+	MarkTweetIDSetAsRead(tp->unreadtweetids, tp.get());
+	tp->unreadtweetids.clear();
+	for(auto jt=tp->twin.begin(); jt!=tp->twin.end(); ++jt) {
+		(*jt)->tppw_flags|=TPPWF_CLABELUPDATEPENDING;
+	}
+	CheckClearNoUpdateFlag_All();
 }
 
 BEGIN_EVENT_TABLE(tpanelparentwin, tpanelparentwin_nt)
@@ -1391,6 +1419,72 @@ void GenUserFmt(dispscr_base *obj, userdatacontainer *u, size_t &i, const wxStri
 	}
 }
 
+void SkipOverFalseCond(size_t &i, const wxString &format) {
+	size_t recursion=1;
+	for(i++; i<format.size(); i++) {
+		switch((wxChar) format[i]) {
+			case '(': {
+				recursion++;
+				break;
+			}
+			case ')': {
+				recursion--;
+				if(!recursion) return;
+				break;
+			}
+			case '\'':
+			case '"': {
+				wxChar quotechar=format[i];
+				while(i<format.size()) {
+					if(format[i]==quotechar) break;
+					i++;
+				}
+			}
+		}
+	}
+}
+
+bool CondCodeProc(dispscr_base *obj, size_t &i, const wxString &format, wxString &str) {
+	i++;
+	bool result=false;
+	switch((wxChar) format[i]) {
+		case 'F': {
+			uint64_t any=0;
+			uint64_t all=0;
+			uint64_t none=0;
+			uint64_t missing=0;
+
+			uint64_t *current=&any;
+
+			for(i++; i<format.size(); i++) {
+				switch((wxChar) format[i]) {
+					case '(': goto loopexit;
+					case '+': current=&any; break;
+					case '=': current=&all; break;
+					case '-': current=&none; break;
+					case '/': current=&missing; break;
+					default: *current|=tweet_flags::GetFlagValue(format[i]);
+				}
+			}
+			loopexit:
+			
+			tweetdispscr *tds=dynamic_cast<tweetdispscr *>(obj);
+			if(!tds) break;
+
+			result=true;
+			uint64_t curflags=tds->td->flags.Save();
+			if(any && !(curflags&any)) result=false;
+			if(all && (curflags&all)!=all) result=false;
+			if(none && (curflags&none)) result=false;
+			if(missing && (curflags|missing)==curflags) result=false;
+
+			break;
+		}
+	}
+	if(format[i]!='(') return false;
+	return result;
+}
+
 void GenFmtCodeProc(dispscr_base *obj, size_t &i, const wxString &format, wxString &str) {
 	switch((wxChar) format[i]) {
 		case 'B': GenFlush(obj, str); obj->BeginBold(); break;
@@ -1408,6 +1502,12 @@ void GenFmtCodeProc(dispscr_base *obj, size_t &i, const wxString &format, wxStri
 			if(obj->GetLineLength(y)) obj->Newline();
 			break;
 		}
+		case 'Q': {
+			if(!CondCodeProc(obj, i, format, str)) {
+				SkipOverFalseCond(i, format);
+			}
+			break;
+		}
 		case '\'':
 		case '"': {
 			auto quotechar=format[i];
@@ -1419,6 +1519,7 @@ void GenFmtCodeProc(dispscr_base *obj, size_t &i, const wxString &format, wxStri
 			}
 			break;
 		}
+		case ')': break;
 		default:
 			str+=format[i];
 			break;

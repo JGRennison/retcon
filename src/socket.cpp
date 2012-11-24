@@ -311,7 +311,7 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 		if(flags&MIDC_REDRAW_TWEETS) {
 			for(auto it=me.tweet_list.begin(); it!=me.tweet_list.end(); ++it) {
 				LogMsgFormat(LFT_SOCKTRACE, wxT("Media: UpdateTweet"));
-				UpdateTweet(*it);
+				UpdateTweet(**it);
 			}
 		}
 	}

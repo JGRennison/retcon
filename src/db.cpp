@@ -87,6 +87,7 @@ static const char *sql[DBPSC_NUM_STATEMENTS]={
 	"UPDATE OR IGNORE mediacache SET thumbchecksum = ? WHERE (mid == ? AND tid == ?);",
 	"UPDATE OR IGNORE mediacache SET fullchecksum = ? WHERE (mid == ? AND tid == ?);",
 	"DELETE FROM acc WHERE id == ?;",
+	"UPDATE tweets SET flags = ? | (flags & ?) WHERE id == ?;",
 };
 
 static void DBThreadSafeLogMsg(logflagtype logflags, const wxString &str) {
@@ -574,6 +575,19 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			sqlite3_reset(stmt);
 			break;
 		}
+		case DBSM_UPDATETWEETSETFLAGS: {
+			dbupdatetweetsetflagsmsg *m=(dbupdatetweetsetflagsmsg*) msg;
+			sqlite3_stmt *stmt=cache.GetStmt(db, DBPSC_UPDATETWEETFLAGSMASKED);
+			for(auto it=m->ids.begin(); it!=m->ids.end(); ++it) {
+				sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->setmask);
+				sqlite3_bind_int64(stmt, 2, (sqlite3_int64) (~m->unsetmask));
+				sqlite3_bind_int64(stmt, 3, (sqlite3_int64) *it);
+				int res=sqlite3_step(stmt);
+				if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_UPDATETWEETSETFLAGS got error: %d (%s) for id: %" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), *it); }
+				sqlite3_reset(stmt);
+			}
+			break;
+		}
 		case DBSM_MSGLIST: {
 			cache.ExecStmt(db, DBPSC_BEGIN);
 			dbsendmsg_list *m=(dbsendmsg_list*) msg;
@@ -789,6 +803,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	SyncReadInAllUsers(syncdb);
 	SyncReadInRBFSs(syncdb);
 	if(gc.persistentmediacache) SyncReadInAllMediaEntities(syncdb);
+	SyncReadInUnreadList(syncdb);
 
 	th=new dbiothread();
 	th->filename=filename;
@@ -833,6 +848,7 @@ void dbconn::DeInit() {
 	AccountIdListsSync(syncdb);
 	SyncWriteOutRBFSs(syncdb);
 	WriteAllCFGOut(syncdb, gc, alist);
+	SyncWriteBackUnreadList(syncdb);
 
 	sqlite3_close(syncdb);
 }
@@ -938,6 +954,34 @@ void dbconn::AccountSync(sqlite3 *adb) {
 		else break;
 	} while(true);
 	sqlite3_finalize(getstmt);
+}
+
+void dbconn::SyncReadInUnreadList(sqlite3 *adb) {
+	const char getunreadlist[]="SELECT value FROM settings WHERE name == 'unreadids';";
+	sqlite3_stmt *getstmt=0;
+	sqlite3_prepare_v2(adb, getunreadlist, sizeof(getunreadlist)+1, &getstmt, 0);
+	do {
+		int res=sqlite3_step(getstmt);
+		if(res==SQLITE_ROW) {
+			setfromcompressedblob([&](uint64_t &id) { ad.unreadids.insert(id); }, getstmt, 0);
+		}
+		else break;
+	} while(true);
+	sqlite3_finalize(getstmt);
+}
+
+void dbconn::SyncWriteBackUnreadList(sqlite3 *adb) {
+	const char setunreadlist[]="INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', 'unreadids', ?);";
+	
+	sqlite3_stmt *setstmt=0;
+	sqlite3_prepare_v2(adb, setunreadlist, sizeof(setunreadlist)+1, &setstmt, 0);
+	
+	size_t unreadindex_size;
+	unsigned char *unreadindex=settocompressedblob(ad.unreadids, unreadindex_size);
+	sqlite3_bind_blob(setstmt, 1, unreadindex, unreadindex_size, &free);
+	int res=sqlite3_step(setstmt);
+	if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("dbconn::SyncWriteBackUnreadList got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
+	sqlite3_reset(setstmt);
 }
 
 void dbconn::AccountIdListsSync(sqlite3 *adb) {

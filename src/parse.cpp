@@ -624,7 +624,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 		}
 		tobj->updcf_flags|=UPDCF_USEREXPIRE;
 	}
-	else UpdateTweet(tobj);
+	else UpdateTweet(*tobj);
 
 	if(!(sflags&JDTP_ISRTSRC) && !(sflags&JDTP_USERTIMELINE)) {
 		if(sflags&JDTP_ISDM) {
@@ -676,6 +676,9 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 			tobj->lflags|=TLF_SAVED_IN_DB;
 		}
 		else dbc.UpdateTweetDyn(tobj, dbmsglist);
+		if(!tobj->flags.Get('r')) {
+			ad.unreadids.insert(tobj->id);
+		}
 	}
 
 	return tobj;

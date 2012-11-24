@@ -133,6 +133,7 @@ struct tweetdispscr : public dispscr_base {
 	long reltimestart;
 	long reltimeend;
 	uint64_t rtid;
+	std::forward_list<magic_ptr_ts<tweetdispscr> > subtweets;
 
 	tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_);
 	~tweetdispscr();
@@ -181,7 +182,7 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	uint64_t upperid;
 	uint64_t lowerid;
 	std::shared_ptr<taccount> assoc_acc;
-	//tweetidset storedids;		//any tweet or DM in this list *must* be either in ad.tweetobjs, or in the database
+	tweetidset unreadtweetids;
 
 	static std::shared_ptr<tpanel> MkTPanel(const std::string &name_, const std::string &dispname_, unsigned int flags_=0, std::shared_ptr<taccount> *acc=0);
 	tpanel(const std::string &name_, const std::string &dispname_, unsigned int flags_=0, std::shared_ptr<taccount> *acc=0);		//don't use this directly
@@ -222,6 +223,7 @@ enum {	//window IDs
 	TPPWID_CLOSE,
 	TPPWID_TOPBTN,
 	TPPWID_SPLIT,
+	TPPWID_MARKALLREADBTN,
 };
 
 enum {	//for pushflags
@@ -234,6 +236,7 @@ enum {	//for pushflags
 enum {	//for tppw_flags
 	TPPWF_NOUPDATEONPUSH	= 1<<0,
 	TPPWF_CANALWAYSSCROLLDOWN	= 1<<1,
+	TPPWF_CLABELUPDATEPENDING	= 1<<2,
 };
 
 struct panelparentwin_base : public wxPanel, public magic_ptr_base {
@@ -244,6 +247,7 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	tpanelscrollwin *scrollwin;
 	wxStaticText *clabel;
 	unsigned int tppw_flags;
+	wxButton *MarkReadBtn;
 
 	std::list<std::pair<uint64_t, dispscr_base *> > currentdisp;
 
@@ -278,6 +282,7 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	virtual void PageUpHandler();
 	virtual void PageDownHandler();
 	virtual void PageTopHandler();
+	void markallreadevthandler(wxCommandEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };

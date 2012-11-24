@@ -22,13 +22,15 @@
 //==========================================================================
 
 void HandleNewTweet(const std::shared_ptr<tweet> &t);
-void UpdateTweet(const std::shared_ptr<tweet> &t, bool redrawimg=false);
+void UpdateTweet(const tweet &t, bool redrawimg=false);
 void UpdateAllTweets(bool redrawimg=false);
 void UpdateUsersTweet(uint64_t userid, bool redrawimg=false);
 bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t, bool checkfirst=false);
 unsigned int CheckTweetPendings(const std::shared_ptr<tweet> &t);
 bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_nt* win_, unsigned int pushflags=0, std::shared_ptr<tpanel> *pushtpanel_=0);
 bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::shared_ptr<taccount> acc_hint);
+void MarkTweetIdAsRead(uint64_t id, const tpanel *exclude);
+void MarkTweetIDSetAsRead(const tweetidset &ids, const tpanel *exclude);
 
 enum {	//for UnmarkPendingTweet: umpt_flags
 	UMPTF_TPDB_NOUPDF	= 1<<0,
@@ -107,6 +109,9 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 struct tweet_flags {
 	tweet_flags() : bits() { }
 	tweet_flags(unsigned long long val) : bits(val) { }
+	tweet_flags(const tweet_flags &cpysrc) : bits(cpysrc.Save()) { }
+
+	static constexpr unsigned long long GetFlagValue(char in) { return ((uint64_t) 1)<<GetFlagNum(in); }
 	static constexpr ssize_t GetFlagNum(char in) { return (in>='0' && in<='9')?in-'0':((in>='a' && in<='z')?10+in-'a':((in>='A' && in<='Z')?10+26+in-'A':-1)); }
 	static constexpr char GetFlagChar(size_t in) { return (in<10)?in+'0':((in>=10 && in<36)?in+'a'-10:((in>=36 && in<62)?in+'A'-36:'?')); }
 	bool Get(char in) const {
@@ -243,6 +248,7 @@ struct tweet {
 	bool IsFavouritable() const;
 	bool IsRetweetable() const;
 	std::string GetPermalink() const;
+	void UpdateMarkedAsRead(const tpanel *exclude=0);
 };
 
 typedef enum {

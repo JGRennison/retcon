@@ -58,57 +58,63 @@ void HandleNewTweet(const std::shared_ptr<tweet> &t) {
 	}
 }
 
-void UpdateTweet(const std::shared_ptr<tweet> &t, bool redrawimg) {
-	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
-		for(auto jt=(*it)->currentdisp.begin(); jt!=(*it)->currentdisp.end(); ++jt) {
-			tweetdispscr *tds=(tweetdispscr *) jt->second;
-			if(jt->first==t->id || tds->rtid==t->id) {	//found matching entry
-				(*it)->Freeze();
-				LogMsgFormat(LFT_TPANEL, wxT("UpdateTweet: Found Entry %" wxLongLongFmtSpec "d."), t->id);
-				tds->DisplayTweet(redrawimg);
-				(*it)->Thaw();
-				break;
-			}
-		}
-	}
-}
-
-void UpdateUsersTweet(uint64_t userid, bool redrawimg) {
+static void EnumDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush) {
 	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
 		(*it)->Freeze();
+		bool checkupdateflag=false;
+		if(setnoupdateonpush) {
+			checkupdateflag=!((*it)->tppw_flags&TPPWF_NOUPDATEONPUSH);
+			(*it)->tppw_flags|=TPPWF_NOUPDATEONPUSH;
+		}
 		for(auto jt=(*it)->currentdisp.begin(); jt!=(*it)->currentdisp.end(); ++jt) {
-			tweetdispscr &tds=(tweetdispscr &) *(jt->second);
-			bool found=false;
-			if((tds.td->user && tds.td->user->id==userid)
-				|| (tds.td->user_recipient && tds.td->user_recipient->id==userid)) found=true;
-			if(tds.td->rtsrc) {
-				if((tds.td->rtsrc->user && tds.td->rtsrc->user->id==userid)
-					|| (tds.td->rtsrc->user_recipient && tds.td->rtsrc->user_recipient->id==userid)) found=true;
+			tweetdispscr *tds=(tweetdispscr *) jt->second;
+			bool continueflag=func(tds);
+			for(auto kt=tds->subtweets.begin(); kt!=tds->subtweets.end(); ++kt) {
+				if(kt->get()) {
+					func(kt->get());
+				}
 			}
-			if(found) {
-				LogMsgFormat(LFT_TPANEL, wxT("UpdateUsersTweet: Found Entry %" wxLongLongFmtSpec "d."), jt->first);
-				tds.DisplayTweet(redrawimg);
-				break;
-			}
+			if(!continueflag) break;
 		}
 		(*it)->Thaw();
+		if(checkupdateflag) (*it)->CheckClearNoUpdateFlag();
 	}
 }
 
 void UpdateAllTweets(bool redrawimg) {
-	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
-		(*it)->Freeze();
-		bool haveflag=((*it)->tppw_flags&TPPWF_NOUPDATEONPUSH);
-		(*it)->tppw_flags|=TPPWF_NOUPDATEONPUSH;
-		for(auto jt=(*it)->currentdisp.begin(); jt!=(*it)->currentdisp.end(); ++jt) {
-			tweetdispscr *tds=(tweetdispscr *) jt->second;
-			tds->DisplayTweet(redrawimg);
-		}
-		(*it)->Thaw();
-		if(!haveflag) (*it)->CheckClearNoUpdateFlag();
-	}
+	EnumDisplayedTweets([&](tweetdispscr *tds) {
+		tds->DisplayTweet(redrawimg);
+		return true;
+	}, true);
 }
 
+void UpdateUsersTweet(uint64_t userid, bool redrawimg) {
+	EnumDisplayedTweets([&](tweetdispscr *tds) {
+		bool found=false;
+		if((tds->td->user && tds->td->user->id==userid)
+		|| (tds->td->user_recipient && tds->td->user_recipient->id==userid)) found=true;
+		if(tds->td->rtsrc) {
+			if((tds->td->rtsrc->user && tds->td->rtsrc->user->id==userid)
+			|| (tds->td->rtsrc->user_recipient && tds->td->rtsrc->user_recipient->id==userid)) found=true;
+		}
+		if(found) {
+			LogMsgFormat(LFT_TPANEL, wxT("UpdateUsersTweet: Found Entry %" wxLongLongFmtSpec "d."), tds->td->id);
+			tds->DisplayTweet(redrawimg);
+		}
+		return true;
+	}, true);
+}
+
+void UpdateTweet(const tweet &t, bool redrawimg) {
+	EnumDisplayedTweets([&](tweetdispscr *tds) {
+		if(tds->td->id==t.id || tds->rtid==t.id) {	//found matching entry
+			LogMsgFormat(LFT_TPANEL, wxT("UpdateTweet: Found Entry %" wxLongLongFmtSpec "d."), t.id);
+			tds->DisplayTweet(redrawimg);
+			return false;
+		}
+		else return true;
+	}, true);
+}
 
 wxString media_entity::cached_full_filename() const {
 	return wxString::Format(wxT("%s%s%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), wxStandardPaths::Get().GetUserDataDir().c_str(), wxT("/media_"), media_id.m_id, media_id.t_id);
@@ -727,6 +733,8 @@ void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, 
 
 	tweetdispscr *subtd=new tweetdispscr(t, window->scrollwin, window, subhbox);
 
+	tds->subtweets.emplace_front(subtd);
+
 	if(t->rtsrc && gc.rtdisp) {
 		t->rtsrc->user->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
 		subtd->bm = new profimg_staticbitmap(window->scrollwin, t->rtsrc->user->cached_profile_img_half, t->rtsrc->user->id, t->id, window->GetMainframe());
@@ -927,6 +935,42 @@ tweet_perspective *tweet::GetTweetTP(const std::shared_ptr<taccount> &tac) {
 	return 0;
 }
 
+void tweet::UpdateMarkedAsRead(const tpanel *exclude) {
+	if(!flags.Get('r')) {
+		flags.Set('r');
+		UpdateTweet(*this, false);
+	}
+}
+
+void MarkTweetIdAsRead(uint64_t id, const tpanel *exclude) {
+	for(auto it=ad.tpanels.begin(); it!=ad.tpanels.end(); ++it) {
+		if(it->second.get()==exclude) continue;
+
+		tweetidset &unread=(it->second)->unreadtweetids;
+		auto unread_it=unread.find(id);
+		if(unread_it!=unread.end()) {
+			unread.erase(*unread_it);
+			for(auto jt=it->second->twin.begin(); jt!=it->second->twin.end(); ++jt) {
+				(*jt)->tppw_flags|=TPPWF_CLABELUPDATEPENDING;
+			}
+		}
+	}
+	ad.unreadids.erase(id);
+}
+
+void MarkTweetIDSetAsRead(const tweetidset &ids, const tpanel *exclude) {
+	tweetidset cached_ids=ids;
+	for(auto it=cached_ids.begin(); it!=cached_ids.end(); ++it) {
+		MarkTweetIdAsRead(*it, exclude);
+		auto twshpp=ad.GetExistingTweetById(*it);
+		if(twshpp) {
+			(*twshpp)->UpdateMarkedAsRead(exclude);
+		}
+	}
+	dbupdatetweetsetflagsmsg *msg=new dbupdatetweetsetflagsmsg(std::move(cached_ids), tweet_flags::GetFlagValue('r'), 0);
+	dbc.SendMessage(msg);
+}
+
 //the following set of procedures should be kept in sync
 
 //returns true is ready, false is pending
@@ -955,7 +999,7 @@ void taccount::FastMarkPending(const std::shared_ptr<tweet> &t, unsigned int mar
 		if(insertnewrtpo) t->rtsrc->pending_ops.emplace_front(new rt_pending_op(t));
 		t->rtsrc->user->MarkTweetPending(t->rtsrc, checkfirst);
 	}
-	
+
 	if(mark&8) MarkUserPending(t->user);
 	if(mark&16) MarkUserPending(t->user_recipient);
 	if(mark&32) MarkUserPending(t->rtsrc->user);
