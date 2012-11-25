@@ -170,7 +170,7 @@ void taccount::LookupFriendships(uint64_t userid) {
 	if(include.empty()) return;
 
 	auto it=include.begin();
-	std::string idlist="api.twitter.com/1/friendships/lookup.json?user_id=";
+	std::string idlist="api.twitter.com/1.1/friendships/lookup.json?user_id=";
 	while(true) {
 		idlist+=std::to_string((*it));
 		it++;
