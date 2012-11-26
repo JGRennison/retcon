@@ -72,7 +72,7 @@ mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& si
 	auim->AddPane(auib, wxAuiPaneInfo().CentrePane().Resizable());
 
 	tpw=new tweetpostwin(this, this, auim);
-	auim->AddPane(tpw, wxAuiPaneInfo().Bottom().Dockable(false).BottomDockable().TopDockable().Floatable().DockFixed().CloseButton(false).CaptionVisible(false).Gripper());
+	auim->AddPane(tpw, wxAuiPaneInfo().Bottom().Dockable(false).BottomDockable().TopDockable().DockFixed().CloseButton(false).CaptionVisible(false));
 
 	auim->Update();
 
@@ -332,7 +332,8 @@ void tweetpostwin::DoShowHide(bool show) {
 		pauim->AddPane(this, pi);
 		pauim->Update();
 	}
-	else {textctrl->SetCursorToEnd();
+	else {
+		textctrl->SetCursorToEnd();
 		Fit();
 	}
 }

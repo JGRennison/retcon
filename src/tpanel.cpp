@@ -1467,7 +1467,7 @@ bool CondCodeProc(dispscr_base *obj, size_t &i, const wxString &format, wxString
 				}
 			}
 			loopexit:
-			
+
 			tweetdispscr *tds=dynamic_cast<tweetdispscr *>(obj);
 			if(!tds) break;
 
@@ -1768,7 +1768,7 @@ void tweetdispscr::urlhandler(wxString url) {
 			case 'i': {//info
 				tamd.clear();
 				int nextid=tweetactmenustartid;
-				wxMenu menu, rtsubmenu, favsubmenu, copysubmenu;
+				wxMenu menu;
 
 				menu.Append(nextid, wxT("Reply"));
 				AppendToTAMIMenuMap(tamd, nextid, TAMI_REPLY, td);
@@ -1781,9 +1781,21 @@ void tweetdispscr::urlhandler(wxString url) {
 				menu.Append(nextid, wxT("Open in Browser"));
 				AppendToTAMIMenuMap(tamd, nextid, TAMI_BROWSER, td);
 
-				if(td->IsRetweetable()) menu.AppendSubMenu(&rtsubmenu, wxT("Retweet"));
-				if(td->IsFavouritable()) menu.AppendSubMenu(&favsubmenu, wxT("Favourite"));
-				menu.AppendSubMenu(&copysubmenu, wxT("Copy"));
+				if(td->IsRetweetable()) {
+					wxMenu *rtsubmenu = new wxMenu();
+					menu.AppendSubMenu(rtsubmenu, wxT("Retweet"));
+					MakeRetweetMenu(rtsubmenu, tamd, nextid, td);
+				}
+				if(td->IsFavouritable()) {
+					wxMenu *favsubmenu = new wxMenu();
+					menu.AppendSubMenu(favsubmenu, wxT("Favourite"));
+					MakeFavMenu(favsubmenu, tamd, nextid, td);
+				}
+				{
+					wxMenu *copysubmenu = new wxMenu();
+					menu.AppendSubMenu(copysubmenu, wxT("Copy"));
+					MakeCopyMenu(copysubmenu, tamd, nextid, td);
+				}
 
 				bool deletable=false;
 				bool deletable2=false;
@@ -1820,9 +1832,6 @@ void tweetdispscr::urlhandler(wxString url) {
 					AppendToTAMIMenuMap(tamd, nextid, TAMI_DELETE, td, deldbindex2?deldbindex2:deldbindex);
 				}
 
-				MakeRetweetMenu(&rtsubmenu, tamd, nextid, td);
-				MakeFavMenu(&favsubmenu, tamd, nextid, td);
-				MakeCopyMenu(&copysubmenu, tamd, nextid, td);
 				PopupMenu(&menu);
 				break;
 			}

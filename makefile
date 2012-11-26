@@ -13,7 +13,7 @@ TCOBJS_SRC:=libtwitcurl/base64.cpp libtwitcurl/HMAC_SHA1.cpp libtwitcurl/oauthli
 SPOBJS_SRC:=res.cpp version.cpp aboutwin.cpp
 COBJS_SRC:=utf8proc/utf8proc.c
 OUTNAME:=retcon
-CFLAGS=-O3 -Wextra -Wall -Wno-unused-parameter -I$(OBJDIR)/pch
+CFLAGS=-O3 -Wextra -Wall -Wno-unused-parameter -Winvalid-pch -I$(OBJDIR)/pch
 #-Wno-missing-braces -Wno-unused-parameter
 CXXFLAGS=-std=gnu++0x -fno-exceptions
 GCC:=g++
@@ -154,7 +154,7 @@ $(OBJDIR)/pch/retcon.h.gch:
 
 $(ALL_OBJS) src/pch/retcon.h.gch: | $(DIRS)
 
-$(DIRS):  
+$(DIRS):
 	-mkdir $@
 
 HEADERS:=src/retcon.h src/socket.h src/cfg.h src/parse.h src/twit.h src/tpanel.h src/optui.h src/libtwitcurl/twitcurl.h src/db.h src/log.h src/cmdline.h src/userui.h src/mainui.h src/magic_ptr.h src/univdefs.h
