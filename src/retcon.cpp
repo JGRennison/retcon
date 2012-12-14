@@ -525,6 +525,16 @@ std::shared_ptr<userdatacontainer> &alldata::GetUserContainerById(uint64_t id) {
 	return usercont;
 }
 
+std::shared_ptr<userdatacontainer> *alldata::GetExistingUserContainerById(uint64_t id) {
+	auto it=userconts.find(id);
+	if(it!=userconts.end()) {
+		return &(it->second);
+	}
+	else {
+		return 0;
+	}
+}
+
 std::shared_ptr<tweet> &alldata::GetTweetById(uint64_t id, bool *isnew) {
 	std::shared_ptr<tweet> &t=tweetobjs[id];
 	if(isnew) *isnew=(!t);

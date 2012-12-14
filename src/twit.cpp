@@ -559,7 +559,7 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
 		case CS_SINGLETWEET: retry=true; break;
 		default: break;
 	}
-	LogMsgFormat(LFT_SOCKERR, wxT("%s failed"), action.c_str(), acc->dispname.c_str());
+	LogMsgFormat(LFT_SOCKERR, wxT("%s failed (%s)"), action.c_str(), acc->dispname.c_str());
 	if(msgbox) {
 		wxString msg, errtype;
 		if(res==CURLE_OK) errtype.Printf(wxT("HTTP error code: %d"), httpcode);
