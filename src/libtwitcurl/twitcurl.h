@@ -93,7 +93,7 @@ namespace twitterDefaults
     /* Timeline URLs */
     const std::string TWITCURL_HOME_TIMELINE_URL = "api.twitter.com/1.1/statuses/home_timeline";
     const std::string TWITCURL_FEATURED_USERS_URL = "api.twitter.com/1.1/statuses/featured";
-    const std::string TWITCURL_MENTIONS_URL = "api.twitter.com/1.1/statuses/mentions";
+    const std::string TWITCURL_MENTIONS_URL = "api.twitter.com/1.1/statuses/mentions_timeline";
     const std::string TWITCURL_USERTIMELINE_URL = "api.twitter.com/1.1/statuses/user_timeline";
 
     /* Users URLs */
@@ -145,8 +145,8 @@ namespace twitterDefaults
 
     /* Streaming API URLs */
     const std::string TWITCURL_USERSTREAM_URL = "https://userstream.twitter.com/2/user.json";
-    const std::string TWITCURL_PUBLICFILTERSTREAM_URL = "https://stream.twitter.com/1/statuses/filter.json";
-    const std::string TWITCURL_PUBLICSAMPLESTREAM_URL = "https://stream.twitter.com/1/statuses/sample.json";
+    const std::string TWITCURL_PUBLICFILTERSTREAM_URL = "https://stream.twitter.com/1.1/statuses/filter.json";
+    const std::string TWITCURL_PUBLICSAMPLESTREAM_URL = "https://stream.twitter.com/1.1/statuses/sample.json";
 
 };
 
