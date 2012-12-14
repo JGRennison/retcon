@@ -42,6 +42,7 @@ void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, unsigned int umpt_flags
 enum {	//for u_flags
 	UF_ISPROTECTED	= 1<<0,
 	UF_ISVERIFIED	= 1<<1,
+	UF_ISDEAD	= 1<<2,
 };
 
 struct userdata {
@@ -372,6 +373,12 @@ enum {
 	TCF_ISSTREAM		= 1<<0,
 };
 
+struct friendlookup {
+	std::string GetTwitterURL() const;
+	
+	std::set<uint64_t> ids;
+};
+
 struct twitcurlext: public twitCurl, public mcurlconn {
 	std::weak_ptr<taccount> tacc;
 	CS_ENUMTYPE connmode;
@@ -386,6 +393,7 @@ struct twitcurlext: public twitCurl, public mcurlconn {
 	uint64_t extra_id;
 	mainframe *ownermainframe;
 	magic_ptr mp;
+	std::unique_ptr<friendlookup> fl;
 
 	void NotifyDoneSuccess(CURL *easy, CURLcode res);
 	void TwInit(std::shared_ptr<taccount> acc);

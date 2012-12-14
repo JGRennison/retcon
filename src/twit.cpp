@@ -151,6 +151,18 @@ void userlookup::GetIdList(std::string &idlist) const {
 	}
 }
 
+std::string friendlookup::GetTwitterURL() const {
+	auto it=ids.begin();
+	std::string idlist="api.twitter.com/1.1/friendships/lookup.json?user_id=";
+	while(true) {
+		idlist+=std::to_string((*it));
+		it++;
+		if(it==ids.end()) break;
+		idlist+=",";
+	}
+	return idlist;
+}
+
 BEGIN_EVENT_TABLE( twitcurlext, mcurlconn )
 END_EVENT_TABLE()
 
@@ -347,6 +359,7 @@ void twitcurlext::Reset() {
 	ownermainframe=0;
 	extra_id=0;
 	ul.reset();
+	fl.reset();
 	post_action_flags=0;
 }
 
@@ -536,7 +549,41 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
 		case CS_USERTIMELINE: break;
 		case CS_USERFAVS: break;
 		case CS_USERLIST: break;
-		case CS_FRIENDLOOKUP: break;
+		case CS_FRIENDLOOKUP: {
+			if(httpcode==404) {	//we have at least one dead user
+				if(fl->ids.size()==1) {
+					//this is the one
+					std::shared_ptr<userdatacontainer> u=ad.GetUserContainerById(*(fl->ids.begin()));
+					u->GetUser().u_flags|=UF_ISDEAD;
+					LogMsgFormat(LFT_SOCKERR, wxT("Friend lookup failed, bad account: user id: %" wxLongLongFmtSpec "d (%s), (%s)"), u->id, wxstrstd(u->GetUser().screen_name).c_str(), acc->dispname.c_str());
+				}
+				else if(fl->ids.size()>1) {
+					LogMsgFormat(LFT_SOCKERR, wxT("Friend lookup failed, bisecting...  (%s)"), acc->dispname.c_str());
+					
+					twitcurlext *twit=acc->cp.GetConn();
+					twit->TwInit(acc);
+					twit->connmode=CS_FRIENDLOOKUP;
+					twit->fl.reset(new friendlookup);
+					
+					//do the bisection
+					size_t splice_count=fl->ids.size()/2;
+					auto start_it=fl->ids.begin();
+					auto end_it=fl->ids.begin();
+					std::advance(end_it, splice_count);
+					
+					twit->fl->ids.insert(start_it, end_it);
+					fl->ids.erase(start_it, end_it);
+					
+					twit->genurl=twit->fl->GetTwitterURL();
+					twit->QueueAsyncExec();
+					
+					genurl=fl->GetTwitterURL();
+					QueueAsyncExec();
+					return;
+				}
+			}
+			break;
+		}
 		case CS_USERLOOKUPWIN: break;
 		case CS_FRIENDACTION_FOLLOW: msgbox=true; break;
 		case CS_FRIENDACTION_UNFOLLOW: msgbox=true; break;

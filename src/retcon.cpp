@@ -142,45 +142,42 @@ void taccount::SetUserRelationship(uint64_t userid, unsigned int flags, const ti
 }
 
 void taccount::LookupFriendships(uint64_t userid) {
-	std::set<uint64_t> include;
+	std::unique_ptr<friendlookup> fl(new friendlookup);
 	if(userid) {
 		if(user_relations[userid].ur_flags&URF_QUERY_PENDING) return;	//already being looked up, don't repeat query
-		include.insert(userid);
+		fl->ids.insert(userid);
 	}
 
 	bool opportunist=true;
 
 	if(opportunist) {
 		//find out more if users are followed by us or otherwise have a relationship with us
-		for(auto it=user_relations.begin(); it!=user_relations.end() && include.size()<100; ++it) {
+		for(auto it=user_relations.begin(); it!=user_relations.end() && fl->ids.size()<100; ++it) {
 			if(it->second.ur_flags&URF_QUERY_PENDING) continue;
 			if(!(it->second.ur_flags&URF_FOLLOWSME_KNOWN) || !(it->second.ur_flags&URF_FOLLOWSME_KNOWN)) {
-				include.insert(it->first);
-				it->second.ur_flags|=URF_QUERY_PENDING;
+				std::shared_ptr<userdatacontainer> *usp=ad.GetExistingUserContainerById(it->first);
+				if(!(usp && (*usp)->GetUser().u_flags&UF_ISDEAD)) {
+					fl->ids.insert(it->first);
+					it->second.ur_flags|=URF_QUERY_PENDING;
+				}
 			}
 		}
 
 		//fill up the rest of the query with users who we don't know if we have a relationship with
-		for(auto it=ad.userconts.begin(); it!=ad.userconts.end() && include.size()<100; ++it) {
-			if(user_relations.find(it->first)==user_relations.end()) include.insert(it->first);
+		for(auto it=ad.userconts.begin(); it!=ad.userconts.end() && fl->ids.size()<100; ++it) {
+			if(it->second->GetUser().u_flags&UF_ISDEAD) continue;
+			if(user_relations.find(it->first)==user_relations.end()) fl->ids.insert(it->first);
 			user_relations[it->first].ur_flags|=URF_QUERY_PENDING;
 		}
 	}
 
-	if(include.empty()) return;
+	if(fl->ids.empty()) return;
 
-	auto it=include.begin();
-	std::string idlist="api.twitter.com/1.1/friendships/lookup.json?user_id=";
-	while(true) {
-		idlist+=std::to_string((*it));
-		it++;
-		if(it==include.end()) break;
-		idlist+=",";
-	}
 	twitcurlext *twit=cp.GetConn();
 	twit->TwInit(shared_from_this());
 	twit->connmode=CS_FRIENDLOOKUP;
-	twit->genurl=std::move(idlist);
+	twit->fl=std::move(fl);
+	twit->genurl=twit->fl->GetTwitterURL();
 	twit->QueueAsyncExec();
 }
 
