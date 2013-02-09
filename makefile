@@ -67,7 +67,7 @@ endif
 else
 #UNIX
 PLATFORM:=UNIX
-LIBS:=-lpcre -lrt `wx-config --libs` -lcurl -lsqlite3
+LIBS:=-lpcre -lrt `wx-config --libs` -lcurl -lsqlite3 -lz -lcrypto
 MCFLAGS:= `wx-config --cxxflags`
 PACKER:=upx -9
 #HDEPS:=
