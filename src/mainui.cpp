@@ -452,7 +452,11 @@ void tweetpostwin::SetReplyTarget(const std::shared_ptr<tweet> &targ) {
 		}
 		else checktweet=&targ;
 		for(auto it=(*checktweet)->entlist.begin(); it!=(*checktweet)->entlist.end(); ++it) {
-			if(it->type==ENT_MENTION) CheckUserMentioned(changed, it->user, textctrl);
+			if(it->type==ENT_MENTION) {
+				if(! (it->user->udc_flags & UDC_THIS_IS_ACC_USER_HINT)) {
+					CheckUserMentioned(changed, it->user, textctrl);
+				}
+			}
 		}
 	}
 	if(changed) OnTCChange();
