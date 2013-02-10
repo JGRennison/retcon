@@ -175,7 +175,7 @@ endif
 .PHONY: clean mostlyclean quickclean install uninstall all
 
 quickclean:
-	rm -f $(OBJS) $(OBJS:.o=.ii) $(OBJS:.o=.lst) $(OBJS:.o=.s) $(OUTNAME)$(SUFFIX) $(OUTNAME)_debug$(SUFFIX) retcon.h.gch
+	rm -f $(OBJS) $(OBJS:.o=.ii) $(OBJS:.o=.lst) $(OBJS:.o=.s) $(OUTNAME)$(SUFFIX) $(OUTNAME)_debug$(SUFFIX) $(OBJDIR)/pch/retcon.h.gch
 
 mostlyclean: quickclean
 	rm -f $(TCOBJS) $(TCOBJS:.o=.ii) $(TCOBJS:.o=.lst) $(TCOBJS:.o=.s)
