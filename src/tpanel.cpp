@@ -1593,6 +1593,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 			case 'c': {
 				flush();
 				tweet &twgen=(format[i]=='c' && gc.rtdisp)?*(tw.rtsrc):tw;
+				wxString urlcodeprefix=(format[i]=='c' && gc.rtdisp)?wxT("R"):wxT("");
 				unsigned int nextoffset=0;
 				unsigned int entnum=0;
 				int track_byte=0;
@@ -1601,7 +1602,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 					entity &et=*it;
 					DoWriteSubstr(*this, twgen.text, nextoffset, et.start, track_byte, track_index, false);
 					BeginUnderline();
-					BeginURL(wxString::Format(wxT("%d"), entnum));
+					BeginURL(urlcodeprefix + wxString::Format(wxT("%d"), entnum));
 					WriteText(wxstrstd(et.text));
 					nextoffset=et.end;
 					EndURL();
@@ -1838,10 +1839,18 @@ void tweetdispscr::urlhandler(wxString url) {
 		}
 	}
 	else {
+		tweet *targtw;
+		if(url[0] == 'R') {
+			targtw=td->rtsrc.get();
+			url=url.Mid(1);
+		}
+		else {
+			targtw = td.get();
+		}
 		unsigned long counter;
 		url.ToULong(&counter);
-		auto it=td->entlist.begin();
-		while(it!=td->entlist.end()) {
+		auto it=targtw->entlist.begin();
+		while(it!=targtw->entlist.end()) {
 			if(!counter) {
 				//got entity
 				entity &et= *it;
@@ -1926,10 +1935,18 @@ void tweetdispscr::rightclickhandler(wxMouseEvent &event) {
 			return;
 		}
 		else {
+			tweet *targtw;
+			if(url[0] == 'R') {
+				targtw=td->rtsrc.get();
+				url=url.Mid(1);
+			}
+			else {
+				targtw = td.get();
+			}
 			unsigned long counter;
 			url.ToULong(&counter);
-			auto it=td->entlist.begin();
-			while(it!=td->entlist.end()) {
+			auto it=targtw->entlist.begin();
+			while(it!=targtw->entlist.end()) {
 				if(!counter) {
 					//got entity
 					entity &et= *it;
