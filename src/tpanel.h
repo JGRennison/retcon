@@ -395,7 +395,7 @@ struct media_display_win : public wxFrame {
 
 	media_display_win(wxWindow *parent, media_id_type media_id_);
 	~media_display_win();
-	void Update();
+	void UpdateImage();
 	bool GetImage(wxImage &img, wxString &message);
 	media_entity *GetMediaEntity();
 	void OnSave(wxCommandEvent &event);

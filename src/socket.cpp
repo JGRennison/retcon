@@ -200,7 +200,7 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 
 	user->udc_flags&=~UDC_IMAGE_DL_IN_PROGRESS;
 	user->udc_flags&=~UDC_HALF_PROFILE_BITMAP_SET;
-	
+
 	if(url==user->GetUser().profile_img_url) {
 		wxString filename;
 		user->GetImageLocalFilename(filename);
@@ -299,7 +299,7 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 		if(flags&MIDC_FULLIMG) {
 			me.fulldata=std::move(data);
 			me.flags|=ME_HAVE_FULL;
-			if(me.win) me.win->Update();
+			if(me.win) me.win->UpdateImage();
 			if(gc.cachemedia) {
 				wxFile file(me.cached_full_filename(), wxFile::write);
 				file.Write(me.fulldata.data(), me.fulldata.size());

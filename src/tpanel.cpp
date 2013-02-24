@@ -2068,7 +2068,7 @@ image_panel::image_panel(media_display_win *parent, wxSize size) : wxPanel(paren
 
 void image_panel::OnPaint(wxPaintEvent &event) {
 	wxPaintDC dc(this);
-	dc.DrawBitmap(bm, 0, 0, 0);
+	dc.DrawBitmap(bm, (GetSize().GetWidth() - bm.GetWidth())/2, (GetSize().GetHeight() - bm.GetHeight())/2, 0);
 }
 
 void image_panel::OnResize(wxSizeEvent &event) {
@@ -2076,19 +2076,12 @@ void image_panel::OnResize(wxSizeEvent &event) {
 }
 
 void image_panel::UpdateBitmap() {
-	//if(imgok) {
-		bm=wxBitmap(img.Scale(GetSize().GetWidth(), GetSize().GetHeight(), wxIMAGE_QUALITY_HIGH));
-	//}
-	/*else {
-		bm.Create(GetSize().GetWidth(),GetSize().GetHeight());
-		wxMemoryDC mdc(bm);
-		mdc.SetBackground(*wxBLACK_BRUSH);
-		mdc.SetTextForeground(*wxWHITE);
-		mdc.SetTextBackground(*wxBLACK);
-		mdc.Clear();
-		wxSize size=mdc.GetTextExtent(message);
-		mdc.DrawText(message, (GetSize().GetWidth()/2)-(size.GetWidth()/2), (GetSize().GetHeight()/2)-(size.GetHeight()/2));
-	}*/
+	double wratio = ((double) GetSize().GetWidth()) / ((double) img.GetWidth());
+	double hratio = ((double) GetSize().GetHeight()) / ((double) img.GetHeight());
+	double targratio = std::min(wratio, hratio);
+	int targheight = targratio * img.GetHeight();
+	int targwidth = targratio * img.GetWidth();
+	bm=wxBitmap(img.Scale(targwidth, targheight, wxIMAGE_QUALITY_HIGH));
 	Refresh();
 }
 
@@ -2126,7 +2119,7 @@ media_display_win::media_display_win(wxWindow *parent, media_id_type media_id_)
 
 	sz=new wxBoxSizer(wxVERTICAL);
 	SetSizer(sz);
-	Update();
+	UpdateImage();
 	Thaw();
 	Show();
 }
@@ -2136,7 +2129,7 @@ media_display_win::~media_display_win() {
 	if(me) me->win=0;
 }
 
-void media_display_win::Update() {
+void media_display_win::UpdateImage() {
 	wxImage img;
 	wxString message;
 	bool imgok=GetImage(img, message);
@@ -2147,13 +2140,28 @@ void media_display_win::Update() {
 			st->Destroy();
 			st=0;
 		}
-		wxSize size(img.GetWidth(), img.GetHeight());
-		if(!sb) {
-			sb=new image_panel(this, size);
-			sb->img=img;
-			sz->Add(sb, 1, wxSHAPED | wxALIGN_CENTRE);
+		wxSize imgsize(img.GetWidth(), img.GetHeight());
+		wxSize origwinsize = ClientToWindowSize(imgsize);
+		wxSize winsize = origwinsize;
+		int scrwidth, scrheight;
+		wxClientDisplayRect(0, 0, &scrwidth, &scrheight);
+		if(winsize.GetWidth() > scrwidth) {
+			double scale = (((double) scrwidth) / ((double) winsize.GetWidth()));
+			winsize.Scale(scale, scale);
 		}
-		else sb->SetSize(size);
+		if(winsize.GetHeight() > scrheight) {
+			double scale = (((double) scrheight) / ((double) winsize.GetHeight()));
+			winsize.Scale(scale, scale);
+		}
+		wxSize targsize = WindowToClientSize(winsize);
+		//LogMsgFormat(LFT_OTHERTRACE, wxT("Media Display Window: targsize: %d, %d, imgsize: %d, %d, origwinsize: %d, %d, winsize: %d, %d, scr: %d, %d"), targsize.GetWidth(), targsize.GetHeight(), img.GetWidth(), img.GetHeight(), origwinsize.GetWidth(), origwinsize.GetHeight(), winsize.GetWidth(), winsize.GetHeight(), scrwidth, scrheight);
+
+		if(!sb) {
+			sb=new image_panel(this, targsize);
+			sb->img=img;
+			sz->Add(sb, 1, wxEXPAND | wxALIGN_CENTRE);
+		}
+		sb->SetSize(targsize);
 		sb->UpdateBitmap();
 	}
 	else {
