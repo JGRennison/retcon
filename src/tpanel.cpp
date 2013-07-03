@@ -83,8 +83,12 @@ static void PerAccTPanelMenu(wxMenu *menu, tpanelmenudata &map, int &nextid, uns
 	menu->Append(nextid++, wxT("&Mentions"));
 	map[nextid]={dbindex, flagbase|TPF_AUTO_DM};
 	menu->Append(nextid++, wxT("&DMs"));
-	map[nextid]={dbindex, flagbase|TPF_AUTO_TW|TPF_AUTO_DM};
-	menu->Append(nextid++, wxT("Tweets &and DMs"));
+	map[nextid]={dbindex, flagbase|TPF_AUTO_TW|TPF_AUTO_MN};
+	menu->Append(nextid++, wxT("T&weets and Mentions"));
+	map[nextid]={dbindex, flagbase|TPF_AUTO_MN|TPF_AUTO_DM};
+	menu->Append(nextid++, wxT("M&entions and DMs"));
+	map[nextid]={dbindex, flagbase|TPF_AUTO_TW|TPF_AUTO_MN|TPF_AUTO_DM};
+	menu->Append(nextid++, wxT("Tweets, Mentions &and DMs"));
 }
 
 void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map) {
@@ -121,7 +125,9 @@ void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent) {
 		name=wxT("All Accounts");
 		accname=wxT("*");
 	}
-	if(flags&TPF_AUTO_TW && flags&TPF_AUTO_DM) type=wxT("Tweets & DMs");
+	if(flags&TPF_AUTO_TW && flags&TPF_AUTO_MN && flags&TPF_AUTO_DM) type=wxT("All");
+	else if(flags&TPF_AUTO_TW && flags&TPF_AUTO_MN) type=wxT("Tweets & Mentions");
+	else if(flags&TPF_AUTO_MN && flags&TPF_AUTO_DM) type=wxT("Mentions & DMs");
 	else if(flags&TPF_AUTO_TW) type=wxT("Tweets");
 	else if(flags&TPF_AUTO_DM) type=wxT("DMs");
 	else if(flags&TPF_AUTO_MN) type=wxT("Mentions");
