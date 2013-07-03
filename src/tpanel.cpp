@@ -2165,9 +2165,11 @@ void media_display_win::UpdateImage() {
 		if(!sb) {
 			sb=new image_panel(this, targsize);
 			sb->img=img;
+			sb->SetMinSize(wxSize(1, 1));
 			sz->Add(sb, 1, wxEXPAND | wxALIGN_CENTRE);
 		}
 		sb->SetSize(targsize);
+		SetSize(winsize);
 		sb->UpdateBitmap();
 	}
 	else {
@@ -2183,8 +2185,8 @@ void media_display_win::UpdateImage() {
 			sz->SetMinSize(200, 200);
 		}
 		else st->SetLabel(message);
+		sz->Fit(this);
 	}
-	sz->Fit(this);
 }
 
 bool media_display_win::GetImage(wxImage &img, wxString &message) {
