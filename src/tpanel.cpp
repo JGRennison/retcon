@@ -348,6 +348,12 @@ tpanelparentwin *tpanel::MkTPanelWin(mainframe *parent, bool select) {
 	return new tpanelparentwin(shared_from_this(), parent, select);
 }
 
+bool tpanel::IsSingleAccountTPanel() const {
+	if(alist.size() <= 1) return true;
+	if(flags & TPF_AUTO_ACC || flags & TPF_USER_TIMELINE) return true;
+	return false;
+}
+
 enum {
 	NOTEBOOK_ID=42,
 };
@@ -612,6 +618,10 @@ void panelparentwin_base::EndScrollFreeze(tppw_scrollfreeze &s) {
 
 mainframe *panelparentwin_base::GetMainframe() {
 	return GetMainframeAncestor(this);
+}
+
+bool panelparentwin_base::IsSingleAccountWin() const {
+	return alist.size() <= 1;
 }
 
 BEGIN_EVENT_TABLE(tpanelparentwin_nt, panelparentwin_base)
@@ -1361,6 +1371,10 @@ inline void GenFlush(dispscr_base *obj, wxString &str) {
 	}
 }
 
+void GenUserFmt_OffsetDryRun(size_t &i, const wxString &format) {
+	i++;
+}
+
 void GenUserFmt(dispscr_base *obj, userdatacontainer *u, size_t &i, const wxString &format, wxString &str) {
 	i++;
 	if(i>=format.size()) return;
@@ -1677,6 +1691,27 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 					attr.SetURL(url);
 					SetStyleEx(curpos, GetInsertionPoint(), attr, wxRICHTEXT_SETSTYLE_OPTIMIZE);
 				}
+				break;
+			}
+			case 'm': {
+				i++;
+				if(format[i] != '(' || tppw->IsSingleAccountWin()) {
+					SkipOverFalseCond(i, format);
+				}
+				break;
+			}
+			case 'A': {
+				unsigned int ctr = 0;
+				for(auto &it : td->tp_list) {
+					if(it.IsArrivedHere()) {
+						if(ctr) str += wxT(", ");
+						size_t tempi = i;
+						userfmt(it.acc->usercont.get(), tempi);
+						ctr++;
+					}
+				}
+				if(!ctr) str += wxT("[No Account]");
+				GenUserFmt_OffsetDryRun(i, format);
 				break;
 			}
 			default: {

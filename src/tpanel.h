@@ -192,6 +192,7 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	bool RegisterTweet(const std::shared_ptr<tweet> &t);
 	tpanelparentwin *MkTPanelWin(mainframe *parent, bool select=false);
 	void OnTPanelWinClose(tpanelparentwin_nt *tppw);
+	bool IsSingleAccountTPanel() const;
 };
 
 struct tpanelnotebook : public wxAuiNotebook {
@@ -266,6 +267,7 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	void PopBottom();
 	void StartScrollFreeze(tppw_scrollfreeze &s);
 	void EndScrollFreeze(tppw_scrollfreeze &s);
+	virtual bool IsSingleAccountWin() const;
 
 	DECLARE_EVENT_TABLE()
 };
@@ -283,6 +285,7 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	virtual void PageDownHandler();
 	virtual void PageTopHandler();
 	void markallreadevthandler(wxCommandEvent &event);
+	virtual bool IsSingleAccountWin() const { return tp->IsSingleAccountTPanel(); }
 
 	DECLARE_EVENT_TABLE()
 };
@@ -317,7 +320,8 @@ struct tpanelparentwin_usertweets : public tpanelparentwin_nt {
 	virtual void UpdateCLabel();
 	static std::shared_ptr<tpanel> MkUserTweetTPanel(const std::shared_ptr<userdatacontainer> &user, RBFS_TYPE type_=RBFS_USER_TIMELINE);
 	static std::shared_ptr<tpanel> GetUserTweetTPanel(uint64_t userid, RBFS_TYPE type_=RBFS_USER_TIMELINE);
-
+	virtual bool IsSingleAccountWin() const { return true; }
+	
 	DECLARE_EVENT_TABLE()
 };
 
