@@ -55,6 +55,11 @@ struct dbpscache {
 		memset(stmts, 0, sizeof(stmts));
 	}
 	~dbpscache() { DeAllocAll(); }
+	void BeginTransaction(sqlite3 *adb);
+	void EndTransaction(sqlite3 *adb);
+	
+	private:
+	unsigned int transaction_refcount = 0;
 };
 
 struct dbiothread : public wxThread {

@@ -134,6 +134,16 @@ void dbpscache::DeAllocAll() {
 	}
 }
 
+void dbpscache::BeginTransaction(sqlite3 *adb) {
+	if(transaction_refcount == 0) ExecStmt(adb, DBPSC_BEGIN);
+	transaction_refcount++;
+}
+
+void dbpscache::EndTransaction(sqlite3 *adb) {
+	transaction_refcount--;
+	if(transaction_refcount == 0) ExecStmt(adb, DBPSC_COMMIT);
+}
+
 static bool TagToDict(unsigned char tag, const unsigned char *&dict, size_t &dict_size) {
 	switch(tag) {
 		case 'Z': {
@@ -577,6 +587,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 		}
 		case DBSM_UPDATETWEETSETFLAGS: {
 			dbupdatetweetsetflagsmsg *m=(dbupdatetweetsetflagsmsg*) msg;
+			cache.BeginTransaction(db);
 			sqlite3_stmt *stmt=cache.GetStmt(db, DBPSC_UPDATETWEETFLAGSMASKED);
 			for(auto it=m->ids.begin(); it!=m->ids.end(); ++it) {
 				sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->setmask);
@@ -586,17 +597,18 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 				if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_UPDATETWEETSETFLAGS got error: %d (%s) for id: %" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), *it); }
 				sqlite3_reset(stmt);
 			}
+			cache.EndTransaction(db);
 			break;
 		}
 		case DBSM_MSGLIST: {
-			cache.ExecStmt(db, DBPSC_BEGIN);
+			cache.BeginTransaction(db);
 			dbsendmsg_list *m=(dbsendmsg_list*) msg;
 			DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_MSGLIST: queue size: %d"), m->msglist.size());
 			while(!m->msglist.empty()) {
 				ProcessMessage(db, m->msglist.front(), ok, cache);
 				m->msglist.pop();
 			}
-			cache.ExecStmt(db, DBPSC_COMMIT);
+			cache.EndTransaction(db);
 		}
 		default: break;
 	}
@@ -985,6 +997,7 @@ void dbconn::SyncWriteBackUnreadList(sqlite3 *adb) {
 }
 
 void dbconn::AccountIdListsSync(sqlite3 *adb) {
+	cache.BeginTransaction(adb);
 	sqlite3_stmt *setstmt=cache.GetStmt(adb, DBPSC_UPDATEACCIDLISTS);
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
 		size_t size;
@@ -1005,10 +1018,11 @@ void dbconn::AccountIdListsSync(sqlite3 *adb) {
 		else { DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::AccountIdListsSync inserted user dbindex: %d, name: %s"), (*it)->dbindex, (*it)->dispname.c_str()); }
 		sqlite3_reset(setstmt);
 	}
+	cache.EndTransaction(adb);
 }
 
 void dbconn::SyncWriteBackAllUsers(sqlite3 *adb) {
-	cache.ExecStmt(adb, DBPSC_BEGIN);
+	cache.BeginTransaction(adb);
 	//sqlite3_exec(adb, "DELETE FROM users", 0, 0, 0);
 
 	sqlite3_stmt *stmt=cache.GetStmt(adb, DBPSC_INSUSER);
@@ -1030,7 +1044,7 @@ void dbconn::SyncWriteBackAllUsers(sqlite3 *adb) {
 		else { DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncWriteBackAllUsers inserted user id:%" wxLongLongFmtSpec "d"), it->first); }
 		sqlite3_reset(stmt);
 	}
-	cache.ExecStmt(adb, DBPSC_COMMIT);
+	cache.EndTransaction(adb);
 }
 
 void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
@@ -1074,7 +1088,7 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 }
 
 void dbconn::SyncWriteOutRBFSs(sqlite3 *adb) {
-	cache.ExecStmt(adb, DBPSC_BEGIN);
+	cache.BeginTransaction(adb);
 	sqlite3_exec(adb, "DELETE FROM rbfspending", 0, 0, 0);
 	sqlite3_stmt *stmt=cache.GetStmt(adb, DBPSC_INSERTRBFSP);
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
@@ -1097,7 +1111,7 @@ void dbconn::SyncWriteOutRBFSs(sqlite3 *adb) {
 			sqlite3_reset(stmt);
 		}
 	}
-	cache.ExecStmt(adb, DBPSC_COMMIT);
+	cache.EndTransaction(adb);
 }
 
 void dbconn::SyncReadInRBFSs(sqlite3 *adb) {
