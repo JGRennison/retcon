@@ -46,12 +46,14 @@ void HandleNewTweet(const std::shared_ptr<tweet> &t) {
 			if((tp.flags&TPF_AUTO_DM && t->flags.Get('D')) || (tp.flags&TPF_AUTO_TW && t->flags.Get('T'))) {
 				if(tp.flags&TPF_AUTO_ALLACCS) tp.PushTweet(t);
 				else if(tp.flags&TPF_AUTO_ACC) {
-					for(auto jt=t->tp_list.begin(); jt!=t->tp_list.end(); ++jt) {
-						if((*jt).acc.get()==tp.assoc_acc.get() && (*jt).IsArrivedHere()) {
+					bool stop = false;
+					t->IterateTP([&](const tweet_perspective &twp) {
+						if(stop) return;
+						if(twp.acc.get()==tp.assoc_acc.get() && twp.IsArrivedHere()) {
 							tp.PushTweet(t);
-							break;
+							stop = true;
 						}
-					}
+					});
 				}
 			}
 		}
@@ -559,24 +561,24 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
 				}
 				else if(fl->ids.size()>1) {
 					LogMsgFormat(LFT_SOCKERR, wxT("Friend lookup failed, bisecting...  (%s)"), acc->dispname.c_str());
-					
+
 					twitcurlext *twit=acc->cp.GetConn();
 					twit->TwInit(acc);
 					twit->connmode=CS_FRIENDLOOKUP;
 					twit->fl.reset(new friendlookup);
-					
+
 					//do the bisection
 					size_t splice_count=fl->ids.size()/2;
 					auto start_it=fl->ids.begin();
 					auto end_it=fl->ids.begin();
 					std::advance(end_it, splice_count);
-					
+
 					twit->fl->ids.insert(start_it, end_it);
 					fl->ids.erase(start_it, end_it);
-					
+
 					twit->genurl=twit->fl->GetTwitterURL();
 					twit->QueueAsyncExec();
-					
+
 					genurl=fl->GetTwitterURL();
 					QueueAsyncExec();
 					return;
@@ -933,21 +935,26 @@ bool tweet::GetUsableAccount(std::shared_ptr<taccount> &tac, unsigned int guafla
 	if(guaflags&GUAF_CHECKEXISTING) {
 		if(tac && tac->enabled) return true;
 	}
-	for(auto it=tp_list.begin(); it!=tp_list.end(); ++it) {
-		if(it->IsArrivedHere()) {
-			if(it->acc->enabled || (guaflags&GUAF_USERENABLED && it->acc->userenabled)) {
-				tac=it->acc;
-				return true;
+	bool retval = false;
+	IterateTP([&](const tweet_perspective &tp) {
+		if(tp.IsArrivedHere()) {
+			if(tp.acc->enabled || (guaflags&GUAF_USERENABLED && tp.acc->userenabled)) {
+				tac=tp.acc;
+				retval = true;
 			}
 		}
-	}
+	});
+	if(retval) return true;
+
 	//try again, but use any associated account
-	for(auto it=tp_list.begin(); it!=tp_list.end(); ++it) {
-		if(it->acc->enabled || (guaflags&GUAF_USERENABLED && it->acc->userenabled)) {
-			tac=it->acc;
-			return true;
+	IterateTP([&](const tweet_perspective &tp) {
+		if(tp.acc->enabled || (guaflags&GUAF_USERENABLED && tp.acc->userenabled)) {
+			tac=tp.acc;
+			retval = true;
 		}
-	}
+	});
+	if(retval) return true;
+
 	//use the first account which is actually enabled
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
 		if((*it)->enabled || (guaflags&GUAF_USERENABLED && (*it)->userenabled)) {
@@ -962,19 +969,29 @@ bool tweet::GetUsableAccount(std::shared_ptr<taccount> &tac, unsigned int guafla
 }
 
 tweet_perspective *tweet::AddTPToTweet(const std::shared_ptr<taccount> &tac, bool *isnew) {
-	for(auto it=tp_list.begin(); it!=tp_list.end(); it++) {
+	if(! (lflags & TLF_HAVEFIRSTTP)) {
+		first_tp.Reset(tac);
+		if(isnew) *isnew=true;
+		lflags |= TLF_HAVEFIRSTTP;
+		return &first_tp;
+	}
+
+	for(auto it=tp_extra_list.begin(); it!=tp_extra_list.end(); it++) {
 		if(it->acc.get()==tac.get()) {
 			if(isnew) *isnew=false;
 			return &(*it);
 		}
 	}
-	tp_list.emplace_front(tac);
+	tp_extra_list.emplace_back(tac);
 	if(isnew) *isnew=true;
-	return &tp_list.front();
+	return &tp_extra_list.back();
 }
 
 tweet_perspective *tweet::GetTweetTP(const std::shared_ptr<taccount> &tac) {
-	for(auto it=tp_list.begin(); it!=tp_list.end(); it++) {
+	if(lflags & TLF_HAVEFIRSTTP && first_tp.acc.get() == tac.get()) {
+		return &first_tp;
+	}
+	for(auto it=tp_extra_list.begin(); it!=tp_extra_list.end(); it++) {
 		if(it->acc.get()==tac.get()) {
 			return &(*it);
 		}
@@ -1169,14 +1186,14 @@ std::string tweet::mkdynjson() const {
 	jw.StartObject();
 	jw.String("p");
 	jw.StartArray();
-	for(auto it=tp_list.begin(); it!=tp_list.end(); ++it) {
+	IterateTP([&](const tweet_perspective &tp) {
 		jw.StartObject();
 		jw.String("f");
-		jw.Uint(it->Save());
+		jw.Uint(tp.Save());
 		jw.String("a");
-		jw.Uint(it->acc->dbindex);
+		jw.Uint(tp.acc->dbindex);
 		jw.EndObject();
-	}
+	});
 	jw.EndArray();
 	jw.EndObject();
 	return json;

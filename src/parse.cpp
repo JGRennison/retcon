@@ -138,24 +138,34 @@ static bool ReadEntityIndices(entity &en, const rapidjson::Value& val) {
 
 void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shared_ptr<tweet> &t, bool isnew, dbsendmsg_list *dbmsglist) {
 	LogMsg(LFT_PARSE, wxT("jsonparser::DoEntitiesParse"));
-
+	
 	auto &hashtags=val["hashtags"];
+	auto &urls=val["urls"];
+	auto &user_mentions=val["user_mentions"];
+	auto &media=val["media"];
+	
+	unsigned int entity_count = 0;
+	if(hashtags.IsArray()) entity_count += hashtags.Size();
+	if(urls.IsArray()) entity_count += urls.Size();
+	if(user_mentions.IsArray()) entity_count += user_mentions.Size();
+	if(media.IsArray()) entity_count += media.Size();
+	t->entlist.reserve(entity_count);
+
 	if(hashtags.IsArray()) {
 		for(rapidjson::SizeType i = 0; i < hashtags.Size(); i++) {
-			t->entlist.emplace_front(ENT_HASHTAG);
-			entity *en = &t->entlist.front();
-			if(!ReadEntityIndices(*en, hashtags[i])) { t->entlist.pop_front(); continue; }
-			if(!CheckTransJsonValueDef(en->text, hashtags[i], "text", "")) { t->entlist.pop_front(); continue; }
+			t->entlist.emplace_back(ENT_HASHTAG);
+			entity *en = &t->entlist.back();
+			if(!ReadEntityIndices(*en, hashtags[i])) { t->entlist.pop_back(); continue; }
+			if(!CheckTransJsonValueDef(en->text, hashtags[i], "text", "")) { t->entlist.pop_back(); continue; }
 			en->text="#"+en->text;
 		}
 	}
 
-	auto &urls=val["urls"];
 	if(urls.IsArray()) {
 		for(rapidjson::SizeType i = 0; i < urls.Size(); i++) {
-			t->entlist.emplace_front(ENT_URL);
-			entity *en = &t->entlist.front();
-			if(!ReadEntityIndices(*en, urls[i])) { t->entlist.pop_front(); continue; }
+			t->entlist.emplace_back(ENT_URL);
+			entity *en = &t->entlist.back();
+			if(!ReadEntityIndices(*en, urls[i])) { t->entlist.pop_back(); continue; }
 			CheckTransJsonValueDef(en->text, urls[i], "display_url", t->text.substr(en->start, en->end-en->start));
 			CheckTransJsonValueDef(en->fullurl, urls[i], "expanded_url", en->text);
 
@@ -203,15 +213,14 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 	}
 
 	t->flags.Set('M', false);
-	auto &user_mentions=val["user_mentions"];
 	if(user_mentions.IsArray()) {
 		for(rapidjson::SizeType i = 0; i < user_mentions.Size(); i++) {
-			t->entlist.emplace_front(ENT_MENTION);
-			entity *en = &t->entlist.front();
-			if(!ReadEntityIndices(*en, user_mentions[i])) { t->entlist.pop_front(); continue; }
+			t->entlist.emplace_back(ENT_MENTION);
+			entity *en = &t->entlist.back();
+			if(!ReadEntityIndices(*en, user_mentions[i])) { t->entlist.pop_back(); continue; }
 			uint64_t userid;
-			if(!CheckTransJsonValueDef(userid, user_mentions[i], "id", 0)) { t->entlist.pop_front(); continue; }
-			if(!CheckTransJsonValueDef(en->text, user_mentions[i], "screen_name", "")) { t->entlist.pop_front(); continue; }
+			if(!CheckTransJsonValueDef(userid, user_mentions[i], "id", 0)) { t->entlist.pop_back(); continue; }
+			if(!CheckTransJsonValueDef(en->text, user_mentions[i], "screen_name", "")) { t->entlist.pop_back(); continue; }
 			en->user=ad.GetUserContainerById(userid);
 			if(en->user->GetUser().screen_name.empty()) en->user->GetUser().screen_name=en->text;
 			en->text="@"+en->text;
@@ -222,16 +231,16 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 			}
 		}
 	}
-	auto &media=val["media"];
+
 	if(media.IsArray()) {
 		for(rapidjson::SizeType i = 0; i < media.Size(); i++) {
 			t->flags.Set('I');
-			t->entlist.emplace_front(ENT_MEDIA);
-			entity *en = &t->entlist.front();
-			if(!ReadEntityIndices(*en, media[i])) { t->entlist.pop_front(); continue; }
+			t->entlist.emplace_back(ENT_MEDIA);
+			entity *en = &t->entlist.back();
+			if(!ReadEntityIndices(*en, media[i])) { t->entlist.pop_back(); continue; }
 			CheckTransJsonValueDef(en->text, media[i], "display_url", t->text.substr(en->start, en->end-en->start));
 			CheckTransJsonValueDef(en->fullurl, media[i], "expanded_url", en->text);
-			if(!CheckTransJsonValueDef(en->media_id.m_id, media[i], "id", 0)) { t->entlist.pop_front(); continue; }
+			if(!CheckTransJsonValueDef(en->media_id.m_id, media[i], "id", 0)) { t->entlist.pop_back(); continue; }
 			en->media_id.t_id=0;
 			//auto pair = ad.media_list.emplace(en->media_id);	//emplace is not yet implemented in libstdc
 			//if(pair.second) { //new element inserted
@@ -275,7 +284,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 		}
 	}
 
-	t->entlist.sort([](entity &a, entity &b){ return a.start<b.start; });
+	std::sort(t->entlist.begin(), t->entlist.end(), [](const entity &a, const entity &b){ return a.start<b.start; });
 	for(auto src_it=t->entlist.begin(); src_it!=t->entlist.end(); src_it++) {
 		LogMsgFormat(LFT_PARSE, wxT("Tweet %" wxLongLongFmtSpec "d, have entity from %d to %d: %s"), t->id, src_it->start,
 			src_it->end, wxstrstd(src_it->text).c_str());
@@ -711,7 +720,7 @@ void tweet::Dump() const {
 		"source: %s\ntext: %s\ncreated_at: %s"),
 		id, in_reply_to_status_id, retweet_count, wxstrstd(source).c_str(),
 		wxstrstd(text).c_str(), wxstrstd(ctime(&createtime)).c_str());
-	for(auto it=tp_list.begin(); it!=tp_list.end(); it++) {
-		LogMsgFormat(LFT_PARSE, wxT("Perspectival attributes: %s\nretweeted: %d\nfavourited: %d"), it->acc->dispname.c_str(), it->IsRetweeted(), it->IsFavourited());
-	}
+	IterateTP([&](const tweet_perspective &tp) {
+		LogMsgFormat(LFT_PARSE, wxT("Perspectival attributes: %s\nretweeted: %d\nfavourited: %d"), tp.acc->dispname.c_str(), tp.IsRetweeted(), tp.IsFavourited());
+	});
 }

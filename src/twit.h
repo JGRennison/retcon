@@ -142,6 +142,8 @@ struct tweet_perspective {
 	};
 
 	tweet_perspective(const std::shared_ptr<taccount> &tac) : acc(tac), flags(0) { }
+	tweet_perspective() : flags(0) { }
+	void Reset(const std::shared_ptr<taccount> &tac) { acc = tac; }
 	void Load(unsigned int fl) { flags=fl; }
 	unsigned int Save() const { return flags; }
 
@@ -168,6 +170,7 @@ enum {	//for tweet.lflags
 	TLF_PENDINGHANDLENEW	= 1<<2,
 	TLF_SAVED_IN_DB		= 1<<3,
 	TLF_BEINGLOADEDOVERNET	= 1<<4,
+	TLF_HAVEFIRSTTP		= 1<<5,
 };
 
 enum {	//for tweet.updcf_flags
@@ -230,8 +233,9 @@ struct tweet {
 	time_t createtime;
 	std::shared_ptr<userdatacontainer> user;		//for DMs this is the sender
 	std::shared_ptr<userdatacontainer> user_recipient;	//for DMs this is the recipient, for tweets, unset
-	std::forward_list<entity> entlist;
-	std::forward_list<tweet_perspective> tp_list;
+	std::vector<entity> entlist;
+	tweet_perspective first_tp;
+	std::vector<tweet_perspective> tp_extra_list;
 	std::shared_ptr<tweet> rtsrc;				//for retweets, this is the source tweet
 	unsigned int updcf_flags;
 	std::forward_list<std::unique_ptr<pending_op> > pending_ops;
@@ -250,6 +254,14 @@ struct tweet {
 	bool IsRetweetable() const;
 	std::string GetPermalink() const;
 	void UpdateMarkedAsRead(const tpanel *exclude=0);
+	inline void IterateTP(std::function<void(const tweet_perspective &)> f) const {
+		if(lflags & TLF_HAVEFIRSTTP) f(first_tp);
+		for(auto &it : tp_extra_list) f(it);
+	}
+	inline void IterateTP(std::function<void(tweet_perspective &)> f) {
+		if(lflags & TLF_HAVEFIRSTTP) f(first_tp);
+		for(auto &it : tp_extra_list) f(it);
+	}
 };
 
 typedef enum {

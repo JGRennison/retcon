@@ -1648,12 +1648,11 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 					case 'f': {
 						if(tw.IsFavouritable()) {
 							wxImage *icon=&tppw->tpg->favicon_img;
-							for(auto it=tw.tp_list.begin(); it!=tw.tp_list.end(); ++it) {
-								if(it->IsFavourited()) {
+							tw.IterateTP([&](const tweet_perspective &tp) {
+								if(tp.IsFavourited()) {
 									icon=&tppw->tpg->favonicon_img;
-									break;
 								}
-							}
+							});
 							WriteImage(*icon);
 							imginserted=true;
 						}
@@ -1671,12 +1670,11 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 					case 't': {
 						if(tw.IsRetweetable()) {
 							wxImage *icon=&tppw->tpg->retweeticon_img;
-							for(auto it=tw.tp_list.begin(); it!=tw.tp_list.end(); ++it) {
-								if(it->IsRetweeted()) {
+							tw.IterateTP([&](const tweet_perspective &tp) {
+								if(tp.IsRetweeted()) {
 									icon=&tppw->tpg->retweetonicon_img;
-									break;
 								}
-							}
+							});
 							WriteImage(*icon);
 							imginserted=true;
 						}
@@ -1702,14 +1700,14 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 			}
 			case 'A': {
 				unsigned int ctr = 0;
-				for(auto &it : td->tp_list) {
-					if(it.IsArrivedHere()) {
+				td->IterateTP([&](const tweet_perspective &tp) {
+					if(tp.IsArrivedHere()) {
 						if(ctr) str += wxT(", ");
 						size_t tempi = i;
-						userfmt(it.acc->usercont.get(), tempi);
+						userfmt(tp.acc->usercont.get(), tempi);
 						ctr++;
 					}
-				}
+				});
 				if(!ctr) str += wxT("[No Account]");
 				GenUserFmt_OffsetDryRun(i, format);
 				break;
