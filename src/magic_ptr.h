@@ -21,7 +21,7 @@
 //  2012 - j.g.rennison@gmail.com
 //==========================================================================
 
-#include <set>
+#include <vector>
 
 struct magic_ptr_base;
 struct magic_ptr;
