@@ -90,7 +90,6 @@ struct tweetpostwin : public wxPanel {
 	wxButton *sendbtn;
 	wxAuiManager *pauim;
 	wxStaticText *infost;
-	wxStaticText *statusst;
 	bool isgoodacc;
 	bool isshown;
 	wxBoxSizer *vbox;

@@ -522,3 +522,14 @@ void acc_choice::UpdateSel() {
 	}
 	if(fnptr) (*fnptr)(fnextra, this, havegoodacc);
 }
+
+void acc_choice::TrySetSel(const taccount *tac) {
+	for(unsigned int i = 0; i < GetCount(); i++) {
+		if(GetClientData(i) == tac) {
+			if(i != GetSelection()) {
+				SetSelection(i);
+				UpdateSel();
+			}
+		}
+	}
+}

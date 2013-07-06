@@ -242,8 +242,7 @@ tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *p
 	current_length(0), length_oob(false) {
 
 	vbox = new wxBoxSizer(wxVERTICAL);
-	infost=new wxStaticText(this, wxID_ANY, wxT("0/140"), wxPoint(-1000, -1000));
-	statusst=new wxStaticText(this, wxID_ANY, wxT(""), wxPoint(-1000, -1000));
+	infost=new wxStaticText(this, wxID_ANY, wxT("0/140"), wxPoint(-1000, -1000), wxDefaultSize, wxALIGN_RIGHT);
 	replydesc=new wxStaticText(this, wxID_ANY, wxT(""), wxPoint(-1000, -1000), wxDefaultSize, wxST_NO_AUTORESIZE);
 	replydesclosebtn=new wxBitmapButton(this, TPWID_CLOSEREPDESC, tpanelglobal::Get()->closeicon, wxPoint(-1000, -1000));
 	wxBoxSizer *replydescbox= new wxBoxSizer(wxHORIZONTAL);
@@ -262,7 +261,6 @@ tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *p
 	accc=new acc_choice(this, curacc, 0, wxID_ANY, &tpw_acc_callback, this);
 	hbox->Add(accc, 0, wxALL, 2);
 	hbox->AddStretchSpacer();
-	hbox->Add(statusst, 0, wxALL, 2);
 	hbox->Add(infost, 0, wxALL, 2);
 	hbox->Add(sendbtn, 0, wxALL, 2);
 
@@ -320,7 +318,6 @@ void tweetpostwin::DoShowHide(bool show) {
 	accc->Show(show);
 	sendbtn->Show(show);
 	infost->Show(show);
-	statusst->Show(show);
 	if(pauim) {
 		wxAuiPaneInfo pi=pauim->GetPane(this);
 		pauim->DetachPane(this);
@@ -381,10 +378,10 @@ void tweetpostwin::OnTCChange() {
 			length_oob=false;
 		}
 	}
-	infost->SetLabel(wxString::Format(wxT("%d/140"), current_length));
-	statusst->SetLabel(currently_posting?wxT("Posting"):wxT(""));
+	infost->SetLabel(wxString::Format(wxT("%s%d/140"), currently_posting?wxT("Posting - "):wxT(""),current_length));
 	CheckEnableSendBtn();
 	textctrl->Enable(!currently_posting);
+
 }
 
 void tweetpostwin::UpdateAccount() {
@@ -401,7 +398,12 @@ void tweetpostwin::resizemsghandler(wxCommandEvent &event) {
 }
 
 void tweetpostwin::NotifyPostResult(bool success) {
-	if(success) textctrl->Clear();
+	if(success) {
+		textctrl->Clear();
+		tweet_reply_targ.reset();
+		dm_targ.reset();
+		UpdateReplyDesc();
+	}
 	currently_posting=false;
 	OnTCChange();
 }
@@ -457,6 +459,22 @@ void tweetpostwin::SetReplyTarget(const std::shared_ptr<tweet> &targ) {
 					CheckUserMentioned(changed, it->user, textctrl);
 				}
 			}
+		}
+		unsigned int best_score = 0;
+		const taccount *best = 0;
+		targ->IterateTP([&](const tweet_perspective &tp) {
+			if(tp.IsArrivedHere()) {
+				unsigned int score = 1;
+				if(tp.acc->enabled) score += 2;
+				if(tp.acc.get() == accc->curacc.get()) score += 1;
+				if(score > best_score) {
+					best = tp.acc.get();
+					best_score = score;
+				}
+			}
+		});
+		if(best && accc->curacc.get() != best) {
+			accc->TrySetSel(best);
 		}
 	}
 	if(changed) OnTCChange();

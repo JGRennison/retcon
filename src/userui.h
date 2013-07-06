@@ -129,6 +129,7 @@ struct acc_choice: public wxChoice {
 	void UpdateSel();
 	void OnSelChange(wxCommandEvent &event);
 	void fill_acc();
+	void TrySetSel(const taccount *tac);
 
 	DECLARE_EVENT_TABLE()
 };
