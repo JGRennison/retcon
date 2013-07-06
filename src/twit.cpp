@@ -781,6 +781,7 @@ void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, 
 	vbox->Add(subhbox, 0, wxALL | wxEXPAND, 1);
 
 	tweetdispscr *subtd=new tweetdispscr(t, window->scrollwin, window, subhbox);
+	subtd->tds_flags |= TDSF_SUBTWEET;
 
 	tds->subtweets.emplace_front(subtd);
 

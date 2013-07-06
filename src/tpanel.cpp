@@ -1698,7 +1698,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 			}
 			case 'm': {
 				i++;
-				if(format[i] != '(' || tppw->IsSingleAccountWin()) {
+				if(format[i] != '(' || tppw->IsSingleAccountWin() || tds_flags & TDSF_SUBTWEET) {
 					SkipOverFalseCond(i, format);
 				}
 				break;

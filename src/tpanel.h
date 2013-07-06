@@ -125,6 +125,10 @@ struct dispscr_base : public wxRichTextCtrl, public magic_ptr_base {
 	DECLARE_EVENT_TABLE()
 };
 
+enum {	//for tweetdispscr.tds_flags
+	TDSF_SUBTWEET	= 1<<0,
+};
+
 struct tweetdispscr : public dispscr_base {
 	std::shared_ptr<tweet> td;
 	profimg_staticbitmap *bm;
@@ -133,6 +137,7 @@ struct tweetdispscr : public dispscr_base {
 	long reltimestart;
 	long reltimeend;
 	uint64_t rtid;
+	unsigned int tds_flags = 0;
 	std::forward_list<magic_ptr_ts<tweetdispscr> > subtweets;
 
 	tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_);
@@ -321,7 +326,7 @@ struct tpanelparentwin_usertweets : public tpanelparentwin_nt {
 	static std::shared_ptr<tpanel> MkUserTweetTPanel(const std::shared_ptr<userdatacontainer> &user, RBFS_TYPE type_=RBFS_USER_TIMELINE);
 	static std::shared_ptr<tpanel> GetUserTweetTPanel(uint64_t userid, RBFS_TYPE type_=RBFS_USER_TIMELINE);
 	virtual bool IsSingleAccountWin() const { return true; }
-	
+
 	DECLARE_EVENT_TABLE()
 };
 
