@@ -729,6 +729,11 @@ tweetdispscr *tpanelparentwin_nt::PushTweetIndex(const std::shared_ptr<tweet> &t
 
 	if(t->in_reply_to_status_id) {
 		std::shared_ptr<tweet> subt=ad.GetTweetById(t->in_reply_to_status_id);
+
+		if(t->IsArrivedHereAnyPerspective()) {	//save
+			subt->lflags |= TLF_SHOULDSAVEINDB;
+		}
+
 		std::shared_ptr<taccount> pacc;
 		t->GetUsableAccount(pacc, GUAF_NOERR) || t->GetUsableAccount(pacc, GUAF_NOERR|GUAF_USERENABLED);
 		subt->pending_ops.emplace_front(new tpanel_subtweet_pending_op(vbox, this, td));

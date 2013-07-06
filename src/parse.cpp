@@ -88,14 +88,14 @@ void DisplayParseErrorMsg(rapidjson::Document &dc, const wxString &name, const c
 }
 
 //if jw, caller should already have called jw->StartObject(), etc
-void genjsonparser::ParseTweetStatics(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj, Handler *jw, bool isnew, dbsendmsg_list *dbmsglist) {
+void genjsonparser::ParseTweetStatics(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj, Handler *jw, bool isnew, dbsendmsg_list *dbmsglist, bool parse_entities) {
 	CheckTransJsonValueDef(tobj->in_reply_to_status_id, val, "in_reply_to_status_id", 0, jw);
 	CheckTransJsonValueDef(tobj->retweet_count, val, "retweet_count", 0, jw);
 	CheckTransJsonValueDef(tobj->source, val, "source", "", jw);
 	CheckTransJsonValueDef(tobj->text, val, "text", "", jw);
 	const rapidjson::Value &entv=val["entities"];
 	if(entv.IsObject()) {
-		DoEntitiesParse(entv, tobj, isnew, dbmsglist);
+		if(parse_entities) DoEntitiesParse(entv, tobj, isnew, dbmsglist);
 		if(jw) {
 			jw->String("entities");
 			entv.Accept(*jw);
@@ -138,12 +138,12 @@ static bool ReadEntityIndices(entity &en, const rapidjson::Value& val) {
 
 void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shared_ptr<tweet> &t, bool isnew, dbsendmsg_list *dbmsglist) {
 	LogMsg(LFT_PARSE, wxT("jsonparser::DoEntitiesParse"));
-	
+
 	auto &hashtags=val["hashtags"];
 	auto &urls=val["urls"];
 	auto &user_mentions=val["user_mentions"];
 	auto &media=val["media"];
-	
+
 	unsigned int entity_count = 0;
 	if(hashtags.IsArray()) entity_count += hashtags.Size();
 	if(urls.IsArray()) entity_count += urls.Size();
@@ -449,7 +449,9 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			else if(ival.IsNumber() && tval.IsString() && dc["user"].IsObject()) {	//assume that this is a tweet
 				DoTweetParse(dc);
 			}
-			//else do nothing
+			else {
+				LogMsgFormat(LFT_PARSEERR, wxT("Stream Event Parser: Can't identify event: %s"), wxstrstd(str, len).c_str());
+			}
 			break;
 		}
 		case CS_FRIENDLOOKUP:
@@ -577,8 +579,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 	uint64_t tweetid;
 	if(!CheckTransJsonValueDef(tweetid, val, "id", 0, 0)) return std::make_shared<tweet>();
 
-	bool is_new_tweet;
-	std::shared_ptr<tweet> &tobj=ad.GetTweetById(tweetid, &is_new_tweet);
+	std::shared_ptr<tweet> &tobj=ad.GetTweetById(tweetid);
 
 	if(sflags&JDTP_ISDM) tobj->flags.Set('D');
 	else tobj->flags.Set('T');
@@ -595,11 +596,12 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 	if(sflags&JDTP_UNFAV) tp->SetFavourited(false);
 
 	std::string json;
-	if(is_new_tweet) {
+	if(tobj->createtime == 0) {	// this is a better test than merely whether the tweet object is new
 		writestream wr(json);
 		Handler jw(wr);
 		jw.StartObject();
 		ParseTweetStatics(val, tobj, &jw, true, dbmsglist);
+		jw.EndObject();
 		std::string created_at;
 		if(CheckTransJsonValueDef(created_at, val, "created_at", "", 0)) {
 			ParseTwitterDate(0, &tobj->createtime, created_at);
@@ -608,7 +610,6 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 			//tobj->createtime.SetToCurrent();
 			tobj->createtime=time(0);
 		}
-		jw.EndObject();
 		auto &rtval=val["retweeted_status"];
 		if(rtval.IsObject()) {
 			tobj->rtsrc=DoTweetParse(rtval, sflags|JDTP_ISRTSRC);
@@ -663,19 +664,12 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 
 	if(currentlogflags&LFT_PARSE) tobj->Dump();
 
+	if(tobj->lflags&TLF_SHOULDSAVEINDB) tobj->flags.Set('B');
+
 	if(sflags&JDTP_CHECKPENDINGONLY) {
 		tac->CheckMarkPending(tobj, true);
 	}
-	else {
-		if(has_just_arrived && !(sflags&JDTP_ISRTSRC) && !(sflags&JDTP_USERTIMELINE)) {
-			if(!tobj->flags.Get('r')) {
-				ad.unreadids.insert(tobj->id);
-			}
-			tac->MarkPendingOrHandle(tobj);
-		}
-	}
-
-	if(sflags&JDTP_USERTIMELINE) {
+	else if(sflags&JDTP_USERTIMELINE) {
 		if(twit && twit->rbfs && !(sflags&JDTP_ISRTSRC)) {
 			std::shared_ptr<tpanel> tp=tpanelparentwin_usertweets::GetUserTweetTPanel(twit->rbfs->userid, twit->rbfs->type);
 			if(tp) {
@@ -685,7 +679,26 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 		}
 	}
 	else {
+		tobj->lflags |= TLF_SHOULDSAVEINDB;
+		tobj->flags.Set('B');
+		if(has_just_arrived && !(sflags&JDTP_ISRTSRC) && !(sflags&JDTP_USERTIMELINE)) {
+			if(!tobj->flags.Get('r')) {
+				ad.unreadids.insert(tobj->id);
+			}
+			tac->MarkPendingOrHandle(tobj);
+		}
+	}
+
+
+	if(tobj->lflags&TLF_SHOULDSAVEINDB || tobj->lflags&TLF_SAVED_IN_DB) {
 		if(!(tobj->lflags&TLF_SAVED_IN_DB)) {
+			if(json.empty()) {
+				writestream wr(json);
+				Handler jw(wr);
+				jw.StartObject();
+				ParseTweetStatics(val, tobj, &jw, false, 0, false);
+				jw.EndObject();
+			}
 			dbc.InsertNewTweet(tobj, std::move(json), dbmsglist);
 			tobj->lflags|=TLF_SAVED_IN_DB;
 		}

@@ -171,6 +171,7 @@ enum {	//for tweet.lflags
 	TLF_SAVED_IN_DB		= 1<<3,
 	TLF_BEINGLOADEDOVERNET	= 1<<4,
 	TLF_HAVEFIRSTTP		= 1<<5,
+	TLF_SHOULDSAVEINDB	= 1<<6,
 };
 
 enum {	//for tweet.updcf_flags
@@ -252,6 +253,7 @@ struct tweet {
 	bool IsReady();
 	bool IsFavouritable() const;
 	bool IsRetweetable() const;
+	bool IsArrivedHereAnyPerspective() const;
 	std::string GetPermalink() const;
 	void UpdateMarkedAsRead(const tpanel *exclude=0);
 	inline void IterateTP(std::function<void(const tweet_perspective &)> f) const {
@@ -387,7 +389,7 @@ enum {
 
 struct friendlookup {
 	std::string GetTwitterURL() const;
-	
+
 	std::set<uint64_t> ids;
 };
 

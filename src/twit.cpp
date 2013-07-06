@@ -1217,6 +1217,14 @@ bool tweet::IsRetweetable() const {
 	return (flags.Get('T') && (rtsrc || !(user->GetUser().u_flags&UF_ISPROTECTED)));
 }
 
+bool tweet::IsArrivedHereAnyPerspective() const {
+	bool res = false;
+	IterateTP([&](const tweet_perspective &tp) {
+		if(tp.IsArrivedHere()) res = true;
+	});
+	return res;
+}
+
 void StreamCallback( std::string &data, twitCurl* pTwitCurlObj, void *userdata ) {
 	twitcurlext *obj=(twitcurlext*) pTwitCurlObj;
 	std::shared_ptr<taccount> acc=obj->tacc.lock();

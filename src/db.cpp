@@ -434,7 +434,7 @@ static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetm
 			free(mediaidarray);
 		}
 	}
-	else { DBLogMsgFormat((m->flags&DBSTMF_NO_ERR)?LFT_DBTRACE:LFT_DBERR, wxT("DBSM_SELTWEET got error: %d (%s) for id: %" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) id); }
+	else { DBLogMsgFormat((m->flags&DBSTMF_NO_ERR)?LFT_DBTRACE:LFT_DBERR, wxT("DBSM_SELTWEET got error: %d (%s) for id: %" wxLongLongFmtSpec "d, net fallback flag: %d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) id, (m->flags&DBSTMF_NET_FALLBACK)?1:0); }
 	sqlite3_reset(stmt);
 	if(rtid) {
 		ProcessMessage_SelTweet(db, stmt, m, recv_data, media_ids, rtid);
@@ -510,11 +510,13 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 						}
 						else memset(md.thumb_img_sha1, 0, sizeof(md.thumb_img_sha1));
 					}
-					else { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_SELTWEET (media load) got error: %d (%s) for id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) it->m_id, (sqlite3_int64) it->t_id); }
+					else {
+						DBLogMsgFormat(LFT_DBERR, wxT("DBSM_SELTWEET (media load) got error: %d (%s) for id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, net fallback flag: %d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) it->m_id, (sqlite3_int64) it->t_id, (m->flags&DBSTMF_NET_FALLBACK)?1:0);
+					}
 					sqlite3_reset(mstmt);
 				}
 			}
-			if(!recv_data.empty()) {
+			if(!recv_data.empty() || m->flags&DBSTMF_NET_FALLBACK) {
 				m->data=std::move(recv_data);
 				m->SendReply(m);
 				return;
@@ -683,13 +685,15 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 				if(t->GetUsableAccount(curacc, GUAF_CHECKEXISTING)) {
 					t->lflags&=~TLF_BEINGLOADEDFROMDB;
 					t->lflags|=TLF_BEINGLOADEDOVERNET;
-					twitcurlext *twit=acc->cp.GetConn();
-					twit->TwInit(acc);
+					twitcurlext *twit=curacc->cp.GetConn();
+					twit->TwInit(curacc);
 					twit->connmode=CS_SINGLETWEET;
 					twit->extra_id=t->id;
-					twit->extra_id=*it;
 					twit->QueueAsyncExec();
+
+					DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::OnTpanelTweetLoadFromDB falling back to network for tweet: id: %" wxLongLongFmtSpec "d, account: %s."), t->id, curacc->dispname.c_str());
 				}
+				else DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::OnTpanelTweetLoadFromDB could not fall back to network for tweet: id:%" wxLongLongFmtSpec "d, no usable account."), t->id);
 			}
 		}
 	}
@@ -984,10 +988,10 @@ void dbconn::SyncReadInUnreadList(sqlite3 *adb) {
 
 void dbconn::SyncWriteBackUnreadList(sqlite3 *adb) {
 	const char setunreadlist[]="INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', 'unreadids', ?);";
-	
+
 	sqlite3_stmt *setstmt=0;
 	sqlite3_prepare_v2(adb, setunreadlist, sizeof(setunreadlist)+1, &setstmt, 0);
-	
+
 	size_t unreadindex_size;
 	unsigned char *unreadindex=settocompressedblob(ad.unreadids, unreadindex_size);
 	sqlite3_bind_blob(setstmt, 1, unreadindex, unreadindex_size, &free);
