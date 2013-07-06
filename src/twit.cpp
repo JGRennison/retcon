@@ -975,6 +975,10 @@ tweet_perspective *tweet::AddTPToTweet(const std::shared_ptr<taccount> &tac, boo
 		lflags |= TLF_HAVEFIRSTTP;
 		return &first_tp;
 	}
+	else if(first_tp.acc.get()==tac.get()) {
+		if(isnew) *isnew=false;
+		return &first_tp;
+	}
 
 	for(auto it=tp_extra_list.begin(); it!=tp_extra_list.end(); it++) {
 		if(it->acc.get()==tac.get()) {
