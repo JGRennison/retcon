@@ -590,6 +590,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 	bool is_new_tweet_perspective=!tp->IsReceivedHere();
 	bool has_just_arrived=!tp->IsArrivedHere();
 	if(!(sflags&JDTP_USERTIMELINE) && !(sflags&JDTP_CHECKPENDINGONLY)) tp->SetArrivedHere(true);
+	else has_just_arrived = false;
 	tp->SetReceivedHere(true);
 	ParsePerspectivalTweetProps(val, tp, 0);
 	if(sflags&JDTP_FAV) tp->SetFavourited(true);

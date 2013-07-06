@@ -60,38 +60,21 @@ void HandleNewTweet(const std::shared_ptr<tweet> &t) {
 	}
 }
 
-static void EnumDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush) {
+void EnumAllDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush) {
 	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
-		(*it)->Freeze();
-		bool checkupdateflag=false;
-		if(setnoupdateonpush) {
-			checkupdateflag=!((*it)->tppw_flags&TPPWF_NOUPDATEONPUSH);
-			(*it)->tppw_flags|=TPPWF_NOUPDATEONPUSH;
-		}
-		for(auto jt=(*it)->currentdisp.begin(); jt!=(*it)->currentdisp.end(); ++jt) {
-			tweetdispscr *tds=(tweetdispscr *) jt->second;
-			bool continueflag=func(tds);
-			for(auto kt=tds->subtweets.begin(); kt!=tds->subtweets.end(); ++kt) {
-				if(kt->get()) {
-					func(kt->get());
-				}
-			}
-			if(!continueflag) break;
-		}
-		(*it)->Thaw();
-		if(checkupdateflag) (*it)->CheckClearNoUpdateFlag();
+		(*it)->EnumDisplayedTweets(func, setnoupdateonpush);
 	}
 }
 
 void UpdateAllTweets(bool redrawimg) {
-	EnumDisplayedTweets([&](tweetdispscr *tds) {
+	EnumAllDisplayedTweets([&](tweetdispscr *tds) {
 		tds->DisplayTweet(redrawimg);
 		return true;
 	}, true);
 }
 
 void UpdateUsersTweet(uint64_t userid, bool redrawimg) {
-	EnumDisplayedTweets([&](tweetdispscr *tds) {
+	EnumAllDisplayedTweets([&](tweetdispscr *tds) {
 		bool found=false;
 		if((tds->td->user && tds->td->user->id==userid)
 		|| (tds->td->user_recipient && tds->td->user_recipient->id==userid)) found=true;
@@ -108,14 +91,9 @@ void UpdateUsersTweet(uint64_t userid, bool redrawimg) {
 }
 
 void UpdateTweet(const tweet &t, bool redrawimg) {
-	EnumDisplayedTweets([&](tweetdispscr *tds) {
-		if(tds->td->id==t.id || tds->rtid==t.id) {	//found matching entry
-			LogMsgFormat(LFT_TPANEL, wxT("UpdateTweet: Found Entry %" wxLongLongFmtSpec "d."), t.id);
-			tds->DisplayTweet(redrawimg);
-			return false;
-		}
-		else return true;
-	}, true);
+	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
+		(*it)->UpdateOwnTweet(t, redrawimg);
+	}
 }
 
 wxString media_entity::cached_full_filename() const {

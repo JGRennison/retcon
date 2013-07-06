@@ -291,6 +291,8 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	virtual void PageTopHandler();
 	void markallreadevthandler(wxCommandEvent &event);
 	virtual bool IsSingleAccountWin() const { return tp->IsSingleAccountTPanel(); }
+	void EnumDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush);
+	void UpdateOwnTweet(const tweet &t, bool redrawimg);
 
 	DECLARE_EVENT_TABLE()
 };

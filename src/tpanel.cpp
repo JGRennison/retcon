@@ -281,8 +281,13 @@ void CheckClearNoUpdateFlag_All() {
 void tpanel::PushTweet(const std::shared_ptr<tweet> &t, unsigned int pushflags) {
 	LogMsgFormat(LFT_TPANEL, wxT("Pushing tweet id %" wxLongLongFmtSpec "d to panel %s"), t->id, wxstrstd(name).c_str());
 	if(RegisterTweet(t)) {
-		for(auto i=twin.begin(); i!=twin.end(); i++) {
-			(*i)->PushTweet(t, pushflags);
+		for(auto &i : twin) {
+			i->PushTweet(t, pushflags);
+		}
+	}
+	else {	//already have this in tpanel, update it
+		for(auto &i : twin) {
+			i->UpdateOwnTweet(*(t.get()), false);
 		}
 	}
 }
@@ -808,6 +813,38 @@ void tpanelparentwin_nt::markallreadevthandler(wxCommandEvent &event) {
 		(*jt)->tppw_flags|=TPPWF_CLABELUPDATEPENDING;
 	}
 	CheckClearNoUpdateFlag_All();
+}
+
+void tpanelparentwin_nt::EnumDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush) {
+	Freeze();
+	bool checkupdateflag=false;
+	if(setnoupdateonpush) {
+		checkupdateflag=!(tppw_flags&TPPWF_NOUPDATEONPUSH);
+		tppw_flags|=TPPWF_NOUPDATEONPUSH;
+	}
+	for(auto jt=currentdisp.begin(); jt!=currentdisp.end(); ++jt) {
+		tweetdispscr *tds=(tweetdispscr *) jt->second;
+		bool continueflag=func(tds);
+		for(auto kt=tds->subtweets.begin(); kt!=tds->subtweets.end(); ++kt) {
+			if(kt->get()) {
+				func(kt->get());
+			}
+		}
+		if(!continueflag) break;
+	}
+	Thaw();
+	if(checkupdateflag) CheckClearNoUpdateFlag();
+}
+
+void tpanelparentwin_nt::UpdateOwnTweet(const tweet &t, bool redrawimg) {
+	EnumDisplayedTweets([&](tweetdispscr *tds) {
+		if(tds->td->id==t.id || tds->rtid==t.id) {	//found matching entry
+			LogMsgFormat(LFT_TPANEL, wxT("UpdateOwnTweet: Found Entry %" wxLongLongFmtSpec "d."), t.id);
+			tds->DisplayTweet(redrawimg);
+			return false;
+		}
+		else return true;
+	}, true);
 }
 
 BEGIN_EVENT_TABLE(tpanelparentwin, tpanelparentwin_nt)
