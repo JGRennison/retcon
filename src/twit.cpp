@@ -983,8 +983,9 @@ tweet_perspective *tweet::GetTweetTP(const std::shared_ptr<taccount> &tac) {
 }
 
 void tweet::UpdateMarkedAsRead(const tpanel *exclude) {
-	if(!flags.Get('r')) {
-		flags.Set('r');
+	if(flags.Get('u')) {
+		flags.Set('r', true);
+		flags.Set('u', false);
 		UpdateTweet(*this, false);
 	}
 }

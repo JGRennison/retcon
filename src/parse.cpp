@@ -683,7 +683,8 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 		tobj->lflags |= TLF_SHOULDSAVEINDB;
 		tobj->flags.Set('B');
 		if(has_just_arrived && !(sflags&JDTP_ISRTSRC) && !(sflags&JDTP_USERTIMELINE)) {
-			if(!tobj->flags.Get('r')) {
+			if(!tobj->flags.Get('r')) tobj->flags.Set('u');
+			if(tobj->flags.Get('u')) {
 				ad.unreadids.insert(tobj->id);
 			}
 			tac->MarkPendingOrHandle(tobj);
