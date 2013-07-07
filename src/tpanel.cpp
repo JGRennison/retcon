@@ -1704,7 +1704,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 					case 'd': {
 						EndURL();
 						std::shared_ptr<userdatacontainer> targ=tw.user_recipient;
-						if(!targ || targ->udc_flags&UDC_THIS_IS_ACC_USER_HINT) targ=targ=tw.user;
+						if(!targ || targ->udc_flags&UDC_THIS_IS_ACC_USER_HINT) targ=tw.user;
 						url=wxString::Format(wxT("Xd%" wxLongLongFmtSpec "d"), targ->id);
 						BeginURL(url);
 						WriteImage(tppw->tpg->dmreplyicon_img); imginserted=true; break;
@@ -1821,7 +1821,12 @@ void tweetdispscr::urlhandler(wxString url) {
 				uint64_t userid;
 				ownstrtonum(userid, (wxChar*) &url[2], -1);
 				mainframe *mf=tppw->GetMainframe();
-				if(mf) mf->tpw->SetDMTarget(ad.GetUserContainerById(userid));
+				if(mf) {
+					mf->tpw->SetDMTarget(ad.GetUserContainerById(userid));
+					if(td->flags.Get('D') && td->lflags & TLF_HAVEFIRSTTP) {
+						mf->tpw->accc->TrySetSel(td->first_tp.acc.get());
+					}
+				}
 				break;
 			}
 			case 'r': {//reply
