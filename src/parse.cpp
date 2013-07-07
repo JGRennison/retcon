@@ -429,6 +429,8 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			const rapidjson::Value& eval=dc["event"];
 			const rapidjson::Value& ival=dc["id"];
 			const rapidjson::Value& tval=dc["text"];
+			const rapidjson::Value& dmval=dc["direct_message"];
+			const rapidjson::Value& delval=dc["delete"];
 			if(fval.IsArray()) {
 				tac->ta_flags|=TAF_STREAM_UP;
 				tac->last_stream_start_time=time(0);
@@ -442,6 +444,12 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			}
 			else if(eval.IsString()) {
 				DoEventParse(dc);
+			}
+			else if(dmval.IsObject()) {
+				DoTweetParse(dmval, JDTP_ISDM);
+			}
+			else if(delval.IsObject()) {
+				DoTweetParse(delval, JDTP_DEL);
 			}
 			else if(ival.IsNumber() && tval.IsString() && dc["recipient"].IsObject() && dc["sender"].IsObject()) {	//assume this is a direct message
 				DoTweetParse(dc, JDTP_ISDM);
