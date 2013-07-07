@@ -60,6 +60,7 @@ struct user_window: public wxDialog {
 	wxStaticText *faved;
 	wxStaticText *createtime;
 	wxHyperlinkCtrl *url;
+	wxHyperlinkCtrl *profileurl;
 	wxStaticText *lastupdate;
 	wxStaticText *id_str;
 	tpanelparentwin_usertweets *timeline_pane;

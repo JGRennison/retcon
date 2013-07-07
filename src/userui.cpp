@@ -139,6 +139,10 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	url=new wxHyperlinkCtrl(infopanel, wxID_ANY, wxT(""), wxT(""), wxDefaultPosition, wxDefaultSize, wxNO_BORDER|wxHL_CONTEXTMENU|wxHL_ALIGN_LEFT);
 	if_grid->Add(url, 0, wxALL, 2);
 
+	if_grid->Add(new wxStaticText(infopanel, wxID_ANY, wxT("Profile URL:")), 0, wxALL, 2);
+	profileurl=new wxHyperlinkCtrl(infopanel, wxID_ANY, wxT(""), wxT(""), wxDefaultPosition, wxDefaultSize, wxNO_BORDER|wxHL_CONTEXTMENU|wxHL_ALIGN_LEFT);
+	if_grid->Add(profileurl, 0, wxALL, 2);
+
 	insert_uw_row(infopanel, if_grid, wxT("Creation Time:"), createtime);
 	insert_uw_row(infopanel, if_grid, wxT("Last Updated:"), lastupdate);
 	insert_uw_row(infopanel, if_grid, wxT("Account ID:"), id_str);
@@ -308,6 +312,9 @@ void user_window::Refresh(bool refreshimg) {
 	faved->SetLabel(wxString::Format(wxT("%d"), u->GetUser().favourites_count));
 	url->SetLabel(wxstrstd(u->GetUser().userurl));
 	url->SetURL(wxstrstd(u->GetUser().userurl));
+	wxString profurl = wxstrstd(u->GetPermalink(true));
+	profileurl->SetLabel(profurl);
+	profileurl->SetURL(profurl);
 	set_uw_time_val(createtime, u->GetUser().createtime);
 	set_uw_time_val(lastupdate, (time_t) u->lastupdate);
 	id_str->SetLabel(wxString::Format(wxT("%" wxLongLongFmtSpec "d"), u->id));
