@@ -645,7 +645,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 	}
 	else UpdateTweet(*tobj);
 
-	if(!(sflags&JDTP_ISRTSRC) && !(sflags&JDTP_USERTIMELINE)) {
+	if(!(sflags&JDTP_CHECKPENDINGONLY) && !(sflags&JDTP_ISRTSRC) && !(sflags&JDTP_USERTIMELINE)) {
 		if(sflags&JDTP_ISDM) {
 			if(tobj->user_recipient.get()==tac->usercont.get()) {	//received DM
 				if(tac->max_recvdm_id<tobj->id) tac->max_recvdm_id=tobj->id;
