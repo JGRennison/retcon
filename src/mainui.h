@@ -93,6 +93,7 @@ struct tweetpostwin : public wxPanel {
 	bool isgoodacc;
 	bool isshown;
 	wxBoxSizer *vbox;
+	wxBoxSizer *hbox;
 	bool resize_update_pending;
 	bool currently_posting;
 	bool tc_has_focus;

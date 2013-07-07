@@ -242,7 +242,7 @@ tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *p
 	current_length(0), length_oob(false) {
 
 	vbox = new wxBoxSizer(wxVERTICAL);
-	infost=new wxStaticText(this, wxID_ANY, wxT("0/140"), wxPoint(-1000, -1000), wxDefaultSize, wxALIGN_RIGHT);
+	infost=new wxStaticText(this, wxID_ANY, wxT("0/140"), wxPoint(-1000, -1000), wxDefaultSize);
 	replydesc=new wxStaticText(this, wxID_ANY, wxT(""), wxPoint(-1000, -1000), wxDefaultSize, wxST_NO_AUTORESIZE);
 	replydesclosebtn=new wxBitmapButton(this, TPWID_CLOSEREPDESC, tpanelglobal::Get()->closeicon, wxPoint(-1000, -1000));
 	wxBoxSizer *replydescbox= new wxBoxSizer(wxHORIZONTAL);
@@ -254,7 +254,7 @@ tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *p
 	replydesc->Show(false);
 	replydescbox->Show(false);
 
-	wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
+	hbox = new wxBoxSizer(wxHORIZONTAL);
 	vbox->Add(hbox, 0, wxEXPAND | wxALL, 2);
 
 	sendbtn=new wxButton(this, TPWIN_SENDBTN, wxT("Send"), wxPoint(-1000, -1000));
@@ -381,7 +381,7 @@ void tweetpostwin::OnTCChange() {
 	infost->SetLabel(wxString::Format(wxT("%s%d/140"), currently_posting?wxT("Posting - "):wxT(""),current_length));
 	CheckEnableSendBtn();
 	textctrl->Enable(!currently_posting);
-
+	hbox->Layout();
 }
 
 void tweetpostwin::UpdateAccount() {
