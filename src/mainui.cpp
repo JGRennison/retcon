@@ -220,6 +220,7 @@ void tweetposttextbox::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 
 void tweetposttextbox::SetCursorToEnd() {
 	SetCaretPosition(GetLastPosition());
+	SetInsertionPoint(GetLastPosition());
 	SetFocus();
 	if(parent && parent->mparentwin) parent->mparentwin->Raise();
 }
