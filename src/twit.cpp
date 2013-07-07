@@ -1015,7 +1015,7 @@ void MarkTweetIDSetAsRead(const tweetidset &ids, const tpanel *exclude) {
 			(*twshpp)->UpdateMarkedAsRead(exclude);
 		}
 	}
-	dbupdatetweetsetflagsmsg *msg=new dbupdatetweetsetflagsmsg(std::move(cached_ids), tweet_flags::GetFlagValue('r'), 0);
+	dbupdatetweetsetflagsmsg *msg=new dbupdatetweetsetflagsmsg(std::move(cached_ids), tweet_flags::GetFlagValue('r'), tweet_flags::GetFlagValue('u'));
 	dbc.SendMessage(msg);
 }
 
