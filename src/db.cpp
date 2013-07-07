@@ -693,7 +693,7 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 
 					DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::OnTpanelTweetLoadFromDB falling back to network for tweet: id: %" wxLongLongFmtSpec "d, account: %s."), t->id, curacc->dispname.c_str());
 				}
-				else DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::OnTpanelTweetLoadFromDB could not fall back to network for tweet: id:%" wxLongLongFmtSpec "d, no usable account."), t->id);
+				else DBLogMsgFormat(LFT_DBERR, wxT("dbconn::OnTpanelTweetLoadFromDB could not fall back to network for tweet: id:%" wxLongLongFmtSpec "d, no usable account."), t->id);
 			}
 		}
 	}
