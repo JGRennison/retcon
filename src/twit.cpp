@@ -43,7 +43,7 @@ void HandleNewTweet(const std::shared_ptr<tweet> &t) {
 	for(auto it=ad.tpanels.begin(); it!=ad.tpanels.end(); ++it) {
 		tpanel &tp=*(it->second);
 		if(tp.flags&TPF_ISAUTO) {
-			if((tp.flags&TPF_AUTO_DM && t->flags.Get('D')) || (tp.flags&TPF_AUTO_TW && t->flags.Get('T'))) {
+			if((tp.flags&TPF_AUTO_DM && t->flags.Get('D')) || (tp.flags&TPF_AUTO_TW && t->flags.Get('T')) || (tp.flags&TPF_AUTO_MN && t->flags.Get('M'))) {
 				if(tp.flags&TPF_AUTO_ALLACCS) tp.PushTweet(t);
 				else if(tp.flags&TPF_AUTO_ACC) {
 					bool stop = false;
