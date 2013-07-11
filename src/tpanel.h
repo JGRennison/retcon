@@ -81,6 +81,7 @@ typedef enum {
 	TAMI_MEDIAWIN,
 	TAMI_USERWINDOW,
 	TAMI_DM,
+	TAMI_NULL,
 } TAMI_TYPE;
 
 struct tweetactmenuitem {

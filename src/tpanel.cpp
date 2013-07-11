@@ -262,6 +262,9 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin=0) 
 			user_window::MkWin(map[curid].user->id, acc_hint);
 			break;
 		}
+		case TAMI_NULL: {
+			break;
+		}
 	}
 	if(type!=CS_NULL && acc && *acc) {
 		twitcurlext *twit=(*acc)->cp.GetConn();
@@ -2014,12 +2017,21 @@ void tweetdispscr::rightclickhandler(wxMouseEvent &event) {
 		wxString url=style.GetURL();
 		int nextid=tweetactmenustartid;
 		wxMenu menu;
+
+		auto urlmenupopup = [&](const wxString &url) {
+			wxMenu *submenu = new wxMenu;
+			submenu->Append(nextid, url);
+			AppendToTAMIMenuMap(tamd, nextid, TAMI_NULL, td, 0, std::shared_ptr<userdatacontainer>(), 0, url);
+			menu.AppendSubMenu(submenu, wxT("URL"));
+		};
+
 		if(url[0]=='M') {
 			media_id_type media_id=ParseMediaID(url);
 			menu.Append(nextid, wxT("Open Media in Window"));
 			AppendToTAMIMenuMap(tamd, nextid, TAMI_MEDIAWIN, td, 0, std::shared_ptr<userdatacontainer>(), 0, url);
 			menu.Append(nextid, wxT("Copy Media URL"));
 			AppendToTAMIMenuMap(tamd, nextid, TAMI_COPYEXTRA, td, 0, std::shared_ptr<userdatacontainer>(), 0, wxstrstd(ad.media_list[media_id].media_url));
+			urlmenupopup(wxstrstd(ad.media_list[media_id].media_url));
 			PopupMenu(&menu);
 		}
 		else if(url[0]=='U') {
@@ -2035,6 +2047,7 @@ void tweetdispscr::rightclickhandler(wxMouseEvent &event) {
 			AppendToTAMIMenuMap(tamd, nextid, TAMI_BROWSEREXTRA, td, 0, std::shared_ptr<userdatacontainer>(), 0, url.Mid(1));
 			menu.Append(nextid, wxT("Copy URL"));
 			AppendToTAMIMenuMap(tamd, nextid, TAMI_COPYEXTRA, td, 0, std::shared_ptr<userdatacontainer>(), 0, url.Mid(1));
+			urlmenupopup(url.Mid(1));
 			PopupMenu(&menu);
 		}
 		else if(url[0]=='X') {
@@ -2066,6 +2079,7 @@ void tweetdispscr::rightclickhandler(wxMouseEvent &event) {
 							AppendToTAMIMenuMap(tamd, nextid, TAMI_BROWSEREXTRA, td, 0, std::shared_ptr<userdatacontainer>(), 0, wxstrstd(et.fullurl));
 							menu.Append(nextid, wxT("Copy URL"));
 							AppendToTAMIMenuMap(tamd, nextid, TAMI_COPYEXTRA, td, 0, std::shared_ptr<userdatacontainer>(), 0, wxstrstd(et.fullurl));
+							urlmenupopup(wxstrstd(et.fullurl));
 							PopupMenu(&menu);
 						break;
 						case ENT_MENTION: {
