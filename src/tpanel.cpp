@@ -1903,7 +1903,7 @@ void tweetdispscr::urlhandler(wxString url) {
 				}
 				{
 					wxMenu *copysubmenu = new wxMenu();
-					menu.AppendSubMenu(copysubmenu, wxT("Copy"));
+					menu.AppendSubMenu(copysubmenu, wxT("Copy to Clipboard"));
 					MakeCopyMenu(copysubmenu, tamd, nextid, td);
 				}
 
@@ -1999,11 +1999,11 @@ static void AppendUserMenuItems(wxMenu &menu, tweetactmenudata &map, int &nextid
 	AppendToTAMIMenuMap(map, nextid, TAMI_DM, tw, 0, user);
 
 	wxString username=wxstrstd(user->GetUser().screen_name);
-	menu.Append(nextid, wxString::Format(wxT("Copy User Name (%s)"), username.c_str()));
+	menu.Append(nextid, wxString::Format(wxT("Copy User Name (%s) to Clipboard"), username.c_str()));
 	AppendToTAMIMenuMap(map, nextid, TAMI_COPYEXTRA, tw, 0, user, 0, username);
 
 	wxString useridstr=wxString::Format(wxT("%" wxLongLongFmtSpec "d"), user->id);
-	menu.Append(nextid, wxString::Format(wxT("Copy User ID (%s)"), useridstr.c_str()));
+	menu.Append(nextid, wxString::Format(wxT("Copy User ID (%s) to Clipboard"), useridstr.c_str()));
 	AppendToTAMIMenuMap(map, nextid, TAMI_COPYEXTRA, tw, 0, user, 0, useridstr);
 }
 
@@ -2022,6 +2022,9 @@ void tweetdispscr::rightclickhandler(wxMouseEvent &event) {
 			wxMenu *submenu = new wxMenu;
 			submenu->Append(nextid, url);
 			AppendToTAMIMenuMap(tamd, nextid, TAMI_NULL, td, 0, std::shared_ptr<userdatacontainer>(), 0, url);
+			submenu->AppendSeparator();
+			submenu->Append(nextid, wxT("Copy to Clipboard"));
+			AppendToTAMIMenuMap(tamd, nextid, TAMI_COPYEXTRA, td, 0, std::shared_ptr<userdatacontainer>(), 0, url);
 			menu.AppendSubMenu(submenu, wxT("URL"));
 		};
 
@@ -2029,8 +2032,6 @@ void tweetdispscr::rightclickhandler(wxMouseEvent &event) {
 			media_id_type media_id=ParseMediaID(url);
 			menu.Append(nextid, wxT("Open Media in Window"));
 			AppendToTAMIMenuMap(tamd, nextid, TAMI_MEDIAWIN, td, 0, std::shared_ptr<userdatacontainer>(), 0, url);
-			menu.Append(nextid, wxT("Copy Media URL"));
-			AppendToTAMIMenuMap(tamd, nextid, TAMI_COPYEXTRA, td, 0, std::shared_ptr<userdatacontainer>(), 0, wxstrstd(ad.media_list[media_id].media_url));
 			urlmenupopup(wxstrstd(ad.media_list[media_id].media_url));
 			PopupMenu(&menu);
 		}
@@ -2045,8 +2046,6 @@ void tweetdispscr::rightclickhandler(wxMouseEvent &event) {
 		else if(url[0]=='W') {
 			menu.Append(nextid, wxT("Open URL in Browser"));
 			AppendToTAMIMenuMap(tamd, nextid, TAMI_BROWSEREXTRA, td, 0, std::shared_ptr<userdatacontainer>(), 0, url.Mid(1));
-			menu.Append(nextid, wxT("Copy URL"));
-			AppendToTAMIMenuMap(tamd, nextid, TAMI_COPYEXTRA, td, 0, std::shared_ptr<userdatacontainer>(), 0, url.Mid(1));
 			urlmenupopup(url.Mid(1));
 			PopupMenu(&menu);
 		}
@@ -2077,8 +2076,6 @@ void tweetdispscr::rightclickhandler(wxMouseEvent &event) {
 						case ENT_MEDIA:
 							menu.Append(nextid, wxT("Open URL in Browser"));
 							AppendToTAMIMenuMap(tamd, nextid, TAMI_BROWSEREXTRA, td, 0, std::shared_ptr<userdatacontainer>(), 0, wxstrstd(et.fullurl));
-							menu.Append(nextid, wxT("Copy URL"));
-							AppendToTAMIMenuMap(tamd, nextid, TAMI_COPYEXTRA, td, 0, std::shared_ptr<userdatacontainer>(), 0, wxstrstd(et.fullurl));
 							urlmenupopup(wxstrstd(et.fullurl));
 							PopupMenu(&menu);
 						break;
