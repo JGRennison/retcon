@@ -48,6 +48,7 @@ struct tpanelglobal {
 	wxBitmap verifiedicon;
 	wxImage verifiedicon_img;
 	wxBitmap closeicon;
+	wxBitmap multiunreadicon;
 
 	static std::shared_ptr<tpanelglobal> Get();
 	static std::weak_ptr<tpanelglobal> tpg_glob;
@@ -299,6 +300,10 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 
 struct tpanelparentwin : public tpanelparentwin_nt {
 	mainframe *owner;
+	unsigned int tpw_flags = 0;
+	enum {
+		TPWF_UNREADBITMAPDISP	= 1<<0,
+	};
 
 	tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select=false);
 	virtual void LoadMore(unsigned int n, uint64_t lessthanid=0, unsigned int pushflags=0);
@@ -310,6 +315,7 @@ struct tpanelparentwin : public tpanelparentwin_nt {
 	void tabdetachedduphandler(wxCommandEvent &event);
 	void tabclosehandler(wxCommandEvent &event);
 	void tabsplitcmdhandler(wxCommandEvent &event);
+	virtual void UpdateCLabel();
 
 	DECLARE_EVENT_TABLE()
 };

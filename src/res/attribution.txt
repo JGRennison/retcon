@@ -1,0 +1,13 @@
+bird_blue_32.png	Twitter Image Resources
+close.png
+dmarrow.png		Jonathan Rennison (GPLv2)
+dm-reply.png		Twitter Image Resources
+favorite.png		Twitter Image Resources
+favorite_on.png		Twitter Image Resources
+info.png
+Lock.png
+multi_unread.png	http://www.mricons.com/icon/101207/24/stock_mail-unread-multiple-icon (Creative Commons Attribution-ShareAlike 2.5)
+reply.png		Twitter Image Resources
+retweet.png		Twitter Image Resources
+retweet_on.png		Twitter Image Resources
+verified.png		Twitter Image Resources

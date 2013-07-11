@@ -857,8 +857,8 @@ END_EVENT_TABLE()
 
 tpanelparentwin::tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select)
 	: tpanelparentwin_nt(tp_, parent), owner(parent) {
-	LoadMore(gc.maxtweetsdisplayinpanel);
 	parent->auib->AddPage(this, wxstrstd(tp->dispname), select);
+	LoadMore(gc.maxtweetsdisplayinpanel);
 }
 
 uint64_t tpanelparentwin::PushTweetOrRetLoadId(uint64_t id, unsigned int pushflags) {
@@ -954,6 +954,26 @@ void tpanelparentwin::tabsplitcmdhandler(wxCommandEvent &event) {
 	}
 	if(tally<2) return;
 	owner->auib->Split(owner->auib->GetPageIndex(this), wxRIGHT);
+}
+
+void tpanelparentwin::UpdateCLabel() {
+	tpanelparentwin_nt::UpdateCLabel();
+	int pageid = owner->auib->GetPageIndex(this);
+	int unreadcount = tp->unreadtweetids.size();
+	if(!unreadcount) {
+		owner->auib->SetPageText(pageid, wxstrstd(tp->dispname));
+		if((tpw_flags & TPWF_UNREADBITMAPDISP)) {
+			owner->auib->SetPageBitmap(pageid, wxNullBitmap);
+			tpw_flags &= ~TPWF_UNREADBITMAPDISP;
+		}
+	}
+	else {
+		owner->auib->SetPageText(pageid, wxString::Format(wxT("%d - %s"), unreadcount, wxstrstd(tp->dispname).c_str()));
+		if(!(tpw_flags & TPWF_UNREADBITMAPDISP)) {
+			owner->auib->SetPageBitmap(pageid, tpg->multiunreadicon);
+			tpw_flags |= TPWF_UNREADBITMAPDISP;
+		}
+	}
 }
 
 BEGIN_EVENT_TABLE(tpanelparentwin_user, panelparentwin_base)
@@ -2492,4 +2512,5 @@ tpanelglobal::tpanelglobal() : arrow_dim(0) {
 	GetLockIcon(&proticon, &proticon_img);
 	GetVerifiedIcon(&verifiedicon, &verifiedicon_img);
 	GetCloseIcon(&closeicon, 0);
+	GetMultiUnreadIcon(&multiunreadicon, 0);
 }
