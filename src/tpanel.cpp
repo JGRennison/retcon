@@ -1359,7 +1359,7 @@ void dispscr_base::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 BEGIN_EVENT_TABLE(tweetdispscr, dispscr_base)
 	EVT_TEXT_URL(wxID_ANY, tweetdispscr::urleventhandler)
 	EVT_MENU_RANGE(tweetactmenustartid, tweetactmenuendid, tweetdispscr::OnTweetActMenuCmd)
-	EVT_RIGHT_UP(tweetdispscr::rightclickhandler)
+	EVT_RIGHT_DOWN(tweetdispscr::rightclickhandler)
 END_EVENT_TABLE()
 
 tweetdispscr::tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_)
