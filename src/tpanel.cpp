@@ -2464,17 +2464,26 @@ wxString getreltimestr(time_t timestamp, time_t &updatetime) {
 
 void tpanelreltimeupdater::Notify() {
 	time_t nowtime=time(0);
+
+	auto updatetimes = [&](tweetdispscr &td) {
+		if(!td.updatetime) return;
+		else if(nowtime>=td.updatetime) {
+			td.Delete(wxRichTextRange(td.reltimestart, td.reltimeend));
+			td.SetInsertionPoint(td.reltimestart);
+			td.WriteText(getreltimestr(td.td->createtime, td.updatetime));
+			td.reltimeend=td.GetInsertionPoint();
+		}
+		else return;
+	};
+
 	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
 		for(auto jt=(*it)->currentdisp.begin(); jt!=(*it)->currentdisp.end(); ++jt) {
 			tweetdispscr &td=(tweetdispscr &) *((*jt).second);
-			if(!td.updatetime) continue;
-			else if(nowtime>=td.updatetime) {
-				td.Delete(wxRichTextRange(td.reltimestart, td.reltimeend));
-				td.SetInsertionPoint(td.reltimestart);
-				td.WriteText(getreltimestr(td.td->createtime, td.updatetime));
-				td.reltimeend=td.GetInsertionPoint();
+			updatetimes(td);
+			for(auto &kt : td.subtweets) {
+				tweetdispscr *subt = kt.get();
+				if(subt) updatetimes(*subt);
 			}
-			else break;
 		}
 	}
 }
