@@ -102,9 +102,10 @@ struct profimg_staticbitmap: public wxStaticBitmap {
 	uint64_t userid;
 	uint64_t tweetid;
 	mainframe *owner;
+	bool ishalf;
 
-	inline profimg_staticbitmap(wxWindow* parent, const wxBitmap& label, uint64_t userid_, uint64_t tweetid_, mainframe *owner_=0)
-		: wxStaticBitmap(parent, wxID_ANY, label, wxPoint(-1000, -1000)), userid(userid_), tweetid(tweetid_), owner(owner_) { }
+	inline profimg_staticbitmap(wxWindow* parent, const wxBitmap& label, uint64_t userid_, uint64_t tweetid_, mainframe *owner_=0, bool half = false)
+		: wxStaticBitmap(parent, wxID_ANY, label, wxPoint(-1000, -1000)), userid(userid_), tweetid(tweetid_), owner(owner_), ishalf(half) { }
 	void ClickHandler(wxMouseEvent &event);
 	void RightClickHandler(wxMouseEvent &event);
 	void OnTweetActMenuCmd(wxCommandEvent &event);

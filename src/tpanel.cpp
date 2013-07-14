@@ -713,8 +713,8 @@ tweetdispscr *tpanelparentwin_nt::PushTweetIndex(const std::shared_ptr<tweet> &t
 	else if(t->flags.Get('D') && t->user_recipient) {
 			t->user->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
 			t->user_recipient->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
-			td->bm = new profimg_staticbitmap(scrollwin, t->user->cached_profile_img_half, t->user->id, t->id, GetMainframe());
-			td->bm2 = new profimg_staticbitmap(scrollwin, t->user_recipient->cached_profile_img_half, t->user_recipient->id, t->id, GetMainframe());
+			td->bm = new profimg_staticbitmap(scrollwin, t->user->cached_profile_img_half, t->user->id, t->id, GetMainframe(), true);
+			td->bm2 = new profimg_staticbitmap(scrollwin, t->user_recipient->cached_profile_img_half, t->user_recipient->id, t->id, GetMainframe(), true);
 			int dim=gc.maxpanelprofimgsize/2;
 			if(tpg->arrow_dim!=dim) {
 				tpg->arrow=GetArrowIconDim(dim);
@@ -1624,16 +1624,20 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 	userdatacontainer *udc_recip=tw.user_recipient.get();
 
 	if(redrawimg) {
-		if(bm && bm2 && udc_recip) {
-			udc->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
-			udc_recip->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
-			bm->SetBitmap(udc->cached_profile_img_half);
-			bm2->SetBitmap(udc_recip->cached_profile_img_half);
-		}
-		else if(bm) {
-			if(tw.rtsrc && gc.rtdisp) bm->SetBitmap(tw.rtsrc->user->cached_profile_img);
-			else bm->SetBitmap(udc->cached_profile_img);
-		}
+		auto updateprofimg = [this](profimg_staticbitmap *b) {
+			if(!b) return;
+			auto udcp = ad.GetExistingUserContainerById(b->userid);
+			if(!udcp) return;
+			if(b->ishalf) {
+				(*udcp)->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
+				b->SetBitmap((*udcp)->cached_profile_img_half);
+			}
+			else {
+				bm->SetBitmap((*udcp)->cached_profile_img);
+			}
+		};
+		updateprofimg(bm);
+		updateprofimg(bm2);
 	}
 
 	Clear();
