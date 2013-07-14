@@ -999,7 +999,7 @@ void MarkTweetIdAsRead(uint64_t id, const tpanel *exclude) {
 		if(unread_it!=unread.end()) {
 			unread.erase(*unread_it);
 			for(auto jt=it->second->twin.begin(); jt!=it->second->twin.end(); ++jt) {
-				(*jt)->tppw_flags|=TPPWF_CLABELUPDATEPENDING;
+				(*jt)->tppw_flags|=TPPWF_CLABELUPDATEPENDING|TPPWF_NOUPDATEONPUSH;
 			}
 		}
 	}

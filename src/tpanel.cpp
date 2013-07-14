@@ -810,12 +810,15 @@ void tpanelparentwin_nt::UpdateCLabel() {
 }
 
 void tpanelparentwin_nt::markallreadevthandler(wxCommandEvent &event) {
+	Freeze();
+	for(auto jt=tp->twin.begin(); jt!=tp->twin.end(); ++jt) {
+		(*jt)->tppw_flags|=TPPWF_CLABELUPDATEPENDING|TPPWF_NOUPDATEONPUSH;
+	}
 	MarkTweetIDSetAsRead(tp->unreadtweetids, tp.get());
 	tp->unreadtweetids.clear();
-	for(auto jt=tp->twin.begin(); jt!=tp->twin.end(); ++jt) {
-		(*jt)->tppw_flags|=TPPWF_CLABELUPDATEPENDING;
-	}
+
 	CheckClearNoUpdateFlag_All();
+	Thaw();
 }
 
 void tpanelparentwin_nt::EnumDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush) {
