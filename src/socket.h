@@ -240,6 +240,7 @@ struct adns_thread : public wxThread {
 	CURLcode result = CURLE_OK;
 	socketmanager *sm = 0;
 	CURL *eh = 0;
+	double lookuptime = 0.0;
 
 	adns_thread(std::string url_, std::string hostname_, socketmanager *sm_, CURLSH *sharehndl);
 	wxThread::ExitCode Entry();

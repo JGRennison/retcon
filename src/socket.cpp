@@ -438,6 +438,14 @@ socketmanager::~socketmanager() {
 	DeInitMultiIOHandler();
 }
 
+curl_socket_t pre_connect_func(void *clientp, curl_socket_t curlfd, curlsocktype purpose) {
+	mcurlconn *cs = (mcurlconn *) clientp;
+	double lookuptime;
+	curl_easy_getinfo(cs->GenGetCurlHandle(), CURLINFO_NAMELOOKUP_TIME, &lookuptime);
+	LogMsgFormat(LFT_SOCKTRACE, wxT("DNS lookup took: %fs. Request: type: %s, conn: %p, url: %s"), lookuptime, cs->GetConnTypeName().c_str(), cs, wxstrstd(cs->url).c_str());
+	return 0;
+}
+
 bool socketmanager::AddConn(CURL* ch, mcurlconn *cs) {
 	if(asyncdns) {
 		if(asyncdns->CheckAsync(ch, cs)) return true;
@@ -446,6 +454,10 @@ bool socketmanager::AddConn(CURL* ch, mcurlconn *cs) {
 	SetCurlHandleVerboseState(ch, currentlogflags&LFT_CURLVERB);
 	curl_easy_setopt(ch, CURLOPT_TIMEOUT, (cs->mcflags&MCF_NOTIMEOUT)?0:180);
 	curl_easy_setopt(ch, CURLOPT_PRIVATE, cs);
+	if(currentlogflags&LFT_SOCKTRACE) {
+		curl_easy_setopt(ch, CURLOPT_SOCKOPTFUNCTION, &pre_connect_func);
+		curl_easy_setopt(ch, CURLOPT_SOCKOPTDATA, cs);
+	}
 	bool ret = (CURLM_OK == curl_multi_add_handle(curlmulti, ch));
 	curl_multi_socket_action(curlmulti, 0, 0, &curnumsocks);
 	check_multi_info(&sm);
@@ -564,11 +576,11 @@ void adns::DNSResolutionEvent(wxCommandEvent &event) {
 	at->Wait();
 
 	if(at->success) {
-		LogMsgFormat(LFT_SOCKTRACE, wxT("Asynchronous DNS lookup succeeded: %s, %s"), wxstrstd(at->hostname).c_str(), wxstrstd(at->url).c_str());
+		LogMsgFormat(LFT_SOCKTRACE, wxT("Asynchronous DNS lookup succeeded: %s, %s, time: %fs"), wxstrstd(at->hostname).c_str(), wxstrstd(at->url).c_str(), at->lookuptime);
 		cached_names.insert(at->hostname);
 	}
 	else {
-		LogMsgFormat(LFT_SOCKERR, wxT("Asynchronous DNS lookup failed: %s, (%s), error: %s (%d)"), wxstrstd(at->hostname).c_str(), wxstrstd(at->url).c_str(), wxstrstd(curl_easy_strerror(at->result)).c_str(), at->result);
+		LogMsgFormat(LFT_SOCKERR, wxT("Asynchronous DNS lookup failed: %s, (%s), error: %s (%d), time: %fs"), wxstrstd(at->hostname).c_str(), wxstrstd(at->url).c_str(), wxstrstd(curl_easy_strerror(at->result)).c_str(), at->result, at->lookuptime);
 	}
 
 	std::vector<std::tuple<std::string, CURL *, mcurlconn *> > current_dns_pending_conns;
@@ -614,6 +626,7 @@ adns_thread::adns_thread(std::string url_, std::string hostname_, socketmanager 
 
 wxThread::ExitCode adns_thread::Entry() {
 	result = curl_easy_perform(eh);
+	curl_easy_getinfo(eh, CURLINFO_NAMELOOKUP_TIME, &lookuptime);
 	curl_easy_cleanup(eh);
 	if(result == CURLE_COULDNT_CONNECT) {
 		success = true;
