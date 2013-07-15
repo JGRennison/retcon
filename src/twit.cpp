@@ -234,12 +234,13 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 				favoriteGet(tmps, std::to_string(rbfs->userid), true);
 				break;
 		}
+		char *cururl;
+		curl_easy_getinfo(GenGetCurlHandle(), CURLINFO_EFFECTIVE_URL, &cururl);
+		this->url = cururl;
 		if(currentlogflags&LFT_NETACT) {
-			char *url;
-			curl_easy_getinfo(GenGetCurlHandle(), CURLINFO_EFFECTIVE_URL, &url);
 			LogMsgFormat(LFT_NETACT, wxT("REST timeline fetch: acc: %s, type: %d, num: %d, start_id: %" wxLongLongFmtSpec "d, end_id: %" wxLongLongFmtSpec "d"),
 				acc->dispname.c_str(), rbfs->type, tweets_to_get, rbfs->start_tweet_id, rbfs->end_tweet_id);
-			LogMsgFormat(LFT_NETACT, wxT("Executing API call: for account: %s, url: %s"), acc->dispname.c_str(), wxstrstd(url).c_str());
+			LogMsgFormat(LFT_NETACT, wxT("Executing API call: for account: %s, url: %s"), acc->dispname.c_str(), wxstrstd(cururl).c_str());
 		}
 		sm.AddConn(*this);
 	}
@@ -435,10 +436,11 @@ void twitcurlext::QueueAsyncExec() {
 		case CS_NULL:
 			break;
 	}
+	char *cururl;
+	curl_easy_getinfo(GenGetCurlHandle(), CURLINFO_EFFECTIVE_URL, &cururl);
+	this->url = cururl;
 	if(currentlogflags&LFT_NETACT) {
-		char *url;
-		curl_easy_getinfo(GenGetCurlHandle(), CURLINFO_EFFECTIVE_URL, &url);
-		LogMsgFormat(LFT_NETACT, wxT("Executing API call: for account: %s, url: %s"), acc?acc->dispname.c_str():wxT(""), wxstrstd(url).c_str());
+		LogMsgFormat(LFT_NETACT, wxT("Executing API call: for account: %s, url: %s"), acc?acc->dispname.c_str():wxT(""), wxstrstd(cururl).c_str());
 	}
 	sm.AddConn(*this);
 }

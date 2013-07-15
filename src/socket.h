@@ -35,6 +35,8 @@
 	#include <glib.h>
 #endif
 
+#include <tuple>
+
 //arrange in order of increasing severity
 typedef enum {
 	MCC_RETRY=0,
@@ -56,6 +58,7 @@ struct mcurlconn : public wxEvtHandler {
 	void StandbyTidy();
 	unsigned int errorcount;
 	unsigned int mcflags;
+	std::string url;
 	mcurlconn() : errorcount(0), mcflags(0) {}
 	virtual ~mcurlconn();
 
@@ -82,7 +85,6 @@ template <typename C> struct connpool {
 
 struct dlconn : public mcurlconn {
 	CURL* curlHandle;
-	std::string url;
 	std::string data;
 
 	static int curlCallback(char* data, size_t size, size_t nmemb, dlconn *obj);
@@ -181,6 +183,10 @@ typedef void (wxEvtHandler::*wxextSocketNotifyEventFunction)(wxextSocketNotifyEv
 
 #endif
 
+DECLARE_EVENT_TYPE(wxextDNS_RESOLUTION_EVENT, -1)
+
+struct adns;
+
 struct socketmanager : public wxEvtHandler {
 	socketmanager();
 	~socketmanager();
@@ -221,7 +227,44 @@ struct socketmanager : public wxEvtHandler {
 	std::deque<mcurlconn *> retry_conns;
 	wxTimer *retry;
 
+	std::unique_ptr<adns> asyncdns;
+	void DNSResolutionEvent(wxCommandEvent &event);
+
 	DECLARE_EVENT_TABLE()
+};
+
+struct adns_thread : public wxThread {
+	std::string url;
+	std::string hostname;
+	bool success = false;
+	CURLcode result = CURLE_OK;
+	socketmanager *sm = 0;
+	CURL *eh = 0;
+
+	adns_thread(std::string url_, std::string hostname_, socketmanager *sm_, CURLSH *sharehndl);
+	wxThread::ExitCode Entry();
+};
+
+struct adns {
+	adns(socketmanager *sm_);
+	~adns();
+	inline CURLSH *GetHndl() const { return sharehndl; }
+	bool CheckAsync(CURL* ch, mcurlconn *cs);
+	void DNSResolutionEvent(wxCommandEvent &event);
+
+	void Lock(CURL *handle, curl_lock_data data, curl_lock_access access);
+	void Unlock(CURL *handle, curl_lock_data data);
+
+	private:
+	void NewShareHndl();
+	void RemoveShareHndl();
+	std::set<std::string> cached_names;
+	std::forward_list<std::tuple<std::string, CURL*, mcurlconn *> > dns_pending_conns;
+	std::forward_list<std::pair<std::string, adns_thread> > dns_threads;
+
+	CURLSH *sharehndl = 0;
+	wxMutex mutex;
+	socketmanager *sm;
 };
 
 void SetCurlHandleVerboseState(CURL *easy, bool verbose);

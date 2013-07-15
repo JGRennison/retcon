@@ -439,6 +439,9 @@ socketmanager::~socketmanager() {
 }
 
 bool socketmanager::AddConn(CURL* ch, mcurlconn *cs) {
+	if(asyncdns) {
+		if(asyncdns->CheckAsync(ch, cs)) return true;
+	}
 	connlist.push_front(std::make_pair(ch, cs));
 	SetCurlHandleVerboseState(ch, currentlogflags&LFT_CURLVERB);
 	curl_easy_setopt(ch, CURLOPT_TIMEOUT, (cs->mcflags&MCF_NOTIMEOUT)?0:180);
@@ -472,12 +475,164 @@ void socketmanager::NotifySockEvent(curl_socket_t sockfd, int ev_bitmask) {
 	check_multi_info(this);
 }
 
+adns::adns(socketmanager *sm_) : sm(sm_) {
+	NewShareHndl();
+}
+
+adns::~adns() {
+	LogMsg(LFT_SOCKTRACE, wxT("Waiting for all DNS threads to terminate"));
+	for(auto &it : dns_threads) {
+		it.second.Wait();
+	}
+	RemoveShareHndl();
+}
+
+void adns::Lock(CURL *handle, curl_lock_data data, curl_lock_access access) {
+	mutex.Lock();
+}
+
+void adns::Unlock(CURL *handle, curl_lock_data data) {
+	mutex.Unlock();
+}
+
+void adns_lock_function(CURL *handle, curl_lock_data data, curl_lock_access access, void *userptr) {
+	adns *a = (adns*) userptr;
+	a->Lock(handle, data, access);
+}
+
+void adns_unlock_function(CURL *handle, curl_lock_data data, void *userptr) {
+	adns *a = (adns*) userptr;
+	a->Unlock(handle, data);
+}
+
+void adns::NewShareHndl() {
+	RemoveShareHndl();
+	sharehndl = curl_share_init();
+	curl_share_setopt(sharehndl, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
+	curl_share_setopt(sharehndl, CURLSHOPT_USERDATA, this);
+	curl_share_setopt(sharehndl, CURLSHOPT_LOCKFUNC, adns_lock_function);
+	curl_share_setopt(sharehndl, CURLSHOPT_UNLOCKFUNC, adns_unlock_function);
+}
+
+void adns::RemoveShareHndl() {
+	if(sharehndl) {
+		curl_share_cleanup(sharehndl);
+		sharehndl = 0;
+	}
+}
+
+//return true if has been handled asynchronously
+bool adns::CheckAsync(CURL* ch, mcurlconn *cs) {
+	long timeout = -1;
+	curl_easy_setopt(ch, CURLOPT_DNS_CACHE_TIMEOUT, timeout);
+	curl_easy_setopt(ch, CURLOPT_SHARE, GetHndl());
+
+	const std::string &url = cs->url;
+	if(url.empty()) return false;
+
+	std::string::size_type proto_start = url.find("://");
+	std::string::size_type name_start;
+	if(proto_start == std::string::npos) name_start = 0;
+	else name_start = proto_start + 3;
+	std::string::size_type name_end = url.find('/', name_start);
+
+	std::string name = url.substr(name_start, (name_end == std::string::npos) ? std::string::npos : name_end - name_start);
+
+	if(cached_names.count(name)) return false;	// name already in cache, can go now
+
+	dns_pending_conns.emplace_front(name, ch, cs);
+
+	for(auto &it : dns_threads) {
+		if(it.first == name) {
+			LogMsgFormat(LFT_SOCKTRACE, wxT("DNS lookup thread already exists: %s, %s"), wxstrstd(url).c_str(), wxstrstd(name).c_str());
+			return true;
+		}
+	}
+
+	LogMsgFormat(LFT_SOCKTRACE, wxT("Creating DNS lookup thread: %s, %s"), wxstrstd(url).c_str(), wxstrstd(name).c_str());
+	dns_threads.emplace_front(std::piecewise_construct, std::forward_as_tuple(name), std::forward_as_tuple(url, name, sm, GetHndl()));
+	dns_threads.front().second.Create();
+	dns_threads.front().second.Run();
+
+	return true;
+}
+
+void adns::DNSResolutionEvent(wxCommandEvent &event) {
+	adns_thread *at = (adns_thread*) event.GetClientData();
+	if(!at) return;
+
+	at->Wait();
+
+	if(at->success) {
+		LogMsgFormat(LFT_SOCKTRACE, wxT("Asynchronous DNS lookup succeeded: %s, %s"), wxstrstd(at->hostname).c_str(), wxstrstd(at->url).c_str());
+		cached_names.insert(at->hostname);
+	}
+	else {
+		LogMsgFormat(LFT_SOCKERR, wxT("Asynchronous DNS lookup failed: %s, (%s), error: %s (%d)"), wxstrstd(at->hostname).c_str(), wxstrstd(at->url).c_str(), wxstrstd(curl_easy_strerror(at->result)).c_str(), at->result);
+	}
+
+	std::vector<std::tuple<std::string, CURL *, mcurlconn *> > current_dns_pending_conns;
+	dns_pending_conns.remove_if([&](std::tuple<std::string, CURL *, mcurlconn *> &a) -> bool {
+		if(std::get<0>(a) == at->hostname) {
+			current_dns_pending_conns.emplace_back(std::move(a));
+			return true;
+		}
+		else return false;
+	});
+
+	dns_threads.remove_if([&](const std::pair<std::string, adns_thread> &a) {
+		return at == &(a.second);
+	});
+
+	for(auto &it : current_dns_pending_conns) {
+		CURL *ch = std::get<1>(it);
+		mcurlconn *mc = std::get<2>(it);
+		if(at->success) {
+			LogMsgFormat(LFT_SOCKTRACE, wxT("Launching request as DNS lookup succeeded: type: %s, conn: %p, url: %s"), mc->GetConnTypeName().c_str(), mc, wxstrstd(mc->url).c_str());
+			sm->AddConn(ch, mc);
+		}
+		else {
+			LogMsgFormat(LFT_SOCKERR, wxT("Request failed due to asynchronous DNS lookup failure: type: %s, conn: %p, url: %s"), mc->GetConnTypeName().c_str(), mc, wxstrstd(mc->url).c_str());
+			mc->HandleError(ch, 0, CURLE_COULDNT_RESOLVE_HOST);
+		}
+	}
+}
+
+curl_socket_t stub_socket_func(void *clientp, curlsocktype purpose, struct curl_sockaddr *address) {
+	return CURL_SOCKET_BAD;
+}
+
+adns_thread::adns_thread(std::string url_, std::string hostname_, socketmanager *sm_, CURLSH *sharehndl)
+	: wxThread(wxTHREAD_JOINABLE), url(url_.c_str(), url_.length()), hostname(hostname_.c_str(), hostname_.length()), sm(sm_) {
+	eh = curl_easy_init();
+	long val = 1;
+	curl_easy_setopt(eh, CURLOPT_URL, url_.c_str());
+	curl_easy_setopt(eh, CURLOPT_SHARE, sharehndl);
+	curl_easy_setopt(eh, CURLOPT_NOSIGNAL, val);
+	curl_easy_setopt(eh, CURLOPT_OPENSOCKETFUNCTION, &stub_socket_func);
+}
+
+wxThread::ExitCode adns_thread::Entry() {
+	result = curl_easy_perform(eh);
+	curl_easy_cleanup(eh);
+	if(result == CURLE_COULDNT_CONNECT) {
+		success = true;
+	}
+	wxCommandEvent ev(wxextDNS_RESOLUTION_EVENT);
+	ev.SetClientData(this);
+	sm->AddPendingEvent(ev);
+	return 0;
+}
+
 BEGIN_EVENT_TABLE(socketmanager, wxEvtHandler)
 	EVT_TIMER(MCCT_RETRY, socketmanager::RetryNotify)
 #if defined(RCS_POLLTHREADMODE) || defined(RCS_SIGNALMODE)
 	EVT_EXTSOCKETNOTIFY(wxID_ANY, socketmanager::NotifySockEventCmd)
 #endif
+	EVT_COMMAND(wxID_ANY, wxextDNS_RESOLUTION_EVENT, socketmanager::DNSResolutionEvent)
 END_EVENT_TABLE()
+
+DEFINE_EVENT_TYPE(wxextDNS_RESOLUTION_EVENT)
 
 void socketmanager::InitMultiIOHandlerCommon() {
 	LogMsg(LFT_SOCKTRACE, wxT("socketmanager::InitMultiIOHandlerCommon"));
@@ -487,10 +642,17 @@ void socketmanager::InitMultiIOHandlerCommon() {
 	curl_multi_setopt(curlmulti, CURLMOPT_SOCKETDATA, this);
 	curl_multi_setopt(curlmulti, CURLMOPT_TIMERFUNCTION, multi_timer_cb);
 	curl_multi_setopt(curlmulti, CURLMOPT_TIMERDATA, this);
+
+	curl_version_info_data *data = curl_version_info(CURLVERSION_NOW);
+	if(!(data->features & CURL_VERSION_ASYNCHDNS)) {
+		LogMsg(LFT_SOCKTRACE, wxT("This version of libcurl does not support asynchronous DNS resolution, using a workaround."));
+		asyncdns.reset(new adns(this));
+	}
 }
 
 void socketmanager::DeInitMultiIOHandlerCommon() {
 	LogMsg(LFT_SOCKTRACE, wxT("socketmanager::DeInitMultiIOHandlerCommon"));
+	if(asyncdns) asyncdns.reset();
 	curl_multi_cleanup(curlmulti);
 	if(st) {
 		delete st;
@@ -547,6 +709,10 @@ void socketmanager::RetryConnLater() {
 
 void socketmanager::RetryNotify(wxTimerEvent& event) {
 	RetryConnNow();
+}
+
+void socketmanager::DNSResolutionEvent(wxCommandEvent &event) {
+	if(asyncdns) asyncdns->DNSResolutionEvent(event);
 }
 
 #ifdef RCS_WSAASYNCSELMODE
