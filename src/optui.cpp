@@ -390,7 +390,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	fgs->AddGrowableCol(2, 1);
 	hbox->Add(vbox, 1, wxALL | wxEXPAND, 0);
 
-	wxBoxSizer *btnbox = new wxBoxSizer(wxHORIZONTAL);
+	btnbox = new wxBoxSizer(wxHORIZONTAL);
 	vbox->Add(btnbox, 0, wxALL | wxALIGN_TOP , 4);
 
 	cat_buttons.resize(OPTWIN_LAST);
@@ -446,7 +446,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 
 	wxStaticBoxSizer *defsbox=AddGenoptconfSettingBlock(panel, vbox, wxT("[Defaults for All Accounts]"), gc.cfg, gcdefaults, DCBV_ISGLOBALCFG);
 	accmap[0]=defsbox;
-	lb->Append(wxT("[Global Defaults]"), (void *) 0);
+	lb->Append(wxT("[Defaults for All Accounts]"), (void *) 0);
 	lb->SetSelection(0);
 
 	for(auto it=alist.begin() ; it != alist.end(); it++ ) {
@@ -529,12 +529,14 @@ void settings_window::OptShowHide(unsigned int setmask) {
 	std::unordered_set<wxSizer *> sizerset;
 	std::unordered_set<wxSizer *> nonempty_sizerset;
 	std::vector<std::function<void()> > ops;
+	std::vector<unsigned int> showcount(OPTWIN_LAST, 0);
 	for(auto &it : opts) {
 		unsigned int allmask = DCBV_ADVOPTION | DCBV_VERYADVOPTION;
 		unsigned int maskedflags = it.flags & allmask;
 		bool show;
 		if(!maskedflags) show = true;
 		else show = (bool) (maskedflags & setmask);
+		if(show) showcount[it.cat]++;
 		if(it.cat && currentcat && it.cat != currentcat) show = false;
 		ops.push_back([=] { it.sizer->Show(it.win, show); });
 		if(show) nonempty_sizerset.insert(it.sizer);
@@ -552,6 +554,20 @@ void settings_window::OptShowHide(unsigned int setmask) {
 		it();
 	}
 	for(auto &it : sizerset) it->Layout();
+	unsigned int i = OPTWIN_LAST;
+	do {
+		i--;
+		bool show = (bool) showcount[i];
+		if(cat_buttons[i]) btnbox->Show(cat_buttons[i], show);
+		if(!show && i && i == currentcat) {
+			currentcat--;
+			if(cat_buttons[i]) cat_buttons[i]->SetValue(false);
+			if(cat_buttons[currentcat]) cat_buttons[currentcat]->SetValue(true);
+			OptShowHide(setmask);
+			return;
+		}
+	} while(i > 0);
+	btnbox->Layout();
 }
 
 void settings_window::PostOptShowHide() {
