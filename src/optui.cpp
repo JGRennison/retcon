@@ -73,15 +73,15 @@ acc_window::acc_window(wxWindow* parent, wxWindowID id, const wxString& title, c
 	hbox2->Add(newbtn, 0, wxALIGN_LEFT, 0);
 	hbox2->AddStretchSpacer(1);
 	hbox2->Add(clsbtn, 0, wxALIGN_RIGHT, 0);
-	
+
 	UpdateButtons();
 
 	panel->SetSizer(vbox);
 	vbox->Fit(panel);
-	
+
 	wxSize initsize=GetSize();
 	SetSizeHints(initsize.GetWidth(), initsize.GetHeight(), 9001, 9001);
-	
+
 	currentset.insert(this);
 }
 
@@ -151,16 +151,16 @@ void acc_window::AccNew(wxCommandEvent &event) {
 	std::shared_ptr<taccount> ta(new taccount(&gc.cfg));
 	ta->enabled=false;
 	ta->dispname=wxT("<new account>");
-	
+
 	int answer=wxMessageBox(wxT("Would you like to review the account settings before authenticating?"), wxT("Account Creation"), wxYES_NO | wxCANCEL | wxICON_QUESTION | wxNO_DEFAULT, this);
-	
+
 	if(answer==wxYES) {
 		settings_window *sw=new settings_window(this, -1, wxT("New Account Settings"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER, wxT("dialogBox"), ta.get());
 		sw->ShowModal();
 		sw->Destroy();
 	}
 	else if(answer==wxCANCEL) return;
-	
+
 	twitcurlext *twit=ta->cp.GetConn();
 	twit->TwInit(ta);
 	if(ta->TwDoOAuth(this, *twit)) {
@@ -301,7 +301,17 @@ struct ValueChkBoxValidator : public wxValidator {
 	}
 };
 
-void settings_window::AddSettingRow_String(wxWindow* parent, wxSizer *sizer, const wxString &name, unsigned int flags, genopt &val, genopt &parentval, long style, wxValidator *textctrlvalidator) {
+enum {
+	OPTWIN_ALL = 0,
+	OPTWIN_DISPLAY,
+	OPTWIN_NETWORK,
+	OPTWIN_CACHING,
+	OPTWIN_TWITTER,
+
+	OPTWIN_LAST,
+};
+
+void settings_window::AddSettingRow_String(unsigned int win, wxWindow* parent, wxSizer *sizer, const wxString &name, unsigned int flags, genopt &val, genopt &parentval, long style, wxValidator *textctrlvalidator) {
 	wxTextValidator deftv(style, &val.val);
 	if(!textctrlvalidator) textctrlvalidator=&deftv;
 	wxStaticText *stat=new wxStaticText(parent, wxID_ANY, name);
@@ -314,19 +324,12 @@ void settings_window::AddSettingRow_String(wxWindow* parent, wxSizer *sizer, con
 	sizer->SetItemMinSize(stat, std::max(200,statsz.GetWidth()), statsz.GetHeight());
 	sizer->Add(chk, 0, wxALIGN_CENTRE | wxALIGN_CENTRE_VERTICAL, 4);
 	sizer->Add(tc, 0, wxEXPAND | wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL, 4);
-	if(flags&DCBV_ADVOPTION) {
-		advopts.push_front(std::make_pair(sizer, stat));
-		advopts.push_front(std::make_pair(sizer, tc));
-		advopts.push_front(std::make_pair(sizer, chk));
-	}
-	if(flags&DCBV_VERYADVOPTION) {
-		veryadvopts.push_front(std::make_pair(sizer, stat));
-		veryadvopts.push_front(std::make_pair(sizer, tc));
-		veryadvopts.push_front(std::make_pair(sizer, chk));
-	}
+	opts.emplace_front(option_item {sizer, stat, win, flags});
+	opts.emplace_front(option_item {sizer, tc, win, flags});
+	opts.emplace_front(option_item {sizer, chk, win, flags});
 }
 
-void settings_window::AddSettingRow_Bool(wxWindow* parent, wxSizer *sizer, const wxString &name, unsigned int flags, genopt &val, genopt &parentval) {
+void settings_window::AddSettingRow_Bool(unsigned int win, wxWindow* parent, wxSizer *sizer, const wxString &name, unsigned int flags, genopt &val, genopt &parentval) {
 	ValueChkBoxValidator boolvalidator(val);
 	wxStaticText *stat=new wxStaticText(parent, wxID_ANY, name);
 	wxCheckBox *chkval=new wxCheckBox(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, 0, boolvalidator);
@@ -338,16 +341,9 @@ void settings_window::AddSettingRow_Bool(wxWindow* parent, wxSizer *sizer, const
 	sizer->SetItemMinSize(stat, std::max(200,statsz.GetWidth()), statsz.GetHeight());
 	sizer->Add(chk, 0, wxALIGN_CENTRE | wxALIGN_CENTRE_VERTICAL, 4);
 	sizer->Add(chkval, 0, wxEXPAND | wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL, 4);
-	if(flags&DCBV_ADVOPTION) {
-		advopts.push_front(std::make_pair(sizer, stat));
-		advopts.push_front(std::make_pair(sizer, chkval));
-		advopts.push_front(std::make_pair(sizer, chk));
-	}
-	if(flags&DCBV_VERYADVOPTION) {
-		veryadvopts.push_front(std::make_pair(sizer, stat));
-		veryadvopts.push_front(std::make_pair(sizer, chkval));
-		veryadvopts.push_front(std::make_pair(sizer, chk));
-	}
+	opts.emplace_front(option_item {sizer, stat, win, flags});
+	opts.emplace_front(option_item {sizer, chkval, win, flags});
+	opts.emplace_front(option_item {sizer, chk, win, flags});
 }
 
 wxStaticBoxSizer *settings_window::AddGenoptconfSettingBlock(wxWindow* parent, wxSizer *sizer, const wxString &name, genoptconf &goc, genoptconf &parentgoc, unsigned int flags) {
@@ -358,11 +354,16 @@ wxStaticBoxSizer *settings_window::AddGenoptconfSettingBlock(wxWindow* parent, w
 	sizer->Add(sbox, 0, wxALL | wxEXPAND | wxALIGN_TOP , 4);
 	sbox->Add(fgs, 0, wxALL | wxEXPAND | wxALIGN_TOP , 4);
 
-	AddSettingRow_Bool(parent, fgs,  wxT("Use SSL (recommended)"), flags, goc.ssl, parentgoc.ssl);
-	AddSettingRow_Bool(parent, fgs,  wxT("Use User Streams (recommended)"), flags, goc.userstreams, parentgoc.userstreams);
-	AddSettingRow_String(parent, fgs, wxT("REST API Polling Interval / seconds"), flags|DCBV_ADVOPTION, goc.restinterval, parentgoc.restinterval, wxFILTER_NUMERIC);
-	AddSettingRow_String(parent, fgs, wxT("Twitter API Consumer Key Override"), flags|DCBV_HIDDENDEFAULT|DCBV_VERYADVOPTION, goc.tokenk, parentgoc.tokenk);
-	AddSettingRow_String(parent, fgs, wxT("Twitter API Consumer Secret Override"), flags|DCBV_HIDDENDEFAULT|DCBV_VERYADVOPTION, goc.tokens, parentgoc.tokens);
+	cat_empty_sizer_op.emplace_back(fgs, [=](bool show) {
+		sizer->Show(sbox, show);
+		vbox->Show(lb, show);
+	});
+
+	AddSettingRow_Bool(OPTWIN_TWITTER, parent, fgs,  wxT("Use SSL (recommended)"), flags, goc.ssl, parentgoc.ssl);
+	AddSettingRow_Bool(OPTWIN_TWITTER, parent, fgs,  wxT("Use User Streams (recommended)"), flags, goc.userstreams, parentgoc.userstreams);
+	AddSettingRow_String(OPTWIN_TWITTER, parent, fgs, wxT("REST API Polling Interval / seconds"), flags|DCBV_ADVOPTION, goc.restinterval, parentgoc.restinterval, wxFILTER_NUMERIC);
+	AddSettingRow_String(OPTWIN_TWITTER, parent, fgs, wxT("Twitter API Consumer Key Override"), flags|DCBV_HIDDENDEFAULT|DCBV_VERYADVOPTION, goc.tokenk, parentgoc.tokenk);
+	AddSettingRow_String(OPTWIN_TWITTER, parent, fgs, wxT("Twitter API Consumer Secret Override"), flags|DCBV_HIDDENDEFAULT|DCBV_VERYADVOPTION, goc.tokens, parentgoc.tokens);
 	return sbox;
 }
 
@@ -371,6 +372,7 @@ BEGIN_EVENT_TABLE(settings_window, wxDialog)
 EVT_CHOICE(wxID_FILE1, settings_window::ChoiceCtrlChange)
 EVT_CHECKBOX(wxID_FILE2, settings_window::ShowAdvCtrlChange)
 EVT_CHECKBOX(wxID_FILE3, settings_window::ShowVeryAdvCtrlChange)
+EVT_COMMAND_RANGE(4000, 4000 + OPTWIN_LAST - 1, wxEVT_COMMAND_TOGGLEBUTTON_CLICKED, settings_window::CategoryButtonClick)
 END_EVENT_TABLE()
 
 settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name, taccount *defshow)
@@ -387,8 +389,28 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	fgs->SetFlexibleDirection(wxHORIZONTAL);
 	fgs->AddGrowableCol(2, 1);
 	hbox->Add(vbox, 1, wxALL | wxEXPAND, 0);
+
+	wxBoxSizer *btnbox = new wxBoxSizer(wxHORIZONTAL);
+	vbox->Add(btnbox, 0, wxALL | wxALIGN_TOP , 4);
+
+	cat_buttons.resize(OPTWIN_LAST);
+	auto addbtn = [&](int id, const wxString &name) {
+		wxToggleButton *btn = new wxToggleButton(panel, 4000 + id, name);
+		btnbox->Add(btn, 0, wxALL, 2);
+		if(id == currentcat) btn->SetValue(true);
+		cat_buttons[id] = btn;
+	};
+	addbtn(OPTWIN_DISPLAY, wxT("Display"));
+	addbtn(OPTWIN_NETWORK, wxT("Network"));
+	addbtn(OPTWIN_CACHING, wxT("Caching"));
+	addbtn(OPTWIN_TWITTER, wxT("Twitter"));
+
 	vbox->Add(hbox1, 0, wxALL | wxEXPAND | wxALIGN_TOP , 4);
 	hbox1->Add(fgs, 0, wxALL | wxEXPAND | wxALIGN_TOP , 4);
+
+	cat_empty_sizer_op.emplace_back(fgs, [=](bool show) {
+		vbox->Show(hbox1, show);
+	});
 
 	wxBoxSizer *hboxfooter = new wxBoxSizer(wxHORIZONTAL);
 	wxButton *okbtn=new wxButton(panel, wxID_OK, wxT("OK"));
@@ -402,27 +424,27 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	hboxfooter->AddStretchSpacer();
 	hboxfooter->Add(okbtn, 0, wxALL | wxALIGN_BOTTOM | wxALIGN_RIGHT, 2);
 	hboxfooter->Add(cancelbtn, 0, wxALL | wxALIGN_BOTTOM | wxALIGN_RIGHT, 2);
-	advopts.push_front(std::make_pair(advoptbox, veryadvoptchkbox));
+	opts.emplace_front(option_item {advoptbox, veryadvoptchkbox, 0, DCBV_ADVOPTION});
 
-	AddSettingRow_String(panel, fgs, wxT("Max No. of Items to Display in Panel"), DCBV_ISGLOBALCFG, gc.gcfg.maxtweetsdisplayinpanel, gcglobdefaults.maxtweetsdisplayinpanel, wxFILTER_NUMERIC);
-	AddSettingRow_String(panel, fgs, wxT("Date-Time Format (strftime)"), DCBV_ISGLOBALCFG, gc.gcfg.datetimeformat, gcglobdefaults.datetimeformat);
-	AddSettingRow_String(panel, fgs, wxT("Max Profile Image Size / px"), DCBV_ISGLOBALCFG, gc.gcfg.maxpanelprofimgsize, gcglobdefaults.maxpanelprofimgsize, wxFILTER_NUMERIC);
-	AddSettingRow_Bool(panel, fgs,  wxT("Display Native Re-Tweets"), DCBV_ISGLOBALCFG, gc.gcfg.rtdisp, gcglobdefaults.rtdisp);
-	AddSettingRow_String(panel, fgs, wxT("Cached User Expiry Time / minutes"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.userexpiretimemins, gcglobdefaults.userexpiretimemins, wxFILTER_NUMERIC);
-	AddSettingRow_String(panel, fgs, wxT("Tweet display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.tweetdispformat, gcglobdefaults.tweetdispformat);
-	AddSettingRow_String(panel, fgs, wxT("DM display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.dmdispformat, gcglobdefaults.dmdispformat);
-	AddSettingRow_String(panel, fgs, wxT("Native Re-Tweet display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.rtdispformat, gcglobdefaults.rtdispformat);
-	AddSettingRow_String(panel, fgs, wxT("User display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.userdispformat, gcglobdefaults.userdispformat);
-	AddSettingRow_Bool(panel, fgs,  wxT("Cache media image thumbnails"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.cachethumbs, gcglobdefaults.cachethumbs);
-	AddSettingRow_Bool(panel, fgs,  wxT("Cache full-size media images"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.cachemedia, gcglobdefaults.cachemedia);
-	AddSettingRow_Bool(panel, fgs,  wxT("Check incoming media against cache"), DCBV_ISGLOBALCFG | DCBV_VERYADVOPTION, gc.gcfg.persistentmediacache, gcglobdefaults.persistentmediacache);
-	AddSettingRow_Bool(panel, fgs,  wxT("Assume that mentions are a subset of the home timeline"), DCBV_ISGLOBALCFG | DCBV_VERYADVOPTION, gc.gcfg.assumementionistweet, gcglobdefaults.assumementionistweet);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Max No. of Items to Display in Panel"), DCBV_ISGLOBALCFG, gc.gcfg.maxtweetsdisplayinpanel, gcglobdefaults.maxtweetsdisplayinpanel, wxFILTER_NUMERIC);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Date-Time Format (strftime)"), DCBV_ISGLOBALCFG, gc.gcfg.datetimeformat, gcglobdefaults.datetimeformat);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Max Profile Image Size / px"), DCBV_ISGLOBALCFG, gc.gcfg.maxpanelprofimgsize, gcglobdefaults.maxpanelprofimgsize, wxFILTER_NUMERIC);
+	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs,  wxT("Display Native Re-Tweets"), DCBV_ISGLOBALCFG, gc.gcfg.rtdisp, gcglobdefaults.rtdisp);
+	AddSettingRow_String(OPTWIN_CACHING, panel, fgs, wxT("Cached User Expiry Time / minutes"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.userexpiretimemins, gcglobdefaults.userexpiretimemins, wxFILTER_NUMERIC);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Tweet display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.tweetdispformat, gcglobdefaults.tweetdispformat);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("DM display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.dmdispformat, gcglobdefaults.dmdispformat);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Native Re-Tweet display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.rtdispformat, gcglobdefaults.rtdispformat);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("User display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.userdispformat, gcglobdefaults.userdispformat);
+	AddSettingRow_Bool(OPTWIN_CACHING, panel, fgs,  wxT("Cache media image thumbnails"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.cachethumbs, gcglobdefaults.cachethumbs);
+	AddSettingRow_Bool(OPTWIN_CACHING, panel, fgs,  wxT("Cache full-size media images"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.cachemedia, gcglobdefaults.cachemedia);
+	AddSettingRow_Bool(OPTWIN_CACHING, panel, fgs,  wxT("Check incoming media against cache"), DCBV_ISGLOBALCFG | DCBV_VERYADVOPTION, gc.gcfg.persistentmediacache, gcglobdefaults.persistentmediacache);
+	AddSettingRow_Bool(OPTWIN_TWITTER, panel, fgs,  wxT("Assume that mentions are a subset of the home timeline"), DCBV_ISGLOBALCFG | DCBV_VERYADVOPTION, gc.gcfg.assumementionistweet, gcglobdefaults.assumementionistweet);
 
 	lb=new wxChoice(panel, wxID_FILE1);
 
 	vbox->Add(lb, 0, wxALL, 4);
 
-	wxStaticBoxSizer *defsbox=AddGenoptconfSettingBlock(panel, vbox, wxT("[Global Defaults]"), gc.cfg, gcdefaults, DCBV_ISGLOBALCFG);
+	wxStaticBoxSizer *defsbox=AddGenoptconfSettingBlock(panel, vbox, wxT("[Defaults for All Accounts]"), gc.cfg, gcdefaults, DCBV_ISGLOBALCFG);
 	accmap[0]=defsbox;
 	lb->Append(wxT("[Global Defaults]"), (void *) 0);
 	lb->SetSelection(0);
@@ -451,15 +473,19 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 
 	vbox->Add(hboxfooter, 0, wxALL | wxALIGN_BOTTOM | wxEXPAND, 0);
 
-	AdvOptShowHide(advopts, false);
-	AdvOptShowHide(veryadvopts, false);
+	OptShowHide(~0);
 
 	panel->SetSizer(hbox);
 	hbox->Fit(panel);
 
 	initsize=GetSize();
 	SetSizeHints(initsize.GetWidth(), initsize.GetHeight(), 9000, initsize.GetHeight());
-	//InitDialog();
+
+	currentcat = 1;
+	cat_buttons[1]->SetValue(true);
+	SetSizeHints(GetSize().GetWidth(), 1);
+	OptShowHide(0);
+	PostOptShowHide();
 }
 
 settings_window::~settings_window() {
@@ -476,45 +502,59 @@ void settings_window::ChoiceCtrlChange(wxCommandEvent &event) {
 	SetSizeHints(GetSize().GetWidth(), 1);
 	current=(taccount*) event.GetClientData();
 	vbox->Show(accmap[current]);
-	AdvOptShowHide(advopts, advoptchkbox->IsChecked());
-	AdvOptShowHide(veryadvopts, veryadvoptchkbox->IsChecked());
-	PostAdvOptShowHide();
+	OptShowHide((advoptchkbox->IsChecked() ? DCBV_ADVOPTION : 0) | (veryadvoptchkbox->IsChecked() ? DCBV_VERYADVOPTION : 0));
+	PostOptShowHide();
 	Thaw();
 }
 
 void settings_window::ShowAdvCtrlChange(wxCommandEvent &event) {
 	Freeze();
 	SetSizeHints(GetSize().GetWidth(), 1);
-	AdvOptShowHide(advopts, event.IsChecked());
 	if(!event.IsChecked()) {
 		veryadvoptchkbox->SetValue(false);
-		AdvOptShowHide(veryadvopts, false);
 	}
-	PostAdvOptShowHide();
+	OptShowHide((event.IsChecked() ? DCBV_ADVOPTION : 0) | (veryadvoptchkbox->IsChecked() ? DCBV_VERYADVOPTION : 0));
+	PostOptShowHide();
 	Thaw();
 }
 void settings_window::ShowVeryAdvCtrlChange(wxCommandEvent &event) {
 	Freeze();
 	SetSizeHints(GetSize().GetWidth(), 1);
-	AdvOptShowHide(veryadvopts, event.IsChecked());
-	PostAdvOptShowHide();
+	OptShowHide((advoptchkbox->IsChecked() ? DCBV_ADVOPTION : 0) | (event.IsChecked() ? DCBV_VERYADVOPTION : 0));
+	PostOptShowHide();
 	Thaw();
 }
 
-void settings_window::AdvOptShowHide(const std::forward_list<std::pair<wxSizer *,wxWindow *>> &opts, bool show) {
+void settings_window::OptShowHide(unsigned int setmask) {
 	std::unordered_set<wxSizer *> sizerset;
-	for(auto it=opts.begin(); it!=opts.end(); it++) {
-		wxSizer *sz=it->first;
-		wxWindow *win=it->second;
-		sz->Show(win, show);
-		sizerset.insert(sz);
+	std::unordered_set<wxSizer *> nonempty_sizerset;
+	std::vector<std::function<void()> > ops;
+	for(auto &it : opts) {
+		unsigned int allmask = DCBV_ADVOPTION | DCBV_VERYADVOPTION;
+		unsigned int maskedflags = it.flags & allmask;
+		bool show;
+		if(!maskedflags) show = true;
+		else show = (bool) (maskedflags & setmask);
+		if(it.cat && currentcat && it.cat != currentcat) show = false;
+		ops.push_back([=] { it.sizer->Show(it.win, show); });
+		if(show) nonempty_sizerset.insert(it.sizer);
+		sizerset.insert(it.sizer);
 	}
-	for(auto it=sizerset.begin(); it!=sizerset.end(); it++) {
-		(*it)->Layout();
+	for(auto &it : sizerset) {
+		bool isnonempty = nonempty_sizerset.count(it);
+		for(auto &jt : cat_empty_sizer_op) {
+			if(it == jt.first) {
+				jt.second(isnonempty);
+			}
+		}
 	}
+	for(auto &it : ops) {
+		it();
+	}
+	for(auto &it : sizerset) it->Layout();
 }
 
-void settings_window::PostAdvOptShowHide() {
+void settings_window::PostOptShowHide() {
 	for(auto it=accmap.begin(); it!=accmap.end(); it++) {
 		if(it->first!=current) vbox->Hide(it->second);
 	}
@@ -532,4 +572,16 @@ bool settings_window::TransferDataFromWindow() {
 		for(auto it=alist.begin() ; it != alist.end(); it++ ) (*it)->CFGParamConv();
 	}
 	return retval;
+}
+
+void settings_window::CategoryButtonClick(wxCommandEvent &event) {
+	Freeze();
+	if(cat_buttons[currentcat]) cat_buttons[currentcat]->SetValue(false);
+	currentcat = event.GetId() - 4000;
+	cat_buttons[currentcat]->SetValue(true);
+
+	SetSizeHints(GetSize().GetWidth(), 1);
+	OptShowHide((advoptchkbox->IsChecked() ? DCBV_ADVOPTION : 0) | (veryadvoptchkbox->IsChecked() ? DCBV_VERYADVOPTION : 0));
+	PostOptShowHide();
+	Thaw();
 }
