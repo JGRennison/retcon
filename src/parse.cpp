@@ -448,8 +448,8 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			else if(dmval.IsObject()) {
 				DoTweetParse(dmval, JDTP_ISDM);
 			}
-			else if(delval.IsObject()) {
-				DoTweetParse(delval, JDTP_DEL);
+			else if(delval.IsObject() && delval["status"].IsObject()) {
+				DoTweetParse(delval["status"], JDTP_DEL);
 			}
 			else if(ival.IsNumber() && tval.IsString() && dc["recipient"].IsObject() && dc["sender"].IsObject()) {	//assume this is a direct message
 				DoTweetParse(dc, JDTP_ISDM);
@@ -594,18 +594,25 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 	if(tac->ssl) tobj->flags.Set('s');
 	if(sflags&JDTP_DEL) tobj->flags.Set('X');
 
-	tweet_perspective *tp=tobj->AddTPToTweet(tac);
-	bool is_new_tweet_perspective=!tp->IsReceivedHere();
-	bool has_just_arrived=!tp->IsArrivedHere();
-	if(!(sflags&JDTP_USERTIMELINE) && !(sflags&JDTP_CHECKPENDINGONLY)) tp->SetArrivedHere(true);
-	else has_just_arrived = false;
-	tp->SetReceivedHere(true);
-	ParsePerspectivalTweetProps(val, tp, 0);
+	tweet_perspective *tp = tobj->AddTPToTweet(tac);
+	bool is_new_tweet_perspective = false;
+	bool has_just_arrived = false;
+
+	if(!(sflags&JDTP_DEL)) {
+		is_new_tweet_perspective = !tp->IsReceivedHere();
+		if(!(sflags&JDTP_USERTIMELINE) && !(sflags&JDTP_CHECKPENDINGONLY)) {
+			has_just_arrived = !tp->IsArrivedHere();
+			tp->SetArrivedHere(true);
+		}
+		tp->SetReceivedHere(true);
+		ParsePerspectivalTweetProps(val, tp, 0);
+	}
+
 	if(sflags&JDTP_FAV) tp->SetFavourited(true);
 	if(sflags&JDTP_UNFAV) tp->SetFavourited(false);
 
 	std::string json;
-	if(tobj->createtime == 0) {	// this is a better test than merely whether the tweet object is new
+	if(tobj->createtime == 0 && !(sflags&JDTP_DEL)) {	// this is a better test than merely whether the tweet object is new
 		writestream wr(json);
 		Handler jw(wr);
 		jw.StartObject();
@@ -631,15 +638,25 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 	if(is_new_tweet_perspective) {	//this filters out duplicate tweets from the same account
 		if(!(sflags&JDTP_ISDM)) {
 			if(!(sflags&JDTP_ISRTSRC)) tac->tweet_ids.insert(tweetid);
-			uint64_t userid=val["user"]["id"].GetUint64();
-			tobj->user=CheckParseUserObj(userid, val["user"], *this);
+			const rapidjson::Value& userobj = val["user"];
+			if(userobj.IsObject()) {
+				const rapidjson::Value& useridval = userobj["id"];
+				if(useridval.IsUint64()) {
+					uint64_t userid=useridval.GetUint64();
+					tobj->user=CheckParseUserObj(userid, userobj, *this);
+				}
+			}
 		}
 		else {	//direct message
 			tac->dm_ids.insert(tweetid);
-			uint64_t senderid=val["sender_id"].GetUint64();
-			uint64_t recipientid=val["recipient_id"].GetUint64();
-			tobj->user=CheckParseUserObj(senderid, val["sender"], *this);
-			tobj->user_recipient=CheckParseUserObj(recipientid, val["recipient"], *this);
+			if(val["sender_id"].IsUint64() && val["sender"].IsObject()) {
+				uint64_t senderid=val["sender_id"].GetUint64();
+				tobj->user=CheckParseUserObj(senderid, val["sender"], *this);
+			}
+			if(val["recipient_id"].IsUint64() && val["recipient"].IsObject()) {
+				uint64_t recipientid=val["recipient_id"].GetUint64();
+				tobj->user_recipient=CheckParseUserObj(recipientid, val["recipient"], *this);
+			}
 		}
 		tobj->updcf_flags|=UPDCF_USEREXPIRE;
 	}
