@@ -594,6 +594,17 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 	if(tac->ssl) tobj->flags.Set('s');
 	if(sflags&JDTP_DEL) tobj->flags.Set('X');
 
+	if(sflags&JDTP_DEL && (!tobj->user || tobj->createtime == 0)) {
+		//delete received where tweet incomplete or not in memory before
+		//send speculative update to DB in case tweet already stored there
+		tweetidset delidset;
+		delidset.insert(tweetid);
+		dbupdatetweetsetflagsmsg *msg=new dbupdatetweetsetflagsmsg(std::move(delidset), tweet_flags::GetFlagValue('X'), 0);
+		dbc.SendMessage(msg);
+		return std::make_shared<tweet>();
+	}
+
+
 	tweet_perspective *tp = tobj->AddTPToTweet(tac);
 	bool is_new_tweet_perspective = false;
 	bool has_just_arrived = false;
