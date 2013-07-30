@@ -23,7 +23,7 @@
 
 #include <wx/string.h>
 
-#define RETCON_VERSION_STR "0.0.1"
+#define RETCON_VERSION_STR "0.0.2"
 
 extern const wxString appname;
 extern const wxString appversionname;

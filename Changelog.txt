@@ -1,0 +1,26 @@
+retcon 0.0.2
+------------------------------------------------------
+
+Fix Unix compilation.
+Do not automatically insert own accounts in outgoing reply text box.
+Fix clickable entities in native retweets.
+Fix media image windows to both scale down and scale up images as required.
+Replace Tweets & DMs panel with: Tweets & Mentions, Mentions & DMs, and All.
+Add code to disply which account(s) a tweet arrived on, when using a multi-account panel. Add this to the default tweet format codes.
+Various changes to attempt to improve performance/memory use.
+Fix a number of bugs around database lookup, network fallback, and tweet parsing/initialisation.
+Clear the reply to/DM state after successfully posting.
+When selecting reply or DM to a tweet, change the posting account according to the arrival account(s), where appropriate.
+Add a new flag for unread 'u'.
+Fix handling unread tweets.
+Fix layout issues with changing size of character count/info statictext.
+Fix DM and tweet deletion stream messages.
+Don't update REST limits for fetched single tweets.
+Add a profile URL line to the user window.
+Add an unread icon and an unread count to tpanels with unread items.
+Fix right click handler. Add a URL display to the right click menu for links and images.
+Move copy URL to clipboard menu items into URL submenu.
+Fix subtweets not having their relative times updated.
+Fix subtweet profile images being updated to full size images.
+Implement asynchronous DNS using threads, if libcurl is not built with it already.
+Implement tabs for the settings window.
