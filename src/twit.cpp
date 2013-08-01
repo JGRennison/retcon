@@ -585,7 +585,7 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
 		case CS_DELETEDM: msgbox=true; break;
 		case CS_USERFOLLOWING: break;
 		case CS_USERFOLLOWERS: break;
-		case CS_SINGLETWEET: retry=true; break;
+		case CS_SINGLETWEET: break;
 		default: break;
 	}
 	LogMsgFormat(LFT_SOCKERR, wxT("%s failed (%s)"), action.c_str(), acc->dispname.c_str());
@@ -606,6 +606,7 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
 		else retry=true;
 	}
 	if(retry && (acc->enabled || acc->init)) {
+		LogMsgFormat(LFT_SOCKERR, wxT("Retrying failed request: %s (%s)"), action.c_str(), acc->dispname.c_str());
 		acc->AddFailedPendingConn(this);
 	}
 	else acc->cp.Standby(this);

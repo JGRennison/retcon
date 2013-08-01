@@ -99,9 +99,11 @@ void mcurlconn::HandleError(CURL *easy, long httpcode, CURLcode res) {
 	}
 	switch(err) {
 		case MCC_RETRY:
+			LogMsgFormat(LFT_SOCKERR, wxT("About to retry request: type: %s, conn: %p, url: %s"), GetConnTypeName().c_str(), this, wxstrstd(url).c_str());
 			sm.RetryConn(this);
 			break;
 		case MCC_FAILED:
+			LogMsgFormat(LFT_SOCKERR, wxT("Calling failure handler: type: %s, conn: %p, url: %s"), GetConnTypeName().c_str(), this, wxstrstd(url).c_str());
 			HandleFailure(httpcode, res);
 			sm.RetryConnLater();
 			break;
