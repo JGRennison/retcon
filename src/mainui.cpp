@@ -146,7 +146,7 @@ void mainframe::OnLookupUser(wxCommandEvent &event) {
 		twit->TwInit(acctouse);
 		twit->connmode=CS_USERLOOKUPWIN;
 		twit->extra1=std::string(value.ToUTF8());
-		twit->genurl="api.twitter.com/1/users/show.json";
+		twit->genurl="api.twitter.com/1.1/users/show.json";
 		if(type==0) twit->genurl+="?screen_name="+urlencode(twit->extra1);
 		else if(type==1) twit->genurl+="?user_id="+urlencode(twit->extra1);
 		twit->QueueAsyncExec();
