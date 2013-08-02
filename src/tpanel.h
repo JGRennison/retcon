@@ -82,6 +82,10 @@ typedef enum {
 	TAMI_USERWINDOW,
 	TAMI_DM,
 	TAMI_NULL,
+	TAMI_TOGGLEHIGHLIGHT,
+	TAMI_MARKREAD,
+	TAMI_MARKUNREAD,
+	TAMI_MARKNOREADSTATE,
 } TAMI_TYPE;
 
 struct tweetactmenuitem {
@@ -130,6 +134,7 @@ struct dispscr_base : public wxRichTextCtrl, public magic_ptr_base {
 
 enum {	//for tweetdispscr.tds_flags
 	TDSF_SUBTWEET	= 1<<0,
+	TDSF_HIGHLIGHT	= 1<<1,
 };
 
 struct tweetdispscr : public dispscr_base {
@@ -142,6 +147,8 @@ struct tweetdispscr : public dispscr_base {
 	uint64_t rtid;
 	unsigned int tds_flags = 0;
 	std::forward_list<magic_ptr_ts<tweetdispscr> > subtweets;
+	wxColour default_background_colour;
+	wxColour default_foreground_colour;
 
 	tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_);
 	~tweetdispscr();

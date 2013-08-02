@@ -31,6 +31,8 @@ bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_n
 bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::shared_ptr<taccount> acc_hint);
 void MarkTweetIdAsRead(uint64_t id, const tpanel *exclude);
 void MarkTweetIDSetAsRead(const tweetidset &ids, const tpanel *exclude);
+void SendTweetFlagUpdate(const std::shared_ptr<tweet> &tw, unsigned long long mask);
+void UpdateSingleTweetUnreadState(const std::shared_ptr<tweet> &tw);
 
 enum {	//for UnmarkPendingTweet: umpt_flags
 	UMPTF_TPDB_NOUPDF	= 1<<0,
@@ -123,6 +125,14 @@ struct tweet_flags {
 	void Set(char in, bool value=true) {
 		ssize_t num=GetFlagNum(in);
 		if(num>=0) bits.set(num, value);
+	}
+	bool Toggle(char in) {
+		ssize_t num=GetFlagNum(in);
+		if(num>=0) {
+			bits.flip(num);
+			return bits.test(num);
+		}
+		else return 0;
 	}
 	std::string GetString() const;
 	unsigned long long Save() const { return bits.to_ullong(); }

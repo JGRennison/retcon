@@ -1022,6 +1022,35 @@ void MarkTweetIDSetAsRead(const tweetidset &ids, const tpanel *exclude) {
 	dbc.SendMessage(msg);
 }
 
+void UpdateSingleTweetUnreadState(const std::shared_ptr<tweet> &tw) {
+	bool unread = tw->flags.Get('u');
+	uint64_t id = tw->id;
+
+	if(unread) ad.unreadids.insert(id);
+	else ad.unreadids.erase(id);
+	for(auto &it : ad.tpanels) {
+		tpanel &tp = *(it.second);
+		if(tp.tweetlist.find(id) != tp.tweetlist.end()) {
+			if(unread) tp.unreadtweetids.insert(id);
+			else tp.unreadtweetids.erase(id);
+			for(auto &jt : tp.twin) {
+				jt->tppw_flags|=TPPWF_CLABELUPDATEPENDING|TPPWF_NOUPDATEONPUSH;
+			}
+		}
+	}
+	SendTweetFlagUpdate(tw, tweet_flags::GetFlagValue('r') | tweet_flags::GetFlagValue('u'));
+	CheckClearNoUpdateFlag_All();
+}
+
+void SendTweetFlagUpdate(const std::shared_ptr<tweet> &tw, unsigned long long mask) {
+	tweetidset ids;
+	ids.insert(tw->id);
+	unsigned long long setmask = mask & tw->flags.Save();
+	unsigned long long unsetmask = mask & (~tw->flags.Save());
+	dbupdatetweetsetflagsmsg *msg=new dbupdatetweetsetflagsmsg(std::move(ids), setmask, unsetmask);
+	dbc.SendMessage(msg);
+}
+
 //the following set of procedures should be kept in sync
 
 //returns true is ready, false is pending

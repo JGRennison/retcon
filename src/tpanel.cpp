@@ -182,6 +182,22 @@ void MakeCopyMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::
 	AppendToTAMIMenuMap(map, nextid, TAMI_COPYID, tw);
 }
 
+void MakeMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw) {
+	wxMenuItem *wmi1 = menuP->Append(nextid, wxT("Read"), wxT(""), wxITEM_RADIO);
+	wmi1->Check(tw->flags.Get('r'));
+	AppendToTAMIMenuMap(map, nextid, TAMI_MARKREAD, tw);
+	wxMenuItem *wmi2 = menuP->Append(nextid, wxT("Unread"), wxT(""), wxITEM_RADIO);
+	wmi2->Check(tw->flags.Get('u'));
+	AppendToTAMIMenuMap(map, nextid, TAMI_MARKUNREAD, tw);
+	wxMenuItem *wmi3 = menuP->Append(nextid, wxT("Neither"), wxT(""), wxITEM_RADIO);
+	wmi3->Check(!tw->flags.Get('r') && !tw->flags.Get('u'));
+	AppendToTAMIMenuMap(map, nextid, TAMI_MARKNOREADSTATE, tw);
+	menuP->AppendSeparator();
+	wxMenuItem *wmi4 = menuP->Append(nextid, wxT("Highlighted"), wxT(""), wxITEM_CHECK);
+	wmi4->Check(tw->flags.Get('H'));
+	AppendToTAMIMenuMap(map, nextid, TAMI_TOGGLEHIGHLIGHT, tw);
+}
+
 void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin=0) {
 	unsigned int dbindex=map[curid].dbindex;
 	std::shared_ptr<taccount> *acc=0;
@@ -260,6 +276,33 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin=0) 
 			std::shared_ptr<taccount> acc_hint;
 			if(map[curid].tw) map[curid].tw->GetUsableAccount(acc_hint);
 			user_window::MkWin(map[curid].user->id, acc_hint);
+			break;
+		}
+		case TAMI_TOGGLEHIGHLIGHT: {
+			map[curid].tw->flags.Toggle('H');
+			SendTweetFlagUpdate(map[curid].tw, tweet_flags::GetFlagValue('H'));
+			UpdateTweet(*map[curid].tw, false);
+			break;
+		}
+		case TAMI_MARKREAD: {
+			map[curid].tw->flags.Set('r', true);
+			map[curid].tw->flags.Set('u', false);
+			UpdateSingleTweetUnreadState(map[curid].tw);
+			UpdateTweet(*map[curid].tw, false);
+			break;
+		}
+		case TAMI_MARKUNREAD: {
+			map[curid].tw->flags.Set('r', false);
+			map[curid].tw->flags.Set('u', true);
+			UpdateSingleTweetUnreadState(map[curid].tw);
+			UpdateTweet(*map[curid].tw, false);
+			break;
+		}
+		case TAMI_MARKNOREADSTATE: {
+			map[curid].tw->flags.Set('r', false);
+			map[curid].tw->flags.Set('u', false);
+			UpdateSingleTweetUnreadState(map[curid].tw);
+			UpdateTweet(*map[curid].tw, false);
 			break;
 		}
 		case TAMI_NULL: {
@@ -1372,6 +1415,8 @@ tweetdispscr::tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *p
 : dispscr_base(parent, tppw_, hbox_), td(td_), bm(0), bm2(0) {
 	if(td_->rtsrc) rtid=td_->rtsrc->id;
 	else rtid=0;
+	default_background_colour = GetBackgroundColour();
+	default_foreground_colour = GetForegroundColour();
 }
 
 tweetdispscr::~tweetdispscr() {
@@ -1622,6 +1667,28 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 	tweet &tw=*td;
 	userdatacontainer *udc=tw.user.get();
 	userdatacontainer *udc_recip=tw.user_recipient.get();
+
+	bool highlight = tw.flags.Get('H');
+	if(highlight && !(tds_flags&TDSF_HIGHLIGHT)) {
+		double br = default_background_colour.Red();
+		double bg = default_background_colour.Green();
+		double bb = default_background_colour.Blue();
+
+		br += 50;
+		if(br > 255) {
+			double factor = 255.0/br;
+			br *= factor;
+			bg *= factor;
+			bb *= factor;
+		}
+
+		SetBackgroundColour(wxColour((unsigned char) br, (unsigned char) bg, (unsigned char) bb));
+		tds_flags |= TDSF_HIGHLIGHT;
+	}
+	else if(!highlight && tds_flags&TDSF_HIGHLIGHT) {
+		SetBackgroundColour(default_background_colour);
+		tds_flags &= ~TDSF_HIGHLIGHT;
+	}
 
 	if(redrawimg) {
 		auto updateprofimg = [this](profimg_staticbitmap *b) {
@@ -1912,6 +1979,11 @@ void tweetdispscr::urlhandler(wxString url) {
 					wxMenu *copysubmenu = new wxMenu();
 					menu.AppendSubMenu(copysubmenu, wxT("Copy to Clipboard"));
 					MakeCopyMenu(copysubmenu, tamd, nextid, td);
+				}
+				{
+					wxMenu *marksubmenu = new wxMenu();
+					menu.AppendSubMenu(marksubmenu, wxT("Mark"));
+					MakeMarkMenu(marksubmenu, tamd, nextid, td);
 				}
 
 				bool deletable=false;
