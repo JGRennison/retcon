@@ -29,10 +29,11 @@ bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t, bool checkfirst=fa
 unsigned int CheckTweetPendings(const std::shared_ptr<tweet> &t);
 bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_nt* win_, unsigned int pushflags=0, std::shared_ptr<tpanel> *pushtpanel_=0);
 bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::shared_ptr<taccount> acc_hint);
-void MarkTweetIdAsRead(uint64_t id, const tpanel *exclude);
 void MarkTweetIDSetAsRead(const tweetidset &ids, const tpanel *exclude);
+void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, std::function<tweetidset &(cached_id_sets &)> idsetselector, bool remove, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc = std::function<void(const std::shared_ptr<tweet> &)>());
 void SendTweetFlagUpdate(const std::shared_ptr<tweet> &tw, unsigned long long mask);
 void UpdateSingleTweetUnreadState(const std::shared_ptr<tweet> &tw);
+void UpdateSingleTweetHighlightState(const std::shared_ptr<tweet> &tw);
 
 enum {	//for UnmarkPendingTweet: umpt_flags
 	UMPTF_TPDB_NOUPDF	= 1<<0,

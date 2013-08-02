@@ -57,7 +57,7 @@ struct dbpscache {
 	~dbpscache() { DeAllocAll(); }
 	void BeginTransaction(sqlite3 *adb);
 	void EndTransaction(sqlite3 *adb);
-	
+
 	private:
 	unsigned int transaction_refcount = 0;
 };
@@ -229,7 +229,7 @@ struct dbupdatemediachecksummsg : public dbsendmsg {
 
 struct dbupdatetweetsetflagsmsg : public dbsendmsg {
 	dbupdatetweetsetflagsmsg(tweetidset &&ids_, uint64_t setmask_, uint64_t unsetmask_) : dbsendmsg(DBSM_UPDATETWEETSETFLAGS), ids(ids_), setmask(setmask_), unsetmask(unsetmask_) { }
-	
+
 	tweetidset ids;
 	uint64_t setmask;
 	uint64_t unsetmask;
@@ -276,8 +276,8 @@ struct dbconn : public wxEvtHandler {
 	void OnTpanelTweetLoadFromDB(wxCommandEvent &event);
 	void OnDBThreadDebugMsg(wxCommandEvent &event);
 	void OnDBNewAccountInsert(wxCommandEvent &event);
-	void SyncReadInUnreadList(sqlite3 *adb);
-	void SyncWriteBackUnreadList(sqlite3 *adb);
+	void SyncReadInCIDSLists(sqlite3 *adb);
+	void SyncWriteBackCIDSLists(sqlite3 *adb);
 
 	DECLARE_EVENT_TABLE()
 };

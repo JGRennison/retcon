@@ -280,29 +280,25 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin=0) 
 		}
 		case TAMI_TOGGLEHIGHLIGHT: {
 			map[curid].tw->flags.Toggle('H');
-			SendTweetFlagUpdate(map[curid].tw, tweet_flags::GetFlagValue('H'));
-			UpdateTweet(*map[curid].tw, false);
+			UpdateSingleTweetHighlightState(map[curid].tw);
 			break;
 		}
 		case TAMI_MARKREAD: {
 			map[curid].tw->flags.Set('r', true);
 			map[curid].tw->flags.Set('u', false);
 			UpdateSingleTweetUnreadState(map[curid].tw);
-			UpdateTweet(*map[curid].tw, false);
 			break;
 		}
 		case TAMI_MARKUNREAD: {
 			map[curid].tw->flags.Set('r', false);
 			map[curid].tw->flags.Set('u', true);
 			UpdateSingleTweetUnreadState(map[curid].tw);
-			UpdateTweet(*map[curid].tw, false);
 			break;
 		}
 		case TAMI_MARKNOREADSTATE: {
 			map[curid].tw->flags.Set('r', false);
 			map[curid].tw->flags.Set('u', false);
 			UpdateSingleTweetUnreadState(map[curid].tw);
-			UpdateTweet(*map[curid].tw, false);
 			break;
 		}
 		case TAMI_NULL: {
@@ -349,7 +345,10 @@ bool tpanel::RegisterTweet(const std::shared_ptr<tweet> &t) {
 		if(t->id<lowerid || lowerid==0) lowerid=t->id;
 		tweetlist.insert(t->id);
 		if(t->flags.Get('u')) {
-			unreadtweetids.insert(t->id);
+			cids.unreadids.insert(t->id);
+		}
+		if(t->flags.Get('H')) {
+			cids.highlightids.insert(t->id);
 		}
 		return true;
 	}
@@ -370,7 +369,9 @@ tpanel::tpanel(const std::string &name_, const std::string &dispname_, unsigned 
 			if(flags&TPF_AUTO_DM) tweetlist.insert((*it)->dm_ids.begin(), (*it)->dm_ids.end());
 			if(flags&TPF_AUTO_TW) tweetlist.insert((*it)->tweet_ids.begin(), (*it)->tweet_ids.end());
 			if(flags&TPF_AUTO_MN) tweetlist.insert((*it)->usercont->mention_index.begin(), (*it)->usercont->mention_index.end());
-			std::set_intersection(tweetlist.begin(), tweetlist.end(), ad.unreadids.begin(), ad.unreadids.end(), std::inserter(unreadtweetids, unreadtweetids.end()), tweetlist.key_comp());
+			ad.cids.foreach(this->cids, [&](tweetidset &adtis, tweetidset &thistis) {
+				std::set_intersection(tweetlist.begin(), tweetlist.end(), adtis.begin(), adtis.end(), std::inserter(thistis, thistis.end()), tweetlist.key_comp());
+			});
 		}
 	}
 	else return;
@@ -403,6 +404,13 @@ bool tpanel::IsSingleAccountTPanel() const {
 	if(alist.size() <= 1) return true;
 	if(flags & TPF_AUTO_ACC || flags & TPF_USER_TIMELINE) return true;
 	return false;
+}
+
+void tpanel::TPPWFlagMaskAllTWins(unsigned int set, unsigned int clear) const {
+	for(auto &jt : twin) {
+		jt->tppw_flags |= set;
+		jt->tppw_flags &= ~clear;
+	}
 }
 
 enum {
@@ -556,7 +564,7 @@ panelparentwin_base::panelparentwin_base(wxWindow *parent, bool fitnow)
 	//SetSizer(vbox);
 
 	wxBoxSizer* outersizer = new wxBoxSizer(wxVERTICAL);
-	wxBoxSizer* headersizer = new wxBoxSizer(wxHORIZONTAL);
+	headersizer = new wxBoxSizer(wxHORIZONTAL);
 	scrollwin = new tpanelscrollwin(this);
 	clabel=new wxStaticText(this, wxID_ANY, wxT(""), wxPoint(-1000, -1000));
 	outersizer->Add(headersizer, 0, wxALL | wxEXPAND, 0);
@@ -565,6 +573,9 @@ panelparentwin_base::panelparentwin_base(wxWindow *parent, bool fitnow)
 	MarkReadBtn=new wxButton(this, TPPWID_MARKALLREADBTN, wxT("Mark All Read"), wxPoint(-1000, -1000), wxDefaultSize, wxBU_EXACTFIT);
 	MarkReadBtn->Show(false);
 	headersizer->Add(MarkReadBtn, 0, wxALL, 2);
+	UnHighlightBtn=new wxButton(this, TPPWID_UNHIGHLIGHTALLBTN, wxT("Unhighlight All"), wxPoint(-1000, -1000), wxDefaultSize, wxBU_EXACTFIT);
+	UnHighlightBtn->Show(false);
+	headersizer->Add(UnHighlightBtn, 0, wxALL, 2);
 	headersizer->Add(new wxButton(this, TPPWID_TOPBTN, wxT("Top \x2191"), wxPoint(-1000, -1000), wxDefaultSize, wxBU_EXACTFIT), 0, wxALL, 2);
 	outersizer->Add(scrollwin, 1, wxALL | wxEXPAND, 2);
 	outersizer->Add(new wxStaticText(this, wxID_ANY, wxT("Bar"), wxPoint(-1000, -1000)), 0, wxALL, 2);
@@ -677,6 +688,7 @@ bool panelparentwin_base::IsSingleAccountWin() const {
 
 BEGIN_EVENT_TABLE(tpanelparentwin_nt, panelparentwin_base)
 EVT_BUTTON(TPPWID_MARKALLREADBTN, tpanelparentwin_nt::markallreadevthandler)
+EVT_BUTTON(TPPWID_UNHIGHLIGHTALLBTN, tpanelparentwin_nt::markremoveallhighlightshandler)
 END_EVENT_TABLE()
 
 tpanelparentwin_nt::tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent)
@@ -843,23 +855,55 @@ void tpanelparentwin_nt::UpdateCLabel() {
 	size_t curnum=currentdisp.size();
 	if(curnum) {
 		wxString msg=wxString::Format(wxT("%d - %d of %d"), displayoffset+1, displayoffset+curnum, tp->tweetlist.size());
-		if(tp->unreadtweetids.size()) {
-			msg.append(wxString::Format(wxT(", %d unread"), tp->unreadtweetids.size()));
+		if(tp->cids.unreadids.size()) {
+			msg.append(wxString::Format(wxT(", %d unread"), tp->cids.unreadids.size()));
+		}
+		if(tp->cids.highlightids.size()) {
+			msg.append(wxString::Format(wxT(", %d highlighted"), tp->cids.highlightids.size()));
 		}
 		clabel->SetLabel(msg);
 	}
 	else clabel->SetLabel(wxT("No Tweets"));
-	MarkReadBtn->Show(!tp->unreadtweetids.empty());
+	MarkReadBtn->Show(!tp->cids.unreadids.empty());
+	UnHighlightBtn->Show(!tp->cids.highlightids.empty());
+	headersizer->Layout();
 }
 
 void tpanelparentwin_nt::markallreadevthandler(wxCommandEvent &event) {
-	Freeze();
-	for(auto jt=tp->twin.begin(); jt!=tp->twin.end(); ++jt) {
-		(*jt)->tppw_flags|=TPPWF_CLABELUPDATEPENDING|TPPWF_NOUPDATEONPUSH;
-	}
-	MarkTweetIDSetAsRead(tp->unreadtweetids, tp.get());
-	tp->unreadtweetids.clear();
+	tweetidset cached_ids=tp->cids.unreadids;
+	dbupdatetweetsetflagsmsg *msg=new dbupdatetweetsetflagsmsg(std::move(cached_ids), tweet_flags::GetFlagValue('r'), tweet_flags::GetFlagValue('u'));
+	dbc.SendMessage(msg);
+	MarkClearCIDSSetHandler(
+		[&](cached_id_sets &cids) -> tweetidset & {
+			return cids.unreadids;
+		},
+		[&](const std::shared_ptr<tweet> &tw) {
+			tw->UpdateMarkedAsRead(tp.get());
+		}
+	);
+}
 
+void tpanelparentwin_nt::markremoveallhighlightshandler(wxCommandEvent &event) {
+	tweetidset cached_ids=tp->cids.highlightids;
+	dbupdatetweetsetflagsmsg *msg=new dbupdatetweetsetflagsmsg(std::move(cached_ids), 0, tweet_flags::GetFlagValue('H'));
+	dbc.SendMessage(msg);
+	MarkClearCIDSSetHandler(
+		[&](cached_id_sets &cids) -> tweetidset & {
+			return cids.highlightids;
+		},
+		[&](const std::shared_ptr<tweet> &tw) {
+			tw->flags.Set('H', false);
+			UpdateTweet(*tw, false);
+		}
+	);
+}
+
+void tpanelparentwin_nt::MarkClearCIDSSetHandler(std::function<tweetidset &(cached_id_sets &)> idsetselector, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc) {
+	Freeze();
+	tp->TPPWFlagMaskAllTWins(TPPWF_CLABELUPDATEPENDING|TPPWF_NOUPDATEONPUSH, 0);
+	tweetidset &set = idsetselector(tp->cids);
+	MarkTweetIDSetCIDS(set, tp.get(), idsetselector, true, existingtweetfunc);
+	set.clear();
 	CheckClearNoUpdateFlag_All();
 	Thaw();
 }
@@ -1008,7 +1052,7 @@ void tpanelparentwin::tabsplitcmdhandler(wxCommandEvent &event) {
 void tpanelparentwin::UpdateCLabel() {
 	tpanelparentwin_nt::UpdateCLabel();
 	int pageid = owner->auib->GetPageIndex(this);
-	int unreadcount = tp->unreadtweetids.size();
+	int unreadcount = tp->cids.unreadids.size();
 	if(!unreadcount) {
 		owner->auib->SetPageText(pageid, wxstrstd(tp->dispname));
 		if((tpw_flags & TPWF_UNREADBITMAPDISP)) {

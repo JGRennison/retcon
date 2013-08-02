@@ -819,7 +819,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	SyncReadInAllUsers(syncdb);
 	SyncReadInRBFSs(syncdb);
 	if(gc.persistentmediacache) SyncReadInAllMediaEntities(syncdb);
-	SyncReadInUnreadList(syncdb);
+	SyncReadInCIDSLists(syncdb);
 
 	th=new dbiothread();
 	th->filename=filename;
@@ -864,7 +864,7 @@ void dbconn::DeInit() {
 	AccountIdListsSync(syncdb);
 	SyncWriteOutRBFSs(syncdb);
 	WriteAllCFGOut(syncdb, gc, alist);
-	SyncWriteBackUnreadList(syncdb);
+	SyncWriteBackCIDSLists(syncdb);
 
 	sqlite3_close(syncdb);
 }
@@ -972,32 +972,50 @@ void dbconn::AccountSync(sqlite3 *adb) {
 	sqlite3_finalize(getstmt);
 }
 
-void dbconn::SyncReadInUnreadList(sqlite3 *adb) {
-	const char getunreadlist[]="SELECT value FROM settings WHERE name == 'unreadids';";
+void dbconn::SyncReadInCIDSLists(sqlite3 *adb) {
+
+	const char getcidslist[]="SELECT value FROM settings WHERE name == ?;";
 	sqlite3_stmt *getstmt=0;
-	sqlite3_prepare_v2(adb, getunreadlist, sizeof(getunreadlist)+1, &getstmt, 0);
-	do {
-		int res=sqlite3_step(getstmt);
-		if(res==SQLITE_ROW) {
-			setfromcompressedblob([&](uint64_t &id) { ad.unreadids.insert(id); }, getstmt, 0);
-		}
-		else break;
-	} while(true);
+	sqlite3_prepare_v2(adb, getcidslist, sizeof(getcidslist)+1, &getstmt, 0);
+
+	auto doonelist = [&](std::string name, tweetidset &tlist) {
+		sqlite3_bind_text(getstmt, 1, name.c_str(), name.size(), SQLITE_STATIC);
+		do {
+			int res=sqlite3_step(getstmt);
+			if(res==SQLITE_ROW) {
+				setfromcompressedblob([&](uint64_t &id) { tlist.insert(id); }, getstmt, 0);
+			}
+			else break;
+		} while(true);
+		sqlite3_reset(getstmt);
+	};
+
+	doonelist("unreadids", ad.cids.unreadids);
+	doonelist("highlightids", ad.cids.highlightids);
+
 	sqlite3_finalize(getstmt);
 }
 
-void dbconn::SyncWriteBackUnreadList(sqlite3 *adb) {
-	const char setunreadlist[]="INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', 'unreadids', ?);";
+void dbconn::SyncWriteBackCIDSLists(sqlite3 *adb) {
+	const char setunreadlist[]="INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', ?, ?);";
 
 	sqlite3_stmt *setstmt=0;
 	sqlite3_prepare_v2(adb, setunreadlist, sizeof(setunreadlist)+1, &setstmt, 0);
 
-	size_t unreadindex_size;
-	unsigned char *unreadindex=settocompressedblob(ad.unreadids, unreadindex_size);
-	sqlite3_bind_blob(setstmt, 1, unreadindex, unreadindex_size, &free);
-	int res=sqlite3_step(setstmt);
-	if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("dbconn::SyncWriteBackUnreadList got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
-	sqlite3_reset(setstmt);
+	auto doonelist = [&](std::string name, tweetidset &tlist) {
+		size_t index_size;
+		unsigned char *index=settocompressedblob(tlist, index_size);
+		sqlite3_bind_text(setstmt, 1, name.c_str(), name.size(), SQLITE_STATIC);
+		sqlite3_bind_blob(setstmt, 2, index, index_size, &free);
+		int res=sqlite3_step(setstmt);
+		if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("dbconn::SyncWriteBackCIDSLists got error: %d (%s), for set: %s"), res, wxstrstd(sqlite3_errmsg(adb)).c_str(), wxstrstd(name).c_str()); }
+		sqlite3_reset(setstmt);
+	};
+
+	doonelist("unreadids", ad.cids.unreadids);
+	doonelist("highlightids", ad.cids.highlightids);
+
+	sqlite3_finalize(setstmt);
 }
 
 void dbconn::AccountIdListsSync(sqlite3 *adb) {

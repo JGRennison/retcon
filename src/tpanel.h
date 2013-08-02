@@ -197,7 +197,7 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	uint64_t upperid;
 	uint64_t lowerid;
 	std::shared_ptr<taccount> assoc_acc;
-	tweetidset unreadtweetids;
+	cached_id_sets cids;
 
 	static std::shared_ptr<tpanel> MkTPanel(const std::string &name_, const std::string &dispname_, unsigned int flags_=0, std::shared_ptr<taccount> *acc=0);
 	tpanel(const std::string &name_, const std::string &dispname_, unsigned int flags_=0, std::shared_ptr<taccount> *acc=0);		//don't use this directly
@@ -208,6 +208,7 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	tpanelparentwin *MkTPanelWin(mainframe *parent, bool select=false);
 	void OnTPanelWinClose(tpanelparentwin_nt *tppw);
 	bool IsSingleAccountTPanel() const;
+	void TPPWFlagMaskAllTWins(unsigned int set, unsigned int clear) const;
 };
 
 struct tpanelnotebook : public wxAuiNotebook {
@@ -240,6 +241,7 @@ enum {	//window IDs
 	TPPWID_TOPBTN,
 	TPPWID_SPLIT,
 	TPPWID_MARKALLREADBTN,
+	TPPWID_UNHIGHLIGHTALLBTN,
 };
 
 enum {	//for pushflags
@@ -264,6 +266,8 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	wxStaticText *clabel;
 	unsigned int tppw_flags;
 	wxButton *MarkReadBtn;
+	wxButton *UnHighlightBtn;
+	wxBoxSizer* headersizer;
 
 	std::list<std::pair<uint64_t, dispscr_base *> > currentdisp;
 
@@ -300,6 +304,8 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	virtual void PageDownHandler();
 	virtual void PageTopHandler();
 	void markallreadevthandler(wxCommandEvent &event);
+	void markremoveallhighlightshandler(wxCommandEvent &event);
+	void MarkClearCIDSSetHandler(std::function<tweetidset &(cached_id_sets &)> idsetselector, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc);
 	virtual bool IsSingleAccountWin() const { return tp->IsSingleAccountTPanel(); }
 	void EnumDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush);
 	void UpdateOwnTweet(const tweet &t, bool redrawimg);

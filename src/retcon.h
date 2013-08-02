@@ -134,6 +134,19 @@ namespace std {
   };
 }
 
+struct cached_id_sets {
+	tweetidset unreadids;
+	tweetidset highlightids;
+	inline void foreach(std::function<void(tweetidset &)> f) {
+		f(unreadids);
+		f(highlightids);
+	}
+	inline void foreach(cached_id_sets &cid2, std::function<void(tweetidset &, tweetidset &)> f) {
+		f(unreadids, cid2.unreadids);
+		f(highlightids, cid2.highlightids);
+	}
+};
+
 #include "magic_ptr.h"
 #include "socket.h"
 #include "twit.h"
@@ -277,7 +290,7 @@ struct alldata {
 	std::unordered_map<media_id_type,media_entity> media_list;
 	std::unordered_map<std::string,media_id_type> img_media_map;
 	unsigned int next_media_id;
-	tweetidset unreadids;
+	cached_id_sets cids;
 
 	std::shared_ptr<userdatacontainer> &GetUserContainerById(uint64_t id);
 	std::shared_ptr<userdatacontainer> *GetExistingUserContainerById(uint64_t id);
