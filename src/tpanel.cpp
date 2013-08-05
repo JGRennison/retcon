@@ -533,6 +533,46 @@ void tpanelnotebook::onsizeevt(wxSizeEvent &event) {
 	event.Skip();
 }
 
+void tpanelnotebook::FillWindowLayout(unsigned int mainframeindex) {
+	wxAuiPaneInfoArray& all_panes = m_mgr.GetAllPanes();
+	size_t pane_count = all_panes.GetCount();
+
+	size_t pagecount = GetPageCount();
+	for(size_t i = 0; i < pagecount; ++i) {
+		tpanelparentwin_nt *tppw = dynamic_cast<tpanelparentwin_nt*>(GetPage(i));
+		if(!tppw) continue;
+
+		wxAuiTabCtrl* tc;
+		int tabindex;
+		if(!FindTab(tppw, &tc, &tabindex)) continue;
+
+		wxWindow *tabframe = GetTabFrameFromTabCtrl(tc);
+		if(!tabframe) continue;
+
+		unsigned int splitindex = 0;
+		bool found = false;
+		for(size_t i = 0; i < pane_count; ++i) {
+			if(all_panes.Item(i).name == wxT("dummy")) continue;
+			if(all_panes.Item(i).window == tabframe) {
+				found = true;
+				break;
+			}
+			else splitindex++;
+		}
+		if(!found) continue;
+
+		ad.twinlayout.emplace_back();
+		twin_layout_desc &twld = ad.twinlayout.back();
+		twld.mainframeindex = mainframeindex;
+		twld.splitindex = splitindex;
+		twld.tabindex = tabindex;
+		twld.acc = tppw->tp->assoc_acc;
+		twld.name = tppw->tp->name;
+		twld.dispname = tppw->tp->dispname;
+		twld.flags = tppw->tp->flags;
+	}
+}
+
 DECLARE_EVENT_TYPE(wxextRESIZE_UPDATE_EVENT, -1)
 DECLARE_EVENT_TYPE(wxextTP_PAGEUP_EVENT, -1)
 DECLARE_EVENT_TYPE(wxextTP_PAGEDOWN_EVENT, -1)
@@ -2656,4 +2696,34 @@ tpanelglobal::tpanelglobal() : arrow_dim(0) {
 	GetVerifiedIcon(&verifiedicon, &verifiedicon_img);
 	GetCloseIcon(&closeicon, 0);
 	GetMultiUnreadIcon(&multiunreadicon, 0);
+}
+
+void SaveWindowLayout() {
+	ad.twinlayout.clear();
+	unsigned int mainframeindex = 0;
+	for(auto &mf : mainframelist) {
+		mf->auib->FillWindowLayout(mainframeindex);
+		mainframeindex++;
+	}
+}
+
+void RestoreWindowLayout() {
+	FreezeAll();
+	unsigned int lastsplitindex = 0;
+	for(auto &twld : ad.twinlayout) {
+		while(twld.mainframeindex >= mainframelist.size()) {
+			mainframe *mft = new mainframe( appversionname, wxPoint(50, 50), wxSize(450, 340) );
+			mft->Freeze();
+			lastsplitindex = 0;
+		}
+		mainframe *mf = mainframelist[twld.mainframeindex];
+		auto tp=tpanel::MkTPanel(twld.name, twld.dispname, twld.flags, &twld.acc);
+		tpanelparentwin *tpw = tp->MkTPanelWin(mf, (twld.splitindex > lastsplitindex));
+
+		if(twld.splitindex > lastsplitindex) {
+			mf->auib->Split(mf->auib->GetPageIndex(tpw), wxRIGHT);
+			lastsplitindex = twld.splitindex;
+		}
+	}
+	ThawAll();
 }

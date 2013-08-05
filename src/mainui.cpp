@@ -43,7 +43,7 @@ mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& si
        : wxFrame(NULL, -1, title, pos, size)
 {
 
-	mainframelist.push_front(this);
+	mainframelist.push_back(this);
 
 	wxMenu *menuH = new wxMenu;
 	menuH->Append( ID_About, wxT("&About"));
@@ -101,7 +101,8 @@ void mainframe::OnViewlog(wxCommandEvent &event) {
 	if(globallogwindow) globallogwindow->LWShow(true);
 }
 void mainframe::OnClose(wxCloseEvent &event) {
-	mainframelist.remove(this);
+	SaveWindowLayout();
+	mainframelist.erase(std::remove(mainframelist.begin(), mainframelist.end(), this), mainframelist.end());
 	if(mainframelist.empty()) {
 		if(globallogwindow) globallogwindow->Destroy();
 		user_window::CloseAll();
@@ -110,7 +111,9 @@ void mainframe::OnClose(wxCloseEvent &event) {
 }
 
 mainframe::~mainframe() {
-	mainframelist.remove(this);	//OK to try this twice, must definitely happen at least once though
+	//OK to try this twice, must definitely happen at least once though
+	mainframelist.erase(std::remove(mainframelist.begin(), mainframelist.end(), this), mainframelist.end());
+
 	if(tpw) {
 		tpw->mparentwin=0;
 		tpw->AUIMNoLongerValid();

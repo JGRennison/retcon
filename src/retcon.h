@@ -291,6 +291,7 @@ struct alldata {
 	std::unordered_map<std::string,media_id_type> img_media_map;
 	unsigned int next_media_id;
 	cached_id_sets cids;
+	std::vector<twin_layout_desc> twinlayout;
 
 	std::shared_ptr<userdatacontainer> &GetUserContainerById(uint64_t id);
 	std::shared_ptr<userdatacontainer> *GetExistingUserContainerById(uint64_t id);
@@ -333,7 +334,7 @@ extern std::list<std::shared_ptr<taccount>> alist;
 extern socketmanager sm;
 extern dbconn dbc;
 extern alldata ad;
-extern std::forward_list<mainframe*> mainframelist;
+extern std::vector<mainframe*> mainframelist;
 extern std::forward_list<tpanelparentwin_nt*> tpanelparentwinlist;
 
 //fix for MinGW, from http://pastebin.com/7rhvv92A

@@ -31,7 +31,7 @@ std::list<std::shared_ptr<taccount> > alist;
 socketmanager sm;
 dbconn dbc;
 alldata ad;
-std::forward_list<mainframe*> mainframelist;
+std::vector<mainframe*> mainframelist;
 std::forward_list<tpanelparentwin_nt*> tpanelparentwinlist;
 
 IMPLEMENT_APP(retcon)
@@ -49,10 +49,12 @@ bool retcon::OnInit() {
 	sm.InitMultiIOHandler();
 	bool res=dbc.Init(std::string((wxStandardPaths::Get().GetUserDataDir() + wxT("/retcondb.sqlite3")).ToUTF8()));
 	if(!res) return false;
-	mainframe *top = new mainframe( appversionname, wxPoint(50, 50), wxSize(450, 340) );
 
-	top->Show(true);
-	SetTopWindow(top);
+	RestoreWindowLayout();
+	if(mainframelist.empty()) new mainframe( appversionname, wxPoint(50, 50), wxSize(450, 340) );
+
+	mainframelist[0]->Show(true);
+	SetTopWindow(mainframelist[0]);
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
 		(*it)->CalcEnabled();
 		(*it)->Exec();

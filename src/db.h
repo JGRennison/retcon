@@ -278,6 +278,8 @@ struct dbconn : public wxEvtHandler {
 	void OnDBNewAccountInsert(wxCommandEvent &event);
 	void SyncReadInCIDSLists(sqlite3 *adb);
 	void SyncWriteBackCIDSLists(sqlite3 *adb);
+	void SyncReadInWindowLayout(sqlite3 *adb);
+	void SyncWriteBackWindowLayout(sqlite3 *adb);
 
 	DECLARE_EVENT_TABLE()
 };

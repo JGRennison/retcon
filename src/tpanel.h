@@ -223,6 +223,7 @@ struct tpanelnotebook : public wxAuiNotebook {
 	void tabnumcheck();
 	virtual void Split(size_t page, int direction);
 	void PostSplitSizeCorrect();
+	void FillWindowLayout(unsigned int mainframeindex);
 
 	DECLARE_EVENT_TABLE()
 };
@@ -435,19 +436,21 @@ struct media_display_win : public wxFrame {
 	DECLARE_EVENT_TABLE()
 };
 
+struct twin_layout_desc {
+	unsigned int mainframeindex;
+	unsigned int splitindex;
+	unsigned int tabindex;
+	std::shared_ptr<taccount> acc;
+	std::string name;
+	std::string dispname;
+	unsigned int flags;
+};
+
 bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid=0);
 wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t timestamp=0, bool localtime=true);
 wxString getreltimestr(time_t timestamp, time_t &updatetime);
 void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map);
 void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent);
 void CheckClearNoUpdateFlag_All();
-
-//struct tpanelwin : public wxRichTextCtrl {
-//	tpanelparentwin *tppw;
-//	std::shared_ptr<tpanel> tp;
-//
-//	tpanelwin(tpanelparentwin *tppw_);
-//	~tpanelwin();
-//	void PushTweet(std::shared_ptr<tweetdisp> t);
-//};
-
+void SaveWindowLayout();
+void RestoreWindowLayout();
