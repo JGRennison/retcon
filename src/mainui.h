@@ -25,6 +25,7 @@ struct tweetpostwin;
 
 enum
 {
+    ID_Close = wxID_CLOSE,
     ID_Quit = wxID_EXIT,
     ID_About = wxID_ABOUT,
     ID_Settings = 1,
@@ -44,6 +45,7 @@ public:
 
 	mainframe(const wxString& title, const wxPoint& pos, const wxSize& size);
 	~mainframe();
+	void OnCloseWindow(wxCommandEvent &event);
 	void OnQuit(wxCommandEvent &event);
 	void OnAbout(wxCommandEvent &event);
 	void OnSettings(wxCommandEvent &event);

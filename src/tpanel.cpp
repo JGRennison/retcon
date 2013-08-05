@@ -2699,6 +2699,7 @@ tpanelglobal::tpanelglobal() : arrow_dim(0) {
 }
 
 void SaveWindowLayout() {
+	if(ad.twinlayout_final) return;
 	ad.twinlayout.clear();
 	unsigned int mainframeindex = 0;
 	for(auto &mf : mainframelist) {

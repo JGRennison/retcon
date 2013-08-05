@@ -27,6 +27,7 @@
 #include <wx/msgdlg.h>
 
 BEGIN_EVENT_TABLE(mainframe, wxFrame)
+	EVT_MENU(ID_Close,  mainframe::OnCloseWindow)
 	EVT_MENU(ID_Quit,  mainframe::OnQuit)
 	EVT_MENU(ID_About, mainframe::OnAbout)
 	EVT_MENU(ID_Settings, mainframe::OnSettings)
@@ -49,6 +50,7 @@ mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& si
 	menuH->Append( ID_About, wxT("&About"));
 	wxMenu *menuF = new wxMenu;
 	menuF->Append( ID_Viewlog, wxT("View &Log"));
+	menuF->Append( ID_Close, wxT("&Close Window"));
 	menuF->Append( ID_Quit, wxT("E&xit"));
 	wxMenu *menuO = new wxMenu;
 	menuO->Append( ID_Settings, wxT("&Settings"));
@@ -79,11 +81,21 @@ mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& si
 	SetMenuBar( menuBar );
 	return;
 }
-void mainframe::OnQuit(wxCommandEvent &event) {
+void mainframe::OnCloseWindow(wxCommandEvent &event) {
 	Close(true);
 }
+void mainframe::OnQuit(wxCommandEvent &event) {
+	SaveWindowLayout();
+	ad.twinlayout_final = true;
+	std::vector<mainframe *> tempmf = mainframelist;
+	for(auto &mf : tempmf) {
+		mf->Close(true);
+	}
+}
 void mainframe::OnAbout(wxCommandEvent &event) {
-	OpenAboutWindow();
+	SaveWindowLayout();
+	if(globallogwindow) globallogwindow->Destroy();
+	user_window::CloseAll();
 }
 void mainframe::OnSettings(wxCommandEvent &event) {
 	settings_window *sw=new settings_window(this, -1, wxT("Settings"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
