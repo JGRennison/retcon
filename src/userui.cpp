@@ -366,7 +366,7 @@ void user_window::OnFollowBtn(wxCommandEvent &event) {
 
 void user_window::OnDMBtn(wxCommandEvent &event) {
 	mainframe *win=GetMainframeAncestor(this);
-	if(!win) win=mainframelist.back();
+	if(!win) win=mainframelist.front();
 	if(win) {
 		win->tpw->SetDMTarget(u);
 	}

@@ -808,8 +808,8 @@ tweetdispscr *tpanelparentwin_nt::PushTweetIndex(const std::shared_ptr<tweet> &t
 	else if(t->flags.Get('D') && t->user_recipient) {
 			t->user->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
 			t->user_recipient->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
-			td->bm = new profimg_staticbitmap(scrollwin, t->user->cached_profile_img_half, t->user->id, t->id, GetMainframe(), true);
-			td->bm2 = new profimg_staticbitmap(scrollwin, t->user_recipient->cached_profile_img_half, t->user_recipient->id, t->id, GetMainframe(), true);
+			td->bm = new profimg_staticbitmap(scrollwin, t->user->cached_profile_img_half, t->user->id, t->id, GetMainframe(), PISBF_HALF);
+			td->bm2 = new profimg_staticbitmap(scrollwin, t->user_recipient->cached_profile_img_half, t->user_recipient->id, t->id, GetMainframe(), PISBF_HALF);
 			int dim=gc.maxpanelprofimgsize/2;
 			if(tpg->arrow_dim!=dim) {
 				tpg->arrow=GetArrowIconDim(dim);
@@ -1224,7 +1224,7 @@ bool tpanelparentwin_user::UpdateUser(const std::shared_ptr<userdatacontainer> &
 		wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
 		userdispscr *td=new userdispscr(u, scrollwin, this, hbox);
 
-		td->bm = new profimg_staticbitmap(scrollwin, u->cached_profile_img, u->id, 0);
+		td->bm = new profimg_staticbitmap(scrollwin, u->cached_profile_img, u->id, 0, GetMainframe());
 		hbox->Add(td->bm, 0, wxALL, 2);
 
 		hbox->Add(td, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
@@ -1779,7 +1779,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 			if(!b) return;
 			auto udcp = ad.GetExistingUserContainerById(b->userid);
 			if(!udcp) return;
-			if(b->ishalf) {
+			if(b->pisb_flags & PISBF_HALF) {
 				(*udcp)->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
 				b->SetBitmap((*udcp)->cached_profile_img_half);
 			}
@@ -2001,7 +2001,8 @@ void tweetdispscr::urlhandler(wxString url) {
 			case 'd': { //send dm
 				uint64_t userid;
 				ownstrtonum(userid, (wxChar*) &url[2], -1);
-				mainframe *mf=tppw->GetMainframe();
+				mainframe *mf = tppw->GetMainframe();
+				if(!mf && mainframelist.size()) mf = mainframelist.front();
 				if(mf) {
 					mf->tpw->SetDMTarget(ad.GetUserContainerById(userid));
 					if(td->flags.Get('D') && td->lflags & TLF_HAVEFIRSTTP) {
@@ -2011,7 +2012,8 @@ void tweetdispscr::urlhandler(wxString url) {
 				break;
 			}
 			case 'r': {//reply
-				mainframe *mf=tppw->GetMainframe();
+				mainframe *mf = tppw->GetMainframe();
+				if(!mf && mainframelist.size()) mf = mainframelist.front();
 				if(mf) mf->tpw->SetReplyTarget(td);
 				break;
 			}
@@ -2269,7 +2271,9 @@ void dispscr_base::mousewheelhandler(wxMouseEvent &event) {
 }
 
 void tweetdispscr::OnTweetActMenuCmd(wxCommandEvent &event) {
-	TweetActMenuAction(tamd, event.GetId(), tppw->GetMainframe());
+	mainframe *mf = tppw->GetMainframe();
+	if(!mf && mainframelist.size()) mf = mainframelist.front();
+	TweetActMenuAction(tamd, event.GetId(), mf);
 }
 
 BEGIN_EVENT_TABLE(userdispscr, dispscr_base)
@@ -2664,7 +2668,7 @@ void profimg_staticbitmap::ClickHandler(wxMouseEvent &event) {
 }
 
 void profimg_staticbitmap::RightClickHandler(wxMouseEvent &event) {
-	if(owner) {
+	if(owner || !(pisb_flags&PISBF_DONTUSEDEFAULTMF)) {
 		wxMenu menu;
 		int nextid=tweetactmenustartid;
 		tamd.clear();
@@ -2674,7 +2678,9 @@ void profimg_staticbitmap::RightClickHandler(wxMouseEvent &event) {
 }
 
 void profimg_staticbitmap::OnTweetActMenuCmd(wxCommandEvent &event) {
-	TweetActMenuAction(tamd, event.GetId(), owner);
+	mainframe *mf = owner;
+	if(!mf && mainframelist.size() && !(pisb_flags&PISBF_DONTUSEDEFAULTMF)) mf = mainframelist.front();
+	TweetActMenuAction(tamd, event.GetId(), mf);
 }
 
 tpanelglobal::tpanelglobal() : arrow_dim(0) {

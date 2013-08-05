@@ -102,14 +102,19 @@ typedef std::map<int,tweetactmenuitem> tweetactmenudata;
 
 extern tweetactmenudata tamd;
 
+enum {
+	PISBF_HALF		= 1<<0,
+	PISBF_DONTUSEDEFAULTMF	= 1<<1,
+};
+
 struct profimg_staticbitmap: public wxStaticBitmap {
 	uint64_t userid;
 	uint64_t tweetid;
 	mainframe *owner;
-	bool ishalf;
+	unsigned int pisb_flags;
 
-	inline profimg_staticbitmap(wxWindow* parent, const wxBitmap& label, uint64_t userid_, uint64_t tweetid_, mainframe *owner_=0, bool half = false)
-		: wxStaticBitmap(parent, wxID_ANY, label, wxPoint(-1000, -1000)), userid(userid_), tweetid(tweetid_), owner(owner_), ishalf(half) { }
+	inline profimg_staticbitmap(wxWindow* parent, const wxBitmap& label, uint64_t userid_, uint64_t tweetid_, mainframe *owner_=0, unsigned int flags = 0)
+		: wxStaticBitmap(parent, wxID_ANY, label, wxPoint(-1000, -1000)), userid(userid_), tweetid(tweetid_), owner(owner_), pisb_flags(flags) { }
 	void ClickHandler(wxMouseEvent &event);
 	void RightClickHandler(wxMouseEvent &event);
 	void OnTweetActMenuCmd(wxCommandEvent &event);
