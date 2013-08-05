@@ -446,6 +446,13 @@ struct twin_layout_desc {
 	unsigned int flags;
 };
 
+struct mf_layout_desc {
+	unsigned int mainframeindex;
+	wxPoint pos;
+	wxSize size;
+	bool maximised;
+};
+
 bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid=0);
 wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t timestamp=0, bool localtime=true);
 wxString getreltimestr(time_t timestamp, time_t &updatetime);

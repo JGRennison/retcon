@@ -38,11 +38,16 @@ BEGIN_EVENT_TABLE(mainframe, wxFrame)
 	EVT_MOUSEWHEEL(mainframe::OnMouseWheel)
 	EVT_MENU_OPEN(mainframe::OnMenuOpen)
 	EVT_MENU_RANGE(tpanelmenustartid, tpanelmenuendid, mainframe::OnTPanelMenuCmd)
+	EVT_MOVE(mainframe::OnMove)
+	EVT_SIZE(mainframe::OnSize)
 END_EVENT_TABLE()
 
-mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& size)
+mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& size, bool maximise)
        : wxFrame(NULL, -1, title, pos, size)
 {
+	nominal_pos = pos;
+	nominal_size = size;
+	if(maximise) Maximize(true);
 
 	mainframelist.push_back(this);
 
@@ -166,6 +171,17 @@ void mainframe::OnLookupUser(wxCommandEvent &event) {
 		else if(type==1) twit->genurl+="?user_id="+urlencode(twit->extra1);
 		twit->QueueAsyncExec();
 	}
+}
+
+void mainframe::OnSize(wxSizeEvent &event) {
+	if(!IsMaximized()) {
+		nominal_size = event.GetSize();
+		nominal_pos = GetPosition();
+	}
+}
+
+void mainframe::OnMove(wxMoveEvent &event) {
+	if(!IsMaximized()) nominal_pos = event.GetPosition();
 }
 
 void AccountUpdateAllMainframes() {

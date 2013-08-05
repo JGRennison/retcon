@@ -292,6 +292,7 @@ struct alldata {
 	unsigned int next_media_id;
 	cached_id_sets cids;
 	std::vector<twin_layout_desc> twinlayout;
+	std::vector<mf_layout_desc> mflayout;
 	bool twinlayout_final = false;
 
 	std::shared_ptr<userdatacontainer> &GetUserContainerById(uint64_t id);

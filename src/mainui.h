@@ -42,8 +42,10 @@ public:
 	tpanelmenudata tpm;
 	wxMenu *tpmenu;
 	wxAuiManager *auim;
+	wxPoint nominal_pos;
+	wxSize nominal_size;
 
-	mainframe(const wxString& title, const wxPoint& pos, const wxSize& size);
+	mainframe(const wxString& title, const wxPoint& pos, const wxSize& size, bool maximise = false);
 	~mainframe();
 	void OnCloseWindow(wxCommandEvent &event);
 	void OnQuit(wxCommandEvent &event);
@@ -56,6 +58,8 @@ public:
 	void OnMenuOpen(wxMenuEvent &event);
 	void OnTPanelMenuCmd(wxCommandEvent &event);
 	void OnLookupUser(wxCommandEvent &event);
+	void OnSize(wxSizeEvent &event);
+	void OnMove(wxMoveEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };

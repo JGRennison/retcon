@@ -2700,20 +2700,32 @@ tpanelglobal::tpanelglobal() : arrow_dim(0) {
 
 void SaveWindowLayout() {
 	if(ad.twinlayout_final) return;
+
+	ad.mflayout.clear();
 	ad.twinlayout.clear();
 	unsigned int mainframeindex = 0;
 	for(auto &mf : mainframelist) {
 		mf->auib->FillWindowLayout(mainframeindex);
+		ad.mflayout.emplace_back();
+		mf_layout_desc &mfld = ad.mflayout.back();
+		mfld.mainframeindex = mainframeindex;
+		mfld.pos = mf->nominal_pos;
+		mfld.size = mf->nominal_size;
+		mfld.maximised = mf->IsMaximized();
 		mainframeindex++;
 	}
 }
 
 void RestoreWindowLayout() {
 	FreezeAll();
+	for(auto &mfld : ad.mflayout) {
+		mainframe *mft = new mainframe(appversionname, mfld.pos, mfld.size);
+		if(mfld.maximised) mft->Maximize(true);
+	}
 	unsigned int lastsplitindex = 0;
 	for(auto &twld : ad.twinlayout) {
 		while(twld.mainframeindex >= mainframelist.size()) {
-			mainframe *mft = new mainframe( appversionname, wxPoint(50, 50), wxSize(450, 340) );
+			mainframe *mft = new mainframe(appversionname, wxPoint(50, 50), wxSize(450, 340));
 			mft->Freeze();
 			lastsplitindex = 0;
 		}
