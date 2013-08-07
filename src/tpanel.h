@@ -247,6 +247,8 @@ enum {	//window IDs
 	TPPWID_TOPBTN,
 	TPPWID_SPLIT,
 	TPPWID_MARKALLREADBTN,
+	TPPWID_NEWESTUNREADBTN,
+	TPPWID_OLDESTUNREADBTN,
 	TPPWID_UNHIGHLIGHTALLBTN,
 };
 
@@ -255,6 +257,8 @@ enum {	//for pushflags
 	TPPWPF_BELOW	= 1<<1,
 	TPPWPF_USERTL	= 1<<2,
 	TPPWPF_SETNOUPDATEFLAG	= 1<<3,
+	TPPWPF_NOINCDISPOFFSET	= 1<<4,
+	TPPWPF_CHECKSCROLLTOID	= 1<<5,
 };
 
 enum {	//for tppw_flags
@@ -272,8 +276,13 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	wxStaticText *clabel;
 	unsigned int tppw_flags;
 	wxButton *MarkReadBtn;
+	wxButton *NewestUnreadBtn;
+	wxButton *OldestUnreadBtn;
 	wxButton *UnHighlightBtn;
 	wxBoxSizer* headersizer;
+	uint64_t scrolltoid = 0;
+	uint64_t scrolltoid_onupdate = 0;
+	std::multimap<std::string, wxButton *> showhidemap;
 
 	std::list<std::pair<uint64_t, dispscr_base *> > currentdisp;
 
@@ -288,11 +297,14 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	void pagetopevthandler(wxCommandEvent &event);
 	virtual void UpdateCLabel() { }
 	void CheckClearNoUpdateFlag();
+	virtual void HandleScrollToIDOnUpdate() { }
 	void PopTop();
 	void PopBottom();
 	void StartScrollFreeze(tppw_scrollfreeze &s);
 	void EndScrollFreeze(tppw_scrollfreeze &s);
+	void SetScrollFreeze(tppw_scrollfreeze &s, dispscr_base *scr);
 	virtual bool IsSingleAccountWin() const;
+	void ShowHideButtons(std::string type, bool show);
 
 	DECLARE_EVENT_TABLE()
 };
@@ -304,13 +316,17 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	virtual ~tpanelparentwin_nt();
 	void PushTweet(const std::shared_ptr<tweet> &t, unsigned int pushflags=0);
 	tweetdispscr *PushTweetIndex(const std::shared_ptr<tweet> &t, size_t index);
-	virtual void LoadMore(unsigned int n, uint64_t lessthanid=0, unsigned int pushflags=0) { }
+	virtual void LoadMore(unsigned int n, uint64_t lessthanid=0, uint64_t greaterthanid=0, unsigned int pushflags=0) { }
 	virtual void UpdateCLabel();
 	virtual void PageUpHandler();
 	virtual void PageDownHandler();
 	virtual void PageTopHandler();
+	virtual void JumpToTweetID(uint64_t id);
+	virtual void HandleScrollToIDOnUpdate();
 	void markallreadevthandler(wxCommandEvent &event);
 	void markremoveallhighlightshandler(wxCommandEvent &event);
+	void movetonewestunreadhandler(wxCommandEvent &event);
+	void movetooldestunreadhandler(wxCommandEvent &event);
 	void MarkClearCIDSSetHandler(std::function<tweetidset &(cached_id_sets &)> idsetselector, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc);
 	virtual bool IsSingleAccountWin() const { return tp->IsSingleAccountTPanel(); }
 	void EnumDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush);
@@ -327,7 +343,7 @@ struct tpanelparentwin : public tpanelparentwin_nt {
 	};
 
 	tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select=false);
-	virtual void LoadMore(unsigned int n, uint64_t lessthanid=0, unsigned int pushflags=0);
+	virtual void LoadMore(unsigned int n, uint64_t lessthanid=0, uint64_t greaterthanid=0, unsigned int pushflags=0);
 	virtual mainframe *GetMainframe() { return owner; }
 	uint64_t PushTweetOrRetLoadId(uint64_t id, unsigned int pushflags=0);
 	uint64_t PushTweetOrRetLoadId(const std::shared_ptr<tweet> &tobj, unsigned int pushflags=0);
