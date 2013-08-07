@@ -1981,6 +1981,9 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: tweetdispscr::DisplayTweet START %" wxLongLongFmtSpec "d, redrawimg: %d"), td->id, redrawimg);
 	#endif
 
+	Freeze();
+	BeginSuppressUndo();
+
 	updatetime=0;
 	std::forward_list<media_entity*> me_list;
 	auto last_me=me_list.before_begin();
@@ -2233,6 +2236,9 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 			LogMsgFormat(LFT_TPANEL, wxT("TCL: tweetdispscr::DisplayTweet 4"));
 		#endif
 	}
+
+	EndSuppressUndo();
+	Thaw();
 
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: tweetdispscr::DisplayTweet END %" wxLongLongFmtSpec "d, redrawimg: %d"), td->id, redrawimg);
@@ -2559,6 +2565,9 @@ userdispscr::userdispscr(const std::shared_ptr<userdatacontainer> &u_, tpanelscr
 userdispscr::~userdispscr() { }
 
 void userdispscr::Display(bool redrawimg) {
+	Freeze();
+	BeginSuppressUndo();
+
 	if(redrawimg) {
 		if(bm) {
 			bm->SetBitmap(u->cached_profile_img);
@@ -2586,6 +2595,10 @@ void userdispscr::Display(bool redrawimg) {
 	if(!(tppw->tppw_flags&TPPWF_NOUPDATEONPUSH)) {
 		tpsw->FitInside();
 	}
+
+	EndSuppressUndo();
+	Thaw();
+
 }
 
 void userdispscr::urleventhandler(wxTextUrlEvent &event) {
