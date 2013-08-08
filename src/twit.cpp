@@ -342,6 +342,7 @@ void twitcurlext::Reset() {
 	ul.reset();
 	fl.reset();
 	post_action_flags=0;
+	mp = 0;
 }
 
 void twitcurlext::DoRetry() {
