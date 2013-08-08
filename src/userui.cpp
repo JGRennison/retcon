@@ -149,13 +149,23 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 
 	nb->AddPage(infopanel, wxT("Info"), true);
 
-	timeline_pane=new tpanelparentwin_usertweets(u, nb, acc_hint);
+	magic_ptr_ts<user_window> safe_win_ptr(this);
+	std::function<std::shared_ptr<taccount>()> getacc = [safe_win_ptr]() -> std::shared_ptr<taccount> {
+		std::shared_ptr<taccount> acc;
+		user_window *uw = safe_win_ptr.get();
+		if(uw) acc = uw->acc_hint.lock();
+		return acc;
+	};
+	auto getacc_tw = [getacc](tpanelparentwin_usertweets &src) -> std::shared_ptr<taccount> { return getacc(); };
+	auto getacc_prop = [getacc](tpanelparentwin_userproplisting &src) -> std::shared_ptr<taccount> { return getacc(); };
+
+	timeline_pane=new tpanelparentwin_usertweets(u, nb, getacc_tw);
 	nb->AddPage(timeline_pane, wxT("Timeline"), false);
-	fav_timeline_pane=new tpanelparentwin_usertweets(u, nb, acc_hint, RBFS_USER_FAVS);
+	fav_timeline_pane=new tpanelparentwin_usertweets(u, nb, getacc_tw, RBFS_USER_FAVS);
 	nb->AddPage(fav_timeline_pane, wxT("Favourites"), false);
-	followers_pane=new tpanelparentwin_userproplisting(u, nb, acc_hint, CS_USERFOLLOWERS);
+	followers_pane=new tpanelparentwin_userproplisting(u, nb, getacc_prop, CS_USERFOLLOWERS);
 	nb->AddPage(followers_pane, wxT("Followers"), false);
-	friends_pane=new tpanelparentwin_userproplisting(u, nb, acc_hint, CS_USERFOLLOWING);
+	friends_pane=new tpanelparentwin_userproplisting(u, nb, getacc_prop, CS_USERFOLLOWING);
 	nb->AddPage(friends_pane, wxT("Following"), false);
 	nb_prehndlr.timeline_pane_list.push_front(timeline_pane);
 	nb_prehndlr.timeline_pane_list.push_front(fav_timeline_pane);
@@ -192,6 +202,8 @@ void user_window::OnSelChange(wxCommandEvent &event) {
 				break;
 			}
 		}
+		wxNotebookEvent evt(wxEVT_NULL, nb->GetId(), nb->GetSelection(), nb->GetSelection());
+		nb_prehndlr.OnPageChange(evt);
 	}
 	RefreshFollow();
 }

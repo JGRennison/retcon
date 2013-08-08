@@ -40,7 +40,7 @@ struct user_window_timer: public wxTimer {
 	void Notify();
 };
 
-struct user_window: public wxDialog {
+struct user_window: public wxDialog, public magic_ptr_base {
 	uint64_t userid;
 	std::shared_ptr<userdatacontainer> u;
 	std::weak_ptr<taccount> acc_hint;

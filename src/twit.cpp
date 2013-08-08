@@ -504,6 +504,9 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
 	auto acc=tacc.lock();
 	if(!acc) return;
 
+	auto win=MagicWindowCast<panelparentwin_base>(mp);
+	if(win) win->NotifyRequestFailed();
+
 	wxString action=GetConnTypeName();
 	bool msgbox=false;
 	bool retry=false;

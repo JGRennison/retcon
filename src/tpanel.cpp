@@ -1535,8 +1535,8 @@ END_EVENT_TABLE()
 
 std::map<std::pair<uint64_t, RBFS_TYPE>, std::shared_ptr<tpanel> > tpanelparentwin_usertweets::usertpanelmap;
 
-tpanelparentwin_usertweets::tpanelparentwin_usertweets(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent, std::weak_ptr<taccount> &acc_, RBFS_TYPE type_)
-	: tpanelparentwin_nt(MkUserTweetTPanel(user_, type_), parent), user(user_), acc(acc_), havestarted(false), type(type_) {
+tpanelparentwin_usertweets::tpanelparentwin_usertweets(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent, std::function<std::shared_ptr<taccount>(tpanelparentwin_usertweets &)> getacc_, RBFS_TYPE type_)
+	: tpanelparentwin_nt(MkUserTweetTPanel(user_, type_), parent), user(user_), getacc(getacc_), havestarted(false), type(type_) {
 	tppw_flags|=TPPWF_CANALWAYSSCROLLDOWN;
 }
 
@@ -1561,7 +1561,7 @@ std::shared_ptr<tpanel> tpanelparentwin_usertweets::GetUserTweetTPanel(uint64_t 
 }
 
 void tpanelparentwin_usertweets::LoadMore(unsigned int n, uint64_t lessthanid, unsigned int pushflags) {
-	std::shared_ptr<taccount> tac=acc.lock();
+	std::shared_ptr<taccount> tac = getacc(*this);
 	if(!tac) return;
 	Freeze();
 	tppw_flags|=TPPWF_NOUPDATEONPUSH;
@@ -1592,7 +1592,9 @@ void tpanelparentwin_usertweets::LoadMore(unsigned int n, uint64_t lessthanid, u
 		else {
 			if(tp->tweetlist.begin()!=tp->tweetlist.end()) lower_id=*(tp->tweetlist.begin());
 		}
+		tac->SetGetTwitCurlExtHook([&](twitcurlext *tce) { tce->mp = this; });
 		tac->StartRestGetTweetBackfill(lower_id /*lower limit, exclusive*/, upper_id /*upper limit, inclusive*/, numleft, type, user->id);
+		tac->ClearGetTwitCurlExtHook();
 	}
 
 	Thaw();
@@ -1613,11 +1615,17 @@ void tpanelparentwin_usertweets::UpdateCLabel() {
 	else clabel->SetLabel(emptymsg);
 }
 
+void tpanelparentwin_usertweets::NotifyRequestFailed() {
+	failed = true;
+	havestarted = false;
+	clabel->SetLabel(wxT("Lookup Failed"));
+}
+
 BEGIN_EVENT_TABLE(tpanelparentwin_userproplisting, tpanelparentwin_user)
 END_EVENT_TABLE()
 
-tpanelparentwin_userproplisting::tpanelparentwin_userproplisting(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent, std::weak_ptr<taccount> &acc_, CS_ENUMTYPE type_)
-	: tpanelparentwin_user(parent), user(user_), acc(acc_), havestarted(false), type(type_) {
+tpanelparentwin_userproplisting::tpanelparentwin_userproplisting(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent, std::function<std::shared_ptr<taccount>(tpanelparentwin_userproplisting &)> getacc_, CS_ENUMTYPE type_)
+	: tpanelparentwin_user(parent), user(user_), getacc(getacc_), havestarted(false), type(type_) {
 
 }
 
@@ -1625,7 +1633,7 @@ tpanelparentwin_userproplisting::~tpanelparentwin_userproplisting() {
 }
 
 void tpanelparentwin_userproplisting::Init() {
-	std::shared_ptr<taccount> tac=acc.lock();
+	std::shared_ptr<taccount> tac = getacc(*this);
 	if(tac) {
 		twitcurlext *twit=tac->GetTwitCurlExt();
 		twit->connmode=type;
@@ -1650,8 +1658,9 @@ void tpanelparentwin_userproplisting::UpdateCLabel() {
 }
 
 void tpanelparentwin_userproplisting::LoadMoreToBack(unsigned int n) {
-	std::shared_ptr<taccount> tac=acc.lock();
+	std::shared_ptr<taccount> tac = getacc(*this);
 	if(!tac) return;
+	failed = false;
 	Freeze();
 	tppw_flags|=TPPWF_NOUPDATEONPUSH;
 
@@ -1671,6 +1680,12 @@ void tpanelparentwin_userproplisting::LoadMoreToBack(unsigned int n) {
 
 	Thaw();
 	CheckClearNoUpdateFlag();
+}
+
+void tpanelparentwin_userproplisting::NotifyRequestFailed() {
+	failed = true;
+	havestarted = false;
+	clabel->SetLabel(wxT("Lookup Failed"));
 }
 
 BEGIN_EVENT_TABLE(dispscr_base, wxRichTextCtrl)

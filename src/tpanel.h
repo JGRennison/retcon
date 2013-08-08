@@ -305,6 +305,7 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	void SetScrollFreeze(tppw_scrollfreeze &s, dispscr_base *scr);
 	virtual bool IsSingleAccountWin() const;
 	void ShowHideButtons(std::string type, bool show);
+	virtual void NotifyRequestFailed() { }
 
 	DECLARE_EVENT_TABLE()
 };
@@ -359,18 +360,20 @@ struct tpanelparentwin : public tpanelparentwin_nt {
 
 struct tpanelparentwin_usertweets : public tpanelparentwin_nt {
 	std::shared_ptr<userdatacontainer> user;
-	std::weak_ptr<taccount> acc;
+	std::function<std::shared_ptr<taccount>(tpanelparentwin_usertweets &)> getacc;
 	static std::map<std::pair<uint64_t, RBFS_TYPE>, std::shared_ptr<tpanel> > usertpanelmap;	//use map rather than unordered_map due to the hassle associated with specialising std::hash
 	bool havestarted;
+	bool failed = false;
 	RBFS_TYPE type;
 
-	tpanelparentwin_usertweets(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent, std::weak_ptr<taccount> &acc_, RBFS_TYPE type_=RBFS_USER_TIMELINE);
+	tpanelparentwin_usertweets(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent, std::function<std::shared_ptr<taccount>(tpanelparentwin_usertweets &)> getacc, RBFS_TYPE type_=RBFS_USER_TIMELINE);
 	~tpanelparentwin_usertweets();
 	virtual void LoadMore(unsigned int n, uint64_t lessthanid=0, unsigned int pushflags=0);
 	virtual void UpdateCLabel();
 	static std::shared_ptr<tpanel> MkUserTweetTPanel(const std::shared_ptr<userdatacontainer> &user, RBFS_TYPE type_=RBFS_USER_TIMELINE);
 	static std::shared_ptr<tpanel> GetUserTweetTPanel(uint64_t userid, RBFS_TYPE type_=RBFS_USER_TIMELINE);
 	virtual bool IsSingleAccountWin() const { return true; }
+	virtual void NotifyRequestFailed();
 
 	DECLARE_EVENT_TABLE()
 };
@@ -396,16 +399,18 @@ struct tpanelparentwin_user : public panelparentwin_base {
 struct tpanelparentwin_userproplisting : public tpanelparentwin_user {
 	std::deque<uint64_t> useridlist;
 	std::shared_ptr<userdatacontainer> user;
-	std::weak_ptr<taccount> acc;
+	std::function<std::shared_ptr<taccount>(tpanelparentwin_userproplisting &)> getacc;
 	bool havestarted;
+	bool failed = false;
 	CS_ENUMTYPE type;
 
-	tpanelparentwin_userproplisting(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent, std::weak_ptr<taccount> &acc_, CS_ENUMTYPE type_);
+	tpanelparentwin_userproplisting(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent, std::function<std::shared_ptr<taccount>(tpanelparentwin_userproplisting &)> getacc, CS_ENUMTYPE type_);
 	~tpanelparentwin_userproplisting();
 	virtual void LoadMoreToBack(unsigned int n);
 	virtual void UpdateCLabel();
 	virtual void Init();
 	virtual size_t ItemCount() { return useridlist.size(); }
+	virtual void NotifyRequestFailed();
 
 	DECLARE_EVENT_TABLE()
 };
