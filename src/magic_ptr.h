@@ -55,10 +55,10 @@ struct magic_ptr /*final*/ {
 		ptr=t;
 		if(t) t->Mark(this);
 	}
-	magic_ptr_base *get() {
+	magic_ptr_base *get() const {
 		return ptr;
 	}
-	magic_ptr(magic_ptr &p) {
+	magic_ptr(const magic_ptr &p) {
 		ptr=p.get();
 		if(ptr) ptr->Mark(this);
 	}
@@ -116,10 +116,10 @@ template <typename C> struct magic_ptr_ts {
 	void set(C *t) {
 		ptr.set(t);
 	}
-	C *get() {
+	C *get() const {
 		return (C*) ptr.get();
 	}
-	magic_ptr_ts(magic_ptr_ts<C> &p) : ptr(p.get()) { }
+	magic_ptr_ts(const magic_ptr_ts<C> &p) : ptr(p.get()) { }
 	magic_ptr_ts(C *t) : ptr(t) { }
 	magic_ptr_ts & operator=(const magic_ptr_ts<C> &p) {
 		set(p.get());
