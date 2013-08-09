@@ -8,7 +8,7 @@
 #x64: set to true to compile for x86_64/win64
 
 
-OBJS_SRC:=retcon.cpp cfg.cpp optui.cpp parse.cpp socket.cpp tpanel.cpp twit.cpp db.cpp log.cpp cmdline.cpp userui.cpp mainui.cpp
+OBJS_SRC:=retcon.cpp cfg.cpp optui.cpp parse.cpp socket.cpp tpanel.cpp twit.cpp db.cpp log.cpp cmdline.cpp userui.cpp mainui.cpp signal.cpp
 TCOBJS_SRC:=libtwitcurl/base64.cpp libtwitcurl/HMAC_SHA1.cpp libtwitcurl/oauthlib.cpp libtwitcurl/SHA1.cpp libtwitcurl/twitcurl.cpp libtwitcurl/urlencode.cpp
 SPOBJS_SRC:=res.cpp version.cpp aboutwin.cpp
 COBJS_SRC:=utf8proc/utf8proc.c
@@ -157,7 +157,7 @@ $(ALL_OBJS) src/pch/retcon.h.gch: | $(DIRS)
 $(DIRS):
 	-mkdir $@
 
-HEADERS:=src/retcon.h src/socket.h src/cfg.h src/parse.h src/twit.h src/tpanel.h src/optui.h src/libtwitcurl/twitcurl.h src/db.h src/log.h src/cmdline.h src/userui.h src/mainui.h src/magic_ptr.h src/univdefs.h
+HEADERS:=src/retcon.h src/socket.h src/cfg.h src/parse.h src/twit.h src/tpanel.h src/optui.h src/libtwitcurl/twitcurl.h src/db.h src/log.h src/cmdline.h src/userui.h src/mainui.h src/magic_ptr.h src/univdefs.h src/signal.h
 
 $(OBJDIR)/pch/retcon.h.gch: $(HEADERS)
 $(OBJS): $(HEADERS) $(OBJDIR)/pch/retcon.h.gch

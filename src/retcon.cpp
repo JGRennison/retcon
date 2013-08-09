@@ -46,12 +46,16 @@ bool retcon::OnInit() {
 	if(!::wxDirExists(wxStandardPaths::Get().GetUserDataDir())) {
 		::wxMkdir(wxStandardPaths::Get().GetUserDataDir(), 0777);
 	}
+	SetTermSigHandler();
 	sm.InitMultiIOHandler();
 	bool res=dbc.Init(std::string((wxStandardPaths::Get().GetUserDataDir() + wxT("/retcondb.sqlite3")).ToUTF8()));
 	if(!res) return false;
+	if(term_requested) return false;
 
 	RestoreWindowLayout();
 	if(mainframelist.empty()) new mainframe( appversionname, wxPoint(50, 50), wxSize(450, 340) );
+
+	if(term_requested) return false;
 
 	mainframelist[0]->Show(true);
 	SetTopWindow(mainframelist[0]);
@@ -59,6 +63,9 @@ bool retcon::OnInit() {
 		(*it)->CalcEnabled();
 		(*it)->Exec();
 	}
+
+	if(term_requested) return false;
+
 	return true;
 }
 

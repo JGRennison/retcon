@@ -160,6 +160,7 @@ struct cached_id_sets {
 #include "cmdline.h"
 #include "userui.h"
 #include "mainui.h"
+#include "signal.h"
 
 //flags for user_relationship::ur_flags
 enum {
@@ -315,7 +316,12 @@ class retcon: public wxApp
     virtual bool OnInit();
     virtual int OnExit();
     int FilterEvent(wxEvent& event);
+
+public:
+    bool term_requested = false;
 };
+
+DECLARE_APP(retcon)
 
 inline wxString wxstrstd(const std::string &st) {
 	return wxString::FromUTF8(st.c_str());
