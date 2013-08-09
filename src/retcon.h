@@ -71,6 +71,10 @@
 #include <wx/file.h>
 #include <wx/version.h>
 
+#ifdef _GNU_SOURCE
+#include <pthread.h>
+#endif
+
 #if wxCHECK_GCC_VERSION(4, 6)	//in old gccs, just leave the warnings turned off
 #pragma GCC diagnostic push
 #endif

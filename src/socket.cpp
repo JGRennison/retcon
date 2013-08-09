@@ -494,9 +494,15 @@ adns::adns(socketmanager *sm_) : sm(sm_) {
 }
 
 adns::~adns() {
-	LogMsg(LFT_SOCKTRACE, wxT("Waiting for all DNS threads to terminate"));
-	for(auto &it : dns_threads) {
-		it.second.Wait();
+	size_t n = std::distance(dns_threads.begin(), dns_threads.end());
+	if(n) {
+		size_t i = 0;
+		for(auto &it : dns_threads) {
+			LogMsgFormat(LFT_SOCKTRACE, wxT("Waiting for all DNS threads to terminate: %d of %d"), i, n);
+			it.second.Wait();
+			i++;
+		}
+		LogMsg(LFT_SOCKTRACE, wxT("All DNS threads terminated"));
 	}
 	RemoveShareHndl();
 }
@@ -565,8 +571,12 @@ bool adns::CheckAsync(CURL* ch, mcurlconn *cs) {
 
 	LogMsgFormat(LFT_SOCKTRACE, wxT("Creating DNS lookup thread: %s, %s"), wxstrstd(url).c_str(), wxstrstd(name).c_str());
 	dns_threads.emplace_front(std::piecewise_construct, std::forward_as_tuple(name), std::forward_as_tuple(url, name, sm, GetHndl()));
-	dns_threads.front().second.Create();
-	dns_threads.front().second.Run();
+	adns_thread &ad = dns_threads.front().second;
+	ad.Create();
+#if defined(_GNU_SOURCE) && __GLIBC_PREREQ(2, 12)
+	pthread_setname_np(ad.GetId(), "retcon-adns");
+#endif
+	ad.Run();
 
 	return true;
 }
