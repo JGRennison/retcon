@@ -24,6 +24,7 @@
 #include "univdefs.h"
 
 #include "libtwitcurl/twitcurl.h"
+#include <cstddef>
 #include <memory>
 #include <unordered_map>
 #include <forward_list>
@@ -248,6 +249,8 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	time_t last_rest_backfill;
 	wxTimer *rest_timer;
 
+	std::function<void(twitcurlext *)> TwitCurlExtHook;
+
 	void ClearUsersIFollow();
 	void SetUserRelationship(uint64_t userid, unsigned int flags, const time_t &optime);
 
@@ -279,6 +282,9 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	wxString GetStatusString(bool notextifok=false);
 	taccount(genoptconf *incfg=0);
 	~taccount();
+	twitcurlext *GetTwitCurlExt();
+	void SetGetTwitCurlExtHook(std::function<void(twitcurlext *)> func);
+	void ClearGetTwitCurlExtHook();
 
 	DECLARE_EVENT_TABLE()
 };

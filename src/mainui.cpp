@@ -162,8 +162,7 @@ void mainframe::OnLookupUser(wxCommandEvent &event) {
 	user_lookup_dlg uld(this, &type, &value, acctouse);
 	int res=uld.ShowModal();
 	if(res==wxID_OK && acctouse && type>=0 && type<=1) {
-		twitcurlext *twit=acctouse->cp.GetConn();
-		twit->TwInit(acctouse);
+		twitcurlext *twit=acctouse->GetTwitCurlExt();
 		twit->connmode=CS_USERLOOKUPWIN;
 		twit->extra1=std::string(value.ToUTF8());
 		twit->genurl="api.twitter.com/1.1/users/show.json";
@@ -329,8 +328,7 @@ void tweetpostwin::OnSendBtn(wxCommandEvent &event) {
 		}
 		currently_posting=true;
 		OnTCChange();
-		twitcurlext *twit=curacc->cp.GetConn();
-		twit->TwInit(curacc);
+		twitcurlext *twit=curacc->GetTwitCurlExt();
 		twit->extra1=curtext;
 		if(dm_targ) {
 			twit->connmode=CS_SENDDM;

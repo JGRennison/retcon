@@ -687,8 +687,7 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 				if(t->GetUsableAccount(curacc, GUAF_CHECKEXISTING)) {
 					t->lflags&=~TLF_BEINGLOADEDFROMDB;
 					t->lflags|=TLF_BEINGLOADEDOVERNET;
-					twitcurlext *twit=curacc->cp.GetConn();
-					twit->TwInit(curacc);
+					twitcurlext *twit=curacc->GetTwitCurlExt();
 					twit->connmode=CS_SINGLETWEET;
 					twit->extra_id=t->id;
 					twit->QueueAsyncExec();

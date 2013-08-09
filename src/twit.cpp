@@ -543,8 +543,7 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
 				else if(fl->ids.size()>1) {
 					LogMsgFormat(LFT_SOCKERR, wxT("Friend lookup failed, bisecting...  (%s)"), acc->dispname.c_str());
 
-					twitcurlext *twit=acc->cp.GetConn();
-					twit->TwInit(acc);
+					twitcurlext *twit=acc->GetTwitCurlExt();
 					twit->connmode=CS_FRIENDLOOKUP;
 					twit->fl.reset(new friendlookup);
 

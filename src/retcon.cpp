@@ -175,8 +175,7 @@ void taccount::LookupFriendships(uint64_t userid) {
 
 	if(fl->ids.empty()) return;
 
-	twitcurlext *twit=cp.GetConn();
-	twit->TwInit(shared_from_this());
+	twitcurlext *twit=GetTwitCurlExt();
 	twit->connmode=CS_FRIENDLOOKUP;
 	twit->fl=std::move(fl);
 	twit->genurl=twit->fl->GetTwitterURL();
@@ -248,8 +247,7 @@ void taccount::StartRestGetTweetBackfill(uint64_t start_tweet_id, uint64_t end_t
 
 void taccount::ExecRBFS(restbackfillstate *rbfs) {
 	if(rbfs->started) return;
-	twitcurlext *twit=cp.GetConn();
-	twit->TwInit(shared_from_this());
+	twitcurlext *twit=GetTwitCurlExt();
 	switch(rbfs->type) {
 		case RBFS_TWEETS:
 		case RBFS_MENTIONS:
@@ -298,8 +296,7 @@ void taccount::StartRestQueryPendings() {
 			curobj->udc_flags&=~UDC_FORCE_REFRESH;
 		}
 		if(numusers && ul) {
-			twitcurlext *twit=cp.GetConn();
-			twit->TwInit(shared_from_this());
+			twitcurlext *twit=GetTwitCurlExt();
 			twit->connmode=CS_USERLIST;
 			twit->ul=std::move(ul);
 			ul=0;
@@ -359,8 +356,7 @@ void taccount::Exec() {
 			rest_on=false;
 			active=false;
 			if(verifycredstatus==ACT_INPROGRESS) return;
-			twitcurlext *twit=cp.GetConn();
-			twit->TwInit(shared_from_this());
+			twitcurlext *twit=GetTwitCurlExt();
 			twit->TwStartupAccVerify();
 		}
 	}
@@ -410,8 +406,7 @@ void taccount::Exec() {
 }
 
 twitcurlext *taccount::PrepareNewStreamConn() {
-	twitcurlext *twit_stream=cp.GetConn();
-	twit_stream->TwInit(shared_from_this());
+	twitcurlext *twit_stream=GetTwitCurlExt();
 	twit_stream->connmode=CS_STREAM;
 	twit_stream->tc_flags|=TCF_ISSTREAM;
 	twit_stream->post_action_flags|=PAF_STREAM_CONN_READ_BACKFILL;
@@ -492,6 +487,21 @@ void taccount::OnStreamRestartTimer(wxTimerEvent& event) {
 		twit_stream->errorcount=255;	//disable retry attempts
 		twit_stream->QueueAsyncExec();
 	}
+}
+
+twitcurlext *taccount::GetTwitCurlExt() {
+	twitcurlext *twit=cp.GetConn();
+	twit->TwInit(shared_from_this());
+	if(TwitCurlExtHook) TwitCurlExtHook(twit);
+	return twit;
+}
+
+void taccount::SetGetTwitCurlExtHook(std::function<void(twitcurlext *)> func) {
+	TwitCurlExtHook = std::move(func);
+}
+
+void taccount::ClearGetTwitCurlExtHook() {
+	TwitCurlExtHook = nullptr;
 }
 
 bool GetAccByDBIndex(unsigned int dbindex, std::shared_ptr<taccount> &acc) {

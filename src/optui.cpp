@@ -161,8 +161,7 @@ void acc_window::AccNew(wxCommandEvent &event) {
 	}
 	else if(answer==wxCANCEL) return;
 
-	twitcurlext *twit=ta->cp.GetConn();
-	twit->TwInit(ta);
+	twitcurlext *twit=ta->GetTwitCurlExt();
 	if(ta->TwDoOAuth(this, *twit)) {
 		if(twit->TwSyncStartupAccVerify()) {
 			ta->userenabled=true;
@@ -205,8 +204,7 @@ void acc_window::ReAuth(wxCommandEvent &event) {
 	taccount *acc=(taccount *) lb->GetClientData(sel);
 	acc->enabled=0;
 	acc->Exec();
-	twitcurlext *twit=acc->cp.GetConn();
-	twit->TwInit(acc->shared_from_this());
+	twitcurlext *twit=acc->GetTwitCurlExt();
 	twit->getOAuth().setOAuthTokenKey("");		//remove existing oauth tokens
 	twit->getOAuth().setOAuthTokenSecret("");
 	if(acc->TwDoOAuth(this, *twit)) {

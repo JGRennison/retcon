@@ -355,8 +355,7 @@ void user_window::OnFollowBtn(wxCommandEvent &event) {
 	if(follow_btn_mode!=FOLLOWBTNMODE::FBM_NONE && acc && acc->enabled && !(u->udc_flags&UDC_FRIENDACT_IN_PROGRESS)) {
 		u->udc_flags|=UDC_FRIENDACT_IN_PROGRESS;
 		followbtn->Enable(false);
-		twitcurlext *twit=acc->cp.GetConn();
-		twit->TwInit(acc);
+		twitcurlext *twit=acc->GetTwitCurlExt();
 		if(follow_btn_mode==FOLLOWBTNMODE::FBM_FOLLOW) twit->connmode=CS_FRIENDACTION_FOLLOW;
 		else twit->connmode=CS_FRIENDACTION_UNFOLLOW;
 		twit->extra_id=userid;

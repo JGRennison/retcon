@@ -308,8 +308,7 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin=0) 
 		}
 	}
 	if(type!=CS_NULL && acc && *acc) {
-		twitcurlext *twit=(*acc)->cp.GetConn();
-		twit->TwInit(*acc);
+		twitcurlext *twit=(*acc)->GetTwitCurlExt();
 		twit->connmode=type;
 		twit->extra_id=map[curid].tw->id;
 		twit->QueueAsyncExec();
@@ -1628,8 +1627,7 @@ tpanelparentwin_userproplisting::~tpanelparentwin_userproplisting() {
 void tpanelparentwin_userproplisting::Init() {
 	std::shared_ptr<taccount> tac=acc.lock();
 	if(tac) {
-		twitcurlext *twit=tac->cp.GetConn();
-		twit->TwInit(tac);
+		twitcurlext *twit=tac->GetTwitCurlExt();
 		twit->connmode=type;
 		twit->extra_id=user->id;
 		twit->mp=this;
