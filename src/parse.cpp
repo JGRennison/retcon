@@ -560,10 +560,11 @@ std::shared_ptr<userdatacontainer> jsonparser::DoUserParse(const rapidjson::Valu
 		ParseTwitterDate(0, &userobj.createtime, created_at);
 		dbc.InsertUser(userdatacont, dbmsglist);
 	}
-	if(userdatacont->udc_flags&UDC_WINDOWOPEN) user_window::CheckRefresh(id, false);
 
 	userdatacont->MarkUpdated();
 	userdatacont->CheckPendingTweets(umpt_flags);
+
+	if(userdatacont->udc_flags&UDC_WINDOWOPEN) user_window::CheckRefresh(id, false);
 
 	if(currentlogflags&LFT_PARSE) userdatacont->Dump();
 	return userdatacont;
