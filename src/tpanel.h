@@ -21,6 +21,10 @@
 //  2012 - j.g.rennison@gmail.com
 //==========================================================================
 
+DECLARE_EVENT_TYPE(wxextRESIZE_UPDATE_EVENT, -1)
+DECLARE_EVENT_TYPE(wxextTP_PAGEUP_EVENT, -1)
+DECLARE_EVENT_TYPE(wxextTP_PAGEDOWN_EVENT, -1)
+
 struct tpanelreltimeupdater : public wxTimer {
 	void Notify();
 };
@@ -56,52 +60,6 @@ struct tpanelglobal {
 	tpanelglobal();	//use Get() instead
 };
 
-enum { tpanelmenustartid=wxID_HIGHEST+8001 };
-enum { tpanelmenuendid=wxID_HIGHEST+12000 };
-enum { tweetactmenustartid=wxID_HIGHEST+12001 };
-enum { tweetactmenuendid=wxID_HIGHEST+16000 };
-
-struct tpanelmenuitem {
-	unsigned int dbindex;
-	unsigned int flags;
-};
-
-typedef enum {
-	TAMI_RETWEET=1,
-	TAMI_FAV,
-	TAMI_UNFAV,
-	TAMI_REPLY,
-	TAMI_BROWSER,
-	TAMI_COPYTEXT,
-	TAMI_COPYID,
-	TAMI_COPYLINK,
-	TAMI_DELETE,
-	TAMI_COPYEXTRA,
-	TAMI_BROWSEREXTRA,
-	TAMI_MEDIAWIN,
-	TAMI_USERWINDOW,
-	TAMI_DM,
-	TAMI_NULL,
-	TAMI_TOGGLEHIGHLIGHT,
-	TAMI_MARKREAD,
-	TAMI_MARKUNREAD,
-	TAMI_MARKNOREADSTATE,
-} TAMI_TYPE;
-
-struct tweetactmenuitem {
-	std::shared_ptr<tweet> tw;
-	std::shared_ptr<userdatacontainer> user;
-	TAMI_TYPE type;
-	unsigned int dbindex;
-	unsigned int flags;
-	wxString extra;
-};
-
-typedef std::map<int,tpanelmenuitem> tpanelmenudata;
-typedef std::map<int,tweetactmenuitem> tweetactmenudata;
-
-extern tweetactmenudata tamd;
-
 enum {
 	PISBF_HALF		= 1<<0,
 	PISBF_DONTUSEDEFAULTMF	= 1<<1,
@@ -118,65 +76,6 @@ struct profimg_staticbitmap: public wxStaticBitmap {
 	void ClickHandler(wxMouseEvent &event);
 	void RightClickHandler(wxMouseEvent &event);
 	void OnTweetActMenuCmd(wxCommandEvent &event);
-
-	DECLARE_EVENT_TABLE()
-};
-
-struct dispscr_base : public wxRichTextCtrl, public magic_ptr_base {
-	panelparentwin_base *tppw;
-	tpanelscrollwin *tpsw;
-	wxBoxSizer *hbox;
-
-	dispscr_base(tpanelscrollwin *parent, panelparentwin_base *tppw_, wxBoxSizer *hbox_);
-	void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
-                               int noUnitsX, int noUnitsY,
-                               int xPos = 0, int yPos = 0,
-                               bool noRefresh = false );	//virtual override
-	void mousewheelhandler(wxMouseEvent &event);
-
-	DECLARE_EVENT_TABLE()
-};
-
-enum {	//for tweetdispscr.tds_flags
-	TDSF_SUBTWEET	= 1<<0,
-	TDSF_HIGHLIGHT	= 1<<1,
-};
-
-struct tweetdispscr : public dispscr_base {
-	std::shared_ptr<tweet> td;
-	profimg_staticbitmap *bm;
-	profimg_staticbitmap *bm2;
-	time_t updatetime;
-	long reltimestart;
-	long reltimeend;
-	uint64_t rtid;
-	unsigned int tds_flags = 0;
-	std::forward_list<magic_ptr_ts<tweetdispscr> > subtweets;
-	wxColour default_background_colour;
-	wxColour default_foreground_colour;
-
-	tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_);
-	~tweetdispscr();
-	void DisplayTweet(bool redrawimg=false);
-	void OnTweetActMenuCmd(wxCommandEvent &event);
-
-	void urlhandler(wxString url);
-	void urleventhandler(wxTextUrlEvent &event);
-	void rightclickhandler(wxMouseEvent &event);
-
-	DECLARE_EVENT_TABLE()
-
-};
-
-struct userdispscr : public dispscr_base {
-	std::shared_ptr<userdatacontainer> u;
-	profimg_staticbitmap *bm;
-
-	userdispscr(const std::shared_ptr<userdatacontainer> &u_, tpanelscrollwin *parent, tpanelparentwin_user *tppw_, wxBoxSizer *hbox_);
-	~userdispscr();
-	void Display(bool redrawimg=false);
-
-	void urleventhandler(wxTextUrlEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };
@@ -428,40 +327,6 @@ struct tpanelscrollwin : public wxScrolledWindow {
 	DECLARE_EVENT_TABLE()
 };
 
-struct image_panel : public wxPanel {
-	image_panel(media_display_win *parent, wxSize size=wxDefaultSize);
-	void OnPaint(wxPaintEvent &event);
-	void OnResize(wxSizeEvent &event);
-	void UpdateBitmap();
-
-	wxBitmap bm;
-	wxImage img;
-
-	DECLARE_EVENT_TABLE()
-};
-
-enum {
-	MDID_SAVE=1,
-};
-
-struct media_display_win : public wxFrame {
-	media_id_type media_id;
-	std::string media_url;
-	image_panel *sb;
-	wxStaticText *st;
-	wxBoxSizer *sz;
-	wxMenuItem *savemenuitem;
-
-	media_display_win(wxWindow *parent, media_id_type media_id_);
-	~media_display_win();
-	void UpdateImage();
-	bool GetImage(wxImage &img, wxString &message);
-	media_entity *GetMediaEntity();
-	void OnSave(wxCommandEvent &event);
-
-	DECLARE_EVENT_TABLE()
-};
-
 struct twin_layout_desc {
 	unsigned int mainframeindex;
 	unsigned int splitindex;
@@ -480,10 +345,7 @@ struct mf_layout_desc {
 };
 
 bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid=0);
-wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t timestamp=0, bool localtime=true);
-wxString getreltimestr(time_t timestamp, time_t &updatetime);
 void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map);
 void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent);
+void AppendToTAMIMenuMap(tweetactmenudata &map, int &nextid, TAMI_TYPE type, std::shared_ptr<tweet> tw, unsigned int dbindex=0, std::shared_ptr<userdatacontainer> user=std::shared_ptr<userdatacontainer>(), unsigned int flags=0, wxString extra = wxT(""));
 void CheckClearNoUpdateFlag_All();
-void SaveWindowLayout();
-void RestoreWindowLayout();
