@@ -21,17 +21,51 @@
 //  2013 - j.g.rennison@gmail.com
 //==========================================================================
 
-struct dispscr_base : public wxRichTextCtrl, public magic_ptr_base {
+struct generic_disp_base : public wxRichTextCtrl, public magic_ptr_base {
 	panelparentwin_base *tppw;
+
+	generic_disp_base(wxWindow *parent, panelparentwin_base *tppw_, long extraflags = 0);
+	void mousewheelhandler(wxMouseEvent &event);
+	void urleventhandler(wxTextUrlEvent &event);
+	virtual void urlhandler(wxString url) { }
+
+	DECLARE_EVENT_TABLE()
+};
+
+struct dispscr_mouseoverwin : generic_disp_base, public magic_paired_ptr_ts<dispscr_base, dispscr_mouseoverwin> {
+	unsigned int mouse_refcount = 0;
+	wxTimer mouseevttimer;
+
+	dispscr_mouseoverwin(wxWindow *parent, panelparentwin_base *tppw_);
+	virtual void OnMagicPairedPtrChange(dispscr_base *targ, dispscr_base *prevtarg, bool targdestructing) override;
+	void Position(const wxSize &targ_size, const wxPoint &targ_position);
+	void targmovehandler(wxMoveEvent &event);
+	void targsizehandler(wxSizeEvent &event);
+	virtual bool RefreshContent() { return false; }
+	virtual void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
+                               int noUnitsX, int noUnitsY,
+                               int xPos = 0, int yPos = 0,
+                               bool noRefresh = false ) override;
+	void mouseenterhandler(wxMouseEvent &event);
+	void mouseleavehandler(wxMouseEvent &event);
+	void MouseEnterLeaveEvent(bool enter);
+	void OnMouseEventTimer(wxTimerEvent& event);
+
+	DECLARE_EVENT_TABLE()
+};
+
+struct dispscr_base : public generic_disp_base, public magic_paired_ptr_ts<dispscr_mouseoverwin, dispscr_base> {
 	tpanelscrollwin *tpsw;
 	wxBoxSizer *hbox;
 
 	dispscr_base(tpanelscrollwin *parent, panelparentwin_base *tppw_, wxBoxSizer *hbox_);
-	void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
+	virtual void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
                                int noUnitsX, int noUnitsY,
                                int xPos = 0, int yPos = 0,
-                               bool noRefresh = false );	//virtual override
-	void mousewheelhandler(wxMouseEvent &event);
+                               bool noRefresh = false ) override;
+	void mouseenterhandler(wxMouseEvent &event);
+	void mouseleavehandler(wxMouseEvent &event);
+	virtual dispscr_mouseoverwin *MakeMouseOverWin() { return 0; }
 
 	DECLARE_EVENT_TABLE()
 };
@@ -39,6 +73,19 @@ struct dispscr_base : public wxRichTextCtrl, public magic_ptr_base {
 enum {	//for tweetdispscr.tds_flags
 	TDSF_SUBTWEET	= 1<<0,
 	TDSF_HIGHLIGHT	= 1<<1,
+};
+
+struct tweetdispscr_mouseoverwin : public dispscr_mouseoverwin {
+	std::shared_ptr<tweet> td;
+	unsigned int tds_flags = 0;
+
+	tweetdispscr_mouseoverwin(wxWindow *parent, panelparentwin_base *tppw_);
+	virtual bool RefreshContent() override;
+	virtual void urlhandler(wxString url) override;
+	void rightclickhandler(wxMouseEvent &event);
+	void OnTweetActMenuCmd(wxCommandEvent &event);
+
+	DECLARE_EVENT_TABLE()
 };
 
 struct tweetdispscr : public dispscr_base {
@@ -62,9 +109,9 @@ struct tweetdispscr : public dispscr_base {
 	void urlhandler(wxString url);
 	void urleventhandler(wxTextUrlEvent &event);
 	void rightclickhandler(wxMouseEvent &event);
+	virtual tweetdispscr_mouseoverwin *MakeMouseOverWin() override;
 
 	DECLARE_EVENT_TABLE()
-
 };
 
 struct userdispscr : public dispscr_base {

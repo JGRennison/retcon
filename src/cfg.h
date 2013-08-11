@@ -56,6 +56,10 @@ struct genoptglobconf {
 	genopt persistentmediacache;
 	genopt rtdisp;
 	genopt assumementionistweet;
+	genopt mouseover_tweetdispformat;
+	genopt mouseover_dmdispformat;
+	genopt mouseover_rtdispformat;
+	genopt mouseover_userdispformat;
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent);
 };

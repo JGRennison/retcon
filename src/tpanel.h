@@ -25,6 +25,8 @@ DECLARE_EVENT_TYPE(wxextRESIZE_UPDATE_EVENT, -1)
 DECLARE_EVENT_TYPE(wxextTP_PAGEUP_EVENT, -1)
 DECLARE_EVENT_TYPE(wxextTP_PAGEDOWN_EVENT, -1)
 
+struct tweetdispscr_mouseoverwin;
+
 struct tpanelreltimeupdater : public wxTimer {
 	void Notify();
 };
@@ -211,6 +213,7 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 
 struct tpanelparentwin_nt : public panelparentwin_base {
 	std::shared_ptr<tpanel> tp;
+	tweetdispscr_mouseoverwin *mouseoverwin = 0;
 
 	tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent);
 	virtual ~tpanelparentwin_nt();
@@ -231,6 +234,7 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	virtual bool IsSingleAccountWin() const { return tp->IsSingleAccountTPanel(); }
 	void EnumDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush);
 	void UpdateOwnTweet(const tweet &t, bool redrawimg);
+	tweetdispscr_mouseoverwin *MakeMouseOverWin();
 
 	DECLARE_EVENT_TABLE()
 };

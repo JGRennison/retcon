@@ -36,15 +36,19 @@ genoptglobconf gcglobdefaults {
 	{ wxT("%Y-%m-%d %H:%M:%S"), 1},
 	{ wxT("48"), 1},
 	{ wxT("40"), 1},
-	{ wxT("uZB@unbzuvup - T - t - F - m(An - )XiXrXtXfXdQF+u(' - Unread')NC"), 1},
-	{ wxT("uZB@unbzuvup -> UZB@UnbzUvUp - T - t - F - m(An - )XiXdQF+u(' - Unread')NC"), 1},
-	{ wxT("rZB@rnbzrvrp 'RT by' uZB@unbzuvup - T - t - F - m(An - )XiXrXtXfXdQF+u(' - Unread')Nc"), 1},
+	{ wxT("uZB@unbzuvup - T - t - Fm( - An)QF+u(' - Unread')NC"), 1},
+	{ wxT("uZB@unbzuvup -> UZB@UnbzUvUp - T - t - Fm( - An)QF+u(' - Unread')NC"), 1},
+	{ wxT("rZB@rnbzrvrp 'RT by' uZB@unbzuvup - T - t - Fm( - An)QF+u(' - Unread')Nc"), 1},
 	{ wxT("uZB@unbzuvup - uN - ulNuDNuw"), 1},
 	{ wxT("1"), 1 },
 	{ wxT("0"), 1 },
 	{ wxT("1"), 1 },
 	{ wxT("1"), 1 },
 	{ wxT("0"), 1 },
+	{ wxT("XiXrXtXfXd"), 1 },
+	{ wxT("XiXd"), 1 },
+	{ wxT("XiXrXtXfXd"), 1 },
+	{ wxT(""), 1 },
 };
 
 void taccount::CFGWriteOut(DBWriteConfig &twfc) {
@@ -133,6 +137,10 @@ void genoptglobconf::CFGWriteOut(DBWriteConfig &twfc) {
 	dmdispformat.CFGWriteOutCurDir(twfc, "dmdispformat");
 	rtdispformat.CFGWriteOutCurDir(twfc, "rtdispformat");
 	userdispformat.CFGWriteOutCurDir(twfc, "userdispformat");
+	mouseover_tweetdispformat.CFGWriteOutCurDir(twfc, "mouseover_tweetdispformat");
+	mouseover_dmdispformat.CFGWriteOutCurDir(twfc, "mouseover_dmdispformat");
+	mouseover_rtdispformat.CFGWriteOutCurDir(twfc, "mouseover_rtdispformat");
+	mouseover_userdispformat.CFGWriteOutCurDir(twfc, "mouseover_userdispformat");
 	cachethumbs.CFGWriteOutCurDir(twfc, "cachethumbs");
 	cachemedia.CFGWriteOutCurDir(twfc, "cachemedia");
 	persistentmediacache.CFGWriteOutCurDir(twfc, "persistentmediacache");
@@ -149,6 +157,10 @@ void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent)
 	dmdispformat.CFGReadInCurDir(twfc, "dmdispformat", parent.dmdispformat.val);
 	rtdispformat.CFGReadInCurDir(twfc, "rtdispformat", parent.rtdispformat.val);
 	userdispformat.CFGReadInCurDir(twfc, "userdispformat", parent.userdispformat.val);
+	mouseover_tweetdispformat.CFGReadInCurDir(twfc, "mouseover_tweetdispformat", parent.mouseover_tweetdispformat.val);
+	mouseover_dmdispformat.CFGReadInCurDir(twfc, "mouseover_dmdispformat", parent.mouseover_dmdispformat.val);
+	mouseover_rtdispformat.CFGReadInCurDir(twfc, "mouseover_rtdispformat", parent.mouseover_rtdispformat.val);
+	mouseover_userdispformat.CFGReadInCurDir(twfc, "mouseover_userdispformat", parent.mouseover_userdispformat.val);
 	cachethumbs.CFGReadInCurDir(twfc, "cachethumbs", parent.cachethumbs.val);
 	cachemedia.CFGReadInCurDir(twfc, "cachemedia", parent.cachemedia.val);
 	persistentmediacache.CFGReadInCurDir(twfc, "persistentmediacache", parent.persistentmediacache.val);

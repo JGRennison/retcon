@@ -953,6 +953,11 @@ void tpanelparentwin_nt::HandleScrollToIDOnUpdate() {
 	scrolltoid_onupdate = 0;
 }
 
+tweetdispscr_mouseoverwin *tpanelparentwin_nt::MakeMouseOverWin() {
+	if(!mouseoverwin) mouseoverwin = new tweetdispscr_mouseoverwin(scrollwin, this);
+	return mouseoverwin;
+}
+
 BEGIN_EVENT_TABLE(tpanelparentwin, tpanelparentwin_nt)
 	EVT_MENU(TPPWID_DETACH, tpanelparentwin::tabdetachhandler)
 	EVT_MENU(TPPWID_SPLIT, tpanelparentwin::tabsplitcmdhandler)
