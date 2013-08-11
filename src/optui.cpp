@@ -433,6 +433,10 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("DM display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.dmdispformat, gcglobdefaults.dmdispformat);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Native Re-Tweet display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.rtdispformat, gcglobdefaults.rtdispformat);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("User display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.userdispformat, gcglobdefaults.userdispformat);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Tweet mouse-over format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.mouseover_tweetdispformat, gcglobdefaults.mouseover_tweetdispformat);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("DM mouse-over format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.mouseover_dmdispformat, gcglobdefaults.mouseover_dmdispformat);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Native Re-Tweet mouse-over format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.mouseover_rtdispformat, gcglobdefaults.mouseover_rtdispformat);
+	//AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("User mouse-over format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.mouseover_userdispformat, gcglobdefaults.mouseover_userdispformat);
 	AddSettingRow_Bool(OPTWIN_CACHING, panel, fgs,  wxT("Cache media image thumbnails"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.cachethumbs, gcglobdefaults.cachethumbs);
 	AddSettingRow_Bool(OPTWIN_CACHING, panel, fgs,  wxT("Cache full-size media images"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.cachemedia, gcglobdefaults.cachemedia);
 	AddSettingRow_Bool(OPTWIN_CACHING, panel, fgs,  wxT("Check incoming media against cache"), DCBV_ISGLOBALCFG | DCBV_VERYADVOPTION, gc.gcfg.persistentmediacache, gcglobdefaults.persistentmediacache);
