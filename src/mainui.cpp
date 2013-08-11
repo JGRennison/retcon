@@ -84,6 +84,9 @@ mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& si
 	auim->Update();
 
 	SetMenuBar( menuBar );
+
+	LogMsgFormat(LFT_OTHERTRACE, wxT("Creating new mainframe: %p, %d mainframes"), this, mainframelist.size());
+
 	return;
 }
 void mainframe::OnCloseWindow(wxCommandEvent &event) {
@@ -138,6 +141,8 @@ mainframe::~mainframe() {
 
 	auim->UnInit();
 	delete auim;
+
+	LogMsgFormat(LFT_OTHERTRACE, wxT("Deleting mainframe: %p, %d mainframes, top win: %p"), this, mainframelist.size(), wxGetApp().GetTopWindow());
 }
 
 void mainframe::OnMouseWheel(wxMouseEvent &event) {
