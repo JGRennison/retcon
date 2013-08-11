@@ -66,8 +66,9 @@ void EnumAllDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setn
 	}
 }
 
-void UpdateAllTweets(bool redrawimg) {
+void UpdateAllTweets(bool redrawimg, bool resethighlight) {
 	EnumAllDisplayedTweets([&](tweetdispscr *tds) {
+		if(resethighlight) tds->tds_flags &= ~TDSF_HIGHLIGHT;
 		tds->DisplayTweet(redrawimg);
 		return true;
 	}, true);

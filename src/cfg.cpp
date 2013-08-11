@@ -49,6 +49,7 @@ genoptglobconf gcglobdefaults {
 	{ wxT("XiXd"), 1 },
 	{ wxT("XiXrXtXfXd"), 1 },
 	{ wxT(""), 1 },
+	{ wxT("+#320000"), 1 },
 };
 
 void taccount::CFGWriteOut(DBWriteConfig &twfc) {

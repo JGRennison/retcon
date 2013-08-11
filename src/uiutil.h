@@ -79,3 +79,14 @@ void SaveWindowLayout();
 void RestoreWindowLayout();
 wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t timestamp=0, bool localtime=true);
 wxString getreltimestr(time_t timestamp, time_t &updatetime);
+
+typedef enum {
+	CO_SET,
+	CO_ADD,
+	CO_SUB,
+	CO_AND,
+	CO_OR,
+	CO_RSUB,
+} COLOUR_OP;
+wxColour ColourOp(const wxColour &in, const wxColour &delta, COLOUR_OP co);
+wxColour ColourOp(const wxColour &in, const wxString &co_str);

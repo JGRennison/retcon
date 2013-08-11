@@ -23,6 +23,8 @@
 
 struct generic_disp_base : public wxRichTextCtrl, public magic_ptr_base {
 	panelparentwin_base *tppw;
+	wxColour default_background_colour;
+	wxColour default_foreground_colour;
 
 	generic_disp_base(wxWindow *parent, panelparentwin_base *tppw_, long extraflags = 0);
 	void mousewheelhandler(wxMouseEvent &event);
@@ -98,8 +100,6 @@ struct tweetdispscr : public dispscr_base {
 	uint64_t rtid;
 	unsigned int tds_flags = 0;
 	std::forward_list<magic_ptr_ts<tweetdispscr> > subtweets;
-	wxColour default_background_colour;
-	wxColour default_foreground_colour;
 
 	tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_);
 	~tweetdispscr();

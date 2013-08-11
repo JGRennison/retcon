@@ -377,3 +377,104 @@ wxString getreltimestr(time_t timestamp, time_t &updatetime) {
 	return wxString::Format(wxT("%d year%s ago"), diff, (diff!=1)?wxT("s"):wxT(""));
 
 }
+
+wxColour ColourOp(const wxColour &in, const wxColour &delta, COLOUR_OP co) {
+
+	if(co == CO_SET) return delta;
+	if(co == CO_AND) {
+		return wxColour(in.Red() & delta.Red(), in.Green() & delta.Green(), in.Blue() & delta.Blue());
+	}
+	if(co == CO_OR) {
+		return wxColour(in.Red() | delta.Red(), in.Green() | delta.Green(), in.Blue() | delta.Blue());
+	}
+
+	double br = in.Red();
+	double bg = in.Green();
+	double bb = in.Blue();
+
+	if(co == CO_ADD) {
+		br += delta.Red();
+		bg += delta.Green();
+		bb += delta.Blue();
+	}
+	else if(co == CO_SUB) {
+		br -= delta.Red();
+		bg -= delta.Green();
+		bb -= delta.Blue();
+	}
+	else if(co == CO_RSUB) {
+		br = delta.Red() - br;
+		bg = delta.Green() - bg;
+		bb = delta.Blue() - bb;
+	}
+
+	double min = std::min({br, bg, bb});
+	if(min < 0) {
+		br -= min;
+		bg -= min;
+		bb -= min;
+	}
+
+	double max = std::max({br, bg, bb});
+	if(max > 255) {
+		double factor = 255.0/max;
+		br *= factor;
+		bg *= factor;
+		bb *= factor;
+	}
+	return wxColour((unsigned char) br, (unsigned char) bg, (unsigned char) bb);
+}
+
+wxColour ColourOp(const wxColour &in, const wxString &co_str) {
+	COLOUR_OP co = CO_SET;
+	size_t i = 0;
+	size_t start = 0;
+	wxColour out = in;
+	auto flush = [&]() {
+		if(i > start) {
+			out = ColourOp(out, wxColour(co_str.Mid(start, i - start)), co);
+		}
+		start = i + 1;
+	};
+	for(; i < co_str.size(); i++) {
+		wxChar c = co_str[i];
+		switch(c) {
+			case '=': {
+				flush();
+				co = CO_SET;
+				break;
+			}
+			case '+': {
+				flush();
+				co = CO_ADD;
+				break;
+			}
+			case '-': {
+				flush();
+				co = CO_SUB;
+				break;
+			}
+			case '&': {
+				flush();
+				co = CO_AND;
+				break;
+			}
+			case '|': {
+				flush();
+				co = CO_OR;
+				break;
+			}
+			case '~': {
+				flush();
+				co = CO_RSUB;
+				break;
+			}
+			default: {
+				break;
+			}
+		}
+	}
+	flush();
+	return out;
+}
+

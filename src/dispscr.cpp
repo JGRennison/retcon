@@ -35,7 +35,8 @@ END_EVENT_TABLE()
 
 generic_disp_base::generic_disp_base(wxWindow *parent, panelparentwin_base *tppw_, long extraflags)
 : wxRichTextCtrl(parent, wxID_ANY, wxEmptyString, wxPoint(-1000, -1000), wxDefaultSize, wxRE_READONLY | wxRE_MULTILINE | wxBORDER_NONE | extraflags), tppw(tppw_) {
-
+	default_background_colour = GetBackgroundColour();
+	default_foreground_colour = GetForegroundColour();
 }
 
 void generic_disp_base::mousewheelhandler(wxMouseEvent &event) {
@@ -208,8 +209,6 @@ tweetdispscr::tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *p
 : dispscr_base(parent, tppw_, hbox_), td(td_), bm(0), bm2(0) {
 	if(td_->rtsrc) rtid=td_->rtsrc->id;
 	else rtid=0;
-	default_background_colour = GetBackgroundColour();
-	default_foreground_colour = GetForegroundColour();
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: tweetdispscr::tweetdispscr constructor END"));
 	#endif
@@ -648,19 +647,8 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 
 	bool highlight = tw.flags.Get('H');
 	if(highlight && !(tds_flags&TDSF_HIGHLIGHT)) {
-		double br = default_background_colour.Red();
-		double bg = default_background_colour.Green();
-		double bb = default_background_colour.Blue();
+		wxColour newcolour = ColourOp(default_background_colour, gc.gcfg.highlight_colourdelta.val);
 
-		br += 50;
-		if(br > 255) {
-			double factor = 255.0/br;
-			br *= factor;
-			bg *= factor;
-			bb *= factor;
-		}
-
-		wxColour newcolour((unsigned char) br, (unsigned char) bg, (unsigned char) bb);
 		SetBackgroundColour(newcolour);
 		if(get()) get()->SetBackgroundColour(newcolour);
 		tds_flags |= TDSF_HIGHLIGHT;
