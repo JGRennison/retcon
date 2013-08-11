@@ -24,8 +24,8 @@
 #include "retcon.h"
 #include "utf8.h"
 
-#ifndef TPANEL_COPIOUS_LOGGING
-#define TPANEL_COPIOUS_LOGGING 0
+#ifndef DISPSCR_COPIOUS_LOGGING
+#define DISPSCR_COPIOUS_LOGGING 0
 #endif
 
 BEGIN_EVENT_TABLE(generic_disp_base, wxRichTextCtrl)
@@ -106,7 +106,7 @@ void dispscr_mouseoverwin::Position(const wxSize &targ_size, const wxPoint &targ
 	wxSize this_size = GetSize();
 	wxPoint this_position(targ_position.x + targ_size.x - this_size.x, targ_position.y);
 	if(this_position != GetPosition()) {
-		#if TPANEL_COPIOUS_LOGGING
+		#if DISPSCR_COPIOUS_LOGGING
 			LogMsgFormat(LFT_TPANEL, wxT("dispscr_mouseoverwin::Position: moving to: %d, %d, size: %d, %d"), this_position.x, this_position.y, this_size.x, this_size.y);
 		#endif
 		Move(this_position);
@@ -117,21 +117,21 @@ void dispscr_mouseoverwin::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 		       int noUnitsX, int noUnitsY,
 		       int xPos, int yPos,
 		       bool noRefresh ) {
-	#if TPANEL_COPIOUS_LOGGING
+	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: dispscr_mouseoverwin::SetScrollbars %d, %d, %d, %d, %d, %d, %d"), pixelsPerUnitX, pixelsPerUnitY, noUnitsX, noUnitsY, xPos, yPos, noRefresh);
 	#endif
 	wxRichTextCtrl::SetScrollbars(0, 0, 0, 0, 0, 0, noRefresh);
 }
 
 void dispscr_mouseoverwin::mouseenterhandler(wxMouseEvent &event) {
-	#if TPANEL_COPIOUS_LOGGING
+	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("dispscr_mouseoverwin::mouseenterhandler: %p"), this);
 	#endif
 	MouseEnterLeaveEvent(true);
 }
 
 void dispscr_mouseoverwin::mouseleavehandler(wxMouseEvent &event) {
-	#if TPANEL_COPIOUS_LOGGING
+	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("dispscr_mouseoverwin::mouseleavehandler: %p"), this);
 	#endif
 	MouseEnterLeaveEvent(false);
@@ -160,7 +160,7 @@ END_EVENT_TABLE()
 dispscr_base::dispscr_base(tpanelscrollwin *parent, panelparentwin_base *tppw_, wxBoxSizer *hbox_)
 : generic_disp_base(parent, tppw_), tpsw(parent), hbox(hbox_) {
 	GetCaret()->Hide();
-	#if TPANEL_COPIOUS_LOGGING
+	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: dispscr_base::dispscr_base constructor END"));
 	#endif
 }
@@ -184,7 +184,7 @@ void dispscr_base::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 }
 
 void dispscr_base::mouseenterhandler(wxMouseEvent &event) {
-	#if TPANEL_COPIOUS_LOGGING
+	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("dispscr_base::mouseenterhandler: %p"), this);
 	#endif
 	if(!get()) {
@@ -194,7 +194,7 @@ void dispscr_base::mouseenterhandler(wxMouseEvent &event) {
 }
 
 void dispscr_base::mouseleavehandler(wxMouseEvent &event) {
-	#if TPANEL_COPIOUS_LOGGING
+	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("dispscr_base::mouseleavehandler: %p"), this);
 	#endif
 	if(get()) get()->MouseEnterLeaveEvent(false);
@@ -209,7 +209,7 @@ tweetdispscr::tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *p
 : dispscr_base(parent, tppw_, hbox_), td(td_), bm(0), bm2(0) {
 	if(td_->rtsrc) rtid=td_->rtsrc->id;
 	else rtid=0;
-	#if TPANEL_COPIOUS_LOGGING
+	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: tweetdispscr::tweetdispscr constructor END"));
 	#endif
 }
@@ -286,7 +286,7 @@ void GenUserFmt_OffsetDryRun(size_t &i, const wxString &format) {
 void GenUserFmt(generic_disp_base *obj, userdatacontainer *u, size_t &i, const wxString &format, wxString &str) {
 	i++;
 	if(i>=format.size()) return;
-	#if TPANEL_COPIOUS_LOGGING
+	#if DISPSCR_COPIOUS_LOGGING
 		wxChar log_formatchar = format[i];
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: GenUserFmt Start Format char: %c"), log_formatchar);
 	#endif
@@ -349,7 +349,7 @@ void GenUserFmt(generic_disp_base *obj, userdatacontainer *u, size_t &i, const w
 		default:
 			break;
 	}
-	#if TPANEL_COPIOUS_LOGGING
+	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: GenUserFmt End Format char: %c"), log_formatchar);
 	#endif
 }
@@ -421,7 +421,7 @@ bool CondCodeProc(generic_disp_base *obj, size_t &i, const wxString &format, wxS
 }
 
 void GenFmtCodeProc(generic_disp_base *obj, size_t &i, const wxString &format, wxString &str) {
-	#if TPANEL_COPIOUS_LOGGING
+	#if DISPSCR_COPIOUS_LOGGING
 		wxChar log_formatchar = format[i];
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: GenFmtCodeProc Start Format char: %c"), log_formatchar);
 	#endif
@@ -463,7 +463,7 @@ void GenFmtCodeProc(generic_disp_base *obj, size_t &i, const wxString &format, w
 			str+=format[i];
 			break;
 	}
-	#if TPANEL_COPIOUS_LOGGING
+	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: GenFmtCodeProc End Format char: %c"), log_formatchar);
 	#endif
 }
@@ -483,7 +483,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 	};
 
 	for(size_t i=0; i<format.size(); i++) {
-		#if TPANEL_COPIOUS_LOGGING
+		#if DISPSCR_COPIOUS_LOGGING
 			wxChar log_formatchar = format[i];
 			LogMsgFormat(LFT_TPANEL, wxT("TCL: tweetdispscr::DisplayTweet Start Format char: %c"), log_formatchar);
 		#endif
@@ -625,7 +625,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 				break;
 			}
 		}
-		#if TPANEL_COPIOUS_LOGGING
+		#if DISPSCR_COPIOUS_LOGGING
 			LogMsgFormat(LFT_TPANEL, wxT("TCL: tweetdispscr::DisplayTweet End Format char: %c"), log_formatchar);
 		#endif
 	}
@@ -633,7 +633,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 }
 
 void tweetdispscr::DisplayTweet(bool redrawimg) {
-	#if TPANEL_COPIOUS_LOGGING
+	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: tweetdispscr::DisplayTweet START %" wxLongLongFmtSpec "d, redrawimg: %d"), td->id, redrawimg);
 	#endif
 
@@ -660,7 +660,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 	}
 
 	if(redrawimg) {
-		#if TPANEL_COPIOUS_LOGGING
+		#if DISPSCR_COPIOUS_LOGGING
 			LogMsgFormat(LFT_TPANEL, wxT("TCL: tweetdispscr::DisplayTweet About to redraw images"));
 		#endif
 		auto updateprofimg = [this](profimg_staticbitmap *b) {
@@ -679,7 +679,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 		updateprofimg(bm2);
 	}
 
-	#if TPANEL_COPIOUS_LOGGING
+	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: tweetdispscr::DisplayTweet 1"));
 	#endif
 
@@ -691,7 +691,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 
 	TweetFormatProc(this, format, tw, tppw, tds_flags, &me_list);
 
-	#if TPANEL_COPIOUS_LOGGING
+	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: tweetdispscr::DisplayTweet 2"));
 	#endif
 
@@ -713,20 +713,20 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 		EndAlignment();
 	}
 
-	#if TPANEL_COPIOUS_LOGGING
+	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: tweetdispscr::DisplayTweet 3"));
 	#endif
 
 	LayoutContent();
 
 	if(!(tppw->tppw_flags&TPPWF_NOUPDATEONPUSH)) {
-		#if TPANEL_COPIOUS_LOGGING
+		#if DISPSCR_COPIOUS_LOGGING
 			LogMsgFormat(LFT_TPANEL, wxT("TCL: tweetdispscr::DisplayTweet 4 About to call tpsw->FitInside()"));
 		#endif
 		tpsw->FitInside();
 	}
 	else {
-		#if TPANEL_COPIOUS_LOGGING
+		#if DISPSCR_COPIOUS_LOGGING
 			LogMsgFormat(LFT_TPANEL, wxT("TCL: tweetdispscr::DisplayTweet 4"));
 		#endif
 	}
@@ -734,7 +734,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 	EndSuppressUndo();
 	Thaw();
 
-	#if TPANEL_COPIOUS_LOGGING
+	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: tweetdispscr::DisplayTweet END %" wxLongLongFmtSpec "d, redrawimg: %d"), td->id, redrawimg);
 	#endif
 }
