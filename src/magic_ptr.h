@@ -37,6 +37,9 @@ struct magic_ptr_base {
 
 	void Mark(magic_ptr* t);
 	void Unmark(magic_ptr* t);
+
+	public:
+	unsigned int ResetAllMagicPtrs();
 };
 
 struct magic_ptr /*final*/ {
@@ -58,6 +61,12 @@ struct magic_ptr /*final*/ {
 	magic_ptr_base *get() const {
 		return ptr;
 	}
+	magic_ptr_base *operator->() const {
+		return ptr;
+	}
+	magic_ptr_base &operator*() const {
+		return *ptr;
+	}
 	magic_ptr(const magic_ptr &p) {
 		ptr=p.get();
 		if(ptr) ptr->Mark(this);
@@ -74,12 +83,22 @@ struct magic_ptr /*final*/ {
 		set(t);
 		return *this;
 	}
+	operator bool() const {
+		return ptr;
+	}
 };
 
-inline magic_ptr_base::~magic_ptr_base() {
-	for(auto it=list.begin(); it!=list.end(); ++it) {
-		(*it)->ptr=0;
+inline unsigned int magic_ptr_base::ResetAllMagicPtrs() {
+	for(auto &it : list) {
+		it->ptr=0;
 	}
+	unsigned int count = list.size();
+	list.clear();
+	return count;
+}
+
+inline magic_ptr_base::~magic_ptr_base() {
+	ResetAllMagicPtrs();
 }
 
 inline void magic_ptr_base::Mark(magic_ptr* t) {
@@ -119,6 +138,12 @@ template <typename C> struct magic_ptr_ts {
 	C *get() const {
 		return (C*) ptr.get();
 	}
+	C *operator->() const {
+		return get();
+	}
+	C &operator*() const {
+		return *get();
+	}
 	magic_ptr_ts(const magic_ptr_ts<C> &p) : ptr(p.get()) { }
 	magic_ptr_ts(C *t) : ptr(t) { }
 	magic_ptr_ts & operator=(const magic_ptr_ts<C> &p) {
@@ -129,4 +154,51 @@ template <typename C> struct magic_ptr_ts {
 		set(in);
 		return *this;
 	}
+	operator bool() const {
+		return (bool) ptr;
+	}
 };
+
+template <typename C, typename D> struct magic_paired_ptr_ts {
+	friend magic_paired_ptr_ts<D, C>;
+	private:
+	C *other = 0;
+
+	public:
+	virtual void OnMagicPairedPtrChange(C *targ, C *prevtarg, bool targdestructing) { }
+
+	private:
+	void halfset(C* targ, bool updateprevtarg, bool targdestructing = false) {
+		if(other && updateprevtarg) static_cast<magic_paired_ptr_ts<D, C> *>(other)->halfset(0, false);
+		C* prev = other;
+		other = targ;
+		OnMagicPairedPtrChange(targ, prev, targdestructing);
+	}
+
+	public:
+	virtual ~magic_paired_ptr_ts() {
+		if(other) static_cast<magic_paired_ptr_ts<D, C> *>(other)->halfset(0, false, true);
+	}
+	C *get() const {
+		return other;
+	}
+	void set(C *targ, bool triggerlocalchange = false) {
+		if(other != targ) {
+			if(other) static_cast<magic_paired_ptr_ts<D, C> *>(other)->halfset(0, false);
+			C * prev = other;
+			other = targ;
+			if(triggerlocalchange) OnMagicPairedPtrChange(other, prev, false);
+			if(other) static_cast<magic_paired_ptr_ts<D, C> *>(other)->halfset(static_cast<D*>(this), true);
+		}
+	}
+	C *operator->() const {
+		return get();
+	}
+	C &operator*() const {
+		return *get();
+	}
+	operator bool() const {
+		return (bool) other;
+	}
+};
+
