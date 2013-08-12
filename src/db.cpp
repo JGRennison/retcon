@@ -792,6 +792,8 @@ void dbconn::SendMessage(dbsendmsg *msg) {
 bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	if(isinited) return true;
 
+	LogMsgFormat(LFT_DBTRACE, wxT("dbconn::Init(): About to initialise database connection"));
+
 	sqlite3_config(SQLITE_CONFIG_SINGLETHREAD);		//only use sqlite from one thread at any given time
 	sqlite3_initialize();
 
@@ -815,6 +817,8 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 		return false;
 	}
 
+	LogMsgFormat(LFT_DBTRACE, wxT("dbconn::Init(): About to read in state from database"));
+
 	AccountSync(syncdb);
 	ReadAllCFGIn(syncdb, gc, alist);
 	SyncReadInAllUsers(syncdb);
@@ -822,6 +826,8 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	if(gc.persistentmediacache) SyncReadInAllMediaEntities(syncdb);
 	SyncReadInCIDSLists(syncdb);
 	SyncReadInWindowLayout(syncdb);
+
+	LogMsgFormat(LFT_DBTRACE, wxT("dbconn::Init(): State read in from database complete, about to create database thread"));
 
 	th=new dbiothread();
 	th->filename=filename;
@@ -851,7 +857,7 @@ void dbconn::DeInit() {
 	if(!isinited) return;
 	isinited=false;
 
-	LogMsg(LFT_DBTRACE, wxT("dbconn::DeInit"));
+	LogMsg(LFT_DBTRACE, wxT("dbconn::DeInit: About to terminate database thread and write back state"));
 
 	SendMessage(new dbsendmsg(DBSM_QUIT));
 
@@ -865,6 +871,8 @@ void dbconn::DeInit() {
 	syncdb=th->db;
 	delete th;
 
+	LogMsg(LFT_DBTRACE, wxT("dbconn::DeInit(): Database thread terminated"));
+
 	SyncWriteBackAllUsers(syncdb);
 	AccountIdListsSync(syncdb);
 	SyncWriteOutRBFSs(syncdb);
@@ -873,6 +881,8 @@ void dbconn::DeInit() {
 	SyncWriteBackWindowLayout(syncdb);
 
 	sqlite3_close(syncdb);
+
+	LogMsg(LFT_DBTRACE, wxT("dbconn::DeInit(): State write back to database complete, database connection closed."));
 }
 
 void dbconn::InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string statjson, dbsendmsg_list *msglist) {
