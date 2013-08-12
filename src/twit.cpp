@@ -1018,7 +1018,7 @@ void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, std::funct
 					updatetp();
 				}
 			}
-			else {
+			else if(tp->tweetlist.find(tweet_id) != tp->tweetlist.end()) {
 				auto res = tpset.insert(tweet_id);
 				if(res.second) updatetp();
 			}
@@ -1044,10 +1044,10 @@ void UpdateSingleTweetUnreadState(const std::shared_ptr<tweet> &tw) {
 	CheckClearNoUpdateFlag_All();
 }
 void UpdateSingleTweetHighlightState(const std::shared_ptr<tweet> &tw) {
-	bool unread = tw->flags.Get('H');
+	bool highlighted = tw->flags.Get('H');
 	tweetidset ids;
 	ids.insert(tw->id);
-	MarkTweetIDSetCIDS(ids, 0, [&](cached_id_sets &cids) -> tweetidset & { return cids.highlightids; }, !unread);
+	MarkTweetIDSetCIDS(ids, 0, [&](cached_id_sets &cids) -> tweetidset & { return cids.highlightids; }, !highlighted);
 	SendTweetFlagUpdate(tw, tweet_flags::GetFlagValue('H'));
 	UpdateTweet(*tw, false);
 	CheckClearNoUpdateFlag_All();
