@@ -142,6 +142,7 @@ void genoptglobconf::CFGWriteOut(DBWriteConfig &twfc) {
 	mouseover_dmdispformat.CFGWriteOutCurDir(twfc, "mouseover_dmdispformat");
 	mouseover_rtdispformat.CFGWriteOutCurDir(twfc, "mouseover_rtdispformat");
 	mouseover_userdispformat.CFGWriteOutCurDir(twfc, "mouseover_userdispformat");
+	highlight_colourdelta.CFGWriteOutCurDir(twfc, "highlight_colourdelta");
 	cachethumbs.CFGWriteOutCurDir(twfc, "cachethumbs");
 	cachemedia.CFGWriteOutCurDir(twfc, "cachemedia");
 	persistentmediacache.CFGWriteOutCurDir(twfc, "persistentmediacache");
@@ -162,6 +163,7 @@ void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent)
 	mouseover_dmdispformat.CFGReadInCurDir(twfc, "mouseover_dmdispformat", parent.mouseover_dmdispformat.val);
 	mouseover_rtdispformat.CFGReadInCurDir(twfc, "mouseover_rtdispformat", parent.mouseover_rtdispformat.val);
 	mouseover_userdispformat.CFGReadInCurDir(twfc, "mouseover_userdispformat", parent.mouseover_userdispformat.val);
+	highlight_colourdelta.CFGReadInCurDir(twfc, "highlight_colourdelta", parent.highlight_colourdelta.val);
 	cachethumbs.CFGReadInCurDir(twfc, "cachethumbs", parent.cachethumbs.val);
 	cachemedia.CFGReadInCurDir(twfc, "cachemedia", parent.cachemedia.val);
 	persistentmediacache.CFGReadInCurDir(twfc, "persistentmediacache", parent.persistentmediacache.val);
