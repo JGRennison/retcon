@@ -420,6 +420,32 @@ bool CondCodeProc(generic_disp_base *obj, size_t &i, const wxString &format, wxS
 	return result;
 }
 
+void ColourCodeProc(generic_disp_base *obj, size_t &i, const wxString &format, wxString &str) {
+	size_t pos = i + 1;
+	if(!(pos < format.size()) || format[pos] != '(') return;
+
+	unsigned int bracketcount = 1;
+	pos++;
+	size_t start = pos;
+	for(; pos < format.size(); pos++) {
+		switch((wxChar) format[pos]) {
+			case '(': {
+				bracketcount++;
+				break;
+			}
+			case ')': {
+				bracketcount--;
+				if(bracketcount == 0) {
+					i = pos;
+					obj->BeginTextColour(ColourOp(obj->default_foreground_colour, format.Mid(start, pos - start)));
+					return;
+				}
+				break;
+			}
+		}
+	}
+}
+
 void GenFmtCodeProc(generic_disp_base *obj, size_t &i, const wxString &format, wxString &str) {
 	#if DISPSCR_COPIOUS_LOGGING
 		wxChar log_formatchar = format[i];
@@ -445,6 +471,16 @@ void GenFmtCodeProc(generic_disp_base *obj, size_t &i, const wxString &format, w
 			if(!CondCodeProc(obj, i, format, str)) {
 				SkipOverFalseCond(i, format);
 			}
+			break;
+		}
+		case 'K': {
+			GenFlush(obj, str);
+			ColourCodeProc(obj, i, format, str);
+			break;
+		}
+		case 'k': {
+			GenFlush(obj, str);
+			obj->EndTextColour();
 			break;
 		}
 		case '\'':
