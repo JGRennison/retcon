@@ -27,7 +27,12 @@
 	#include <signal.h>
 
 	static void termsighandler(int signum, siginfo_t *info, void *ucontext) {
-		wxGetApp().term_requested = true;
+		retcon &rt = wxGetApp();
+		if(rt.term_requested) {
+			//termination already requested, be more forceful this time
+			rt.ExitMainLoop();
+		}
+		rt.term_requested = true;
 		for(auto &it : mainframelist) {
 			wxCommandEvent evt(wxEVT_COMMAND_MENU_SELECTED, ID_Quit);
 			it->AddPendingEvent(evt);

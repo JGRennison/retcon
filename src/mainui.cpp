@@ -143,6 +143,10 @@ mainframe::~mainframe() {
 	delete auim;
 
 	LogMsgFormat(LFT_OTHERTRACE, wxT("Deleting mainframe: %p, %d mainframes, top win: %p"), this, mainframelist.size(), wxGetApp().GetTopWindow());
+
+	if(mainframelist.empty()) {
+		wxGetApp().term_requested = true;
+	}
 }
 
 void mainframe::OnMouseWheel(wxMouseEvent &event) {
