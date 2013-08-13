@@ -730,10 +730,12 @@ void tpanelparentwin_nt::PageUpHandler() {
 	if(displayoffset) {
 		tppw_flags|=TPPWF_NOUPDATEONPUSH;
 		size_t pagemove=std::min((size_t) (gc.maxtweetsdisplayinpanel+1)/2, displayoffset);
-		LoadMore(pagemove, 0, 0, TPPWPF_ABOVE | TPPWPF_NOINCDISPOFFSET);
+		uint64_t greaterthanid=currentdisp.front().first;
+		LoadMore(pagemove, 0, greaterthanid, TPPWPF_ABOVE | TPPWPF_NOINCDISPOFFSET);
 		CheckClearNoUpdateFlag();
 	}
 	scrollwin->page_scroll_blocked=false;
+	CheckClearNoUpdateFlag();
 }
 void tpanelparentwin_nt::PageDownHandler() {
 	tppw_flags|=TPPWF_NOUPDATEONPUSH;
