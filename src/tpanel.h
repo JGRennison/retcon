@@ -323,6 +323,7 @@ struct tpanelscrollwin : public wxScrolledWindow {
 	panelparentwin_base *parent;
 	bool resize_update_pending;
 	bool page_scroll_blocked;
+	bool fit_inside_blocked;
 	wxString thisname;
 
 	tpanelscrollwin(panelparentwin_base *parent_);

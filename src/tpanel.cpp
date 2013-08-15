@@ -490,12 +490,25 @@ void panelparentwin_base::CheckClearNoUpdateFlag() {
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::CheckClearNoUpdateFlag() %s START"), GetThisName().c_str());
 	#endif
 	if(tppw_flags&TPPWF_NOUPDATEONPUSH) {
+		bool rup = scrollwin->resize_update_pending;
+		scrollwin->fit_inside_blocked = true;
+		scrollwin->resize_update_pending = true;
+		bool istweetwin = dynamic_cast<tpanelparentwin_nt*>(this);
+		for(auto &it : currentdisp) {
+			it.second->LayoutContent(false);
+			if(istweetwin) {
+				tweetdispscr *tds = static_cast<tweetdispscr *>(it.second);
+				for(auto &jt : tds->subtweets) jt->LayoutContent(false);
+			}
+		}
 		scrollwin->Freeze();
 		scrollwin->FitInside();
 		if(scrolltoid_onupdate) HandleScrollToIDOnUpdate();
 		UpdateCLabel();
 		scrollwin->Thaw();
 		tppw_flags&=~(TPPWF_NOUPDATEONPUSH|TPPWF_CLABELUPDATEPENDING);
+		scrollwin->resize_update_pending = rup;
+		scrollwin->fit_inside_blocked = false;
 	}
 	else if(tppw_flags&TPPWF_CLABELUPDATEPENDING) {
 		UpdateCLabel();
@@ -657,8 +670,10 @@ void tpanelparentwin_nt::PushTweet(const std::shared_ptr<tweet> &t, unsigned int
 		scrolltoid = 0;
 	}
 	if(!(tppw_flags&TPPWF_NOUPDATEONPUSH)) UpdateCLabel();
-	EndScrollFreeze(sf);
+
 	scrollwin->Thaw();
+	if(!(tppw_flags&TPPWF_NOUPDATEONPUSH)) td->LayoutContent(false);
+	EndScrollFreeze(sf);
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweet %s END, %d, %d"), GetThisName().c_str(), displayoffset, currentdisp.size());
 	#endif
@@ -745,7 +760,6 @@ void tpanelparentwin_nt::PageUpHandler() {
 		CheckClearNoUpdateFlag();
 	}
 	scrollwin->page_scroll_blocked=false;
-	CheckClearNoUpdateFlag();
 }
 void tpanelparentwin_nt::PageDownHandler() {
 	tppw_flags|=TPPWF_NOUPDATEONPUSH;
@@ -820,6 +834,7 @@ void tpanelparentwin_nt::JumpToTweetID(uint64_t id) {
 		}
 	}
 
+	scrollwin->Thaw();
 	if(loadcount) {
 		scrolltoid = id;
 		if(!currentdisp.empty() && currentdisp.back().first < top_id) {
@@ -831,7 +846,7 @@ void tpanelparentwin_nt::JumpToTweetID(uint64_t id) {
 		else LoadMore(loadcount, top_id + 1, 0, TPPWPF_ABOVE | TPPWPF_CHECKSCROLLTOID | TPPWPF_NOINCDISPOFFSET);
 	}
 	else CheckClearNoUpdateFlag();
-	scrollwin->Thaw();
+
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanel::JumpToTweetID %s END"), GetThisName().c_str());
 	#endif
@@ -916,8 +931,8 @@ void tpanelparentwin_nt::MarkClearCIDSSetHandler(std::function<tweetidset &(cach
 	tweetidset &set = idsetselector(tp->cids);
 	MarkTweetIDSetCIDS(set, tp.get(), idsetselector, true, existingtweetfunc);
 	set.clear();
-	CheckClearNoUpdateFlag_All();
 	Thaw();
+	CheckClearNoUpdateFlag_All();
 }
 
 void tpanelparentwin_nt::EnumDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush) {
@@ -1278,7 +1293,7 @@ BEGIN_EVENT_TABLE(tpanelscrollwin, wxScrolledWindow)
 END_EVENT_TABLE()
 
 tpanelscrollwin::tpanelscrollwin(panelparentwin_base *parent_)
-: wxScrolledWindow(parent_, wxID_ANY, wxPoint(-1000, -1000)), parent(parent_), resize_update_pending(false), page_scroll_blocked(false) {
+: wxScrolledWindow(parent_, wxID_ANY, wxPoint(-1000, -1000)), parent(parent_), resize_update_pending(false), page_scroll_blocked(false), fit_inside_blocked(false) {
 
 	thisname = wxT("tpanelscrollwin for ") + parent_->GetThisName();
 }

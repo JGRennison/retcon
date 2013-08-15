@@ -760,6 +760,10 @@ void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, 
 	tpanelparentwin_nt *window=win.get();
 	if(!tds || !window) return;
 
+	tppw_scrollfreeze sf;
+	window->StartScrollFreeze(sf);
+	window->scrollwin->Freeze();
+
 	if(umpt_flags&UMPTF_TPDB_NOUPDF) window->tppw_flags|=TPPWF_NOUPDATEONPUSH;
 
 	wxBoxSizer *subhbox = new wxBoxSizer(wxHORIZONTAL);
@@ -791,8 +795,12 @@ void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, 
 	subtd->SetDefaultStyle(tae);
 
 	subtd->DisplayTweet();
+	window->scrollwin->Thaw();
 
-	if(!(window->tppw_flags&TPPWF_NOUPDATEONPUSH)) window->scrollwin->FitInside();
+	if(!(window->tppw_flags&TPPWF_NOUPDATEONPUSH)) {
+		subtd->LayoutContent(false);
+	}
+	window->EndScrollFreeze(sf);
 }
 
 wxString tpanel_subtweet_pending_op::dump() {
