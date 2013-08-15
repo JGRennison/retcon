@@ -543,6 +543,9 @@ void panelparentwin_base::StartScrollFreeze(tppw_scrollfreeze &s) {
 
 void panelparentwin_base::EndScrollFreeze(tppw_scrollfreeze &s) {
 	if(s.scr) {
+		#if TPANEL_COPIOUS_LOGGING
+			LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::EndScrollFreeze()"));
+		#endif
 		int y;
 		s.scr->GetPosition(0, &y);
 		int scrollstart;
@@ -553,6 +556,9 @@ void panelparentwin_base::EndScrollFreeze(tppw_scrollfreeze &s) {
 }
 
 void panelparentwin_base::SetScrollFreeze(tppw_scrollfreeze &s, dispscr_base *scr) {
+	#if TPANEL_COPIOUS_LOGGING
+		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::SetScrollFreeze()"));
+	#endif
 	s.scr = scr;
 	s.extrapixels = 0;
 }
@@ -945,6 +951,9 @@ void tpanelparentwin_nt::UpdateOwnTweet(const tweet &t, bool redrawimg) {
 void tpanelparentwin_nt::HandleScrollToIDOnUpdate() {
 	for(auto &it : currentdisp) {
 		if(it.first == scrolltoid_onupdate) {
+			#if TPANEL_COPIOUS_LOGGING
+				LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::HandleScrollToIDOnUpdate()"));
+			#endif
 			tppw_scrollfreeze sf;
 			SetScrollFreeze(sf, it.second);
 			EndScrollFreeze(sf);
@@ -1269,14 +1278,18 @@ tpanelscrollwin::tpanelscrollwin(panelparentwin_base *parent_)
 }
 
 void tpanelscrollwin::resizehandler(wxSizeEvent &event) {
-	//LogMsgFormat(LFT_TPANEL, wxT("tpanelscrollwin::resizehandler"));
+	#if TPANEL_COPIOUS_LOGGING
+		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelscrollwin::resizehandler: %d, %d"), event.GetSize().GetWidth(), event.GetSize().GetHeight());
+	#endif
 	//FitInside();
 	//Refresh();
 	//Update();
 }
 
 void tpanelscrollwin::resizemsghandler(wxCommandEvent &event) {
-	//wxLogWarning(wxT("tpanelscrollwin::resizemsghandler"));
+	#if TPANEL_COPIOUS_LOGGING
+		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelscrollwin::resizemsghandler"));
+	#endif
 	FitInside();
 	Refresh();
 	Update();
@@ -1298,7 +1311,9 @@ void tpanelscrollwin::OnScrollHandler(wxScrollWinEvent &event) {
 	GetVirtualSize(0, &wy);
 	GetClientSize(0, &cy);
 	int endpos=(y*sy)+cy;
-	//LogMsgFormat(LFT_TPANEL, wxT("tpanelscrollwin::OnScrollHandler %d %d %d %d %d"), y, sy, wy, cy, endpos);
+	#if TPANEL_COPIOUS_LOGGING
+		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelscrollwin::OnScrollHandler %d %d %d %d %d"), y, sy, wy, cy, endpos);
+	#endif
 	bool scrollup=(y==0 && upok);
 	bool scrolldown=(endpos>=wy && downok);
 	if(scrollup && !scrolldown && !page_scroll_blocked) {
