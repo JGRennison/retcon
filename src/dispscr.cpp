@@ -33,10 +33,13 @@ BEGIN_EVENT_TABLE(generic_disp_base, wxRichTextCtrl)
 	EVT_TEXT_URL(wxID_ANY, generic_disp_base::urleventhandler)
 END_EVENT_TABLE()
 
-generic_disp_base::generic_disp_base(wxWindow *parent, panelparentwin_base *tppw_, long extraflags)
-: wxRichTextCtrl(parent, wxID_ANY, wxEmptyString, wxPoint(-1000, -1000), wxDefaultSize, wxRE_READONLY | wxRE_MULTILINE | wxBORDER_NONE | extraflags), tppw(tppw_) {
+generic_disp_base::generic_disp_base(wxWindow *parent, panelparentwin_base *tppw_, long extraflags, wxString thisname_)
+: wxRichTextCtrl(parent, wxID_ANY, wxEmptyString, wxPoint(-1000, -1000), wxDefaultSize, wxRE_READONLY | wxRE_MULTILINE | wxBORDER_NONE | extraflags), tppw(tppw_), thisname(thisname_) {
 	default_background_colour = GetBackgroundColour();
 	default_foreground_colour = GetForegroundColour();
+	#if DISPSCR_COPIOUS_LOGGING
+		LogMsgFormat(LFT_TPANEL, wxT("DCL: generic_disp_base::generic_disp_base constructor %s END"), GetThisName().c_str());
+	#endif
 }
 
 void generic_disp_base::mousewheelhandler(wxMouseEvent &event) {
@@ -50,7 +53,7 @@ void generic_disp_base::urleventhandler(wxTextUrlEvent &event) {
 	wxRichTextAttr textattr;
 	GetStyle(start, textattr);
 	wxString url=textattr.GetURL();
-	LogMsgFormat(LFT_TPANEL, wxT("URL clicked, id: %s"), url.c_str());
+	LogMsgFormat(LFT_TPANEL, wxT("generic_disp_base::urleventhandler: %s, URL clicked, id: %s"), GetThisName().c_str(), url.c_str());
 	urlhandler(url);
 }
 
@@ -60,7 +63,9 @@ BEGIN_EVENT_TABLE(dispscr_mouseoverwin, generic_disp_base)
 	EVT_TIMER(wxID_HIGHEST + 1, dispscr_mouseoverwin::OnMouseEventTimer)
 END_EVENT_TABLE()
 
-dispscr_mouseoverwin::dispscr_mouseoverwin(wxWindow *parent, panelparentwin_base *tppw_) : generic_disp_base(parent, tppw_, wxTE_DONTWRAP), mouseevttimer(this, wxID_HIGHEST + 1) {
+dispscr_mouseoverwin::dispscr_mouseoverwin(wxWindow *parent, panelparentwin_base *tppw_, wxString thisname_)
+: generic_disp_base(parent, tppw_, wxTE_DONTWRAP, thisname_), mouseevttimer(this, wxID_HIGHEST + 1) {
+
 	GetCaret()->Hide();
 }
 
@@ -107,7 +112,7 @@ void dispscr_mouseoverwin::Position(const wxSize &targ_size, const wxPoint &targ
 	wxPoint this_position(targ_position.x + targ_size.x - this_size.x, targ_position.y);
 	if(this_position != GetPosition()) {
 		#if DISPSCR_COPIOUS_LOGGING
-			LogMsgFormat(LFT_TPANEL, wxT("DCL: dispscr_mouseoverwin::Position: moving to: %d, %d, size: %d, %d"), this_position.x, this_position.y, this_size.x, this_size.y);
+			LogMsgFormat(LFT_TPANEL, wxT("DCL: dispscr_mouseoverwin::Position: %s, moving to: %d, %d, size: %d, %d"), GetThisName().c_str(), this_position.x, this_position.y, this_size.x, this_size.y);
 		#endif
 		Move(this_position);
 	}
@@ -118,21 +123,21 @@ void dispscr_mouseoverwin::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 		       int xPos, int yPos,
 		       bool noRefresh ) {
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("DCL: dispscr_mouseoverwin::SetScrollbars %d, %d, %d, %d, %d, %d, %d"), pixelsPerUnitX, pixelsPerUnitY, noUnitsX, noUnitsY, xPos, yPos, noRefresh);
+		LogMsgFormat(LFT_TPANEL, wxT("DCL: dispscr_mouseoverwin::SetScrollbars %s, %d, %d, %d, %d, %d, %d, %d"), GetThisName().c_str(), pixelsPerUnitX, pixelsPerUnitY, noUnitsX, noUnitsY, xPos, yPos, noRefresh);
 	#endif
 	wxRichTextCtrl::SetScrollbars(0, 0, 0, 0, 0, 0, noRefresh);
 }
 
 void dispscr_mouseoverwin::mouseenterhandler(wxMouseEvent &event) {
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("DCL: dispscr_mouseoverwin::mouseenterhandler: %p"), this);
+		LogMsgFormat(LFT_TPANEL, wxT("DCL: dispscr_mouseoverwin::mouseenterhandler: %s"), GetThisName().c_str());
 	#endif
 	MouseEnterLeaveEvent(true);
 }
 
 void dispscr_mouseoverwin::mouseleavehandler(wxMouseEvent &event) {
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("DCL: dispscr_mouseoverwin::mouseleavehandler: %p"), this);
+		LogMsgFormat(LFT_TPANEL, wxT("DCL: dispscr_mouseoverwin::mouseleavehandler: %s"), GetThisName().c_str());
 	#endif
 	MouseEnterLeaveEvent(false);
 }
@@ -157,11 +162,11 @@ BEGIN_EVENT_TABLE(dispscr_base, generic_disp_base)
 	EVT_LEAVE_WINDOW(dispscr_base::mouseleavehandler)
 END_EVENT_TABLE()
 
-dispscr_base::dispscr_base(tpanelscrollwin *parent, panelparentwin_base *tppw_, wxBoxSizer *hbox_)
-: generic_disp_base(parent, tppw_), tpsw(parent), hbox(hbox_) {
+dispscr_base::dispscr_base(tpanelscrollwin *parent, panelparentwin_base *tppw_, wxBoxSizer *hbox_, wxString thisname_)
+: generic_disp_base(parent, tppw_, 0, thisname_), tpsw(parent), hbox(hbox_) {
 	GetCaret()->Hide();
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("DCL: dispscr_base::dispscr_base constructor END"));
+		LogMsgFormat(LFT_TPANEL, wxT("DCL: dispscr_base::dispscr_base constructor %s END"), GetThisName().c_str());
 	#endif
 }
 
@@ -169,7 +174,9 @@ void dispscr_base::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 		       int noUnitsX, int noUnitsY,
 		       int xPos, int yPos,
 		       bool noRefresh ) {
-	//LogMsgFormat(LFT_TPANEL, wxT("tweetdispscr::SetScrollbars, tweet id %" wxLongLongFmtSpec "d"), td->id);
+	#if DISPSCR_COPIOUS_LOGGING
+		LogMsgFormat(LFT_TPANEL, wxT("DCL: dispscr_base::SetScrollbars %s"), GetThisName().c_str());
+	#endif
 	wxRichTextCtrl::SetScrollbars(0, 0, 0, 0, 0, 0, noRefresh);
 	int newheight=(pixelsPerUnitY*noUnitsY)+4;
 	hbox->SetItemMinSize(this, 10, newheight);
@@ -178,6 +185,7 @@ void dispscr_base::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 	tpsw->FitInside();
 	if(!tpsw->resize_update_pending) {
 		tpsw->resize_update_pending=true;
+		tpsw->Freeze();
 		wxCommandEvent event(wxextRESIZE_UPDATE_EVENT, GetId());
 		tpsw->GetEventHandler()->AddPendingEvent(event);
 	}
@@ -185,7 +193,7 @@ void dispscr_base::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 
 void dispscr_base::mouseenterhandler(wxMouseEvent &event) {
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("DCL: dispscr_base::mouseenterhandler: %p"), this);
+		LogMsgFormat(LFT_TPANEL, wxT("DCL: dispscr_base::mouseenterhandler: %s"), GetThisName().c_str());
 	#endif
 	if(!get()) {
 		set(MakeMouseOverWin());
@@ -195,7 +203,7 @@ void dispscr_base::mouseenterhandler(wxMouseEvent &event) {
 
 void dispscr_base::mouseleavehandler(wxMouseEvent &event) {
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("DCL: dispscr_base::mouseleavehandler: %p"), this);
+		LogMsgFormat(LFT_TPANEL, wxT("DCL: dispscr_base::mouseleavehandler: %s"), GetThisName().c_str());
 	#endif
 	if(get()) get()->MouseEnterLeaveEvent(false);
 }
@@ -205,12 +213,12 @@ BEGIN_EVENT_TABLE(tweetdispscr, dispscr_base)
 	EVT_RIGHT_DOWN(tweetdispscr::rightclickhandler)
 END_EVENT_TABLE()
 
-tweetdispscr::tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_)
-: dispscr_base(parent, tppw_, hbox_), td(td_), bm(0), bm2(0) {
+tweetdispscr::tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_)
+: dispscr_base(parent, tppw_, hbox_, thisname_.empty() ? wxString::Format(wxT("tweetdispscr: %" wxLongLongFmtSpec "d for %s"), td_->id, tppw_->GetThisName().c_str()) : thisname_), td(td_), bm(0), bm2(0) {
 	if(td_->rtsrc) rtid=td_->rtsrc->id;
 	else rtid=0;
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("DCL: tweetdispscr::tweetdispscr constructor END"));
+		LogMsgFormat(LFT_TPANEL, wxT("DCL: tweetdispscr::tweetdispscr constructor %s END"), GetThisName().c_str());
 	#endif
 }
 
@@ -521,7 +529,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 	for(size_t i=0; i<format.size(); i++) {
 		#if DISPSCR_COPIOUS_LOGGING
 			wxChar log_formatchar = format[i];
-			LogMsgFormat(LFT_TPANEL, wxT("DCL: tweetdispscr::DisplayTweet Start Format char: %c"), log_formatchar);
+			LogMsgFormat(LFT_TPANEL, wxT("DCL: TweetFormatProc Start Format char: %c"), log_formatchar);
 		#endif
 		switch((wxChar) format[i]) {
 			case 'u':
@@ -662,7 +670,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 			}
 		}
 		#if DISPSCR_COPIOUS_LOGGING
-			LogMsgFormat(LFT_TPANEL, wxT("DCL: tweetdispscr::DisplayTweet End Format char: %c"), log_formatchar);
+			LogMsgFormat(LFT_TPANEL, wxT("DCL: TweetFormatProc End Format char: %c"), log_formatchar);
 		#endif
 	}
 	flush();
@@ -670,7 +678,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 
 void tweetdispscr::DisplayTweet(bool redrawimg) {
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("DCL: tweetdispscr::DisplayTweet START %" wxLongLongFmtSpec "d, redrawimg: %d"), td->id, redrawimg);
+		LogMsgFormat(LFT_TPANEL, wxT("DCL: tweetdispscr::DisplayTweet %s, START %" wxLongLongFmtSpec "d, redrawimg: %d"), GetThisName().c_str(), td->id, redrawimg);
 	#endif
 
 	Freeze();
@@ -771,7 +779,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 	Thaw();
 
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("DCL: tweetdispscr::DisplayTweet END %" wxLongLongFmtSpec "d, redrawimg: %d"), td->id, redrawimg);
+		LogMsgFormat(LFT_TPANEL, wxT("DCL: tweetdispscr::DisplayTweet %s, END %" wxLongLongFmtSpec "d, redrawimg: %d"), GetThisName().c_str(), td->id, redrawimg);
 	#endif
 }
 
@@ -1091,9 +1099,8 @@ tweetdispscr_mouseoverwin *tweetdispscr::MakeMouseOverWin() {
 	return mw;
 }
 
-tweetdispscr_mouseoverwin::tweetdispscr_mouseoverwin(wxWindow *parent, panelparentwin_base *tppw_)
-	: dispscr_mouseoverwin(parent, tppw_) {
-
+tweetdispscr_mouseoverwin::tweetdispscr_mouseoverwin(wxWindow *parent, panelparentwin_base *tppw_, wxString thisname_)
+	: dispscr_mouseoverwin(parent, tppw_, thisname_.empty() ? wxT("tweetdispscr_mouseoverwin for ") + tppw_->GetThisName() : thisname_) {
 }
 
 bool tweetdispscr_mouseoverwin::RefreshContent() {
@@ -1134,8 +1141,9 @@ BEGIN_EVENT_TABLE(userdispscr, dispscr_base)
 	EVT_TEXT_URL(wxID_ANY, userdispscr::urleventhandler)
 END_EVENT_TABLE()
 
-userdispscr::userdispscr(const std::shared_ptr<userdatacontainer> &u_, tpanelscrollwin *parent, tpanelparentwin_user *tppw_, wxBoxSizer *hbox_)
-: dispscr_base(parent, tppw_, hbox_), u(u_), bm(0) { }
+userdispscr::userdispscr(const std::shared_ptr<userdatacontainer> &u_, tpanelscrollwin *parent, tpanelparentwin_user *tppw_, wxBoxSizer *hbox_, wxString thisname_)
+: dispscr_base(parent, tppw_, hbox_, thisname_.empty() ? wxString::Format(wxT("userdispscr: %" wxLongLongFmtSpec "d for %s"), u_->id, tppw_->GetThisName().c_str()) : thisname_), u(u_), bm(0) {
+}
 
 userdispscr::~userdispscr() { }
 

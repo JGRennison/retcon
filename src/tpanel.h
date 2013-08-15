@@ -184,10 +184,10 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	uint64_t scrolltoid = 0;
 	uint64_t scrolltoid_onupdate = 0;
 	std::multimap<std::string, wxButton *> showhidemap;
-
 	std::list<std::pair<uint64_t, dispscr_base *> > currentdisp;
+	wxString thisname;
 
-	panelparentwin_base(wxWindow *parent, bool fitnow=true);
+	panelparentwin_base(wxWindow *parent, bool fitnow=true, wxString thisname_=wxT(""));
 	virtual ~panelparentwin_base() { }
 	virtual mainframe *GetMainframe();
 	virtual void PageUpHandler() { };
@@ -207,6 +207,7 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	virtual bool IsSingleAccountWin() const;
 	void ShowHideButtons(std::string type, bool show);
 	virtual void NotifyRequestFailed() { }
+	inline wxString GetThisName() const { return thisname; }
 
 	DECLARE_EVENT_TABLE()
 };
@@ -215,7 +216,7 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	std::shared_ptr<tpanel> tp;
 	tweetdispscr_mouseoverwin *mouseoverwin = 0;
 
-	tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent);
+	tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent, wxString thisname_=wxT(""));
 	virtual ~tpanelparentwin_nt();
 	void PushTweet(const std::shared_ptr<tweet> &t, unsigned int pushflags=0);
 	tweetdispscr *PushTweetIndex(const std::shared_ptr<tweet> &t, size_t index);
@@ -246,7 +247,7 @@ struct tpanelparentwin : public tpanelparentwin_nt {
 		TPWF_UNREADBITMAPDISP	= 1<<0,
 	};
 
-	tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select=false);
+	tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select=false, wxString thisname_=wxT(""));
 	virtual void LoadMore(unsigned int n, uint64_t lessthanid=0, uint64_t greaterthanid=0, unsigned int pushflags=0);
 	virtual mainframe *GetMainframe() { return owner; }
 	uint64_t PushTweetOrRetLoadId(uint64_t id, unsigned int pushflags=0);
@@ -269,7 +270,7 @@ struct tpanelparentwin_usertweets : public tpanelparentwin_nt {
 	bool failed = false;
 	RBFS_TYPE type;
 
-	tpanelparentwin_usertweets(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent, std::function<std::shared_ptr<taccount>(tpanelparentwin_usertweets &)> getacc, RBFS_TYPE type_=RBFS_USER_TIMELINE);
+	tpanelparentwin_usertweets(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent, std::function<std::shared_ptr<taccount>(tpanelparentwin_usertweets &)> getacc, RBFS_TYPE type_=RBFS_USER_TIMELINE, wxString thisname_=wxT(""));
 	~tpanelparentwin_usertweets();
 	virtual void LoadMore(unsigned int n, uint64_t lessthanid=0, unsigned int pushflags=0);
 	virtual void UpdateCLabel();
@@ -286,7 +287,7 @@ struct tpanelparentwin_user : public panelparentwin_base {
 
 	static std::multimap<uint64_t, tpanelparentwin_user*> pendingmap;
 
-	tpanelparentwin_user(wxWindow *parent);
+	tpanelparentwin_user(wxWindow *parent, wxString thisname_=wxT(""));
 	~tpanelparentwin_user();
 	bool PushBackUser(const std::shared_ptr<userdatacontainer> &u);
 	bool UpdateUser(const std::shared_ptr<userdatacontainer> &u, size_t offset);
@@ -307,7 +308,7 @@ struct tpanelparentwin_userproplisting : public tpanelparentwin_user {
 	bool failed = false;
 	CS_ENUMTYPE type;
 
-	tpanelparentwin_userproplisting(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent, std::function<std::shared_ptr<taccount>(tpanelparentwin_userproplisting &)> getacc, CS_ENUMTYPE type_);
+	tpanelparentwin_userproplisting(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent, std::function<std::shared_ptr<taccount>(tpanelparentwin_userproplisting &)> getacc, CS_ENUMTYPE type_, wxString thisname_=wxT(""));
 	~tpanelparentwin_userproplisting();
 	virtual void LoadMoreToBack(unsigned int n);
 	virtual void UpdateCLabel();
@@ -322,11 +323,13 @@ struct tpanelscrollwin : public wxScrolledWindow {
 	panelparentwin_base *parent;
 	bool resize_update_pending;
 	bool page_scroll_blocked;
+	wxString thisname;
 
 	tpanelscrollwin(panelparentwin_base *parent_);
 	void OnScrollHandler(wxScrollWinEvent &event);
 	void resizehandler(wxSizeEvent &event);
 	void resizemsghandler(wxCommandEvent &event);
+	inline wxString GetThisName() const { return thisname; }
 
 	DECLARE_EVENT_TABLE()
 };
