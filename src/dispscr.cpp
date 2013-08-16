@@ -203,6 +203,7 @@ void dispscr_base::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 		tppw->EndScrollFreeze(sf);
 		tpsw->Thaw();
 	}*/
+	if(!tpsw->fit_inside_blocked) tpsw->FitInside();
 	if(!tpsw->resize_update_pending) {
 		tpsw->resize_update_pending=true;
 		tpsw->Freeze();

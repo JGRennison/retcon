@@ -135,9 +135,13 @@ struct tpanelnotebook : public wxAuiNotebook {
 };
 
 struct tppw_scrollfreeze {
-	tppw_scrollfreeze() : scr(0), extrapixels(0) { }
-	dispscr_base *scr;
-	int extrapixels;
+	enum {
+		TPPWSF_ALWAYSFREEZE	= 1<<0,
+	};
+
+	dispscr_base *scr = 0;
+	int extrapixels = 0;
+	unsigned int flags = 0;
 };
 
 enum {	//window IDs

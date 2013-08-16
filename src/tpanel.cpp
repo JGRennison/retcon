@@ -524,9 +524,12 @@ void panelparentwin_base::CheckClearNoUpdateFlag() {
 }
 
 void panelparentwin_base::StartScrollFreeze(tppw_scrollfreeze &s) {
+	#if TPANEL_COPIOUS_LOGGING
+		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::StartScrollFreeze(): %s"), GetThisName().c_str());
+	#endif
 	int scrollstart;
 	scrollwin->GetViewStart(0, &scrollstart);
-	if((!scrollstart && !displayoffset) || currentdisp.size() <= 2)  {
+	if((!scrollstart && !displayoffset && !(s.flags & tppw_scrollfreeze::TPPWSF_ALWAYSFREEZE)) || currentdisp.size() <= 2)  {
 		s.scr=0;
 		s.extrapixels=0;
 		return;
@@ -620,6 +623,7 @@ void tpanelparentwin_nt::PushTweet(const std::shared_ptr<tweet> &t, unsigned int
 	scrollwin->Freeze();
 	LogMsgFormat(LFT_TPANEL, "tpanelparentwin_nt::PushTweet %s, id: %" wxLongLongFmtSpec "d, %d, 0x%X, %d", GetThisName().c_str(), t->id, displayoffset, pushflags, (int) currentdisp.size());
 	tppw_scrollfreeze sf;
+	if(pushflags & TPPWPF_ABOVE) sf.flags = tppw_scrollfreeze::TPPWSF_ALWAYSFREEZE;
 	StartScrollFreeze(sf);
 	uint64_t id=t->id;
 	bool recalcdisplayoffset = false;
