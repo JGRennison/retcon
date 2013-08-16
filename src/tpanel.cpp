@@ -509,6 +509,7 @@ void panelparentwin_base::CheckClearNoUpdateFlag() {
 		if(scrolltoid_onupdate) HandleScrollToIDOnUpdate();
 		UpdateCLabel();
 		scrollwin->Thaw();
+		scrollwin->Update();
 		tppw_flags&=~(TPPWF_NOUPDATEONPUSH|TPPWF_CLABELUPDATEPENDING);
 		scrollwin->resize_update_pending = rup;
 		scrollwin->fit_inside_blocked = false;
@@ -1318,10 +1319,10 @@ void tpanelscrollwin::resizemsghandler(wxCommandEvent &event) {
 	parent->StartScrollFreeze(sf);
 	FitInside();
 	//Refresh();
-	//Update();
 	resize_update_pending=false;
 	parent->EndScrollFreeze(sf);
 	Thaw();
+	Update();
 }
 
 void tpanelscrollwin::OnScrollHandler(wxScrollWinEvent &event) {

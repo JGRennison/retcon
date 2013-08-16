@@ -195,7 +195,14 @@ void dispscr_base::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 	hbox->SetItemMinSize(this, 10, newheight);
 	//hbox->SetMinSize(10, newheight+4);
 	//SetSize(wxDefaultCoord, wxDefaultCoord, wxDefaultCoord, newheight, wxSIZE_USE_EXISTING);
-	if(!tpsw->fit_inside_blocked) tpsw->FitInside();
+	/*if(!tpsw->fit_inside_blocked) {
+		tppw_scrollfreeze sf;
+		tpsw->Freeze();
+		tppw->StartScrollFreeze(sf);
+		tpsw->FitInside();
+		tppw->EndScrollFreeze(sf);
+		tpsw->Thaw();
+	}*/
 	if(!tpsw->resize_update_pending) {
 		tpsw->resize_update_pending=true;
 		tpsw->Freeze();
