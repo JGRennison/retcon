@@ -26,12 +26,19 @@ struct generic_disp_base : public wxRichTextCtrl, public magic_ptr_base {
 	wxColour default_background_colour;
 	wxColour default_foreground_colour;
 	wxString thisname;
+	enum {
+		GDB_FF_FORCEFROZEN	= 1<<0,
+		GDB_FF_FORCEUNFROZEN	= 1<<1,
+	};
+	unsigned int freezeflags = 0;
 
 	generic_disp_base(wxWindow *parent, panelparentwin_base *tppw_, long extraflags = 0, wxString thisname_=wxT(""));
 	void mousewheelhandler(wxMouseEvent &event);
 	void urleventhandler(wxTextUrlEvent &event);
 	virtual void urlhandler(wxString url) { }
 	inline wxString GetThisName() const { return thisname; }
+	virtual bool IsFrozen() const override;
+	void ForceRefresh();
 
 	DECLARE_EVENT_TABLE()
 };

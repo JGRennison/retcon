@@ -795,12 +795,12 @@ void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, 
 	subtd->SetDefaultStyle(tae);
 
 	subtd->DisplayTweet();
-	window->scrollwin->Thaw();
 
 	if(!(window->tppw_flags&TPPWF_NOUPDATEONPUSH)) {
-		subtd->LayoutContent(false);
+		subtd->ForceRefresh();
 	}
 	window->EndScrollFreeze(sf);
+	window->scrollwin->Thaw();
 }
 
 wxString tpanel_subtweet_pending_op::dump() {

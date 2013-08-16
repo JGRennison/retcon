@@ -57,6 +57,19 @@ void generic_disp_base::urleventhandler(wxTextUrlEvent &event) {
 	urlhandler(url);
 }
 
+bool generic_disp_base::IsFrozen() const {
+	if(freezeflags & GDB_FF_FORCEFROZEN) return true;
+	else if(freezeflags & GDB_FF_FORCEUNFROZEN) return false;
+	else return wxRichTextCtrl::IsFrozen();
+}
+
+void generic_disp_base::ForceRefresh() {
+	unsigned int ffsave = freezeflags;
+	freezeflags = GDB_FF_FORCEUNFROZEN;
+	LayoutContent(false);
+	freezeflags = ffsave;
+}
+
 BEGIN_EVENT_TABLE(dispscr_mouseoverwin, generic_disp_base)
 	EVT_ENTER_WINDOW(dispscr_mouseoverwin::mouseenterhandler)
 	EVT_LEAVE_WINDOW(dispscr_mouseoverwin::mouseleavehandler)
@@ -761,7 +774,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 		LogMsgFormat(LFT_TPANEL, wxT("DCL: tweetdispscr::DisplayTweet 3"));
 	#endif
 
-	LayoutContent();
+	if(!(tppw->tppw_flags&TPPWF_NOUPDATEONPUSH)) LayoutContent();
 
 	if(!(tppw->tppw_flags&TPPWF_NOUPDATEONPUSH)) {
 		#if DISPSCR_COPIOUS_LOGGING

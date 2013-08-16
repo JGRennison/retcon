@@ -490,6 +490,7 @@ void panelparentwin_base::CheckClearNoUpdateFlag() {
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::CheckClearNoUpdateFlag() %s START"), GetThisName().c_str());
 	#endif
 	if(tppw_flags&TPPWF_NOUPDATEONPUSH) {
+		scrollwin->Freeze();
 		tppw_scrollfreeze sf;
 		StartScrollFreeze(sf);
 		bool rup = scrollwin->resize_update_pending;
@@ -497,13 +498,12 @@ void panelparentwin_base::CheckClearNoUpdateFlag() {
 		scrollwin->resize_update_pending = true;
 		bool istweetwin = dynamic_cast<tpanelparentwin_nt*>(this);
 		for(auto &it : currentdisp) {
-			it.second->LayoutContent(false);
+			it.second->ForceRefresh();
 			if(istweetwin) {
 				tweetdispscr *tds = static_cast<tweetdispscr *>(it.second);
-				for(auto &jt : tds->subtweets) jt->LayoutContent(false);
+				for(auto &jt : tds->subtweets) jt->ForceRefresh();
 			}
 		}
-		scrollwin->Freeze();
 		scrollwin->FitInside();
 		EndScrollFreeze(sf);
 		if(scrolltoid_onupdate) HandleScrollToIDOnUpdate();
@@ -674,9 +674,9 @@ void tpanelparentwin_nt::PushTweet(const std::shared_ptr<tweet> &t, unsigned int
 	}
 	if(!(tppw_flags&TPPWF_NOUPDATEONPUSH)) UpdateCLabel();
 
-	scrollwin->Thaw();
-	if(!(tppw_flags&TPPWF_NOUPDATEONPUSH)) td->LayoutContent(false);
+	if(!(tppw_flags&TPPWF_NOUPDATEONPUSH)) td->ForceRefresh();
 	EndScrollFreeze(sf);
+	scrollwin->Thaw();
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweet %s END, %d, %d"), GetThisName().c_str(), displayoffset, currentdisp.size());
 	#endif
@@ -1317,8 +1317,8 @@ void tpanelscrollwin::resizemsghandler(wxCommandEvent &event) {
 	tppw_scrollfreeze sf;
 	parent->StartScrollFreeze(sf);
 	FitInside();
-	Refresh();
-	Update();
+	//Refresh();
+	//Update();
 	resize_update_pending=false;
 	parent->EndScrollFreeze(sf);
 	Thaw();
