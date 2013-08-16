@@ -973,7 +973,7 @@ void tpanelparentwin_nt::UpdateOwnTweet(const tweet &t, bool redrawimg) {
 			return false;
 		}
 		else return true;
-	}, true);
+	}, false);
 }
 
 void tpanelparentwin_nt::HandleScrollToIDOnUpdate() {
