@@ -490,6 +490,8 @@ void panelparentwin_base::CheckClearNoUpdateFlag() {
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::CheckClearNoUpdateFlag() %s START"), GetThisName().c_str());
 	#endif
 	if(tppw_flags&TPPWF_NOUPDATEONPUSH) {
+		tppw_scrollfreeze sf;
+		StartScrollFreeze(sf);
 		bool rup = scrollwin->resize_update_pending;
 		scrollwin->fit_inside_blocked = true;
 		scrollwin->resize_update_pending = true;
@@ -503,6 +505,7 @@ void panelparentwin_base::CheckClearNoUpdateFlag() {
 		}
 		scrollwin->Freeze();
 		scrollwin->FitInside();
+		EndScrollFreeze(sf);
 		if(scrolltoid_onupdate) HandleScrollToIDOnUpdate();
 		UpdateCLabel();
 		scrollwin->Thaw();
