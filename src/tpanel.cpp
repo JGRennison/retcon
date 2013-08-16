@@ -627,6 +627,7 @@ void tpanelparentwin_nt::PushTweet(const std::shared_ptr<tweet> &t, unsigned int
 	StartScrollFreeze(sf);
 	uint64_t id=t->id;
 	bool recalcdisplayoffset = false;
+	if(pushflags&TPPWPF_NOINCDISPOFFSET && currentdisp.empty()) recalcdisplayoffset = true;
 	if(displayoffset) {
 		if(id>currentdisp.front().first) {
 			if(!(pushflags&TPPWPF_ABOVE)) {
@@ -662,7 +663,7 @@ void tpanelparentwin_nt::PushTweet(const std::shared_ptr<tweet> &t, unsigned int
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweet 2, %d, %d, %d, %d"), displayoffset, currentdisp.size(), index, recalcdisplayoffset);
 	#endif
-	if(recalcdisplayoffset || currentdisp.empty()) {
+	if(recalcdisplayoffset) {
 		tweetidset::const_iterator stit = tp->tweetlist.find(id);
 		if(stit != tp->tweetlist.end()) displayoffset = std::distance(tp->tweetlist.cbegin(), stit);
 		else displayoffset = 0;
