@@ -39,6 +39,7 @@ IMPLEMENT_APP(retcon)
 bool retcon::OnInit() {
 	//wxApp::OnInit();	//don't call this, it just calls the default command line processor
 	SetAppName(appname);
+	InitWxLogger();
 	::wxInitAllImageHandlers();
 	srand((unsigned int) time(0));
 	cmdlineproc(argv, argc);

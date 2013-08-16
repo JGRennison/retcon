@@ -21,6 +21,8 @@
 //  2012 - j.g.rennison@gmail.com
 //==========================================================================
 
+#include <wx/log.h>
+
 typedef unsigned int logflagtype;
 
 enum {
@@ -39,12 +41,14 @@ enum {
 	LFT_OTHERERR	= 1<<12,
 	LFT_USERREQ	= 1<<13,
 	LFT_PENDTRACE	= 1<<14,
+	LFT_WXLOG	= 1<<15,
+	LFT_WXVERBOSE	= 1<<16,
 };
 
 enum logflagdefs {
-	lfd_stringmask=LFT_CURLVERB|LFT_PARSE|LFT_PARSEERR|LFT_SOCKTRACE|LFT_SOCKERR|LFT_TPANEL|LFT_NETACT|LFT_DBTRACE|LFT_DBERR|LFT_ZLIBTRACE|LFT_ZLIBERR|LFT_OTHERTRACE|LFT_OTHERERR|LFT_USERREQ|LFT_PENDTRACE,
-	lfd_allmask=LFT_CURLVERB|LFT_PARSE|LFT_PARSEERR|LFT_SOCKTRACE|LFT_SOCKERR|LFT_TPANEL|LFT_NETACT|LFT_DBTRACE|LFT_DBERR|LFT_ZLIBTRACE|LFT_ZLIBERR|LFT_OTHERTRACE|LFT_OTHERERR|LFT_USERREQ|LFT_PENDTRACE,
-	lfd_err=LFT_SOCKERR|LFT_DBERR|LFT_ZLIBERR|LFT_PARSEERR|LFT_OTHERERR,
+	lfd_stringmask=LFT_CURLVERB|LFT_PARSE|LFT_PARSEERR|LFT_SOCKTRACE|LFT_SOCKERR|LFT_TPANEL|LFT_NETACT|LFT_DBTRACE|LFT_DBERR|LFT_ZLIBTRACE|LFT_ZLIBERR|LFT_OTHERTRACE|LFT_OTHERERR|LFT_USERREQ|LFT_PENDTRACE|LFT_WXLOG|LFT_WXVERBOSE,
+	lfd_allmask=LFT_CURLVERB|LFT_PARSE|LFT_PARSEERR|LFT_SOCKTRACE|LFT_SOCKERR|LFT_TPANEL|LFT_NETACT|LFT_DBTRACE|LFT_DBERR|LFT_ZLIBTRACE|LFT_ZLIBERR|LFT_OTHERTRACE|LFT_OTHERERR|LFT_USERREQ|LFT_PENDTRACE|LFT_WXLOG|LFT_WXVERBOSE,
+	lfd_err=LFT_SOCKERR|LFT_DBERR|LFT_ZLIBERR|LFT_PARSEERR|LFT_OTHERERR|LFT_WXLOG,
 	lfd_defaultwin=lfd_err|LFT_USERREQ,
 };
 
@@ -86,6 +90,12 @@ struct log_file : public log_object {
 	void log_str(logflagtype logflags, const wxString &str);
 };
 
+struct Redirector_wxLog : public wxLog {
+	wxLogLevel last_loglevel;
+	virtual void DoLog(wxLogLevel level, const wxChar *msg, time_t timestamp) override;
+	virtual void DoLogString(const wxChar *msg, time_t timestamp) override;
+};
+
 void LogMsgRaw(logflagtype logflags, const wxString &str);
 void LogMsgProcess(logflagtype logflags, const wxString &str);
 void Update_currentlogflags();
@@ -103,3 +113,5 @@ void dump_pending_acc_failed_conns(logflagtype logflags, const wxString &indent,
 void dump_pending_retry_conn(logflagtype logflags, const wxString &indent, const wxString &indentstep);
 void dump_pending_active_conn(logflagtype logflags, const wxString &indent, const wxString &indentstep);
 void dump_acc_socket_flags(logflagtype logflags, const wxString &indent, taccount *acc);
+
+void InitWxLogger();

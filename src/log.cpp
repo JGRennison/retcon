@@ -30,7 +30,8 @@
 #include <sys/time.h>
 #endif
 
-log_window *globallogwindow;
+log_window *globallogwindow = 0;
+std::unique_ptr<Redirector_wxLog> globalwxlogredirector;
 
 logflagtype currentlogflags=0;
 std::forward_list<log_object*> logfunclist;
@@ -53,6 +54,8 @@ const wxChar *logflagsstrings[]={
 	wxT("othererr"),
 	wxT("userreq"),
 	wxT("pendingtrace"),
+	wxT("wxlog"),
+	wxT("wxverbose"),
 };
 
 void Update_currentlogflags() {
@@ -65,6 +68,9 @@ void Update_currentlogflags() {
 			SetCurlHandleVerboseState(it->first, currentlogflags&LFT_CURLVERB);
 		}
 	}
+	if(currentlogflags & LFT_WXVERBOSE) wxLog::SetLogLevel(wxLOG_Info);
+	else if(currentlogflags & LFT_WXLOG) wxLog::SetLogLevel(wxLOG_Message);
+	else wxLog::SetLogLevel(wxLOG_FatalError);
 }
 
 void LogMsgRaw(logflagtype logflags, const wxString &str) {
@@ -411,4 +417,21 @@ void dump_pending_retry_conn(logflagtype logflags, const wxString &indent, const
 
 void dump_acc_socket_flags(logflagtype logflags, const wxString &indent, taccount *acc) {
 	LogMsgFormat(logflags, wxT("%sssl: %d, userstreams: %d, ta_flags: 0x%X, restinterval: %ds, enabled: %d, userenabled: %d, init: %d, active: %d, streaming_on: %d, stream_fail_count: %d, rest_on: %d"), indent.c_str(), acc->ssl, acc->userstreams, acc->ta_flags, acc->restinterval, acc->enabled, acc->userenabled, acc->init, acc->active, acc->streaming_on, acc->stream_fail_count, acc->rest_on);
+}
+
+void Redirector_wxLog::DoLog(wxLogLevel level, const wxChar *msg, time_t timestamp) {
+	last_loglevel = level;
+	wxLog::DoLog(level, msg, timestamp);
+}
+
+void Redirector_wxLog::DoLogString(const wxChar *msg, time_t timestamp) {
+	LogMsg(last_loglevel <= wxLOG_Message ? LFT_WXLOG : LFT_WXVERBOSE, msg);
+}
+
+void InitWxLogger() {
+	if(globalwxlogredirector) return;
+	globalwxlogredirector.reset(new Redirector_wxLog());
+	globalwxlogredirector->SetTimestamp(0);
+	globalwxlogredirector->SetRepetitionCounting(false);
+	wxLog::SetActiveTarget(globalwxlogredirector.get());
 }
