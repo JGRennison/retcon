@@ -165,10 +165,10 @@ tpanel::tpanel(const std::string &name_, const std::string &dispname_, unsigned 
 			if(flags&TPF_AUTO_DM) tweetlist.insert((*it)->dm_ids.begin(), (*it)->dm_ids.end());
 			if(flags&TPF_AUTO_TW) tweetlist.insert((*it)->tweet_ids.begin(), (*it)->tweet_ids.end());
 			if(flags&TPF_AUTO_MN) tweetlist.insert((*it)->usercont->mention_index.begin(), (*it)->usercont->mention_index.end());
-			ad.cids.foreach(this->cids, [&](tweetidset &adtis, tweetidset &thistis) {
-				std::set_intersection(tweetlist.begin(), tweetlist.end(), adtis.begin(), adtis.end(), std::inserter(thistis, thistis.end()), tweetlist.key_comp());
-			});
 		}
+		ad.cids.foreach(this->cids, [&](tweetidset &adtis, tweetidset &thistis) {
+			std::set_intersection(tweetlist.begin(), tweetlist.end(), adtis.begin(), adtis.end(), std::inserter(thistis, thistis.end()), tweetlist.key_comp());
+		});
 	}
 	else return;
 }
