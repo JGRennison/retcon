@@ -179,6 +179,7 @@ void profileimgdlconn::HandleFailure(long httpcode, CURLcode res) {
 		}
 		user->udc_flags&=~UDC_IMAGE_DL_IN_PROGRESS;
 		user->udc_flags&=~UDC_HALF_PROFILE_BITMAP_SET;
+		user->udc_flags|=UDC_PROFILE_IMAGE_DL_FAILED;
 		user->CheckPendingTweets();
 		cp.Standby(this);
 	}

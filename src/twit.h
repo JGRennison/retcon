@@ -75,6 +75,7 @@ enum {
 	UDC_FORCE_REFRESH		= 1<<6,
 	UDC_FRIENDACT_IN_PROGRESS	= 1<<7,
 	UDC_CHECK_USERLISTWIN		= 1<<8,
+	UDC_PROFILE_IMAGE_DL_FAILED	= 1<<9,
 };
 
 struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {

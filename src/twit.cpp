@@ -638,6 +638,7 @@ bool userdatacontainer::ImgIsReady(unsigned int updcf_flags) {
 	if(udc_flags & UDC_IMAGE_DL_IN_PROGRESS) return false;
 	if(user.profile_img_url.size()) {
 		if(cached_profile_img_url!=user.profile_img_url) {
+			if(udc_flags&UDC_PROFILE_IMAGE_DL_FAILED) return true;
 			if(updcf_flags&UPDCF_DOWNLOADIMG) profileimgdlconn::GetConn(user.profile_img_url, shared_from_this());
 			return false;
 		}
