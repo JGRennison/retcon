@@ -115,3 +115,4 @@ void dump_pending_active_conn(logflagtype logflags, const wxString &indent, cons
 void dump_acc_socket_flags(logflagtype logflags, const wxString &indent, taccount *acc);
 
 void InitWxLogger();
+void DeInitWxLogger();

@@ -435,3 +435,8 @@ void InitWxLogger() {
 	globalwxlogredirector->SetRepetitionCounting(false);
 	wxLog::SetActiveTarget(globalwxlogredirector.get());
 }
+
+void DeInitWxLogger() {
+	wxLog::SetActiveTarget(nullptr);
+	globalwxlogredirector.reset();
+}

@@ -78,6 +78,7 @@ int retcon::OnExit() {
 	profileimgdlconn::cp.ClearAllConns();
 	sm.DeInitMultiIOHandler();
 	dbc.DeInit();
+	DeInitWxLogger();
 	return wxApp::OnExit();
 }
 
