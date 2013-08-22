@@ -79,8 +79,8 @@ PATHSEP:=/
 
 wxconf:=$(shell wx-config --selected-config)
 ifeq (gtk, $(findstring gtk,$(wxconf)))
-LIBS+=`pkg-config --libs glib-2.0`
-MCFLAGS+=`pkg-config --cflags glib-2.0`
+LIBS+=`pkg-config --libs glib-2.0` `pkg-config --libs gdk-2.0`
+MCFLAGS+=`pkg-config --cflags glib-2.0` `pkg-config --cflags gdk-2.0`
 endif
 
 endif

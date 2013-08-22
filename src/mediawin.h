@@ -21,6 +21,8 @@
 //  2013 - j.g.rennison@gmail.com
 //==========================================================================
 
+#include <wx/animate.h>
+
 struct image_panel : public wxPanel {
 	image_panel(media_display_win *parent, wxSize size=wxDefaultSize);
 	void OnPaint(wxPaintEvent &event);
@@ -35,6 +37,7 @@ struct image_panel : public wxPanel {
 
 enum {
 	MDID_SAVE=1,
+	MDID_TIMER_EVT=2,
 };
 
 struct media_display_win : public wxFrame {
@@ -44,13 +47,25 @@ struct media_display_win : public wxFrame {
 	wxStaticText *st;
 	wxBoxSizer *sz;
 	wxMenuItem *savemenuitem;
+	wxAnimation anim;
+	bool is_animated = false;
+	bool img_ok = false;
+	unsigned int current_frame_index = 0;
+	wxImage current_img;
+	wxTimer animation_timer;
+#if defined(__WXGTK__)
+	wxAnimationCtrl anim_ctrl;
+	bool using_anim_ctrl = false;
+#endif
 
 	media_display_win(wxWindow *parent, media_id_type media_id_);
 	~media_display_win();
 	void UpdateImage();
-	bool GetImage(wxImage &img, wxString &message);
+	void GetImage(wxString &message);
 	media_entity *GetMediaEntity();
 	void OnSave(wxCommandEvent &event);
+	void DelayLoadNextAnimFrame();
+	void OnAnimationTimer(wxTimerEvent& event);
 
 	DECLARE_EVENT_TABLE()
 };
