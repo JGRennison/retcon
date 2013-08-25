@@ -1552,6 +1552,9 @@ void tpanelreltimeupdater::Notify() {
 	auto updatetimes = [&](tweetdispscr &td) {
 		if(!td.updatetime) return;
 		else if(nowtime>=td.updatetime) {
+			wxRichTextAttr style;
+			td.GetStyle(td.reltimestart, style);
+			td.SetDefaultStyle(style);
 			td.Delete(wxRichTextRange(td.reltimestart, td.reltimeend));
 			td.SetInsertionPoint(td.reltimestart);
 			td.WriteText(getreltimestr(td.td->createtime, td.updatetime));

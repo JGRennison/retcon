@@ -331,7 +331,7 @@ void GenUserFmt(generic_disp_base *obj, userdatacontainer *u, size_t &i, const w
 			break;
 		case 'Z': {
 			GenFlush(obj, str);
-			obj->BeginURL(wxString::Format("U%" wxLongLongFmtSpec "d", u->id), obj->GetDefaultStyleEx().GetCharacterStyleName());
+			obj->BeginURL(wxString::Format("U%" wxLongLongFmtSpec "d", u->id));
 			break;
 		}
 		case 'p':
@@ -749,6 +749,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 	#endif
 
 	Clear();
+	SetDefaultStyle(wxRichTextAttr());
 	wxString format=wxT("");
 	if(tw.flags.Get('R') && gc.rtdisp) format=gc.gcfg.rtdispformat.val;
 	else if(tw.flags.Get('T')) format=gc.gcfg.tweetdispformat.val;
@@ -796,6 +797,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 		#endif
 	}
 
+	EndAllStyles();
 	EndSuppressUndo();
 	Thaw();
 
@@ -1179,6 +1181,7 @@ void userdispscr::Display(bool redrawimg) {
 	}
 
 	Clear();
+	SetDefaultStyle(wxRichTextAttr());
 	wxString format=gc.gcfg.userdispformat.val;
 	wxString str=wxT("");
 
@@ -1200,6 +1203,7 @@ void userdispscr::Display(bool redrawimg) {
 		tpsw->FitInside();
 	}
 
+	EndAllStyles();
 	EndSuppressUndo();
 	Thaw();
 
