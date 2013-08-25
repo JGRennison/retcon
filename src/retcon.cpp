@@ -37,9 +37,11 @@ std::forward_list<tpanelparentwin_nt*> tpanelparentwinlist;
 IMPLEMENT_APP(retcon)
 
 bool retcon::OnInit() {
+	raii_set rs;
 	//wxApp::OnInit();	//don't call this, it just calls the default command line processor
 	SetAppName(appname);
 	InitWxLogger();
+	rs.add([&]() { DeInitWxLogger(); });
 	::wxInitAllImageHandlers();
 	srand((unsigned int) time(0));
 	cmdlineproc(argv, argc);
@@ -49,8 +51,10 @@ bool retcon::OnInit() {
 	}
 	SetTermSigHandler();
 	sm.InitMultiIOHandler();
+	rs.add([&]() { sm.DeInitMultiIOHandler(); });
 	bool res=dbc.Init(std::string((wxStandardPaths::Get().GetUserDataDir() + wxT("/retcondb.sqlite3")).ToUTF8()));
 	if(!res) return false;
+	rs.add([&]() { dbc.DeInit(); });
 	if(term_requested) return false;
 
 	RestoreWindowLayout();
@@ -67,6 +71,7 @@ bool retcon::OnInit() {
 
 	if(term_requested) return false;
 
+	rs.cancel();
 	return true;
 }
 
