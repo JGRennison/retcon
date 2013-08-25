@@ -152,6 +152,7 @@ struct cached_id_sets {
 	}
 };
 
+#include "raii.h"
 #include "magic_ptr.h"
 #include "socket.h"
 #include "twit.h"

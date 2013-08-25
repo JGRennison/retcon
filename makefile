@@ -158,7 +158,7 @@ $(DIRS):
 	-mkdir $@
 
 HEADERS:=src/retcon.h src/socket.h src/cfg.h src/parse.h src/twit.h src/tpanel.h src/optui.h src/libtwitcurl/twitcurl.h src/db.h src/log.h
-HEADERS+=src/cmdline.h src/userui.h src/mainui.h src/magic_ptr.h src/univdefs.h src/signal.h src/dispscr.h src/uiutil.h src/mediawin.h
+HEADERS+=src/cmdline.h src/userui.h src/mainui.h src/magic_ptr.h src/univdefs.h src/signal.h src/dispscr.h src/uiutil.h src/mediawin.h src/raii.h
 
 $(OBJDIR)/pch/retcon.h.gch: $(HEADERS)
 $(OBJS): $(HEADERS) $(OBJDIR)/pch/retcon.h.gch
