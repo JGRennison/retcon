@@ -93,6 +93,7 @@ void mainframe::OnCloseWindow(wxCommandEvent &event) {
 	Close(true);
 }
 void mainframe::OnQuit(wxCommandEvent &event) {
+	LogMsgFormat(LFT_OTHERTRACE, wxT("mainframe::OnQuit: %p, %d mainframes"), this, mainframelist.size());
 	SaveWindowLayout();
 	ad.twinlayout_final = true;
 	std::vector<mainframe *> tempmf = mainframelist;
@@ -101,9 +102,7 @@ void mainframe::OnQuit(wxCommandEvent &event) {
 	}
 }
 void mainframe::OnAbout(wxCommandEvent &event) {
-	SaveWindowLayout();
-	if(globallogwindow) globallogwindow->Destroy();
-	user_window::CloseAll();
+	OpenAboutWindow();
 }
 void mainframe::OnSettings(wxCommandEvent &event) {
 	settings_window *sw=new settings_window(this, -1, wxT("Settings"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
@@ -121,6 +120,7 @@ void mainframe::OnViewlog(wxCommandEvent &event) {
 	if(globallogwindow) globallogwindow->LWShow(true);
 }
 void mainframe::OnClose(wxCloseEvent &event) {
+	LogMsgFormat(LFT_OTHERTRACE, wxT("mainframe::OnClose: %p, %d mainframes"), this, mainframelist.size());
 	SaveWindowLayout();
 	mainframelist.erase(std::remove(mainframelist.begin(), mainframelist.end(), this), mainframelist.end());
 	if(mainframelist.empty()) {
@@ -145,6 +145,8 @@ mainframe::~mainframe() {
 	LogMsgFormat(LFT_OTHERTRACE, wxT("Deleting mainframe: %p, %d mainframes, top win: %p"), this, mainframelist.size(), wxGetApp().GetTopWindow());
 
 	if(mainframelist.empty()) {
+		if(globallogwindow) globallogwindow->Destroy();
+		user_window::CloseAll();
 		wxGetApp().term_requested = true;
 	}
 }
