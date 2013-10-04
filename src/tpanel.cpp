@@ -970,9 +970,8 @@ void tpanelparentwin_nt::UpdateOwnTweet(const tweet &t, bool redrawimg) {
 		if(tds->td->id==t.id || tds->rtid==t.id) {	//found matching entry
 			LogMsgFormat(LFT_TPANEL, wxT("UpdateOwnTweet: %s, Found Entry %" wxLongLongFmtSpec "d."), GetThisName().c_str(), t.id);
 			tds->DisplayTweet(redrawimg);
-			return false;
 		}
-		else return true;
+		return true;
 	}, false);
 }
 
