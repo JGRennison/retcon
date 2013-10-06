@@ -574,8 +574,10 @@ bool adns::CheckAsync(CURL* ch, mcurlconn *cs) {
 	dns_threads.emplace_front(std::piecewise_construct, std::forward_as_tuple(name), std::forward_as_tuple(url, name, sm, GetHndl()));
 	adns_thread &ad = dns_threads.front().second;
 	ad.Create();
-#if defined(_GNU_SOURCE) && __GLIBC_PREREQ(2, 12)
+#if defined(_GNU_SOURCE)
+#if __GLIBC_PREREQ(2, 12)
 	pthread_setname_np(ad.GetId(), "retcon-adns");
+#endif
 #endif
 	ad.Run();
 
