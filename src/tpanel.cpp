@@ -73,34 +73,15 @@ void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map) {
 }
 
 void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent) {
-	unsigned int dbindex=map[curid].dbindex;
-	unsigned int flags=map[curid].flags;
+	unsigned int dbindex = map[curid].dbindex;
+	unsigned int flags = map[curid].flags;
 	std::shared_ptr<taccount> acc;
-	wxString name;
-	wxString accname;
-	wxString type;
+
 	if(dbindex) {
-		if(GetAccByDBIndex(dbindex, acc)) {
-			name=acc->dispname;
-			accname=acc->name;
-		}
-		else return;
+		if(!GetAccByDBIndex(dbindex, acc)) return;
 	}
-	else {
-		name=wxT("All Accounts");
-		accname=wxT("*");
-	}
-	if(flags & TPAF_TW && flags & TPAF_MN && flags & TPAF_DM) type=wxT("All");
-	else if(flags & TPAF_TW && flags & TPAF_MN) type=wxT("Tweets & Mentions");
-	else if(flags & TPAF_MN && flags & TPAF_DM) type=wxT("Mentions & DMs");
-	else if(flags & TPAF_TW) type=wxT("Tweets");
-	else if(flags & TPAF_DM) type=wxT("DMs");
-	else if(flags & TPAF_MN) type=wxT("Mentions");
 
-	std::string paneldispname=std::string(wxString::Format(wxT("[%s - %s]"), name.c_str(), type.c_str()).ToUTF8());
-	std::string panelname=std::string(wxString::Format(wxT("___ATL_%s_%s"), accname.c_str(), type.c_str()).ToUTF8());
-
-	auto tp=tpanel::MkTPanel(panelname, paneldispname, flags, &acc);
+	auto tp = tpanel::MkTPanel("", "", flags, &acc);
 	tp->MkTPanelWin(parent, true);
 }
 
@@ -169,11 +150,60 @@ std::shared_ptr<tpanel> tpanel::MkTPanel(const std::string &name_, const std::st
 }
 
 std::shared_ptr<tpanel> tpanel::MkTPanel(const std::string &name_, const std::string &dispname_, unsigned int flags_, std::vector<tpanel_auto> tpautos_) {
-	std::shared_ptr<tpanel> &ref=ad.tpanels[name_];
+	std::string name = name_;
+	std::string dispname = dispname_;
+
+	NameDefaults(name, dispname, tpautos_);
+
+	std::shared_ptr<tpanel> &ref=ad.tpanels[name];
 	if(!ref) {
-		ref=std::make_shared<tpanel>(name_, dispname_, flags_, std::move(tpautos_));
+		ref=std::make_shared<tpanel>(name, dispname, flags_, std::move(tpautos_));
 	}
 	return ref;
+}
+
+void tpanel::NameDefaults(std::string &name, std::string &dispname, const std::vector<tpanel_auto> &tpautos) {
+	bool newname = name.empty();
+	bool newdispname = dispname.empty();
+
+	if(newname) name = "__ATL";
+	if(newdispname) dispname = "[";
+
+	if(newname || newdispname) {
+		for(auto &it : tpautos) {
+			std::string accname;
+			std::string accdispname;
+			std::string type;
+			std::string disptype;
+
+			if(it.acc) {
+				accname = it.acc->name.ToUTF8();
+				accdispname = it.acc->dispname.ToUTF8();
+			}
+			else {
+				accname = "*";
+				accdispname = "All Accounts";
+			}
+
+			if(it.autoflags & TPAF_TW && it.autoflags & TPAF_MN && it.autoflags & TPAF_DM) disptype = "All";
+			else if(it.autoflags & TPAF_TW && it.autoflags & TPAF_MN) disptype = "Tweets & Mentions";
+			else if(it.autoflags & TPAF_MN && it.autoflags & TPAF_DM) disptype = "Mentions & DMs";
+			else if(it.autoflags & TPAF_TW && it.autoflags & TPAF_DM) disptype = "Tweets & DMs";
+			else if(it.autoflags & TPAF_TW) disptype = "Tweets";
+			else if(it.autoflags & TPAF_DM) disptype = "DMs";
+			else if(it.autoflags & TPAF_MN) disptype = "Mentions";
+			if(it.autoflags & TPAF_TW) type += "T";
+			if(it.autoflags & TPAF_DM) type += "D";
+			if(it.autoflags & TPAF_MN) type += "M";
+
+			if(newname) name += "_" + accname + "_" + type;
+			if(newdispname) {
+				if(dispname.size() > 1) dispname += ", ";
+				dispname += accdispname + " - " + disptype;
+			}
+		}
+	}
+	if(newdispname) dispname += "]";
 }
 
 tpanel::~tpanel() {

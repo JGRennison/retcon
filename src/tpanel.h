@@ -118,6 +118,8 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	tpanel(const std::string &name_, const std::string &dispname_, unsigned int flags_, std::vector<tpanel_auto> tpautos_);		//don't use this directly
 	~tpanel();
 
+	static void NameDefaults(std::string &name, std::string &dispname, const std::vector<tpanel_auto> &tpautos);
+
 	void PushTweet(const std::shared_ptr<tweet> &t, unsigned int pushflags=0);
 	bool RegisterTweet(const std::shared_ptr<tweet> &t);
 	tpanelparentwin *MkTPanelWin(mainframe *parent, bool select=false);
