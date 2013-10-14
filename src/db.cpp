@@ -70,7 +70,8 @@ static const char *startup_sql=
 "CREATE TABLE IF NOT EXISTS settings(accid BLOB, name TEXT, value BLOB, PRIMARY KEY (accid, name));"
 "CREATE TABLE IF NOT EXISTS rbfspending(accid INTEGER, type INTEGER, startid INTEGER, endid INTEGER, maxleft INTEGER);"
 "CREATE TABLE IF NOT EXISTS mediacache(mid INTEGER, tid INTEGER, url BLOB, fullchecksum BLOB, thumbchecksum BLOB, flags INTEGER, PRIMARY KEY (mid, tid));"
-"CREATE TABLE IF NOT EXISTS tpanelwins(mainframeindex INTEGER, splitindex INTEGER, tabindex INTEGER, accid BLOB, name TEXT, dispname TEXT, flags INTEGER);"
+"CREATE TABLE IF NOT EXISTS tpanelwins(mainframeindex INTEGER, splitindex INTEGER, tabindex INTEGER, name TEXT, dispname TEXT, flags INTEGER);"
+"CREATE TABLE IF NOT EXISTS tpanelwinautos(tpw INTEGER, accid INTEGER, autoflags INTEGER);"
 "CREATE TABLE IF NOT EXISTS mainframewins(mainframeindex INTEGER, x INTEGER, y INTEGER, w INTEGER, h INTEGER, maximised INTEGER);"
 "INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', 'dirtyflag', strftime('%s','now'));";
 
@@ -1252,41 +1253,65 @@ void dbconn::SyncReadInWindowLayout(sqlite3 *adb) {
 	sqlite3_finalize(mfstmt);
 
 
-	const char sql[]="SELECT mainframeindex, splitindex, tabindex, accid, name, dispname, flags FROM tpanelwins ORDER BY mainframeindex ASC, splitindex ASC, tabindex ASC;";
+	const char sql[]="SELECT mainframeindex, splitindex, tabindex, name, dispname, flags, rowid FROM tpanelwins ORDER BY mainframeindex ASC, splitindex ASC, tabindex ASC;";
 	sqlite3_stmt *stmt=0;
-	sqlite3_prepare_v2(adb, sql, sizeof(sql)+1, &stmt, 0);
+	int res = sqlite3_prepare_v2(adb, sql, sizeof(sql)+1, &stmt, 0);
+
+	const char sql2[]="SELECT accid, autoflags FROM tpanelwinautos WHERE tpw == ?;";
+	sqlite3_stmt *stmt2=0;
+	int res2 = sqlite3_prepare_v2(adb, sql2, sizeof(sql2)+1, &stmt2, 0);
+
+	if(res != SQLITE_OK || res2 != SQLITE_OK) {
+		DBLogMsgFormat(LFT_DBERR, wxT("dbconn::SyncReadInWindowLayout sqlite3_prepare_v2 failed"));
+		return;
+	}
 
 	do {
 		int res=sqlite3_step(stmt);
 		if(res==SQLITE_ROW) {
-			std::shared_ptr<taccount> acc;
-			int accid = (unsigned int) sqlite3_column_int(stmt, 3);
-			if(accid > 0) {
-				for(auto &it : alist) {
-					if(it->dbindex == accid) {
-						acc = it;
-						break;
-					}
-				}
-				if(!acc) continue;
-			}
-			else {
-				acc.reset();
-			}
 			ad.twinlayout.emplace_back();
 			twin_layout_desc &twld = ad.twinlayout.back();
 			twld.mainframeindex = (unsigned int) sqlite3_column_int(stmt, 0);
 			twld.splitindex = (unsigned int) sqlite3_column_int(stmt, 1);
 			twld.tabindex = (unsigned int) sqlite3_column_int(stmt, 2);
-			twld.acc = acc;
-			twld.name = (const char *) sqlite3_column_text(stmt, 4);
-			twld.dispname = (const char *) sqlite3_column_text(stmt, 5);
-			twld.flags = (unsigned int) sqlite3_column_int(stmt, 6);
+			twld.name = (const char *) sqlite3_column_text(stmt, 3);
+			twld.dispname = (const char *) sqlite3_column_text(stmt, 4);
+			twld.flags = (unsigned int) sqlite3_column_int(stmt, 5);
+			sqlite3_int64 rowid = sqlite3_column_int(stmt, 6);
+
+			sqlite3_bind_int(stmt2, 1, rowid);
+			do {
+				int res2 = sqlite3_step(stmt2);
+				if(res2 == SQLITE_ROW) {
+					std::shared_ptr<taccount> acc;
+					int accid = (int) sqlite3_column_int(stmt2, 0);
+					if(accid > 0) {
+						for(auto &it : alist) {
+							if(it->dbindex == accid) {
+								acc = it;
+								break;
+							}
+						}
+						if(!acc) continue;
+					}
+					else {
+						acc.reset();
+					}
+					twld.tpautos.emplace_back();
+					twld.tpautos.back().acc = acc;
+					twld.tpautos.back().autoflags = sqlite3_column_int(stmt2, 1);
+				}
+				else if(res2!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("dbconn::SyncReadInWindowLayout (tpanelwinautos) got error: %d (%s)"), res2, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
+				else break;
+			}
+			while(true);
+			sqlite3_reset(stmt2);
 		}
 		else if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("dbconn::SyncReadInWindowLayout (tpanelwins) got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
 		else break;
 	} while(true);
 	sqlite3_finalize(stmt);
+	sqlite3_finalize(stmt2);
 }
 
 void dbconn::SyncWriteBackWindowLayout(sqlite3 *adb) {
@@ -1311,25 +1336,39 @@ void dbconn::SyncWriteBackWindowLayout(sqlite3 *adb) {
 
 
 	sqlite3_exec(adb, "DELETE FROM tpanelwins", 0, 0, 0);
-	const char sql[]="INSERT INTO tpanelwins (mainframeindex, splitindex, tabindex, accid, name, dispname, flags) VALUES (?, ?, ?, ?, ?, ?, ?);";
+	sqlite3_exec(adb, "DELETE FROM tpanelwinautos", 0, 0, 0);
+	const char sql[]="INSERT INTO tpanelwins (mainframeindex, splitindex, tabindex, name, dispname, flags) VALUES (?, ?, ?, ?, ?, ?);";
 	sqlite3_stmt *stmt=0;
 	sqlite3_prepare_v2(adb, sql, sizeof(sql)+1, &stmt, 0);
+	const char sql2[]="INSERT INTO tpanelwinautos (tpw, accid, autoflags) VALUES (?, ?, ?);";
+	sqlite3_stmt *stmt2=0;
+	sqlite3_prepare_v2(adb, sql2, sizeof(sql2)+1, &stmt2, 0);
 
 	for(auto &twld : ad.twinlayout) {
 		sqlite3_bind_int(stmt, 1, twld.mainframeindex);
 		sqlite3_bind_int(stmt, 2, twld.splitindex);
 		sqlite3_bind_int(stmt, 3, twld.tabindex);
-		if(twld.acc) sqlite3_bind_int(stmt, 4, twld.acc->dbindex);
-		else sqlite3_bind_int(stmt, 4, -1);
-		sqlite3_bind_text(stmt, 5, twld.name.c_str(), twld.name.size(), SQLITE_STATIC);
-		sqlite3_bind_text(stmt, 6, twld.dispname.c_str(), twld.dispname.size(), SQLITE_STATIC);
-		sqlite3_bind_int(stmt, 7, twld.flags);
+		sqlite3_bind_text(stmt, 4, twld.name.c_str(), twld.name.size(), SQLITE_STATIC);
+		sqlite3_bind_text(stmt, 5, twld.dispname.c_str(), twld.dispname.size(), SQLITE_STATIC);
+		sqlite3_bind_int(stmt, 6, twld.flags);
 
 		int res=sqlite3_step(stmt);
 		if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("dbconn::SyncWriteOutWindowLayout (tpanelwins) got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
 		sqlite3_reset(stmt);
+		sqlite3_int64 rowid = sqlite3_last_insert_rowid(adb);
+
+		for(auto &it : twld.tpautos) {
+			sqlite3_bind_int(stmt2, 1, rowid);
+			if(it.acc) sqlite3_bind_int(stmt2, 2, it.acc->dbindex);
+			else sqlite3_bind_int(stmt2, 2, -1);
+			sqlite3_bind_int(stmt2, 3, it.autoflags);
+			int res=sqlite3_step(stmt2);
+			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("dbconn::SyncWriteOutWindowLayout (tpanelwinautos) got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
+			sqlite3_reset(stmt2);
+		}
 	}
 	sqlite3_finalize(stmt);
+	sqlite3_finalize(stmt2);
 }
 
 void dbsendmsg_callback::SendReply(void *data) {

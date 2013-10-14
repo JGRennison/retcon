@@ -83,15 +83,23 @@ struct profimg_staticbitmap: public wxStaticBitmap {
 };
 
 enum {
-	TPF_DELETEONWINCLOSE		= 1<<0,
-	TPF_ISAUTO			= 1<<1,
-	TPF_SAVETODB			= 1<<2,
-	TPF_AUTO_DM			= 1<<3,
-	TPF_AUTO_TW			= 1<<4,
-	TPF_AUTO_ACC			= 1<<5,
-	TPF_AUTO_ALLACCS		= 1<<6,
-	TPF_AUTO_MN			= 1<<7,
-	TPF_USER_TIMELINE		= 1<<8,
+	TPF_DELETEONWINCLOSE      = 1<<0,
+	TPF_SAVETODB              = 1<<1,
+	TPF_USER_TIMELINE         = 1<<2,
+	TPF_MASK                  = 0xFF,
+};
+
+enum {
+	TPAF_DM                   = 1<<8,
+	TPAF_TW                   = 1<<9,
+	TPAF_MN                   = 1<<10,
+	TPAF_ALLACCS              = 1<<11,
+	TPAF_MASK                 = 0xFF00,
+};
+
+struct tpanel_auto {
+	unsigned int autoflags;
+	std::shared_ptr<taccount> acc;
 };
 
 struct tpanel : std::enable_shared_from_this<tpanel> {
@@ -102,11 +110,12 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	unsigned int flags;
 	uint64_t upperid;
 	uint64_t lowerid;
-	std::shared_ptr<taccount> assoc_acc;
 	cached_id_sets cids;
+	std::vector<tpanel_auto> tpautos;
 
 	static std::shared_ptr<tpanel> MkTPanel(const std::string &name_, const std::string &dispname_, unsigned int flags_=0, std::shared_ptr<taccount> *acc=0);
-	tpanel(const std::string &name_, const std::string &dispname_, unsigned int flags_=0, std::shared_ptr<taccount> *acc=0);		//don't use this directly
+	static std::shared_ptr<tpanel> MkTPanel(const std::string &name_, const std::string &dispname_, unsigned int flags_, std::vector<tpanel_auto> tpautos_);
+	tpanel(const std::string &name_, const std::string &dispname_, unsigned int flags_, std::vector<tpanel_auto> tpautos_);		//don't use this directly
 	~tpanel();
 
 	void PushTweet(const std::shared_ptr<tweet> &t, unsigned int pushflags=0);
@@ -115,6 +124,9 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	void OnTPanelWinClose(tpanelparentwin_nt *tppw);
 	bool IsSingleAccountTPanel() const;
 	void TPPWFlagMaskAllTWins(unsigned int set, unsigned int clear) const;
+
+	private:
+	void RecalculateSets();
 };
 
 struct tpanelnotebook : public wxAuiNotebook {
@@ -343,7 +355,7 @@ struct twin_layout_desc {
 	unsigned int mainframeindex;
 	unsigned int splitindex;
 	unsigned int tabindex;
-	std::shared_ptr<taccount> acc;
+	std::vector<tpanel_auto> tpautos;
 	std::string name;
 	std::string dispname;
 	unsigned int flags;

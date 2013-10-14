@@ -42,17 +42,17 @@ std::shared_ptr<tpanelglobal> tpanelglobal::Get() {
 std::weak_ptr<tpanelglobal> tpanelglobal::tpg_glob;
 
 static void PerAccTPanelMenu(wxMenu *menu, tpanelmenudata &map, int &nextid, unsigned int flagbase, unsigned int dbindex) {
-	map[nextid]={dbindex, flagbase|TPF_AUTO_TW};
+	map[nextid]={dbindex, flagbase | TPAF_TW};
 	menu->Append(nextid++, wxT("&Tweets"));
-	map[nextid]={dbindex, flagbase|TPF_AUTO_MN};
+	map[nextid]={dbindex, flagbase | TPAF_MN};
 	menu->Append(nextid++, wxT("&Mentions"));
-	map[nextid]={dbindex, flagbase|TPF_AUTO_DM};
+	map[nextid]={dbindex, flagbase | TPAF_DM};
 	menu->Append(nextid++, wxT("&DMs"));
-	map[nextid]={dbindex, flagbase|TPF_AUTO_TW|TPF_AUTO_MN};
+	map[nextid]={dbindex, flagbase | TPAF_TW | TPAF_MN};
 	menu->Append(nextid++, wxT("T&weets and Mentions"));
-	map[nextid]={dbindex, flagbase|TPF_AUTO_MN|TPF_AUTO_DM};
+	map[nextid]={dbindex, flagbase | TPAF_MN | TPAF_DM};
 	menu->Append(nextid++, wxT("M&entions and DMs"));
-	map[nextid]={dbindex, flagbase|TPF_AUTO_TW|TPF_AUTO_MN|TPF_AUTO_DM};
+	map[nextid]={dbindex, flagbase | TPAF_TW | TPAF_MN | TPAF_DM};
 	menu->Append(nextid++, wxT("Tweets, Mentions &and DMs"));
 }
 
@@ -64,11 +64,11 @@ void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map) {
 	map.clear();
 
 	int nextid=tpanelmenustartid;
-	PerAccTPanelMenu(menuP, map, nextid, TPF_ISAUTO | TPF_AUTO_ALLACCS | TPF_DELETEONWINCLOSE, 0);
+	PerAccTPanelMenu(menuP, map, nextid, TPAF_ALLACCS | TPF_DELETEONWINCLOSE, 0);
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
 		wxMenu *submenu = new wxMenu;
 		menuP->AppendSubMenu(submenu, (*it)->dispname);
-		PerAccTPanelMenu(submenu, map, nextid, TPF_ISAUTO | TPF_AUTO_ACC | TPF_DELETEONWINCLOSE, (*it)->dbindex);
+		PerAccTPanelMenu(submenu, map, nextid, TPF_DELETEONWINCLOSE, (*it)->dbindex);
 	}
 }
 
@@ -90,12 +90,12 @@ void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent) {
 		name=wxT("All Accounts");
 		accname=wxT("*");
 	}
-	if(flags&TPF_AUTO_TW && flags&TPF_AUTO_MN && flags&TPF_AUTO_DM) type=wxT("All");
-	else if(flags&TPF_AUTO_TW && flags&TPF_AUTO_MN) type=wxT("Tweets & Mentions");
-	else if(flags&TPF_AUTO_MN && flags&TPF_AUTO_DM) type=wxT("Mentions & DMs");
-	else if(flags&TPF_AUTO_TW) type=wxT("Tweets");
-	else if(flags&TPF_AUTO_DM) type=wxT("DMs");
-	else if(flags&TPF_AUTO_MN) type=wxT("Mentions");
+	if(flags & TPAF_TW && flags & TPAF_MN && flags & TPAF_DM) type=wxT("All");
+	else if(flags & TPAF_TW && flags & TPAF_MN) type=wxT("Tweets & Mentions");
+	else if(flags & TPAF_MN && flags & TPAF_DM) type=wxT("Mentions & DMs");
+	else if(flags & TPAF_TW) type=wxT("Tweets");
+	else if(flags & TPAF_DM) type=wxT("DMs");
+	else if(flags & TPAF_MN) type=wxT("Mentions");
 
 	std::string paneldispname=std::string(wxString::Format(wxT("[%s - %s]"), name.c_str(), type.c_str()).ToUTF8());
 	std::string panelname=std::string(wxString::Format(wxT("___ATL_%s_%s"), accname.c_str(), type.c_str()).ToUTF8());
@@ -150,39 +150,52 @@ bool tpanel::RegisterTweet(const std::shared_ptr<tweet> &t) {
 	}
 }
 
-tpanel::tpanel(const std::string &name_, const std::string &dispname_, unsigned int flags_, std::shared_ptr<taccount> *acc) : name(name_), dispname(dispname_), flags(flags_) {
+tpanel::tpanel(const std::string &name_, const std::string &dispname_, unsigned int flags_, std::vector<tpanel_auto> tpautos_)
+: name(name_), dispname(dispname_), flags(flags_) {
 	twin.clear();
-	if(acc) assoc_acc=*acc;
-
-	std::forward_list<taccount *> accs;
-
-	if(flags&TPF_ISAUTO) {
-		if(flags&TPF_AUTO_ACC) accs.push_front(assoc_acc.get());
-		else if(flags&TPF_AUTO_ALLACCS) {
-			for(auto it=alist.begin(); it!=alist.end(); ++it) accs.push_front((*it).get());
-		}
-		for(auto it=accs.begin(); it!=accs.end(); ++it) {
-			if(flags&TPF_AUTO_DM) tweetlist.insert((*it)->dm_ids.begin(), (*it)->dm_ids.end());
-			if(flags&TPF_AUTO_TW) tweetlist.insert((*it)->tweet_ids.begin(), (*it)->tweet_ids.end());
-			if(flags&TPF_AUTO_MN) tweetlist.insert((*it)->usercont->mention_index.begin(), (*it)->usercont->mention_index.end());
-		}
-		ad.cids.foreach(this->cids, [&](tweetidset &adtis, tweetidset &thistis) {
-			std::set_intersection(tweetlist.begin(), tweetlist.end(), adtis.begin(), adtis.end(), std::inserter(thistis, thistis.end()), tweetlist.key_comp());
-		});
-	}
-	else return;
+	tpautos = std::move(tpautos_);
+	RecalculateSets();
 }
 
 std::shared_ptr<tpanel> tpanel::MkTPanel(const std::string &name_, const std::string &dispname_, unsigned int flags_, std::shared_ptr<taccount> *acc) {
+	std::vector<tpanel_auto> tpautos;
+	unsigned int autoflags_ = flags_ & TPAF_MASK;
+	if((acc && *acc) || autoflags_ & TPAF_ALLACCS) {
+		tpautos.emplace_back();
+		tpautos.back().autoflags = autoflags_;
+		if(acc) tpautos.back().acc = *acc;
+	}
+	return std::move(MkTPanel(name_, dispname_, flags_ & TPF_MASK, std::move(tpautos)));
+}
+
+std::shared_ptr<tpanel> tpanel::MkTPanel(const std::string &name_, const std::string &dispname_, unsigned int flags_, std::vector<tpanel_auto> tpautos_) {
 	std::shared_ptr<tpanel> &ref=ad.tpanels[name_];
 	if(!ref) {
-		ref=std::make_shared<tpanel>(name_, dispname_, flags_, acc);
+		ref=std::make_shared<tpanel>(name_, dispname_, flags_, std::move(tpautos_));
 	}
 	return ref;
 }
 
 tpanel::~tpanel() {
 
+}
+
+void tpanel::RecalculateSets() {
+	for(auto &tpa : tpautos) {
+		std::forward_list<taccount *> accs;
+		if(tpa.autoflags & TPAF_ALLACCS) {
+			for(auto &it : alist) accs.push_front(it.get());
+		}
+		else accs.push_front(tpa.acc.get());
+		for(auto & it : accs) {
+			if(tpa.autoflags & TPAF_DM) tweetlist.insert(it->dm_ids.begin(), it->dm_ids.end());
+			if(tpa.autoflags & TPAF_TW) tweetlist.insert(it->tweet_ids.begin(), it->tweet_ids.end());
+			if(tpa.autoflags & TPAF_MN) tweetlist.insert(it->usercont->mention_index.begin(), it->usercont->mention_index.end());
+		}
+	}
+	ad.cids.foreach(this->cids, [&](tweetidset &adtis, tweetidset &thistis) {
+		std::set_intersection(tweetlist.begin(), tweetlist.end(), adtis.begin(), adtis.end(), std::inserter(thistis, thistis.end()), tweetlist.key_comp());
+	});
 }
 
 void tpanel::OnTPanelWinClose(tpanelparentwin_nt *tppw) {
@@ -198,7 +211,12 @@ tpanelparentwin *tpanel::MkTPanelWin(mainframe *parent, bool select) {
 
 bool tpanel::IsSingleAccountTPanel() const {
 	if(alist.size() <= 1) return true;
-	if(flags & TPF_AUTO_ACC || flags & TPF_USER_TIMELINE) return true;
+	if(tpautos.size() > 1) return false;
+	else if(tpautos.size() == 1) {
+		if(tpautos[0].autoflags & TPAF_ALLACCS) return false;
+	}
+	else return true;
+	if(flags & TPF_USER_TIMELINE) return true;
 	return false;
 }
 
@@ -372,7 +390,7 @@ void tpanelnotebook::FillWindowLayout(unsigned int mainframeindex) {
 		twld.mainframeindex = mainframeindex;
 		twld.splitindex = splitindex;
 		twld.tabindex = tabindex;
-		twld.acc = tppw->tp->assoc_acc;
+		twld.tpautos = tppw->tp->tpautos;
 		twld.name = tppw->tp->name;
 		twld.dispname = tppw->tp->dispname;
 		twld.flags = tppw->tp->flags;

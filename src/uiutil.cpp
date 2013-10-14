@@ -59,7 +59,7 @@ void RestoreWindowLayout() {
 			lastsplitindex = 0;
 		}
 		mainframe *mf = mainframelist[twld.mainframeindex];
-		auto tp=tpanel::MkTPanel(twld.name, twld.dispname, twld.flags, &twld.acc);
+		auto tp=tpanel::MkTPanel(twld.name, twld.dispname, twld.flags, twld.tpautos);
 		tpanelparentwin *tpw = tp->MkTPanelWin(mf, (twld.splitindex > lastsplitindex));
 
 		if(twld.splitindex > lastsplitindex) {

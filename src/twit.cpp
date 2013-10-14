@@ -42,14 +42,14 @@ void HandleNewTweet(const std::shared_ptr<tweet> &t) {
 
 	for(auto it=ad.tpanels.begin(); it!=ad.tpanels.end(); ++it) {
 		tpanel &tp=*(it->second);
-		if(tp.flags&TPF_ISAUTO) {
-			if((tp.flags&TPF_AUTO_DM && t->flags.Get('D')) || (tp.flags&TPF_AUTO_TW && t->flags.Get('T')) || (tp.flags&TPF_AUTO_MN && t->flags.Get('M'))) {
-				if(tp.flags&TPF_AUTO_ALLACCS) tp.PushTweet(t);
-				else if(tp.flags&TPF_AUTO_ACC) {
+		for(auto &tpa : tp.tpautos) {
+			if((tpa.autoflags & TPAF_DM && t->flags.Get('D')) || (tpa.autoflags & TPAF_TW && t->flags.Get('T')) || (tpa.autoflags & TPAF_MN && t->flags.Get('M'))) {
+				if(tpa.autoflags & TPAF_ALLACCS) tp.PushTweet(t);
+				else {
 					bool stop = false;
 					t->IterateTP([&](const tweet_perspective &twp) {
 						if(stop) return;
-						if(twp.acc.get()==tp.assoc_acc.get() && twp.IsArrivedHere()) {
+						if(twp.acc.get()==tpa.acc.get() && twp.IsArrivedHere()) {
 							tp.PushTweet(t);
 							stop = true;
 						}
