@@ -329,8 +329,8 @@ bool tpanel::IsSingleAccountTPanel() const {
 	if(tpautos.size() > 1) return false;
 	else if(tpautos.size() == 1) {
 		if(tpautos[0].autoflags & TPAF_ALLACCS) return false;
+		else return true;
 	}
-	else return true;
 	if(flags & TPF_USER_TIMELINE) return true;
 	return false;
 }
