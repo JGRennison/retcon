@@ -27,6 +27,7 @@
 #include "version.h"
 
 #include <wx/choicdlg.h>
+#include <array>
 
 #ifndef TPANEL_COPIOUS_LOGGING
 #define TPANEL_COPIOUS_LOGGING 0
@@ -229,14 +230,16 @@ void tpanel::NameDefaults(std::string &name, std::string &dispname, const std::v
 	bool newdispname = dispname.empty();
 
 	if(newname) name = "__ATL";
-	if(newdispname) dispname = "[";
+
 
 	if(newname || newdispname) {
+		std::array<std::vector<std::string>, 8> buildarray;
+		const unsigned int flagmask = TPAF_TW | TPAF_MN | TPAF_DM;
+		const unsigned int flagshift = 8;
 		for(auto &it : tpautos) {
 			std::string accname;
 			std::string accdispname;
 			std::string type;
-			std::string disptype;
 
 			if(it.acc) {
 				accname = it.acc->name.ToUTF8();
@@ -247,25 +250,38 @@ void tpanel::NameDefaults(std::string &name, std::string &dispname, const std::v
 				accdispname = "All Accounts";
 			}
 
-			if(it.autoflags & TPAF_TW && it.autoflags & TPAF_MN && it.autoflags & TPAF_DM) disptype = "All";
-			else if(it.autoflags & TPAF_TW && it.autoflags & TPAF_MN) disptype = "Tweets & Mentions";
-			else if(it.autoflags & TPAF_MN && it.autoflags & TPAF_DM) disptype = "Mentions & DMs";
-			else if(it.autoflags & TPAF_TW && it.autoflags & TPAF_DM) disptype = "Tweets & DMs";
-			else if(it.autoflags & TPAF_TW) disptype = "Tweets";
-			else if(it.autoflags & TPAF_DM) disptype = "DMs";
-			else if(it.autoflags & TPAF_MN) disptype = "Mentions";
 			if(it.autoflags & TPAF_TW) type += "T";
 			if(it.autoflags & TPAF_DM) type += "D";
 			if(it.autoflags & TPAF_MN) type += "M";
 
 			if(newname) name += "_" + accname + "_" + type;
-			if(newdispname) {
-				if(dispname.size() > 1) dispname += ", ";
-				dispname += accdispname + " - " + disptype;
+			if(newdispname) buildarray[(it.autoflags & flagmask) >> flagshift].emplace_back(accdispname);
+		}
+
+		if(newdispname) {
+			dispname = "[";
+			for(unsigned int i = 0; i < buildarray.size(); i++) {
+				if(buildarray[i].empty()) continue;
+				unsigned int autoflags = i << flagshift;
+
+				std::string disptype;
+				if(autoflags & TPAF_TW && autoflags & TPAF_MN && autoflags & TPAF_DM) disptype = "All";
+				else if(autoflags & TPAF_TW && autoflags & TPAF_MN) disptype = "Tweets & Mentions";
+				else if(autoflags & TPAF_MN && autoflags & TPAF_DM) disptype = "Mentions & DMs";
+				else if(autoflags & TPAF_TW && autoflags & TPAF_DM) disptype = "Tweets & DMs";
+				else if(autoflags & TPAF_TW) disptype = "Tweets";
+				else if(autoflags & TPAF_DM) disptype = "DMs";
+				else if(autoflags & TPAF_MN) disptype = "Mentions";
+
+				for(auto &it : buildarray[i]) {
+					if(dispname.size() > 1) dispname += ", ";
+					dispname += it;
+				}
+				dispname += " - " + disptype;
 			}
+			dispname += "]";
 		}
 	}
-	if(newdispname) dispname += "]";
 }
 
 tpanel::~tpanel() {
