@@ -111,9 +111,16 @@ void TPanelMenuActionCustom(mainframe *parent, unsigned int flags) {
 		int offset = index / 3;
 		int part = index % 3;
 
-		if(part == 0) tmpltpautos[offset].autoflags |= TPAF_TW;
-		else if(part == 1) tmpltpautos[offset].autoflags |= TPAF_MN;
-		else if(part == 2) tmpltpautos[offset].autoflags |= TPAF_DM;
+		unsigned int flag = 0;
+		if(part == 0) flag = TPAF_TW;
+		else if(part == 1) flag = TPAF_MN;
+		else if(part == 2) flag = TPAF_DM;
+
+		if(offset != 0) {
+			if(tmpltpautos[0].autoflags & flag) continue; // don't set the bit for the account, if the corresponding all accounts bit is already set
+		}
+
+		tmpltpautos[offset].autoflags |= flag;
 	}
 
 	std::vector<tpanel_auto> tpautos;
