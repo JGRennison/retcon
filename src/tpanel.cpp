@@ -26,9 +26,15 @@
 #include "res.h"
 #include "version.h"
 
+#include <wx/choicdlg.h>
+
 #ifndef TPANEL_COPIOUS_LOGGING
 #define TPANEL_COPIOUS_LOGGING 0
 #endif
+
+enum {
+	TPINTLF_CUSTOMAUTO        = 1<<24,
+};
 
 std::shared_ptr<tpanelglobal> tpanelglobal::Get() {
 	if(tpg_glob.expired()) {
@@ -70,11 +76,67 @@ void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map) {
 		menuP->AppendSubMenu(submenu, (*it)->dispname);
 		PerAccTPanelMenu(submenu, map, nextid, TPF_DELETEONWINCLOSE, (*it)->dbindex);
 	}
+	map[nextid]={0, TPF_DELETEONWINCLOSE | TPINTLF_CUSTOMAUTO};
+	menuP->Append(nextid++, wxT("Custom"));
+
+}
+
+void TPanelMenuActionCustom(mainframe *parent, unsigned int flags) {
+	wxArrayInt selections;
+	wxArrayString choices;
+	std::vector<tpanel_auto> tmpltpautos;
+
+	choices.Alloc(3 * (1 + alist.size()));
+	auto add_items = [&](const wxString &prefix) {
+		choices.Add(prefix + wxT(" - Tweets"));
+		choices.Add(prefix + wxT(" - Mentions"));
+		choices.Add(prefix + wxT(" - DMs"));
+	};
+
+	tmpltpautos.emplace_back();
+	tmpltpautos.back().autoflags = TPAF_ALLACCS;
+	add_items(wxT("All Accounts"));
+	for(auto &it : alist) {
+		tmpltpautos.emplace_back();
+		tmpltpautos.back().autoflags = 0;
+		tmpltpautos.back().acc = it;
+		add_items(it->dispname);
+	}
+
+	::wxGetMultipleChoices(selections, wxT(""), wxT("Select Accounts and Feed Types"), choices, parent, -1, -1, false);
+
+	for(size_t i = 0; i < selections.GetCount(); i++) {
+		int index = selections.Item(i);
+		int offset = index / 3;
+		int part = index % 3;
+
+		if(part == 0) tmpltpautos[offset].autoflags |= TPAF_TW;
+		else if(part == 1) tmpltpautos[offset].autoflags |= TPAF_MN;
+		else if(part == 2) tmpltpautos[offset].autoflags |= TPAF_DM;
+	}
+
+	std::vector<tpanel_auto> tpautos;
+	for(auto &it : tmpltpautos) {
+		if(it.autoflags & (TPAF_TW | TPAF_MN | TPAF_DM)) {
+			tpautos.emplace_back(it);
+		}
+	}
+
+	if(tpautos.size()) {
+		auto tp = tpanel::MkTPanel("", "", flags, tpautos);
+		tp->MkTPanelWin(parent, true);
+	}
 }
 
 void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent) {
 	unsigned int dbindex = map[curid].dbindex;
 	unsigned int flags = map[curid].flags;
+
+	if(flags & TPINTLF_CUSTOMAUTO) {
+		TPanelMenuActionCustom(parent, flags & TPF_MASK);
+		return;
+	}
+
 	std::shared_ptr<taccount> acc;
 
 	if(dbindex) {
