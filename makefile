@@ -25,7 +25,7 @@ ifdef debug
 CFLAGS=-g -Wextra -Wall -Wno-unused-parameter
 #AFLAGS:=-Wl,-d,--export-all-symbols
 DEBUGPOSTFIX:=_debug
-OBJDIR=objs$(DEBUGPOSTFIX)
+OBJDIR:=$(OBJDIR)$(DEBUGPOSTFIX)
 endif
 
 GCCMACHINE:=$(shell $(GCC) -dumpmachine)
@@ -52,7 +52,7 @@ DIRS+=$(OBJDIR)$(PATHSEP)deps$(PATHSEP)sqlite
 
 ifdef x64
 SIZEPOSTFIX:=64
-OBJDIR+=$(SIZEPOSTFIX)
+OBJDIR:=$(OBJDIR)$(SIZEPOSTFIX)
 GCC:=$(GCC64)
 LIBS:=$(LIBS64)
 CFLAGS2:=-mcx16
