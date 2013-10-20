@@ -682,6 +682,12 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 				GenUserFmt_OffsetDryRun(i, format);
 				break;
 			}
+			case 'J':
+				str+=wxString::Format("%" wxLongLongFmtSpec "d", tw.id);
+				break;
+			case 'j':
+				str+=wxString::Format("%" wxLongLongFmtSpec "d", (tw.rtsrc && gc.rtdisp) ? tw.rtsrc->id : tw.id);
+				break;
 			default: {
 				GenFmtCodeProc(obj, i, format, str);
 				break;
