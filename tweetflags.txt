@@ -1,0 +1,13 @@
+Tweet Flags:
+D	Is a DM
+T	Is a Tweet
+s	Was retrieved over SSL
+S	Is a sent DM
+I	Media/image attached to tweet
+M	Tweet is a mention
+R	Is a retweet
+X	Deleted
+r	Has been read
+u	Is unread
+B	Backed up to database
+H	Is highlighted

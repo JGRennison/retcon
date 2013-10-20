@@ -1,0 +1,83 @@
+General codes:
+B           Start bold
+b           End bold
+L           Start underline
+l           End underline
+I           Start italics
+i           End italics
+z           End URL
+N           Newline
+n           Newline if not already at end of line
+Q*(         Conditional: process contents of brackets if condition met (see below)
+K(*)        Begin colour (see below)
+k           End colour
+'           Quoting
+"           Quoting
+)           End group
+
+
+Tweet Display Codes:
+u...        User
+U...        Recipient user (DMs)
+r...        Retweet source user
+F           Flags String
+t           Tweet age (auto-updating, can be present only once)
+T           Tweet absolute time
+C           Tweet contents
+c           Retweet source contents (or tweet contents if not a retweet)
+Xi          Info button
+Xf          Favourite button
+Xr          Reply button
+Xd          DM button
+Xt          Retweet button
+m(          Conditional: process contents of brackets if not a subtweet and in a multi-account panel
+A           Display list of accounts tweet arrived on
+J           Tweet ID
+j           Retweet source tweet ID (or tweet ID if not a retweet)
+
+
+User Display Codes:
+n           Screen name
+N           Name
+i           User ID
+Z           Begin clickable link to user window
+p           Protected account icon (if applicable)
+v           Verified account icon (if applicable)
+d           DM user icon
+w           Clickable user's web URL (if available)
+D           User description
+l           User location
+
+
+Condition codes: Q*(
+F?                  Test tweet flags
+                    where ? is zero or more of the following, without intermediary whitespace
+                    where FLAGS is a set of zero or more flag letters, without intermediary whitespace
+                    See tweetflags.txt for flag descriptions.
+    +FLAGS          At least one of FLAGS must be set
+    =FLAGS          All of FLAGS must be set
+    -FLAGS          None of FLAGS must be set
+    /FLAGS          At least one of FLAGS must be unset
+
+
+Colour codes: K(*)  This is also used for the highlight colour setting
+Zero or more instances of:
+    [OP]COLOUR
+
+Where COLOUR is one of the following:
+    NAME            A named colour known to wxWidgets (eg: red, blue, turquoise)
+    #RRGGBB         A HTML-style hex colour
+    RGB(r, g, b)    A CSS-style 3-part decimal colour
+
+Where OP is one of the following:
+    [NONE]          Set the colour to the given value
+    =               Set the colour to the given value
+    +               Add the given value to the current colour
+    -               Subtract the given value from the current colour
+    ~               Set the colour to the given value minus the current colour
+    |               Binary OR the current colour with the given value
+    &               Binary AND the current colour with the given value
+
+If after any operation, one or more colour components lie outside the valid range (0-255) the colour is normalised as follows:
+If a colour component is negative, shift up all the colour components equally such that the negative component is now zero.
+If a colour component is over 255, scale all the colour components proportionally, such that the highest component is now 255.
