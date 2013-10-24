@@ -15,8 +15,18 @@
 #include <emmintrin.h>
 #endif
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4127) // conditional expression is constant
+#endif
+
 #ifndef RAPIDJSON_PARSE_ERROR
-#define RAPIDJSON_PARSE_ERROR(msg, offset) do { parseError_ = msg; errorOffset_ = offset; longjmp(jmpbuf_, 1); } while(false)
+#define RAPIDJSON_PARSE_ERROR(msg, offset) \
+	RAPIDJSON_MULTILINEMACRO_BEGIN \
+	parseError_ = msg; \
+	errorOffset_ = offset; \
+	longjmp(jmpbuf_, 1); \
+	RAPIDJSON_MULTILINEMACRO_END
 #endif
 
 namespace rapidjson {
@@ -67,17 +77,17 @@ struct BaseReaderHandler {
 
 	void Default() {}
 	void Null() { Default(); }
-	void Bool(bool b) { Default(); }
-	void Int(int i) { Default(); }
-	void Uint(unsigned i) { Default(); }
-	void Int64(int64_t i) { Default(); }
-	void Uint64(uint64_t i) { Default(); }
-	void Double(double d) { Default(); }
-	void String(const Ch* str, SizeType length, bool copy) { Default(); }
+	void Bool(bool) { Default(); }
+	void Int(int) { Default(); }
+	void Uint(unsigned) { Default(); }
+	void Int64(int64_t) { Default(); }
+	void Uint64(uint64_t) { Default(); }
+	void Double(double) { Default(); }
+	void String(const Ch*, SizeType, bool) { Default(); }
 	void StartObject() { Default(); }
-	void EndObject(SizeType memberCount) { Default(); }
+	void EndObject(SizeType) { Default(); }
 	void StartArray() { Default(); }
-	void EndArray(SizeType elementCount) { Default(); }
+	void EndArray(SizeType) { Default(); }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -212,7 +222,14 @@ public:
 		parseError_ = 0;
 		errorOffset_ = 0;
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4611) // interaction between '_setjmp' and C++ object destruction is non-portable
+#endif
 		if (setjmp(jmpbuf_)) {
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 			stack_.Clear();
 			return false;
 		}
@@ -225,7 +242,7 @@ public:
 			switch (stream.Peek()) {
 				case '{': ParseObject<parseFlags>(stream, handler); break;
 				case '[': ParseArray<parseFlags>(stream, handler); break;
-				default: RAPIDJSON_PARSE_ERROR("Expect either an object or array at root", stream.Tell()); return false;
+				default: RAPIDJSON_PARSE_ERROR("Expect either an object or array at root", stream.Tell());
 			}
 			SkipWhitespace(stream);
 
@@ -358,10 +375,8 @@ private:
 				codepoint -= 'A' - 10;
 			else if (c >= 'a' && c <= 'f')
 				codepoint -= 'a' - 10;
-			else {
+			else 
 				RAPIDJSON_PARSE_ERROR("Incorrect hex digit after \\u escape", s.Tell() - 1);
-				return 0;
-			}
 		}
 		stream = s; // Restore stream
 		return codepoint;
@@ -512,7 +527,7 @@ private:
 		}
 
 		// Parse 64bit int
-		uint64_t i64;
+		uint64_t i64 = 0;
 		bool useDouble = false;
 		if (try64bit) {
 			i64 = i;
@@ -537,7 +552,7 @@ private:
 		}
 
 		// Force double for big integer
-		double d;
+		double d = 0.0;
 		if (useDouble) {
 			d = (double)i64;
 			while (s.Peek() >= '0' && s.Peek() <= '9') {
@@ -660,5 +675,9 @@ private:
 typedef GenericReader<UTF8<> > Reader;
 
 } // namespace rapidjson
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #endif // RAPIDJSON_READER_H_

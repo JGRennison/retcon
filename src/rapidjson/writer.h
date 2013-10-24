@@ -7,6 +7,11 @@
 #include <cstdio>	// snprintf() or _sprintf_s()
 #include <new>		// placement new
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4127) // conditional expression is constant
+#endif
+
 namespace rapidjson {
 
 //! JSON writer
@@ -42,6 +47,7 @@ public:
 	Writer& Double(double d)		{ Prefix(kNumberType); WriteDouble(d);		return *this; }
 
 	Writer& String(const Ch* str, SizeType length, bool copy = false) {
+		(void)copy;
 		Prefix(kStringType);
 		WriteString(str, length);
 		return *this;
@@ -55,6 +61,7 @@ public:
 	}
 
 	Writer& EndObject(SizeType memberCount = 0) {
+		(void)memberCount;
 		RAPIDJSON_ASSERT(level_stack_.GetSize() >= sizeof(Level));
 		RAPIDJSON_ASSERT(!level_stack_.template Top<Level>()->inArray);
 		level_stack_.template Pop<Level>(1);
@@ -70,6 +77,7 @@ public:
 	}
 
 	Writer& EndArray(SizeType elementCount = 0) {
+		(void)elementCount;
 		RAPIDJSON_ASSERT(level_stack_.GetSize() >= sizeof(Level));
 		RAPIDJSON_ASSERT(level_stack_.template Top<Level>()->inArray);
 		level_stack_.template Pop<Level>(1);
@@ -84,7 +92,7 @@ public:
 protected:
 	//! Information for each nested level
 	struct Level {
-		Level(bool inArray) : inArray(inArray), valueCount(0) {}
+		Level(bool inArray_) : inArray(inArray_), valueCount(0) {}
 		bool inArray;		//!< true if in array, otherwise in object
 		size_t valueCount;	//!< number of values in this level
 	};
@@ -199,6 +207,7 @@ protected:
 	void WriteEndArray()	{ stream_.Put(']'); }
 
 	void Prefix(Type type) {
+		(void)type;
 		if (level_stack_.GetSize() != 0) { // this value is not at root
 			Level* level = level_stack_.template Top<Level>();
 			if (level->valueCount > 0) {
@@ -217,8 +226,16 @@ protected:
 
 	Stream& stream_;
 	internal::Stack<Allocator> level_stack_;
+
+private:
+	// Prohibit assignment for VC C4512 warning
+	Writer& operator=(const Writer& w);
 };
 
 } // namespace rapidjson
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #endif // RAPIDJSON_RAPIDJSON_H_

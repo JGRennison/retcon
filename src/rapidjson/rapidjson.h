@@ -1,8 +1,8 @@
 #ifndef RAPIDJSON_RAPIDJSON_H_
 #define RAPIDJSON_RAPIDJSON_H_
 
-// Copyright (c) 2011 Milo Yip (miloyip@gmail.com)
-// Version 0.1
+// Copyright (c) 2011-2012 Milo Yip (miloyip@gmail.com)
+// Version 0.11
 
 #include <cstdlib>	// malloc(), realloc(), free()
 #include <cstring>	// memcpy()
@@ -80,6 +80,13 @@ typedef unsigned SizeType;
 #define RAPIDJSON_ASSERT(x) assert(x)
 #endif // RAPIDJSON_ASSERT
 
+///////////////////////////////////////////////////////////////////////////////
+// Helpers
+
+#define RAPIDJSON_MULTILINEMACRO_BEGIN do {  
+#define RAPIDJSON_MULTILINEMACRO_END \
+} while((void)0, 0)
+
 namespace rapidjson {
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -126,7 +133,7 @@ class CrtAllocator {
 public:
 	static const bool kNeedFree = true;
 	void* Malloc(size_t size) { return malloc(size); }
-	void* Realloc(void* originalPtr, size_t originalSize, size_t newSize) { return realloc(originalPtr, newSize); }
+	void* Realloc(void* originalPtr, size_t originalSize, size_t newSize) { (void)originalSize; return realloc(originalPtr, newSize); }
 	static void Free(void *ptr) { free(ptr); }
 };
 
@@ -226,11 +233,15 @@ public:
 
 	//! Allocates a memory block. (concept Allocator)
 	void* Malloc(size_t size) {
+		size = (size + 3) & ~3;	// Force aligning size to 4
+
 		if (chunkHead_->size + size > chunkHead_->capacity)
 			AddChunk(chunk_capacity_ > size ? chunk_capacity_ : size);
 
 		char *buffer = (char *)(chunkHead_ + 1) + chunkHead_->size;
+		RAPIDJSON_ASSERT(((uintptr_t)buffer & 3) == 0);	// returned buffer is aligned to 4
 		chunkHead_->size += size;
+
 		return buffer;
 	}
 
@@ -246,8 +257,10 @@ public:
 		// Simply expand it if it is the last allocation and there is sufficient space
 		if (originalPtr == (char *)(chunkHead_ + 1) + chunkHead_->size - originalSize) {
 			size_t increment = newSize - originalSize;
+			increment = (increment + 3) & ~3;	// Force aligning size to 4
 			if (chunkHead_->size + increment <= chunkHead_->capacity) {
 				chunkHead_->size += increment;
+				RAPIDJSON_ASSERT(((uintptr_t)originalPtr & 3) == 0);	// returned buffer is aligned to 4
 				return originalPtr;
 			}
 		}
@@ -259,7 +272,7 @@ public:
 	}
 
 	//! Frees a memory block (concept Allocator)
-	static void Free(void *ptr) {} // Do nothing
+	static void Free(void *) {} // Do nothing
 
 private:
 	//! Creates a new chunk.
@@ -360,12 +373,12 @@ struct UTF16 {
 	static Ch* Encode(Ch* buffer, unsigned codepoint) {
 		if (codepoint <= 0xFFFF) {
 			RAPIDJSON_ASSERT(codepoint < 0xD800 || codepoint > 0xDFFF); // Code point itself cannot be surrogate pair 
-			*buffer++ = codepoint;
+			*buffer++ = static_cast<Ch>(codepoint);
 		}
 		else {
 			RAPIDJSON_ASSERT(codepoint <= 0x10FFFF);
 			unsigned v = codepoint - 0x10000;
-			*buffer++ = (v >> 10) + 0xD800;
+			*buffer++ = static_cast<Ch>((v >> 10) + 0xD800);
 			*buffer++ = (v & 0x3FF) + 0xDC00;
 		}
 		return buffer;
@@ -454,8 +467,8 @@ struct GenericStringStream {
 	size_t Tell() const { return src_ - head_; }
 
 	Ch* PutBegin() { RAPIDJSON_ASSERT(false); return 0; }
-	void Put(Ch c) { RAPIDJSON_ASSERT(false); }
-	size_t PutEnd(Ch* begin) { RAPIDJSON_ASSERT(false); return 0; }
+	void Put(Ch) { RAPIDJSON_ASSERT(false); }
+	size_t PutEnd(Ch*) { RAPIDJSON_ASSERT(false); return 0; }
 
 	const Ch* src_;		//!< Current read position.
 	const Ch* head_;	//!< Original head of the string.
