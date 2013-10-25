@@ -13,8 +13,8 @@ TCOBJS_SRC:=libtwitcurl/base64.cpp libtwitcurl/HMAC_SHA1.cpp libtwitcurl/oauthli
 SPOBJS_SRC:=res.cpp version.cpp aboutwin.cpp
 COBJS_SRC:=utf8proc/utf8proc.c
 OUTNAME:=retcon
-CFLAGS=-O3 -Wextra -Wall -Wno-unused-parameter -Winvalid-pch -I$(OBJDIR)/pch
-#-Wno-missing-braces -Wno-unused-parameter
+COMMONCFLAGS=-Wall -Wno-unused-parameter -Winvalid-pch -Wno-unused-local-typedefs -I$(OBJDIR)/pch
+CFLAGS=-O3 $(COMMONCFLAGS)
 CXXFLAGS=-std=gnu++0x -fno-exceptions
 GCC:=g++
 LD:=ld
@@ -22,7 +22,7 @@ OBJDIR:=objs
 DIRS=$(OBJDIR) $(OBJDIR)$(PATHSEP)pch $(OBJDIR)$(PATHSEP)libtwitcurl $(OBJDIR)$(PATHSEP)res $(OBJDIR)$(PATHSEP)utf8proc
 
 ifdef debug
-CFLAGS=-g -Wextra -Wall -Wno-unused-parameter
+CFLAGS=-g $(COMMONCFLAGS)
 #AFLAGS:=-Wl,-d,--export-all-symbols
 DEBUGPOSTFIX:=_debug
 OBJDIR:=$(OBJDIR)$(DEBUGPOSTFIX)
@@ -42,7 +42,7 @@ LIBS32=-lpcre -lcurl -lwxmsw28u_richtext -lwxmsw28u_aui -lwxbase28u_xml -lwxexpa
 LIBS64=
 GCC32=i686-w64-mingw32-g++
 GCC64=x86_64-w64-mingw32-g++
-MCFLAGS= -Icurl -IC:/SourceCode/Libraries/wxWidgets2.8/include -Isqlite -Izlib -Isrc -I.
+MCFLAGS= -Icurl -isystem C:/SourceCode/Libraries/wxWidgets2.8/include -Isqlite -Izlib -Isrc -I.
 #-IC:/SourceCode/wxwidgets/source/include
 HDEPS:=
 EXECPREFIX:=
@@ -68,7 +68,7 @@ else
 #UNIX
 PLATFORM:=UNIX
 LIBS:=-lpcre -lrt `wx-config --libs` -lcurl -lsqlite3 -lz -lcrypto
-MCFLAGS:= `wx-config --cxxflags`
+MCFLAGS:=$(patsubst -I/%,-isystem /%,$(shell wx-config --cxxflags))
 PACKER:=upx -9
 #HDEPS:=
 GCC_MAJOR:=$(shell $(GCC) -dumpversion | cut -d'.' -f1)
