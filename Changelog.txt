@@ -1,3 +1,32 @@
+retcon 0.0.3
+------------------------------------------------------
+
+Fix user lookup using twitter API version 1 endpoint.
+Improve retry/error logic for failed lookup requests.
+Implement tweet highlighting.
+Enable individual tweets to be marked read/unread and highlighted.
+Save and restore panel layout across app restarts.
+Add buttons for jumping to newest/oldest unread tweet.
+Fix tweet/DM buttons and profile image right-click on tweets within user display windows.
+Various performance improvements.
+Add support for cross-compiling.
+Improve multi-account support in user display windows.
+Fix error-handling of user display window tweet panels.
+Gracefully handle SIGTERM, SIGINT, and SIGHUP on Unix-like platforms.
+Implement mouse over display for tweets. Move actions buttons to this mouse over display.
+Add a format code to change the text colour.
+Fix a number of bugs around how the set of unread tweets was handled.
+Fix a number of bugs around scrolling and refreshing of tweet panels.
+Fix handling of failed profile image downloads.
+Implement support for animated GIFs.
+Fix about window display.
+Fix tweets not being redrawn when a corresponding retweet was displayed above.
+Implement custom tweet panel combinations.
+Add format codes to display tweet/retweet src IDs.
+Add preliminary documentation files for display format codes, and tweet flags.
+Update rapidjson from v0.1 to v0.11 to fix an integer parsing bug.
+
+
 retcon 0.0.2
 ------------------------------------------------------
 
