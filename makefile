@@ -4,8 +4,11 @@
 #debug: set to true to for a debug build
 #list: set to true to enable listings
 #map: set to true to enable linker map
+#cross: set to true if building on Unix, but build target is Windows
 #On windows only:
 #x64: set to true to compile for x86_64/win64
+
+#Note that to build on or for Windows, hard-coded paths to various include and lib directories will need to be edited.
 
 
 OBJS_SRC:=retcon.cpp cfg.cpp optui.cpp parse.cpp socket.cpp tpanel.cpp twit.cpp db.cpp log.cpp cmdline.cpp userui.cpp mainui.cpp signal.cpp dispscr.cpp uiutil.cpp mediawin.cpp
@@ -20,6 +23,10 @@ GCC:=g++
 LD:=ld
 OBJDIR:=objs
 DIRS=$(OBJDIR) $(OBJDIR)$(PATHSEP)pch $(OBJDIR)$(PATHSEP)libtwitcurl $(OBJDIR)$(PATHSEP)res $(OBJDIR)$(PATHSEP)utf8proc
+
+EXECPREFIX:=./
+PATHSEP:=/
+MKDIR:=mkdir -p
 
 ifdef debug
 CFLAGS=-g $(COMMONCFLAGS)
@@ -45,10 +52,14 @@ GCC64=x86_64-w64-mingw32-g++
 MCFLAGS= -Icurl -isystem C:/SourceCode/Libraries/wxWidgets2.8/include -Isqlite -Izlib -Isrc -I.
 #-IC:/SourceCode/wxwidgets/source/include
 HDEPS:=
-EXECPREFIX:=
 EXCOBJS_SRC+=sqlite/sqlite3.c
-PATHSEP:=\\
 DIRS+=$(OBJDIR)$(PATHSEP)deps$(PATHSEP)sqlite
+
+ifndef cross
+EXECPREFIX:=
+PATHSEP:=\\
+MKDIR:=mkdir
+endif
 
 ifdef x64
 SIZEPOSTFIX:=64
@@ -74,8 +85,6 @@ PACKER:=upx -9
 GCC_MAJOR:=$(shell $(GCC) -dumpversion | cut -d'.' -f1)
 GCC_MINOR:=$(shell $(GCC) -dumpversion | cut -d'.' -f2)
 ARCH:=$(shell test $(GCC_MAJOR) -gt 4 -o \( $(GCC_MAJOR) -eq 4 -a $(GCC_MINOR) -ge 2 \) && echo native)
-EXECPREFIX:=./
-PATHSEP:=/
 
 wxconf:=$(shell wx-config --selected-config)
 ifeq (gtk, $(findstring gtk,$(wxconf)))
@@ -155,7 +164,7 @@ $(OBJDIR)/pch/retcon.h.gch:
 $(ALL_OBJS) src/pch/retcon.h.gch: | $(DIRS)
 
 $(DIRS):
-	-mkdir $@
+	-$(MKDIR) $@
 
 HEADERS:=src/retcon.h src/socket.h src/cfg.h src/parse.h src/twit.h src/tpanel.h src/optui.h src/libtwitcurl/twitcurl.h src/db.h src/log.h
 HEADERS+=src/cmdline.h src/userui.h src/mainui.h src/magic_ptr.h src/univdefs.h src/signal.h src/dispscr.h src/uiutil.h src/mediawin.h src/raii.h
