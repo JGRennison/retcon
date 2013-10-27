@@ -1302,7 +1302,7 @@ void dbconn::SyncReadInWindowLayout(sqlite3 *adb) {
 					int accid = (int) sqlite3_column_int(stmt2, 0);
 					if(accid > 0) {
 						for(auto &it : alist) {
-							if(it->dbindex == accid) {
+							if(it->dbindex == (unsigned int) accid) {
 								acc = it;
 								break;
 							}

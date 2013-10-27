@@ -607,24 +607,24 @@ wxString hexify_wx(const std::string &in) {
 
 bool LoadFromFileAndCheckHash(const wxString &filename, const unsigned char *hash, char *&data, size_t &size) {
 	wxFile file;
-	bool opened=file.Open(filename);
+	bool opened = file.Open(filename);
 	if(opened) {
-		wxFileOffset len=file.Length();
-		if(len && len<(50<<20)) {	//don't load empty or absurdly large files
-			data=(char*) malloc(len);
-			size=file.Read(data, len);
-			if(size==len) {
+		wxFileOffset len = file.Length();
+		if(len >= 0 && len < (50<<20)) {    //don't load empty or absurdly large files
+			data = (char*) malloc(len);
+			size = file.Read(data, len);
+			if(size == (size_t) len) {
 				unsigned char curhash[20];
 				SHA1((const unsigned char *) data, (unsigned long) len, curhash);
-				if(memcmp(curhash, hash, 20)==0) {
+				if(memcmp(curhash, hash, 20) == 0) {
 					return true;
 				}
 			}
 			free(data);
 		}
 	}
-	data=0;
-	size=0;
+	data = 0;
+	size = 0;
 	return false;
 }
 

@@ -541,7 +541,7 @@ void acc_choice::UpdateSel() {
 void acc_choice::TrySetSel(const taccount *tac) {
 	for(unsigned int i = 0; i < GetCount(); i++) {
 		if(GetClientData(i) == tac) {
-			if(i != GetSelection()) {
+			if((int) i != GetSelection()) {
 				SetSelection(i);
 				UpdateSel();
 			}

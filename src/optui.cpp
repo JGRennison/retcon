@@ -389,7 +389,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	vbox->Add(btnbox, 0, wxALL | wxALIGN_TOP , 4);
 
 	cat_buttons.resize(OPTWIN_LAST);
-	auto addbtn = [&](int id, const wxString &name) {
+	auto addbtn = [&](unsigned int id, const wxString &name) {
 		wxToggleButton *btn = new wxToggleButton(panel, 4000 + id, name);
 		btnbox->Add(btn, 0, wxALL, 2);
 		if(id == currentcat) btn->SetValue(true);

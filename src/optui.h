@@ -50,7 +50,7 @@ struct settings_window : public wxDialog {
 	wxBoxSizer *vbox;
 	wxBoxSizer *hbox;
 	wxSize initsize;
-	int currentcat = 0;
+	unsigned int currentcat = 0;
 	wxBoxSizer *btnbox;
 
 	struct option_item {
