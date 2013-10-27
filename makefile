@@ -8,7 +8,8 @@
 #On windows only:
 #x64: set to true to compile for x86_64/win64
 
-#Note that to build on or for Windows, hard-coded paths to various include and lib directories will need to be edited.
+#Note that to build on or for Windows, the include/lib search paths will need to be edited below and/or
+#a number of libs/includes will need to be placed/built in a corresponding location where gcc can find them.
 
 
 OBJS_SRC:=retcon.cpp cfg.cpp optui.cpp parse.cpp socket.cpp tpanel.cpp twit.cpp db.cpp log.cpp cmdline.cpp userui.cpp mainui.cpp signal.cpp dispscr.cpp uiutil.cpp mediawin.cpp
@@ -39,7 +40,7 @@ GCCMACHINE:=$(shell $(GCC) -dumpmachine)
 ifeq (mingw, $(findstring mingw,$(GCCMACHINE)))
 #WIN
 PLATFORM:=WIN
-AFLAGS+=-mwindows -s -static -LC:/SourceCode/Libraries/wxWidgets2.8/lib/gcc_lib -Llib
+AFLAGS+=-mwindows -s -static -Lwxlib -Llib
 GFLAGS=-mthreads
 #-LC:/SourceCode/wxwidgets/source/lib/gcc_lib
 CFLAGS+=-D CURL_STATICLIB
@@ -49,7 +50,7 @@ LIBS32=-lpcre -lcurl -lwxmsw28u_richtext -lwxmsw28u_aui -lwxbase28u_xml -lwxexpa
 LIBS64=
 GCC32=i686-w64-mingw32-g++
 GCC64=x86_64-w64-mingw32-g++
-MCFLAGS= -Icurl -isystem C:/SourceCode/Libraries/wxWidgets2.8/include -Isqlite -Izlib -Isrc -I.
+MCFLAGS=-Icurl -isystem wxinclude -Isqlite -Izlib -Isrc -I.
 #-IC:/SourceCode/wxwidgets/source/include
 HDEPS:=
 EXCOBJS_SRC+=sqlite/sqlite3.c
