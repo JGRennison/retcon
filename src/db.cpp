@@ -781,9 +781,27 @@ void dbconn::SendMessageOrAddToList(dbsendmsg *msg, dbsendmsg_list *msglist) {
 
 void dbconn::SendMessage(dbsendmsg *msg) {
 	#ifdef __WINDOWS__
-	PostQueuedCompletionStatus(iocp, 0, (ULONG_PTR) msg, 0);
+	bool result = PostQueuedCompletionStatus(iocp, 0, (ULONG_PTR) msg, 0);
+	if(!result) {
+		LogMsgFormat(LFT_DBERR, wxT("dbconn::SendMessage(): Could not communicate with DB thread"));
+		CloseHandle(iocp);
+		iocp = INVALID_HANDLE_VALUE;
+	}
 	#else
-	write(pipefd, &msg, sizeof(msg));
+	size_t offset = 0;
+	while(offset < sizeof(msg)) {
+		ssize_t result = write(pipefd, ((const char *) &msg) + offset, sizeof(msg) - offset);
+		if(result < 0) {
+			int err = errno;
+			if(err == EINTR) continue;
+			else {
+				LogMsgFormat(LFT_DBERR, wxT("dbconn::SendMessage(): Could not communicate with DB thread: %d, %s"), err, wxstrstd(strerror(err)).c_str());
+				close(pipefd);
+				pipefd = -1;
+			}
+		}
+		else offset += result;
+	}
 	#endif
 }
 
@@ -831,12 +849,25 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	th->filename=filename;
 	th->db=syncdb;
 	syncdb=0;
+
 	#ifdef __WINDOWS__
-	iocp=CreateIoCompletionPort(INVALID_HANDLE_VALUE, 0, 0, 1);
-	th->iocp=iocp;
+	iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, 0, 0, 1);
+	th->iocp = iocp;
+	if(!iocp) {
+		wxMessageDialog(0, wxT("DB IOCP creation failed."));
+		sqlite3_close(syncdb);
+		syncdb = 0;
+		return false;
+	}
 	#else
 	int pipefd[2];
-	pipe(pipefd);
+	int result = pipe(pipefd);
+	if(result < 0) {
+		wxMessageDialog(0, wxString::Format(wxT("DB pipe creation failed: %d, %s"), errno, wxstrstd(strerror(errno)).c_str()));
+		sqlite3_close(syncdb);
+		syncdb = 0;
+		return false;
+	}
 	th->pipefd=pipefd[0];
 	this->pipefd=pipefd[1];
 	#endif
