@@ -33,11 +33,14 @@ enum
 
 class mainframe: public wxFrame
 {
+	std::map<int, unsigned int> proflookupidmap;
+	wxMenu *tpmenu;
+	wxMenu *lookupmenu;
+
 public:
 	tpanelnotebook *auib;
 	tweetpostwin *tpw;
 	tpanelmenudata tpm;
-	wxMenu *tpmenu;
 	wxAuiManager *auim;
 	wxPoint nominal_pos;
 	wxSize nominal_size;
@@ -57,6 +60,7 @@ public:
 	void OnLookupUser(wxCommandEvent &event);
 	void OnSize(wxSizeEvent &event);
 	void OnMove(wxMoveEvent &event);
+	void OnOwnProfileMenuCmd(wxCommandEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };

@@ -18,10 +18,12 @@
 //  2013 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-enum { tpanelmenustartid=wxID_HIGHEST+8001 };
-enum { tpanelmenuendid=wxID_HIGHEST+12000 };
-enum { tweetactmenustartid=wxID_HIGHEST+12001 };
-enum { tweetactmenuendid=wxID_HIGHEST+16000 };
+enum { tpanelmenustartid           = wxID_HIGHEST +  8001 };
+enum { tpanelmenuendid             = wxID_HIGHEST + 12000 };
+enum { tweetactmenustartid         = wxID_HIGHEST + 12001 };
+enum { tweetactmenuendid           = wxID_HIGHEST + 16000 };
+enum { lookupprofilestartid        = wxID_HIGHEST + 16001 };
+enum { lookupprofileendid          = wxID_HIGHEST + 17000 };
 
 struct tpanelmenuitem {
 	unsigned int dbindex;

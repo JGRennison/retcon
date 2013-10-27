@@ -35,6 +35,7 @@ BEGIN_EVENT_TABLE(mainframe, wxFrame)
 	EVT_MOUSEWHEEL(mainframe::OnMouseWheel)
 	EVT_MENU_OPEN(mainframe::OnMenuOpen)
 	EVT_MENU_RANGE(tpanelmenustartid, tpanelmenuendid, mainframe::OnTPanelMenuCmd)
+	EVT_MENU_RANGE(lookupprofilestartid, lookupprofileendid, mainframe::OnOwnProfileMenuCmd)
 	EVT_MOVE(mainframe::OnMove)
 	EVT_SIZE(mainframe::OnSize)
 END_EVENT_TABLE()
@@ -57,14 +58,14 @@ mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& si
 	wxMenu *menuO = new wxMenu;
 	menuO->Append( ID_Settings, wxT("&Settings"));
 	menuO->Append( ID_Accounts, wxT("&Accounts"));
+
 	tpmenu = new wxMenu;
-	wxMenu *searchmenu = new wxMenu;
-	searchmenu->Append( ID_UserLookup, wxT("&Lookup User"));
+	lookupmenu = new wxMenu;
 
 	wxMenuBar *menuBar = new wxMenuBar;
 	menuBar->Append(menuF, wxT("&File"));
 	menuBar->Append(tpmenu, wxT("&Panels"));
-	menuBar->Append(searchmenu, wxT("&Search"));
+	menuBar->Append(lookupmenu, wxT("&Lookup"));
 	menuBar->Append(menuO, wxT("&Options"));
 	menuBar->Append(menuH, wxT("&Help"));
 
@@ -153,8 +154,32 @@ void mainframe::OnMouseWheel(wxMouseEvent &event) {
 }
 
 void mainframe::OnMenuOpen(wxMenuEvent &event) {
-	if(event.GetMenu()==tpmenu) {
+	if(event.GetMenu() == tpmenu) {
 		MakeTPanelMenu(tpmenu, tpm);
+	}
+	else if(event.GetMenu() == lookupmenu) {
+		wxMenuItemList items = lookupmenu->GetMenuItems();		//make a copy to avoid memory issues if Destroy modifies the list
+		for(auto &it : items) {
+			lookupmenu->Destroy(it);
+		}
+		proflookupidmap.clear();
+
+		int nextid = lookupprofilestartid;
+		lookupmenu->Append(ID_UserLookup, wxT("&Lookup User"));
+		wxMenu *profmenu = new wxMenu;
+		for(auto &it : alist) {
+			profmenu->Append(nextid, it->dispname);
+			proflookupidmap[nextid] = it->dbindex;
+			nextid++;
+		}
+		lookupmenu->AppendSubMenu(profmenu, wxT("&Own Profile"));
+	}
+}
+
+void mainframe::OnOwnProfileMenuCmd(wxCommandEvent &event) {
+	std::shared_ptr<taccount> acc;
+	if(GetAccByDBIndex(proflookupidmap[event.GetId()], acc)) {
+		if(acc->usercont) user_window::MkWin(acc->usercont->id, acc);
 	}
 }
 
