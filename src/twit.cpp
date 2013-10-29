@@ -245,23 +245,10 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 }
 
 twitcurlext::twitcurlext(std::shared_ptr<taccount> acc) {
-	inited=false;
-	post_action_flags=0;
-	extra_id=0;
-	rbfs=0;
-	ownermainframe=0;
-	extra_id=0;
 	TwInit(acc);
 }
+twitcurlext::twitcurlext() { }
 
-twitcurlext::twitcurlext() {
-	inited=false;
-	post_action_flags=0;
-	extra_id=0;
-	rbfs=0;
-	ownermainframe=0;
-	extra_id=0;
-}
 twitcurlext::~twitcurlext() {
 	TwDeInit();
 }

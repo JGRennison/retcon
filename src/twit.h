@@ -404,17 +404,17 @@ struct friendlookup {
 
 struct twitcurlext: public twitCurl, public mcurlconn {
 	std::weak_ptr<taccount> tacc;
-	CS_ENUMTYPE connmode;
-	bool inited;
-	unsigned int tc_flags;
-	unsigned int post_action_flags;
+	CS_ENUMTYPE connmode = CS_ENUMTYPE::CS_NULL;
+	bool inited = false;
+	unsigned int tc_flags = 0;
+	unsigned int post_action_flags = 0;
 	std::shared_ptr<streamconntimeout> scto;
-	restbackfillstate *rbfs;
+	restbackfillstate *rbfs = 0;
 	std::unique_ptr<userlookup> ul;
 	std::string genurl;
 	std::string extra1;
-	uint64_t extra_id;
-	mainframe *ownermainframe;
+	uint64_t extra_id = 0;
+	mainframe *ownermainframe = 0;
 	magic_ptr mp;
 	std::unique_ptr<friendlookup> fl;
 
