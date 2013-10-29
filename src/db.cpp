@@ -996,7 +996,7 @@ void dbconn::AccountSync(sqlite3 *adb) {
 	LogMsg(LFT_DBTRACE, wxT("dbconn::AccountSync start"));
 	const char getacc[]="SELECT id, name, tweetids, dmids, userid, dispname FROM acc;";
 	sqlite3_stmt *getstmt=0;
-	sqlite3_prepare_v2(adb, getacc, sizeof(getacc)+1, &getstmt, 0);
+	sqlite3_prepare_v2(adb, getacc, sizeof(getacc), &getstmt, 0);
 	do {
 		int res=sqlite3_step(getstmt);
 		if(res==SQLITE_ROW) {
@@ -1025,7 +1025,7 @@ void dbconn::SyncReadInCIDSLists(sqlite3 *adb) {
 	LogMsg(LFT_DBTRACE, wxT("dbconn::SyncReadInCIDSLists start"));
 	const char getcidslist[]="SELECT value FROM settings WHERE name == ?;";
 	sqlite3_stmt *getstmt=0;
-	sqlite3_prepare_v2(adb, getcidslist, sizeof(getcidslist)+1, &getstmt, 0);
+	sqlite3_prepare_v2(adb, getcidslist, sizeof(getcidslist), &getstmt, 0);
 
 	auto doonelist = [&](std::string name, tweetidset &tlist) {
 		sqlite3_bind_text(getstmt, 1, name.c_str(), name.size(), SQLITE_STATIC);
@@ -1051,7 +1051,7 @@ void dbconn::SyncWriteBackCIDSLists(sqlite3 *adb) {
 	const char setunreadlist[]="INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', ?, ?);";
 
 	sqlite3_stmt *setstmt=0;
-	sqlite3_prepare_v2(adb, setunreadlist, sizeof(setunreadlist)+1, &setstmt, 0);
+	sqlite3_prepare_v2(adb, setunreadlist, sizeof(setunreadlist), &setstmt, 0);
 
 	auto doonelist = [&](std::string name, tweetidset &tlist) {
 		size_t index_size;
@@ -1129,7 +1129,7 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 	LogMsg(LFT_DBTRACE, wxT("dbconn::SyncReadInAllUsers start"));
 	const char sql[]="SELECT id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex FROM users;";
 	sqlite3_stmt *stmt=0;
-	sqlite3_prepare_v2(adb, sql, sizeof(sql)+1, &stmt, 0);
+	sqlite3_prepare_v2(adb, sql, sizeof(sql), &stmt, 0);
 
 	do {
 		int res=sqlite3_step(stmt);
@@ -1200,7 +1200,7 @@ void dbconn::SyncReadInRBFSs(sqlite3 *adb) {
 	LogMsg(LFT_DBTRACE, wxT("dbconn::SyncReadInRBFSs start"));
 	const char sql[]="SELECT accid, type, startid, endid, maxleft FROM rbfspending;";
 	sqlite3_stmt *stmt=0;
-	sqlite3_prepare_v2(adb, sql, sizeof(sql)+1, &stmt, 0);
+	sqlite3_prepare_v2(adb, sql, sizeof(sql), &stmt, 0);
 
 	do {
 		int res=sqlite3_step(stmt);
@@ -1238,7 +1238,7 @@ void dbconn::SyncReadInAllMediaEntities(sqlite3 *adb) {
 	LogMsg(LFT_DBTRACE, wxT("dbconn::SyncReadInAllMediaEntities start"));
 	const char sql[]="SELECT mid, tid, url, fullchecksum, thumbchecksum FROM mediacache;";
 	sqlite3_stmt *stmt=0;
-	sqlite3_prepare_v2(adb, sql, sizeof(sql)+1, &stmt, 0);
+	sqlite3_prepare_v2(adb, sql, sizeof(sql), &stmt, 0);
 
 	do {
 		int res=sqlite3_step(stmt);
@@ -1279,7 +1279,7 @@ void dbconn::SyncReadInWindowLayout(sqlite3 *adb) {
 	LogMsg(LFT_DBTRACE, wxT("dbconn::SyncReadInWindowLayout start"));
 	const char mfsql[]="SELECT mainframeindex, x, y, w, h, maximised FROM mainframewins ORDER BY mainframeindex ASC;";
 	sqlite3_stmt *mfstmt=0;
-	sqlite3_prepare_v2(adb, mfsql, sizeof(mfsql)+1, &mfstmt, 0);
+	sqlite3_prepare_v2(adb, mfsql, sizeof(mfsql), &mfstmt, 0);
 
 	do {
 		int res=sqlite3_step(mfstmt);
@@ -1301,11 +1301,11 @@ void dbconn::SyncReadInWindowLayout(sqlite3 *adb) {
 
 	const char sql[]="SELECT mainframeindex, splitindex, tabindex, name, dispname, flags, rowid FROM tpanelwins ORDER BY mainframeindex ASC, splitindex ASC, tabindex ASC;";
 	sqlite3_stmt *stmt=0;
-	int res = sqlite3_prepare_v2(adb, sql, sizeof(sql)+1, &stmt, 0);
+	int res = sqlite3_prepare_v2(adb, sql, sizeof(sql), &stmt, 0);
 
 	const char sql2[]="SELECT accid, autoflags FROM tpanelwinautos WHERE tpw == ?;";
 	sqlite3_stmt *stmt2=0;
-	int res2 = sqlite3_prepare_v2(adb, sql2, sizeof(sql2)+1, &stmt2, 0);
+	int res2 = sqlite3_prepare_v2(adb, sql2, sizeof(sql2), &stmt2, 0);
 
 	if(res != SQLITE_OK || res2 != SQLITE_OK) {
 		LogMsgFormat(LFT_DBERR, wxT("dbconn::SyncReadInWindowLayout sqlite3_prepare_v2 failed"));
@@ -1366,7 +1366,7 @@ void dbconn::SyncWriteBackWindowLayout(sqlite3 *adb) {
 	sqlite3_exec(adb, "DELETE FROM mainframewins", 0, 0, 0);
 	const char mfsql[]="INSERT INTO mainframewins (mainframeindex, x, y, w, h, maximised) VALUES (?, ?, ?, ?, ?, ?);";
 	sqlite3_stmt *mfstmt=0;
-	sqlite3_prepare_v2(adb, mfsql, sizeof(mfsql)+1, &mfstmt, 0);
+	sqlite3_prepare_v2(adb, mfsql, sizeof(mfsql), &mfstmt, 0);
 
 	for(auto &mfld : ad.mflayout) {
 		sqlite3_bind_int(mfstmt, 1, mfld.mainframeindex);
@@ -1387,10 +1387,10 @@ void dbconn::SyncWriteBackWindowLayout(sqlite3 *adb) {
 	sqlite3_exec(adb, "DELETE FROM tpanelwinautos", 0, 0, 0);
 	const char sql[]="INSERT INTO tpanelwins (mainframeindex, splitindex, tabindex, name, dispname, flags) VALUES (?, ?, ?, ?, ?, ?);";
 	sqlite3_stmt *stmt=0;
-	sqlite3_prepare_v2(adb, sql, sizeof(sql)+1, &stmt, 0);
+	sqlite3_prepare_v2(adb, sql, sizeof(sql), &stmt, 0);
 	const char sql2[]="INSERT INTO tpanelwinautos (tpw, accid, autoflags) VALUES (?, ?, ?);";
 	sqlite3_stmt *stmt2=0;
-	sqlite3_prepare_v2(adb, sql2, sizeof(sql2)+1, &stmt2, 0);
+	sqlite3_prepare_v2(adb, sql2, sizeof(sql2), &stmt2, 0);
 
 	for(auto &twld : ad.twinlayout) {
 		sqlite3_bind_int(stmt, 1, twld.mainframeindex);
