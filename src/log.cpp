@@ -213,7 +213,7 @@ log_window::log_window(wxWindow *parent, logflagtype flagmask, bool show)
 	SetMenuBar(menuBar);
 
 	InitDialog();
-	if(show) LWShow();
+	LWShow(show);
 }
 
 log_window::~log_window() {
