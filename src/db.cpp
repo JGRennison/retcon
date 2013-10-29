@@ -101,14 +101,14 @@ static void DBThreadSafeLogMsg(logflagtype logflags, const wxString &str) {
 #define DBLogMsg(l, s) if( currentlogflags & (l) ) DBThreadSafeLogMsg(l, s)
 
 static int busy_handler_callback(void *ptr, int count) {
-	if(count<20) {
+	if(count < 7) {    //this should lead to a maximum wait of ~3.2s
 		unsigned int sleeplen=25<<count;
 		wxThread *th=wxThread::This();
 		if(th) th->Sleep(sleeplen);
 		else wxMilliSleep(sleeplen);
-		return 0;
+		return 1;
 	}
-	else return 1;
+	else return 0;
 }
 
 sqlite3_stmt *dbpscache::GetStmt(sqlite3 *adb, DBPSC_TYPE type) {
