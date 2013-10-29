@@ -148,7 +148,6 @@ void twitcurlext::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 	std::shared_ptr<taccount> acc=tacc.lock();
 	LogMsgFormat(LFT_OTHERTRACE, wxT("twitcurlext::NotifyDoneSuccess: for conn: %s, account: %s"), GetConnTypeName().c_str(), acc?acc->dispname.c_str():wxT("none"));
 	if(!acc) {
-		KillConn();
 		return;
 	}
 
@@ -158,7 +157,6 @@ void twitcurlext::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 	jp.ParseString(str);
 	str.clear();
 
-	KillConn();
 	if(connmode==CS_STREAM && acc->enabled) {
 		LogMsgFormat(LFT_SOCKERR, wxT("Stream connection interrupted, reconnecting: for account: %s"), acc->dispname.c_str());
 		DoRetry();
@@ -505,6 +503,7 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
 			else {
 				LogMsgFormat(LFT_SOCKERR, wxT("Stream reconnection attempt failed: for account: %s"), acc->dispname.c_str());
 			}
+			acc->cp.Standby(this);
 			acc->stream_fail_count++;
 			acc->Exec();
 			return;
@@ -548,7 +547,7 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
 					twit->QueueAsyncExec();
 
 					genurl=fl->GetTwitterURL();
-					QueueAsyncExec();
+					QueueAsyncExec();    //note this re-uses the original connection for half of the original lookup
 					return;
 				}
 			}

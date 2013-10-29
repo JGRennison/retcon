@@ -61,6 +61,8 @@ void mcurlconn::NotifyDone(CURL *easy, CURLcode res) {
 	long httpcode;
 	curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &httpcode);
 
+	KillConn();    // this removes the connection from the curl multi-IO, and the active connection list
+
 	if(httpcode!=200 || res!=CURLE_OK) {
 		//failed
 		if(res==CURLE_OK) {
@@ -71,17 +73,16 @@ void mcurlconn::NotifyDone(CURL *easy, CURLcode res) {
 		else {
 			LogMsgFormat(LFT_SOCKERR, wxT("Socket error: type: %s, conn: %p, code: %d, message: %s"), GetConnTypeName().c_str(), this, res, wxstrstd(curl_easy_strerror(res)).c_str());
 		}
-		KillConn();
-		HandleError(easy, httpcode, res);
+		HandleError(easy, httpcode, res);    //this may re-add the connection, or cause object death
 	}
 	else {
 		if(mcflags&MCF_RETRY_NOW_ON_SUCCESS) {
+			mcflags&=~MCF_RETRY_NOW_ON_SUCCESS;
 			sm.RetryConnNow();
 		}
 		errorcount=0;
-		NotifyDoneSuccess(easy, res);
+		NotifyDoneSuccess(easy, res);    //may cause object death/reset
 	}
-	mcflags&=~MCF_RETRY_NOW_ON_SUCCESS;
 }
 
 void mcurlconn::HandleError(CURL *easy, long httpcode, CURLcode res) {
@@ -100,7 +101,7 @@ void mcurlconn::HandleError(CURL *easy, long httpcode, CURLcode res) {
 			break;
 		case MCC_FAILED:
 			LogMsgFormat(LFT_SOCKERR, wxT("Calling failure handler: type: %s, conn: %p, url: %s"), GetConnTypeName().c_str(), this, wxstrstd(url).c_str());
-			HandleFailure(httpcode, res);
+			HandleFailure(httpcode, res);    //may cause object death
 			sm.RetryConnLater();
 			break;
 	}
@@ -177,9 +178,8 @@ void profileimgdlconn::HandleFailure(long httpcode, CURLcode res) {
 		user->udc_flags&=~UDC_HALF_PROFILE_BITMAP_SET;
 		user->udc_flags|=UDC_PROFILE_IMAGE_DL_FAILED;
 		user->CheckPendingTweets();
-		cp.Standby(this);
 	}
-	else cp.Standby(this);
+	cp.Standby(this);
 }
 
 void profileimgdlconn::Reset() {
@@ -194,7 +194,6 @@ profileimgdlconn *profileimgdlconn::GetConn(const std::string &imgurl_, const st
 }
 
 void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
-
 	LogMsgFormat(LFT_NETACT, wxT("Profile image downloaded: %s for user id %" wxLongLongFmtSpec "d (@%s), conn: %p"), wxstrstd(url).c_str(), user->id, wxstrstd(user->GetUser().screen_name).c_str(), this);
 
 	user->udc_flags&=~UDC_IMAGE_DL_IN_PROGRESS;
@@ -223,7 +222,7 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 	else {
 		LogMsgFormat(LFT_OTHERERR, wxT("Profile image downloaded: %s for user id %" wxLongLongFmtSpec "d (@%s), does not match expected url of: %s. Maybe user updated profile during download?"), wxstrstd(url).c_str(), user->id, wxstrstd(user->GetUser().screen_name).c_str(), wxstrstd(user->GetUser().profile_img_url).c_str());
 	}
-	KillConn();
+
 	cp.Standby(this);
 }
 
@@ -317,7 +316,6 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 
 	data.clear();
 
-	KillConn();
 	delete this;
 }
 
@@ -383,7 +381,6 @@ static void check_multi_info(socketmanager *smp) {
 			curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &httpcode);
 			curl_easy_getinfo(easy, CURLINFO_PRIVATE, &conn);
 			LogMsgFormat(LFT_SOCKTRACE, wxT("Socket Done, conn: %p, res: %d, http: %d"), conn, res, httpcode);
-			curl_multi_remove_handle(smp->curlmulti, easy);
 			conn->NotifyDone(easy, res);
 		}
 	}
@@ -432,7 +429,7 @@ socketmanager::~socketmanager() {
 	while(!retry_conns.empty()) {
 		mcurlconn *cs=retry_conns.front();
 		retry_conns.pop_front();
-		if(cs) cs->mcflags&=~MCF_IN_RETRY_QUEUE;
+		delete cs;
 	}
 	DeInitMultiIOHandler();
 }

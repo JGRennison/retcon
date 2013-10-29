@@ -51,7 +51,7 @@ enum {
 
 struct mcurlconn : public wxEvtHandler {
 	void NotifyDone(CURL *easy, CURLcode res);
-	void HandleError(CURL *easy, long httpcode, CURLcode res);
+	void HandleError(CURL *easy, long httpcode, CURLcode res);    //may cause object death
 	void StandbyTidy();
 	unsigned int errorcount;
 	unsigned int mcflags;
@@ -59,9 +59,9 @@ struct mcurlconn : public wxEvtHandler {
 	mcurlconn() : errorcount(0), mcflags(0) {}
 	virtual ~mcurlconn();
 
-	virtual void NotifyDoneSuccess(CURL *easy, CURLcode res)=0;
+	virtual void NotifyDoneSuccess(CURL *easy, CURLcode res)=0;   //may cause object death
 	virtual void DoRetry()=0;
-	virtual void HandleFailure(long httpcode, CURLcode res)=0;
+	virtual void HandleFailure(long httpcode, CURLcode res)=0;    //may cause object death
 	virtual void KillConn();
 	virtual MCC_HTTPERRTYPE CheckHTTPErrType(long httpcode);
 	virtual CURL *GenGetCurlHandle()=0;
