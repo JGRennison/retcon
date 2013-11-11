@@ -940,62 +940,75 @@ void tpanelparentwin_nt::PageTopHandler() {
 void tpanelparentwin_nt::JumpToTweetID(uint64_t id) {
 	LogMsgFormat(LFT_TPANEL, "tpanel::JumpToTweetID %s, %" wxLongLongFmtSpec "d, displayoffset: %d, display count: %d, tweets: %d", GetThisName().c_str(), id, displayoffset, (int) currentdisp.size(), (int) tp->tweetlist.size());
 
-	tweetidset::const_iterator stit = tp->tweetlist.find(id);
-	if(stit == tp->tweetlist.end()) return;
+	bool alldone = false;
 
-	tppw_flags|=TPPWF_NOUPDATEONPUSH;
-	scrollwin->Freeze();
-
-	unsigned int targ_offset = std::distance(tp->tweetlist.cbegin(), stit);
-
-	unsigned int offset_up_delta = std::min<unsigned int>(targ_offset, (gc.maxtweetsdisplayinpanel+1)/2);
-	unsigned int offset_down_delta = std::min<unsigned int>(tp->tweetlist.size() - targ_offset, gc.maxtweetsdisplayinpanel - offset_up_delta) - 1;
-
-	uint64_t top_id = *std::prev(stit, offset_up_delta);
-	uint64_t bottom_id = *std::next(stit, offset_down_delta);
-
-	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanel::JumpToTweetID targ_offset: %d, oud: %d, odd: %d, ti: %" wxLongLongFmtSpec "d, bi: %" wxLongLongFmtSpec "d"), targ_offset, offset_up_delta, offset_down_delta, top_id, bottom_id);
-	#endif
-
-	while(!currentdisp.empty() && currentdisp.front().first > top_id) {
-		PopTop();
-		displayoffset++;
-	}
-	while(!currentdisp.empty() && currentdisp.back().first < bottom_id) PopBottom();
-
-	if(currentdisp.empty()) displayoffset = 0;
-
-	unsigned int loadcount = offset_up_delta + offset_down_delta + 1 - currentdisp.size();
-
-	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanel::JumpToTweetID displayoffset: %d, loadcount: %d, display count: %d"), displayoffset, loadcount, (int) currentdisp.size());
-	#endif
-
-	for(auto &disp : currentdisp) {
-		if(disp.first == id) {
-			tppw_scrollfreeze sf;
-			SetScrollFreeze(sf, disp.second);
-			EndScrollFreeze(sf);
-			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanel::JumpToTweetID setting scrollfreeze"));
-			#endif
-			break;
+	if(id <= currentdisp.front().first && id >= currentdisp.back().first) {
+		for(auto &disp : currentdisp) {
+			if(disp.first == id) {
+				tppw_scrollfreeze sf;
+				SetScrollFreeze(sf, disp.second);
+				EndScrollFreeze(sf);
+				#if TPANEL_COPIOUS_LOGGING
+					LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanel::JumpToTweetID setting scrollfreeze"));
+				#endif
+				if(GetCurrentViewTopID() == id) alldone = true;  //if this isn't true, load some more tweets below to make it true
+				break;
+			}
 		}
 	}
 
-	scrollwin->Thaw();
-	if(loadcount) {
-		scrolltoid = id;
-		if(!currentdisp.empty() && currentdisp.back().first < top_id) {
-			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanel::JumpToTweetID adjusting load bound: %" wxLongLongFmtSpec "d"), currentdisp.back().first);
-			#endif
-			LoadMore(loadcount, currentdisp.back().first, 0, TPPWPF_ABOVE | TPPWPF_CHECKSCROLLTOID | TPPWPF_NOINCDISPOFFSET);
+	if(!alldone) {
+		tweetidset::const_iterator stit = tp->tweetlist.find(id);
+		if(stit == tp->tweetlist.end()) return;
+
+		tppw_flags|=TPPWF_NOUPDATEONPUSH;
+		scrollwin->Freeze();
+
+		//this is the offset into the tweetlist set, of the target tweet
+		unsigned int targ_offset = std::distance(tp->tweetlist.cbegin(), stit);
+
+		//this is how much above and below the target tweet that we also want to load
+		unsigned int offset_up_delta = std::min<unsigned int>(targ_offset, (gc.maxtweetsdisplayinpanel+1)/2);
+		unsigned int offset_down_delta = std::min<unsigned int>(tp->tweetlist.size() - targ_offset, gc.maxtweetsdisplayinpanel - offset_up_delta) - 1;
+
+		//these are the new bounds on the current display set, given the offsets above and below the target tweet, above
+		uint64_t top_id = *std::prev(stit, offset_up_delta);
+		uint64_t bottom_id = *std::next(stit, offset_down_delta);
+
+		#if TPANEL_COPIOUS_LOGGING
+			LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanel::JumpToTweetID targ_offset: %d, oud: %d, odd: %d, ti: %" wxLongLongFmtSpec "d, bi: %" wxLongLongFmtSpec "d"), targ_offset, offset_up_delta, offset_down_delta, top_id, bottom_id);
+		#endif
+
+		//get rid of tweets which lie outside the new bounds
+		while(!currentdisp.empty() && currentdisp.front().first > top_id) {
+			PopTop();
+			displayoffset++;
 		}
-		else LoadMore(loadcount, top_id + 1, 0, TPPWPF_ABOVE | TPPWPF_CHECKSCROLLTOID | TPPWPF_NOINCDISPOFFSET);
+		while(!currentdisp.empty() && currentdisp.back().first < bottom_id) PopBottom();
+
+		if(currentdisp.empty()) displayoffset = 0;
+
+		unsigned int loadcount = offset_up_delta + offset_down_delta + 1 - currentdisp.size();
+
+		#if TPANEL_COPIOUS_LOGGING
+			LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanel::JumpToTweetID displayoffset: %d, loadcount: %d, display count: %d"), displayoffset, loadcount, (int) currentdisp.size());
+		#endif
+
+		scrollwin->Thaw();
+		if(loadcount) {
+			scrolltoid = id;
+
+			//if the new top id is also the top of the existing range, start loading from below the bottom of the existing range
+			if(!currentdisp.empty() && top_id == currentdisp.front().first) {
+				#if TPANEL_COPIOUS_LOGGING
+					LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanel::JumpToTweetID adjusting load bound: %" wxLongLongFmtSpec "d"), currentdisp.back().first);
+				#endif
+				LoadMore(loadcount, currentdisp.back().first, 0, TPPWPF_ABOVE | TPPWPF_CHECKSCROLLTOID | TPPWPF_NOINCDISPOFFSET);
+			}
+			else LoadMore(loadcount, top_id + 1, 0, TPPWPF_ABOVE | TPPWPF_CHECKSCROLLTOID | TPPWPF_NOINCDISPOFFSET);
+		}
+		else CheckClearNoUpdateFlag();
 	}
-	else CheckClearNoUpdateFlag();
 
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanel::JumpToTweetID %s END"), GetThisName().c_str());
