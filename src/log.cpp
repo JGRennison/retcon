@@ -389,7 +389,7 @@ void dump_pending_acc_failed_conns(logflagtype logflags, const wxString &indent,
 	dump_acc_socket_flags(logflags, indent, acc);
 	LogMsgFormat(logflags, wxT("%sRestartable Failed Connections: %d"), indent.c_str(), acc->failed_pending_conns.size());
 	for(auto it=acc->failed_pending_conns.begin(); it!=acc->failed_pending_conns.end(); ++it) {
-		LogMsgFormat(logflags, wxT("%s%sSocket: %s, %p, Error Count: %d, mcflags: 0x"), indent.c_str(), indentstep.c_str(), (*it)->GetConnTypeName().c_str(), (*it), (*it)->errorcount, (*it)->mcflags);
+		LogMsgFormat(logflags, wxT("%s%sSocket: %s, %p, Error Count: %d, mcflags: 0x%X"), indent.c_str(), indentstep.c_str(), (*it)->GetConnTypeName().c_str(), (*it), (*it)->errorcount, (*it)->mcflags);
 	}
 }
 
@@ -408,7 +408,7 @@ void dump_pending_retry_conn(logflagtype logflags, const wxString &indent, const
 	LogMsgFormat(logflags, wxT("%sConnections pending retry attempts: %d"), indent.c_str(), count);
 	for(auto it=sm.retry_conns.begin(); it!=sm.retry_conns.end(); ++it) {
 		if(!(*it)) continue;
-		LogMsgFormat(logflags, wxT("%s%sSocket: %s, %p, Error Count: %d, mcflags: 0x"), indent.c_str(), indentstep.c_str(), (*it)->GetConnTypeName().c_str(), (*it), (*it)->errorcount, (*it)->mcflags);
+		LogMsgFormat(logflags, wxT("%s%sSocket: %s, %p, Error Count: %d, mcflags: 0x%X"), indent.c_str(), indentstep.c_str(), (*it)->GetConnTypeName().c_str(), (*it), (*it)->errorcount, (*it)->mcflags);
 	}
 }
 
