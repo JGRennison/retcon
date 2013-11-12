@@ -744,6 +744,8 @@ bool panelparentwin_base::IsSingleAccountWin() const {
 BEGIN_EVENT_TABLE(tpanelparentwin_nt, panelparentwin_base)
 EVT_BUTTON(TPPWID_MARKALLREADBTN, tpanelparentwin_nt::markallreadevthandler)
 EVT_BUTTON(TPPWID_UNHIGHLIGHTALLBTN, tpanelparentwin_nt::markremoveallhighlightshandler)
+EVT_MENU(TPPWID_MARKALLREADBTN, tpanelparentwin_nt::markallreadevthandler)
+EVT_MENU(TPPWID_UNHIGHLIGHTALLBTN, tpanelparentwin_nt::markremoveallhighlightshandler)
 EVT_BUTTON(TPPWID_MOREBTN, tpanelparentwin_nt::morebtnhandler)
 END_EVENT_TABLE()
 
