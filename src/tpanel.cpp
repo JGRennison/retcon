@@ -814,10 +814,9 @@ void tpanelparentwin_nt::PushTweet(const std::shared_ptr<tweet> &t, unsigned int
 	#endif
 	tweetdispscr *td = PushTweetIndex(t, index);
 	currentdisp.insert(it, std::make_pair(id, td));
-	if(pushflags&TPPWPF_CHECKSCROLLTOID && scrolltoid == id) {
+	if(pushflags&TPPWPF_CHECKSCROLLTOID) {
 		if(tppw_flags&TPPWF_NOUPDATEONPUSH) scrolltoid_onupdate = scrolltoid;
-		else SetScrollFreeze(sf, td);
-		scrolltoid = 0;
+		else if(scrolltoid == id) SetScrollFreeze(sf, td);
 	}
 	if(!(tppw_flags&TPPWF_NOUPDATEONPUSH)) UpdateCLabel();
 
