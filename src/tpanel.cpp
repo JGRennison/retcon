@@ -24,6 +24,8 @@
 #include "version.h"
 
 #include <wx/choicdlg.h>
+#include <wx/textdlg.h>
+#include <wx/msgdlg.h>
 #include <array>
 
 #ifndef TPANEL_COPIOUS_LOGGING
@@ -543,11 +545,14 @@ panelparentwin_base::panelparentwin_base(wxWindow *parent, bool fitnow, wxString
 	headersizer->Add(clabel, 0, wxALL, 2);
 	headersizer->AddStretchSpacer();
 	auto addbtn = [&](wxWindowID id, wxString name, std::string type, wxButton *& btnref) {
-		btnref=new wxButton(this, id, name, wxPoint(-1000, -1000), wxDefaultSize, wxBU_EXACTFIT);
-		btnref->Show(false);
+		btnref = new wxButton(this, id, name, wxPoint(-1000, -1000), wxDefaultSize, wxBU_EXACTFIT);
+		if(!type.empty()) {
+			btnref->Show(false);
+			showhidemap.insert(std::make_pair(type, btnref));
+		}
 		headersizer->Add(btnref, 0, wxALL, 2);
-		showhidemap.insert(std::make_pair(type, btnref));
 	};
+	addbtn(TPPWID_MOREBTN, wxT("More \x25BC"), "more", MoreBtn);
 	addbtn(TPPWID_MARKALLREADBTN, wxT("Mark All Read"), "unread", MarkReadBtn);
 	addbtn(TPPWID_NEWESTUNREADBTN, wxT("Newest Unread \x2191"), "unread", NewestUnreadBtn);
 	addbtn(TPPWID_OLDESTUNREADBTN, wxT("Oldest Unread \x2193"), "unread", OldestUnreadBtn);
@@ -739,8 +744,7 @@ bool panelparentwin_base::IsSingleAccountWin() const {
 BEGIN_EVENT_TABLE(tpanelparentwin_nt, panelparentwin_base)
 EVT_BUTTON(TPPWID_MARKALLREADBTN, tpanelparentwin_nt::markallreadevthandler)
 EVT_BUTTON(TPPWID_UNHIGHLIGHTALLBTN, tpanelparentwin_nt::markremoveallhighlightshandler)
-EVT_BUTTON(TPPWID_NEWESTUNREADBTN, tpanelparentwin_nt::movetonewestunreadhandler)
-EVT_BUTTON(TPPWID_OLDESTUNREADBTN, tpanelparentwin_nt::movetooldestunreadhandler)
+EVT_BUTTON(TPPWID_MOREBTN, tpanelparentwin_nt::morebtnhandler)
 END_EVENT_TABLE()
 
 tpanelparentwin_nt::tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent, wxString thisname_)
@@ -753,6 +757,8 @@ tpanelparentwin_nt::tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWin
 	clabel->SetLabel(wxT("No Tweets"));
 	scrollwin->FitInside();
 	FitInside();
+
+	setupnavbuttonhandlers();
 }
 
 tpanelparentwin_nt::~tpanelparentwin_nt() {
@@ -1032,6 +1038,7 @@ void tpanelparentwin_nt::UpdateCLabel() {
 	else clabel->SetLabel(wxT("No Tweets"));
 	ShowHideButtons("unread", !tp->cids.unreadids.empty());
 	ShowHideButtons("highlight", !tp->cids.highlightids.empty());
+	ShowHideButtons("more", true);
 	headersizer->Layout();
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::UpdateCLabel %s END"), GetThisName().c_str());
@@ -1079,12 +1086,119 @@ void tpanelparentwin_nt::markremoveallhighlightshandler(wxCommandEvent &event) {
 	#endif
 }
 
-void tpanelparentwin_nt::movetonewestunreadhandler(wxCommandEvent &event) {
-	if(!tp->cids.unreadids.empty()) JumpToTweetID(*(tp->cids.unreadids.begin()));
+void tpanelparentwin_nt::navbuttondispatchhandler(wxCommandEvent &event) {
+	btnhandlerlist[event.GetId()](event);
 }
 
-void tpanelparentwin_nt::movetooldestunreadhandler(wxCommandEvent &event) {
-	if(!tp->cids.unreadids.empty()) JumpToTweetID(*(tp->cids.unreadids.rbegin()));
+void tpanelparentwin_nt::setupnavbuttonhandlers() {
+	auto addhandler = [&](int id, std::function<void(wxCommandEvent &event)> f) {
+		btnhandlerlist[id] = std::move(f);
+		Connect(id, wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(tpanelparentwin_nt::navbuttondispatchhandler));
+		Connect(id, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(tpanelparentwin_nt::navbuttondispatchhandler));
+	};
+
+	auto cidsendjump = [&](int id, tweetidset cached_id_sets::* cid, bool newest) {
+		addhandler(id, [this, cid, newest](wxCommandEvent &event) {
+			if(!((tp->cids.*cid).empty())) {
+				if(newest) JumpToTweetID(*((tp->cids.*cid).begin()));
+				else JumpToTweetID(*((tp->cids.*cid).rbegin()));
+			}
+		});
+	};
+
+	auto cidsnextjump = [&](int id, tweetidset cached_id_sets::* cid, bool newer) {
+		addhandler(id, [this, cid, newer](wxCommandEvent &event) {
+			uint64_t current = GetCurrentViewTopID();
+			tweetidset::iterator iter;
+			if(newer) {
+				iter = (tp->cids.*cid).lower_bound(current);
+				if(iter != (tp->cids.*cid).begin()) --iter;
+			}
+			else iter = (tp->cids.*cid).upper_bound(current);
+
+			if(iter != (tp->cids.*cid).end()) {
+				JumpToTweetID(*iter);
+			}
+		});
+	};
+
+	//returns true on success
+	auto getjumpval = [this](uint64_t &value, const wxString &msg, uint64_t lowerbound, uint64_t upperbound) -> bool {
+		wxString str = ::wxGetTextFromUser(msg, wxT("Input Number"), wxT(""), this);
+		if(!str.IsEmpty()) {
+			std::string stdstr = stdstrwx(str);
+			char *pos = 0;
+			value = strtoull(stdstr.c_str(), &pos, 10);
+			if(pos && *pos != 0) {
+				::wxMessageBox(wxString::Format(wxT("'%s' does not appear to be a positive integer"), str.c_str()), wxT("Invalid Input"), wxOK | wxICON_EXCLAMATION, this);
+			}
+			else if(value < lowerbound || value > upperbound) {
+				::wxMessageBox(wxString::Format(wxT("'%s' lies outside the range: %" wxLongLongFmtSpec "d - %" wxLongLongFmtSpec "d"), str.c_str(), lowerbound, upperbound), wxT("Invalid Input"), wxOK | wxICON_EXCLAMATION, this);
+			}
+			else return true;
+		}
+		return false;
+	};
+
+	cidsendjump(TPPWID_NEWESTUNREADBTN, &cached_id_sets::unreadids, true);
+	cidsendjump(TPPWID_OLDESTUNREADBTN, &cached_id_sets::unreadids, false);
+	cidsendjump(TPPWID_NEWESTHIGHLIGHTEDBTN, &cached_id_sets::highlightids, true);
+	cidsendjump(TPPWID_OLDESTHIGHLIGHTEDBTN, &cached_id_sets::highlightids, false);
+
+	cidsnextjump(TPPWID_NEXT_NEWESTUNREADBTN, &cached_id_sets::unreadids, true);
+	cidsnextjump(TPPWID_NEXT_OLDESTUNREADBTN, &cached_id_sets::unreadids, false);
+	cidsnextjump(TPPWID_NEXT_NEWESTHIGHLIGHTEDBTN, &cached_id_sets::highlightids, true);
+	cidsnextjump(TPPWID_NEXT_OLDESTHIGHLIGHTEDBTN, &cached_id_sets::highlightids, false);
+
+	addhandler(TPPWID_JUMPTONUM, [this, getjumpval](wxCommandEvent &event) {
+		if(!tp->tweetlist.empty()) {
+			uint64_t value;
+			size_t maxval = tp->tweetlist.size();
+			if(getjumpval(value, wxString::Format(wxT("Enter tweet number to jump to. (1 - %d)"), maxval), 1, maxval)) {
+				if(value > tp->tweetlist.size()) value = tp->tweetlist.size(); // this is in case tweetlist somehow shrinks during the call
+				auto iter = tp->tweetlist.begin();
+				std::advance(iter, value - 1);
+				JumpToTweetID(*iter);
+			}
+		}
+	});
+
+	addhandler(TPPWID_JUMPTOID, [this, getjumpval](wxCommandEvent &event) {
+		if(!tp->tweetlist.empty()) {
+			uint64_t value;
+			if(getjumpval(value, wxT("Enter tweet ID to jump to."), 0, std::numeric_limits<uint64_t>::max())) {
+				if(tp->tweetlist.find(value) == tp->tweetlist.end()) {
+					::wxMessageBox(wxString::Format(wxT("No tweet with ID: %" wxLongLongFmtSpec "d in this panel"), value), wxT("No such tweet"), wxOK | wxICON_EXCLAMATION, this);
+				}
+				else JumpToTweetID(value);
+			}
+		}
+	});
+}
+
+void tpanelparentwin_nt::morebtnhandler(wxCommandEvent &event) {
+	wxRect btnrect = MoreBtn->GetRect();
+	wxMenu pmenu;
+	pmenu.Append(TPPWID_JUMPTONUM, wxT("&Jump To Nth Tweet"));
+	pmenu.Append(TPPWID_JUMPTOID, wxT("Jump To Tweet &ID"));
+	if(!tp->cids.highlightids.empty()) {
+		pmenu.AppendSeparator();
+		pmenu.Append(TPPWID_UNHIGHLIGHTALLBTN, wxT("Unhighlight All"));
+		pmenu.Append(TPPWID_NEWESTHIGHLIGHTEDBTN, wxT("&Newest Highlighted \x2191"));
+		pmenu.Append(TPPWID_OLDESTHIGHLIGHTEDBTN, wxT("&Oldest Highlighted \x2193"));
+		pmenu.Append(TPPWID_NEXT_NEWESTHIGHLIGHTEDBTN, wxT("Next Newest Highlighted \x21E1"));
+		pmenu.Append(TPPWID_NEXT_OLDESTHIGHLIGHTEDBTN, wxT("Next Oldest Highlighted \x21E3"));
+	}
+	if(!tp->cids.unreadids.empty()) {
+		pmenu.AppendSeparator();
+		pmenu.Append(TPPWID_MARKALLREADBTN, wxT("Mark All Read"));
+		pmenu.Append(TPPWID_NEWESTUNREADBTN, wxT("&Newest Unread \x2191"));
+		pmenu.Append(TPPWID_OLDESTUNREADBTN, wxT("&Oldest Unread \x2193"));
+		pmenu.Append(TPPWID_NEXT_NEWESTUNREADBTN, wxT("Next Newest Unread \x21E1"));
+		pmenu.Append(TPPWID_NEXT_OLDESTUNREADBTN, wxT("Next Oldest Unread \x21E3"));
+	}
+
+	PopupMenu(&pmenu, btnrect.GetLeft(), btnrect.GetBottom());
 }
 
 void tpanelparentwin_nt::MarkClearCIDSSetHandler(std::function<tweetidset &(cached_id_sets &)> idsetselector, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc) {
@@ -1139,7 +1253,6 @@ void tpanelparentwin_nt::HandleScrollToIDOnUpdate() {
 			EndScrollFreeze(sf);
 			break;
 		}
-
 	}
 	scrolltoid_onupdate = 0;
 }

@@ -165,7 +165,16 @@ enum {	//window IDs
 	TPPWID_MARKALLREADBTN,
 	TPPWID_NEWESTUNREADBTN,
 	TPPWID_OLDESTUNREADBTN,
+	TPPWID_NEWESTHIGHLIGHTEDBTN,
+	TPPWID_OLDESTHIGHLIGHTEDBTN,
+	TPPWID_NEXT_NEWESTUNREADBTN,
+	TPPWID_NEXT_OLDESTUNREADBTN,
+	TPPWID_NEXT_NEWESTHIGHLIGHTEDBTN,
+	TPPWID_NEXT_OLDESTHIGHLIGHTEDBTN,
 	TPPWID_UNHIGHLIGHTALLBTN,
+	TPPWID_MOREBTN,
+	TPPWID_JUMPTONUM,
+	TPPWID_JUMPTOID,
 };
 
 enum {	//for pushflags
@@ -195,6 +204,7 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	wxButton *NewestUnreadBtn;
 	wxButton *OldestUnreadBtn;
 	wxButton *UnHighlightBtn;
+	wxButton *MoreBtn;
 	wxBoxSizer* headersizer;
 	uint64_t scrolltoid = 0;
 	uint64_t scrolltoid_onupdate = 0;
@@ -231,6 +241,7 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 struct tpanelparentwin_nt : public panelparentwin_base {
 	std::shared_ptr<tpanel> tp;
 	tweetdispscr_mouseoverwin *mouseoverwin = 0;
+	std::map<int, std::function<void(wxCommandEvent &event)> > btnhandlerlist;
 
 	tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent, wxString thisname_=wxT(""));
 	virtual ~tpanelparentwin_nt();
@@ -245,8 +256,9 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	virtual void HandleScrollToIDOnUpdate();
 	void markallreadevthandler(wxCommandEvent &event);
 	void markremoveallhighlightshandler(wxCommandEvent &event);
-	void movetonewestunreadhandler(wxCommandEvent &event);
-	void movetooldestunreadhandler(wxCommandEvent &event);
+	void setupnavbuttonhandlers();
+	void navbuttondispatchhandler(wxCommandEvent &event);
+	void morebtnhandler(wxCommandEvent &event);
 	void MarkClearCIDSSetHandler(std::function<tweetidset &(cached_id_sets &)> idsetselector, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc);
 	virtual bool IsSingleAccountWin() const { return tp->IsSingleAccountTPanel(); }
 	void EnumDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush);
