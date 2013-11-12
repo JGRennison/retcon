@@ -519,6 +519,7 @@ BEGIN_EVENT_TABLE(panelparentwin_base, wxPanel)
 	EVT_COMMAND(wxID_ANY, wxextTP_PAGEUP_EVENT, panelparentwin_base::pageupevthandler)
 	EVT_COMMAND(wxID_ANY, wxextTP_PAGEDOWN_EVENT, panelparentwin_base::pagedownevthandler)
 	EVT_BUTTON(TPPWID_TOPBTN, panelparentwin_base::pagetopevthandler)
+	EVT_MENU(TPPWID_TOPBTN, panelparentwin_base::pagetopevthandler)
 END_EVENT_TABLE()
 
 panelparentwin_base::panelparentwin_base(wxWindow *parent, bool fitnow, wxString thisname_)
@@ -1181,6 +1182,7 @@ void tpanelparentwin_nt::setupnavbuttonhandlers() {
 void tpanelparentwin_nt::morebtnhandler(wxCommandEvent &event) {
 	wxRect btnrect = MoreBtn->GetRect();
 	wxMenu pmenu;
+	pmenu.Append(TPPWID_TOPBTN, wxT("Jump To &Top"));
 	pmenu.Append(TPPWID_JUMPTONUM, wxT("&Jump To Nth Tweet"));
 	pmenu.Append(TPPWID_JUMPTOID, wxT("Jump To Tweet &ID"));
 	if(!tp->cids.highlightids.empty()) {
