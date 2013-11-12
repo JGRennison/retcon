@@ -653,6 +653,17 @@ void panelparentwin_base::CheckClearNoUpdateFlag() {
 	#endif
 }
 
+uint64_t panelparentwin_base::GetCurrentViewTopID() const {
+	int scrollstart;
+	scrollwin->GetViewStart(0, &scrollstart);
+	for(auto &it : currentdisp) {
+		int y;
+		it.second->GetPosition(0, &y);
+		if(y >= 0) return it.first;
+	}
+	return 0;
+}
+
 void panelparentwin_base::StartScrollFreeze(tppw_scrollfreeze &s) {
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::StartScrollFreeze(): %s"), GetThisName().c_str());

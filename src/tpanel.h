@@ -223,6 +223,7 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	void ShowHideButtons(std::string type, bool show);
 	virtual void NotifyRequestFailed() { }
 	inline wxString GetThisName() const { return thisname; }
+	uint64_t GetCurrentViewTopID() const;
 
 	DECLARE_EVENT_TABLE()
 };
