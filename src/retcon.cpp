@@ -641,3 +641,10 @@ bool LoadImageFromFileAndCheckHash(const wxString &filename, const unsigned char
 	if(data) free(data);
 	return success;
 }
+
+void SpliceTweetIDSet(tweetidset &set, tweetidset &out, uint64_t highlim_inc, uint64_t lowlim_inc, bool clearspliced) {
+		tweetidset::iterator start = set.lower_bound(highlim_inc);
+		tweetidset::iterator end = set.upper_bound(lowlim_inc);
+		out.insert(start, end);
+		if(clearspliced) set.erase(start, end);
+}

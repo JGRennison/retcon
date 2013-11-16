@@ -387,3 +387,5 @@ template <typename C, typename D> inline void ownstrtonum(C &val, D *str, ssize_
 		else break;
 	}
 }
+
+void SpliceTweetIDSet(tweetidset &set, tweetidset &out, uint64_t highlim_inc, uint64_t lowlim_inc, bool clearspliced);
