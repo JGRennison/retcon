@@ -102,8 +102,9 @@ uint64_t ParseUrlID(wxString url) {
 	return id;
 }
 
-void AppendToTAMIMenuMap(tweetactmenudata &map, int &nextid, TAMI_TYPE type, std::shared_ptr<tweet> tw, unsigned int dbindex, std::shared_ptr<userdatacontainer> user, unsigned int flags, wxString extra) {
-	map[nextid]={tw, user, type, dbindex, flags, extra};
+void AppendToTAMIMenuMap(tweetactmenudata &map, int &nextid, TAMI_TYPE type, std::shared_ptr<tweet> tw, unsigned int dbindex, std::shared_ptr<userdatacontainer> user,
+		unsigned int flags, wxString extra, panelparentwin_base *ppwb) {
+	map[nextid]={tw, user, type, dbindex, flags, extra, ppwb};
 	nextid++;
 }
 
@@ -159,6 +160,36 @@ void MakeMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::
 	wxMenuItem *wmi4 = menuP->Append(nextid, wxT("Highlighted"), wxT(""), wxITEM_CHECK);
 	wmi4->Check(tw->flags.Get('H'));
 	AppendToTAMIMenuMap(map, nextid, TAMI_TOGGLEHIGHLIGHT, tw);
+}
+
+void MakeTPanelMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw, tpanelparentwin_nt *tppw) {
+	size_t pos = menuP->GetMenuItemCount();
+
+	uint64_t twid = tw->id;
+	const std::shared_ptr<tpanel> &tp = tppw->tp;
+
+	if(!tp->cids.unreadids.empty()) {
+		if(twid < *(tp->cids.unreadids.begin())) {
+			menuP->Append(nextid, wxT("Mark Newer Read \x21A5"));
+			AppendToTAMIMenuMap(map, nextid, TAMI_MARKNEWERUNREAD, tw, 0, std::shared_ptr<userdatacontainer>(), 0, wxT(""), tppw);
+		}
+		if(twid > *(tp->cids.unreadids.rbegin())) {
+			menuP->Append(nextid, wxT("Mark Older Read \x21A7"));
+			AppendToTAMIMenuMap(map, nextid, TAMI_MARKOLDERUNREAD, tw, 0, std::shared_ptr<userdatacontainer>(), 0, wxT(""), tppw);
+		}
+	}
+	if(!tp->cids.highlightids.empty()) {
+		if(twid < *(tp->cids.highlightids.begin())) {
+			menuP->Append(nextid, wxT("Unhighlight Newer \x21A5"));
+			AppendToTAMIMenuMap(map, nextid, TAMI_MARKNEWERUNHIGHLIGHTED, tw, 0, std::shared_ptr<userdatacontainer>(), 0, wxT(""), tppw);
+		}
+		if(twid > *(tp->cids.highlightids.rbegin())) {
+			menuP->Append(nextid, wxT("Unhighlight Older \x21A7"));
+			AppendToTAMIMenuMap(map, nextid, TAMI_MARKOLDERUNHIGHLIGHTED, tw, 0, std::shared_ptr<userdatacontainer>(), 0, wxT(""), tppw);
+		}
+	}
+
+	if(pos != menuP->GetMenuItemCount()) menuP->InsertSeparator(pos);
 }
 
 void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
@@ -262,6 +293,38 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 			map[curid].tw->flags.Set('r', false);
 			map[curid].tw->flags.Set('u', false);
 			UpdateSingleTweetUnreadState(map[curid].tw);
+			break;
+		}
+		case TAMI_MARKNEWERUNREAD: {
+			tpanelparentwin_nt *tppw = static_cast<tpanelparentwin_nt *>(map[curid].ppwb);
+			if(tppw->tp->cids.unreadids.empty()) break;
+			tweetidset subset;
+			SpliceTweetIDSet(tppw->tp->cids.unreadids, subset, *(tppw->tp->cids.unreadids.begin()), map[curid].tw->id + 1, true);
+			tppw->MarkSetRead(std::move(subset));
+			break;
+		}
+		case TAMI_MARKOLDERUNREAD: {
+			tpanelparentwin_nt *tppw = static_cast<tpanelparentwin_nt *>(map[curid].ppwb);
+			if(tppw->tp->cids.unreadids.empty()) break;
+			tweetidset subset;
+			SpliceTweetIDSet(tppw->tp->cids.unreadids, subset, map[curid].tw->id - 1, 0, true);
+			tppw->MarkSetRead(std::move(subset));
+			break;
+		}
+		case TAMI_MARKNEWERUNHIGHLIGHTED: {
+			tpanelparentwin_nt *tppw = static_cast<tpanelparentwin_nt *>(map[curid].ppwb);
+			if(tppw->tp->cids.highlightids.empty()) break;
+			tweetidset subset;
+			SpliceTweetIDSet(tppw->tp->cids.highlightids, subset, *(tppw->tp->cids.highlightids.begin()), map[curid].tw->id + 1, true);
+			tppw->MarkSetUnhighlighted(std::move(subset));
+			break;
+		}
+		case TAMI_MARKOLDERUNHIGHLIGHTED: {
+			tpanelparentwin_nt *tppw = static_cast<tpanelparentwin_nt *>(map[curid].ppwb);
+			if(tppw->tp->cids.highlightids.empty()) break;
+			tweetidset subset;
+			SpliceTweetIDSet(tppw->tp->cids.highlightids, subset, map[curid].tw->id - 1, 0, true);
+			tppw->MarkSetUnhighlighted(std::move(subset));
 			break;
 		}
 		case TAMI_NULL: {

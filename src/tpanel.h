@@ -255,11 +255,15 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	virtual void JumpToTweetID(uint64_t id);
 	virtual void HandleScrollToIDOnUpdate();
 	void markallreadevthandler(wxCommandEvent &event);
+	void MarkSetRead();
+	void MarkSetRead(tweetidset &&subset);
 	void markremoveallhighlightshandler(wxCommandEvent &event);
+	void MarkSetUnhighlighted();
+	void MarkSetUnhighlighted(tweetidset &&subset);
 	void setupnavbuttonhandlers();
 	void navbuttondispatchhandler(wxCommandEvent &event);
 	void morebtnhandler(wxCommandEvent &event);
-	void MarkClearCIDSSetHandler(std::function<tweetidset &(cached_id_sets &)> idsetselector, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc);
+	void MarkClearCIDSSetHandler(std::function<tweetidset &(cached_id_sets &)> idsetselector, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc, const tweetidset &subset);
 	virtual bool IsSingleAccountWin() const { return tp->IsSingleAccountTPanel(); }
 	void EnumDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush);
 	void UpdateOwnTweet(const tweet &t, bool redrawimg);
@@ -383,5 +387,4 @@ struct mf_layout_desc {
 bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid=0);
 void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map);
 void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent);
-void AppendToTAMIMenuMap(tweetactmenudata &map, int &nextid, TAMI_TYPE type, std::shared_ptr<tweet> tw, unsigned int dbindex=0, std::shared_ptr<userdatacontainer> user=std::shared_ptr<userdatacontainer>(), unsigned int flags=0, wxString extra = wxT(""));
 void CheckClearNoUpdateFlag_All();

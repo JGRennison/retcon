@@ -904,6 +904,10 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 					wxMenu *marksubmenu = new wxMenu();
 					menu.AppendSubMenu(marksubmenu, wxT("Mark"));
 					MakeMarkMenu(marksubmenu, tamd, nextid, td);
+					tpanelparentwin_nt *tppw_nt = dynamic_cast<tpanelparentwin_nt *>(tppw);
+					if(tppw_nt) {
+						MakeTPanelMarkMenu(marksubmenu, tamd, nextid, td, tppw_nt);
+					}
 				}
 
 				bool deletable=false;
