@@ -77,7 +77,7 @@ void MakeRetweetMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const st
 void MakeFavMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw);
 void MakeCopyMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw);
 void MakeMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw);
-void MakeTPanelMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw, tpanelparentwin_nt *tppw = 0);
+void MakeTPanelMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw, tpanelparentwin_nt *tppw);
 void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin=0);
 uint64_t ParseUrlID(wxString url);
 media_id_type ParseMediaID(wxString url);

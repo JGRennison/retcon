@@ -1082,7 +1082,7 @@ void tpanelparentwin_nt::markremoveallhighlightshandler(wxCommandEvent &event) {
 }
 
 void tpanelparentwin_nt::MarkSetUnhighlighted() {
-	MarkSetRead(std::move(tp->cids.highlightids));
+	MarkSetUnhighlighted(std::move(tp->cids.highlightids));
 }
 
 void tpanelparentwin_nt::MarkSetUnhighlighted(tweetidset &&subset) {
