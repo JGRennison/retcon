@@ -930,17 +930,21 @@ void dbconn::InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string stat
 	if(tobj->rtsrc) msg->rtid=tobj->rtsrc->id;
 	else msg->rtid=0;
 
+	auto shouldsavemediaid = [&](const entity &ent) -> bool {
+		return (ent.media_id && ad.media_list[ent.media_id].flags&ME_IN_DB);
+	};
+
 	unsigned int count=0;
-	for(auto it=tobj->entlist.begin(); it!=tobj->entlist.end(); ++it) {
-		if(it->media_id) count++;
+	for(auto &it : tobj->entlist) {
+		if(shouldsavemediaid(it)) count++;
 	}
 	if(count) {
 		unsigned char *data=(unsigned char *) malloc(count*16);
 		unsigned char *curdata=data;
-		for(auto it=tobj->entlist.begin(); it!=tobj->entlist.end(); ++it) {
-			if(it->media_id && ad.media_list[it->media_id].flags&ME_IN_DB) {
-				writebeuint64(curdata, it->media_id.m_id);
-				writebeuint64(curdata+8, it->media_id.t_id);
+		for(auto &it : tobj->entlist) {
+			if(shouldsavemediaid(it)) {
+				writebeuint64(curdata, it.media_id.m_id);
+				writebeuint64(curdata+8, it.media_id.t_id);
 				curdata+=16;
 			}
 		}
