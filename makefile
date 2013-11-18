@@ -18,7 +18,8 @@ SPOBJS_SRC:=res.cpp version.cpp aboutwin.cpp
 COBJS_SRC:=utf8proc/utf8proc.c
 OUTNAME:=retcon
 COMMONCFLAGS=-Wall -Wno-unused-parameter -Winvalid-pch -Wno-unused-local-typedefs -I$(OBJDIR)/pch
-CFLAGS=-O3 $(COMMONCFLAGS)
+CFLAGS=-g -O3 $(COMMONCFLAGS)
+AFLAGS=-g
 CXXFLAGS=-std=gnu++0x -fno-exceptions
 GCC:=g++
 LD:=ld
@@ -31,6 +32,7 @@ MKDIR:=mkdir -p
 
 ifdef debug
 CFLAGS=-g $(COMMONCFLAGS)
+AFLAGS=-g
 #AFLAGS:=-Wl,-d,--export-all-symbols
 DEBUGPOSTFIX:=_debug
 OBJDIR:=$(OBJDIR)$(DEBUGPOSTFIX)
@@ -42,16 +44,13 @@ ifeq (mingw, $(findstring mingw,$(GCCMACHINE)))
 PLATFORM:=WIN
 AFLAGS+=-mwindows -s -static -Lwxlib -Llib
 GFLAGS=-mthreads
-#-LC:/SourceCode/wxwidgets/source/lib/gcc_lib
 CFLAGS+=-D CURL_STATICLIB
-#CXXFLAGS+=
 SUFFIX:=.exe
 LIBS32=-lpcre -lcurl -lwxmsw28u_richtext -lwxmsw28u_aui -lwxbase28u_xml -lwxexpat -lwxmsw28u_html -lwxmsw28u_adv -lwxmsw28u_media -lwxmsw28u_core -lwxbase28u -lwxjpeg -lwxpng -lwxtiff -lrtmp -lssh2 -lidn -lssl -lz -lcrypto -leay32 -lwldap32 -lws2_32 -lgdi32 -lshell32 -lole32 -luuid -lcomdlg32 -lwinspool -lcomctl32 -loleaut32 -lwinmm
 LIBS64=
 GCC32=i686-w64-mingw32-g++
 GCC64=x86_64-w64-mingw32-g++
 MCFLAGS=-Icurl -isystem wxinclude -Isqlite -Izlib -Isrc -I.
-#-IC:/SourceCode/wxwidgets/source/include
 HDEPS:=
 EXCOBJS_SRC+=sqlite/sqlite3.c
 DIRS+=$(OBJDIR)$(PATHSEP)deps$(PATHSEP)sqlite
@@ -82,7 +81,6 @@ PLATFORM:=UNIX
 LIBS:=-lpcre -lrt `wx-config --libs` -lcurl -lsqlite3 -lz -lcrypto
 MCFLAGS:=$(patsubst -I/%,-isystem /%,$(shell wx-config --cxxflags))
 PACKER:=upx -9
-#HDEPS:=
 GCC_MAJOR:=$(shell $(GCC) -dumpversion | cut -d'.' -f1)
 GCC_MINOR:=$(shell $(GCC) -dumpversion | cut -d'.' -f2)
 ARCH:=$(shell test $(GCC_MAJOR) -gt 4 -o \( $(GCC_MAJOR) -eq 4 -a $(GCC_MINOR) -ge 2 \) && echo native)
