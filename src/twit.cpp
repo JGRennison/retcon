@@ -148,6 +148,8 @@ void twitcurlext::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 	std::shared_ptr<taccount> acc=tacc.lock();
 	LogMsgFormat(LFT_OTHERTRACE, wxT("twitcurlext::NotifyDoneSuccess: for conn: %s, account: %s"), GetConnTypeName().c_str(), acc?acc->dispname.c_str():wxT("none"));
 	if(!acc) {
+		Reset();
+		delete this;
 		return;
 	}
 
@@ -173,7 +175,11 @@ void twitcurlext::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 
 void twitcurlext::ExecRestGetTweetBackfill() {
 	auto acc=tacc.lock();
-	if(!acc) delete this;
+	if(!acc) {
+		Reset();
+		delete this;
+		return;
+	}
 
 	bool cleanup=false;
 	unsigned int tweets_to_get=std::min((unsigned int) 200, rbfs->max_tweets_left);
@@ -334,7 +340,12 @@ void twitcurlext::DoRetry() {
 
 void twitcurlext::QueueAsyncExec() {
 	auto acc=tacc.lock();
-	if(!acc) delete this;
+	if(!acc) {
+		Reset();
+		delete this;
+		return;
+	}
+
 	if(acc->init && connmode==CS_ACCVERIFY) { }	//OK
 	else if(!acc->enabled) {
 		if(connmode==CS_POSTTWEET || connmode==CS_SENDDM) {
@@ -485,7 +496,11 @@ wxString twitcurlext::GetConnTypeName() {
 
 void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
 	auto acc=tacc.lock();
-	if(!acc) return;
+	if(!acc) {
+		Reset();
+		delete this;
+		return;
+	}
 
 	auto win=MagicWindowCast<panelparentwin_base>(mp);
 	if(win) win->NotifyRequestFailed();
