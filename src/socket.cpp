@@ -96,7 +96,7 @@ void mcurlconn::HandleError(CURL *easy, long httpcode, CURLcode res) {
 	}
 	switch(err) {
 		case MCC_RETRY:
-			LogMsgFormat(LFT_SOCKERR, wxT("About to retry request: type: %s, conn: %p, url: %s"), GetConnTypeName().c_str(), this, wxstrstd(url).c_str());
+			LogMsgFormat(LFT_SOCKERR, wxT("Adding request to retry queue: type: %s, conn: %p, url: %s"), GetConnTypeName().c_str(), this, wxstrstd(url).c_str());
 			sm.RetryConn(this);
 			break;
 		case MCC_FAILED:
@@ -709,6 +709,7 @@ void socketmanager::RetryConnNow() {
 	}
 	cs->mcflags&=~MCF_IN_RETRY_QUEUE;
 	cs->mcflags|=MCF_RETRY_NOW_ON_SUCCESS;
+	LogMsgFormat(LFT_SOCKTRACE, wxT("Dequeueing request from retry queue: type: %s, conn: %p, url: %s"), cs->GetConnTypeName().c_str(), cs, wxstrstd(cs->url).c_str());
 	cs->DoRetry();
 }
 

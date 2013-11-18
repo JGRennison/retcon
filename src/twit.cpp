@@ -604,6 +604,8 @@ void streamconntimeout::Arm() {
 }
 
 void streamconntimeout::Notify() {
+	auto acc = tw->tacc.lock();
+	LogMsgFormat(LFT_SOCKERR, wxT("Stream connection timed out: %s (%p)"), acc?acc->dispname.c_str():wxT(""), tw->GetCurlHandle());
 	tw->KillConn();
 	tw->HandleError(tw->GetCurlHandle(),0,CURLE_OPERATION_TIMEDOUT);
 }
