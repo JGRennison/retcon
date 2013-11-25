@@ -1,10 +1,15 @@
-#variables which can be pre-set (non-exhaustive list)
+#Variables which can be pre-set (non-exhaustive list)
+
 #ARCH: value for the switch: -march=
 #GCC: path to g++
 #debug: set to true to for a debug build
 #list: set to true to enable listings
 #map: set to true to enable linker map
 #cross: set to true if building on Unix, but build target is Windows
+
+#On Unixy platforms only
+#WXCFGFLAGS: additional arguments for wx-config
+
 #On windows only:
 #x64: set to true to compile for x86_64/win64
 
@@ -36,6 +41,7 @@ AFLAGS=-g
 #AFLAGS:=-Wl,-d,--export-all-symbols
 DEBUGPOSTFIX:=_debug
 OBJDIR:=$(OBJDIR)$(DEBUGPOSTFIX)
+WXCFGFLAGS:=--debug=yes
 endif
 
 GCCMACHINE:=$(shell $(GCC) -dumpmachine)
@@ -78,8 +84,8 @@ endif
 else
 #UNIX
 PLATFORM:=UNIX
-LIBS:=-lpcre -lrt `wx-config --libs` -lcurl -lsqlite3 -lz -lcrypto
-MCFLAGS:=$(patsubst -I/%,-isystem /%,$(shell wx-config --cxxflags))
+LIBS:=-lpcre -lrt `wx-config --libs $(WXCFGFLAGS)` -lcurl -lsqlite3 -lz -lcrypto
+MCFLAGS:=$(patsubst -I/%,-isystem /%,$(shell wx-config --cxxflags $(WXCFGFLAGS)))
 PACKER:=upx -9
 GCC_MAJOR:=$(shell $(GCC) -dumpversion | cut -d'.' -f1)
 GCC_MINOR:=$(shell $(GCC) -dumpversion | cut -d'.' -f2)
