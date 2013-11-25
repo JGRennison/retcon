@@ -139,8 +139,10 @@ void dlconn::Init(const std::string &url_) {
 	#endif
 	curl_easy_setopt(curlHandle, CURLOPT_HTTPGET, 1);
 	curl_easy_setopt(curlHandle, CURLOPT_URL, url.c_str());
-        curl_easy_setopt(curlHandle, CURLOPT_WRITEFUNCTION, curlCallback );
-        curl_easy_setopt(curlHandle, CURLOPT_WRITEDATA, this );
+	curl_easy_setopt(curlHandle, CURLOPT_WRITEFUNCTION, curlCallback );
+	curl_easy_setopt(curlHandle, CURLOPT_WRITEDATA, this );
+	curl_easy_setopt(curlHandle, CURLOPT_FOLLOWLOCATION, 1);
+	curl_easy_setopt(curlHandle, CURLOPT_MAXREDIRS, 5);
 	sm.AddConn(curlHandle, this);
 }
 
