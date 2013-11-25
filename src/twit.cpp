@@ -786,10 +786,18 @@ void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, 
 	subhbox->Add(subtd->bm, 0, wxALL, 1);
 	subhbox->Add(subtd, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
 
+	wxFont newfont;
 	wxTextAttrEx tae(subtd->GetDefaultStyleEx());
-	wxFont newfont(tae.GetFont());
-	int newsize=((newfont.GetPointSize()*3)+2)/4;
-	if(!newsize) newsize=7;
+	if(tae.HasFont()) {
+		newfont = tae.GetFont();
+	}
+	else {
+		newfont = subtd->GetFont();
+	}
+	int newsize = 0;
+	if(newfont.IsOk()) newsize = ((newfont.GetPointSize() * 3) + 2) / 4;
+	if(!newsize) newsize = 7;
+
 	newfont.SetPointSize(newsize);
 	tae.SetFont(newfont);
 	subtd->SetFont(newfont);
