@@ -273,24 +273,26 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 		if(flags&MIDC_THUMBIMG) {
 			wxMemoryInputStream memstream(data.data(), data.size());
 			wxImage img(memstream);
-			const int maxdim=64;
-			if(img.GetHeight()>maxdim || img.GetWidth()>maxdim) {
-				double scalefactor=(double) maxdim / (double) std::max(img.GetHeight(), img.GetWidth());
-				int newwidth = (double) img.GetWidth() * scalefactor;
-				int newheight = (double) img.GetHeight() * scalefactor;
-				me.thumbimg=img.Scale(std::lround(newwidth), std::lround(newheight), wxIMAGE_QUALITY_HIGH);
-			}
-			else me.thumbimg=img;
-			me.flags|=ME_HAVE_THUMB;
-			if(gc.cachethumbs) {
-				wxMemoryOutputStream memstr;
-				me.thumbimg.SaveFile(memstr, wxBITMAP_TYPE_PNG);
-				const unsigned char *data=(const unsigned char *) memstr.GetOutputStreamBuffer()->GetBufferStart();
-				size_t size=memstr.GetSize();
-				wxFile file(me.cached_thumb_filename(), wxFile::write);
-				file.Write(data, size);
-				SHA1(data, size, me.thumb_img_sha1);
-				dbc.UpdateMediaChecksum(me, false);
+			if(img.IsOk()) {
+				const int maxdim=64;
+				if(img.GetHeight()>maxdim || img.GetWidth()>maxdim) {
+					double scalefactor=(double) maxdim / (double) std::max(img.GetHeight(), img.GetWidth());
+					int newwidth = (double) img.GetWidth() * scalefactor;
+					int newheight = (double) img.GetHeight() * scalefactor;
+					me.thumbimg=img.Scale(std::lround(newwidth), std::lround(newheight), wxIMAGE_QUALITY_HIGH);
+				}
+				else me.thumbimg=img;
+				me.flags|=ME_HAVE_THUMB;
+				if(gc.cachethumbs) {
+					wxMemoryOutputStream memstr;
+					me.thumbimg.SaveFile(memstr, wxBITMAP_TYPE_PNG);
+					const unsigned char *data=(const unsigned char *) memstr.GetOutputStreamBuffer()->GetBufferStart();
+					size_t size=memstr.GetSize();
+					wxFile file(me.cached_thumb_filename(), wxFile::write);
+					file.Write(data, size);
+					SHA1(data, size, me.thumb_img_sha1);
+					dbc.UpdateMediaChecksum(me, false);
+				}
 			}
 		}
 

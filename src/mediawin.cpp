@@ -200,7 +200,7 @@ void media_display_win::GetImage(wxString &message) {
 			if(load_image) {
 				wxMemoryInputStream memstream2(me->fulldata.data(), me->fulldata.size());
 				current_img.LoadFile(memstream2, wxBITMAP_TYPE_ANY);
-				img_ok = true;
+				if(current_img.IsOk()) img_ok = true;
 
 			}
 			return;
