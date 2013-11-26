@@ -42,6 +42,8 @@ struct user_window: public wxDialog, public magic_ptr_base {
 	std::shared_ptr<userdatacontainer> u;
 	std::weak_ptr<taccount> acc_hint;
 
+	wxFlexGridSizer *if_grid;
+
 	wxStaticBitmap *usericon;
 	wxStaticText *name;
 	wxStaticText *screen_name;
@@ -56,6 +58,7 @@ struct user_window: public wxDialog, public magic_ptr_base {
 	wxStaticText *follows;
 	wxStaticText *faved;
 	wxStaticText *createtime;
+	wxStaticText *url_label;
 	wxHyperlinkCtrl *url;
 	wxHyperlinkCtrl *profileurl;
 	wxStaticText *lastupdate;

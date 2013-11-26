@@ -119,7 +119,7 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 
 	wxPanel *infopanel=new wxPanel(nb, wxID_ANY);
 	vbox->Add(nb, 0, wxALL | wxEXPAND, 4);
-	wxFlexGridSizer *if_grid=new wxFlexGridSizer(0, 2, 2, 2);
+	if_grid = new wxFlexGridSizer(0, 2, 2, 2);
 	infopanel->SetSizer(if_grid);
 	insert_uw_row(infopanel, if_grid, wxT("Name:"), name2);
 	insert_uw_row(infopanel, if_grid, wxT("Screen Name:"), screen_name2);
@@ -132,12 +132,13 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	insert_uw_row(infopanel, if_grid, wxT("Following:"), follows);
 	insert_uw_row(infopanel, if_grid, wxT("Has Favourited:"), faved);
 
-	if_grid->Add(new wxStaticText(infopanel, wxID_ANY, wxT("Web URL:")), 0, wxALL, 2);
-	url=new wxHyperlinkCtrl(infopanel, wxID_ANY, wxT(""), wxT(""), wxDefaultPosition, wxDefaultSize, wxNO_BORDER|wxHL_CONTEXTMENU|wxHL_ALIGN_LEFT);
+	url_label = new wxStaticText(infopanel, wxID_ANY, wxT("Web URL:"));
+	if_grid->Add(url_label, 0, wxALL, 2);
+	url=new wxHyperlinkCtrl(infopanel, wxID_ANY, wxT("url"), wxT("url"), wxDefaultPosition, wxDefaultSize, wxNO_BORDER|wxHL_CONTEXTMENU|wxHL_ALIGN_LEFT);
 	if_grid->Add(url, 0, wxALL, 2);
 
 	if_grid->Add(new wxStaticText(infopanel, wxID_ANY, wxT("Profile URL:")), 0, wxALL, 2);
-	profileurl=new wxHyperlinkCtrl(infopanel, wxID_ANY, wxT(""), wxT(""), wxDefaultPosition, wxDefaultSize, wxNO_BORDER|wxHL_CONTEXTMENU|wxHL_ALIGN_LEFT);
+	profileurl=new wxHyperlinkCtrl(infopanel, wxID_ANY, wxT("url"), wxT("url"), wxDefaultPosition, wxDefaultSize, wxNO_BORDER|wxHL_CONTEXTMENU|wxHL_ALIGN_LEFT);
 	if_grid->Add(profileurl, 0, wxALL, 2);
 
 	insert_uw_row(infopanel, if_grid, wxT("Creation Time:"), createtime);
@@ -319,8 +320,21 @@ void user_window::Refresh(bool refreshimg) {
 	followers->SetLabel(wxString::Format(wxT("%d"), u->GetUser().followers_count));
 	follows->SetLabel(wxString::Format(wxT("%d"), u->GetUser().friends_count));
 	faved->SetLabel(wxString::Format(wxT("%d"), u->GetUser().favourites_count));
-	url->SetLabel(wxstrstd(u->GetUser().userurl));
-	url->SetURL(wxstrstd(u->GetUser().userurl));
+
+	bool showurl = !u->GetUser().userurl.empty();
+	if(showurl) {
+		wxString wurl = wxstrstd(u->GetUser().userurl);
+		url->SetLabel(wurl);
+		url->SetURL(wurl);
+
+	}
+	else {
+		url->SetLabel(wxT("<empty>"));
+		url->SetURL(wxT("<empty>"));
+	}
+	if_grid->Show(url, showurl);
+	if_grid->Show(url_label, showurl);
+
 	wxString profurl = wxstrstd(u->GetPermalink(true));
 	profileurl->SetLabel(profurl);
 	profileurl->SetURL(profurl);
