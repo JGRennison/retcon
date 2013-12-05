@@ -47,7 +47,7 @@ genoptglobconf gcglobdefaults {
 	{ wxT("XiXrXtXfXd"), 1 },
 	{ wxT(""), 1 },
 	{ wxT("+#320000"), 1 },
-	{ wxStandardPaths::Get().GetDocumentsDir(), 1 },
+	{ wxT(""), 1 },		//this is initialised in InitCFGDefaults()
 };
 
 void taccount::CFGWriteOut(DBWriteConfig &twfc) {
@@ -211,4 +211,9 @@ void WriteAllCFGOut(sqlite3 *db, globconf &gc, std::list<std::shared_ptr<taccoun
 
 void AllUsersInheritFromParentIfUnset() {
 	for(auto it=alist.begin() ; it != alist.end(); ++it ) (*it)->cfg.InheritFromParent(gc.cfg, true);
+}
+
+void InitCFGDefaults() {
+	//this is done because wxStandardPaths needs wxApp to be initialised first
+	gcglobdefaults.mediasave_directorylist.val = wxStandardPaths::Get().GetDocumentsDir();
 }

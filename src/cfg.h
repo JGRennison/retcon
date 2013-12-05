@@ -84,6 +84,7 @@ struct globconf {
 void ReadAllCFGIn(sqlite3 *db, globconf &gc, std::list<std::shared_ptr<taccount>> &alist);
 void WriteAllCFGOut(sqlite3 *db, globconf &gc, std::list<std::shared_ptr<taccount>> &alist);
 void AllUsersInheritFromParentIfUnset();
+void InitCFGDefaults();
 
 extern globconf gc;
 extern genoptconf gcdefaults;

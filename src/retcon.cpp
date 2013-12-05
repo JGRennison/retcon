@@ -46,6 +46,7 @@ bool retcon::OnInit() {
 	if(!::wxDirExists(wxStandardPaths::Get().GetUserDataDir())) {
 		::wxMkdir(wxStandardPaths::Get().GetUserDataDir(), 0777);
 	}
+	InitCFGDefaults();
 	SetTermSigHandler();
 	sm.InitMultiIOHandler();
 	rs.add([&]() { sm.DeInitMultiIOHandler(); });
