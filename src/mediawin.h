@@ -33,8 +33,9 @@ struct image_panel : public wxPanel {
 };
 
 enum {
-	MDID_SAVE=1,
-	MDID_TIMER_EVT=2,
+	MDID_SAVE            = 1,
+	MDID_TIMER_EVT       = 2,
+	MDID_DYN_START       = wxID_HIGHEST + 1,
 };
 
 struct media_display_win : public wxFrame {
@@ -43,7 +44,8 @@ struct media_display_win : public wxFrame {
 	image_panel *sb;
 	wxStaticText *st;
 	wxBoxSizer *sz;
-	wxMenuItem *savemenuitem;
+	std::function<void(bool)> setsavemenuenablestate;
+	std::vector<std::function<void(wxMenuEvent &)> > menuopenhandlers;
 	wxAnimation anim;
 	bool is_animated = false;
 	bool img_ok = false;
@@ -54,6 +56,8 @@ struct media_display_win : public wxFrame {
 	wxAnimationCtrl anim_ctrl;
 	bool using_anim_ctrl = false;
 #endif
+	std::map<int, std::function<void(wxCommandEvent &event)> > dynmenuhandlerlist;
+	int next_dynmenu_id = MDID_DYN_START;
 
 	media_display_win(wxWindow *parent, media_id_type media_id_);
 	~media_display_win();
@@ -61,8 +65,11 @@ struct media_display_win : public wxFrame {
 	void GetImage(wxString &message);
 	media_entity *GetMediaEntity();
 	void OnSave(wxCommandEvent &event);
+	void SaveToDir(const wxString &dir);
 	void DelayLoadNextAnimFrame();
 	void OnAnimationTimer(wxTimerEvent& event);
+	void dynmenudispatchhandler(wxCommandEvent &event);
+	void OnMenuOpen(wxMenuEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };

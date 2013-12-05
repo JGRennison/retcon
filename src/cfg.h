@@ -58,6 +58,7 @@ struct genoptglobconf {
 	genopt mouseover_rtdispformat;
 	genopt mouseover_userdispformat;
 	genopt highlight_colourdelta;
+	genopt mediasave_directorylist;
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent);
 };

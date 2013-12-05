@@ -23,6 +23,8 @@
 #include <wx/filedlg.h>
 #include <wx/dcclient.h>
 #include <wx/dcscreen.h>
+#include <wx/tokenzr.h>
+#include <wx/filename.h>
 
 #if defined(__WXGTK__)
 #include <gdk-pixbuf/gdk-pixbuf.h>
@@ -64,6 +66,7 @@ void image_panel::UpdateBitmap() {
 BEGIN_EVENT_TABLE(media_display_win, wxFrame)
 	EVT_MENU(MDID_SAVE,  media_display_win::OnSave)
 	EVT_TIMER(MDID_TIMER_EVT, media_display_win::OnAnimationTimer)
+	EVT_MENU_OPEN(media_display_win::OnMenuOpen)
 END_EVENT_TABLE()
 
 media_display_win::media_display_win(wxWindow *parent, media_id_type media_id_)
@@ -87,10 +90,49 @@ media_display_win::media_display_win(wxWindow *parent, media_id_type media_id_)
 	}
 
 	wxMenu *menuF = new wxMenu;
-	savemenuitem=menuF->Append( MDID_SAVE, wxT("&Save Image"));
+	menuF->Append(MDID_SAVE, wxT("&Save..."));
+
+	menuopenhandlers.push_back([this, menuF](wxMenuEvent &event) {
+		if(event.GetMenu() != menuF) return;
+
+		wxMenuItemList items = menuF->GetMenuItems();		//make a copy to avoid memory issues if Destroy modifies the list
+		for(auto &it : items) {
+			menuF->Destroy(it);
+		}
+
+		menuF->Append(MDID_SAVE, wxT("&Save..."));
+
+		wxStringTokenizer tkn(gc.gcfg.mediasave_directorylist.val, wxT("\r\n"), wxTOKEN_STRTOK);
+
+		bool added_seperator = false;
+
+		while(tkn.HasMoreTokens()) {
+			wxString token = tkn.GetNextToken();
+
+			if(!wxFileName::DirExists(token)) continue;
+
+			if(!added_seperator) {
+				menuF->AppendSeparator();
+				added_seperator = true;
+			}
+
+			menuF->Append(next_dynmenu_id, wxT("Save to: ") + token);
+
+			dynmenuhandlerlist[next_dynmenu_id] = [token, this](wxCommandEvent &event) {
+				this->SaveToDir(token);
+			};
+			Connect(next_dynmenu_id, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(media_display_win::dynmenudispatchhandler));
+			next_dynmenu_id++;
+		}
+	});
 
 	wxMenuBar *menuBar = new wxMenuBar;
-	menuBar->Append(menuF, wxT("&File"));
+	int menubarcount = menuBar->GetMenuCount();
+	setsavemenuenablestate = [menubarcount, this, menuBar](bool enable) {
+		menuBar->EnableTop(menubarcount, enable);
+	};
+
+	menuBar->Append(menuF, wxT("&Save Image"));
 
 	SetMenuBar( menuBar );
 
@@ -106,11 +148,21 @@ media_display_win::~media_display_win() {
 	if(me) me->win=0;
 }
 
+void media_display_win::dynmenudispatchhandler(wxCommandEvent &event) {
+	dynmenuhandlerlist[event.GetId()](event);
+}
+
+void media_display_win::OnMenuOpen(wxMenuEvent &event) {
+	for(auto &it : menuopenhandlers) {
+		it(event);
+	}
+}
+
 void media_display_win::UpdateImage() {
 	wxString message;
 	GetImage(message);
 	if(img_ok) {
-		savemenuitem->Enable(true);
+		setsavemenuenablestate(true);
 		if(st) {
 			sz->Detach(st);
 			st->Destroy();
@@ -155,7 +207,7 @@ void media_display_win::UpdateImage() {
 		if(is_animated) DelayLoadNextAnimFrame();
 	}
 	else {
-		savemenuitem->Enable(false);
+		setsavemenuenablestate(false);
 		if(sb) {
 			sz->Detach(sb);
 			sb->Destroy();
@@ -244,6 +296,10 @@ media_entity *media_display_win::GetMediaEntity() {
 }
 
 void media_display_win::OnSave(wxCommandEvent &event) {
+	SaveToDir(wxT(""));
+}
+
+void media_display_win::SaveToDir(const wxString &dir) {
 	media_entity *me=GetMediaEntity();
 	if(me) {
 		wxString hint;
@@ -253,7 +309,7 @@ void media_display_win::OnSave(wxCommandEvent &event) {
 		if(hasext) hint+=wxT(".")+ext;
 		wxString newhint;
 		if(hint.EndsWith(wxT(":large"), &newhint)) hint=newhint;
-		wxString filename=wxFileSelector(wxT("Save Image"), wxT(""), hint, ext, wxT("*.*"), wxFD_SAVE | wxFD_OVERWRITE_PROMPT, this);
+		wxString filename=wxFileSelector(wxT("Save Image"), dir, hint, ext, wxT("*.*"), wxFD_SAVE | wxFD_OVERWRITE_PROMPT, this);
 		if(filename.Len()) {
 			wxFile file(filename, wxFile::write);
 			file.Write(me->fulldata.data(), me->fulldata.size());

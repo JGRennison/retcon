@@ -218,6 +218,7 @@ enum {
 	DCBV_ISGLOBALCFG	= 1<<1,
 	DCBV_ADVOPTION		= 1<<2,
 	DCBV_VERYADVOPTION	= 1<<3,
+	DCBV_MULTILINE		= 1<<4,
 };
 
 struct DefaultChkBoxValidator : public wxValidator {
@@ -302,6 +303,7 @@ enum {
 	OPTWIN_NETWORK,
 	OPTWIN_CACHING,
 	OPTWIN_TWITTER,
+	OPTWIN_SAVING,
 
 	OPTWIN_LAST,
 };
@@ -310,7 +312,7 @@ void settings_window::AddSettingRow_String(unsigned int win, wxWindow* parent, w
 	wxTextValidator deftv(style, &val.val);
 	if(!textctrlvalidator) textctrlvalidator=&deftv;
 	wxStaticText *stat=new wxStaticText(parent, wxID_ANY, name);
-	wxTextCtrl *tc=new wxTextCtrl(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, 0, *textctrlvalidator);
+	wxTextCtrl *tc=new wxTextCtrl(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, (flags & DCBV_MULTILINE) ? wxTE_MULTILINE : 0, *textctrlvalidator);
 	DefaultChkBoxValidator dcbv(val, parentval, flags, tc);
 	wxCheckBox *chk=new wxCheckBox(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, 0, dcbv);
 
@@ -399,6 +401,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	addbtn(OPTWIN_NETWORK, wxT("Network"));
 	addbtn(OPTWIN_CACHING, wxT("Caching"));
 	addbtn(OPTWIN_TWITTER, wxT("Twitter"));
+	addbtn(OPTWIN_SAVING, wxT("Saving"));
 
 	vbox->Add(hbox1, 0, wxALL | wxEXPAND | wxALIGN_TOP , 4);
 	hbox1->Add(fgs, 0, wxALL | wxEXPAND | wxALIGN_TOP , 4);
@@ -439,6 +442,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_Bool(OPTWIN_CACHING, panel, fgs,  wxT("Cache full-size media images"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.cachemedia, gcglobdefaults.cachemedia);
 	AddSettingRow_Bool(OPTWIN_CACHING, panel, fgs,  wxT("Check incoming media against cache"), DCBV_ISGLOBALCFG | DCBV_VERYADVOPTION, gc.gcfg.persistentmediacache, gcglobdefaults.persistentmediacache);
 	AddSettingRow_Bool(OPTWIN_TWITTER, panel, fgs,  wxT("Assume that mentions are a subset of the home timeline"), DCBV_ISGLOBALCFG | DCBV_VERYADVOPTION, gc.gcfg.assumementionistweet, gcglobdefaults.assumementionistweet);
+	AddSettingRow_String(OPTWIN_SAVING, panel, fgs,  wxT("Media Image\nSave Directories\n(1 per line)"), DCBV_ISGLOBALCFG | DCBV_MULTILINE, gc.gcfg.mediasave_directorylist, gcglobdefaults.mediasave_directorylist);
 
 	lb=new wxChoice(panel, wxID_FILE1);
 

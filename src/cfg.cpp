@@ -47,6 +47,7 @@ genoptglobconf gcglobdefaults {
 	{ wxT("XiXrXtXfXd"), 1 },
 	{ wxT(""), 1 },
 	{ wxT("+#320000"), 1 },
+	{ wxStandardPaths::Get().GetDocumentsDir(), 1 },
 };
 
 void taccount::CFGWriteOut(DBWriteConfig &twfc) {
@@ -145,6 +146,7 @@ void genoptglobconf::CFGWriteOut(DBWriteConfig &twfc) {
 	persistentmediacache.CFGWriteOutCurDir(twfc, "persistentmediacache");
 	rtdisp.CFGWriteOutCurDir(twfc, "rtdisp");
 	assumementionistweet.CFGWriteOutCurDir(twfc, "assumementionistweet");
+	mediasave_directorylist.CFGWriteOutCurDir(twfc, "mediasave_directorylist");
 }
 void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent) {
 	twfc.SetDBIndexGlobal();
@@ -166,6 +168,7 @@ void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent)
 	persistentmediacache.CFGReadInCurDir(twfc, "persistentmediacache", parent.persistentmediacache.val);
 	rtdisp.CFGReadInCurDir(twfc, "rtdisp", parent.rtdisp.val);
 	assumementionistweet.CFGReadInCurDir(twfc, "assumementionistweet", parent.assumementionistweet.val);
+	mediasave_directorylist.CFGReadInCurDir(twfc, "mediasave_directorylist", parent.mediasave_directorylist.val);
 }
 
 void genopt::CFGWriteOutCurDir(DBWriteConfig &twfc, const char *name) {
