@@ -18,12 +18,27 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-#include "retcon.h"
+#include "univdefs.h"
+#include "db.h"
+#include "taccount.h"
+#include "log.h"
+#include "twit.h"
+#include "util.h"
+#include "rapidjson-inc.h"
+#include "twitcurlext.h"
+#include "alldata.h"
+#include "parse.h"
+#include "tpanel.h"
 #ifdef __WINDOWS__
 #include <windows.h>
 #endif
+#ifdef _GNU_SOURCE
+#include <pthread.h>
+#endif
 #include <zlib.h>
 #include <wx/msgdlg.h>
+
+dbconn dbc;
 
 //don't modify these
 static const unsigned char jsondictionary[]="<a href=\"http://retweet_countsourcetextentitiesindiceshashtagsurlsdisplayexpandedjpgpnguser_mentionsmediaidhttptweetusercreatedfavoritedscreen_namein_reply_to_user_idprofileprotectedfollowdescriptionfriends"

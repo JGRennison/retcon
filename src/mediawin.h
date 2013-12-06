@@ -18,7 +18,30 @@
 //  2013 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
+#ifndef HGUARD_SRC_MEDIAWIN
+#define HGUARD_SRC_MEDIAWIN
+
+#include "univdefs.h"
+#include "twit-common.h"
+#include <wx/panel.h>
+#include <wx/gdicmn.h>
+#include <wx/event.h>
+#include <wx/bitmap.h>
+#include <wx/image.h>
 #include <wx/animate.h>
+#include <wx/menu.h>
+#include <wx/timer.h>
+#include <wx/sizer.h>
+#include <wx/stattext.h>
+#include <wx/window.h>
+#include <wx/frame.h>
+#include <string>
+#include <functional>
+#include <vector>
+#include <map>
+
+struct media_display_win;
+struct media_entity;
 
 struct image_panel : public wxPanel {
 	image_panel(media_display_win *parent, wxSize size=wxDefaultSize);
@@ -73,3 +96,5 @@ struct media_display_win : public wxFrame {
 
 	DECLARE_EVENT_TABLE()
 };
+
+#endif

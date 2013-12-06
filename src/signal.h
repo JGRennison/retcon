@@ -18,4 +18,10 @@
 //  2013 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
+#ifndef HGUARD_SRC_SIGNAL
+#define HGUARD_SRC_SIGNAL
+
+#include "univdefs.h"
 void SetTermSigHandler();
+
+#endif

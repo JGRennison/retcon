@@ -18,6 +18,10 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
+#ifndef HGUARD_SRC_MAGIC_PTR
+#define HGUARD_SRC_MAGIC_PTR
+
+#include "univdefs.h"
 #include <vector>
 
 struct magic_ptr_base;
@@ -199,3 +203,4 @@ template <typename C, typename D> struct magic_paired_ptr_ts {
 	}
 };
 
+#endif

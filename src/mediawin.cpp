@@ -18,13 +18,22 @@
 //  2013 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-#include "retcon.h"
+#include "univdefs.h"
+#include "mediawin.h"
+#include "alldata.h"
+#include "twit.h"
+#include "util.h"
+#include "log.h"
+#include "socket.h"
+#include "cfg.h"
 #include <wx/filename.h>
 #include <wx/filedlg.h>
 #include <wx/dcclient.h>
 #include <wx/dcscreen.h>
 #include <wx/tokenzr.h>
 #include <wx/filename.h>
+#include <wx/mstream.h>
+#include <wx/file.h>
 
 #if defined(__WXGTK__)
 #include <gdk-pixbuf/gdk-pixbuf.h>

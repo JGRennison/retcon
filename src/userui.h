@@ -18,11 +18,31 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
+#ifndef HGUARD_SRC_USERUI
+#define HGUARD_SRC_USERUI
+
+#include "univdefs.h"
+#include "magic_ptr.h"
 #include <wx/hyperlink.h>
 #include <wx/radiobox.h>
 #include <wx/valgen.h>
+#include <wx/notebook.h>
+#include <wx/event.h>
+#include <wx/timer.h>
+#include <wx/sizer.h>
+#include <wx/statbmp.h>
+#include <wx/stattext.h>
+#include <wx/button.h>
+#include <wx/choice.h>
+#include <wx/dialog.h>
+#include <memory>
+#include <forward_list>
 
 struct acc_choice;
+struct tpanelparentwin_usertweets;
+struct tpanelparentwin_userproplisting;
+struct userdatacontainer;
+struct taccount;
 
 struct notebook_event_prehandler : public wxEvtHandler {
 	void OnPageChange(wxNotebookEvent &event);
@@ -143,3 +163,5 @@ struct user_lookup_dlg: public wxDialog {
 
 	DECLARE_EVENT_TABLE()
 };
+
+#endif

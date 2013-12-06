@@ -18,8 +18,20 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-#include "retcon.h"
+#include "univdefs.h"
+#include "dispscr.h"
 #include "utf8.h"
+#include "log.h"
+#include "tpanel.h"
+#include "uiutil.h"
+#include "twit.h"
+#include "util.h"
+#include "cfg.h"
+#include "taccount.h"
+#include "alldata.h"
+#include "mediawin.h"
+#include "userui.h"
+#include "mainui.h"
 
 #ifndef DISPSCR_COPIOUS_LOGGING
 #define DISPSCR_COPIOUS_LOGGING 0

@@ -18,50 +18,27 @@
 //  2013 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-#ifndef HGUARD_SRC_RAII
-#define HGUARD_SRC_RAII
+#ifndef HGUARD_SRC_USER_RELATIONSHIP
+#define HGUARD_SRC_USER_RELATIONSHIP
 
 #include "univdefs.h"
-#include <functional>
-#include <vector>
 
-class raii {
-	std::function<void()> f;
-
-	public:
-	raii(std::function<void()> func) : f(std::move(func)) { }
-	void cancel() {
-		f = nullptr;
-	}
-	void exec() {
-		if(f) f();
-		f = nullptr;
-	}
-	~raii() {
-		exec();
-	}
+//flags for user_relationship::ur_flags
+enum {
+	URF_FOLLOWSME_KNOWN      = 1<<0,
+	URF_FOLLOWSME_TRUE       = 1<<1,
+	URF_IFOLLOW_KNOWN        = 1<<2,
+	URF_IFOLLOW_TRUE         = 1<<3,
+	URF_FOLLOWSME_PENDING    = 1<<4,
+	URF_IFOLLOW_PENDING      = 1<<5,
+	URF_QUERY_PENDING        = 1<<6,
 };
 
-class raii_set {
-	std::vector<std::function<void()> > f_set;
-
-	public:
-	raii_set() { }
-	void add(std::function<void()> func) {
-		f_set.emplace_back(std::move(func));
-	}
-	void cancel() {
-		f_set.clear();
-	}
-	void exec() {
-		for(auto f = f_set.rbegin(); f != f_set.rend(); ++f) {
-			if(*f) (*f)();
-		}
-		f_set.clear();
-	}
-	~raii_set() {
-		exec();
-	}
+struct user_relationship {
+	unsigned int ur_flags;
+	time_t followsme_updtime;	//if these are 0 and the corresponding known flag is set, then the value is known to be correct whilst the stream is still up
+	time_t ifollow_updtime;
+	user_relationship() : ur_flags(0), followsme_updtime(0), ifollow_updtime(0) { }
 };
 
 #endif

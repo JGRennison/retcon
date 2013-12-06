@@ -17,9 +17,15 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
+#ifndef HGUARD_SRC_VERSION
+#define HGUARD_SRC_VERSION
+
+#include "univdefs.h"
 #include <wx/string.h>
 
 #define RETCON_VERSION_STR "0.0.3"
 
 extern const wxString appname;
 extern const wxString appversionname;
+
+#endif

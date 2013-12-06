@@ -18,4 +18,11 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
+#ifndef HGUARD_SRC_ABOUTWIN
+#define HGUARD_SRC_ABOUTWIN
+
+#include "univdefs.h"
+
 void OpenAboutWindow();
+
+#endif

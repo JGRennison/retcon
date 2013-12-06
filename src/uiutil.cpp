@@ -18,9 +18,22 @@
 //  2013 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-#include "retcon.h"
+#include "univdefs.h"
+#include "uiutil.h"
 #include "version.h"
+#include "twit.h"
+#include "twitcurlext.h"
+#include "taccount.h"
+#include "tpanel.h"
+#include "userui.h"
+#include "mediawin.h"
+#include "mainui.h"
+#include "alldata.h"
+#include "util.h"
+#include <wx/colour.h>
 #include <wx/clipbrd.h>
+#include <wx/dataobj.h>
+#include <algorithm>
 
 tweetactmenudata tamd;
 
@@ -337,68 +350,6 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 		twit->extra_id=map[curid].tw->id;
 		twit->QueueAsyncExec();
 	}
-}
-
-wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t timestamp, bool localtime) {
-	#ifdef __WINDOWS__	//%z is broken in MSVCRT, use a replacement
-				//also add %F, %R, %T, %s
-				//this is adapted from npipe var.cpp
-	wxString newfmt;
-	newfmt.Alloc(format.length());
-	wxString &real_format=newfmt;
-	const wxChar *ch=format.c_str();
-	const wxChar *cur=ch;
-	while(*ch) {
-		if(ch[0]=='%') {
-			wxString insert;
-			if(ch[1]=='z') {
-				int hh;
-				int mm;
-				if(localtime) {
-					TIME_ZONE_INFORMATION info;
-					DWORD res = GetTimeZoneInformation(&info);
-					int bias = - info.Bias;
-					if(res==TIME_ZONE_ID_DAYLIGHT) bias-=info.DaylightBias;
-					hh = bias / 60;
-					if(bias<0) bias=-bias;
-					mm = bias % 60;
-				}
-				else {
-					hh=mm=0;
-				}
-				insert.Printf(wxT("%+03d%02d"), hh, mm);
-			}
-			else if(ch[1]=='F') {
-				insert=wxT("%Y-%m-%d");
-			}
-			else if(ch[1]=='R') {
-				insert=wxT("%H:%M");
-			}
-			else if(ch[1]=='T') {
-				insert=wxT("%H:%M:%S");
-			}
-			else if(ch[1]=='s') {
-				insert.Printf(wxT("%" wxLongLongFmtSpec "d"), (long long int) timestamp);
-			}
-			else if(ch[1]) {
-				ch++;
-			}
-			if(insert.length()) {
-				real_format.Append(wxString(cur, ch-cur));
-				real_format.Append(insert);
-				cur=ch+2;
-			}
-		}
-		ch++;
-	}
-	real_format.Append(cur);
-	#else
-	const wxString &real_format=format;
-	#endif
-
-	char timestr[256];
-	strftime(timestr, sizeof(timestr), real_format.ToUTF8(), tm);
-	return wxstrstd(timestr);
 }
 
 wxString getreltimestr(time_t timestamp, time_t &updatetime) {

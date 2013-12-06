@@ -20,6 +20,11 @@
 
 //UTF-8 functions all assume perfectly valid UTF-8 for the most part
 
+#ifndef HGUARD_SRC_UTF8
+#define HGUARD_SRC_UTF8
+
+#include "univdefs.h"
+
 inline int getcharfromstr_utf8(const char *str) {
 	char c1=str[0];
 	if(!(c1&0x80)) return c1;
@@ -138,3 +143,5 @@ inline size_t strlen_utf8(const char *str, size_t bytes) {
 	}
 	return len;
 }
+
+#endif

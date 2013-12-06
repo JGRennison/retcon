@@ -18,6 +18,34 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
+#ifndef HGUARD_SRC_TWIT
+#define HGUARD_SRC_TWIT
+
+#include "univdefs.h"
+#include "magic_ptr.h"
+#include "twit-common.h"
+#include <memory>
+#include <functional>
+#include <bitset>
+#include <wx/bitmap.h>
+#include <wx/image.h>
+#include <wx/timer.h>
+#include <vector>
+#include <string>
+#include <forward_list>
+#include <deque>
+
+struct tpanelparentwin_nt;
+struct tpanel;
+struct entity;
+struct mainframe;
+struct tweetdispscr;
+struct media_display_win;
+struct twitcurlext;
+struct tweet;
+struct taccount;
+class wxSizer;
+
 void HandleNewTweet(const std::shared_ptr<tweet> &t);
 void UpdateTweet(const tweet &t, bool redrawimg=false);
 void UpdateAllTweets(bool redrawimg=false, bool resethighlight=false);
@@ -209,9 +237,7 @@ struct tpanelload_pending_op : public pending_op {
 	std::weak_ptr<tpanel> pushtpanel;
 	unsigned int pushflags;
 
-	tpanelload_pending_op(tpanelparentwin_nt* win_, unsigned int pushflags_=0, std::shared_ptr<tpanel> *pushtpanel_=0) : win(win_), pushflags(pushflags_) {
-		if(pushtpanel_) pushtpanel=*pushtpanel_;
-	}
+	tpanelload_pending_op(tpanelparentwin_nt* win_, unsigned int pushflags_=0, std::shared_ptr<tpanel> *pushtpanel_=0);
 
 	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags);
 	virtual wxString dump();
@@ -222,7 +248,7 @@ struct tpanel_subtweet_pending_op : public pending_op {
 	magic_ptr_ts<tpanelparentwin_nt> win;
 	magic_ptr_ts<tweetdispscr> parent_td;
 
-	tpanel_subtweet_pending_op(wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *t) : vbox(v), win(s), parent_td(t) { }
+	tpanel_subtweet_pending_op(wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *t);
 
 	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags);
 	virtual wxString dump();
@@ -323,57 +349,10 @@ struct media_entity {
 	media_entity() : win(0), flags(0) { }
 };
 
-typedef enum {
-	CS_NULL=0,
-	CS_ACCVERIFY=1,
-	CS_TIMELINE,
-	CS_STREAM,
-	CS_USERLIST,
-	CS_DMTIMELINE,
-	CS_FRIENDLOOKUP,
-	CS_USERLOOKUPWIN,
-	CS_FRIENDACTION_FOLLOW,
-	CS_FRIENDACTION_UNFOLLOW,
-	CS_POSTTWEET,
-	CS_SENDDM,
-	CS_FAV,
-	CS_UNFAV,
-	CS_RT,
-	CS_DELETETWEET,
-	CS_DELETEDM,
-	CS_USERTIMELINE,
-	CS_USERFAVS,
-	CS_USERFOLLOWING,
-	CS_USERFOLLOWERS,
-	CS_SINGLETWEET,
-} CS_ENUMTYPE;
-
 //for post_action_flags
 enum {
 	PAF_RESOLVE_PENDINGS		= 1<<0,
 	PAF_STREAM_CONN_READ_BACKFILL	= 1<<1,
-};
-
-typedef enum {			//do not change these values, they are saved/loaded to/from the DB
-	RBFS_MIN = 1,
-	RBFS_TWEETS = 1,
-	RBFS_MENTIONS,
-	RBFS_RECVDM,
-	RBFS_SENTDM,
-	RBFS_USER_TIMELINE,
-	RBFS_USER_FAVS,
-	RBFS_MAX = RBFS_USER_FAVS,
-} RBFS_TYPE;
-
-struct restbackfillstate {
-	uint64_t start_tweet_id;	//exclusive limit
-	uint64_t end_tweet_id;		//inclusive limit
-	uint64_t userid;
-	unsigned int max_tweets_left;
-	unsigned int lastop_recvcount;
-	RBFS_TYPE type;
-	bool read_again;
-	bool started;
 };
 
 struct userlookup {
@@ -402,44 +381,6 @@ struct friendlookup {
 	std::set<uint64_t> ids;
 };
 
-struct twitcurlext: public twitCurl, public mcurlconn {
-	std::weak_ptr<taccount> tacc;
-	CS_ENUMTYPE connmode = CS_ENUMTYPE::CS_NULL;
-	bool inited = false;
-	unsigned int tc_flags = 0;
-	unsigned int post_action_flags = 0;
-	std::shared_ptr<streamconntimeout> scto;
-	restbackfillstate *rbfs = 0;
-	std::unique_ptr<userlookup> ul;
-	std::string genurl;
-	std::string extra1;
-	uint64_t extra_id = 0;
-	mainframe *ownermainframe = 0;
-	magic_ptr mp;
-	std::unique_ptr<friendlookup> fl;
-
-	void NotifyDoneSuccess(CURL *easy, CURLcode res);
-	void TwInit(std::shared_ptr<taccount> acc);
-	void TwDeInit();
-	void TwStartupAccVerify();
-	bool TwSyncStartupAccVerify();
-	CURL *GenGetCurlHandle() { return GetCurlHandle(); }
-	twitcurlext(std::shared_ptr<taccount> acc);
-	twitcurlext();
-	virtual ~twitcurlext();
-	void Reset();
-	void DoRetry();
-	void HandleFailure(long httpcode, CURLcode res);
-	void QueueAsyncExec();
-	void ExecRestGetTweetBackfill();
-	virtual wxString GetConnTypeName();
-
-	DECLARE_EVENT_TABLE()
-};
-
-void StreamCallback(std::string &data, twitCurl* pTwitCurlObj, void *userdata);
-void StreamActivityCallback(twitCurl* pTwitCurlObj, void *userdata);
-
 void ParseTwitterDate(struct tm *createtm, time_t *createtm_t, const std::string &created_at);
 unsigned int TwitterCharCount(const char *in, size_t inlen);
 inline unsigned int TwitterCharCount(const std::string &str) { return TwitterCharCount(str.c_str(), str.size()); }
@@ -447,4 +388,8 @@ bool IsUserMentioned(const char *in, size_t inlen, const std::shared_ptr<userdat
 inline bool IsUserMentioned(const std::string &str, const std::shared_ptr<userdatacontainer> &u) { return IsUserMentioned(str.c_str(), str.size(), u); }
 #ifdef __WINDOWS__
 	struct tm *gmtime_r (const time_t *timer, struct tm *result);
+#endif
+
+void SpliceTweetIDSet(tweetidset &set, tweetidset &out, uint64_t highlim_inc, uint64_t lowlim_inc, bool clearspliced);
+
 #endif

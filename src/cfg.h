@@ -18,7 +18,18 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-#include <sqlite3.h>
+#ifndef HGUARD_SRC_CFG
+#define HGUARD_SRC_CFG
+
+#include "univdefs.h"
+#include <wx/string.h>
+#include <memory>
+#include <list>
+
+struct DBWriteConfig;
+struct DBReadConfig;
+struct taccount;
+struct sqlite3;
 
 struct genopt {
 	wxString val;
@@ -89,3 +100,5 @@ void InitCFGDefaults();
 extern globconf gc;
 extern genoptconf gcdefaults;
 extern genoptglobconf gcglobdefaults;
+
+#endif

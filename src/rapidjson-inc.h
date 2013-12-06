@@ -18,50 +18,24 @@
 //  2013 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-#ifndef HGUARD_SRC_RAII
-#define HGUARD_SRC_RAII
+#ifndef HGUARD_SRC_RAPIDJSON_INC
+#define HGUARD_SRC_RAPIDJSON_INC
 
 #include "univdefs.h"
-#include <functional>
-#include <vector>
+#include <wx/version.h>
+#include <wx/defs.h>
 
-class raii {
-	std::function<void()> f;
-
-	public:
-	raii(std::function<void()> func) : f(std::move(func)) { }
-	void cancel() {
-		f = nullptr;
-	}
-	void exec() {
-		if(f) f();
-		f = nullptr;
-	}
-	~raii() {
-		exec();
-	}
-};
-
-class raii_set {
-	std::vector<std::function<void()> > f_set;
-
-	public:
-	raii_set() { }
-	void add(std::function<void()> func) {
-		f_set.emplace_back(std::move(func));
-	}
-	void cancel() {
-		f_set.clear();
-	}
-	void exec() {
-		for(auto f = f_set.rbegin(); f != f_set.rend(); ++f) {
-			if(*f) (*f)();
-		}
-		f_set.clear();
-	}
-	~raii_set() {
-		exec();
-	}
-};
+#if wxCHECK_GCC_VERSION(4, 6)	//in old gccs, just leave the warnings turned off
+#pragma GCC diagnostic push
+#endif
+#pragma GCC diagnostic ignored "-Wtype-limits"
+#pragma GCC diagnostic ignored "-Wuninitialized"
+#if wxCHECK_GCC_VERSION(4, 7)
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+#include "rapidjson/document.h"
+#if wxCHECK_GCC_VERSION(4, 6)
+#pragma GCC diagnostic pop
+#endif
 
 #endif

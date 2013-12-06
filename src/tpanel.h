@@ -18,6 +18,34 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
+#ifndef HGUARD_SRC_TPANEL
+#define HGUARD_SRC_TPANEL
+
+#include "univdefs.h"
+#include "tpanel-common.h"
+#include "twit-common.h"
+#include "rbfs.h"
+#include "uiutil.h"
+#include "magic_ptr.h"
+#include <wx/statbmp.h>
+#include <wx/aui/auibook.h>
+#include <wx/panel.h>
+#include <wx/sizer.h>
+#include <wx/button.h>
+#include <wx/stattext.h>
+#include <wx/scrolwin.h>
+#include <wx/image.h>
+#include <list>
+#include <map>
+#include <deque>
+#include <forward_list>
+
+struct tpanelparentwin;
+struct dispscr_base;
+struct tpanelscrollwin;
+struct mainframe;
+struct tweetdispscr;
+
 DECLARE_EVENT_TYPE(wxextRESIZE_UPDATE_EVENT, -1)
 DECLARE_EVENT_TYPE(wxextTP_PAGEUP_EVENT, -1)
 DECLARE_EVENT_TYPE(wxextTP_PAGEDOWN_EVENT, -1)
@@ -84,19 +112,6 @@ enum {
 	TPF_SAVETODB              = 1<<1,
 	TPF_USER_TIMELINE         = 1<<2,
 	TPF_MASK                  = 0xFF,
-};
-
-enum {
-	TPAF_DM                   = 1<<8,
-	TPAF_TW                   = 1<<9,
-	TPAF_MN                   = 1<<10,
-	TPAF_ALLACCS              = 1<<11,
-	TPAF_MASK                 = 0xFF00,
-};
-
-struct tpanel_auto {
-	unsigned int autoflags;
-	std::shared_ptr<taccount> acc;
 };
 
 struct tpanel : std::enable_shared_from_this<tpanel> {
@@ -367,24 +382,11 @@ struct tpanelscrollwin : public wxScrolledWindow {
 	DECLARE_EVENT_TABLE()
 };
 
-struct twin_layout_desc {
-	unsigned int mainframeindex;
-	unsigned int splitindex;
-	unsigned int tabindex;
-	std::vector<tpanel_auto> tpautos;
-	std::string name;
-	std::string dispname;
-	unsigned int flags;
-};
-
-struct mf_layout_desc {
-	unsigned int mainframeindex;
-	wxPoint pos;
-	wxSize size;
-	bool maximised;
-};
-
 bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid=0);
 void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map);
 void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent);
 void CheckClearNoUpdateFlag_All();
+
+extern std::forward_list<tpanelparentwin_nt*> tpanelparentwinlist;
+
+#endif

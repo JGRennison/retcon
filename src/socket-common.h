@@ -18,50 +18,22 @@
 //  2013 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-#ifndef HGUARD_SRC_RAII
-#define HGUARD_SRC_RAII
+#ifndef HGUARD_SRC_SOCKET_COMMON
+#define HGUARD_SRC_SOCKET_COMMON
 
 #include "univdefs.h"
-#include <functional>
-#include <vector>
+#include <stack>
+#include <unordered_set>
 
-class raii {
-	std::function<void()> f;
+template <typename C> struct connpool {
+	void ClearAllConns();
+	C *GetConn();
+	~connpool();
+	void Standby(C *obj);
 
-	public:
-	raii(std::function<void()> func) : f(std::move(func)) { }
-	void cancel() {
-		f = nullptr;
-	}
-	void exec() {
-		if(f) f();
-		f = nullptr;
-	}
-	~raii() {
-		exec();
-	}
+	std::stack<C *> idlestack;
+	std::unordered_set<C *> activeset;
 };
 
-class raii_set {
-	std::vector<std::function<void()> > f_set;
-
-	public:
-	raii_set() { }
-	void add(std::function<void()> func) {
-		f_set.emplace_back(std::move(func));
-	}
-	void cancel() {
-		f_set.clear();
-	}
-	void exec() {
-		for(auto f = f_set.rbegin(); f != f_set.rend(); ++f) {
-			if(*f) (*f)();
-		}
-		f_set.clear();
-	}
-	~raii_set() {
-		exec();
-	}
-};
 
 #endif

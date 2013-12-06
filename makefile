@@ -17,19 +17,19 @@
 #a number of libs/includes will need to be placed/built in a corresponding location where gcc can find them.
 
 
-OBJS_SRC:=retcon.cpp cfg.cpp optui.cpp parse.cpp socket.cpp tpanel.cpp twit.cpp db.cpp log.cpp cmdline.cpp userui.cpp mainui.cpp signal.cpp dispscr.cpp uiutil.cpp mediawin.cpp
+OBJS_SRC := retcon.cpp cfg.cpp optui.cpp parse.cpp socket.cpp tpanel.cpp twit.cpp db.cpp log.cpp cmdline.cpp userui.cpp mainui.cpp signal.cpp
+OBJS_SRC += dispscr.cpp uiutil.cpp mediawin.cpp taccount.cpp util.cpp res.cpp version.cpp aboutwin.cpp twitcurlext.cpp
 TCOBJS_SRC:=libtwitcurl/base64.cpp libtwitcurl/HMAC_SHA1.cpp libtwitcurl/oauthlib.cpp libtwitcurl/SHA1.cpp libtwitcurl/twitcurl.cpp libtwitcurl/urlencode.cpp
-SPOBJS_SRC:=res.cpp version.cpp aboutwin.cpp
 COBJS_SRC:=utf8proc/utf8proc.c
 OUTNAME:=retcon
-COMMONCFLAGS=-Wall -Wno-unused-parameter -Winvalid-pch -Wno-unused-local-typedefs -I$(OBJDIR)/pch
+COMMONCFLAGS=-Wall -Wno-unused-parameter
 CFLAGS=-g -O3 $(COMMONCFLAGS)
 AFLAGS=-g
 CXXFLAGS=-std=gnu++0x -fno-exceptions
 GCC:=g++
 LD:=ld
 OBJDIR:=objs
-DIRS=$(OBJDIR) $(OBJDIR)$(PATHSEP)pch $(OBJDIR)$(PATHSEP)libtwitcurl $(OBJDIR)$(PATHSEP)res $(OBJDIR)$(PATHSEP)utf8proc
+DIRS=$(OBJDIR) $(OBJDIR)$(PATHSEP)libtwitcurl $(OBJDIR)$(PATHSEP)res $(OBJDIR)$(PATHSEP)utf8proc
 
 EXECPREFIX:=./
 PATHSEP:=/
@@ -126,7 +126,6 @@ endif
 OBJS:=$(patsubst src/%.cpp,$(OBJDIR)/%.o,$(addprefix src/,$(OBJS_SRC)))
 TCOBJS:=$(patsubst src/%.cpp,$(OBJDIR)/%.o,$(addprefix src/,$(TCOBJS_SRC)))
 COBJS:=$(patsubst src/%.c,$(OBJDIR)/%.o,$(addprefix src/,$(COBJS_SRC)))
-SPOBJS:=$(patsubst src/%.cpp,$(OBJDIR)/%.o,$(addprefix src/,$(SPOBJS_SRC)))
 ROBJS:=$(patsubst src/res/%.png,$(OBJDIR)/res/%.o,$(wildcard src/res/*.png))
 EXOBJS:=$(patsubst %.c,$(OBJDIR)/deps/%.o,$(EXCOBJS_SRC))
 
@@ -140,17 +139,21 @@ endif
 
 all: $(TARGS)
 
+-include $(ALL_OBJS:.o=.d)
+
+MAKEDEPS = -MMD -MP -MT '$@ $(@:.o=.d)'
+
 $(TARGS): $(ALL_OBJS)
-	$(GCC) $(ALL_OBJS) -o $(OUTNAME)$(SUFFIX) $(LIBS) $(AFLAGS) $(GFLAGS)
+	$(GCC) $(ALL_OBJS) -o $(OUTNAME)$(SUFFIX) $(LIBS) $(AFLAGS) $(GFLAGS) $(MAKEDEPS)
 
 $(OBJDIR)/%.o: src/%.cpp
-	$(GCC) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS)
+	$(GCC) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS) $(MAKEDEPS)
 
 $(OBJDIR)/%.o: src/%.c
-	$(GCC:++=cc) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(GFLAGS)
+	$(GCC:++=cc) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(GFLAGS) $(MAKEDEPS)
 
 $(TCOBJS): $(OBJDIR)/%.o: src/%.cpp
-	$(GCC) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS)
+	$(GCC) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS) $(MAKEDEPS)
 
 $(ROBJS): $(OBJDIR)/%.o: src/%.png
 ifeq "$(PLATFORM)" "WIN"
@@ -161,36 +164,17 @@ endif
 	objcopy --rename-section .data=.rodata,alloc,load,readonly,data,contents $@ $@
 
 $(EXOBJS): $(OBJDIR)/deps/%.o: %.c
-	$(GCC:++=cc) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(GFLAGS)
+	$(GCC:++=cc) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(GFLAGS) $(MAKEDEPS)
 
-$(OBJDIR)/pch/retcon.h.gch:
-	$(GCC) -c src/retcon.h -o $(OBJDIR)/pch/retcon.h.gch $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS)
-
-$(ALL_OBJS) src/pch/retcon.h.gch: | $(DIRS)
+$(ALL_OBJS): | $(DIRS)
 
 $(DIRS):
 	-$(MKDIR) $@
 
-HEADERS:=src/retcon.h src/socket.h src/cfg.h src/parse.h src/twit.h src/tpanel.h src/optui.h src/libtwitcurl/twitcurl.h src/db.h src/log.h
-HEADERS+=src/cmdline.h src/userui.h src/mainui.h src/magic_ptr.h src/univdefs.h src/signal.h src/dispscr.h src/uiutil.h src/mediawin.h src/raii.h
-
-$(OBJDIR)/pch/retcon.h.gch: $(HEADERS)
-$(OBJS): $(HEADERS) $(OBJDIR)/pch/retcon.h.gch
-$(OBJDIR)/res.o $(OBJDIR)/tpanel.o: src/res.h
-$(OBJDIR)/retcon.o $(OBJDIR)/tpanel.o $(OBJDIR)/version.o: src/version.h src/univdefs.h
-$(OBJDIR)/aboutwin.o: src/aboutwin.h src/version.h src/univdefs.h
-$(OBJDIR)/mainui.o: src/aboutwin.h
-$(TCOBJS): src/libtwitcurl/*.h
-$(OBJDIR)/utf8proc/utf8proc.o $(OBJDIR)/twit.o: src/utf8proc/utf8proc.h
-ifeq ($(PLATFORM),WIN)
-$(OBJDIR)/twit.o: src/strptime.cpp
-endif
-
-
 .PHONY: clean mostlyclean quickclean install uninstall all
 
 quickclean:
-	rm -f $(OBJS) $(OBJS:.o=.ii) $(OBJS:.o=.lst) $(OBJS:.o=.s) $(OUTNAME)$(SUFFIX) $(OUTNAME)_debug$(SUFFIX) $(OBJDIR)/pch/retcon.h.gch
+	rm -f $(OBJS) $(OBJS:.o=.ii) $(OBJS:.o=.lst) $(OBJS:.o=.s) $(OUTNAME)$(SUFFIX)
 
 mostlyclean: quickclean
 	rm -f $(TCOBJS) $(TCOBJS:.o=.ii) $(TCOBJS:.o=.lst) $(TCOBJS:.o=.s)

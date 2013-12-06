@@ -18,6 +18,23 @@
 //  2013 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
+#ifndef HGUARD_SRC_UIUTIL
+#define HGUARD_SRC_UIUTIL
+
+#include "univdefs.h"
+#include "twit-common.h"
+#include <wx/colour.h>
+#include <wx/string.h>
+#include <wx/menu.h>
+#include <memory>
+#include <map>
+
+struct tweet;
+struct tpanelparentwin_nt;
+struct userdatacontainer;
+struct mainframe;
+struct panelparentwin_base;
+
 enum { tpanelmenustartid           = wxID_HIGHEST +  8001 };
 enum { tpanelmenuendid             = wxID_HIGHEST + 12000 };
 enum { tweetactmenustartid         = wxID_HIGHEST + 12001 };
@@ -83,7 +100,6 @@ uint64_t ParseUrlID(wxString url);
 media_id_type ParseMediaID(wxString url);
 void SaveWindowLayout();
 void RestoreWindowLayout();
-wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t timestamp=0, bool localtime=true);
 wxString getreltimestr(time_t timestamp, time_t &updatetime);
 
 typedef enum {
@@ -96,3 +112,5 @@ typedef enum {
 } COLOUR_OP;
 wxColour ColourOp(const wxColour &in, const wxColour &delta, COLOUR_OP co);
 wxColour ColourOp(const wxColour &in, const wxString &co_str);
+
+#endif

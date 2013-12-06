@@ -18,7 +18,23 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
+#ifndef HGUARD_SRC_DB
+#define HGUARD_SRC_DB
+
+#include "univdefs.h"
+#include "twit-common.h"
+#include <cstdlib>
+#include <queue>
+#include <string>
+#include <set>
+#include <forward_list>
+#include <wx/string.h>
+#include <wx/event.h>
 #include <sqlite3.h>
+
+struct media_entity;
+struct tweet;
+struct userdatacontainer;
 
 typedef enum {
 	DBPSC_START=0,
@@ -320,3 +336,7 @@ struct DBReadConfig : public DBGenConfig {
 	sqlite3_stmt *stmt;
 	bool exec(sqlite3_stmt *stmt);
 };
+
+extern dbconn dbc;
+
+#endif

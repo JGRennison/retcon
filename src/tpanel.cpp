@@ -18,19 +18,34 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-#include "retcon.h"
+#include "univdefs.h"
+#include "tpanel.h"
+#include "dispscr.h"
+#include "twit.h"
+#include "taccount.h"
 #include "utf8.h"
 #include "res.h"
 #include "version.h"
-
+#include "log.h"
+#include "log-impl.h"
+#include "alldata.h"
+#include "mainui.h"
+#include "twitcurlext.h"
+#include "userui.h"
+#include "db.h"
+#include "util.h"
 #include <wx/choicdlg.h>
 #include <wx/textdlg.h>
 #include <wx/msgdlg.h>
 #include <array>
+#include <forward_list>
+#include <algorithm>
 
 #ifndef TPANEL_COPIOUS_LOGGING
 #define TPANEL_COPIOUS_LOGGING 0
 #endif
+
+std::forward_list<tpanelparentwin_nt*> tpanelparentwinlist;
 
 enum {
 	TPINTLF_CUSTOMAUTO        = 1<<24,

@@ -18,8 +18,16 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-#include "retcon.h"
+#include "univdefs.h"
+#include "optui.h"
+#include "taccount.h"
+#include "db.h"
+#include "cfg.h"
+#include "twit.h"
+#include "twitcurlext.h"
 #include <wx/msgdlg.h>
+#include <wx/sizer.h>
+#include <wx/stattext.h>
 
 enum {
 	ACCWID_ENDISABLE=1,

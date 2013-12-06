@@ -18,7 +18,29 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
+#ifndef HGUARD_SRC_MAINUI
+#define HGUARD_SRC_MAINUI
+
+#include "univdefs.h"
+#include "uiutil.h"
+#include <wx/menu.h>
+#include <wx/event.h>
+#include <wx/aui/aui.h>
+#include <wx/button.h>
+#include <wx/colour.h>
+#include <wx/stattext.h>
+#include <wx/bmpbuttn.h>
+#include <wx/sizer.h>
+#include <wx/richtext/richtextctrl.h>
+#include <vector>
+#include <map>
+
 struct tweetpostwin;
+struct tpanelnotebook;
+struct acc_choice;
+struct taccount;
+struct tweet;
+struct userdatacontainer;
 
 enum
 {
@@ -137,3 +159,7 @@ mainframe *GetMainframeAncestor(wxWindow *in, bool passtoplevels=false);
 void FreezeAll();
 void ThawAll();
 void AccountUpdateAllMainframes();
+
+extern std::vector<mainframe*> mainframelist;
+
+#endif

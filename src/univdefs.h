@@ -18,6 +18,14 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
+#ifndef HGUARD_SRC_UNIVDEFS
+#define HGUARD_SRC_UNIVDEFS
+
 #define wxUSE_UNICODE 1
 #define _UNICODE 1
 #define UNICODE 1
+
+#include <cstddef>
+#include <cstdint>
+
+#endif

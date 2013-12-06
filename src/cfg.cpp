@@ -18,7 +18,14 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-#include "retcon.h"
+#include "univdefs.h"
+#include "cfg.h"
+#include "taccount.h"
+#include "db.h"
+#include <wx/stdpaths.h>
+#include <sqlite3.h>
+
+globconf gc;
 
 genoptconf gcdefaults {
 	{ wxT("qUfhKgogatGDPDeBaP1qBw"), 1},

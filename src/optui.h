@@ -18,7 +18,33 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
+#ifndef HGUARD_SRC_OPTUI
+#define HGUARD_SRC_OPTUI
+
+#include "univdefs.h"
 #include <wx/tglbtn.h>
+#include <wx/listbox.h>
+#include <wx/dialog.h>
+#include <wx/string.h>
+#include <wx/button.h>
+#include <wx/event.h>
+#include <wx/gdicmn.h>
+#include <wx/choice.h>
+#include <wx/sizer.h>
+#include <wx/window.h>
+#include <wx/checkbox.h>
+#include <wx/validate.h>
+#include <wx/valtext.h>
+#include <set>
+#include <map>
+#include <forward_list>
+#include <functional>
+#include <utility>
+#include <vector>
+
+struct taccount;
+struct genopt;
+struct genoptconf;
 
 struct acc_window: public wxDialog {
 	acc_window(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name = wxT("dialogBox"));
@@ -81,3 +107,5 @@ struct settings_window : public wxDialog {
 
 	DECLARE_EVENT_TABLE()
 };
+
+#endif

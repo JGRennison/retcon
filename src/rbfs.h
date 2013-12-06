@@ -18,50 +18,32 @@
 //  2013 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-#ifndef HGUARD_SRC_RAII
-#define HGUARD_SRC_RAII
+#ifndef HGUARD_SRC_RBFS
+#define HGUARD_SRC_RBFS
 
 #include "univdefs.h"
-#include <functional>
-#include <vector>
 
-class raii {
-	std::function<void()> f;
+typedef enum {			//do not change these values, they are saved/loaded to/from the DB
+	RBFS_MIN = 1,
+	RBFS_TWEETS = 1,
+	RBFS_MENTIONS,
+	RBFS_RECVDM,
+	RBFS_SENTDM,
+	RBFS_USER_TIMELINE,
+	RBFS_USER_FAVS,
+	RBFS_MAX = RBFS_USER_FAVS,
+} RBFS_TYPE;
 
-	public:
-	raii(std::function<void()> func) : f(std::move(func)) { }
-	void cancel() {
-		f = nullptr;
-	}
-	void exec() {
-		if(f) f();
-		f = nullptr;
-	}
-	~raii() {
-		exec();
-	}
-};
-
-class raii_set {
-	std::vector<std::function<void()> > f_set;
-
-	public:
-	raii_set() { }
-	void add(std::function<void()> func) {
-		f_set.emplace_back(std::move(func));
-	}
-	void cancel() {
-		f_set.clear();
-	}
-	void exec() {
-		for(auto f = f_set.rbegin(); f != f_set.rend(); ++f) {
-			if(*f) (*f)();
-		}
-		f_set.clear();
-	}
-	~raii_set() {
-		exec();
-	}
+struct restbackfillstate {
+	uint64_t start_tweet_id;	//exclusive limit
+	uint64_t end_tweet_id;		//inclusive limit
+	uint64_t userid;
+	unsigned int max_tweets_left;
+	unsigned int lastop_recvcount;
+	RBFS_TYPE type;
+	bool read_again;
+	bool started;
 };
 
 #endif
+

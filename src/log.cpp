@@ -18,7 +18,16 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-#include "retcon.h"
+#include "univdefs.h"
+#include "log.h"
+#include "log-impl.h"
+#include "socket.h"
+#include "twit.h"
+#include "taccount.h"
+#include "util.h"
+#include "tpanel.h"
+#include "alldata.h"
+#include "twitcurlext.h"
 #include <wx/tokenzr.h>
 #include <wx/filedlg.h>
 #ifdef __WINDOWS__
@@ -26,6 +35,11 @@
 #else
 #include <sys/time.h>
 #endif
+#include <memory>
+#include <forward_list>
+#include <wx/checkbox.h>
+#include <wx/sizer.h>
+#include <wx/menu.h>
 
 log_window *globallogwindow = 0;
 std::unique_ptr<Redirector_wxLog> globalwxlogredirector;

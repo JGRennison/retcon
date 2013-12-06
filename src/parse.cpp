@@ -18,10 +18,23 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-#include "retcon.h"
+#include "univdefs.h"
+#include "parse.h"
+#include "twit.h"
+#include "db.h"
+#include "log.h"
+#include "util.h"
+#include "taccount.h"
+#include "alldata.h"
+#include "tpanel.h"
+#include "socket.h"
+#include "twitcurlext.h"
+#include "mainui.h"
+#include "userui.h"
 #include <cstring>
 #include <wx/uri.h>
 #include <wx/msgdlg.h>
+#include <algorithm>
 
 template <typename C> bool IsType(const rapidjson::Value& val);
 template <> bool IsType<bool>(const rapidjson::Value& val) { return val.IsBool(); }

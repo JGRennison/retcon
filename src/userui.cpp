@@ -18,7 +18,16 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-#include "retcon.h"
+#include "univdefs.h"
+#include "userui.h"
+#include "mainui.h"
+#include "taccount.h"
+#include "twitcurlext.h"
+#include "twit.h"
+#include "tpanel.h"
+#include "userui.h"
+#include "util.h"
+#include "alldata.h"
 
 std::unordered_map<uint64_t, user_window*> userwinmap;
 

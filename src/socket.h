@@ -18,6 +18,27 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
+#ifndef HGUARD_SRC_SOCKET
+#define HGUARD_SRC_SOCKET
+
+#include "univdefs.h"
+#include "socket-common.h"
+#include "libtwitcurl/curl/curl.h"
+#include "twit-common.h"
+#include <wx/timer.h>
+#include <wx/defs.h>
+#include <wx/version.h>
+#include <memory>
+#include <map>
+#include <forward_list>
+#include <set>
+#include <tuple>
+#include <utility>
+
+struct socketmanager;
+struct userdatacontainer;
+struct twitcurlext;
+
 #if !(defined(RCS_GTKSOCKMODE) || defined(RCS_WSAASYNCSELMODE) || defined(RCS_POLLTHREADMODE) || defined(RCS_SIGNALMODE))
 	#if defined(__WXGTK__)
 		#define RCS_GTKSOCKMODE
@@ -68,16 +89,6 @@ struct mcurlconn : public wxEvtHandler {
 	virtual wxString GetConnTypeName() { return wxT(""); }
 
 	DECLARE_EVENT_TABLE()
-};
-
-template <typename C> struct connpool {
-	void ClearAllConns();
-	C *GetConn();
-	~connpool();
-	void Standby(C *obj);
-
-	std::stack<C *> idlestack;
-	std::unordered_set<C *> activeset;
 };
 
 struct dlconn : public mcurlconn {
@@ -266,3 +277,7 @@ struct adns {
 };
 
 void SetCurlHandleVerboseState(CURL *easy, bool verbose);
+
+extern socketmanager sm;
+
+#endif

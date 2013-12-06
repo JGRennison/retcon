@@ -18,6 +18,24 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
+#ifndef HGUARD_SRC_PARSE
+#define HGUARD_SRC_PARSE
+
+#include "univdefs.h"
+#include "rapidjson-inc.h"
+#include "twit-common.h"
+#include <wx/version.h>
+#include <wx/defs.h>
+#include <wx/string.h>
+#include <string>
+#include <memory>
+
+struct dbsendmsg_list;
+struct taccount;
+struct twitcurlext;
+struct tweet;
+struct userdata;
+
 #if wxCHECK_GCC_VERSION(4, 6)	//in old gccs, just leave the warnings turned off
 #pragma GCC diagnostic push
 #endif
@@ -81,3 +99,5 @@ struct jsonparser : public genjsonparser {
 };
 
 void DisplayParseErrorMsg(rapidjson::Document &dc, const wxString &name, const char *data);
+
+#endif

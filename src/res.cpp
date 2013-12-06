@@ -18,6 +18,7 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
+#include "univdefs.h"
 #include "res.h"
 #include <wx/mstream.h>
 #include <algorithm>

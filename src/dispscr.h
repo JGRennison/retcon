@@ -18,6 +18,32 @@
 //  2013 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
+#ifndef HGUARD_SRC_DISPSCR
+#define HGUARD_SRC_DISPSCR
+
+#include "univdefs.h"
+#include "magic_ptr.h"
+#include "uiutil.h"
+#include <wx/colour.h>
+#include <wx/string.h>
+#include <wx/richtext/richtextctrl.h>
+#include <wx/window.h>
+#include <wx/timer.h>
+#include <wx/event.h>
+#include <wx/sizer.h>
+#include <wx/menu.h>
+#include <memory>
+#include <forward_list>
+
+struct panelparentwin_base;
+struct tpanelparentwin_nt;
+struct tpanelparentwin_user;
+struct dispscr_base;
+struct tpanelscrollwin;
+struct profimg_staticbitmap;
+struct tweet;
+struct userdatacontainer;
+
 struct generic_disp_base : public wxRichTextCtrl, public magic_ptr_base {
 	panelparentwin_base *tppw;
 	wxColour default_background_colour;
@@ -134,3 +160,5 @@ struct userdispscr : public dispscr_base {
 };
 
 void AppendUserMenuItems(wxMenu &menu, tweetactmenudata &map, int &nextid, std::shared_ptr<userdatacontainer> user, std::shared_ptr<tweet> tw);
+
+#endif

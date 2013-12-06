@@ -18,50 +18,46 @@
 //  2013 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-#ifndef HGUARD_SRC_RAII
-#define HGUARD_SRC_RAII
+#ifndef HGUARD_SRC_TPANEL_COMMON
+#define HGUARD_SRC_TPANEL_COMMON
 
 #include "univdefs.h"
-#include <functional>
 #include <vector>
+#include <string>
+#include <memory>
+#include <wx/gdicmn.h>
 
-class raii {
-	std::function<void()> f;
+struct taccount;
 
-	public:
-	raii(std::function<void()> func) : f(std::move(func)) { }
-	void cancel() {
-		f = nullptr;
-	}
-	void exec() {
-		if(f) f();
-		f = nullptr;
-	}
-	~raii() {
-		exec();
-	}
+enum {
+	TPAF_DM                   = 1<<8,
+	TPAF_TW                   = 1<<9,
+	TPAF_MN                   = 1<<10,
+	TPAF_ALLACCS              = 1<<11,
+	TPAF_MASK                 = 0xFF00,
 };
 
-class raii_set {
-	std::vector<std::function<void()> > f_set;
+struct tpanel_auto {
+	unsigned int autoflags;
+	std::shared_ptr<taccount> acc;
+};
 
-	public:
-	raii_set() { }
-	void add(std::function<void()> func) {
-		f_set.emplace_back(std::move(func));
-	}
-	void cancel() {
-		f_set.clear();
-	}
-	void exec() {
-		for(auto f = f_set.rbegin(); f != f_set.rend(); ++f) {
-			if(*f) (*f)();
-		}
-		f_set.clear();
-	}
-	~raii_set() {
-		exec();
-	}
+struct twin_layout_desc {
+	unsigned int mainframeindex;
+	unsigned int splitindex;
+	unsigned int tabindex;
+	std::vector<tpanel_auto> tpautos;
+	std::string name;
+	std::string dispname;
+	unsigned int flags;
+};
+
+struct mf_layout_desc {
+	unsigned int mainframeindex;
+	wxPoint pos;
+	wxSize size;
+	bool maximised;
 };
 
 #endif
+

@@ -17,8 +17,25 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-#include "retcon.h"
+#include "univdefs.h"
+#include "socket.h"
+#include "twitcurlext.h"
+#include "log.h"
+#include "util.h"
+#include "db.h"
+#include "twit.h"
+#include "cfg.h"
+#include "mediawin.h"
+#include "alldata.h"
+#include "mainui.h"
+#include "userui.h"
 #include <openssl/sha.h>
+#include <wx/event.h>
+#include <wx/file.h>
+#include <wx/mstream.h>
+#include <wx/dcmemory.h>
+#include <algorithm>
+
 #ifdef RCS_WSAASYNCSELMODE
 	#include <windows.h>
 #endif
@@ -32,6 +49,7 @@
 	#include <glib.h>
 #endif
 
+socketmanager sm;
 
 BEGIN_EVENT_TABLE( mcurlconn, wxEvtHandler )
 END_EVENT_TABLE()

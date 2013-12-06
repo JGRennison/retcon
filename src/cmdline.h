@@ -18,4 +18,12 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
+#ifndef HGUARD_SRC_CMDLINE
+#define HGUARD_SRC_CMDLINE
+
+#include "univdefs.h"
+#include <wx/string.h>
+
 int cmdlineproc(wxChar ** argv, int argc);
+
+#endif

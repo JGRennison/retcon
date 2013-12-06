@@ -18,10 +18,28 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-#include "retcon.h"
+#include "univdefs.h"
+#include "mainui.h"
 #include "libtwitcurl/urlencode.h"
 #include "aboutwin.h"
+#include "tpanel.h"
+#include "log-impl.h"
+#include "twit.h"
+#include "magic_ptr.h"
+#include "dispscr.h"
+#include "optui.h"
+#include "alldata.h"
+#include "userui.h"
+#include "taccount.h"
+#include "util.h"
+#include "twitcurlext.h"
+#include "retcon.h"
 #include <wx/msgdlg.h>
+#include <wx/app.h>
+#include <forward_list>
+#include <algorithm>
+
+std::vector<mainframe*> mainframelist;
 
 BEGIN_EVENT_TABLE(mainframe, wxFrame)
 	EVT_MENU(ID_Close,  mainframe::OnCloseWindow)

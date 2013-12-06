@@ -18,8 +18,14 @@
 //  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-#include "retcon.h"
+#include "univdefs.h"
+#include "cmdline.h"
+#include "cfg.h"
+#include "log.h"
+#include "log-impl.h"
+#include "util.h"
 #include "SimpleOpt.h"
+#include <wx/frame.h>
 
 typedef CSimpleOptTempl<wxChar> CSO;
 

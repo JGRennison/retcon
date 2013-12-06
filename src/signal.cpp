@@ -18,7 +18,12 @@
 //  2013 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
+#include "univdefs.h"
+#include "signal.h"
+#include "mainui.h"
 #include "retcon.h"
+#include <wx/defs.h>
+#include <wx/version.h>
 
 #ifdef __UNIX_LIKE__
 	#include <signal.h>
