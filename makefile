@@ -144,7 +144,7 @@ all: $(TARGS)
 MAKEDEPS = -MMD -MP -MT '$@ $(@:.o=.d)'
 
 $(TARGS): $(ALL_OBJS)
-	$(GCC) $(ALL_OBJS) -o $(OUTNAME)$(SUFFIX) $(LIBS) $(AFLAGS) $(GFLAGS) $(MAKEDEPS)
+	$(GCC) $(ALL_OBJS) -o $(OUTNAME)$(SUFFIX) $(LIBS) $(AFLAGS) $(GFLAGS)
 
 $(OBJDIR)/%.o: src/%.cpp
 	$(GCC) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS) $(MAKEDEPS)
