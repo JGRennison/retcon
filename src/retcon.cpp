@@ -40,6 +40,10 @@ alldata ad;
 
 IMPLEMENT_APP(retcon)
 
+BEGIN_EVENT_TABLE(retcon, wxApp)
+	EVT_MENU(ID_Quit,  retcon::OnQuitMsg)
+END_EVENT_TABLE()
+
 bool retcon::OnInit() {
 	raii_set rs;
 	//wxApp::OnInit();	//don't call this, it just calls the default command line processor
@@ -60,23 +64,22 @@ bool retcon::OnInit() {
 	bool res=dbc.Init(std::string((wxStandardPaths::Get().GetUserDataDir() + wxT("/retcondb.sqlite3")).ToUTF8()));
 	if(!res) return false;
 	rs.add([&]() { dbc.DeInit(); });
-	if(term_requested) return false;
+	if(terms_requested) return false;
 
 	InitGlobalFilters();
 
 	RestoreWindowLayout();
 	if(mainframelist.empty()) new mainframe( appversionname, wxPoint(50, 50), wxSize(450, 340) );
 
-	if(term_requested) return false;
+	if(terms_requested) return false;
 
 	mainframelist[0]->Show(true);
-	SetTopWindow(mainframelist[0]);
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
 		(*it)->CalcEnabled();
 		(*it)->Exec();
 	}
 
-	if(term_requested) return false;
+	if(terms_requested) return false;
 
 	rs.cancel();
 	return true;
@@ -112,6 +115,12 @@ int retcon::FilterEvent(wxEvent& event) {
 	antirecursion--;
 
 	return -1;
+}
+
+void retcon::OnQuitMsg(wxCommandEvent &event) {
+	LogMsgFormat(LFT_OTHERTRACE, wxT("retcon::OnQuitMsg, about to call %s, %d termination requests, %d mainframes, top win: %p"), terms_requested > 2 ? "wxExit()" : "ExitMainLoop()", terms_requested, mainframelist.size(), GetTopWindow());
+	if(terms_requested > 2) wxExit();
+	else ExitMainLoop();
 }
 
 std::shared_ptr<userdatacontainer> &alldata::GetUserContainerById(uint64_t id) {

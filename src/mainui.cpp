@@ -163,7 +163,6 @@ mainframe::~mainframe() {
 	if(mainframelist.empty()) {
 		if(globallogwindow) globallogwindow->Destroy();
 		user_window::CloseAll();
-		wxGetApp().term_requested = true;
 	}
 }
 

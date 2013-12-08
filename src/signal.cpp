@@ -30,11 +30,12 @@
 
 	static void termsighandler(int signum, siginfo_t *info, void *ucontext) {
 		retcon &rt = wxGetApp();
-		if(rt.term_requested) {
-			//termination already requested, be more forceful this time
-			rt.ExitMainLoop();
+		rt.terms_requested++;
+		if(rt.terms_requested > 1) {
+			//termination already requested, be a bit more forceful this time
+			wxCommandEvent evt(wxEVT_COMMAND_MENU_SELECTED, ID_Quit);
+			rt.AddPendingEvent(evt);
 		}
-		rt.term_requested = true;
 		for(auto &it : mainframelist) {
 			wxCommandEvent evt(wxEVT_COMMAND_MENU_SELECTED, ID_Quit);
 			it->AddPendingEvent(evt);

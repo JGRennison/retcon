@@ -233,7 +233,7 @@ log_window::log_window(wxWindow *parent, logflagtype flagmask, bool show)
 }
 
 log_window::~log_window() {
-	globallogwindow=0;
+	globallogwindow = 0;
 }
 
 void log_window::LWShow(bool shown) {
@@ -248,8 +248,14 @@ void log_window::LWShow(bool shown) {
 }
 
 void log_window::OnFrameClose(wxCloseEvent &event) {
-	LWShow(false);
-	event.Veto();
+	if(event.CanVeto()) {
+		LWShow(false);
+		event.Veto();
+	}
+	else {
+		globallogwindow = 0;
+		Destroy();
+	}
 }
 
 void log_window::OnSave(wxCommandEvent &event) {

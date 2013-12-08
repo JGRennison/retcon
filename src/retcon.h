@@ -30,9 +30,12 @@ class retcon: public wxApp
     virtual bool OnInit();
     virtual int OnExit();
     int FilterEvent(wxEvent& event);
+	void OnQuitMsg(wxCommandEvent &event);
+
+	DECLARE_EVENT_TABLE()
 
 public:
-    bool term_requested = false;
+    unsigned int terms_requested = 0;
 };
 
 DECLARE_APP(retcon)
