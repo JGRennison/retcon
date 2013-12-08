@@ -443,16 +443,22 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 	}
 }
 
-void LoadFilter(const std::string &input, filter_set &out) {
+bool LoadFilter(const std::string &input, filter_set &out) {
 	std::string errmsgs;
 	ParseFilter(input, out, errmsgs);
 	if(!errmsgs.empty()) {
 		LogMsgFormat(LFT_FILTERERR, wxT("Could not parse filter: Error: %s"), wxstrstd(errmsgs).c_str());
+		return false;
 	}
+	return true;
 }
 
-void InitGlobalFilters() {
-	LoadFilter(stdstrwx(gc.gcfg.incoming_filter.val), ad.incoming_filter);
+bool LoadIncomingFilter() {
+	return LoadFilter(stdstrwx(gc.gcfg.incoming_filter.val), ad.incoming_filter);
+}
+
+bool InitGlobalFilters() {
+	return LoadIncomingFilter();
 }
 
 filter_set::filter_set() { }
