@@ -1122,10 +1122,12 @@ void dbconn::SyncWriteBackAllUsers(sqlite3 *adb) {
 	//sqlite3_exec(adb, "DELETE FROM users", 0, 0, 0);
 
 	sqlite3_stmt *stmt=cache.GetStmt(adb, DBPSC_INSUSER);
+	size_t user_count = 0;
 	for(auto it=ad.userconts.begin(); it!=ad.userconts.end(); ++it) {
 		userdatacontainer *u=it->second.get();
-		if(u->lastupdate==u->lastupdate_wrotetodb) continue;	//this user is already in the database and does not need updating
-		if(u->user.screen_name.empty()) continue;		//don't bother saving empty user stubs
+		if(u->lastupdate==u->lastupdate_wrotetodb) continue;    //this user is already in the database and does not need updating
+		if(u->user.screen_name.empty()) continue;               //don't bother saving empty user stubs
+		user_count++;
 		sqlite3_bind_int64(stmt, 1, (sqlite3_int64) it->first);
 		bind_compressed(stmt, 2, u->mkjson(), 'J');
 		bind_compressed(stmt, 3, u->cached_profile_img_url, 'P');
@@ -1141,7 +1143,7 @@ void dbconn::SyncWriteBackAllUsers(sqlite3 *adb) {
 		sqlite3_reset(stmt);
 	}
 	cache.EndTransaction(adb);
-	LogMsg(LFT_DBTRACE, wxT("dbconn::SyncWriteBackAllUsers end"));
+	LogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncWriteBackAllUsers end, wrote back %u of %u users"), user_count, ad.userconts.size());
 }
 
 void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
@@ -1150,9 +1152,11 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 	sqlite3_stmt *stmt=0;
 	sqlite3_prepare_v2(adb, sql, sizeof(sql), &stmt, 0);
 
+	size_t user_read_count = 0;
 	do {
 		int res=sqlite3_step(stmt);
 		if(res==SQLITE_ROW) {
+			user_read_count++;
 			uint64_t id=(uint64_t) sqlite3_column_int64(stmt, 0);
 			std::shared_ptr<userdatacontainer> &ref=ad.GetUserContainerById(id);
 			userdatacontainer &u=*ref.get();
@@ -1165,6 +1169,7 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 			if(u.user.profile_img_url.empty()) u.user.profile_img_url.assign(profimg, profimg_size);
 			u.user.createtime=(time_t) sqlite3_column_int64(stmt, 3);
 			u.lastupdate=(uint64_t) sqlite3_column_int64(stmt, 4);
+			u.lastupdate_wrotetodb = u.lastupdate;
 			const char *hash=(const char*) sqlite3_column_blob(stmt, 5);
 			int hashsize=sqlite3_column_bytes(stmt, 5);
 			if(hashsize==sizeof(u.cached_profile_img_sha1)) {
@@ -1183,7 +1188,7 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 		else break;
 	} while(true);
 	sqlite3_finalize(stmt);
-	LogMsg(LFT_DBTRACE, wxT("dbconn::SyncReadInAllUsers end"));
+	LogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncReadInAllUsers end, read in %u users (%u total)"), user_read_count, ad.userconts.size());
 }
 
 void dbconn::SyncWriteOutRBFSs(sqlite3 *adb) {
