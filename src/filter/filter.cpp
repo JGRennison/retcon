@@ -30,8 +30,9 @@
 #include <list>
 
 enum {
-	FRSF_DONEIF   = 1<<0,
-	FRSF_ACTIVE   = 1<<1,
+	FRSF_DONEIF          = 1<<0,
+	FRSF_ACTIVE          = 1<<1,
+	FRSF_PARENTINACTIVE  = 1<<2,
 };
 
 struct filter_run_state {
@@ -61,21 +62,28 @@ struct filter_item_cond : public filter_item {
 			return;
 		}
 		else if(flags & FIF_ELIF) {
-			if(frs.recursion.back() & FRSF_DONEIF) {
+			if(frs.recursion.back() & (FRSF_DONEIF | FRSF_PARENTINACTIVE)) {
 				frs.recursion.back() &= ~FRSF_ACTIVE;
 				return;
 			}
 		}
 		else if(flags & FIF_ELSE) {
-			if(frs.recursion.back() & FRSF_DONEIF) {
+			if(frs.recursion.back() & (FRSF_DONEIF | FRSF_PARENTINACTIVE)) {
 				frs.recursion.back() &= ~FRSF_ACTIVE;
 			}
 			else {
-				frs.recursion.back() &= FRSF_DONEIF | FRSF_ACTIVE;
+				frs.recursion.back() |= FRSF_DONEIF | FRSF_ACTIVE;
 			}
 			return;
 		}
-		else frs.recursion.push_back(0);
+		else {
+			if(!frs.recursion.empty() && !(frs.recursion.back() & FRSF_ACTIVE)) {
+				//this is a nested if, the parent if is not active
+				frs.recursion.push_back(FRSF_PARENTINACTIVE);
+				return;
+			}
+			frs.recursion.push_back(0);
+		}
 
 		bool testresult = test(tw);
 		if(flags & FIF_NEG) testresult = !testresult;
