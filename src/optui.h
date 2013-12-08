@@ -92,15 +92,23 @@ struct settings_window : public wxDialog {
 	std::vector<wxToggleButton *> cat_buttons;
 	std::vector<std::pair<wxSizer *, std::function<void (bool)> > > cat_empty_sizer_op;
 
-	settings_window(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name = wxT("dialogBox"), taccount *defshow=0);
+	settings_window(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size,
+			long style, const wxString& name = wxT("dialogBox"), taccount *defshow = 0);
 	~settings_window();
+
 	bool TransferDataFromWindow();
+
 	void ChoiceCtrlChange(wxCommandEvent &event);
 	void ShowAdvCtrlChange(wxCommandEvent &event);
 	void ShowVeryAdvCtrlChange(wxCommandEvent &event);
-	void AddSettingRow_String(unsigned int win, wxWindow* parent, wxSizer *sizer, const wxString &name, unsigned int flags, genopt &val, genopt &parentval, long style=wxFILTER_NONE, wxValidator *textctrlvalidator=0);
-	void AddSettingRow_Bool(unsigned int win, wxWindow* parent, wxSizer *sizer, const wxString &name, unsigned int flags, genopt &val, genopt &parentval);
-	wxStaticBoxSizer *AddGenoptconfSettingBlock(wxWindow* parent, wxSizer *sizer, const wxString &name, genoptconf &goc, genoptconf &parentgoc, unsigned int flags);
+
+	void AddSettingRow_String(unsigned int win, wxWindow* parent, wxSizer *sizer, const wxString &name, unsigned int flags,
+			genopt &val, genopt &parentval, long style=wxFILTER_NONE, wxValidator *textctrlvalidator = 0);
+	void AddSettingRow_Bool(unsigned int win, wxWindow* parent, wxSizer *sizer, const wxString &name, unsigned int flags,
+			genopt &val, genopt &parentval);
+	wxStaticBoxSizer *AddGenoptconfSettingBlock(wxWindow* parent, wxSizer *sizer, const wxString &name, genoptconf &goc,
+			genoptconf &parentgoc, unsigned int flags);
+
 	void OptShowHide(unsigned int setmask);
 	void PostOptShowHide();
 	void CategoryButtonClick(wxCommandEvent &event);

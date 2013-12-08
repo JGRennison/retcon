@@ -44,7 +44,7 @@ struct media_display_win;
 struct media_entity;
 
 struct image_panel : public wxPanel {
-	image_panel(media_display_win *parent, wxSize size=wxDefaultSize);
+	image_panel(media_display_win *parent, wxSize size = wxDefaultSize);
 	void OnPaint(wxPaintEvent &event);
 	void OnResize(wxSizeEvent &event);
 	void UpdateBitmap();

@@ -47,7 +47,7 @@ struct userdata;
 #endif
 
 struct writestream {
-	writestream(std::string &str_, size_t reshint=512 ) : str(str_) { str.clear(); str.reserve(reshint); }
+	writestream(std::string &str_, size_t reshint = 512) : str(str_) { str.clear(); str.reserve(reshint); }
 	std::string &str;
 	inline void Put(char ch) { str.push_back(ch); }
 };
@@ -62,20 +62,22 @@ struct Handler : public rapidjson::Writer<writestream> {
 };
 
 struct genjsonparser {
-	static void ParseTweetStatics(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj, Handler *jw=0, bool isnew=false, dbsendmsg_list *dbmsglist=0, bool parse_entities=true);
-	static void DoEntitiesParse(const rapidjson::Value& val, const std::shared_ptr<tweet> &t, bool isnew=false, dbsendmsg_list *dbmsglist=0);
-	static void ParseUserContents(const rapidjson::Value& val, userdata &userobj, bool is_ssl=0);
+	static void ParseTweetStatics(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj,
+			Handler *jw = 0, bool isnew = false, dbsendmsg_list *dbmsglist = 0, bool parse_entities = true);
+	static void DoEntitiesParse(const rapidjson::Value& val, const std::shared_ptr<tweet> &t,
+			bool isnew = false, dbsendmsg_list *dbmsglist = 0);
+	static void ParseUserContents(const rapidjson::Value& val, userdata &userobj, bool is_ssl = 0);
 	static void ParseTweetDyn(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj);
 };
 
 enum {
-	JDTP_ISDM	= 1<<0,
-	JDTP_ISRTSRC	= 1<<1,
-	JDTP_FAV	= 1<<2,
-	JDTP_UNFAV	= 1<<3,
-	JDTP_DEL	= 1<<4,
-	JDTP_USERTIMELINE	= 1<<5,
-	JDTP_CHECKPENDINGONLY	= 1<<6
+	JDTP_ISDM               = 1<<0,
+	JDTP_ISRTSRC            = 1<<1,
+	JDTP_FAV                = 1<<2,
+	JDTP_UNFAV              = 1<<3,
+	JDTP_DEL                = 1<<4,
+	JDTP_USERTIMELINE       = 1<<5,
+	JDTP_CHECKPENDINGONLY   = 1<<6
 };
 
 struct jsonparser : public genjsonparser {
@@ -85,10 +87,10 @@ struct jsonparser : public genjsonparser {
 	rapidjson::Document dc;
 	dbsendmsg_list *dbmsglist;
 
-	std::shared_ptr<userdatacontainer> DoUserParse(const rapidjson::Value& val, unsigned int umpt_flags=0);
+	std::shared_ptr<userdatacontainer> DoUserParse(const rapidjson::Value& val, unsigned int umpt_flags = 0);
 	void DoEventParse(const rapidjson::Value& val);
 	void DoFriendLookupParse(const rapidjson::Value& val);
-	std::shared_ptr<tweet> DoTweetParse(const rapidjson::Value& val, unsigned int sflags=0);
+	std::shared_ptr<tweet> DoTweetParse(const rapidjson::Value& val, unsigned int sflags = 0);
 	void RestTweetUpdateParams(const tweet &t);
 	void RestTweetPreParseUpdateParams();
 

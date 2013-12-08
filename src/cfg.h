@@ -47,7 +47,7 @@ struct genoptconf {
 	genopt restinterval;
 	void CFGWriteOutCurDir(DBWriteConfig &twfc);
 	void CFGReadInCurDir(DBReadConfig &twfc, const genoptconf &parent);
-	void InheritFromParent(genoptconf &parent, bool ifunset=false);
+	void InheritFromParent(genoptconf &parent, bool ifunset = false);
 };
 
 struct genoptglobconf {

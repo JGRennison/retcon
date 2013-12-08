@@ -67,8 +67,8 @@ namespace std {
 }
 
 typedef enum {
-	CS_NULL=0,
-	CS_ACCVERIFY=1,
+	CS_NULL          = 0,
+	CS_ACCVERIFY     = 1,
 	CS_TIMELINE,
 	CS_STREAM,
 	CS_USERLIST,

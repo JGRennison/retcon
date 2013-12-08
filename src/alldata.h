@@ -47,7 +47,7 @@ struct alldata {
 
 	std::shared_ptr<userdatacontainer> &GetUserContainerById(uint64_t id);
 	std::shared_ptr<userdatacontainer> *GetExistingUserContainerById(uint64_t id);
-	std::shared_ptr<tweet> &GetTweetById(uint64_t id, bool *isnew=0);
+	std::shared_ptr<tweet> &GetTweetById(uint64_t id, bool *isnew = 0);
 	std::shared_ptr<tweet> *GetExistingTweetById(uint64_t id);
 	void UnlinkTweetById(uint64_t id);
 

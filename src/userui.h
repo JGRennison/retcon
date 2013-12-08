@@ -98,12 +98,12 @@ struct user_window: public wxDialog, public magic_ptr_base {
 	wxButton *refreshbtn;
 	wxButton *dmbtn;
 	enum FOLLOWBTNMODE {
-		FBM_NONE=0, FBM_FOLLOW=1, FBM_UNFOLLOW, FBM_REMOVE_PENDING,
+		FBM_NONE = 0, FBM_FOLLOW = 1, FBM_UNFOLLOW, FBM_REMOVE_PENDING,
 	};
 	FOLLOWBTNMODE follow_btn_mode;
 
 	enum {
-		FOLLOWBTN_ID=1,
+		FOLLOWBTN_ID = 1,
 		REFRESHBTN_ID,
 		DMBTN_ID,
 	};
@@ -121,7 +121,7 @@ struct user_window: public wxDialog, public magic_ptr_base {
 	void OnDMBtn(wxCommandEvent &event);
 	static user_window *MkWin(uint64_t userid_, const std::shared_ptr<taccount> &acc_hint_);
 	static user_window *GetWin(uint64_t userid_);
-	static void CheckRefresh(uint64_t userid_, bool refreshimg=false);
+	static void CheckRefresh(uint64_t userid_, bool refreshimg = false);
 	static void RefreshAllFollow();
 	static void RefreshAllAcc();
 	static void RefreshAll();
@@ -134,8 +134,8 @@ struct user_window: public wxDialog, public magic_ptr_base {
 };
 
 enum {
-	ACCCF_OKBTNCTRL		= 1<<0,
-	ACCCF_NOACCITEM		= 1<<1,
+	ACCCF_OKBTNCTRL     = 1<<0,
+	ACCCF_NOACCITEM     = 1<<1,
 };
 
 typedef void (*acc_choice_callback)(void *, acc_choice *, bool);
@@ -146,7 +146,7 @@ struct acc_choice: public wxChoice {
 	acc_choice_callback fnptr;
 	void *fnextra;
 
-	acc_choice(wxWindow *parent, std::shared_ptr<taccount> &acc, unsigned int flags_, int winid=wxID_ANY, acc_choice_callback callbck=0, void *extra=0);
+	acc_choice(wxWindow *parent, std::shared_ptr<taccount> &acc, unsigned int flags_, int winid = wxID_ANY, acc_choice_callback callbck = 0, void *extra = 0);
 	void UpdateSel();
 	void OnSelChange(wxCommandEvent &event);
 	void fill_acc();

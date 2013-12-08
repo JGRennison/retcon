@@ -37,9 +37,9 @@ struct tweet;
 struct userdatacontainer;
 
 typedef enum {
-	DBPSC_START=0,
+	DBPSC_START = 0,
 
-	DBPSC_INSTWEET=0,
+	DBPSC_INSTWEET = 0,
 	DBPSC_UPDTWEET,
 	DBPSC_BEGIN,
 	DBPSC_COMMIT,
@@ -120,7 +120,7 @@ struct dbsendmsg_list : public dbsendmsg {
 
 struct dbsendmsg_callback : public dbsendmsg {
 	dbsendmsg_callback(DBSM_TYPE type_) : dbsendmsg(type_) { }
-	dbsendmsg_callback(DBSM_TYPE type_, wxEvtHandler *targ_, WXTYPE cmdevtype_, int winid_=wxID_ANY ) :
+	dbsendmsg_callback(DBSM_TYPE type_, wxEvtHandler *targ_, WXTYPE cmdevtype_, int winid_ = wxID_ANY ) :
 		dbsendmsg(type_), targ(targ_), cmdevtype(cmdevtype_), winid(winid_) { }
 
 	wxEvtHandler *targ;
@@ -187,9 +187,9 @@ struct dbseltweetmsg : public dbsendmsg_callback {
 	dbseltweetmsg() : dbsendmsg_callback(DBSM_SELTWEET), flags(0) { }
 
 	unsigned int flags;
-	std::set<uint64_t> id_set;			//ids to select
-	std::forward_list<dbrettweetdata> data;		//return data
-	std::forward_list<dbretmediadata> media_data;	//return data
+	std::set<uint64_t> id_set;                      //ids to select
+	std::forward_list<dbrettweetdata> data;         //return data
+	std::forward_list<dbretmediadata> media_data;   //return data
 };
 
 struct dbseltweetmsg_netfallback : public dbseltweetmsg {
@@ -215,10 +215,10 @@ struct dbinsertusermsg : public dbsendmsg {
 struct dbinsertaccmsg : public dbsendmsg_callback {
 	dbinsertaccmsg() : dbsendmsg_callback(DBSM_INSERTACC) { }
 
-	std::string name;				//account name
-	std::string dispname;				//account name
+	std::string name;            //account name
+	std::string dispname;        //account name
 	uint64_t userid;
-	unsigned int dbindex;				//return data
+	unsigned int dbindex;        //return data
 };
 
 struct dbdelaccmsg : public dbsendmsg {
@@ -274,11 +274,11 @@ struct dbconn : public wxEvtHandler {
 	void SendMessage(dbsendmsg *msg);
 	void SendMessageOrAddToList(dbsendmsg *msg, dbsendmsg_list *msglist);
 
-	void InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string statjson, dbsendmsg_list *msglist=0);
-	void UpdateTweetDyn(const std::shared_ptr<tweet> &tobj, dbsendmsg_list *msglist=0);
-	void InsertUser(const std::shared_ptr<userdatacontainer> &u, dbsendmsg_list *msglist=0);
-	void InsertMedia(media_entity &me, dbsendmsg_list *msglist=0);
-	void UpdateMediaChecksum(media_entity &me, bool isfull, dbsendmsg_list *msglist=0);
+	void InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string statjson, dbsendmsg_list *msglist = 0);
+	void UpdateTweetDyn(const std::shared_ptr<tweet> &tobj, dbsendmsg_list *msglist = 0);
+	void InsertUser(const std::shared_ptr<userdatacontainer> &u, dbsendmsg_list *msglist = 0);
+	void InsertMedia(media_entity &me, dbsendmsg_list *msglist = 0);
+	void UpdateMediaChecksum(media_entity &me, bool isfull, dbsendmsg_list *msglist = 0);
 	void AccountSync(sqlite3 *adb);
 	void SyncWriteBackAllUsers(sqlite3 *adb);
 	void SyncReadInAllUsers(sqlite3 *adb);

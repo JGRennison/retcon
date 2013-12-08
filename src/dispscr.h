@@ -50,12 +50,12 @@ struct generic_disp_base : public wxRichTextCtrl, public magic_ptr_base {
 	wxColour default_foreground_colour;
 	wxString thisname;
 	enum {
-		GDB_FF_FORCEFROZEN	= 1<<0,
-		GDB_FF_FORCEUNFROZEN	= 1<<1,
+		GDB_FF_FORCEFROZEN      = 1<<0,
+		GDB_FF_FORCEUNFROZEN    = 1<<1,
 	};
 	unsigned int freezeflags = 0;
 
-	generic_disp_base(wxWindow *parent, panelparentwin_base *tppw_, long extraflags = 0, wxString thisname_=wxT(""));
+	generic_disp_base(wxWindow *parent, panelparentwin_base *tppw_, long extraflags = 0, wxString thisname_ = wxT(""));
 	void mousewheelhandler(wxMouseEvent &event);
 	void urleventhandler(wxTextUrlEvent &event);
 	virtual void urlhandler(wxString url) { }
@@ -70,7 +70,7 @@ struct dispscr_mouseoverwin : generic_disp_base, public magic_paired_ptr_ts<disp
 	unsigned int mouse_refcount = 0;
 	wxTimer mouseevttimer;
 
-	dispscr_mouseoverwin(wxWindow *parent, panelparentwin_base *tppw_, wxString thisname_=wxT(""));
+	dispscr_mouseoverwin(wxWindow *parent, panelparentwin_base *tppw_, wxString thisname_ = wxT(""));
 	virtual void OnMagicPairedPtrChange(dispscr_base *targ, dispscr_base *prevtarg, bool targdestructing) override;
 	void Position(const wxSize &targ_size, const wxPoint &targ_position);
 	void targmovehandler(wxMoveEvent &event);
@@ -92,7 +92,7 @@ struct dispscr_base : public generic_disp_base, public magic_paired_ptr_ts<disps
 	tpanelscrollwin *tpsw;
 	wxBoxSizer *hbox;
 
-	dispscr_base(tpanelscrollwin *parent, panelparentwin_base *tppw_, wxBoxSizer *hbox_, wxString thisname_=wxT(""));
+	dispscr_base(tpanelscrollwin *parent, panelparentwin_base *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
 	virtual void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
                                int noUnitsX, int noUnitsY,
                                int xPos = 0, int yPos = 0,
@@ -105,15 +105,15 @@ struct dispscr_base : public generic_disp_base, public magic_paired_ptr_ts<disps
 };
 
 enum {	//for tweetdispscr.tds_flags
-	TDSF_SUBTWEET	= 1<<0,
-	TDSF_HIGHLIGHT	= 1<<1,
+	TDSF_SUBTWEET     = 1<<0,
+	TDSF_HIGHLIGHT    = 1<<1,
 };
 
 struct tweetdispscr_mouseoverwin : public dispscr_mouseoverwin {
 	std::shared_ptr<tweet> td;
 	unsigned int tds_flags = 0;
 
-	tweetdispscr_mouseoverwin(wxWindow *parent, panelparentwin_base *tppw_, wxString thisname_=wxT(""));
+	tweetdispscr_mouseoverwin(wxWindow *parent, panelparentwin_base *tppw_, wxString thisname_ = wxT(""));
 	virtual bool RefreshContent() override;
 	virtual void urlhandler(wxString url) override;
 	void rightclickhandler(wxMouseEvent &event);
@@ -133,9 +133,9 @@ struct tweetdispscr : public dispscr_base {
 	unsigned int tds_flags = 0;
 	std::forward_list<magic_ptr_ts<tweetdispscr> > subtweets;
 
-	tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_=wxT(""));
+	tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
 	~tweetdispscr();
-	void DisplayTweet(bool redrawimg=false);
+	void DisplayTweet(bool redrawimg = false);
 	void OnTweetActMenuCmd(wxCommandEvent &event);
 
 	void urlhandler(wxString url);
@@ -150,7 +150,7 @@ struct userdispscr : public dispscr_base {
 	std::shared_ptr<userdatacontainer> u;
 	profimg_staticbitmap *bm;
 
-	userdispscr(const std::shared_ptr<userdatacontainer> &u_, tpanelscrollwin *parent, tpanelparentwin_user *tppw_, wxBoxSizer *hbox_, wxString thisname_=wxT(""));
+	userdispscr(const std::shared_ptr<userdatacontainer> &u_, tpanelscrollwin *parent, tpanelparentwin_user *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
 	~userdispscr();
 	void Display(bool redrawimg=false);
 

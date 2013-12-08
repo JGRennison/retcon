@@ -57,22 +57,22 @@ struct twitcurlext;
 
 //arrange in order of increasing severity
 typedef enum {
-	MCC_RETRY=0,
+	MCC_RETRY = 0,
 	MCC_FAILED,
 } MCC_HTTPERRTYPE;
 
-enum {	MCCT_RETRY=wxID_HIGHEST+1,
+enum {	MCCT_RETRY = wxID_HIGHEST+1,
 };
 
 enum {
-	MCF_NOTIMEOUT		= 1<<0,
-	MCF_IN_RETRY_QUEUE	= 1<<1,
-	MCF_RETRY_NOW_ON_SUCCESS= 1<<2,
+	MCF_NOTIMEOUT             = 1<<0,
+	MCF_IN_RETRY_QUEUE        = 1<<1,
+	MCF_RETRY_NOW_ON_SUCCESS  = 1<<2,
 };
 
 struct mcurlconn : public wxEvtHandler {
 	void NotifyDone(CURL *easy, CURLcode res);
-	void HandleError(CURL *easy, long httpcode, CURLcode res);    //may cause object death
+	void HandleError(CURL *easy, long httpcode, CURLcode res);      //may cause object death
 	void StandbyTidy();
 	unsigned int errorcount;
 	unsigned int mcflags;
@@ -80,12 +80,12 @@ struct mcurlconn : public wxEvtHandler {
 	mcurlconn() : errorcount(0), mcflags(0) {}
 	virtual ~mcurlconn();
 
-	virtual void NotifyDoneSuccess(CURL *easy, CURLcode res)=0;   //may cause object death
-	virtual void DoRetry()=0;
-	virtual void HandleFailure(long httpcode, CURLcode res)=0;    //may cause object death
+	virtual void NotifyDoneSuccess(CURL *easy, CURLcode res) = 0;   //may cause object death
+	virtual void DoRetry() = 0;
+	virtual void HandleFailure(long httpcode, CURLcode res) = 0;    //may cause object death
 	virtual void KillConn();
 	virtual MCC_HTTPERRTYPE CheckHTTPErrType(long httpcode);
-	virtual CURL *GenGetCurlHandle()=0;
+	virtual CURL *GenGetCurlHandle() = 0;
 	virtual wxString GetConnTypeName() { return wxT(""); }
 
 	DECLARE_EVENT_TABLE()
@@ -118,19 +118,19 @@ struct profileimgdlconn : public dlconn {
 };
 
 enum {
-	MIDC_FULLIMG			= 1<<0,
-	MIDC_THUMBIMG			= 1<<1,
-	MIDC_REDRAW_TWEETS		= 1<<2,
-	MIDC_OPPORTUNIST_THUMB		= 1<<3,
-	MIDC_OPPORTUNIST_REDRAW_TWEETS	= 1<<4,
+	MIDC_FULLIMG                      = 1<<0,
+	MIDC_THUMBIMG                     = 1<<1,
+	MIDC_REDRAW_TWEETS                = 1<<2,
+	MIDC_OPPORTUNIST_THUMB            = 1<<3,
+	MIDC_OPPORTUNIST_REDRAW_TWEETS    = 1<<4,
 };
 
 struct mediaimgdlconn : public dlconn {
 	media_id_type media_id;
 	unsigned int flags;
 
-	void Init(const std::string &imgurl_, media_id_type media_id_, unsigned int flags_=0);
-	mediaimgdlconn(const std::string &imgurl_, media_id_type media_id_, unsigned int flags_=0) { Init(imgurl_, media_id_, flags_); }
+	void Init(const std::string &imgurl_, media_id_type media_id_, unsigned int flags_ = 0);
+	mediaimgdlconn(const std::string &imgurl_, media_id_type media_id_, unsigned int flags_ = 0) { Init(imgurl_, media_id_, flags_); }
 
 	void NotifyDoneSuccess(CURL *easy, CURLcode res);
 	void Reset();
@@ -148,7 +148,7 @@ struct sockettimeout : public wxTimer {
 #ifdef RCS_POLLTHREADMODE
 
 typedef enum {
-	SPM_FDCHANGE=1,
+	SPM_FDCHANGE = 1,
 	SPM_ENABLE,
 	SPM_QUIT,
 } SPM_TYPE;
@@ -173,8 +173,8 @@ struct socketpollthread : public wxThread {
 DECLARE_EVENT_TYPE(wxextSOCK_NOTIFY, -1)
 
 struct wxextSocketNotifyEvent : public wxEvent {
-	wxextSocketNotifyEvent( int id=0 );
-	wxextSocketNotifyEvent( const wxextSocketNotifyEvent &src );
+	wxextSocketNotifyEvent(int id = 0);
+	wxextSocketNotifyEvent(const wxextSocketNotifyEvent &src);
 	wxEvent *Clone() const;
 
 	int fd;

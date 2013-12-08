@@ -55,7 +55,8 @@ unsigned int CheckTweetPendings(const std::shared_ptr<tweet> &t);
 bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_nt* win_, unsigned int pushflags = 0, std::shared_ptr<tpanel> *pushtpanel_ = 0);
 bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::shared_ptr<taccount> acc_hint);
 void MarkTweetIDSetAsRead(const tweetidset &ids, const tpanel *exclude);
-void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, std::function<tweetidset &(cached_id_sets &)> idsetselector, bool remove, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc = std::function<void(const std::shared_ptr<tweet> &)>());
+void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, std::function<tweetidset &(cached_id_sets &)> idsetselector,
+		bool remove, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc = std::function<void(const std::shared_ptr<tweet> &)>());
 void SendTweetFlagUpdate(const std::shared_ptr<tweet> &tw, unsigned long long mask);
 void UpdateSingleTweetUnreadState(const std::shared_ptr<tweet> &tw);
 void UpdateSingleTweetHighlightState(const std::shared_ptr<tweet> &tw);
@@ -148,8 +149,27 @@ struct tweet_flags {
 	//Note that the below functions do minimal, if any, error checking
 
 	static constexpr unsigned long long GetFlagValue(char in) { return ((uint64_t) 1) << GetFlagNum(in); }
-	static constexpr ssize_t GetFlagNum(char in) { return (in>='0' && in<='9')?in-'0':((in>='a' && in<='z')?10+in-'a':((in>='A' && in<='Z')?10+26+in-'A':-1)); }
-	static constexpr char GetFlagChar(size_t in) { return (in<10)?in+'0':((in>=10 && in<36)?in+'a'-10:((in>=36 && in<62)?in+'A'-36:'?')); }
+	static constexpr ssize_t GetFlagNum(char in) {
+		return (in >= '0' && in <= '9')
+			? in-'0'
+			: ((in >= 'a' && in <= 'z')
+				? 10 + in - 'a'
+				: ((in >= 'A' && in <= 'Z')
+					? 10 + 26 + in - 'A'
+					: -1
+				  )
+			  );
+	}
+	static constexpr char GetFlagChar(size_t in) {
+		return (in<10)
+			? in + '0'
+			: ((in >= 10 && in < 36)
+				? in + 'a' - 10
+				: ((in >= 36 && in < 62)
+					? in + 'A' - 36 : '?'
+				  )
+			  );
+	}
 
 	static unsigned long long GetFlagStringValue(const std::string &in) {
 		unsigned long long out = 0;
@@ -162,18 +182,18 @@ struct tweet_flags {
 
 	bool Get(char in) const {
 		ssize_t num=GetFlagNum(in);
-		if(num>=0) return bits.test(num);
+		if(num >= 0) return bits.test(num);
 		else return 0;
 	}
 
 	void Set(char in, bool value = true) {
 		ssize_t num=GetFlagNum(in);
-		if(num>=0) bits.set(num, value);
+		if(num >= 0) bits.set(num, value);
 	}
 
 	bool Toggle(char in) {
 		ssize_t num=GetFlagNum(in);
-		if(num>=0) {
+		if(num >= 0) {
 			bits.flip(num);
 			return bits.test(num);
 		}

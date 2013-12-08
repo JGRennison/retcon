@@ -44,10 +44,10 @@ struct userdatacontainer;
 
 enum
 {
-    ID_Close = wxID_CLOSE,
-    ID_Quit = wxID_EXIT,
-    ID_About = wxID_ABOUT,
-    ID_Settings = 1,
+    ID_Close      = wxID_CLOSE,
+    ID_Quit       = wxID_EXIT,
+    ID_About      = wxID_ABOUT,
+    ID_Settings   = 1,
     ID_Accounts,
     ID_Viewlog,
     ID_UserLookup,
@@ -96,9 +96,9 @@ struct tweetposttextbox : public wxRichTextCtrl {
 	void OnTCChar(wxRichTextEvent &event);
 	void OnTCUpdate(wxCommandEvent &event);
 	void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
-                               int noUnitsX, int noUnitsY,
-                               int xPos = 0, int yPos = 0,
-                               bool noRefresh = false );	//virtual override
+			int noUnitsX, int noUnitsY,
+			int xPos = 0, int yPos = 0,
+			bool noRefresh = false);    //virtual override
 	void SetCursorToEnd();
 
 	DECLARE_EVENT_TABLE()
@@ -134,7 +134,7 @@ struct tweetpostwin : public wxPanel {
 	std::shared_ptr<tweet> tweet_reply_targ;
 	std::shared_ptr<userdatacontainer> dm_targ;
 
-	tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *parentauim=0);
+	tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *parentauim = 0);
 	~tweetpostwin();
 	void OnSendBtn(wxCommandEvent &event);
 	void DoShowHide(bool show);
@@ -148,14 +148,14 @@ struct tweetpostwin : public wxPanel {
 	void UpdateReplyDesc();
 	void SetReplyTarget(const std::shared_ptr<tweet> &targ);
 	void SetDMTarget(const std::shared_ptr<userdatacontainer> &targ);
-	void DoCheckFocusDisplay(bool force=false);
+	void DoCheckFocusDisplay(bool force = false);
 	void OnCloseReplyDescBtn(wxCommandEvent &event);
 	void AUIMNoLongerValid();
 
 	DECLARE_EVENT_TABLE()
 };
 
-mainframe *GetMainframeAncestor(wxWindow *in, bool passtoplevels=false);
+mainframe *GetMainframeAncestor(wxWindow *in, bool passtoplevels = false);
 void FreezeAll();
 void ThawAll();
 void AccountUpdateAllMainframes();

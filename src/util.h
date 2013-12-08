@@ -69,17 +69,17 @@ namespace std
 #endif
 
 template <typename C, typename D> inline void ownstrtonum(C &val, D *str, ssize_t len) {
-	val=0;
-	for(ssize_t i=0; len<0 || i<len; i++) {
-		if(str[i]>='0' && str[i]<='9') {
-			val*=10;
-			val+=str[i]-'0';
+	val = 0;
+	for(ssize_t i = 0; len < 0 || i < len; i++) {
+		if(str[i] >= '0' && str[i] <= '9') {
+			val *= 10;
+			val += str[i] - '0';
 		}
 		else break;
 	}
 }
 
-wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t timestamp=0, bool localtime=true);
+wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t timestamp = 0, bool localtime = true);
 
 std::string string_format(const std::string &fmt, ...);
 

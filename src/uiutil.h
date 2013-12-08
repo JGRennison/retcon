@@ -88,14 +88,15 @@ typedef std::map<int,tweetactmenuitem> tweetactmenudata;
 
 extern tweetactmenudata tamd;
 
-void AppendToTAMIMenuMap(tweetactmenudata &map, int &nextid, TAMI_TYPE type, std::shared_ptr<tweet> tw, unsigned int dbindex=0, std::shared_ptr<userdatacontainer> user=std::shared_ptr<userdatacontainer>(),
-		unsigned int flags=0, wxString extra = wxT(""), panelparentwin_base *ppwb = 0);
+void AppendToTAMIMenuMap(tweetactmenudata &map, int &nextid, TAMI_TYPE type, std::shared_ptr<tweet> tw,
+		unsigned int dbindex = 0, std::shared_ptr<userdatacontainer> user = std::shared_ptr<userdatacontainer>(),
+		unsigned int flags = 0, wxString extra = wxT(""), panelparentwin_base *ppwb = 0);
 void MakeRetweetMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw);
 void MakeFavMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw);
 void MakeCopyMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw);
 void MakeMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw);
 void MakeTPanelMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw, tpanelparentwin_nt *tppw);
-void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin=0);
+void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin = 0);
 uint64_t ParseUrlID(wxString url);
 media_id_type ParseMediaID(wxString url);
 void SaveWindowLayout();

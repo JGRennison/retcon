@@ -75,7 +75,7 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	uint64_t &GetMaxId(RBFS_TYPE type) {
 		switch(type) {
 			case RBFS_TWEETS: return max_tweet_id;
-			case RBFS_MENTIONS: return (gc.assumementionistweet)?max_tweet_id:max_mention_id;
+			case RBFS_MENTIONS: return (gc.assumementionistweet) ? max_tweet_id : max_mention_id;
 			case RBFS_RECVDM: return max_recvdm_id;
 			case RBFS_SENTDM: return max_sentdm_id;
 			default: return max_tweet_id;
@@ -121,7 +121,8 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	void ClearUsersIFollow();
 	void SetUserRelationship(uint64_t userid, unsigned int flags, const time_t &optime);
 
-	void StartRestGetTweetBackfill(uint64_t start_tweet_id /*lower limit, exclusive*/, uint64_t end_tweet_id /*upper limit, inclusive*/, unsigned int max_tweets_to_read, RBFS_TYPE type=RBFS_TWEETS, uint64_t userid=0);
+	void StartRestGetTweetBackfill(uint64_t start_tweet_id /*lower limit, exclusive*/, uint64_t end_tweet_id /*upper limit, inclusive*/,
+			unsigned int max_tweets_to_read, RBFS_TYPE type=RBFS_TWEETS, uint64_t userid = 0);
 	void ExecRBFS(restbackfillstate *rbfs);
 	void StartRestQueryPendings();
 	void DoPostAction(twitcurlext *lasttce);
@@ -131,8 +132,8 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 
 	void MarkUserPending(const std::shared_ptr<userdatacontainer> &user);
 	void MarkPendingOrHandle(const std::shared_ptr<tweet> &t);
-	bool CheckMarkPending(const std::shared_ptr<tweet> &t, bool checkfirst=false);
-	void FastMarkPending(const std::shared_ptr<tweet> &t, unsigned int mark, bool checkfirst=false);
+	bool CheckMarkPending(const std::shared_ptr<tweet> &t, bool checkfirst = false);
+	void FastMarkPending(const std::shared_ptr<tweet> &t, unsigned int mark, bool checkfirst = false);
 
 	void OnRestTimer(wxTimerEvent& event);
 	void SetupRestBackfillTimer();
@@ -146,8 +147,8 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	void Exec();
 	void CalcEnabled();
 	twitcurlext *PrepareNewStreamConn();
-	wxString GetStatusString(bool notextifok=false);
-	taccount(genoptconf *incfg=0);
+	wxString GetStatusString(bool notextifok = false);
+	taccount(genoptconf *incfg = 0);
 	~taccount();
 	twitcurlext *GetTwitCurlExt();
 	void SetGetTwitCurlExtHook(std::function<void(twitcurlext *)> func);

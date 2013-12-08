@@ -32,7 +32,7 @@ struct taccount;
 
 struct log_object {
 	logflagtype lo_flags;
-	virtual void log_str(logflagtype logflags, const wxString &str)=0;
+	virtual void log_str(logflagtype logflags, const wxString &str) = 0;
 	log_object(logflagtype flagmask);
 	virtual ~log_object();
 };
@@ -43,7 +43,7 @@ struct log_window : public log_object, public wxFrame {
 	wxTextCtrl *txtct;
 
 	void log_str(logflagtype logflags, const wxString &str);
-	log_window(wxWindow *parent, logflagtype flagmask, bool show=true);
+	log_window(wxWindow *parent, logflagtype flagmask, bool show = true);
 	~log_window();
 	void LWShow(bool shown=true);
 	void OnFrameClose(wxCloseEvent &event);
@@ -61,7 +61,7 @@ struct log_file : public log_object {
 	FILE *fp;
 	bool closefpondel;
 	log_file(logflagtype flagmask, const char *filename);
-	log_file(logflagtype flagmask, FILE *fp_, bool closefpondel_=false);
+	log_file(logflagtype flagmask, FILE *fp_, bool closefpondel_ = false);
 	~log_file();
 	void log_str(logflagtype logflags, const wxString &str);
 };
