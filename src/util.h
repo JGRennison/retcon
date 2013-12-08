@@ -81,4 +81,6 @@ template <typename C, typename D> inline void ownstrtonum(C &val, D *str, ssize_
 
 wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t timestamp=0, bool localtime=true);
 
+std::string string_format(const std::string &fmt, ...);
+
 #endif
