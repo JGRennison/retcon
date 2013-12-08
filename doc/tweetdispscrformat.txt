@@ -34,6 +34,12 @@ m(          Conditional: process contents of brackets if not a subtweet and in a
 A           Display list of accounts tweet arrived on
 J           Tweet ID
 j           Retweet source tweet ID (or tweet ID if not a retweet)
+S...        Tweet Source (ie. client/app used)
+Sr          Display raw
+Sl          Display as link
+SL          Display as link, underlined if it really is a link
+Sn          Display name only
+Sp(         Conditional: process contents of brackets if Tweet Source is present
 
 
 User Display Codes:

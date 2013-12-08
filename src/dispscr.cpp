@@ -32,6 +32,8 @@
 #include "mediawin.h"
 #include "userui.h"
 #include "mainui.h"
+#define PCRE_STATIC
+#include <pcre.h>
 
 #ifndef DISPSCR_COPIOUS_LOGGING
 #define DISPSCR_COPIOUS_LOGGING 0
@@ -700,6 +702,70 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 			case 'j':
 				str+=wxString::Format("%" wxLongLongFmtSpec "d", (tw.rtsrc && gc.rtdisp) ? tw.rtsrc->id : tw.id);
 				break;
+			case 'S': {
+				static pcre *pattern = 0;
+				static pcre_extra *patextra = 0;
+				static const char patsyntax[] = R"##(^(?:<a(?:\s+\w+="[^<>"]*")*\s+href="([^<>"]+)"(?:\s+\w+="[^<>"]*")*\s*>([^<>]*)</a>)|([^<>]*)$)##";
+
+				std::string url;
+				std::string name;
+
+				auto parse = [&]() {
+					if(!pattern) {
+						const char *errptr;
+						int erroffset;
+						pattern = pcre_compile(patsyntax, PCRE_NO_UTF8_CHECK | PCRE_CASELESS | PCRE_UTF8, &errptr, &erroffset, 0);
+						if(!pattern) {
+							LogMsgFormat(LFT_OTHERERR, wxT("TweetFormatProc: case S: parse: pcre_compile failed: %s (%d)\n%s"), wxstrstd(errptr).c_str(), erroffset, wxstrstd(patsyntax).c_str());
+							return;
+						}
+						patextra = pcre_study(pattern, 0, &errptr);
+					}
+
+					const int ovecsize = 60;
+					int ovector[60];
+
+					if(pcre_exec(pattern, patextra, tw.source.c_str(), tw.source.size(), 0, 0, ovector, ovecsize) >= 1) {
+						if(ovector[2] >= 0) url.assign(tw.source.c_str() + ovector[2], ovector[3] - ovector[2]);
+						if(ovector[4] >= 0) name.assign(tw.source.c_str() + ovector[4], ovector[5] - ovector[4]);
+						else if(ovector[6] >= 0) name.assign(tw.source.c_str() + ovector[6], ovector[7] - ovector[6]);
+					}
+				};
+
+				i++;
+				if(i>=format.size()) break;
+				switch((wxChar) format[i]) {
+					case 'r':
+						str += wxstrstd(tw.source);
+						break;
+					case 'n':
+						parse();
+						str += wxstrstd(name);
+						break;
+					case 'l':
+					case 'L':
+						parse();
+						if(url.empty()) {
+							str += wxstrstd(name);
+						}
+						else {
+							flush();
+							if((wxChar) format[i] == 'L') obj->BeginUnderline();
+							obj->BeginURL(wxString::Format(wxT("W%s"), wxstrstd(url).c_str()));
+							obj->WriteText(wxstrstd(name));
+							obj->EndURL();
+							if((wxChar) format[i] == 'L') obj->EndUnderline();
+						}
+						break;
+					case 'p':
+						i++;
+						if(i>=format.size()) break;
+						if(format[i] != '(' || tw.source.empty()) {
+							SkipOverFalseCond(i, format);
+						}
+				}
+				break;
+			}
 			default: {
 				GenFmtCodeProc(obj, i, format, str);
 				break;
