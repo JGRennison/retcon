@@ -474,9 +474,8 @@ bool userdatacontainer::GetUsableAccount(std::shared_ptr<taccount> &tac, bool en
 	else return false;
 }
 
-std::string tweet_flags::GetString() const {
+std::string tweet_flags::GetValueString(unsigned long long bitint) {
 	std::string out;
-	uint64_t bitint=bits.to_ullong();
 	while(bitint) {
 		int offset=__builtin_ctzll(bitint);
 		bitint&=~((uint64_t) 1<<offset);

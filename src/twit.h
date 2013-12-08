@@ -137,22 +137,40 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 };
 
 struct tweet_flags {
+	protected:
+	std::bitset<62> bits;
+
+	public:
 	tweet_flags() : bits() { }
 	tweet_flags(unsigned long long val) : bits(val) { }
 	tweet_flags(const tweet_flags &cpysrc) : bits(cpysrc.Save()) { }
 
+	//Note that the below functions do minimal, if any, error checking
+
 	static constexpr unsigned long long GetFlagValue(char in) { return ((uint64_t) 1)<<GetFlagNum(in); }
 	static constexpr ssize_t GetFlagNum(char in) { return (in>='0' && in<='9')?in-'0':((in>='a' && in<='z')?10+in-'a':((in>='A' && in<='Z')?10+26+in-'A':-1)); }
 	static constexpr char GetFlagChar(size_t in) { return (in<10)?in+'0':((in>=10 && in<36)?in+'a'-10:((in>=36 && in<62)?in+'A'-36:'?')); }
+
+	static unsigned long long GetFlagStringValue(const std::string &in) {
+		unsigned long long out = 0;
+		for(auto &it : in) {
+			out |= GetFlagValue(it);
+		}
+		return out;
+	}
+	static std::string GetValueString(unsigned long long val);
+
 	bool Get(char in) const {
 		ssize_t num=GetFlagNum(in);
 		if(num>=0) return bits.test(num);
 		else return 0;
 	}
+
 	void Set(char in, bool value=true) {
 		ssize_t num=GetFlagNum(in);
 		if(num>=0) bits.set(num, value);
 	}
+
 	bool Toggle(char in) {
 		ssize_t num=GetFlagNum(in);
 		if(num>=0) {
@@ -161,12 +179,11 @@ struct tweet_flags {
 		}
 		else return 0;
 	}
-	std::string GetString() const;
+
 	unsigned long long Save() const { return bits.to_ullong(); }
-	protected:
-	std::bitset<62> bits;
-
-
+	std::string GetString() const {
+		return GetValueString(Save());
+	}
 };
 
 struct tweet_perspective {
