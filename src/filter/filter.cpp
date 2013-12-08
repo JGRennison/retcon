@@ -377,6 +377,12 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 						return *tw.user;
 					});
 				}
+				else if(part1 == "retweetuser") {
+					usermode([](tweet &tw) -> userdatacontainer & {
+						if(tw.rtsrc) return *tw.rtsrc->user;
+						else return *tw.user;
+					});
+				}
 				else if(part1 == "userrecipient") {
 					usermode([](tweet &tw) -> userdatacontainer & {
 						if(tw.user_recipient) return *tw.user_recipient;
