@@ -1,0 +1,65 @@
+Conditionals:
+
+if <condition>                Executes the contents of the block if <condition> is met
+
+else if <condition>           Executes the contents of the block if <condition> is met
+                              and a previous if or else if condition was not already met
+elseif, elsif, elif           Alternative spellings of else if
+
+else                          Executes the contents of the block if no previous if or else if condition was already met
+
+Suffixing a 'n' to if or else if inverts the sense of the condition.
+
+
+
+Conditions:
+
+Testing properties of the tweet being filtered:
+tweet.<variable>              Tweet variable
+retweet.<variable>            If this tweet is a retweet, test a property of the original tweet,
+                              otherwise test the tweet as normal
+
+Testing properties of user accounts associated with the tweet being filtered:
+user.<variable>               Tweet author
+retweetuser.<variable>        If this tweet is a retweet, test a property of the original tweet's author,
+                              otherwise test the tweet's author as normal
+userrecipient.<variable>      If this tweet is a DM, test a property of the DM's recipient,
+                              otherwise test the tweet's author as normal
+
+Tweet Condition Variables:
+
+.flags <FLAGS>                Tests the current tweet's flags
+                              where FLAGS is a set of zero or more flag letters, without intermediary whitespace
+                              See tweetflags.txt for flag descriptions.
+    +FLAGS                    At least one of FLAGS must be set (this is the default, if no symbol is used)
+    =FLAGS                    All of FLAGS must be set
+    -FLAGS                    None of FLAGS must be set
+    /FLAGS                    At least one of FLAGS must be unset
+
+The following condition variables accept a PCRE regular expression: regex, which is used to match a text value
+.text <regex>                 Tweet text
+.source <regex>               The tweet source string describes which app/client was used to post the tweet.
+                              It is usually a HTML link.
+
+
+User Condition Variables:
+
+The following condition variables accept a PCRE regular expression: regex, which is used to match a text value
+.name <regex>                 User's long name (not the @ screen name)
+.screenname <regex>           User's screen name, excluding the @ symbol
+.sname <regex>                Alternate spelling of .screenname
+.description <regex>          User's description
+.desc <regex>                 Alternate spelling of .description
+.location <regex>             User's location
+.loc <regex>                  Alternate spelling of .location
+
+
+Actions:
+
+set tweet.flags <FLAGS>       Sets or unsets one or more tweet flags
+                              where FLAGS is a set of zero or more flag letters, without intermediary whitespace
+                              See tweetflags.txt for flag descriptions.
+    +FLAGS                    These FLAGS will be SET (this is the default, if no symbol is used)
+    -FLAGS                    These FLAGS must be UNSET
+                              Note that only some flags can be changed in this manner.
+                              The flags which can currently be change include those in the set: Hur
