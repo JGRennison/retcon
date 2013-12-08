@@ -50,7 +50,7 @@ struct filter_item {
 	unsigned int flags = 0;
 	virtual void exec(tweet &tw, filter_run_state &frs) = 0;
 	virtual ~filter_item() { }
-	virtual bool test_recursion(filter_run_state &frs) { return true; }
+	virtual bool test_recursion(filter_run_state &frs, std::string &err) { return true; }
 };
 
 struct filter_item_cond : public filter_item {
@@ -86,13 +86,19 @@ struct filter_item_cond : public filter_item {
 			frs.recursion.back() &= ~FRSF_ACTIVE;
 		}
 	}
-	bool test_recursion(filter_run_state &frs) override {
+	bool test_recursion(filter_run_state &frs, std::string &err) override {
 		if(flags & FIF_ENDIF) {
-			if(frs.recursion.empty()) return false;
+			if(frs.recursion.empty()) {
+				err = "endif/fi without opening if";
+				return false;
+			}
 			frs.recursion.pop_back();
 		}
 		else if(flags & FIF_ELIF || flags & FIF_ELSE) {
-			if(frs.recursion.empty()) return false;
+			if(frs.recursion.empty()) {
+				err = "elif/else without corresponding if";
+				return false;
+			}
 		}
 		else {
 			frs.recursion.push_back(0);
@@ -436,10 +442,15 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 
 	filter_run_state frs;
 	for(auto &it : out.filters) {
-		if(!it->test_recursion(frs)) {
-			errmsgs += "Mismatched conditionals\n";
+		std::string err;
+		if(!it->test_recursion(frs, err)) {
+			errmsgs += "Mismatched conditionals: " + err + "\n";
 			return;
 		}
+	}
+	if(!frs.recursion.empty()) {
+		errmsgs += "Mismatched conditionals: if(s) without terminating endif/fi\n";
+		return;
 	}
 }
 
