@@ -1052,9 +1052,7 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 			}
 			case 'p': {
 				td->flags.Set('p', false);
-				SendTweetFlagUpdate(td, tweet_flags::GetFlagValue('p'));
-				UpdateTweet(*td, false);
-				CheckClearNoUpdateFlag_All();
+				UpdateSingleTweetFlagState(td, tweet_flags::GetFlagValue('p'));
 				break;
 			}
 		}

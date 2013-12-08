@@ -347,9 +347,7 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 		}
 		case TAMI_TOGGLEHIDEIMG: {
 			map[curid].tw->flags.Toggle('p');
-			SendTweetFlagUpdate(map[curid].tw, tweet_flags::GetFlagValue('p'));
-			UpdateTweet(*map[curid].tw, false);
-			CheckClearNoUpdateFlag_All();
+			UpdateSingleTweetFlagState(map[curid].tw, tweet_flags::GetFlagValue('p'));
 			break;
 		}
 		case TAMI_NULL: {

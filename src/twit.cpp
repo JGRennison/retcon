@@ -609,20 +609,24 @@ void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, std::funct
 }
 
 void UpdateSingleTweetUnreadState(const std::shared_ptr<tweet> &tw) {
-	bool unread = tw->flags.Get('u');
-	tweetidset ids;
-	ids.insert(tw->id);
-	MarkTweetIDSetCIDS(ids, 0, [&](cached_id_sets &cids) -> tweetidset & { return cids.unreadids; }, !unread);
-	SendTweetFlagUpdate(tw, tweet_flags::GetFlagValue('r') | tweet_flags::GetFlagValue('u'));
-	UpdateTweet(*tw, false);
-	CheckClearNoUpdateFlag_All();
+	UpdateSingleTweetFlagState(tw, tweet_flags::GetFlagValue('u') | tweet_flags::GetFlagValue('r'));
 }
 void UpdateSingleTweetHighlightState(const std::shared_ptr<tweet> &tw) {
-	bool highlighted = tw->flags.Get('H');
+	UpdateSingleTweetFlagState(tw, tweet_flags::GetFlagValue('H'));
+}
+
+void UpdateSingleTweetFlagState(const std::shared_ptr<tweet> &tw, unsigned long long mask) {
 	tweetidset ids;
 	ids.insert(tw->id);
-	MarkTweetIDSetCIDS(ids, 0, [&](cached_id_sets &cids) -> tweetidset & { return cids.highlightids; }, !highlighted);
-	SendTweetFlagUpdate(tw, tweet_flags::GetFlagValue('H'));
+
+	if(mask & tweet_flags::GetFlagValue('H')) {
+		MarkTweetIDSetCIDS(ids, 0, [&](cached_id_sets &cids) -> tweetidset & { return cids.highlightids; }, ! tw->flags.Get('H'));
+	}
+	if(mask & (tweet_flags::GetFlagValue('u') | tweet_flags::GetFlagValue('r'))) {
+		MarkTweetIDSetCIDS(ids, 0, [&](cached_id_sets &cids) -> tweetidset & { return cids.unreadids; }, ! tw->flags.Get('u'));
+	}
+
+	SendTweetFlagUpdate(tw, mask);
 	UpdateTweet(*tw, false);
 	CheckClearNoUpdateFlag_All();
 }

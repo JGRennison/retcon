@@ -60,6 +60,7 @@ void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, std::funct
 void SendTweetFlagUpdate(const std::shared_ptr<tweet> &tw, unsigned long long mask);
 void UpdateSingleTweetUnreadState(const std::shared_ptr<tweet> &tw);
 void UpdateSingleTweetHighlightState(const std::shared_ptr<tweet> &tw);
+void UpdateSingleTweetFlagState(const std::shared_ptr<tweet> &tw, unsigned long long mask);
 
 enum {	//for UnmarkPendingTweet: umpt_flags
 	UMPTF_TPDB_NOUPDF        = 1<<0,
