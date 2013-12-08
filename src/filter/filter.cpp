@@ -45,6 +45,7 @@ enum {
 	FIF_NEG       = 1<<2,
 	FIF_ENDIF     = 1<<3,
 	FIF_ELSE      = 1<<4,
+	FIF_ORIF      = 1<<5,
 };
 
 struct filter_item {
@@ -62,6 +63,16 @@ struct filter_item_cond : public filter_item {
 			return;
 		}
 		else if(flags & FIF_ELIF) {
+			if(frs.recursion.back() & (FRSF_DONEIF | FRSF_PARENTINACTIVE)) {
+				frs.recursion.back() &= ~FRSF_ACTIVE;
+				return;
+			}
+		}
+		else if(flags & FIF_ORIF) {
+			if(frs.recursion.back() & FRSF_ACTIVE) {
+				//leave the active bit set
+				return;
+			}
 			if(frs.recursion.back() & (FRSF_DONEIF | FRSF_PARENTINACTIVE)) {
 				frs.recursion.back() &= ~FRSF_ACTIVE;
 				return;
@@ -102,9 +113,9 @@ struct filter_item_cond : public filter_item {
 			}
 			frs.recursion.pop_back();
 		}
-		else if(flags & FIF_ELIF || flags & FIF_ELSE) {
+		else if(flags & FIF_ELIF || flags & FIF_ELSE || flags & FIF_ORIF) {
 			if(frs.recursion.empty()) {
-				err = "elif/else without corresponding if";
+				err = "elif/orif/else without corresponding if";
 				return false;
 			}
 		}
@@ -180,7 +191,7 @@ struct filter_item_action_setflag : public filter_item_action {
 	}
 };
 
-const char condsyntax[] = R"(^\s*(?:(el)(?:s(?:e\s*)?)?)?if(n)?\s+)";
+const char condsyntax[] = R"(^\s*(?:(?:(el)(?:s(?:e\s*)?)?)?|(or\s*))if(n)?\s+)";
 const char regexsyntax[] = R"(^(\w+)\.(\w+)\s+(.*\S)\s*$)";
 const char flagtestsyntax[] = R"(^(re)?tweet\.flags?\s+([a-zA-Z0-9+=\-/]+)\s*)";
 
@@ -275,9 +286,10 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 			int nextsectionoffset = ovector[1];
 
 			bool iselif = ovector[2] >= 0;
-			bool isnegative = ovector[4] >= 0;
+			bool isorif = ovector[4] >= 0;
+			bool isnegative = ovector[6] >= 0;
 
-			unsigned int flags = FIF_COND | (iselif ? FIF_ELIF : 0) | (isnegative ? FIF_NEG : 0);
+			unsigned int flags = FIF_COND | (iselif ? FIF_ELIF : 0) | (isnegative ? FIF_NEG : 0) | (isorif ? FIF_ORIF : 0);
 
 			if(pcre_exec(flagtest_pattern, flagtest_patextra, pos + nextsectionoffset, linelen - nextsectionoffset, 0, 0, ovector, ovecsize) >= 1) {
 				std::unique_ptr<filter_item_cond_flags> fitem(new filter_item_cond_flags);

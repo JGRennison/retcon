@@ -6,6 +6,10 @@ else if <condition>           Executes the contents of the block if <condition> 
                               and a previous if or else if condition was not already met
 elseif, elsif, elif           Alternative spellings of else if
 
+or if <condition>             Executes the contents of the block if <condition> is met
+                              or the previous if or else if condition was met
+orif                          Alternative spelling of or if
+
 else                          Executes the contents of the block if no previous if or else if condition was already met
 
 Suffixing a 'n' to if or else if inverts the sense of the condition.
