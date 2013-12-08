@@ -565,6 +565,13 @@ void tweet::UpdateMarkedAsRead(const tpanel *exclude) {
 	}
 }
 
+void cached_id_sets::CheckTweet(tweet &tw) {
+	if(tw.flags.Get('u')) unreadids.insert(tw.id);
+	else unreadids.erase(tw.id);
+	if(tw.flags.Get('H')) highlightids.insert(tw.id);
+	else highlightids.erase(tw.id);
+}
+
 void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, std::function<tweetidset &(cached_id_sets &)> idsetselector, bool remove, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc) {
 	tweetidset &globset = idsetselector(ad.cids);
 

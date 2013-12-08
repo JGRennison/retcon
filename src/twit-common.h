@@ -42,6 +42,7 @@ struct cached_id_sets {
 		f(unreadids, cid2.unreadids);
 		f(highlightids, cid2.highlightids);
 	}
+	void CheckTweet(tweet &tw);
 };
 
 struct media_id_type {

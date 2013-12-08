@@ -197,6 +197,7 @@ void tpanel::PushTweet(const std::shared_ptr<tweet> &t, unsigned int pushflags) 
 
 //returns true if new tweet
 bool tpanel::RegisterTweet(const std::shared_ptr<tweet> &t) {
+	cids.CheckTweet(*t);
 	if(tweetlist.count(t->id)) {
 		//already have this tweet
 		return false;
@@ -205,12 +206,6 @@ bool tpanel::RegisterTweet(const std::shared_ptr<tweet> &t) {
 		if(t->id>upperid) upperid=t->id;
 		if(t->id<lowerid || lowerid==0) lowerid=t->id;
 		tweetlist.insert(t->id);
-		if(t->flags.Get('u')) {
-			cids.unreadids.insert(t->id);
-		}
-		if(t->flags.Get('H')) {
-			cids.highlightids.insert(t->id);
-		}
 		return true;
 	}
 }
