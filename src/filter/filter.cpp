@@ -179,7 +179,7 @@ const char flagtestsyntax[] = R"(^(re)?tweet\.flags?\s+([a-zA-Z0-9+=\-/]+)\s*)";
 const char elsesyntax[] = R"(^\s*else\s*$)";
 const char endifsyntax[] = R"(^\s*(?:endif|fi)\s*$)";
 
-const char flagsetsyntax[] = R"(^\s*set\s+flags?\s+([a-zA-Z0-9+\-]+)\s*$)";
+const char flagsetsyntax[] = R"(^\s*set\s+tweet\.flags\s+([a-zA-Z0-9+\-]+)\s*$)";
 
 const char blanklinesyntax[] = R"(^(?:\s+#)?\s*$)"; //this also filters comments
 
