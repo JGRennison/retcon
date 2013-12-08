@@ -809,6 +809,22 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 		tds_flags &= ~TDSF_HIGHLIGHT;
 	}
 
+	auto hideactions = [&](bool show) {
+		Show(show);
+		if(bm) bm->Show(show);
+		if(bm2) bm2->Show(show);
+	};
+
+	bool hidden = tw.flags.Get('h') && !(tpsw->parent->tppw_flags & TPPWF_SHOWHIDDEN);
+	if(hidden && !(tds_flags&TDSF_HIDDEN)) {
+		hideactions(false);
+		tds_flags |= TDSF_HIDDEN;
+	}
+	else if(!hidden && (tds_flags&TDSF_HIDDEN)) {
+		hideactions(true);
+		tds_flags &= ~TDSF_HIDDEN;
+	}
+
 	if(redrawimg) {
 		#if DISPSCR_COPIOUS_LOGGING
 			LogMsgFormat(LFT_TPANEL, wxT("DCL: tweetdispscr::DisplayTweet About to redraw images"));

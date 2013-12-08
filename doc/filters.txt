@@ -62,4 +62,4 @@ set tweet.flags <FLAGS>       Sets or unsets one or more tweet flags
     +FLAGS                    These FLAGS will be SET (this is the default, if no symbol is used)
     -FLAGS                    These FLAGS must be UNSET
                               Note that only some flags can be changed in this manner.
-                              The flags which can currently be change include those in the set: Hurp
+                              The flags which can currently be change include those in the set: Hurph

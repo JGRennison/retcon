@@ -1205,6 +1205,21 @@ void tpanelparentwin_nt::setupnavbuttonhandlers() {
 			}
 		}
 	});
+
+	addhandler(TPPWID_TOGGLEHIDDEN, [this](wxCommandEvent &event) {
+		tppw_flags ^= TPPWF_SHOWHIDDEN;
+		tppw_flags |= TPPWF_NOUPDATEONPUSH;
+
+		//refresh any currently displayed tweets which are marked as hidden
+		for(auto &it : currentdisp) {
+			uint64_t id = it.first;
+			tweetdispscr *scr = static_cast<tweetdispscr*>(it.second);
+			if(tp->cids.unreadids.find(id) != tp->cids.unreadids.end()) {
+				scr->DisplayTweet(false);
+			}
+		}
+		CheckClearNoUpdateFlag();
+	});
 }
 
 void tpanelparentwin_nt::morebtnhandler(wxCommandEvent &event) {
@@ -1229,6 +1244,9 @@ void tpanelparentwin_nt::morebtnhandler(wxCommandEvent &event) {
 		pmenu.Append(TPPWID_NEXT_NEWESTUNREADBTN, wxT("Next Newest Unread \x21E1"));
 		pmenu.Append(TPPWID_NEXT_OLDESTUNREADBTN, wxT("Next Oldest Unread \x21E3"));
 	}
+	pmenu.AppendSeparator();
+	wxMenuItem *wmith = pmenu.Append(TPPWID_TOGGLEHIDDEN, wxString::Format(wxT("Show Hidden Tweets (%d)"), tp->cids.hiddenids.size()), wxT(""), wxITEM_CHECK);
+	wmith->Check(tppw_flags & TPPWF_SHOWHIDDEN);
 
 	PopupMenu(&pmenu, btnrect.GetLeft(), btnrect.GetBottom());
 }

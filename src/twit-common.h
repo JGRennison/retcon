@@ -34,13 +34,16 @@ typedef std::set<uint64_t, std::greater<uint64_t> > tweetidset;		//std::set, sor
 struct cached_id_sets {
 	tweetidset unreadids;
 	tweetidset highlightids;
+	tweetidset hiddenids;
 	inline void foreach(std::function<void(tweetidset &)> f) {
 		f(unreadids);
 		f(highlightids);
+		f(hiddenids);
 	}
 	inline void foreach(cached_id_sets &cid2, std::function<void(tweetidset &, tweetidset &)> f) {
 		f(unreadids, cid2.unreadids);
 		f(highlightids, cid2.highlightids);
+		f(hiddenids, cid2.hiddenids);
 	}
 	void CheckTweet(tweet &tw);
 };

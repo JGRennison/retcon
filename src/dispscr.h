@@ -107,6 +107,7 @@ struct dispscr_base : public generic_disp_base, public magic_paired_ptr_ts<disps
 enum {	//for tweetdispscr.tds_flags
 	TDSF_SUBTWEET     = 1<<0,
 	TDSF_HIGHLIGHT    = 1<<1,
+	TDSF_HIDDEN       = 1<<2,
 };
 
 struct tweetdispscr_mouseoverwin : public dispscr_mouseoverwin {

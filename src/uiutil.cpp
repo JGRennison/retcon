@@ -173,6 +173,9 @@ void MakeMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::
 	wxMenuItem *wmi4 = menuP->Append(nextid, wxT("Highlighted"), wxT(""), wxITEM_CHECK);
 	wmi4->Check(tw->flags.Get('H'));
 	AppendToTAMIMenuMap(map, nextid, TAMI_TOGGLEHIGHLIGHT, tw);
+	wxMenuItem *wmi6 = menuP->Append(nextid, wxT("Hidden"), wxT(""), wxITEM_CHECK);
+	wmi6->Check(tw->flags.Get('h'));
+	AppendToTAMIMenuMap(map, nextid, TAMI_TOGGLEHIDDEN, tw);
 	if(tw->flags.Get('I')) {
 		wxMenuItem *wmi5 = menuP->Append(nextid, wxT("Image Previews Hidden"), wxT(""), wxITEM_CHECK);
 		wmi5->Check(tw->flags.Get('p'));
@@ -348,6 +351,11 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 		case TAMI_TOGGLEHIDEIMG: {
 			map[curid].tw->flags.Toggle('p');
 			UpdateSingleTweetFlagState(map[curid].tw, tweet_flags::GetFlagValue('p'));
+			break;
+		}
+		case TAMI_TOGGLEHIDDEN: {
+			map[curid].tw->flags.Toggle('h');
+			UpdateSingleTweetFlagState(map[curid].tw, tweet_flags::GetFlagValue('h'));
 			break;
 		}
 		case TAMI_NULL: {
