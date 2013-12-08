@@ -382,9 +382,11 @@ void GenUserFmt(generic_disp_base *obj, userdatacontainer *u, size_t &i, const w
 		}
 		case 'D': {
 			str+=wxstrstd(u->GetUser().description);
+			break;
 		}
 		case 'l': {
 			str+=wxstrstd(u->GetUser().location);
+			break;
 		}
 		default:
 			break;
@@ -414,6 +416,7 @@ void SkipOverFalseCond(size_t &i, const wxString &format) {
 					if(format[i]==quotechar) break;
 					i++;
 				}
+				break;
 			}
 		}
 	}
@@ -677,6 +680,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 			}
 			case 'm': {
 				i++;
+				if(i>=format.size()) break;
 				if(format[i] != '(' || tppw->IsSingleAccountWin() || tds_flags & TDSF_SUBTWEET) {
 					SkipOverFalseCond(i, format);
 				}
