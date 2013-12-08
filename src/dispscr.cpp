@@ -847,12 +847,21 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 	#endif
 
 	if(!me_list.empty()) {
+		bool hidden_thumbnails = false;
 		Newline();
 		BeginAlignment(wxTEXT_ALIGNMENT_CENTRE);
 		for(auto it=me_list.begin(); it!=me_list.end(); ++it) {
 			BeginURL(wxString::Format(wxT("M%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), (int64_t) (*it)->media_id.m_id, (int64_t) (*it)->media_id.t_id));
 			if((*it)->flags&ME_HAVE_THUMB) {
-				AddImage((*it)->thumbimg);
+				if(tw.flags.Get('p')) {
+					BeginUnderline();
+					WriteText(wxT("[Hidden Image Thumbnail]"));
+					EndUnderline();
+					hidden_thumbnails = true;
+				}
+				else {
+					AddImage((*it)->thumbimg);
+				}
 			}
 			else {
 				BeginUnderline();
@@ -861,7 +870,18 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 			}
 			EndURL();
 		}
+		Newline();
 		EndAlignment();
+		if(hidden_thumbnails) {
+			BeginAlignment(wxTEXT_ALIGNMENT_CENTRE);
+			BeginURL(wxT("Xp"));
+			BeginUnderline();
+			WriteText(wxT("[Unhide Image Thumbnail(s)]"));
+			EndUnderline();
+			EndURL();
+			Newline();
+			EndAlignment();
+		}
 	}
 
 	#if DISPSCR_COPIOUS_LOGGING
@@ -1028,6 +1048,13 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 				}
 
 				win->PopupMenu(&menu);
+				break;
+			}
+			case 'p': {
+				td->flags.Set('p', false);
+				SendTweetFlagUpdate(td, tweet_flags::GetFlagValue('p'));
+				UpdateTweet(*td, false);
+				CheckClearNoUpdateFlag_All();
 				break;
 			}
 		}

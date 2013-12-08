@@ -173,6 +173,11 @@ void MakeMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::
 	wxMenuItem *wmi4 = menuP->Append(nextid, wxT("Highlighted"), wxT(""), wxITEM_CHECK);
 	wmi4->Check(tw->flags.Get('H'));
 	AppendToTAMIMenuMap(map, nextid, TAMI_TOGGLEHIGHLIGHT, tw);
+	if(tw->flags.Get('I')) {
+		wxMenuItem *wmi5 = menuP->Append(nextid, wxT("Image Previews Hidden"), wxT(""), wxITEM_CHECK);
+		wmi5->Check(tw->flags.Get('p'));
+		AppendToTAMIMenuMap(map, nextid, TAMI_TOGGLEHIDEIMG, tw);
+	}
 }
 
 void MakeTPanelMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw, tpanelparentwin_nt *tppw) {
@@ -338,6 +343,13 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 			tweetidset subset;
 			SpliceTweetIDSet(tppw->tp->cids.highlightids, subset, map[curid].tw->id - 1, 0, true);
 			tppw->MarkSetUnhighlighted(std::move(subset));
+			break;
+		}
+		case TAMI_TOGGLEHIDEIMG: {
+			map[curid].tw->flags.Toggle('p');
+			SendTweetFlagUpdate(map[curid].tw, tweet_flags::GetFlagValue('p'));
+			UpdateTweet(*map[curid].tw, false);
+			CheckClearNoUpdateFlag_All();
 			break;
 		}
 		case TAMI_NULL: {

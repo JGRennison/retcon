@@ -11,3 +11,4 @@ r	Has been read
 u	Is unread
 B	Backed up to database
 H	Is highlighted
+p	Hide image preview
