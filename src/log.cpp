@@ -67,6 +67,8 @@ const wxChar *logflagsstrings[]={
 	wxT("pendingtrace"),
 	wxT("wxlog"),
 	wxT("wxverbose"),
+	wxT("filtererr"),
+	wxT("filtertrace"),
 };
 
 void Update_currentlogflags() {

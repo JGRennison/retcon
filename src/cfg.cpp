@@ -154,6 +154,7 @@ void genoptglobconf::CFGWriteOut(DBWriteConfig &twfc) {
 	rtdisp.CFGWriteOutCurDir(twfc, "rtdisp");
 	assumementionistweet.CFGWriteOutCurDir(twfc, "assumementionistweet");
 	mediasave_directorylist.CFGWriteOutCurDir(twfc, "mediasave_directorylist");
+	incoming_filter.CFGWriteOutCurDir(twfc, "incoming_filter");
 }
 void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent) {
 	twfc.SetDBIndexGlobal();
@@ -176,6 +177,7 @@ void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent)
 	rtdisp.CFGReadInCurDir(twfc, "rtdisp", parent.rtdisp.val);
 	assumementionistweet.CFGReadInCurDir(twfc, "assumementionistweet", parent.assumementionistweet.val);
 	mediasave_directorylist.CFGReadInCurDir(twfc, "mediasave_directorylist", parent.mediasave_directorylist.val);
+	incoming_filter.CFGReadInCurDir(twfc, "incoming_filter", parent.incoming_filter.val);
 }
 
 void genopt::CFGWriteOutCurDir(DBWriteConfig &twfc, const char *name) {

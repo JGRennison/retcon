@@ -25,6 +25,8 @@
 #include "cfg.h"
 #include "twit.h"
 #include "twitcurlext.h"
+#include "alldata.h"
+#include "filter/filter-ops.h"
 #include <wx/msgdlg.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
@@ -312,6 +314,7 @@ enum {
 	OPTWIN_CACHING,
 	OPTWIN_TWITTER,
 	OPTWIN_SAVING,
+	OPTWIN_FILTER,
 
 	OPTWIN_LAST,
 };
@@ -410,6 +413,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	addbtn(OPTWIN_CACHING, wxT("Caching"));
 	addbtn(OPTWIN_TWITTER, wxT("Twitter"));
 	addbtn(OPTWIN_SAVING, wxT("Saving"));
+	addbtn(OPTWIN_FILTER, wxT("Filter"));
 
 	vbox->Add(hbox1, 0, wxALL | wxEXPAND | wxALIGN_TOP , 4);
 	hbox1->Add(fgs, 0, wxALL | wxEXPAND | wxALIGN_TOP , 4);
@@ -451,6 +455,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_Bool(OPTWIN_CACHING, panel, fgs,  wxT("Check incoming media against cache"), DCBV_ISGLOBALCFG | DCBV_VERYADVOPTION, gc.gcfg.persistentmediacache, gcglobdefaults.persistentmediacache);
 	AddSettingRow_Bool(OPTWIN_TWITTER, panel, fgs,  wxT("Assume that mentions are a subset of the home timeline"), DCBV_ISGLOBALCFG | DCBV_VERYADVOPTION, gc.gcfg.assumementionistweet, gcglobdefaults.assumementionistweet);
 	AddSettingRow_String(OPTWIN_SAVING, panel, fgs,  wxT("Media Image\nSave Directories\n(1 per line)"), DCBV_ISGLOBALCFG | DCBV_MULTILINE, gc.gcfg.mediasave_directorylist, gcglobdefaults.mediasave_directorylist);
+	AddSettingRow_String(OPTWIN_FILTER, panel, fgs,  wxT("Incoming Tweet Filter\nRead Documentation Before Use"), DCBV_ISGLOBALCFG | DCBV_MULTILINE | DCBV_ADVOPTION, gc.gcfg.incoming_filter, gcglobdefaults.incoming_filter);
 
 	lb=new wxChoice(panel, wxID_FILE1);
 
@@ -507,6 +512,7 @@ settings_window::~settings_window() {
 		(*it)->SetupRestBackfillTimer();
 	}
 	AccountChangeTrigger();
+	InitGlobalFilters();
 }
 
 void settings_window::ChoiceCtrlChange(wxCommandEvent &event) {

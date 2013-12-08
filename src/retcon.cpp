@@ -31,6 +31,7 @@
 #include "mainui.h"
 #include "taccount.h"
 #include "db.h"
+#include "filter/filter-ops.h"
 #include <wx/image.h>
 #include <wx/stdpaths.h>
 #include <cstdio>
@@ -60,6 +61,8 @@ bool retcon::OnInit() {
 	if(!res) return false;
 	rs.add([&]() { dbc.DeInit(); });
 	if(term_requested) return false;
+
+	InitGlobalFilters();
 
 	RestoreWindowLayout();
 	if(mainframelist.empty()) new mainframe( appversionname, wxPoint(50, 50), wxSize(450, 340) );

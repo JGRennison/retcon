@@ -70,6 +70,7 @@ struct genoptglobconf {
 	genopt mouseover_userdispformat;
 	genopt highlight_colourdelta;
 	genopt mediasave_directorylist;
+	genopt incoming_filter;
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent);
 };

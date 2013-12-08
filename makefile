@@ -18,7 +18,7 @@
 
 
 OBJS_SRC := retcon.cpp cfg.cpp optui.cpp parse.cpp socket.cpp tpanel.cpp twit.cpp db.cpp log.cpp cmdline.cpp userui.cpp mainui.cpp signal.cpp
-OBJS_SRC += dispscr.cpp uiutil.cpp mediawin.cpp taccount.cpp util.cpp res.cpp version.cpp aboutwin.cpp twitcurlext.cpp
+OBJS_SRC += dispscr.cpp uiutil.cpp mediawin.cpp taccount.cpp util.cpp res.cpp version.cpp aboutwin.cpp twitcurlext.cpp filter/filter.cpp
 TCOBJS_SRC:=libtwitcurl/base64.cpp libtwitcurl/HMAC_SHA1.cpp libtwitcurl/oauthlib.cpp libtwitcurl/SHA1.cpp libtwitcurl/twitcurl.cpp libtwitcurl/urlencode.cpp
 COBJS_SRC:=utf8proc/utf8proc.c
 OUTNAME:=retcon
@@ -29,7 +29,7 @@ CXXFLAGS=-std=gnu++0x -fno-exceptions
 GCC:=g++
 LD:=ld
 OBJDIR:=objs
-DIRS=$(OBJDIR) $(OBJDIR)$(PATHSEP)libtwitcurl $(OBJDIR)$(PATHSEP)res $(OBJDIR)$(PATHSEP)utf8proc
+DIRS=$(OBJDIR) $(OBJDIR)$(PATHSEP)libtwitcurl $(OBJDIR)$(PATHSEP)res $(OBJDIR)$(PATHSEP)utf8proc $(OBJDIR)$(PATHSEP)filter
 
 EXECPREFIX:=./
 PATHSEP:=/

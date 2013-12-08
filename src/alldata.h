@@ -24,6 +24,7 @@
 #include "univdefs.h"
 #include "twit.h"
 #include "tpanel-common.h"
+#include "filter/filter.h"
 #include <unordered_map>
 #include <string>
 #include <memory>
@@ -42,6 +43,7 @@ struct alldata {
 	std::vector<twin_layout_desc> twinlayout;
 	std::vector<mf_layout_desc> mflayout;
 	bool twinlayout_final = false;
+	filter_set incoming_filter;
 
 	std::shared_ptr<userdatacontainer> &GetUserContainerById(uint64_t id);
 	std::shared_ptr<userdatacontainer> *GetExistingUserContainerById(uint64_t id);
