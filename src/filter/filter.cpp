@@ -464,3 +464,8 @@ void filter_set::FilterTweet(tweet &tw) {
 		f->exec(tw, frs);
 	}
 }
+
+filter_set & filter_set::operator=(filter_set &&other) {
+	filters = std::move(other.filters);
+	return *this;
+}

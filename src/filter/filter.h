@@ -36,6 +36,7 @@ struct filter_set {
 	void FilterTweet(tweet &tw);
 	filter_set();
 	~filter_set();
+	filter_set & operator =(filter_set &&other);
 };
 
 #endif

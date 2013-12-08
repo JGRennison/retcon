@@ -27,6 +27,7 @@
 #include "twitcurlext.h"
 #include "alldata.h"
 #include "filter/filter-ops.h"
+#include "util.h"
 #include <wx/msgdlg.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
@@ -307,6 +308,41 @@ struct ValueChkBoxValidator : public wxValidator {
 	}
 };
 
+struct FilterTextValidator : public wxTextValidator {
+	filter_set &fs;
+	wxString *valPtr;
+	std::shared_ptr<filter_set> ownfilter;
+	FilterTextValidator(filter_set &fs_, wxString* valPtr_ = NULL)
+			: wxTextValidator((long) wxFILTER_NONE, valPtr_), fs(fs_), valPtr(valPtr_) {
+	}
+	virtual wxObject* Clone() const {
+		FilterTextValidator *newfv = new FilterTextValidator(fs, valPtr);
+		newfv->ownfilter = ownfilter;
+		return newfv;
+	}
+	virtual bool TransferFromWindow() {
+		bool result = wxTextValidator::TransferFromWindow();
+		if(result && ownfilter) {
+			fs = std::move(*ownfilter);
+		}
+		return result;
+	}
+	virtual bool Validate(wxWindow* parent) {
+		wxTextCtrl *win = (wxTextCtrl *) GetWindow();
+
+		if(!ownfilter) ownfilter = std::make_shared<filter_set>();
+		std::string errmsg;
+		ParseFilter(stdstrwx(win->GetValue()), *ownfilter, errmsg);
+		if(errmsg.empty()) {
+			return true;
+		}
+		else {
+			::wxMessageBox(wxT("Filter is not valid, please correct errors.\n") + wxstrstd(errmsg), wxT("Filter Validation Failed"), wxOK | wxICON_EXCLAMATION, parent);
+			return false;
+		}
+	}
+};
+
 enum {
 	OPTWIN_ALL = 0,
 	OPTWIN_DISPLAY,
@@ -455,7 +491,8 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_Bool(OPTWIN_CACHING, panel, fgs,  wxT("Check incoming media against cache"), DCBV_ISGLOBALCFG | DCBV_VERYADVOPTION, gc.gcfg.persistentmediacache, gcglobdefaults.persistentmediacache);
 	AddSettingRow_Bool(OPTWIN_TWITTER, panel, fgs,  wxT("Assume that mentions are a subset of the home timeline"), DCBV_ISGLOBALCFG | DCBV_VERYADVOPTION, gc.gcfg.assumementionistweet, gcglobdefaults.assumementionistweet);
 	AddSettingRow_String(OPTWIN_SAVING, panel, fgs,  wxT("Media Image\nSave Directories\n(1 per line)"), DCBV_ISGLOBALCFG | DCBV_MULTILINE, gc.gcfg.mediasave_directorylist, gcglobdefaults.mediasave_directorylist);
-	AddSettingRow_String(OPTWIN_FILTER, panel, fgs,  wxT("Incoming Tweet Filter\nRead Documentation Before Use"), DCBV_ISGLOBALCFG | DCBV_MULTILINE | DCBV_ADVOPTION, gc.gcfg.incoming_filter, gcglobdefaults.incoming_filter);
+	FilterTextValidator filterval(ad.incoming_filter, &gc.gcfg.incoming_filter.val);
+	AddSettingRow_String(OPTWIN_FILTER, panel, fgs,  wxT("Incoming Tweet Filter\nRead Documentation Before Use"), DCBV_ISGLOBALCFG | DCBV_MULTILINE | DCBV_ADVOPTION, gc.gcfg.incoming_filter, gcglobdefaults.incoming_filter, 0, &filterval);
 
 	lb=new wxChoice(panel, wxID_FILE1);
 
@@ -512,7 +549,6 @@ settings_window::~settings_window() {
 		(*it)->SetupRestBackfillTimer();
 	}
 	AccountChangeTrigger();
-	InitGlobalFilters();
 }
 
 void settings_window::ChoiceCtrlChange(wxCommandEvent &event) {
