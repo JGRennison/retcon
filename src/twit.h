@@ -47,12 +47,12 @@ struct taccount;
 class wxSizer;
 
 void HandleNewTweet(const std::shared_ptr<tweet> &t);
-void UpdateTweet(const tweet &t, bool redrawimg=false);
-void UpdateAllTweets(bool redrawimg=false, bool resethighlight=false);
-void UpdateUsersTweet(uint64_t userid, bool redrawimg=false);
-bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t, bool checkfirst=false);
+void UpdateTweet(const tweet &t, bool redrawimg = false);
+void UpdateAllTweets(bool redrawimg=false, bool resethighlight = false);
+void UpdateUsersTweet(uint64_t userid, bool redrawimg = false);
+bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t, bool checkfirst = false);
 unsigned int CheckTweetPendings(const std::shared_ptr<tweet> &t);
-bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_nt* win_, unsigned int pushflags=0, std::shared_ptr<tpanel> *pushtpanel_=0);
+bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_nt* win_, unsigned int pushflags = 0, std::shared_ptr<tpanel> *pushtpanel_ = 0);
 bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::shared_ptr<taccount> acc_hint);
 void MarkTweetIDSetAsRead(const tweetidset &ids, const tpanel *exclude);
 void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, std::function<tweetidset &(cached_id_sets &)> idsetselector, bool remove, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc = std::function<void(const std::shared_ptr<tweet> &)>());
@@ -61,16 +61,16 @@ void UpdateSingleTweetUnreadState(const std::shared_ptr<tweet> &tw);
 void UpdateSingleTweetHighlightState(const std::shared_ptr<tweet> &tw);
 
 enum {	//for UnmarkPendingTweet: umpt_flags
-	UMPTF_TPDB_NOUPDF	= 1<<0,
-	UMPTF_RMV_LKPINPRGFLG	= 1<<1,
+	UMPTF_TPDB_NOUPDF        = 1<<0,
+	UMPTF_RMV_LKPINPRGFLG    = 1<<1,
 };
 
-void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, unsigned int umpt_flags=0);
+void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, unsigned int umpt_flags = 0);
 
 enum {	//for u_flags
-	UF_ISPROTECTED	= 1<<0,
-	UF_ISVERIFIED	= 1<<1,
-	UF_ISDEAD	= 1<<2,
+	UF_ISPROTECTED           = 1<<0,
+	UF_ISVERIFIED            = 1<<1,
+	UF_ISDEAD                = 1<<2,
 };
 
 struct userdata {
@@ -82,25 +82,25 @@ struct userdata {
 	std::string description;
 	std::string location;
 	unsigned int statuses_count;
-	unsigned int followers_count;	//users following this account
-	unsigned int friends_count;	//users this account is following
-	unsigned int favourites_count;	//tweets this account has faved
+	unsigned int followers_count;    //users following this account
+	unsigned int friends_count;      //users this account is following
+	unsigned int favourites_count;   //tweets this account has faved
 	std::string userurl;
 
 	userdata() : u_flags(0), createtime(0), statuses_count(0), followers_count(0), friends_count(0), favourites_count(0) { }
 };
 
 enum {
-	UDC_LOOKUP_IN_PROGRESS		= 1<<0,
-	UDC_IMAGE_DL_IN_PROGRESS	= 1<<1,
-	UDC_THIS_IS_ACC_USER_HINT	= 1<<2,
-	UDC_PROFILE_BITMAP_SET		= 1<<3,
-	UDC_HALF_PROFILE_BITMAP_SET	= 1<<4,
-	UDC_WINDOWOPEN			= 1<<5,
-	UDC_FORCE_REFRESH		= 1<<6,
-	UDC_FRIENDACT_IN_PROGRESS	= 1<<7,
-	UDC_CHECK_USERLISTWIN		= 1<<8,
-	UDC_PROFILE_IMAGE_DL_FAILED	= 1<<9,
+	UDC_LOOKUP_IN_PROGRESS        = 1<<0,
+	UDC_IMAGE_DL_IN_PROGRESS      = 1<<1,
+	UDC_THIS_IS_ACC_USER_HINT     = 1<<2,
+	UDC_PROFILE_BITMAP_SET        = 1<<3,
+	UDC_HALF_PROFILE_BITMAP_SET   = 1<<4,
+	UDC_WINDOWOPEN                = 1<<5,
+	UDC_FORCE_REFRESH             = 1<<6,
+	UDC_FRIENDACT_IN_PROGRESS     = 1<<7,
+	UDC_CHECK_USERLISTWIN         = 1<<8,
+	UDC_PROFILE_IMAGE_DL_FAILED   = 1<<9,
 };
 
 struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
@@ -119,7 +119,7 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 
 	bool NeedsUpdating(unsigned int updcf_flags) const;
 	bool IsReady(unsigned int updcf_flags);
-	void CheckPendingTweets(unsigned int umpt_flags=0);
+	void CheckPendingTweets(unsigned int umpt_flags = 0);
 	void MarkTweetPending(const std::shared_ptr<tweet> &t, bool checkfirst=false);
 	std::shared_ptr<taccount> GetAccountOfUser() const;
 	void GetImageLocalFilename(wxString &filename)  const;
@@ -132,7 +132,7 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	void Dump() const;
 	bool ImgIsReady(unsigned int updcf_flags);
 	bool ImgHalfIsReady(unsigned int updcf_flags);
-	bool GetUsableAccount(std::shared_ptr<taccount> &tac, bool enabledonly=true) const;
+	bool GetUsableAccount(std::shared_ptr<taccount> &tac, bool enabledonly = true) const;
 	std::string GetPermalink(bool ssl) const;
 };
 
@@ -147,7 +147,7 @@ struct tweet_flags {
 
 	//Note that the below functions do minimal, if any, error checking
 
-	static constexpr unsigned long long GetFlagValue(char in) { return ((uint64_t) 1)<<GetFlagNum(in); }
+	static constexpr unsigned long long GetFlagValue(char in) { return ((uint64_t) 1) << GetFlagNum(in); }
 	static constexpr ssize_t GetFlagNum(char in) { return (in>='0' && in<='9')?in-'0':((in>='a' && in<='z')?10+in-'a':((in>='A' && in<='Z')?10+26+in-'A':-1)); }
 	static constexpr char GetFlagChar(size_t in) { return (in<10)?in+'0':((in>=10 && in<36)?in+'a'-10:((in>=36 && in<62)?in+'A'-36:'?')); }
 
@@ -166,7 +166,7 @@ struct tweet_flags {
 		else return 0;
 	}
 
-	void Set(char in, bool value=true) {
+	void Set(char in, bool value = true) {
 		ssize_t num=GetFlagNum(in);
 		if(num>=0) bits.set(num, value);
 	}
@@ -189,10 +189,10 @@ struct tweet_flags {
 struct tweet_perspective {
 	std::shared_ptr<taccount> acc;
 	enum {
-		TP_IAH	= 1<<0,
-		TP_FAV	= 1<<1,
-		TP_RET	= 1<<2,
-		TP_RECV	= 1<<3,
+		TP_IAH     = 1<<0,
+		TP_FAV     = 1<<1,
+		TP_RET     = 1<<2,
+		TP_RECV    = 1<<3,
 	};
 
 	tweet_perspective(const std::shared_ptr<taccount> &tac) : acc(tac), flags(0) { }
@@ -201,14 +201,14 @@ struct tweet_perspective {
 	void Load(unsigned int fl) { flags=fl; }
 	unsigned int Save() const { return flags; }
 
-	bool IsArrivedHere() const { return flags&TP_IAH; }
-	bool IsFavourited() const { return flags&TP_FAV; }
-	bool IsRetweeted() const { return flags&TP_RET; }
-	bool IsReceivedHere() const { return flags&TP_RECV; }
-	void SetArrivedHere(bool val) { if(val) flags|=TP_IAH; else flags&=~TP_IAH; }
-	void SetFavourited(bool val) { if(val) flags|=TP_FAV; else flags&=~TP_FAV; }
-	void SetRetweeted(bool val) { if(val) flags|=TP_RET; else flags&=~TP_RET; }
-	void SetReceivedHere(bool val) { if(val) flags|=TP_RECV; else flags&=~TP_RECV; }
+	bool IsArrivedHere() const { return flags & TP_IAH; }
+	bool IsFavourited() const { return flags & TP_FAV; }
+	bool IsRetweeted() const { return flags & TP_RET; }
+	bool IsReceivedHere() const { return flags & TP_RECV; }
+	void SetArrivedHere(bool val) { if(val) flags |= TP_IAH; else flags &= ~TP_IAH; }
+	void SetFavourited(bool val) { if(val) flags |= TP_FAV; else flags &= ~TP_FAV; }
+	void SetRetweeted(bool val) { if(val) flags |= TP_RET; else flags &= ~TP_RET; }
+	void SetReceivedHere(bool val) { if(val) flags |= TP_RECV; else flags &= ~TP_RECV; }
 
 	protected:
 	unsigned int flags;
@@ -219,25 +219,25 @@ struct tweet_perspective {
 };
 
 enum {	//for tweet.lflags
-	TLF_DYNDIRTY		= 1<<0,
-	TLF_BEINGLOADEDFROMDB	= 1<<1,
-	TLF_PENDINGHANDLENEW	= 1<<2,
-	TLF_SAVED_IN_DB		= 1<<3,
-	TLF_BEINGLOADEDOVERNET	= 1<<4,
-	TLF_HAVEFIRSTTP		= 1<<5,
-	TLF_SHOULDSAVEINDB	= 1<<6,
+	TLF_DYNDIRTY             = 1<<0,
+	TLF_BEINGLOADEDFROMDB    = 1<<1,
+	TLF_PENDINGHANDLENEW     = 1<<2,
+	TLF_SAVED_IN_DB          = 1<<3,
+	TLF_BEINGLOADEDOVERNET   = 1<<4,
+	TLF_HAVEFIRSTTP          = 1<<5,
+	TLF_SHOULDSAVEINDB       = 1<<6,
 };
 
 enum {	//for tweet.updcf_flags
-	UPDCF_DOWNLOADIMG	= 1<<0,
-	UPDCF_USEREXPIRE	= 1<<1,
-	UPDCF_DEFAULT = UPDCF_DOWNLOADIMG,
+	UPDCF_DOWNLOADIMG        = 1<<0,
+	UPDCF_USEREXPIRE         = 1<<1,
+	UPDCF_DEFAULT            = UPDCF_DOWNLOADIMG,
 };
 
 struct pending_op {
 	virtual ~pending_op() { }
 
-	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags)=0;
+	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags) = 0;
 	virtual wxString dump()=0;
 };
 
@@ -254,7 +254,7 @@ struct tpanelload_pending_op : public pending_op {
 	std::weak_ptr<tpanel> pushtpanel;
 	unsigned int pushflags;
 
-	tpanelload_pending_op(tpanelparentwin_nt* win_, unsigned int pushflags_=0, std::shared_ptr<tpanel> *pushtpanel_=0);
+	tpanelload_pending_op(tpanelparentwin_nt* win_, unsigned int pushflags_ = 0, std::shared_ptr<tpanel> *pushtpanel_ = 0);
 
 	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags);
 	virtual wxString dump();
@@ -272,9 +272,9 @@ struct tpanel_subtweet_pending_op : public pending_op {
 };
 
 enum {
-	GUAF_CHECKEXISTING	= 1<<0,
-	GUAF_NOERR			= 1<<1,
-	GUAF_USERENABLED	= 1<<2,
+	GUAF_CHECKEXISTING        = 1<<0,
+	GUAF_NOERR                = 1<<1,
+	GUAF_USERENABLED          = 1<<2,
 };
 
 struct tweet {
@@ -298,16 +298,16 @@ struct tweet {
 
 	tweet() : updcf_flags(UPDCF_DEFAULT), lflags(0) { };
 	void Dump() const;
-	tweet_perspective *AddTPToTweet(const std::shared_ptr<taccount> &tac, bool *isnew=0);
+	tweet_perspective *AddTPToTweet(const std::shared_ptr<taccount> &tac, bool *isnew = 0);
 	tweet_perspective *GetTweetTP(const std::shared_ptr<taccount> &tac);
 	std::string mkdynjson() const;
-	bool GetUsableAccount(std::shared_ptr<taccount> &tac, unsigned int guaflags=0) const;
+	bool GetUsableAccount(std::shared_ptr<taccount> &tac, unsigned int guaflags = 0) const;
 	bool IsReady();
 	bool IsFavouritable() const;
 	bool IsRetweetable() const;
 	bool IsArrivedHereAnyPerspective() const;
 	std::string GetPermalink() const;
-	void UpdateMarkedAsRead(const tpanel *exclude=0);
+	void UpdateMarkedAsRead(const tpanel *exclude = 0);
 	inline void IterateTP(std::function<void(const tweet_perspective &)> f) const {
 		if(lflags & TLF_HAVEFIRSTTP) f(first_tp);
 		for(auto &it : tp_extra_list) f(it);
@@ -339,14 +339,14 @@ struct entity {
 };
 
 enum {
-	ME_HAVE_THUMB	= 1<<0,
-	ME_HAVE_FULL	= 1<<1,
-	ME_FULL_FAILED	= 1<<2,
-	ME_SAVED_THUMB	= 1<<3,
-	ME_SAVED_FULL	= 1<<4,
-	ME_LOAD_THUMB	= 1<<5,
-	ME_LOAD_FULL	= 1<<6,
-	ME_IN_DB	= 1<<7,
+	ME_HAVE_THUMB      = 1<<0,
+	ME_HAVE_FULL       = 1<<1,
+	ME_FULL_FAILED     = 1<<2,
+	ME_SAVED_THUMB     = 1<<3,
+	ME_SAVED_FULL      = 1<<4,
+	ME_LOAD_THUMB      = 1<<5,
+	ME_LOAD_FULL       = 1<<6,
+	ME_IN_DB           = 1<<7,
 };
 
 struct media_entity {
@@ -368,8 +368,8 @@ struct media_entity {
 
 //for post_action_flags
 enum {
-	PAF_RESOLVE_PENDINGS		= 1<<0,
-	PAF_STREAM_CONN_READ_BACKFILL	= 1<<1,
+	PAF_RESOLVE_PENDINGS            = 1<<0,
+	PAF_STREAM_CONN_READ_BACKFILL   = 1<<1,
 };
 
 struct userlookup {
@@ -389,7 +389,7 @@ struct streamconntimeout : public wxTimer {
 };
 
 enum {
-	TCF_ISSTREAM		= 1<<0,
+	TCF_ISSTREAM       = 1<<0,
 };
 
 struct friendlookup {
@@ -399,10 +399,17 @@ struct friendlookup {
 };
 
 void ParseTwitterDate(struct tm *createtm, time_t *createtm_t, const std::string &created_at);
+
 unsigned int TwitterCharCount(const char *in, size_t inlen);
-inline unsigned int TwitterCharCount(const std::string &str) { return TwitterCharCount(str.c_str(), str.size()); }
+inline unsigned int TwitterCharCount(const std::string &str) {
+	return TwitterCharCount(str.c_str(), str.size());
+}
+
 bool IsUserMentioned(const char *in, size_t inlen, const std::shared_ptr<userdatacontainer> &u);
-inline bool IsUserMentioned(const std::string &str, const std::shared_ptr<userdatacontainer> &u) { return IsUserMentioned(str.c_str(), str.size(), u); }
+inline bool IsUserMentioned(const std::string &str, const std::shared_ptr<userdatacontainer> &u) {
+	return IsUserMentioned(str.c_str(), str.size(), u);
+}
+
 #ifdef __WINDOWS__
 	struct tm *gmtime_r (const time_t *timer, struct tm *result);
 #endif
