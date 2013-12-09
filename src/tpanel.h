@@ -251,6 +251,7 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	virtual void NotifyRequestFailed() { }
 	inline wxString GetThisName() const { return thisname; }
 	uint64_t GetCurrentViewTopID() const;
+	virtual void IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const;
 
 	DECLARE_EVENT_TABLE()
 };
@@ -286,6 +287,7 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	void EnumDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush);
 	void UpdateOwnTweet(const tweet &t, bool redrawimg);
 	tweetdispscr_mouseoverwin *MakeMouseOverWin();
+	virtual void IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const;
 
 	DECLARE_EVENT_TABLE()
 };

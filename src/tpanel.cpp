@@ -642,14 +642,9 @@ void panelparentwin_base::CheckClearNoUpdateFlag() {
 		bool rup = scrollwin->resize_update_pending;
 		scrollwin->fit_inside_blocked = true;
 		scrollwin->resize_update_pending = true;
-		bool istweetwin = dynamic_cast<tpanelparentwin_nt*>(this);
-		for(auto &it : currentdisp) {
-			it.second->ForceRefresh();
-			if(istweetwin) {
-				tweetdispscr *tds = static_cast<tweetdispscr *>(it.second);
-				for(auto &jt : tds->subtweets) jt->ForceRefresh();
-			}
-		}
+		IterateCurrentDisp([](uint64_t id, dispscr_base *scr) {
+			scr->ForceRefresh();
+		});
 		scrollwin->FitInside();
 		EndScrollFreeze(sf);
 		if(scrolltoid_onupdate) HandleScrollToIDOnUpdate();
@@ -750,6 +745,12 @@ mainframe *panelparentwin_base::GetMainframe() {
 
 bool panelparentwin_base::IsSingleAccountWin() const {
 	return alist.size() <= 1;
+}
+
+void panelparentwin_base::IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const {
+	for(auto &it : currentdisp) {
+		func(it.first, it.second);
+	}
 }
 
 BEGIN_EVENT_TABLE(tpanelparentwin_nt, panelparentwin_base)
@@ -1305,6 +1306,18 @@ void tpanelparentwin_nt::HandleScrollToIDOnUpdate() {
 		}
 	}
 	scrolltoid_onupdate = 0;
+}
+
+void tpanelparentwin_nt::IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const {
+	for(auto &it : currentdisp) {
+		func(it.first, it.second);
+		tweetdispscr *tds = static_cast<tweetdispscr *>(it.second);
+		for(auto &jt : tds->subtweets) {
+			if(jt) {
+				func(jt->td->id, jt.get());
+			}
+		}
+	}
 }
 
 tweetdispscr_mouseoverwin *tpanelparentwin_nt::MakeMouseOverWin() {
