@@ -731,7 +731,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 		tobj->flags.Set('B');
 		if(has_just_arrived && !(sflags&JDTP_ISRTSRC) && !(sflags&JDTP_USERTIMELINE)) {
 			if(!tobj->flags.Get('r')) tobj->flags.Set('u');
-			ad.incoming_filter.FilterTweet(*tobj);
+			ad.incoming_filter.FilterTweet(*tobj, tac.get());
 			ad.cids.CheckTweet(*tobj);
 			tac->MarkPendingOrHandle(tobj);
 		}

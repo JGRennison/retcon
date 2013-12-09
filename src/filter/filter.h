@@ -33,7 +33,7 @@ struct tweet;
 struct filter_set {
 	std::list<std::unique_ptr<filter_item> > filters;
 
-	void FilterTweet(tweet &tw);
+	void FilterTweet(tweet &tw, taccount *tac = 0);
 	filter_set();
 	~filter_set();
 	filter_set & operator =(filter_set &&other);

@@ -25,6 +25,7 @@
 #include "../alldata.h"
 #include "../cfg.h"
 #include "filter.h"
+#include "../taccount.h"
 #define PCRE_STATIC
 #include <pcre.h>
 #include <list>
@@ -37,6 +38,7 @@ enum {
 
 struct filter_run_state {
 	std::vector<char> recursion;
+	taccount *tac = 0;
 };
 
 enum {
@@ -56,7 +58,7 @@ struct filter_item {
 };
 
 struct filter_item_cond : public filter_item {
-	virtual bool test(tweet &tw) { return true; }
+	virtual bool test(tweet &tw, filter_run_state &frs) { return true; }
 	void exec(tweet &tw, filter_run_state &frs) override {
 		if(flags & FIF_ENDIF) {
 			frs.recursion.pop_back();
@@ -96,7 +98,7 @@ struct filter_item_cond : public filter_item {
 			frs.recursion.push_back(0);
 		}
 
-		bool testresult = test(tw);
+		bool testresult = test(tw, frs);
 		if(flags & FIF_NEG) testresult = !testresult;
 		if(testresult) {
 			frs.recursion.back() |= FRSF_DONEIF | FRSF_ACTIVE;
@@ -130,9 +132,9 @@ struct filter_item_cond_regex : public filter_item_cond {
 	pcre *ptn = 0;
 	pcre_extra *extra = 0;
 	std::string regexstr;
-	std::function<std::string(tweet &)> getstr;
-	bool test(tweet &tw) override {
-		std::string str = getstr(tw);
+	std::function<std::string(tweet &, filter_run_state &)> getstr;
+	bool test(tweet &tw, filter_run_state &frs) override {
+		std::string str = getstr(tw, frs);
 
 		const int ovecsize = 30;
 		int ovector[30];
@@ -155,7 +157,7 @@ struct filter_item_cond_flags : public filter_item_cond {
 	bool retweet;
 	std::string teststr;
 
-	bool test(tweet &tw) override {
+	bool test(tweet &tw, filter_run_state &frs) override {
 		uint64_t curflags = tw.flags.Save();
 		bool result = true;
 		if(any && !(curflags&any)) result = false;
@@ -329,16 +331,16 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 				ritem->regexstr = std::move(userptnstr);
 
 				using tweetsrcfptr = tweet &(*)(tweet &);
-				using usrsrcfptr = userdatacontainer &(*)(tweet &);
+				using usrsrcfptr = userdatacontainer *(*)(tweet &, filter_run_state &frs);
 
 				auto tweetmode = [&](tweetsrcfptr func) {
 					if(part2 == "text") {
-						ritem->getstr = [func](tweet &tw) {
+						ritem->getstr = [func](tweet &tw, filter_run_state &frs) {
 							return func(tw).text;
 						};
 					}
 					else if(part2 == "source") {
-						ritem->getstr = [func](tweet &tw) {
+						ritem->getstr = [func](tweet &tw, filter_run_state &frs) {
 							return func(tw).source;
 						};
 					}
@@ -353,23 +355,27 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 
 				auto usermode = [&](usrsrcfptr func) {
 					if(part2 == "name") {
-						ritem->getstr = [func](tweet &tw) {
-							return func(tw).user.name;
+						ritem->getstr = [func](tweet &tw, filter_run_state &frs) {
+							userdatacontainer *u = func(tw, frs);
+							return u ? u->user.name : "";
 						};
 					}
 					else if(part2 == "screenname" || part2 == "sname") {
-						ritem->getstr = [func](tweet &tw) {
-							return func(tw).user.screen_name;
+						ritem->getstr = [func](tweet &tw, filter_run_state &frs) {
+							userdatacontainer *u = func(tw, frs);
+							return u ? u->user.screen_name : "";
 						};
 					}
 					else if(part2 == "description" || part2 == "desc") {
-						ritem->getstr = [func](tweet &tw) {
-							return func(tw).user.description;
+						ritem->getstr = [func](tweet &tw, filter_run_state &frs) {
+							userdatacontainer *u = func(tw, frs);
+							return u ? u->user.description : "";
 						};
 					}
 					else if(part2 == "loc" || part2 == "location") {
-						ritem->getstr = [func](tweet &tw) {
-							return func(tw).user.location;
+						ritem->getstr = [func](tweet &tw, filter_run_state &frs) {
+							userdatacontainer *u = func(tw, frs);
+							return u ? u->user.location : "";
 						};
 					}
 					else {
@@ -393,20 +399,25 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 					});
 				}
 				else if(part1 == "user") {
-					usermode([](tweet &tw) -> userdatacontainer & {
-						return *tw.user;
+					usermode([](tweet &tw, filter_run_state &frs) -> userdatacontainer * {
+						return tw.user.get();
 					});
 				}
 				else if(part1 == "retweetuser") {
-					usermode([](tweet &tw) -> userdatacontainer & {
-						if(tw.rtsrc) return *tw.rtsrc->user;
-						else return *tw.user;
+					usermode([](tweet &tw, filter_run_state &frs) -> userdatacontainer * {
+						if(tw.rtsrc) return tw.rtsrc->user.get();
+						else return tw.user.get();
 					});
 				}
 				else if(part1 == "userrecipient") {
-					usermode([](tweet &tw) -> userdatacontainer & {
-						if(tw.user_recipient) return *tw.user_recipient;
-						else return *tw.user;
+					usermode([](tweet &tw, filter_run_state &frs) -> userdatacontainer * {
+						if(tw.user_recipient) return tw.user_recipient.get();
+						else return tw.user.get();
+					});
+				}
+				else if(part1 == "accountuser") {
+					usermode([](tweet &tw, filter_run_state &frs) -> userdatacontainer * {
+						return frs.tac ? frs.tac->usercont.get() : 0;
 					});
 				}
 				else {
@@ -501,8 +512,9 @@ bool InitGlobalFilters() {
 filter_set::filter_set() { }
 filter_set::~filter_set() { }
 
-void filter_set::FilterTweet(tweet &tw) {
+void filter_set::FilterTweet(tweet &tw, taccount *tac) {
 	filter_run_state frs;
+	frs.tac = tac;
 	for(auto &f : filters) {
 		f->exec(tw, frs);
 	}
