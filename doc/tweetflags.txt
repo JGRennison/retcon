@@ -12,3 +12,4 @@ u	Is unread
 B	Backed up to database
 H	Is highlighted
 p	Hide image preview
+h	Is hidden
