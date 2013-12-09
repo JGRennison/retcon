@@ -838,7 +838,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 				b->SetBitmap((*udcp)->cached_profile_img_half);
 			}
 			else {
-				bm->SetBitmap((*udcp)->cached_profile_img);
+				b->SetBitmap((*udcp)->cached_profile_img);
 			}
 		};
 		updateprofimg(bm);
