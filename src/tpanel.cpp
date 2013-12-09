@@ -1212,13 +1212,14 @@ void tpanelparentwin_nt::setupnavbuttonhandlers() {
 		tppw_flags |= TPPWF_NOUPDATEONPUSH;
 
 		//refresh any currently displayed tweets which are marked as hidden
-		for(auto &it : currentdisp) {
-			uint64_t id = it.first;
-			tweetdispscr *scr = static_cast<tweetdispscr*>(it.second);
-			if(tp->cids.unreadids.find(id) != tp->cids.unreadids.end()) {
-				scr->DisplayTweet(false);
+		IterateCurrentDisp([&](uint64_t id, dispscr_base *scr) {
+			if(tp->cids.hiddenids.find(id) != tp->cids.hiddenids.end()) {
+				#if TPANEL_COPIOUS_LOGGING
+					LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::setupnavbuttonhandlers TPPWID_TOGGLEHIDDEN: About to refresh: %" wxLongLongFmtSpec "d, hidden items: %d"), id, tp->cids.hiddenids.size());
+				#endif
+				static_cast<tweetdispscr *>(scr)->DisplayTweet(false);
 			}
-		}
+		});
 		CheckClearNoUpdateFlag();
 	});
 }

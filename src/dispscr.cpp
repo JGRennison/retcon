@@ -810,7 +810,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 	}
 
 	auto hideactions = [&](bool show) {
-		Show(show);
+		hbox->Show(show);
 		if(bm) bm->Show(show);
 		if(bm2) bm2->Show(show);
 	};
@@ -850,53 +850,55 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 	#endif
 
 	Clear();
-	SetDefaultStyle(wxRichTextAttr());
-	wxString format=wxT("");
-	if(tw.flags.Get('R') && gc.rtdisp) format=gc.gcfg.rtdispformat.val;
-	else if(tw.flags.Get('T')) format=gc.gcfg.tweetdispformat.val;
-	else if(tw.flags.Get('D')) format=gc.gcfg.dmdispformat.val;
+	if(!hidden) {
+		SetDefaultStyle(wxRichTextAttr());
+		wxString format=wxT("");
+		if(tw.flags.Get('R') && gc.rtdisp) format=gc.gcfg.rtdispformat.val;
+		else if(tw.flags.Get('T')) format=gc.gcfg.tweetdispformat.val;
+		else if(tw.flags.Get('D')) format=gc.gcfg.dmdispformat.val;
 
-	TweetFormatProc(this, format, tw, tppw, tds_flags, &me_list);
+		TweetFormatProc(this, format, tw, tppw, tds_flags, &me_list);
 
-	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("DCL: tweetdispscr::DisplayTweet 2"));
-	#endif
+		#if DISPSCR_COPIOUS_LOGGING
+			LogMsgFormat(LFT_TPANEL, wxT("DCL: tweetdispscr::DisplayTweet 2"));
+		#endif
 
-	if(!me_list.empty()) {
-		bool hidden_thumbnails = false;
-		Newline();
-		BeginAlignment(wxTEXT_ALIGNMENT_CENTRE);
-		for(auto it=me_list.begin(); it!=me_list.end(); ++it) {
-			BeginURL(wxString::Format(wxT("M%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), (int64_t) (*it)->media_id.m_id, (int64_t) (*it)->media_id.t_id));
-			if((*it)->flags&ME_HAVE_THUMB) {
-				if(tw.flags.Get('p')) {
-					BeginUnderline();
-					WriteText(wxT("[Hidden Image Thumbnail]"));
-					EndUnderline();
-					hidden_thumbnails = true;
+		if(!me_list.empty()) {
+			bool hidden_thumbnails = false;
+			Newline();
+			BeginAlignment(wxTEXT_ALIGNMENT_CENTRE);
+			for(auto it=me_list.begin(); it!=me_list.end(); ++it) {
+				BeginURL(wxString::Format(wxT("M%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), (int64_t) (*it)->media_id.m_id, (int64_t) (*it)->media_id.t_id));
+				if((*it)->flags&ME_HAVE_THUMB) {
+					if(tw.flags.Get('p')) {
+						BeginUnderline();
+						WriteText(wxT("[Hidden Image Thumbnail]"));
+						EndUnderline();
+						hidden_thumbnails = true;
+					}
+					else {
+						AddImage((*it)->thumbimg);
+					}
 				}
 				else {
-					AddImage((*it)->thumbimg);
+					BeginUnderline();
+					WriteText(wxT("[Image]"));
+					EndUnderline();
 				}
+				EndURL();
 			}
-			else {
-				BeginUnderline();
-				WriteText(wxT("[Image]"));
-				EndUnderline();
-			}
-			EndURL();
-		}
-		Newline();
-		EndAlignment();
-		if(hidden_thumbnails) {
-			BeginAlignment(wxTEXT_ALIGNMENT_CENTRE);
-			BeginURL(wxT("Xp"));
-			BeginUnderline();
-			WriteText(wxT("[Unhide Image Thumbnail(s)]"));
-			EndUnderline();
-			EndURL();
 			Newline();
 			EndAlignment();
+			if(hidden_thumbnails) {
+				BeginAlignment(wxTEXT_ALIGNMENT_CENTRE);
+				BeginURL(wxT("Xp"));
+				BeginUnderline();
+				WriteText(wxT("[Unhide Image Thumbnail(s)]"));
+				EndUnderline();
+				EndURL();
+				Newline();
+				EndAlignment();
+			}
 		}
 	}
 
