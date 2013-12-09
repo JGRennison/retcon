@@ -1060,6 +1060,7 @@ void dbconn::SyncReadInCIDSLists(sqlite3 *adb) {
 
 	doonelist("unreadids", ad.cids.unreadids);
 	doonelist("highlightids", ad.cids.highlightids);
+	doonelist("hiddenids", ad.cids.hiddenids);
 
 	sqlite3_finalize(getstmt);
 	LogMsg(LFT_DBTRACE, wxT("dbconn::SyncReadInCIDSLists end"));
@@ -1084,6 +1085,7 @@ void dbconn::SyncWriteBackCIDSLists(sqlite3 *adb) {
 
 	doonelist("unreadids", ad.cids.unreadids);
 	doonelist("highlightids", ad.cids.highlightids);
+	doonelist("hiddenids", ad.cids.hiddenids);
 
 	sqlite3_finalize(setstmt);
 	LogMsg(LFT_DBTRACE, wxT("dbconn::SyncWriteBackCIDSLists end"));
