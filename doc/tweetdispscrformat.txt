@@ -42,7 +42,14 @@ S?l         Display as link
 S?L         Display as link, underlined if it really is a link
 S?n         Display name only
 S?p(        Conditional: process contents of brackets if Tweet Source is present and non-empty
-
+?*          Number of items
+            where ? is one or more (summed) of
+   R        Number of retweets (if a retweet, refers to the source tweet)
+   f        Number of favourites (if a retweet, refers to the source tweet)
+            where * is one of:
+   p(       Conditional: process contents of brackets if > 0
+   P(       Conditional: process contents of brackets if == 0
+   n        Display number
 
 User Display Codes:
 n           Screen name

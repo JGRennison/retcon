@@ -781,6 +781,45 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 				} while(next);
 				break;
 			}
+			case 'R':
+			case 'f': {
+				unsigned int value = 0;
+
+				tweet & rttwt = (tw.rtsrc && gc.rtdisp) ? *tw.rtsrc : tw;
+
+				bool next;
+				i--;
+				do {
+					next = false;
+					i++;
+					if(i >= format.size()) break;
+					switch((wxChar) format[i]) {
+						case 'R':
+							value += rttwt.retweet_count;
+							next = true;
+							break;
+						case 'f':
+							value += rttwt.favourite_count;
+							next = true;
+							break;
+						case 'n':
+							str += wxString::Format(wxT("%u"), value);
+							break;
+						case 'p':
+						case 'P': {
+							bool cond = value > 0;
+							if(format[i] == 'P') cond = !cond;
+							i++;
+							if(i >= format.size()) break;
+							if(!cond || format[i] != '(') {
+								SkipOverFalseCond(i, format);
+							}
+							break;
+						}
+					}
+				} while(next);
+				break;
+			}
 			default: {
 				GenFmtCodeProc(obj, i, format, str);
 				break;
