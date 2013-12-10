@@ -598,8 +598,8 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 			case 'c': {
 				flush();
 				if(me_list) {
-					tweet &twgen=(format[i]=='c' && gc.rtdisp)?*(tw.rtsrc):tw;
-					wxString urlcodeprefix=(format[i]=='c' && gc.rtdisp)?wxT("R"):wxT("");
+					tweet &twgen=(format[i]=='c' && tw.rtsrc && gc.rtdisp)?*(tw.rtsrc):tw;
+					wxString urlcodeprefix=(format[i]=='c' && tw.rtsrc && gc.rtdisp)?wxT("R"):wxT("");
 					unsigned int nextoffset=0;
 					unsigned int entnum=0;
 					int track_byte=0;
