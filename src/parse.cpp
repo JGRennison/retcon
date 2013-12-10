@@ -655,6 +655,11 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 		}
 	}
 
+	auto &possiblysensitive = val["possibly_sensitive"];
+	if(possiblysensitive.IsBool() && possiblysensitive.GetBool()) {
+		tobj->flags.Set('P');
+	}
+
 	LogMsgFormat(LFT_PARSE, wxT("id: %" wxLongLongFmtSpec "d, is_new_tweet_perspective: %d, isdm: %d"), tobj->id, is_new_tweet_perspective, !!(sflags&JDTP_ISDM));
 
 	if(is_new_tweet_perspective) {	//this filters out duplicate tweets from the same account
