@@ -30,7 +30,8 @@
 #include "log.h"
 #include "optui.h"
 #include <wx/timer.h>
-#include <wx/textdlg.h>
+#include <wx/dialog.h>
+#include <wx/clipbrd.h>
 
 std::list<std::shared_ptr<taccount> > alist;
 
@@ -259,6 +260,76 @@ void taccount::DoPostAction(unsigned int postflags) {
 	}
 }
 
+namespace {
+	enum {
+		BTN_COPYCLIP = 1,
+		BTN_BROWSERWIN,
+	};
+
+	//broadly based on wxTextEntryDialog
+	class OAuthPinDialog : public wxDialog {
+		wxTextCtrl *textctrl;
+		wxString authurl;
+
+		public:
+		OAuthPinDialog(wxWindow *parent, wxString authurl_, wxString &pinout)
+				: wxDialog(parent, wxID_ANY, wxT("Enter Twitter PIN")), authurl(authurl_) {
+
+			wxBoxSizer *vsizer = new wxBoxSizer(wxVERTICAL);
+			wxSizerFlags flagsBorder2;
+			flagsBorder2.DoubleBorder();
+
+			vsizer->Add(new wxStaticText(this, wxID_ANY, wxT("Enter Twitter PIN")), flagsBorder2);
+
+			textctrl = new wxTextCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition, wxSize(300, wxDefaultCoord), 0, wxTextValidator(wxFILTER_NUMERIC, &pinout));
+			vsizer->Add(textctrl, wxSizerFlags().Expand().TripleBorder(wxLEFT | wxRIGHT));
+
+			wxBoxSizer *btnsizer = new wxBoxSizer(wxHORIZONTAL);
+			btnsizer->Add(new wxButton(this, wxID_OK), 0, wxALIGN_CENTRE | wxLEFT | wxRIGHT, 3);
+			btnsizer->Add(new wxButton(this, BTN_COPYCLIP, wxT("&Copy URL to Clipboard")), 0, wxALIGN_CENTRE | wxLEFT | wxRIGHT, 3);
+			btnsizer->Add(new wxButton(this, BTN_BROWSERWIN, wxT("&Open Browser Again")), 0, wxALIGN_CENTRE | wxLEFT | wxRIGHT, 3);
+			btnsizer->Add(new wxButton(this, wxID_CANCEL), 0, wxALIGN_CENTRE | wxLEFT | wxRIGHT, 3);
+
+			vsizer->Add(btnsizer, wxSizerFlags(flagsBorder2).Expand());
+
+			SetAutoLayout(true);
+			SetSizer(vsizer);
+
+			vsizer->SetSizeHints(this);
+			vsizer->Fit(this);
+
+			textctrl->SetSelection(-1, -1);
+			textctrl->SetFocus();
+		}
+
+		void OnOK(wxCommandEvent& event) {
+			if(Validate() && TransferDataFromWindow()) {
+				EndModal(wxID_OK);
+			}
+		}
+
+		void OnCopyToClipboard(wxCommandEvent& event) {
+			if(wxTheClipboard->Open()) {
+				wxTheClipboard->SetData(new wxTextDataObject(authurl));
+				wxTheClipboard->Close();
+			}
+		}
+
+		void OnBrowserWin(wxCommandEvent& event) {
+			wxLaunchDefaultBrowser(authurl);
+		}
+
+		DECLARE_EVENT_TABLE()
+	};
+
+	BEGIN_EVENT_TABLE(OAuthPinDialog, wxDialog)
+		EVT_BUTTON(wxID_OK, OAuthPinDialog::OnOK)
+		EVT_BUTTON(BTN_COPYCLIP, OAuthPinDialog::OnCopyToClipboard)
+		EVT_BUTTON(BTN_BROWSERWIN, OAuthPinDialog::OnBrowserWin)
+	END_EVENT_TABLE()
+
+}
+
 bool taccount::TwDoOAuth(wxWindow *pf, twitcurlext &twit) {
 	std::string authUrl;
 	twit.SetNoPerformFlag(false);
@@ -267,9 +338,9 @@ bool taccount::TwDoOAuth(wxWindow *pf, twitcurlext &twit) {
 	//twit.oAuthHandlePIN(authUrl);
 	LogMsgFormat(LFT_OTHERTRACE, wxT("taccount::TwDoOAuth: %s, %s, %s"), cfg.tokenk.val.c_str(), cfg.tokens.val.c_str(), authUrlWx.c_str());
 	wxLaunchDefaultBrowser(authUrlWx);
-	wxTextEntryDialog *ted=new wxTextEntryDialog(pf, wxT("Enter Twitter PIN"), wxT("Enter Twitter PIN"), wxT(""), wxOK | wxCANCEL);
-	int res=ted->ShowModal();
-	wxString pin=ted->GetValue();
+	wxString pin;
+	OAuthPinDialog *ted = new OAuthPinDialog(pf, authUrlWx, pin);
+	int res = ted->ShowModal();
 	ted->Destroy();
 	if(res!=wxID_OK) return false;
 	if(pin.IsEmpty()) return false;
