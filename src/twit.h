@@ -302,6 +302,7 @@ struct tweet {
 	uint64_t id;
 	uint64_t in_reply_to_status_id;
 	unsigned int retweet_count;
+	unsigned int favourite_count;
 	std::string source;
 	std::string text;
 	time_t createtime;

@@ -789,6 +789,7 @@ void taccount::MarkPendingOrHandle(const std::shared_ptr<tweet> &t) {
 	else t->lflags|=TLF_PENDINGHANDLENEW;
 }
 
+//this is paired with genjsonparser::ParseTweetDyn
 std::string tweet::mkdynjson() const {
 	std::string json;
 	writestream wr(json, 64);
@@ -805,6 +806,14 @@ std::string tweet::mkdynjson() const {
 		jw.EndObject();
 	});
 	jw.EndArray();
+	if(retweet_count) {
+		jw.String("r");
+		jw.Uint(retweet_count);
+	}
+	if(favourite_count) {
+		jw.String("f");
+		jw.Uint(favourite_count);
+	}
 	jw.EndObject();
 	return json;
 }

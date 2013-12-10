@@ -100,7 +100,8 @@ void DisplayParseErrorMsg(rapidjson::Document &dc, const wxString &name, const c
 //if jw, caller should already have called jw->StartObject(), etc
 void genjsonparser::ParseTweetStatics(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj, Handler *jw, bool isnew, dbsendmsg_list *dbmsglist, bool parse_entities) {
 	CheckTransJsonValueDef(tobj->in_reply_to_status_id, val, "in_reply_to_status_id", 0, jw);
-	CheckTransJsonValueDef(tobj->retweet_count, val, "retweet_count", 0, jw);
+	CheckTransJsonValueDef(tobj->retweet_count, val, "retweet_count", 0);
+	CheckTransJsonValueDef(tobj->favourite_count, val, "favorite_count", 0);
 	CheckTransJsonValueDef(tobj->source, val, "source", "", jw);
 	CheckTransJsonValueDef(tobj->text, val, "text", "", jw);
 	const rapidjson::Value &entv=val["entities"];
@@ -113,6 +114,7 @@ void genjsonparser::ParseTweetStatics(const rapidjson::Value& val, const std::sh
 	}
 }
 
+//this is paired with tweet::mkdynjson
 void genjsonparser::ParseTweetDyn(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj) {
 	const rapidjson::Value &p=val["p"];
 	if(p.IsArray()) {
@@ -127,6 +129,12 @@ void genjsonparser::ParseTweetDyn(const rapidjson::Value& val, const std::shared
 			}
 		}
 	}
+
+	const rapidjson::Value &r=val["r"];
+	if(r.IsUint()) tobj->retweet_count = r.GetUint();
+
+	const rapidjson::Value &f=val["f"];
+	if(f.IsUint()) tobj->favourite_count = f.GetUint();
 }
 
 //returns true on success
@@ -654,6 +662,14 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 			tobj->flags.Set('R');
 		}
 	}
+	else {
+		//These properties are also checked in ParseTweetStatics.
+		//Previous versions stored the retweet count in the DB static string
+		//so these should not be removed from there, as otherwise old tweets
+		//in the DB will lose their retweet count info when loaded.
+		CheckTransJsonValueDef(tobj->retweet_count, val, "retweet_count", 0);
+		CheckTransJsonValueDef(tobj->favourite_count, val, "favorite_count", 0);
+	}
 
 	auto &possiblysensitive = val["possibly_sensitive"];
 	if(possiblysensitive.IsBool() && possiblysensitive.GetBool()) {
@@ -782,9 +798,9 @@ void userdatacontainer::Dump() const {
 }
 
 void tweet::Dump() const {
-	LogMsgFormat(LFT_PARSE, wxT("id: %" wxLongLongFmtSpec "d\nreply_id: %" wxLongLongFmtSpec "d\nretweet_count: %d\n"
+	LogMsgFormat(LFT_PARSE, wxT("id: %" wxLongLongFmtSpec "d\nreply_id: %" wxLongLongFmtSpec "d\nretweet_count: %d\nfavourite_count: %d"
 		"source: %s\ntext: %s\ncreated_at: %s"),
-		id, in_reply_to_status_id, retweet_count, wxstrstd(source).c_str(),
+		id, in_reply_to_status_id, retweet_count, favourite_count, wxstrstd(source).c_str(),
 		wxstrstd(text).c_str(), wxstrstd(ctime(&createtime)).c_str());
 	IterateTP([&](const tweet_perspective &tp) {
 		LogMsgFormat(LFT_PARSE, wxT("Perspectival attributes: %s\nretweeted: %d\nfavourited: %d"), tp.acc->dispname.c_str(), tp.IsRetweeted(), tp.IsFavourited());
