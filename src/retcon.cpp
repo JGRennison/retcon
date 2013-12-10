@@ -118,7 +118,7 @@ int retcon::FilterEvent(wxEvent& event) {
 }
 
 void retcon::OnQuitMsg(wxCommandEvent &event) {
-	LogMsgFormat(LFT_OTHERTRACE, wxT("retcon::OnQuitMsg, about to call %s, %d termination requests, %d mainframes, top win: %p"), terms_requested > 2 ? "wxExit()" : "ExitMainLoop()", terms_requested, mainframelist.size(), GetTopWindow());
+	LogMsgFormat(LFT_OTHERTRACE, wxT("retcon::OnQuitMsg, about to call %s, %d termination requests, %d mainframes, top win: %p"), terms_requested > 2 ? wxT("wxExit()") : wxT("ExitMainLoop()"), terms_requested, mainframelist.size(), GetTopWindow());
 	if(terms_requested > 2) wxExit();
 	else ExitMainLoop();
 }
