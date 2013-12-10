@@ -713,6 +713,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 
 				std::string url;
 				std::string name;
+				std::string source = tw.source;
 
 				auto parse = [&]() {
 					if(!pattern) {
@@ -729,45 +730,55 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 					const int ovecsize = 60;
 					int ovector[60];
 
-					if(pcre_exec(pattern, patextra, tw.source.c_str(), tw.source.size(), 0, 0, ovector, ovecsize) >= 1) {
-						if(ovector[2] >= 0) url.assign(tw.source.c_str() + ovector[2], ovector[3] - ovector[2]);
-						if(ovector[4] >= 0) name.assign(tw.source.c_str() + ovector[4], ovector[5] - ovector[4]);
-						else if(ovector[6] >= 0) name.assign(tw.source.c_str() + ovector[6], ovector[7] - ovector[6]);
+					if(pcre_exec(pattern, patextra, source.c_str(), source.size(), 0, 0, ovector, ovecsize) >= 1) {
+						if(ovector[2] >= 0) url.assign(source.c_str() + ovector[2], ovector[3] - ovector[2]);
+						if(ovector[4] >= 0) name.assign(source.c_str() + ovector[4], ovector[5] - ovector[4]);
+						else if(ovector[6] >= 0) name.assign(source.c_str() + ovector[6], ovector[7] - ovector[6]);
 					}
 				};
 
-				i++;
-				if(i>=format.size()) break;
-				switch((wxChar) format[i]) {
-					case 'r':
-						str += wxstrstd(tw.source);
-						break;
-					case 'n':
-						parse();
-						str += wxstrstd(name);
-						break;
-					case 'l':
-					case 'L':
-						parse();
-						if(url.empty()) {
+				bool next;
+				do {
+					next = false;
+					i++;
+					if(i >= format.size()) break;
+					switch((wxChar) format[i]) {
+						case 'w':
+							if(source == "web") {
+								source = "";
+							}
+							next = true;
+							break;
+						case 'r':
+							str += wxstrstd(source);
+							break;
+						case 'n':
+							parse();
 							str += wxstrstd(name);
-						}
-						else {
-							flush();
-							if((wxChar) format[i] == 'L') obj->BeginUnderline();
-							obj->BeginURL(wxString::Format(wxT("W%s"), wxstrstd(url).c_str()));
-							obj->WriteText(wxstrstd(name));
-							obj->EndURL();
-							if((wxChar) format[i] == 'L') obj->EndUnderline();
-						}
-						break;
-					case 'p':
-						i++;
-						if(i>=format.size()) break;
-						if(format[i] != '(' || tw.source.empty()) {
-							SkipOverFalseCond(i, format);
-						}
-				}
+							break;
+						case 'l':
+						case 'L':
+							parse();
+							if(url.empty()) {
+								str += wxstrstd(name);
+							}
+							else {
+								flush();
+								if((wxChar) format[i] == 'L') obj->BeginUnderline();
+								obj->BeginURL(wxString::Format(wxT("W%s"), wxstrstd(url).c_str()));
+								obj->WriteText(wxstrstd(name));
+								obj->EndURL();
+								if((wxChar) format[i] == 'L') obj->EndUnderline();
+							}
+							break;
+						case 'p':
+							i++;
+							if(i>=format.size()) break;
+							if(format[i] != '(' || source.empty()) {
+								SkipOverFalseCond(i, format);
+							}
+					}
+				} while(next);
 				break;
 			}
 			default: {

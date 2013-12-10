@@ -34,12 +34,14 @@ m(          Conditional: process contents of brackets if not a subtweet and in a
 A           Display list of accounts tweet arrived on
 J           Tweet ID
 j           Retweet source tweet ID (or tweet ID if not a retweet)
-S...        Tweet Source (ie. client/app used)
-Sr          Display raw
-Sl          Display as link
-SL          Display as link, underlined if it really is a link
-Sn          Display name only
-Sp(         Conditional: process contents of brackets if Tweet Source is present
+S?...       Tweet Source (ie. client/app used)
+            where ? is zero or more of:
+   w        If the Tweet Source is the string "web", instead use the empty string
+S?r         Display raw
+S?l         Display as link
+S?L         Display as link, underlined if it really is a link
+S?n         Display name only
+S?p(        Conditional: process contents of brackets if Tweet Source is present and non-empty
 
 
 User Display Codes:
