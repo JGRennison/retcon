@@ -33,6 +33,7 @@
 #include "db.h"
 #include "filter/filter-ops.h"
 #include "util.h"
+#include "tpanel.h"
 #include <wx/image.h>
 #include <wx/stdpaths.h>
 #include <cstdio>
@@ -73,7 +74,21 @@ bool retcon::OnInit() {
 	InitGlobalFilters();
 
 	RestoreWindowLayout();
-	if(mainframelist.empty()) new mainframe( appversionname, wxPoint(50, 50), wxSize(450, 340) );
+	if(mainframelist.empty()) {
+		mainframe *mf = new mainframe( appversionname, wxPoint(50, 50), wxSize(450, 340));
+
+		if(alist.empty() && ad.tpanels.empty()) {
+			//everything is empty, maybe new user
+			//make 3 basic auto tpanels to make things more obvious
+			unsigned int flags = TPAF_ALLACCS | TPF_DELETEONWINCLOSE;
+			auto tpt = tpanel::MkTPanel("", "", flags | TPAF_TW, 0);
+			tpt->MkTPanelWin(mf, true);
+			auto tpm = tpanel::MkTPanel("", "", flags | TPAF_MN, 0);
+			tpm->MkTPanelWin(mf, false);
+			auto tpd = tpanel::MkTPanel("", "", flags | TPAF_DM, 0);
+			tpd->MkTPanelWin(mf, false);
+		}
+	}
 
 	if(terms_requested) return false;
 
