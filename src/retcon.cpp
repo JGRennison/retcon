@@ -59,7 +59,7 @@ bool retcon::OnInit() {
 	if(!datadir.empty() && datadir.back() == '/') datadir.pop_back();
 	wxString wxdatadir = wxstrstd(datadir);
 	if(!::wxDirExists(wxdatadir)) {
-		::wxMkdir(wxdatadir, 0777);
+		::wxMkdir(wxdatadir, 0700);
 	}
 	InitCFGDefaults();
 	SetTermSigHandler();
