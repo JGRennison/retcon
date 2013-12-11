@@ -24,6 +24,7 @@
 #include "univdefs.h"
 #include <wx/app.h>
 #include <wx/event.h>
+#include <string>
 
 class retcon: public wxApp
 {
@@ -31,6 +32,9 @@ class retcon: public wxApp
     virtual int OnExit();
     int FilterEvent(wxEvent& event);
 	void OnQuitMsg(wxCommandEvent &event);
+
+	public:
+	std::string datadir;
 
 	DECLARE_EVENT_TABLE()
 

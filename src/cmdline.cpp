@@ -25,11 +25,12 @@
 #include "log-impl.h"
 #include "util.h"
 #include "SimpleOpt.h"
+#include "retcon.h"
 #include <wx/frame.h>
 
 typedef CSimpleOptTempl<wxChar> CSO;
 
-enum { OPT_LOGWIN, OPT_FILE, OPT_STDERR, OPT_FILEAUTO };
+enum { OPT_LOGWIN, OPT_FILE, OPT_STDERR, OPT_FILEAUTO, OPT_DATADIR };
 
 CSO::SOption g_rgOptions[] =
 {
@@ -37,10 +38,12 @@ CSO::SOption g_rgOptions[] =
 	{ OPT_FILE,    wxT("-f"),             SO_REQ_SHRT  },
 	{ OPT_STDERR,  wxT("-s"),             SO_REQ_SHRT  },
 	{ OPT_FILEAUTO,wxT("-a"),             SO_REQ_SHRT  },
+	{ OPT_DATADIR, wxT("-d"),             SO_REQ_SHRT  },
 	{ OPT_LOGWIN,  wxT("--log-window"),   SO_REQ_SHRT  },
 	{ OPT_FILE,    wxT("--log-file"),     SO_REQ_SHRT  },
 	{ OPT_FILEAUTO,wxT("--log-file-auto"),SO_REQ_SHRT  },
 	{ OPT_STDERR,  wxT("--log-stderr"),   SO_REQ_SHRT  },
+	{ OPT_DATADIR, wxT("--data-dir"),     SO_REQ_SHRT  },
 
 	SO_END_OF_OPTIONS
 };
@@ -101,6 +104,10 @@ int cmdlineproc(wxChar ** argv, int argc) {
 			case OPT_STDERR: {
 				logflagtype flagmask=StrToLogFlags(args.OptionArg());
 				new log_file(flagmask, stderr);
+				break;
+			}
+			case OPT_DATADIR: {
+				wxGetApp().datadir = stdstrwx(args.OptionArg());
 				break;
 			}
 		}

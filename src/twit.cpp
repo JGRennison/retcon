@@ -42,6 +42,7 @@
 #include <openssl/sha.h>
 #include "utf8proc/utf8proc.h"
 #include "utf8.h"
+#include "retcon.h"
 #define PCRE_STATIC
 #include <pcre.h>
 #include <wx/msgdlg.h>
@@ -109,10 +110,10 @@ void UpdateTweet(const tweet &t, bool redrawimg) {
 }
 
 wxString media_entity::cached_full_filename() const {
-	return wxString::Format(wxT("%s%s%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), wxStandardPaths::Get().GetUserDataDir().c_str(), wxT("/media_"), media_id.m_id, media_id.t_id);
+	return wxString::Format(wxT("%s%s%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), wxstrstd(wxGetApp().datadir).c_str(), wxT("/media_"), media_id.m_id, media_id.t_id);
 }
 wxString media_entity::cached_thumb_filename() const {
-	return wxString::Format(wxT("%s%s%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), wxStandardPaths::Get().GetUserDataDir().c_str(), wxT("/mediathumb_"), media_id.m_id, media_id.t_id);
+	return wxString::Format(wxT("%s%s%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), wxstrstd(wxGetApp().datadir).c_str(), wxT("/mediathumb_"), media_id.m_id, media_id.t_id);
 }
 
 userlookup::~userlookup() {
@@ -388,7 +389,7 @@ std::shared_ptr<taccount> userdatacontainer::GetAccountOfUser() const {
 
 void userdatacontainer::GetImageLocalFilename(wxString &filename) const {
 	filename.Printf(wxT("/img_%" wxLongLongFmtSpec "d"), id);
-	filename.Prepend(wxStandardPaths::Get().GetUserDataDir());
+	filename.Prepend(wxstrstd(wxGetApp().datadir));
 }
 
 void userdatacontainer::MarkUpdated() {

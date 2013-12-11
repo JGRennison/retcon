@@ -32,6 +32,7 @@
 #include "taccount.h"
 #include "db.h"
 #include "filter/filter-ops.h"
+#include "util.h"
 #include <wx/image.h>
 #include <wx/stdpaths.h>
 #include <cstdio>
@@ -52,16 +53,19 @@ bool retcon::OnInit() {
 	rs.add([&]() { DeInitWxLogger(); });
 	::wxInitAllImageHandlers();
 	srand((unsigned int) time(0));
+	datadir = stdstrwx(wxStandardPaths::Get().GetUserDataDir());
 	cmdlineproc(argv, argc);
 	if(!globallogwindow) new log_window(0, lfd_defaultwin, false);
-	if(!::wxDirExists(wxStandardPaths::Get().GetUserDataDir())) {
-		::wxMkdir(wxStandardPaths::Get().GetUserDataDir(), 0777);
+	if(!datadir.empty() && datadir.back() == '/') datadir.pop_back();
+	wxString wxdatadir = wxstrstd(datadir);
+	if(!::wxDirExists(wxdatadir)) {
+		::wxMkdir(wxdatadir, 0777);
 	}
 	InitCFGDefaults();
 	SetTermSigHandler();
 	sm.InitMultiIOHandler();
 	rs.add([&]() { sm.DeInitMultiIOHandler(); });
-	bool res=dbc.Init(std::string((wxStandardPaths::Get().GetUserDataDir() + wxT("/retcondb.sqlite3")).ToUTF8()));
+	bool res=dbc.Init(datadir + "/retcondb.sqlite3");
 	if(!res) return false;
 	rs.add([&]() { dbc.DeInit(); });
 	if(terms_requested) return false;
