@@ -5,7 +5,7 @@
 #include <sstream>
 #include <cstring>
 #include "oauthlib.h"
-#include "curl/curl.h"
+#include <curl/curl.h>
 
 class twitCurl;
 
@@ -183,7 +183,7 @@ public:
     /* Twitter API type */
     void setTwitterApiType( twitCurlTypes::eTwitCurlApiFormatType eType );
     void setTwitterProcotolType( twitCurlTypes::eTwitCurlProtocolType eType );
-    
+
     /* Generic Twitter API GET request */
     bool genericGet( const std::string& url /* in */ );	/* http/https is prepended, otherwise url is unchanged */
 

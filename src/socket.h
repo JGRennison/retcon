@@ -23,11 +23,11 @@
 
 #include "univdefs.h"
 #include "socket-common.h"
-#include "libtwitcurl/curl/curl.h"
 #include "twit-common.h"
 #include <wx/timer.h>
 #include <wx/defs.h>
 #include <wx/version.h>
+#include <curl/curl.h>
 #include <memory>
 #include <map>
 #include <forward_list>
