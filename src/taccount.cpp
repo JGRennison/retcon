@@ -274,7 +274,7 @@ namespace {
 
 		public:
 		OAuthPinDialog(wxWindow *parent, wxString authurl_, wxString &pinout)
-				: wxDialog(parent, wxID_ANY, wxT("Enter Twitter PIN")), authurl(authurl_) {
+				: wxDialog(parent, wxID_ANY, wxT("Enter Twitter PIN"), wxDefaultPosition, wxDefaultSize), authurl(authurl_) {
 
 			wxBoxSizer *vsizer = new wxBoxSizer(wxVERTICAL);
 			wxSizerFlags flagsBorder2;

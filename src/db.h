@@ -31,6 +31,9 @@
 #include <wx/string.h>
 #include <wx/event.h>
 #include <sqlite3.h>
+#ifdef __WINDOWS__
+#include <windows.h>
+#endif
 
 struct media_entity;
 struct tweet;

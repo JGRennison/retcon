@@ -40,6 +40,7 @@
 #include <wx/checkbox.h>
 #include <wx/sizer.h>
 #include <wx/menu.h>
+#include <wx/textctrl.h>
 
 log_window *globallogwindow = 0;
 std::unique_ptr<Redirector_wxLog> globalwxlogredirector;
