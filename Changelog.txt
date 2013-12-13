@@ -1,3 +1,43 @@
+retcon 0.0.4
+------------------------------------------------------
+
+Add a mechanism to filter incoming tweets based on regular expressions, and tweet flags.
+Add tweet display format codes to show source client.
+Add memu items to show user windows for the user's own account(s).
+Add a "more" button to the tweet panel header row which adds:
+ - Jump to next newer/older unread/highlighted
+ - Jump to tweet by ID
+ - Jump to tweet by offset
+Add menu items to mark unread or unhighlighted tweets older or newer than the selected.
+Add support for favourites counts.
+Retweet counts (and favourites counts) are now updated whenever new information arrives.
+Add tweet format codes R and f, for retweet and favourites counts respectively.
+Add tweet format code S for the tweet source (app/client used to post the tweet).
+Implement customisable set of default directories for the media save dialogue.
+Add tweet flag P: marked by Twitter as "possibly sensitive".
+Add support for hiding tweets (tweet flag h).
+Add support for hiding image previews of tweets (tweet flag p).
+Hide user profile web URL line if no URL present.
+Check that images loaded over the net are valid before use.
+Add functionality to the OAuth/Twitter Pin dialog.
+Fix new accounts not loading mentions correctly.
+Fix download requests not following HTTP 30x redirects.
+Fix various edge-case bugs in the panel jump to tweet logic.
+Fix a number of minor log-formatting issues.
+Fix a number of minor memory/unitialised value issues.
+Fix sqlite busy timeout logic.
+Fix font-scaling of inline tweet replies.
+Fix debug-mode assertion failures on empty URL controls.
+Fix user display format codes D and l falling through to the next code.
+Fix tweet format code c dereferencing a null pointer if used on a non-retweet tweet.
+Fix the entire user-list being written back to the DB on each exit (speeds up program exit).
+When starting for the first time, display tweet, mention and DM panels instead of nothing.
+Add switch -d/--data-dir to use the specified data directory instead of the default.
+New data directories now have their permissions set to 700 instead of 777 on Unixy platforms, for privacy reasons.
+Makefile install now uses /usr/local/bin/ instead of /usr/bin/ on Unixy platforms.
+Various improvements and changes to the build system/makefile.
+
+
 retcon 0.0.3
 ------------------------------------------------------
 
