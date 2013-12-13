@@ -163,6 +163,7 @@ mainframe::~mainframe() {
 	if(mainframelist.empty()) {
 		if(globallogwindow) globallogwindow->Destroy();
 		user_window::CloseAll();
+		wxExit(); // Be a bit more aggressive in terminating program, no point hanging around at this point
 	}
 }
 

@@ -137,9 +137,8 @@ int retcon::FilterEvent(wxEvent& event) {
 }
 
 void retcon::OnQuitMsg(wxCommandEvent &event) {
-	LogMsgFormat(LFT_OTHERTRACE, wxT("retcon::OnQuitMsg, about to call %s, %d termination requests, %d mainframes, top win: %p"), terms_requested > 2 ? wxT("wxExit()") : wxT("ExitMainLoop()"), terms_requested, mainframelist.size(), GetTopWindow());
-	if(terms_requested > 2) wxExit();
-	else ExitMainLoop();
+	LogMsgFormat(LFT_OTHERTRACE, wxT("retcon::OnQuitMsg, about to call wxExit(), %d termination requests, %d mainframes, top win: %p"), terms_requested, mainframelist.size(), GetTopWindow());
+	wxExit();
 }
 
 std::shared_ptr<userdatacontainer> &alldata::GetUserContainerById(uint64_t id) {
