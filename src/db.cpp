@@ -1068,6 +1068,7 @@ void dbconn::SyncReadInCIDSLists(sqlite3 *adb) {
 
 void dbconn::SyncWriteBackCIDSLists(sqlite3 *adb) {
 	LogMsg(LFT_DBTRACE, wxT("dbconn::SyncWriteBackCIDSLists start"));
+	cache.BeginTransaction(adb);
 	const char setunreadlist[]="INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', ?, ?);";
 
 	sqlite3_stmt *setstmt=0;
@@ -1088,6 +1089,7 @@ void dbconn::SyncWriteBackCIDSLists(sqlite3 *adb) {
 	doonelist("hiddenids", ad.cids.hiddenids);
 
 	sqlite3_finalize(setstmt);
+	cache.EndTransaction(adb);
 	LogMsg(LFT_DBTRACE, wxT("dbconn::SyncWriteBackCIDSLists end"));
 }
 
@@ -1389,6 +1391,7 @@ void dbconn::SyncReadInWindowLayout(sqlite3 *adb) {
 
 void dbconn::SyncWriteBackWindowLayout(sqlite3 *adb) {
 	LogMsg(LFT_DBTRACE, wxT("dbconn::SyncWriteBackWindowLayout start"));
+	cache.BeginTransaction(adb);
 	sqlite3_exec(adb, "DELETE FROM mainframewins", 0, 0, 0);
 	const char mfsql[]="INSERT INTO mainframewins (mainframeindex, x, y, w, h, maximised) VALUES (?, ?, ?, ?, ?, ?);";
 	sqlite3_stmt *mfstmt=0;
@@ -1443,6 +1446,7 @@ void dbconn::SyncWriteBackWindowLayout(sqlite3 *adb) {
 	}
 	sqlite3_finalize(stmt);
 	sqlite3_finalize(stmt2);
+	cache.EndTransaction(adb);
 	LogMsg(LFT_DBTRACE, wxT("dbconn::SyncWriteBackWindowLayout end"));
 }
 
