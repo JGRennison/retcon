@@ -191,12 +191,12 @@ install:
 ifeq "$(PLATFORM)" "WIN"
 	@echo Install only supported on Unixy platforms
 else
-	cp $(OUTNAME)$(SUFFIX) /usr/bin/$(OUTNAME)$(SUFFIX)
+	cp --remove-destination $(OUTNAME)$(SUFFIX) /usr/local/bin/$(OUTNAME)$(SUFFIX)
 endif
 
 uninstall:
 ifeq "$(PLATFORM)" "WIN"
 	@echo Uninstall only supported on Unixy platforms
 else
-	rm /usr/bin/$(OUTNAME)$(SUFFIX)
+	rm /usr/local/bin/$(OUTNAME)$(SUFFIX)
 endif
