@@ -119,8 +119,8 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	std::forward_list<std::shared_ptr<tweet> > pendingtweets;
 	std::deque<uint64_t> mention_index;
 
-	bool NeedsUpdating(unsigned int updcf_flags) const;
-	bool IsReady(unsigned int updcf_flags);
+	bool NeedsUpdating(unsigned int updcf_flags, time_t timevalue = 0) const;
+	bool IsReady(unsigned int updcf_flags, time_t timevalue = 0);
 	void CheckPendingTweets(unsigned int umpt_flags = 0);
 	void MarkTweetPending(const std::shared_ptr<tweet> &t, bool checkfirst=false);
 	std::shared_ptr<taccount> GetAccountOfUser() const;

@@ -169,11 +169,12 @@ void streamconntimeout::Notify() {
 	tw->HandleError(tw->GetCurlHandle(),0,CURLE_OPERATION_TIMEDOUT);
 }
 
-bool userdatacontainer::NeedsUpdating(unsigned int updcf_flags) const {
+bool userdatacontainer::NeedsUpdating(unsigned int updcf_flags, time_t timevalue) const {
 	if(!lastupdate) return true;
-	else if(!(updcf_flags&UPDCF_USEREXPIRE) && GetUser().screen_name.size()) return false;
+	if(!timevalue) timevalue = time(0);
+	if(!(updcf_flags&UPDCF_USEREXPIRE) && GetUser().screen_name.size()) return false;
 	else {
-		if((time(0)-lastupdate)>gc.userexpiretime) return true;
+		if((uint64_t) timevalue > (lastupdate + gc.userexpiretime)) return true;
 		else return false;
 	}
 }
@@ -222,9 +223,9 @@ bool userdatacontainer::ImgHalfIsReady(unsigned int updcf_flags) {
 	return res;
 }
 
-bool userdatacontainer::IsReady(unsigned int updcf_flags) {
+bool userdatacontainer::IsReady(unsigned int updcf_flags, time_t timevalue) {
 	if(!ImgIsReady(updcf_flags)) return false;
-	if(NeedsUpdating(updcf_flags)) return false;
+	if(NeedsUpdating(updcf_flags, timevalue)) return false;
 	else if( !(updcf_flags&UPDCF_USEREXPIRE) ) return true;
 	else if( udc_flags & (UDC_LOOKUP_IN_PROGRESS|UDC_IMAGE_DL_IN_PROGRESS)) return false;
 	else return true;
@@ -683,16 +684,16 @@ void taccount::FastMarkPending(const std::shared_ptr<tweet> &t, unsigned int mar
 //returns non-zero if pending
 unsigned int CheckTweetPendings(const std::shared_ptr<tweet> &t) {
 	unsigned int retval=0;
-	if(t->user && !t->user->IsReady(t->updcf_flags)) {
-		if(t->user->NeedsUpdating(t->updcf_flags)) retval|=8;
+	if(t->user && !t->user->IsReady(t->updcf_flags, t->createtime)) {
+		if(t->user->NeedsUpdating(t->updcf_flags, t->createtime)) retval|=8;
 		retval|=1;
 	}
-	if(t->flags.Get('D') && t->user_recipient && !(t->user_recipient->IsReady(t->updcf_flags))) {
-		if(t->user_recipient->NeedsUpdating(t->updcf_flags)) retval|=16;
+	if(t->flags.Get('D') && t->user_recipient && !(t->user_recipient->IsReady(t->updcf_flags, t->createtime))) {
+		if(t->user_recipient->NeedsUpdating(t->updcf_flags, t->createtime)) retval|=16;
 		retval|=2;
 	}
-	if(t->rtsrc && t->rtsrc->user && !t->rtsrc->user->IsReady(t->rtsrc->updcf_flags)) {
-		if(t->rtsrc->user->NeedsUpdating(t->rtsrc->updcf_flags)) retval|=32;
+	if(t->rtsrc && t->rtsrc->user && !t->rtsrc->user->IsReady(t->rtsrc->updcf_flags, t->rtsrc->createtime)) {
+		if(t->rtsrc->user->NeedsUpdating(t->rtsrc->updcf_flags, t->rtsrc->createtime)) retval|=32;
 		retval|=4;
 	}
 	return retval;
@@ -776,10 +777,10 @@ bool tweet::IsReady() {
 		if(!rtsrcisready) isready=false;
 	}
 	if(!user) isready=false;
-	else if(!user->IsReady(updcf_flags)) isready=false;
+	else if(!user->IsReady(updcf_flags, createtime)) isready=false;
 	if(flags.Get('D')) {
 		if(!user_recipient) isready=false;
-		else if(!(user_recipient->IsReady(updcf_flags))) isready=false;
+		else if(!(user_recipient->IsReady(updcf_flags, createtime))) isready=false;
 	}
 	return isready;
 }
