@@ -710,19 +710,19 @@ void taccount::FastMarkPending(const std::shared_ptr<tweet> &t, unsigned int mar
 }
 
 //returns non-zero if pending
-unsigned int CheckTweetPendings(const std::shared_ptr<tweet> &t) {
-	unsigned int retval=0;
-	if(t->user && !t->user->IsReady(t->updcf_flags, t->createtime)) {
-		if(t->user->NeedsUpdating(t->updcf_flags, t->createtime)) retval|=8;
-		retval|=1;
+unsigned int CheckTweetPendings(const tweet &t) {
+	unsigned int retval = 0;
+	if(t.user && !t.user->IsReady(t.updcf_flags, t.createtime)) {
+		if(t.user->NeedsUpdating(t.updcf_flags, t.createtime)) retval |= 8;
+		retval |= 1;
 	}
-	if(t->flags.Get('D') && t->user_recipient && !(t->user_recipient->IsReady(t->updcf_flags, t->createtime))) {
-		if(t->user_recipient->NeedsUpdating(t->updcf_flags, t->createtime)) retval|=16;
-		retval|=2;
+	if(t.flags.Get('D') && t.user_recipient && !(t.user_recipient->IsReady(t.updcf_flags, t.createtime))) {
+		if(t.user_recipient->NeedsUpdating(t.updcf_flags, t.createtime)) retval |= 16;
+		retval |= 2;
 	}
-	if(t->rtsrc && t->rtsrc->user && !t->rtsrc->user->IsReady(t->rtsrc->updcf_flags, t->rtsrc->createtime)) {
-		if(t->rtsrc->user->NeedsUpdating(t->rtsrc->updcf_flags, t->rtsrc->createtime)) retval|=32;
-		retval|=4;
+	if(t.rtsrc && t.rtsrc->user && !t.rtsrc->user->IsReady(t.rtsrc->updcf_flags, t.rtsrc->createtime)) {
+		if(t.rtsrc->user->NeedsUpdating(t.rtsrc->updcf_flags, t.rtsrc->createtime)) retval |= 32;
+		retval |= 4;
 	}
 	return retval;
 }
@@ -797,7 +797,7 @@ bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::share
 }
 
 //returns true is ready, false is pending
-bool tweet::IsReady() {
+bool tweet::IsReady(unsigned int updcf_flags) {
 	bool isready=true;
 
 	if(rtsrc) {

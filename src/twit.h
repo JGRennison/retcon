@@ -51,7 +51,10 @@ void UpdateTweet(const tweet &t, bool redrawimg = false);
 void UpdateAllTweets(bool redrawimg=false, bool resethighlight = false);
 void UpdateUsersTweet(uint64_t userid, bool redrawimg = false);
 bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t, bool checkfirst = false);
-unsigned int CheckTweetPendings(const std::shared_ptr<tweet> &t);
+unsigned int CheckTweetPendings(const tweet &t);
+inline unsigned int CheckTweetPendings(const std::shared_ptr<tweet> &t) {
+	return CheckTweetPendings(*t);
+}
 bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_nt* win_, unsigned int pushflags = 0, std::shared_ptr<tpanel> *pushtpanel_ = 0);
 bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::shared_ptr<taccount> acc_hint);
 void MarkTweetIDSetAsRead(const tweetidset &ids, const tpanel *exclude);
@@ -264,6 +267,10 @@ enum {	//for tweet.updcf_flags
 	UPDCF_DEFAULT            = UPDCF_DOWNLOADIMG,
 };
 
+inline unsigned int ConstUPDCF(unsigned int updcf) {
+	return updcf & UPDCF_USEREXPIRE;
+}
+
 struct pending_op {
 	virtual ~pending_op() { }
 
@@ -333,7 +340,9 @@ struct tweet {
 	tweet_perspective *GetTweetTP(const std::shared_ptr<taccount> &tac);
 	std::string mkdynjson() const;
 	bool GetUsableAccount(std::shared_ptr<taccount> &tac, unsigned int guaflags = 0) const;
-	bool IsReady();
+	bool IsReady(unsigned int updcf_flags);
+	bool IsReady() { return IsReady(updcf_flags); }
+	bool IsReadyConst(unsigned int updcf_flags) const { return const_cast<tweet *>(this)->IsReady(ConstUPDCF(updcf_flags)); }
 	bool IsFavouritable() const;
 	bool IsRetweetable() const;
 	bool IsArrivedHereAnyPerspective() const;
