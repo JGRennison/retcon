@@ -486,6 +486,34 @@ std::string tweet_flags::GetValueString(unsigned long long bitint) {
 	return out;
 }
 
+std::string tweet_perspective::GetFlagString() const {
+	std::string output;
+	output.reserve(8);
+	unsigned int bit = 0;
+	auto addchar = [&](char c) {
+		if(flags & (1 << bit)) output.push_back(c);
+		else output.push_back('-');
+		bit++;
+	};
+	addchar('A');
+	addchar('F');
+	addchar('R');
+	addchar('r');
+	addchar('D');
+	addchar('P');
+	addchar('U');
+	addchar('N');
+	addchar('T');
+	return std::move(output);
+}
+
+std::string tweet_perspective::GetFlagStringWithName(bool always) const {
+	if(flags || always) {
+		return stdstrwx(acc->dispname) + ": " + GetFlagString();
+	}
+	else return "";
+}
+
 bool tweet::GetUsableAccount(std::shared_ptr<taccount> &tac, unsigned int guaflags) const {
 	if(guaflags&GUAF_CHECKEXISTING) {
 		if(tac && tac->enabled) return true;

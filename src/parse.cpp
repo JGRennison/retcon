@@ -637,6 +637,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 		tp->SetReceivedHere(true);
 		ParsePerspectivalTweetProps(val, tp, 0);
 	}
+	else tp->SetRecvTypeDel(true);
 
 	if(sflags&JDTP_FAV) tp->SetFavourited(true);
 	if(sflags&JDTP_UNFAV) tp->SetFavourited(false);
@@ -735,11 +736,15 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 
 	if(tobj->lflags&TLF_SHOULDSAVEINDB) tobj->flags.Set('B');
 
+	if(sflags & JDTP_ISRTSRC) tp->SetRecvTypeRTSrc(true);
+
 	if(sflags&JDTP_CHECKPENDINGONLY) {
+		tp->SetRecvTypeCPO(true);
 		tac->CheckMarkPending(tobj, true);
 	}
 	else if(sflags&JDTP_USERTIMELINE) {
 		if(twit && twit->rbfs && !(sflags&JDTP_ISRTSRC)) {
+			tp->SetRecvTypeUT(true);
 			std::shared_ptr<tpanel> tp=tpanelparentwin_usertweets::GetUserTweetTPanel(twit->rbfs->userid, twit->rbfs->type);
 			if(tp) {
 				if(tac->CheckMarkPending(tobj)) tp->PushTweet(tobj, TPPWPF_USERTL | TPPWPF_SETNOUPDATEFLAG);
@@ -748,6 +753,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 		}
 	}
 	else {
+		tp->SetRecvTypeNorm(true);
 		tobj->lflags |= TLF_SHOULDSAVEINDB;
 		tobj->flags.Set('B');
 		if(has_just_arrived && !(sflags&JDTP_ISRTSRC) && !(sflags&JDTP_USERTIMELINE)) {

@@ -210,10 +210,15 @@ struct tweet_flags {
 struct tweet_perspective {
 	std::shared_ptr<taccount> acc;
 	enum {
-		TP_IAH     = 1<<0,
-		TP_FAV     = 1<<1,
-		TP_RET     = 1<<2,
-		TP_RECV    = 1<<3,
+		TP_IAH           = 1<<0,
+		TP_FAV           = 1<<1,
+		TP_RET           = 1<<2,
+		TP_RECV          = 1<<3,
+		TP_RECV_DEL      = 1<<4,
+		TP_RECV_CPO      = 1<<5,
+		TP_RECV_UT       = 1<<6,
+		TP_RECV_NORM     = 1<<7,
+		TP_RECV_RTSRC    = 1<<8,
 	};
 
 	tweet_perspective(const std::shared_ptr<taccount> &tac) : acc(tac), flags(0) { }
@@ -230,13 +235,17 @@ struct tweet_perspective {
 	void SetFavourited(bool val) { if(val) flags |= TP_FAV; else flags &= ~TP_FAV; }
 	void SetRetweeted(bool val) { if(val) flags |= TP_RET; else flags &= ~TP_RET; }
 	void SetReceivedHere(bool val) { if(val) flags |= TP_RECV; else flags &= ~TP_RECV; }
+	void SetRecvTypeDel(bool val) { if(val) flags |= TP_RECV_DEL; else flags &= ~TP_RECV_DEL; }
+	void SetRecvTypeCPO(bool val) { if(val) flags |= TP_RECV_CPO; else flags &= ~TP_RECV_CPO; }
+	void SetRecvTypeUT(bool val) { if(val) flags |= TP_RECV_UT; else flags &= ~TP_RECV_UT; }
+	void SetRecvTypeNorm(bool val) { if(val) flags |= TP_RECV_NORM; else flags &= ~TP_RECV_NORM; }
+	void SetRecvTypeRTSrc(bool val) { if(val) flags |= TP_RECV_RTSRC; else flags &= ~TP_RECV_RTSRC; }
+
+	std::string GetFlagString() const;
+	std::string GetFlagStringWithName(bool always = false) const;
 
 	protected:
 	unsigned int flags;
-
-	//bool arrived_here;
-	//bool favourited;
-	//bool retweeted;
 };
 
 enum {	//for tweet.lflags
