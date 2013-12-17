@@ -65,6 +65,7 @@ ifndef cross
 EXECPREFIX:=
 PATHSEP:=\\
 MKDIR:=mkdir
+HOST:=WIN
 endif
 
 ifdef x64
@@ -145,9 +146,13 @@ MAKEDEPS = -MMD -MP -MT '$@ $(@:.o=.d)'
 
 #This is to avoid unpleasant side-effects of over-writing executable in-place if it is currently running
 $(TARGS): $(ALL_OBJS)
+ifeq "$(HOST)" "WIN"
+	$(GCC) $(ALL_OBJS) -o $(OUTNAME)$(SUFFIX) $(LIBS) $(AFLAGS) $(GFLAGS)
+else
 	$(GCC) $(ALL_OBJS) -o $(OUTNAME)$(SUFFIX).tmp $(LIBS) $(AFLAGS) $(GFLAGS)
 	rm -f $(OUTNAME)$(SUFFIX)
 	mv $(OUTNAME)$(SUFFIX).tmp $(OUTNAME)$(SUFFIX)
+endif
 
 $(OBJDIR)/%.o: src/%.cpp
 	$(GCC) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS) $(MAKEDEPS)
