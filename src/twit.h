@@ -259,6 +259,7 @@ enum {	//for tweet.lflags
 	TLF_BEINGLOADEDOVERNET   = 1<<4,
 	TLF_HAVEFIRSTTP          = 1<<5,
 	TLF_SHOULDSAVEINDB       = 1<<6,
+	TLF_LOADED_FROM_DB       = 1<<7,
 };
 
 enum {	//for tweet.updcf_flags

@@ -733,6 +733,7 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 		DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::OnTpanelTweetLoadFromDB got tweet: id:%" wxLongLongFmtSpec "d, statjson: %s, dynjson: %s"), dt.id, wxstrstd(dt.statjson).c_str(), wxstrstd(dt.dynjson).c_str());
 		std::shared_ptr<tweet> &t=ad.GetTweetById(dt.id);
 		t->lflags|=TLF_SAVED_IN_DB;
+		t->lflags|=TLF_LOADED_FROM_DB;
 		rapidjson::Document dc;
 		if(dt.statjson && !dc.ParseInsitu<0>(dt.statjson).HasParseError() && dc.IsObject()) {
 			//DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::OnTpanelTweetLoadFromDB about to parse tweet statics"));
