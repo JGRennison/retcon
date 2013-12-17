@@ -146,7 +146,7 @@ MAKEDEPS = -MMD -MP -MT '$@ $(@:.o=.d)'
 #This is to avoid unpleasant side-effects of over-writing executable in-place if it is currently running
 $(TARGS): $(ALL_OBJS)
 	$(GCC) $(ALL_OBJS) -o $(OUTNAME)$(SUFFIX).tmp $(LIBS) $(AFLAGS) $(GFLAGS)
-	rm $(OUTNAME)$(SUFFIX)
+	rm -f $(OUTNAME)$(SUFFIX)
 	mv $(OUTNAME)$(SUFFIX).tmp $(OUTNAME)$(SUFFIX)
 
 $(OBJDIR)/%.o: src/%.cpp
