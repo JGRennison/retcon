@@ -265,7 +265,7 @@ enum {	//for tweet.lflags
 enum {	//for tweet.updcf_flags
 	UPDCF_DOWNLOADIMG        = 1<<0,
 	UPDCF_USEREXPIRE         = 1<<1,
-	UPDCF_DEFAULT            = UPDCF_DOWNLOADIMG,
+	UPDCF_DEFAULT            = UPDCF_DOWNLOADIMG | UPDCF_USEREXPIRE,
 };
 
 inline unsigned int ConstUPDCF(unsigned int updcf) {

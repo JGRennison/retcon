@@ -753,7 +753,7 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 			t->rtsrc=ad.GetTweetById(dt.rtid);
 		}
 
-		t->updcf_flags=UPDCF_DOWNLOADIMG;
+		t->updcf_flags=UPDCF_DEFAULT;
 		if(CheckMarkPending_GetAcc(t, true)) {
 			t->lflags&=~TLF_BEINGLOADEDFROMDB;
 			UnmarkPendingTweet(t, UMPTF_TPDB_NOUPDF);
