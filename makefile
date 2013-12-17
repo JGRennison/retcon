@@ -6,6 +6,7 @@
 #list: set to true to enable listings
 #map: set to true to enable linker map
 #cross: set to true if building on Unix, but build target is Windows
+#V: set to true to show full command lines
 
 #On Unixy platforms only
 #WXCFGFLAGS: additional arguments for wx-config
@@ -100,6 +101,22 @@ endif
 
 endif
 
+ifdef V
+define EXEC
+	$1
+endef
+else
+ifeq ($HOST, WIN)
+define EXEC
+	@$1
+endef
+else
+define EXEC
+	@$1 ; rv=$$? ; [ $${rv} -ne 0 ] && echo 'Failed: $(subst ','"'"',$(1))' ; exit $${rv}
+endef
+endif
+endif
+
 OUTNAME:=$(OUTNAME)$(SIZEPOSTFIX)$(DEBUGPOSTFIX)
 
 GCCVER:=$(shell $(GCC) -dumpversion)
@@ -146,62 +163,80 @@ MAKEDEPS = -MMD -MP -MT '$@ $(@:.o=.d)'
 
 #This is to avoid unpleasant side-effects of over-writing executable in-place if it is currently running
 $(TARGS): $(ALL_OBJS)
+	@echo '    Link    $(OUTNAME)$(SUFFIX)'
 ifeq "$(HOST)" "WIN"
-	$(GCC) $(ALL_OBJS) -o $(OUTNAME)$(SUFFIX) $(LIBS) $(AFLAGS) $(GFLAGS)
+	$(call EXEC,$(GCC) $(ALL_OBJS) -o $(OUTNAME)$(SUFFIX) $(LIBS) $(AFLAGS) $(GFLAGS))
 else
-	$(GCC) $(ALL_OBJS) -o $(OUTNAME)$(SUFFIX).tmp $(LIBS) $(AFLAGS) $(GFLAGS)
-	rm -f $(OUTNAME)$(SUFFIX)
-	mv $(OUTNAME)$(SUFFIX).tmp $(OUTNAME)$(SUFFIX)
+	$(call EXEC,$(GCC) $(ALL_OBJS) -o $(OUTNAME)$(SUFFIX).tmp $(LIBS) $(AFLAGS) $(GFLAGS))
+	$(call EXEC,rm -f $(OUTNAME)$(SUFFIX))
+	$(call EXEC,mv $(OUTNAME)$(SUFFIX).tmp $(OUTNAME)$(SUFFIX))
 endif
 
 $(OBJDIR)/%.o: src/%.cpp
-	$(GCC) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS) $(MAKEDEPS)
+	@echo '    g++     $<'
+	$(call EXEC,$(GCC) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS) $(MAKEDEPS))
 
 $(OBJDIR)/%.o: src/%.c
-	$(GCC:++=cc) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(GFLAGS) $(MAKEDEPS)
+	@echo '    gcc     $<'
+	$(call EXEC,$(GCC:++=cc) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(GFLAGS) $(MAKEDEPS))
 
 $(TCOBJS): $(OBJDIR)/%.o: src/%.cpp
-	$(GCC) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS) $(MAKEDEPS)
+	@echo '    g++     $<'
+	$(call EXEC,$(GCC) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS) $(MAKEDEPS))
+
+ifeq "$(PLATFORM)" "WIN"
+LINKRES=$(GCC) -Wl,-r -Wl,-b,binary $< -o $@ -nostdlib
+else
+LINKRES=$(LD) -r -b binary $< -o $@
+endif
+OBJCOPYRES=objcopy --rename-section .data=.rodata,alloc,load,readonly,data,contents $@ $@
 
 $(ROBJS): $(OBJDIR)/%.o: src/%.png
-ifeq "$(PLATFORM)" "WIN"
-	$(GCC) -Wl,-r -Wl,-b,binary $< -o $@ -nostdlib
-else
-	$(LD) -r -b binary $< -o $@
-endif
-	objcopy --rename-section .data=.rodata,alloc,load,readonly,data,contents $@ $@
+	@echo '    Res     $<'
+	$(call EXEC,$(LINKRES))
+	$(call EXEC,$(OBJCOPYRES))
 
 $(EXOBJS): $(OBJDIR)/deps/%.o: %.c
-	$(GCC:++=cc) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(GFLAGS) $(MAKEDEPS)
+	@echo '    gcc     $<'
+	$(call EXEC,$(GCC:++=cc) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(GFLAGS) $(MAKEDEPS))
 
 $(ALL_OBJS): | $(DIRS)
 
 $(DIRS):
-	-$(MKDIR) $@
+	-$(call EXEC,$(MKDIR) $@)
 
 .PHONY: clean mostlyclean quickclean install uninstall all
 
 quickclean:
-	rm -f $(OBJS) $(OBJS:.o=.ii) $(OBJS:.o=.lst) $(OBJS:.o=.s) $(OUTNAME)$(SUFFIX)
+	@echo '    Clean main objects, target'
+	$(call EXEC,rm -f $(OBJS) $(OBJS:.o=.ii) $(OBJS:.o=.lst) $(OBJS:.o=.s) $(OBJS:.o=.d) $(OUTNAME)$(SUFFIX) $(OUTNAME)$(SUFFIX).tmp)
 
 mostlyclean: quickclean
-	rm -f $(TCOBJS) $(TCOBJS:.o=.ii) $(TCOBJS:.o=.lst) $(TCOBJS:.o=.s)
-	rm -f $(SPOBJS) $(SPOBJS:.o=.ii) $(SPOBJS:.o=.lst) $(SPOBJS:.o=.s)
+	@echo '    Clean libtwitcurl objects'
+	$(call EXEC,rm -f $(TCOBJS) $(TCOBJS:.o=.ii) $(TCOBJS:.o=.lst) $(TCOBJS:.o=.s) $(TCOBJS:.o=.d))
+ifneq "$(SPOBJS)" ""
+	@echo '    Clean "special" objects'
+	$(call EXEC,rm -f $(SPOBJS) $(SPOBJS:.o=.ii) $(SPOBJS:.o=.lst) $(SPOBJS:.o=.s) $(SPOBJS:.o=.d))
+endif
 
 clean: mostlyclean
-	rm -f $(COBJS) $(COBJS:.o=.ii) $(COBJS:.o=.lst) $(COBJS:.o=.s)
-	rm -f $(ROBJS)
+	@echo '    Clean utf8proc objects'
+	$(call EXEC,rm -f $(COBJS) $(COBJS:.o=.ii) $(COBJS:.o=.lst) $(COBJS:.o=.s) $(COBJS:.o=.d))
+	@echo '    Clean res objects'
+	$(call EXEC,rm -f $(ROBJS) $(ROBJS:.o=.d))
 
 install:
 ifeq "$(PLATFORM)" "WIN"
 	@echo Install only supported on Unixy platforms
 else
-	cp --remove-destination $(OUTNAME)$(SUFFIX) /usr/local/bin/$(OUTNAME)$(SUFFIX)
+	@echo '    Install to /usr/local/bin/$(OUTNAME)$(SUFFIX)'
+	$(call EXEC,cp --remove-destination $(OUTNAME)$(SUFFIX) /usr/local/bin/$(OUTNAME)$(SUFFIX))
 endif
 
 uninstall:
 ifeq "$(PLATFORM)" "WIN"
 	@echo Uninstall only supported on Unixy platforms
 else
-	rm /usr/local/bin/$(OUTNAME)$(SUFFIX)
+	@echo '    Delete from /usr/local/bin/$(OUTNAME)$(SUFFIX)'
+	$(call EXEC,rm /usr/local/bin/$(OUTNAME)$(SUFFIX))
 endif
