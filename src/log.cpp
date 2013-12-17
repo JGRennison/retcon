@@ -335,13 +335,32 @@ logflagtype StrToLogFlags(const wxString &str) {
 	return out;
 }
 
+static wxString tweet_log_line(const tweet *t) {
+	wxString sname = wxT("???");
+	if(t->user && !t->user->GetUser().screen_name.empty()) sname = wxstrstd(t->user->GetUser().screen_name);
+	wxString output = wxString::Format(wxT("Tweet: %" wxLongLongFmtSpec "d @%s (%.20s...) tflags: %s, lflags: 0x%X, updcf_flags: 0x%X, ready: %d, pending flags: 0x%X, TPs: "),
+			t->id, sname.c_str(), wxstrstd(t->text).c_str(), wxstrstd(t->flags.GetString()).c_str(), t->lflags, t->updcf_flags, (int) t->IsReadyConst(UPDCF_DEFAULT), CheckTweetPendings(*t));
+	bool needcomma = false;
+	t->IterateTP([&](const tweet_perspective &tp) {
+		wxString thistp = wxstrstd(tp.GetFlagStringWithName());
+		if(thistp.IsEmpty()) return;
+		if(needcomma) output += wxT(", ");
+		else needcomma = true;
+		output += thistp;
+	});
+	return std::move(output);
+}
+
 static void dump_pending_user_line(logflagtype logflags, const wxString &indent, userdatacontainer *u) {
 	time_t now=time(0);
-	LogMsgFormat(logflags, wxT("%sUser: %" wxLongLongFmtSpec "d (%s) udc_flags: 0x%X, last update: %" wxLongLongFmtSpec "ds ago, last DB update: %" wxLongLongFmtSpec "ds ago, image ready: %d"), indent.c_str(), u->id, wxstrstd(u->GetUser().screen_name).c_str(), u->udc_flags, (uint64_t) (now-u->lastupdate), (uint64_t) (now-u->lastupdate_wrotetodb), u->ImgIsReady(0));
+	LogMsgFormat(logflags, wxT("%sUser: %" wxLongLongFmtSpec "d (%s) udc_flags: 0x%X, last update: %" wxLongLongFmtSpec "ds ago"
+			", last DB update: %" wxLongLongFmtSpec "ds ago, image ready: %d, ready (nx): %d, ready (x): %d"),
+			indent.c_str(), u->id, wxstrstd(u->GetUser().screen_name).c_str(), u->udc_flags, (uint64_t) (now-u->lastupdate),
+			(uint64_t) (now-u->lastupdate_wrotetodb), u->ImgIsReady(0), u->IsReady(0), u->IsReady(UPDCF_USEREXPIRE));
 }
 
 static void dump_pending_tweet(logflagtype logflags, const wxString &indent, const wxString &indentstep, tweet *t, userdatacontainer *exclude_user) {
-	LogMsgFormat(logflags, wxT("%sTweet: %" wxLongLongFmtSpec "d (%.15s...) lflags: 0x%X, updcf_flags: 0x%X"), indent.c_str(), t->id, wxstrstd(t->text).c_str(), t->lflags, t->updcf_flags);
+	LogMsgFormat(logflags, wxT("%sTweet: %s"), indent.c_str(), tweet_log_line(t).c_str());
 	if(t->user && t->user.get()!=exclude_user) dump_pending_user_line(logflags, indent+indentstep, t->user.get());
 	if(t->user_recipient && t->user_recipient.get()!=exclude_user) dump_pending_user_line(logflags, indent+indentstep, t->user_recipient.get());
 }
@@ -364,7 +383,7 @@ void dump_tweet_pendings(logflagtype logflags, const wxString &indent, const wxS
 	for(auto it=ad.tweetobjs.begin(); it!=ad.tweetobjs.end(); ++it) {
 		const tweet *t=it->second.get();
 		if(t && !(t->pending_ops.empty())) {
-			LogMsgFormat(logflags, wxT("%sTweet with operations pending ready state: %" wxLongLongFmtSpec "d (%.20s...)"), indent.c_str(), t->id, wxstrstd(t->text).c_str());
+			LogMsgFormat(logflags, wxT("%sTweet with operations pending ready state: %s"), indent.c_str(), tweet_log_line(t).c_str());
 			for(auto jt=t->pending_ops.begin(); jt!=t->pending_ops.end(); ++jt) {
 				LogMsgFormat(logflags, wxT("%s%s%s"), indent.c_str(), indentstep.c_str(), (*jt)->dump().c_str());
 			}
