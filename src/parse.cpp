@@ -623,6 +623,9 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 		return std::make_shared<tweet>();
 	}
 
+	//Clear net load flag
+	//Even if this is not the response to the same request which set the flag, we have the tweet now
+	tobj->lflags &= ~TLF_BEINGLOADEDOVERNET;
 
 	tweet_perspective *tp = tobj->AddTPToTweet(tac);
 	bool is_new_tweet_perspective = false;
