@@ -1,3 +1,9 @@
+retcon 0.0.4.1
+------------------------------------------------------
+
+Fix bugs in makefile. Build failed when target did not exist already.
+
+
 retcon 0.0.4
 ------------------------------------------------------
 

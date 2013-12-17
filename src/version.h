@@ -23,7 +23,7 @@
 #include "univdefs.h"
 #include <wx/string.h>
 
-#define RETCON_VERSION_STR "0.0.4"
+#define RETCON_VERSION_STR "0.0.4.1"
 
 extern const wxString appname;
 extern const wxString appversionname;
