@@ -243,6 +243,7 @@ void dispscr_base::mouseleavehandler(wxMouseEvent &event) {
 BEGIN_EVENT_TABLE(tweetdispscr, dispscr_base)
 	EVT_MENU_RANGE(tweetactmenustartid, tweetactmenuendid, tweetdispscr::OnTweetActMenuCmd)
 	EVT_RIGHT_DOWN(tweetdispscr::rightclickhandler)
+	EVT_TIMER(TDS_WID_UNHIDEIMGOVERRIDETIMER, tweetdispscr::unhideimageoverridetimeouthandler)
 END_EVENT_TABLE()
 
 tweetdispscr::tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_)
@@ -915,12 +916,14 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 
 		if(!me_list.empty()) {
 			bool hidden_thumbnails = false;
+			bool hidden_thumbnails_override = tds_flags & TDSF_IMGTHUMBHIDEOVERRIDE;
+			bool shown_thumbnails = false;
 			Newline();
 			BeginAlignment(wxTEXT_ALIGNMENT_CENTRE);
 			for(auto it=me_list.begin(); it!=me_list.end(); ++it) {
 				BeginURL(wxString::Format(wxT("M%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), (int64_t) (*it)->media_id.m_id, (int64_t) (*it)->media_id.t_id));
 				if((*it)->flags&ME_HAVE_THUMB) {
-					if(tw.flags.Get('p')) {
+					if(tw.flags.Get('p') && !hidden_thumbnails_override) {
 						BeginUnderline();
 						WriteText(wxT("[Hidden Image Thumbnail]"));
 						EndUnderline();
@@ -928,11 +931,12 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 					}
 					else {
 						AddImage((*it)->thumbimg);
+						shown_thumbnails = true;
 					}
 				}
 				else {
 					BeginUnderline();
-					WriteText(wxT("[Image]"));
+					WriteText(wxT("[Image Loading...]"));
 					EndUnderline();
 				}
 				EndURL();
@@ -943,10 +947,25 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 				BeginAlignment(wxTEXT_ALIGNMENT_CENTRE);
 				BeginURL(wxT("Xp"));
 				BeginUnderline();
-				WriteText(wxT("[Unhide Image Thumbnail(s)]"));
+				WriteText(wxT("[Unhide]"));
+				EndUnderline();
+				EndURL();
+				WriteText(wxT(" - "));
+				BeginURL(wxT("Xq"));
+				BeginUnderline();
+				WriteText(wxString::Format(wxT("[Unhide for %d seconds]"), gc.imgthumbunhidetime));
 				EndUnderline();
 				EndURL();
 				Newline();
+				EndAlignment();
+			}
+			if(shown_thumbnails && hidden_thumbnails_override) {
+				BeginAlignment(wxTEXT_ALIGNMENT_CENTRE);
+				BeginURL(wxT("XQ"));
+				BeginUnderline();
+				AddParagraph(wxT("[Hide images]"));
+				EndUnderline();
+				EndURL();
 				EndAlignment();
 			}
 		}
@@ -977,6 +996,27 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("DCL: tweetdispscr::DisplayTweet %s, END %" wxLongLongFmtSpec "d, redrawimg: %d"), GetThisName().c_str(), td->id, redrawimg);
 	#endif
+}
+
+void tweetdispscr::unhideimageoverridetimeouthandler(wxTimerEvent &event) {
+	unhideimageoverridetimeoutexec();
+}
+
+void tweetdispscr::unhideimageoverridetimeoutexec() {
+	if(imghideoverridetimer) imghideoverridetimer->Stop();
+	if(tds_flags & TDSF_IMGTHUMBHIDEOVERRIDE) {
+		tds_flags &= ~TDSF_IMGTHUMBHIDEOVERRIDE;
+		DisplayTweet(false);
+	}
+}
+
+void tweetdispscr::unhideimageoverridestarttimeout() {
+	if(!imghideoverridetimer) imghideoverridetimer.reset(new wxTimer(this, TDS_WID_UNHIDEIMGOVERRIDETIMER));
+	imghideoverridetimer->Start(gc.imgthumbunhidetime * 1000, wxTIMER_ONE_SHOT);
+	if(! (tds_flags & TDSF_IMGTHUMBHIDEOVERRIDE)) {
+		tds_flags |= TDSF_IMGTHUMBHIDEOVERRIDE;
+		DisplayTweet(false);
+	}
 }
 
 void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &td, panelparentwin_base *tppw) {
@@ -1121,6 +1161,16 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 			case 'p': {
 				td->flags.Set('p', false);
 				UpdateSingleTweetFlagState(td, tweet_flags::GetFlagValue('p'));
+				break;
+			}
+			case 'q': {
+				tweetdispscr *tds = dynamic_cast<tweetdispscr *>(win);
+				if(tds) tds->unhideimageoverridestarttimeout();
+				break;
+			}
+			case 'Q': {
+				tweetdispscr *tds = dynamic_cast<tweetdispscr *>(win);
+				if(tds) tds->unhideimageoverridetimeoutexec();
 				break;
 			}
 		}

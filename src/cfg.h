@@ -71,6 +71,7 @@ struct genoptglobconf {
 	genopt highlight_colourdelta;
 	genopt mediasave_directorylist;
 	genopt incoming_filter;
+	genopt imgthumbunhidetime;
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent);
 };
@@ -87,6 +88,7 @@ struct globconf {
 	bool persistentmediacache;
 	bool rtdisp;
 	bool assumementionistweet;
+	unsigned long imgthumbunhidetime;
 
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc);

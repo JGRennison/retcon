@@ -105,9 +105,10 @@ struct dispscr_base : public generic_disp_base, public magic_paired_ptr_ts<disps
 };
 
 enum {	//for tweetdispscr.tds_flags
-	TDSF_SUBTWEET     = 1<<0,
-	TDSF_HIGHLIGHT    = 1<<1,
-	TDSF_HIDDEN       = 1<<2,
+	TDSF_SUBTWEET              = 1<<0,
+	TDSF_HIGHLIGHT             = 1<<1,
+	TDSF_HIDDEN                = 1<<2,
+	TDSF_IMGTHUMBHIDEOVERRIDE  = 1<<3,
 };
 
 struct tweetdispscr_mouseoverwin : public dispscr_mouseoverwin {
@@ -123,6 +124,10 @@ struct tweetdispscr_mouseoverwin : public dispscr_mouseoverwin {
 	DECLARE_EVENT_TABLE()
 };
 
+enum {
+	TDS_WID_UNHIDEIMGOVERRIDETIMER  = 1,
+};
+
 struct tweetdispscr : public dispscr_base {
 	std::shared_ptr<tweet> td;
 	profimg_staticbitmap *bm;
@@ -133,6 +138,7 @@ struct tweetdispscr : public dispscr_base {
 	uint64_t rtid;
 	unsigned int tds_flags = 0;
 	std::forward_list<magic_ptr_ts<tweetdispscr> > subtweets;
+	std::unique_ptr<wxTimer> imghideoverridetimer;
 
 	tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
 	~tweetdispscr();
@@ -143,6 +149,9 @@ struct tweetdispscr : public dispscr_base {
 	void urleventhandler(wxTextUrlEvent &event);
 	void rightclickhandler(wxMouseEvent &event);
 	virtual tweetdispscr_mouseoverwin *MakeMouseOverWin() override;
+	void unhideimageoverridetimeouthandler(wxTimerEvent &event);
+	void unhideimageoverridetimeoutexec();
+	void unhideimageoverridestarttimeout();
 
 	DECLARE_EVENT_TABLE()
 };

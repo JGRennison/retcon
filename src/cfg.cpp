@@ -54,7 +54,9 @@ genoptglobconf gcglobdefaults {
 	{ wxT("XiXrXtXfXd"), 1 },
 	{ wxT(""), 1 },
 	{ wxT("+#320000"), 1 },
+	{ wxT(""), 1 },
 	{ wxT(""), 1 },		//this is initialised in InitCFGDefaults()
+	{ wxT("10"), 1 },
 };
 
 void taccount::CFGWriteOut(DBWriteConfig &twfc) {
@@ -109,6 +111,7 @@ void globconf::CFGParamConv() {
 	persistentmediacache=(gcfg.persistentmediacache.val==wxT("1"));
 	rtdisp=(gcfg.rtdisp.val==wxT("1"));
 	assumementionistweet=(gcfg.assumementionistweet.val==wxT("1"));
+	gcfg.imgthumbunhidetime.val.ToULong(&imgthumbunhidetime);
 }
 
 void genoptconf::CFGWriteOutCurDir(DBWriteConfig &twfc) {
@@ -155,6 +158,7 @@ void genoptglobconf::CFGWriteOut(DBWriteConfig &twfc) {
 	assumementionistweet.CFGWriteOutCurDir(twfc, "assumementionistweet");
 	mediasave_directorylist.CFGWriteOutCurDir(twfc, "mediasave_directorylist");
 	incoming_filter.CFGWriteOutCurDir(twfc, "incoming_filter");
+	imgthumbunhidetime.CFGWriteOutCurDir(twfc, "imgthumbunhidetime");
 }
 void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent) {
 	twfc.SetDBIndexGlobal();
@@ -178,6 +182,7 @@ void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent)
 	assumementionistweet.CFGReadInCurDir(twfc, "assumementionistweet", parent.assumementionistweet.val);
 	mediasave_directorylist.CFGReadInCurDir(twfc, "mediasave_directorylist", parent.mediasave_directorylist.val);
 	incoming_filter.CFGReadInCurDir(twfc, "incoming_filter", parent.incoming_filter.val);
+	imgthumbunhidetime.CFGReadInCurDir(twfc, "imgthumbunhidetime", parent.imgthumbunhidetime.val);
 }
 
 void genopt::CFGWriteOutCurDir(DBWriteConfig &twfc, const char *name) {
