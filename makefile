@@ -130,6 +130,12 @@ CXXFLAGS+=-Wno-type-limits -Wno-uninitialized -Wno-maybe-uninitialized
 #these cannot be feasibly suppressed at the local level in gcc 4.7
 endif
 
+ifdef debug
+ifeq (, $(filter 4.7.%, $(GCCVER)))
+CFLAGS+=-Og
+endif
+endif
+
 TARGS:=$(OUTNAME)$(SUFFIX)
 
 ifdef list
