@@ -727,6 +727,10 @@ bool FastMarkPendingNoAccFallback(const std::shared_ptr<tweet> &t, unsigned int 
 	FastMarkPendingNonAcc(t, mark, checkfirst);
 
 	if(mark & (8 | 16 | 32)) {
+		if(mark&8) ad.noacc_pending_userconts[t->user->id] = t->user;
+		if(mark&16) ad.noacc_pending_userconts[t->user_recipient->id] = t->user_recipient;
+		if(mark&32) ad.noacc_pending_userconts[t->rtsrc->user->id] = t->rtsrc->user;
+
 		LogMsgFormat(LFT_PENDTRACE, wxT("%s: Cannot mark pending as there is no usable account, %s"), logprefix.c_str(), tweet_log_line(t.get()).c_str());
 		return false;
 	}

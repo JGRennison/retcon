@@ -379,14 +379,29 @@ void dump_pending_acc(logflagtype logflags, const wxString &indent, const wxStri
 	}
 }
 
+static void dump_tweet_line(logflagtype logflags, const wxString &indent, const wxString &indentstep, const tweet *t) {
+	LogMsgFormat(logflags, wxT("%sTweet with operations pending ready state: %s"), indent.c_str(), tweet_log_line(t).c_str());
+	for(auto jt=t->pending_ops.begin(); jt!=t->pending_ops.end(); ++jt) {
+		LogMsgFormat(logflags, wxT("%s%s%s"), indent.c_str(), indentstep.c_str(), (*jt)->dump().c_str());
+	}
+}
+
 void dump_tweet_pendings(logflagtype logflags, const wxString &indent, const wxString &indentstep) {
+	bool done_header = false;
 	for(auto it=ad.tweetobjs.begin(); it!=ad.tweetobjs.end(); ++it) {
 		const tweet *t=it->second.get();
 		if(t && !(t->pending_ops.empty())) {
-			LogMsgFormat(logflags, wxT("%sTweet with operations pending ready state: %s"), indent.c_str(), tweet_log_line(t).c_str());
-			for(auto jt=t->pending_ops.begin(); jt!=t->pending_ops.end(); ++jt) {
-				LogMsgFormat(logflags, wxT("%s%s%s"), indent.c_str(), indentstep.c_str(), (*jt)->dump().c_str());
+			if(!done_header) {
+				done_header = true;
+				LogMsgFormat(logflags, wxT("%sTweets with operations pending ready state:"), indent.c_str());
 			}
+			dump_tweet_line(logflags, indent + indentstep, indentstep, t);
+		}
+	}
+	if(!ad.noacc_pending_tweetobjs.empty()) {
+		LogMsgFormat(logflags, wxT("%sTweets pending usable account:"), indent.c_str());
+		for(auto &it : ad.noacc_pending_tweetobjs) {
+			dump_tweet_line(logflags, indent + indentstep, indentstep, it.second.get());
 		}
 	}
 }
@@ -402,8 +417,14 @@ static void dump_non_acc_user_pendings(logflagtype logflags, const wxString &ind
 	for(auto it=ad.userconts.begin(); it!=ad.userconts.begin(); ++it) {
 		if(!(it->second->pendingtweets.empty())) {
 			if(acc_pending_users.find(it->first)==acc_pending_users.end()) {
-				dump_pending_user(logflags, indent, indentstep, it->second.get());
+				dump_pending_user(logflags, indent + indentstep, indentstep, it->second.get());
 			}
+		}
+	}
+	if(!ad.noacc_pending_userconts.empty()) {
+		LogMsgFormat(logflags, wxT("%sUsers pending usable account:"), indent.c_str());
+		for(auto &it : ad.noacc_pending_userconts) {
+			dump_pending_user(logflags, indent + indentstep, indentstep, it.second.get());
 		}
 	}
 }

@@ -36,15 +36,17 @@
 std::list<std::shared_ptr<taccount> > alist;
 
 BEGIN_EVENT_TABLE(taccount, wxEvtHandler)
-    EVT_TIMER(TAF_WINID_RESTTIMER, taccount::OnRestTimer)
-    EVT_TIMER(TAF_FAILED_PENDING_CONN_RETRY_TIMER, taccount::OnFailedPendingConnRetryTimer)
-    EVT_TIMER(TAF_STREAM_RESTART_TIMER, taccount::OnStreamRestartTimer)
+	EVT_TIMER(TAF_WINID_RESTTIMER, taccount::OnRestTimer)
+	EVT_TIMER(TAF_FAILED_PENDING_CONN_RETRY_TIMER, taccount::OnFailedPendingConnRetryTimer)
+	EVT_TIMER(TAF_STREAM_RESTART_TIMER, taccount::OnStreamRestartTimer)
+	EVT_TIMER(TAF_NOACC_PENDING_CONTENT_TIMER, taccount::OnNoAccPendingContentTimer)
 END_EVENT_TABLE()
 
 taccount::taccount(genoptconf *incfg)
 	: ta_flags(0), max_tweet_id(0), max_mention_id(0), max_recvdm_id(0), max_sentdm_id(0), last_stream_start_time(0), last_stream_end_time(0),
 		pending_failed_conn_retry_timer(0), stream_restart_timer(0), enabled(false), userenabled(false), init(false), active(false),
-		streaming_on(false), stream_fail_count(0), rest_on(false), verifycredstatus(ACT_NOTDONE), beinginsertedintodb(false), last_rest_backfill(0), rest_timer(0)  {
+		streaming_on(false), stream_fail_count(0), rest_on(false), verifycredstatus(ACT_NOTDONE), beinginsertedintodb(false), last_rest_backfill(0), rest_timer(0),
+		noacc_pending_content_timer(0) {
 	if(incfg) {
 		cfg.InheritFromParent(*incfg);
 		CFGParamConv();
@@ -59,6 +61,10 @@ taccount::~taccount() {
 	if(stream_restart_timer) {
 		delete stream_restart_timer;
 		stream_restart_timer=0;
+	}
+	if(noacc_pending_content_timer) {
+		delete noacc_pending_content_timer;
+		noacc_pending_content_timer=0;
 	}
 	DeleteRestBackfillTimer();
 }
@@ -379,6 +385,7 @@ void taccount::Exec() {
 			for(auto it=pending_rbfs_list.begin(); it!=pending_rbfs_list.end(); ++it) {
 				ExecRBFS(&(*it));
 			}
+			NoAccPendingContentCheck();
 		}
 		else {
 			if(!target_streaming) {
@@ -515,6 +522,77 @@ void taccount::SetGetTwitCurlExtHook(std::function<void(twitcurlext *)> func) {
 
 void taccount::ClearGetTwitCurlExtHook() {
 	TwitCurlExtHook = nullptr;
+}
+
+void taccount::OnNoAccPendingContentTimer(wxTimerEvent& event) {
+	NoAccPendingContentEvent();
+}
+
+void taccount::NoAccPendingContentEvent() {
+	if(ad.noacc_pending_tweetobjs.empty() && ad.noacc_pending_userconts.empty()) return;
+	LogMsgFormat(LFT_PENDTRACE, wxT("taccount::NoAccPendingContentEvent: account: %s, About to process %d tweets and %d users"), dispname.c_str(), ad.noacc_pending_tweetobjs.size(), ad.noacc_pending_userconts.size());
+
+	std::map<uint64_t,std::shared_ptr<tweet> > unhandled_tweets;
+	std::map<uint64_t,std::shared_ptr<userdatacontainer> > unhandled_users;
+
+	for(auto &it : ad.noacc_pending_tweetobjs) {
+		std::shared_ptr<tweet> &t = it.second;
+		std::shared_ptr<taccount> curacc;
+		if(t->GetUsableAccount(curacc, GUAF_NOERR)) {
+			t->lflags |= TLF_BEINGLOADEDOVERNET;
+			twitcurlext *twit = curacc->GetTwitCurlExt();
+			twit->connmode = CS_SINGLETWEET;
+			twit->extra_id = t->id;
+			twit->QueueAsyncExec();
+		}
+		else {
+			unhandled_tweets[t->id] = t;
+		}
+	}
+	ad.noacc_pending_tweetobjs = std::move(unhandled_tweets);
+
+	std::map<unsigned int, taccount*> queried_accs;
+
+	for(auto &it : ad.noacc_pending_userconts) {
+		std::shared_ptr<userdatacontainer> &u = it.second;
+		std::shared_ptr<taccount> curacc;
+		if(u->GetUsableAccount(curacc, true)) {
+			curacc->MarkUserPending(u);
+			queried_accs[curacc->dbindex] = curacc.get();
+		}
+		else {
+			unhandled_users[u->id] = u;
+		}
+	}
+	ad.noacc_pending_userconts = std::move(unhandled_users);
+
+	for(auto &it : queried_accs) {
+		it.second->StartRestQueryPendings();
+	}
+
+	if(ad.noacc_pending_tweetobjs.empty() && ad.noacc_pending_userconts.empty()) return;
+	LogMsgFormat(LFT_PENDTRACE, wxT("taccount::NoAccPendingContentEvent: account: %s, %d tweets and %d users remain unprocessed"), dispname.c_str(), ad.noacc_pending_tweetobjs.size(), ad.noacc_pending_userconts.size());
+}
+
+void taccount::NoAccPendingContentCheck() {
+	if(ad.noacc_pending_tweetobjs.empty() && ad.noacc_pending_userconts.empty()) return;
+
+	//check if there are other accounts waiting to become enabled
+	bool otheracc = false;
+	for(auto &it : alist) {
+		if(it.get() == this) continue;
+		if(it->userenabled && !it->enabled) {
+			otheracc = true;
+			break;
+		}
+	}
+
+	if(otheracc) {
+		//delay action to give other accounts a chance to catch up
+		if(!noacc_pending_content_timer) noacc_pending_content_timer = new wxTimer(this, TAF_NOACC_PENDING_CONTENT_TIMER);
+		noacc_pending_content_timer->Start(90 * 1000, wxTIMER_ONE_SHOT);
+	}
+	else NoAccPendingContentEvent();
 }
 
 bool GetAccByDBIndex(unsigned int dbindex, std::shared_ptr<taccount> &acc) {

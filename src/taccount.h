@@ -55,6 +55,7 @@ enum {
 	TAF_WINID_RESTTIMER=1,
 	TAF_FAILED_PENDING_CONN_RETRY_TIMER,
 	TAF_STREAM_RESTART_TIMER,
+	TAF_NOACC_PENDING_CONTENT_TIMER,
 };
 
 struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
@@ -153,6 +154,11 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	twitcurlext *GetTwitCurlExt();
 	void SetGetTwitCurlExtHook(std::function<void(twitcurlext *)> func);
 	void ClearGetTwitCurlExtHook();
+
+	void OnNoAccPendingContentTimer(wxTimerEvent& event);
+	void NoAccPendingContentEvent();
+	void NoAccPendingContentCheck();
+	wxTimer *noacc_pending_content_timer;
 
 	DECLARE_EVENT_TABLE()
 };

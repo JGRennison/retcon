@@ -696,9 +696,9 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 
 			if(!t->text.size() && !(t->lflags&TLF_BEINGLOADEDOVERNET)) {	//tweet still not loaded at all
 
+				t->lflags &= ~TLF_BEINGLOADEDFROMDB;
 				std::shared_ptr<taccount> curacc=acc;
 				if(t->GetUsableAccount(curacc, GUAF_CHECKEXISTING)) {
-					t->lflags&=~TLF_BEINGLOADEDFROMDB;
 					t->lflags|=TLF_BEINGLOADEDOVERNET;
 					twitcurlext *twit=curacc->GetTwitCurlExt();
 					twit->connmode=CS_SINGLETWEET;
@@ -707,7 +707,10 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 
 					DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::OnTpanelTweetLoadFromDB falling back to network for tweet: id: %" wxLongLongFmtSpec "d, account: %s."), t->id, curacc->dispname.c_str());
 				}
-				else DBLogMsgFormat(LFT_DBERR, wxT("dbconn::OnTpanelTweetLoadFromDB could not fall back to network for tweet: id:%" wxLongLongFmtSpec "d, no usable account."), t->id);
+				else {
+					ad.noacc_pending_tweetobjs[t->id] = t;
+					DBLogMsgFormat(LFT_DBERR, wxT("dbconn::OnTpanelTweetLoadFromDB could not fall back to network for tweet: id:%" wxLongLongFmtSpec "d, no usable account."), t->id);
+				}
 			}
 		}
 	}
