@@ -27,6 +27,7 @@ COMMONCFLAGS=-Wall -Wno-unused-parameter
 CFLAGS=-g -O3 $(COMMONCFLAGS)
 AFLAGS=-g
 CXXFLAGS=-std=gnu++0x -fno-exceptions
+TCFLAGS=-DSHA1_NO_UTILITY_FUNCTIONS
 GCC:=g++
 LD:=ld
 OBJDIR:=objs
@@ -58,6 +59,7 @@ LIBS64=
 GCC32=i686-w64-mingw32-g++
 GCC64=x86_64-w64-mingw32-g++
 MCFLAGS=-Icurl -isystem wxinclude -Isqlite -Izlib -Isrc -I.
+TCFLAGS+=-Icurl
 HDEPS:=
 EXCOBJS_SRC+=sqlite/sqlite3.c
 DIRS+=$(OBJDIR)$(PATHSEP)deps$(PATHSEP)sqlite
@@ -188,7 +190,7 @@ $(OBJDIR)/%.o: src/%.c
 
 $(TCOBJS): $(OBJDIR)/%.o: src/%.cpp
 	@echo '    g++     $<'
-	$(call EXEC,$(GCC) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS) $(MAKEDEPS))
+	$(call EXEC,$(GCC) -c $< -o $@ $(CFLAGS) $(TCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS) $(MAKEDEPS))
 
 ifeq "$(PLATFORM)" "WIN"
 LINKRES=$(GCC) -Wl,-r -Wl,-b,binary $< -o $@ -nostdlib

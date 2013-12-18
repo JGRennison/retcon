@@ -742,7 +742,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 	if(sflags & JDTP_ISRTSRC) tp->SetRecvTypeRTSrc(true);
 
 	bool have_checked_pending = false;
-	bool is_ready;
+	bool is_ready = false;
 
 	if(sflags&JDTP_CHECKPENDINGONLY) {
 		tp->SetRecvTypeCPO(true);
