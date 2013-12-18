@@ -910,6 +910,7 @@ tweetdispscr *tpanelparentwin_nt::PushTweetIndex(const std::shared_ptr<tweet> &t
 		std::shared_ptr<taccount> pacc;
 		t->GetUsableAccount(pacc, GUAF_NOERR) || t->GetUsableAccount(pacc, GUAF_NOERR|GUAF_USERENABLED);
 		subt->pending_ops.emplace_front(new tpanel_subtweet_pending_op(vbox, this, td));
+		subt->lflags |= TLF_ISPENDING;
 		if(CheckFetchPendingSingleTweet(subt, pacc)) UnmarkPendingTweet(subt, 0);
 	}
 

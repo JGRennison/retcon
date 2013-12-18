@@ -55,6 +55,8 @@ unsigned int CheckTweetPendings(const tweet &t);
 inline unsigned int CheckTweetPendings(const std::shared_ptr<tweet> &t) {
 	return CheckTweetPendings(*t);
 }
+void FastMarkPendingNonAcc(const std::shared_ptr<tweet> &t, unsigned int mark, bool checkfirst);
+bool FastMarkPendingNoAccFallback(const std::shared_ptr<tweet> &t, unsigned int mark, bool checkfirst, const wxString &logprefix);
 bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_nt* win_, unsigned int pushflags = 0, std::shared_ptr<tpanel> *pushtpanel_ = 0);
 bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::shared_ptr<taccount> acc_hint);
 void MarkTweetIDSetAsRead(const tweetidset &ids, const tpanel *exclude);
@@ -260,6 +262,7 @@ enum {	//for tweet.lflags
 	TLF_HAVEFIRSTTP          = 1<<5,
 	TLF_SHOULDSAVEINDB       = 1<<6,
 	TLF_LOADED_FROM_DB       = 1<<7,
+	TLF_ISPENDING            = 1<<8,
 };
 
 enum {	//for tweet.updcf_flags

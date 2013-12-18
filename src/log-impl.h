@@ -29,6 +29,7 @@
 
 struct tpanelparentwin_nt;
 struct taccount;
+struct tweet;
 
 struct log_object {
 	logflagtype lo_flags;
@@ -76,6 +77,7 @@ logflagtype StrToLogFlags(const wxString &str);
 
 extern log_window *globallogwindow;
 
+wxString tweet_log_line(const tweet *t);
 void dump_pending_acc(logflagtype logflags, const wxString &indent, const wxString &indentstep, taccount *acc);
 void dump_tweet_pendings(logflagtype logflags, const wxString &indent, const wxString &indentstep);
 void dump_tpanel_scrollwin_data(logflagtype logflags, const wxString &indent, const wxString &indentstep, tpanelparentwin_nt *tppw);

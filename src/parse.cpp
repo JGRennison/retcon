@@ -741,16 +741,22 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 
 	if(sflags & JDTP_ISRTSRC) tp->SetRecvTypeRTSrc(true);
 
+	bool have_checked_pending = false;
+	bool is_ready;
+
 	if(sflags&JDTP_CHECKPENDINGONLY) {
 		tp->SetRecvTypeCPO(true);
-		tac->CheckMarkPending(tobj, true);
 	}
 	else if(sflags&JDTP_USERTIMELINE) {
 		if(twit && twit->rbfs && !(sflags&JDTP_ISRTSRC)) {
 			tp->SetRecvTypeUT(true);
 			std::shared_ptr<tpanel> tp=tpanelparentwin_usertweets::GetUserTweetTPanel(twit->rbfs->userid, twit->rbfs->type);
 			if(tp) {
-				if(tac->CheckMarkPending(tobj)) tp->PushTweet(tobj, TPPWPF_USERTL | TPPWPF_SETNOUPDATEFLAG);
+				have_checked_pending = true;
+				is_ready = tac->CheckMarkPending(tobj);
+				if(is_ready) {
+					tp->PushTweet(tobj, TPPWPF_USERTL | TPPWPF_SETNOUPDATEFLAG);
+				}
 				else MarkPending_TPanelMap(tobj, 0, TPPWPF_USERTL, &tp);
 			}
 		}
@@ -763,10 +769,13 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 			if(!tobj->flags.Get('r')) tobj->flags.Set('u');
 			ad.incoming_filter.FilterTweet(*tobj, tac.get());
 			ad.cids.CheckTweet(*tobj);
-			tac->MarkPendingOrHandle(tobj);
+			have_checked_pending = true;
+			is_ready = tac->MarkPendingOrHandle(tobj);
 		}
 	}
 
+	if(!have_checked_pending) is_ready = tac->CheckMarkPending(tobj, true);
+	if(tobj->lflags & TLF_ISPENDING && is_ready) UnmarkPendingTweet(tobj, UMPTF_TPDB_NOUPDF);
 
 	if(tobj->lflags&TLF_SHOULDSAVEINDB || tobj->lflags&TLF_SAVED_IN_DB) {
 		if(!(tobj->lflags&TLF_SAVED_IN_DB)) {

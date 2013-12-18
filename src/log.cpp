@@ -335,7 +335,7 @@ logflagtype StrToLogFlags(const wxString &str) {
 	return out;
 }
 
-static wxString tweet_log_line(const tweet *t) {
+wxString tweet_log_line(const tweet *t) {
 	wxString sname = wxT("???");
 	if(t->user && !t->user->GetUser().screen_name.empty()) sname = wxstrstd(t->user->GetUser().screen_name);
 	wxString output = wxString::Format(wxT("Tweet: %" wxLongLongFmtSpec "d @%s (%.20s...) tflags: %s, lflags: 0x%X, updcf_flags: 0x%X, ready: %d, pending flags: 0x%X, TPs: "),

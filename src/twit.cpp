@@ -32,6 +32,7 @@
 #include "alldata.h"
 #include "twitcurlext.h"
 #include "mainui.h"
+#include "log-impl.h"
 
 #ifdef __WINDOWS__
 #pragma GCC diagnostic push
@@ -250,6 +251,9 @@ void userdatacontainer::CheckPendingTweets(unsigned int umpt_flags) {
 		if(it->second->GetUsableAccount(curacc, true)) {
 			curacc->FastMarkPending(it->second, it->first, true);
 		}
+		else {
+			FastMarkPendingNoAccFallback(it->second, it->first, true, wxT("userdatacontainer::CheckPendingTweets"));
+		}
 	}
 
 	if(udc_flags&UDC_WINDOWOPEN) {
@@ -274,7 +278,7 @@ void userdatacontainer::MarkTweetPending(const std::shared_ptr<tweet> &t, bool c
 		}
 	}
 	pendingtweets.push_front(t);
-	LogMsgFormat(LFT_PENDTRACE, wxT("Mark Pending: User: %" wxLongLongFmtSpec "d (@%s) --> Tweet: %" wxLongLongFmtSpec "d (%.15s...)"), id, wxstrstd(GetUser().screen_name).c_str(), t->id, wxstrstd(t->text).c_str());
+	LogMsgFormat(LFT_PENDTRACE, wxT("Mark Pending: User: %" wxLongLongFmtSpec "d (@%s) --> %s"), id, wxstrstd(GetUser().screen_name).c_str(), tweet_log_line(t.get()).c_str());
 }
 
 void rt_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags) {
@@ -282,7 +286,7 @@ void rt_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int 
 }
 
 wxString rt_pending_op::dump() {
-	return wxString::Format(wxT("Retweet depends on this: %" wxLongLongFmtSpec "d (%.20s...)"), target_retweet->id, wxstrstd(target_retweet->text).c_str());
+	return wxString::Format(wxT("Retweet depends on this: %s"), tweet_log_line(target_retweet.get()).c_str());
 }
 
 tpanelload_pending_op::tpanelload_pending_op(tpanelparentwin_nt* win_, unsigned int pushflags_, std::shared_ptr<tpanel> *pushtpanel_)
@@ -370,17 +374,18 @@ wxString tpanel_subtweet_pending_op::dump() {
 }
 
 void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, unsigned int umpt_flags) {
-	LogMsgFormat(LFT_PENDTRACE, wxT("Unmark Pending: Tweet: %" wxLongLongFmtSpec "d (%.15s...), lflags: %X, updcf_flags: %X"), t->id, wxstrstd(t->text).c_str(), t->lflags, t->updcf_flags);
-	t->lflags&=~TLF_BEINGLOADEDFROMDB;
-	if(t->lflags&TLF_PENDINGHANDLENEW) {
-		t->lflags&=~TLF_PENDINGHANDLENEW;
+	LogMsgFormat(LFT_PENDTRACE, wxT("Unmark Pending: %s"), tweet_log_line(t.get()).c_str());
+	t->lflags &= ~TLF_BEINGLOADEDFROMDB;
+	t->lflags &= ~TLF_ISPENDING;
+	if(t->lflags & TLF_PENDINGHANDLENEW) {
+		t->lflags &= ~TLF_PENDINGHANDLENEW;
 		HandleNewTweet(t);
 	}
-	for(auto it=t->pending_ops.begin(); it!=t->pending_ops.end(); ++it) {
-		(*it)->MarkUnpending(t, umpt_flags);
+	for(auto &it : t->pending_ops) {
+		it->MarkUnpending(t, umpt_flags);
 	}
 	t->pending_ops.clear();
-	t->updcf_flags&=~UPDCF_USEREXPIRE;
+	t->updcf_flags &= ~UPDCF_USEREXPIRE;
 }
 
 std::shared_ptr<taccount> userdatacontainer::GetAccountOfUser() const {
@@ -546,7 +551,7 @@ bool tweet::GetUsableAccount(std::shared_ptr<taccount> &tac, unsigned int guafla
 		}
 	}
 	if(!(guaflags&GUAF_NOERR)) {
-		LogMsgFormat(LFT_OTHERERR, wxT("Tweet: %" wxLongLongFmtSpec "d (%.15s...), has no usable enabled account, cannot perform network actions on tweet"), id, wxstrstd(text).c_str());
+		LogMsgFormat(LFT_OTHERERR, wxT("Tweet has no usable enabled account, cannot perform network actions on tweet: %s"), tweet_log_line(this).c_str());
 	}
 	return false;
 }
@@ -688,10 +693,12 @@ bool taccount::CheckMarkPending(const std::shared_ptr<tweet> &t, bool checkfirst
 }
 
 //mark *must* be exactly right
-void taccount::FastMarkPending(const std::shared_ptr<tweet> &t, unsigned int mark, bool checkfirst) {
+void FastMarkPendingNonAcc(const std::shared_ptr<tweet> &t, unsigned int mark, bool checkfirst) {
+	t->lflags |= TLF_ISPENDING;
 	if(mark&1) t->user->MarkTweetPending(t, checkfirst);
 	if(mark&2) t->user_recipient->MarkTweetPending(t, checkfirst);
 	if(mark&4) {
+		t->rtsrc->lflags |= TLF_ISPENDING;
 		bool insertnewrtpo=true;
 		for(auto it=t->rtsrc->pending_ops.begin(); it!=t->rtsrc->pending_ops.end(); ++it) {
 			rt_pending_op *rtpo = dynamic_cast<rt_pending_op*>((*it).get());
@@ -703,10 +710,27 @@ void taccount::FastMarkPending(const std::shared_ptr<tweet> &t, unsigned int mar
 		if(insertnewrtpo) t->rtsrc->pending_ops.emplace_front(new rt_pending_op(t));
 		t->rtsrc->user->MarkTweetPending(t->rtsrc, checkfirst);
 	}
+}
+
+//mark *must* be exactly right
+void taccount::FastMarkPending(const std::shared_ptr<tweet> &t, unsigned int mark, bool checkfirst) {
+	FastMarkPendingNonAcc(t, mark, checkfirst);
 
 	if(mark&8) MarkUserPending(t->user);
 	if(mark&16) MarkUserPending(t->user_recipient);
 	if(mark&32) MarkUserPending(t->rtsrc->user);
+}
+
+//return true if successfully marked pending
+//mark *must* be exactly right
+bool FastMarkPendingNoAccFallback(const std::shared_ptr<tweet> &t, unsigned int mark, bool checkfirst, const wxString &logprefix) {
+	FastMarkPendingNonAcc(t, mark, checkfirst);
+
+	if(mark & (8 | 16 | 32)) {
+		LogMsgFormat(LFT_PENDTRACE, wxT("%s: Cannot mark pending as there is no usable account, %s"), logprefix.c_str(), tweet_log_line(t.get()).c_str());
+		return false;
+	}
+	else return true;
 }
 
 //returns non-zero if pending
@@ -743,7 +767,9 @@ bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t, bool checkfirst) {
 			curacc->FastMarkPending(t, res, checkfirst);
 			return false;
 		}
-		else return true;
+		else {
+			return !FastMarkPendingNoAccFallback(t, res, checkfirst, wxT("CheckMarkPending_GetAcc"));
+		}
 	}
 }
 
@@ -762,7 +788,10 @@ bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_n
 		found=true;
 		break;
 	}
-	if(!found) tobj->pending_ops.emplace_front(new tpanelload_pending_op(win_, pushflags, pushtpanel_));
+	if(!found) {
+		tobj->lflags |= TLF_ISPENDING;
+		tobj->pending_ops.emplace_front(new tpanelload_pending_op(win_, pushflags, pushtpanel_));
+	}
 	return found;
 }
 
@@ -777,7 +806,9 @@ bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::share
 				acc_hint->FastMarkPending(tobj, res, true);
 				return false;
 			}
-			else return true;
+			else {
+				return !FastMarkPendingNoAccFallback(tobj, res, true, wxT("CheckFetchPendingSingleTweet"));
+			}
 		}
 	}
 	else {	//tweet not loaded at all
@@ -813,10 +844,11 @@ bool tweet::IsReady(unsigned int updcf_flags) {
 	return isready;
 }
 
-void taccount::MarkPendingOrHandle(const std::shared_ptr<tweet> &t) {
-	bool isready=CheckMarkPending(t);
+bool taccount::MarkPendingOrHandle(const std::shared_ptr<tweet> &t) {
+	bool isready = CheckMarkPending(t);
 	if(isready) HandleNewTweet(t);
-	else t->lflags|=TLF_PENDINGHANDLENEW;
+	else t->lflags |= TLF_PENDINGHANDLENEW;
+	return isready;
 }
 
 //this is paired with genjsonparser::ParseTweetDyn
