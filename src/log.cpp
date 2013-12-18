@@ -234,6 +234,8 @@ log_window::log_window(wxWindow *parent, logflagtype flagmask, bool show)
 }
 
 log_window::~log_window() {
+	logfunclist.remove(this);
+	LogMsgFormat(LFT_OTHERTRACE, wxT("log_window::~log_window"));
 	globallogwindow = 0;
 }
 
@@ -273,6 +275,8 @@ void log_window::OnClear(wxCommandEvent &event) {
 }
 
 void log_window::OnClose(wxCommandEvent &event) {
+	logfunclist.remove(this);
+	LogMsgFormat(LFT_OTHERTRACE, wxT("log_window::OnClose"));
 	LWShow(false);
 }
 
