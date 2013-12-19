@@ -466,8 +466,9 @@ user_lookup_dlg::user_lookup_dlg(wxWindow *parent, int *type, wxString *value, s
 	: wxDialog(parent, wxID_ANY, wxT("Enter user name or ID to look up"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE), curacc(acc) {
 
 	const wxString opts[2]={wxT("User screen name"), wxT("User numeric identifier")};
+	*type = 0;
 	wxRadioBox *rb=new wxRadioBox(this, wxID_FILE1, wxT("Type"), wxDefaultPosition, wxDefaultSize, 2, opts, 0, wxRA_SPECIFY_COLS, wxGenericValidator(type));
-	rb->SetSelection(0);
+	*value = wxT("");
 	wxTextCtrl *tc=new wxTextCtrl(this, wxID_FILE2, wxT(""), wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER, wxGenericValidator(value));
 	wxButton *okbtn=new wxButton(this, wxID_OK, wxT("OK"));
 	wxButton *cancelbtn=new wxButton(this, wxID_CANCEL, wxT("Cancel"));
