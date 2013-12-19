@@ -106,7 +106,7 @@ namespace twitterDefaults
     const std::string TWITCURL_DIRECTMESSAGES_URL = "api.twitter.com/1.1/direct_messages";
     const std::string TWITCURL_DIRECTMESSAGENEW_URL = "api.twitter.com/1.1/direct_messages/new";
     const std::string TWITCURL_DIRECTMESSAGESSENT_URL = "api.twitter.com/1.1/direct_messages/sent";
-    const std::string TWITCURL_DIRECTMESSAGEDESTROY_URL = "api.twitter.com/1.1/direct_messages/destroy/";
+    const std::string TWITCURL_DIRECTMESSAGEDESTROY_URL = "api.twitter.com/1.1/direct_messages/destroy";
 
     /* Friendships URLs */
     const std::string TWITCURL_FRIENDSHIPSCREATE_URL = "api.twitter.com/1.1/friendships/create";
@@ -123,8 +123,8 @@ namespace twitterDefaults
 
     /* Favorites URLs */
     const std::string TWITCURL_FAVORITESGET_URL = "api.twitter.com/1.1/favorites/list";
-    const std::string TWITCURL_FAVORITECREATE_URL = "api.twitter.com/1.1/favorites/create/";
-    const std::string TWITCURL_FAVORITEDESTROY_URL = "api.twitter.com/1.1/favorites/destroy/";
+    const std::string TWITCURL_FAVORITECREATE_URL = "api.twitter.com/1.1/favorites/create";
+    const std::string TWITCURL_FAVORITEDESTROY_URL = "api.twitter.com/1.1/favorites/destroy";
 
     /* Block URLs */
     const std::string TWITCURL_BLOCKSCREATE_URL = "api.twitter.com/1.1/blocks/create/";
