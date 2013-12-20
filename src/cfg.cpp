@@ -22,7 +22,9 @@
 #include "cfg.h"
 #include "taccount.h"
 #include "db.h"
+#include "util.h"
 #include <wx/stdpaths.h>
+#include <wx/tokenzr.h>
 #include <sqlite3.h>
 
 globconf gc;
@@ -57,6 +59,10 @@ genoptglobconf gcglobdefaults {
 	{ wxT(""), 1 },
 	{ wxT(""), 1 },		//this is initialised in InitCFGDefaults()
 	{ wxT("10"), 1 },
+	{ wxT("0"), 1 },
+	{ wxT(""), 1 },
+	{ wxT("0"), 1 },
+	{ wxT(""), 1 },
 };
 
 void taccount::CFGWriteOut(DBWriteConfig &twfc) {
@@ -112,6 +118,19 @@ void globconf::CFGParamConv() {
 	rtdisp=(gcfg.rtdisp.val==wxT("1"));
 	assumementionistweet=(gcfg.assumementionistweet.val==wxT("1"));
 	gcfg.imgthumbunhidetime.val.ToULong(&imgthumbunhidetime);
+	setproxy=(gcfg.setproxy.val==wxT("1"));
+	proxyurl=stdstrwx(gc.gcfg.proxyurl.val);
+	proxyhttptunnel=(gcfg.proxyhttptunnel.val==wxT("1"));
+
+	noproxylist = "";
+	wxStringTokenizer tkn(gc.gcfg.noproxylist.val, wxT(",\r\n"), wxTOKEN_STRTOK);
+	bool add_comma = false;
+	while(tkn.HasMoreTokens()) {
+		wxString token = tkn.GetNextToken();
+		if(add_comma) noproxylist += ",";
+		else add_comma = true;
+		noproxylist += stdstrwx(token);
+	}
 }
 
 void genoptconf::CFGWriteOutCurDir(DBWriteConfig &twfc) {
@@ -173,6 +192,10 @@ void genoptglobconf::IterateConfs(std::function<void(const std::string &, genopt
 	f("mediasave_directorylist", &genoptglobconf::mediasave_directorylist);
 	f("incoming_filter", &genoptglobconf::incoming_filter);
 	f("imgthumbunhidetime", &genoptglobconf::imgthumbunhidetime);
+	f("setproxy", &genoptglobconf::setproxy);
+	f("proxyurl", &genoptglobconf::proxyurl);
+	f("proxyhttptunnel", &genoptglobconf::proxyhttptunnel);
+	f("noproxylist", &genoptglobconf::noproxylist);
 }
 
 void genopt::CFGWriteOutCurDir(DBWriteConfig &twfc, const char *name) {

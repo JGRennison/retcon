@@ -430,7 +430,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	vbox = new wxBoxSizer(wxVERTICAL);
 	wxStaticBoxSizer *hbox1 = new wxStaticBoxSizer(wxVERTICAL, panel, wxT("General Settings"));
 	wxFlexGridSizer *fgs = new wxFlexGridSizer(3, 2, 5);
-	fgs->SetFlexibleDirection(wxHORIZONTAL);
+	fgs->SetFlexibleDirection(wxBOTH);
 	fgs->AddGrowableCol(2, 1);
 	hbox->Add(vbox, 1, wxALL | wxEXPAND, 0);
 
@@ -494,6 +494,16 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	FilterTextValidator filterval(ad.incoming_filter, &gc.gcfg.incoming_filter.val);
 	AddSettingRow_String(OPTWIN_FILTER, panel, fgs,  wxT("Incoming Tweet Filter\nRead Documentation Before Use"), DCBV_ISGLOBALCFG | DCBV_MULTILINE | DCBV_ADVOPTION, gc.gcfg.incoming_filter, gcglobdefaults.incoming_filter, 0, &filterval);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("Unhide Image Thumbnail Time / seconds"), DCBV_ISGLOBALCFG, gc.gcfg.imgthumbunhidetime, gcglobdefaults.imgthumbunhidetime, wxFILTER_NUMERIC);
+	AddSettingRow_Bool(OPTWIN_NETWORK, panel, fgs,  wxT("Use proxy settings (applies to new connections).\n(If not set, use system/environment default)"), DCBV_ISGLOBALCFG, gc.gcfg.setproxy, gcglobdefaults.setproxy);
+
+#if LIBCURL_VERSION_NUM >= 0x071507
+	wxString proxyurllabel = wxT("Proxy URL, default HTTP. Prefix with socks4:// socks4a://\nsocks5:// or socks5h:// for SOCKS proxying.");
+#else
+	wxString proxyurllabel = wxT("Proxy URL (HTTP only)");
+#endif
+	AddSettingRow_String(OPTWIN_NETWORK, panel, fgs, proxyurllabel, DCBV_ISGLOBALCFG, gc.gcfg.proxyurl, gcglobdefaults.proxyurl);
+	AddSettingRow_Bool(OPTWIN_NETWORK, panel, fgs, wxT("Use tunnelling HTTP proxy (HTTP CONNECT)."), DCBV_ISGLOBALCFG | DCBV_VERYADVOPTION, gc.gcfg.proxyhttptunnel, gcglobdefaults.proxyhttptunnel);
+	AddSettingRow_String(OPTWIN_NETWORK, panel, fgs, wxT("List of host names which should not be proxied.\nSeparate with commas or newlines"), DCBV_ISGLOBALCFG | DCBV_MULTILINE, gc.gcfg.noproxylist, gcglobdefaults.noproxylist);
 
 	lb=new wxChoice(panel, wxID_FILE1);
 

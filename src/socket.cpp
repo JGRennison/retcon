@@ -476,6 +476,11 @@ bool socketmanager::AddConn(CURL* ch, mcurlconn *cs) {
 		curl_easy_setopt(ch, CURLOPT_SOCKOPTFUNCTION, &pre_connect_func);
 		curl_easy_setopt(ch, CURLOPT_SOCKOPTDATA, cs);
 	}
+	if(gc.setproxy) {
+		curl_easy_setopt(ch, CURLOPT_PROXY, gc.proxyurl.c_str());
+		curl_easy_setopt(ch, CURLOPT_NOPROXY, gc.noproxylist.c_str());
+		curl_easy_setopt(ch, CURLOPT_HTTPPROXYTUNNEL, gc.proxyhttptunnel ? 1 : 0);
+	}
 	bool ret = (CURLM_OK == curl_multi_add_handle(curlmulti, ch));
 	curl_multi_socket_action(curlmulti, 0, 0, &curnumsocks);
 	check_multi_info(&sm);

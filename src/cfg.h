@@ -74,6 +74,10 @@ struct genoptglobconf {
 	genopt mediasave_directorylist;
 	genopt incoming_filter;
 	genopt imgthumbunhidetime;
+	genopt setproxy;
+	genopt proxyurl;
+	genopt proxyhttptunnel;
+	genopt noproxylist;
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent);
 
@@ -93,6 +97,10 @@ struct globconf {
 	bool rtdisp;
 	bool assumementionistweet;
 	unsigned long imgthumbunhidetime;
+	bool setproxy;
+	std::string proxyurl;
+	bool proxyhttptunnel;
+	std::string noproxylist;
 
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc);
