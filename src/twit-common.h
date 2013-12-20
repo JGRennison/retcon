@@ -35,15 +35,21 @@ struct cached_id_sets {
 	tweetidset unreadids;
 	tweetidset highlightids;
 	tweetidset hiddenids;
+
+	inline static void IterateLists(std::function<void(const char *, tweetidset cached_id_sets::*)> f) {
+		f("unreadids", &cached_id_sets::unreadids);
+		f("highlightids", &cached_id_sets::highlightids);
+		f("hiddenids", &cached_id_sets::hiddenids);
+	}
 	inline void foreach(std::function<void(tweetidset &)> f) {
-		f(unreadids);
-		f(highlightids);
-		f(hiddenids);
+		IterateLists([&](const char *name, tweetidset cached_id_sets::*ptr) {
+			f(this->*ptr);
+		});
 	}
 	inline void foreach(cached_id_sets &cid2, std::function<void(tweetidset &, tweetidset &)> f) {
-		f(unreadids, cid2.unreadids);
-		f(highlightids, cid2.highlightids);
-		f(hiddenids, cid2.hiddenids);
+		IterateLists([&](const char *name, tweetidset cached_id_sets::*ptr) {
+			f(this->*ptr, cid2.*ptr);
+		});
 	}
 	void CheckTweet(tweet &tw);
 };

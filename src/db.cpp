@@ -1062,9 +1062,9 @@ void dbconn::SyncReadInCIDSLists(sqlite3 *adb) {
 		sqlite3_reset(getstmt);
 	};
 
-	doonelist("unreadids", ad.cids.unreadids);
-	doonelist("highlightids", ad.cids.highlightids);
-	doonelist("hiddenids", ad.cids.hiddenids);
+	cached_id_sets::IterateLists([&](const char *name, tweetidset cached_id_sets::*ptr) {
+		doonelist(name, ad.cids.*ptr);
+	});
 
 	sqlite3_finalize(getstmt);
 	LogMsg(LFT_DBTRACE, wxT("dbconn::SyncReadInCIDSLists end"));
@@ -1088,9 +1088,9 @@ void dbconn::SyncWriteBackCIDSLists(sqlite3 *adb) {
 		sqlite3_reset(setstmt);
 	};
 
-	doonelist("unreadids", ad.cids.unreadids);
-	doonelist("highlightids", ad.cids.highlightids);
-	doonelist("hiddenids", ad.cids.hiddenids);
+	cached_id_sets::IterateLists([&](const char *name, tweetidset cached_id_sets::*ptr) {
+		doonelist(name, ad.cids.*ptr);
+	});
 
 	sqlite3_finalize(setstmt);
 	cache.EndTransaction(adb);
