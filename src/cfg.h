@@ -78,6 +78,7 @@ struct genoptglobconf {
 	genopt proxyurl;
 	genopt proxyhttptunnel;
 	genopt noproxylist;
+	genopt netiface;
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent);
 
@@ -101,6 +102,7 @@ struct globconf {
 	std::string proxyurl;
 	bool proxyhttptunnel;
 	std::string noproxylist;
+	std::string netiface;
 
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc);

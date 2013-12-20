@@ -63,6 +63,7 @@ genoptglobconf gcglobdefaults {
 	{ wxT(""), 1 },
 	{ wxT("0"), 1 },
 	{ wxT(""), 1 },
+	{ wxT(""), 1 },
 };
 
 void taccount::CFGWriteOut(DBWriteConfig &twfc) {
@@ -131,6 +132,8 @@ void globconf::CFGParamConv() {
 		else add_comma = true;
 		noproxylist += stdstrwx(token);
 	}
+
+	netiface=stdstrwx(gc.gcfg.netiface.val);
 }
 
 void genoptconf::CFGWriteOutCurDir(DBWriteConfig &twfc) {
@@ -196,6 +199,7 @@ void genoptglobconf::IterateConfs(std::function<void(const std::string &, genopt
 	f("proxyurl", &genoptglobconf::proxyurl);
 	f("proxyhttptunnel", &genoptglobconf::proxyhttptunnel);
 	f("noproxylist", &genoptglobconf::noproxylist);
+	f("netiface", &genoptglobconf::netiface);
 }
 
 void genopt::CFGWriteOutCurDir(DBWriteConfig &twfc, const char *name) {

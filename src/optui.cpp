@@ -505,6 +505,13 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_Bool(OPTWIN_NETWORK, panel, fgs, wxT("Use tunnelling HTTP proxy (HTTP CONNECT)."), DCBV_ISGLOBALCFG | DCBV_VERYADVOPTION, gc.gcfg.proxyhttptunnel, gcglobdefaults.proxyhttptunnel);
 	AddSettingRow_String(OPTWIN_NETWORK, panel, fgs, wxT("List of host names which should not be proxied.\nSeparate with commas or newlines"), DCBV_ISGLOBALCFG | DCBV_MULTILINE, gc.gcfg.noproxylist, gcglobdefaults.noproxylist);
 
+#if LIBCURL_VERSION_NUM >= 0x071800
+	wxString netifacelabel = wxT("Outgoing network interface (interface name, IP or host).\nPrefix with if! or host! to force interface name or host/IP respectively.");
+#else
+	wxString netifacelabel = wxT("Outgoing network interface (interface name, IP or host)");
+#endif
+	AddSettingRow_String(OPTWIN_NETWORK, panel, fgs, netifacelabel, DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.netiface, gcglobdefaults.netiface);
+
 	lb=new wxChoice(panel, wxID_FILE1);
 
 	vbox->Add(lb, 0, wxALL, 4);
