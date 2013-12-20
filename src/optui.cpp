@@ -428,14 +428,28 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 
 	hbox = new wxBoxSizer(wxHORIZONTAL);
 	vbox = new wxBoxSizer(wxVERTICAL);
-	wxStaticBoxSizer *hbox1 = new wxStaticBoxSizer(wxVERTICAL, panel, wxT("General Settings"));
-	wxFlexGridSizer *fgs = new wxFlexGridSizer(3, 2, 5);
-	fgs->SetFlexibleDirection(wxBOTH);
-	fgs->AddGrowableCol(2, 1);
+
 	hbox->Add(vbox, 1, wxALL | wxEXPAND, 0);
 
 	btnbox = new wxBoxSizer(wxHORIZONTAL);
 	vbox->Add(btnbox, 0, wxALL | wxALIGN_TOP , 4);
+
+	auto addfgsizerblock = [&](wxString name, wxFlexGridSizer *&fgsr) {
+		wxStaticBoxSizer *hbox1 = new wxStaticBoxSizer(wxVERTICAL, panel, name);
+		fgsr = new wxFlexGridSizer(3, 2, 5);
+		fgsr->SetFlexibleDirection(wxBOTH);
+		fgsr->AddGrowableCol(2, 1);
+
+		vbox->Add(hbox1, 0, wxALL | wxEXPAND | wxALIGN_TOP , 4);
+		hbox1->Add(fgsr, 0, wxALL | wxEXPAND | wxALIGN_TOP , 4);
+
+		cat_empty_sizer_op.emplace_back(fgsr, [=](bool show) {
+			vbox->Show(hbox1, show);
+		});
+	};
+
+	wxFlexGridSizer *fgs = 0;
+	addfgsizerblock(wxT("General Settings"), fgs);
 
 	cat_buttons.resize(OPTWIN_LAST);
 	auto addbtn = [&](unsigned int id, const wxString &name) {
@@ -450,13 +464,6 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	addbtn(OPTWIN_TWITTER, wxT("Twitter"));
 	addbtn(OPTWIN_SAVING, wxT("Saving"));
 	addbtn(OPTWIN_FILTER, wxT("Filter"));
-
-	vbox->Add(hbox1, 0, wxALL | wxEXPAND | wxALIGN_TOP , 4);
-	hbox1->Add(fgs, 0, wxALL | wxEXPAND | wxALIGN_TOP , 4);
-
-	cat_empty_sizer_op.emplace_back(fgs, [=](bool show) {
-		vbox->Show(hbox1, show);
-	});
 
 	wxBoxSizer *hboxfooter = new wxBoxSizer(wxHORIZONTAL);
 	wxButton *okbtn=new wxButton(panel, wxID_OK, wxT("OK"));
@@ -494,16 +501,20 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	FilterTextValidator filterval(ad.incoming_filter, &gc.gcfg.incoming_filter.val);
 	AddSettingRow_String(OPTWIN_FILTER, panel, fgs,  wxT("Incoming Tweet Filter\nRead Documentation Before Use"), DCBV_ISGLOBALCFG | DCBV_MULTILINE | DCBV_ADVOPTION, gc.gcfg.incoming_filter, gcglobdefaults.incoming_filter, 0, &filterval);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("Unhide Image Thumbnail Time / seconds"), DCBV_ISGLOBALCFG, gc.gcfg.imgthumbunhidetime, gcglobdefaults.imgthumbunhidetime, wxFILTER_NUMERIC);
-	AddSettingRow_Bool(OPTWIN_NETWORK, panel, fgs,  wxT("Use proxy settings (applies to new connections).\n(If not set, use system/environment default)"), DCBV_ISGLOBALCFG, gc.gcfg.setproxy, gcglobdefaults.setproxy);
+
+	wxFlexGridSizer *proxyfgs = 0;
+	addfgsizerblock(wxT("Proxy Settings"), proxyfgs);
+
+	AddSettingRow_Bool(OPTWIN_NETWORK, panel, proxyfgs, wxT("Use proxy settings (applies to new connections).\n(If not set, use system/environment default)"), DCBV_ISGLOBALCFG, gc.gcfg.setproxy, gcglobdefaults.setproxy);
 
 #if LIBCURL_VERSION_NUM >= 0x071507
 	wxString proxyurllabel = wxT("Proxy URL, default HTTP. Prefix with socks4:// socks4a://\nsocks5:// or socks5h:// for SOCKS proxying.");
 #else
 	wxString proxyurllabel = wxT("Proxy URL (HTTP only)");
 #endif
-	AddSettingRow_String(OPTWIN_NETWORK, panel, fgs, proxyurllabel, DCBV_ISGLOBALCFG, gc.gcfg.proxyurl, gcglobdefaults.proxyurl);
-	AddSettingRow_Bool(OPTWIN_NETWORK, panel, fgs, wxT("Use tunnelling HTTP proxy (HTTP CONNECT)."), DCBV_ISGLOBALCFG | DCBV_VERYADVOPTION, gc.gcfg.proxyhttptunnel, gcglobdefaults.proxyhttptunnel);
-	AddSettingRow_String(OPTWIN_NETWORK, panel, fgs, wxT("List of host names which should not be proxied.\nSeparate with commas or newlines"), DCBV_ISGLOBALCFG | DCBV_MULTILINE, gc.gcfg.noproxylist, gcglobdefaults.noproxylist);
+	AddSettingRow_String(OPTWIN_NETWORK, panel, proxyfgs, proxyurllabel, DCBV_ISGLOBALCFG, gc.gcfg.proxyurl, gcglobdefaults.proxyurl);
+	AddSettingRow_Bool(OPTWIN_NETWORK, panel, proxyfgs, wxT("Use tunnelling HTTP proxy (HTTP CONNECT)."), DCBV_ISGLOBALCFG | DCBV_VERYADVOPTION, gc.gcfg.proxyhttptunnel, gcglobdefaults.proxyhttptunnel);
+	AddSettingRow_String(OPTWIN_NETWORK, panel, proxyfgs, wxT("List of host names which should not be proxied.\nSeparate with commas or newlines"), DCBV_ISGLOBALCFG | DCBV_MULTILINE, gc.gcfg.noproxylist, gcglobdefaults.noproxylist);
 
 #if LIBCURL_VERSION_NUM >= 0x071800
 	wxString netifacelabel = wxT("Outgoing network interface (interface name, IP or host).\nPrefix with if! or host! to force interface name or host/IP respectively.");
