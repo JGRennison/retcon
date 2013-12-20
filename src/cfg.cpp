@@ -115,74 +115,64 @@ void globconf::CFGParamConv() {
 }
 
 void genoptconf::CFGWriteOutCurDir(DBWriteConfig &twfc) {
-	tokenk.CFGWriteOutCurDir(twfc, "tokenk");
-	tokens.CFGWriteOutCurDir(twfc, "tokens");
-	ssl.CFGWriteOutCurDir(twfc, "ssl");
-	userstreams.CFGWriteOutCurDir(twfc, "userstreams");
-	restinterval.CFGWriteOutCurDir(twfc, "restinterval");
+	IterateConfs([&](const std::string &name, genopt genoptconf::*ptr) {
+		(this->*ptr).CFGWriteOutCurDir(twfc, name.c_str());
+	});
 }
 void genoptconf::CFGReadInCurDir(DBReadConfig &twfc, const genoptconf &parent) {
-	tokenk.CFGReadInCurDir(twfc, "tokenk", parent.tokenk.val);
-	tokens.CFGReadInCurDir(twfc, "tokens", parent.tokens.val);
-	ssl.CFGReadInCurDir(twfc, "ssl", parent.ssl.val);
-	userstreams.CFGReadInCurDir(twfc, "userstreams", parent.userstreams.val);
-	restinterval.CFGReadInCurDir(twfc, "restinterval", parent.restinterval.val);
+	IterateConfs([&](const std::string &name, genopt genoptconf::*ptr) {
+		(this->*ptr).CFGReadInCurDir(twfc, name.c_str(), (parent.*ptr).val);
+	});
 }
 void genoptconf::InheritFromParent(genoptconf &parent, bool ifunset) {
-	tokenk.InheritFromParent(parent.tokenk, ifunset);
-	tokens.InheritFromParent(parent.tokens, ifunset);
-	ssl.InheritFromParent(parent.ssl, ifunset);
-	userstreams.InheritFromParent(parent.userstreams, ifunset);
-	restinterval.InheritFromParent(parent.restinterval, ifunset);
+	IterateConfs([&](const std::string &name, genopt genoptconf::*ptr) {
+		(this->*ptr).InheritFromParent(parent.*ptr, ifunset);
+	});
+}
+
+void genoptconf::IterateConfs(std::function<void(const std::string &, genopt genoptconf::*)> f) {
+	f("tokenk", &genoptconf::tokenk);
+	f("tokens", &genoptconf::tokens);
+	f("ssl", &genoptconf::ssl);
+	f("userstreams", &genoptconf::userstreams);
+	f("restinterval", &genoptconf::restinterval);
 }
 
 void genoptglobconf::CFGWriteOut(DBWriteConfig &twfc) {
 	twfc.SetDBIndexGlobal();
-	userexpiretimemins.CFGWriteOutCurDir(twfc, "userexpiretimemins");
-	datetimeformat.CFGWriteOutCurDir(twfc, "datetimeformat");
-	maxpanelprofimgsize.CFGWriteOutCurDir(twfc, "maxpanelprofimgsize");
-	maxtweetsdisplayinpanel.CFGWriteOutCurDir(twfc, "maxtweetsdisplayinpanel");
-	tweetdispformat.CFGWriteOutCurDir(twfc, "tweetdispformat");
-	dmdispformat.CFGWriteOutCurDir(twfc, "dmdispformat");
-	rtdispformat.CFGWriteOutCurDir(twfc, "rtdispformat");
-	userdispformat.CFGWriteOutCurDir(twfc, "userdispformat");
-	mouseover_tweetdispformat.CFGWriteOutCurDir(twfc, "mouseover_tweetdispformat");
-	mouseover_dmdispformat.CFGWriteOutCurDir(twfc, "mouseover_dmdispformat");
-	mouseover_rtdispformat.CFGWriteOutCurDir(twfc, "mouseover_rtdispformat");
-	mouseover_userdispformat.CFGWriteOutCurDir(twfc, "mouseover_userdispformat");
-	highlight_colourdelta.CFGWriteOutCurDir(twfc, "highlight_colourdelta");
-	cachethumbs.CFGWriteOutCurDir(twfc, "cachethumbs");
-	cachemedia.CFGWriteOutCurDir(twfc, "cachemedia");
-	persistentmediacache.CFGWriteOutCurDir(twfc, "persistentmediacache");
-	rtdisp.CFGWriteOutCurDir(twfc, "rtdisp");
-	assumementionistweet.CFGWriteOutCurDir(twfc, "assumementionistweet");
-	mediasave_directorylist.CFGWriteOutCurDir(twfc, "mediasave_directorylist");
-	incoming_filter.CFGWriteOutCurDir(twfc, "incoming_filter");
-	imgthumbunhidetime.CFGWriteOutCurDir(twfc, "imgthumbunhidetime");
+	IterateConfs([&](const std::string &name, genopt genoptglobconf::*ptr) {
+		(this->*ptr).CFGWriteOutCurDir(twfc, name.c_str());
+	});
 }
 void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent) {
 	twfc.SetDBIndexGlobal();
-	userexpiretimemins.CFGReadInCurDir(twfc, "userexpiretimemins", parent.userexpiretimemins.val);
-	datetimeformat.CFGReadInCurDir(twfc, "datetimeformat", parent.datetimeformat.val);
-	maxpanelprofimgsize.CFGReadInCurDir(twfc, "maxpanelprofimgsize", parent.maxpanelprofimgsize.val);
-	maxtweetsdisplayinpanel.CFGReadInCurDir(twfc, "maxtweetsdisplayinpanel", parent.maxtweetsdisplayinpanel.val);
-	tweetdispformat.CFGReadInCurDir(twfc, "tweetdispformat", parent.tweetdispformat.val);
-	dmdispformat.CFGReadInCurDir(twfc, "dmdispformat", parent.dmdispformat.val);
-	rtdispformat.CFGReadInCurDir(twfc, "rtdispformat", parent.rtdispformat.val);
-	userdispformat.CFGReadInCurDir(twfc, "userdispformat", parent.userdispformat.val);
-	mouseover_tweetdispformat.CFGReadInCurDir(twfc, "mouseover_tweetdispformat", parent.mouseover_tweetdispformat.val);
-	mouseover_dmdispformat.CFGReadInCurDir(twfc, "mouseover_dmdispformat", parent.mouseover_dmdispformat.val);
-	mouseover_rtdispformat.CFGReadInCurDir(twfc, "mouseover_rtdispformat", parent.mouseover_rtdispformat.val);
-	mouseover_userdispformat.CFGReadInCurDir(twfc, "mouseover_userdispformat", parent.mouseover_userdispformat.val);
-	highlight_colourdelta.CFGReadInCurDir(twfc, "highlight_colourdelta", parent.highlight_colourdelta.val);
-	cachethumbs.CFGReadInCurDir(twfc, "cachethumbs", parent.cachethumbs.val);
-	cachemedia.CFGReadInCurDir(twfc, "cachemedia", parent.cachemedia.val);
-	persistentmediacache.CFGReadInCurDir(twfc, "persistentmediacache", parent.persistentmediacache.val);
-	rtdisp.CFGReadInCurDir(twfc, "rtdisp", parent.rtdisp.val);
-	assumementionistweet.CFGReadInCurDir(twfc, "assumementionistweet", parent.assumementionistweet.val);
-	mediasave_directorylist.CFGReadInCurDir(twfc, "mediasave_directorylist", parent.mediasave_directorylist.val);
-	incoming_filter.CFGReadInCurDir(twfc, "incoming_filter", parent.incoming_filter.val);
-	imgthumbunhidetime.CFGReadInCurDir(twfc, "imgthumbunhidetime", parent.imgthumbunhidetime.val);
+	IterateConfs([&](const std::string &name, genopt genoptglobconf::*ptr) {
+		(this->*ptr).CFGReadInCurDir(twfc, name.c_str(), (parent.*ptr).val);
+	});
+}
+
+void genoptglobconf::IterateConfs(std::function<void(const std::string &, genopt genoptglobconf::*)> f) {
+	f("userexpiretimemins", &genoptglobconf::userexpiretimemins);
+	f("datetimeformat", &genoptglobconf::datetimeformat);
+	f("maxpanelprofimgsize", &genoptglobconf::maxpanelprofimgsize);
+	f("maxtweetsdisplayinpanel", &genoptglobconf::maxtweetsdisplayinpanel);
+	f("tweetdispformat", &genoptglobconf::tweetdispformat);
+	f("dmdispformat", &genoptglobconf::dmdispformat);
+	f("rtdispformat", &genoptglobconf::rtdispformat);
+	f("userdispformat", &genoptglobconf::userdispformat);
+	f("mouseover_tweetdispformat", &genoptglobconf::mouseover_tweetdispformat);
+	f("mouseover_dmdispformat", &genoptglobconf::mouseover_dmdispformat);
+	f("mouseover_rtdispformat", &genoptglobconf::mouseover_rtdispformat);
+	f("mouseover_userdispformat", &genoptglobconf::mouseover_userdispformat);
+	f("highlight_colourdelta", &genoptglobconf::highlight_colourdelta);
+	f("cachethumbs", &genoptglobconf::cachethumbs);
+	f("cachemedia", &genoptglobconf::cachemedia);
+	f("persistentmediacache", &genoptglobconf::persistentmediacache);
+	f("rtdisp", &genoptglobconf::rtdisp);
+	f("assumementionistweet", &genoptglobconf::assumementionistweet);
+	f("mediasave_directorylist", &genoptglobconf::mediasave_directorylist);
+	f("incoming_filter", &genoptglobconf::incoming_filter);
+	f("imgthumbunhidetime", &genoptglobconf::imgthumbunhidetime);
 }
 
 void genopt::CFGWriteOutCurDir(DBWriteConfig &twfc, const char *name) {

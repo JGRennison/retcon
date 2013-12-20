@@ -48,6 +48,8 @@ struct genoptconf {
 	void CFGWriteOutCurDir(DBWriteConfig &twfc);
 	void CFGReadInCurDir(DBReadConfig &twfc, const genoptconf &parent);
 	void InheritFromParent(genoptconf &parent, bool ifunset = false);
+
+	static void IterateConfs(std::function<void(const std::string &, genopt genoptconf::*)> f);
 };
 
 struct genoptglobconf {
@@ -74,6 +76,8 @@ struct genoptglobconf {
 	genopt imgthumbunhidetime;
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent);
+
+	static void IterateConfs(std::function<void(const std::string &, genopt genoptglobconf::*)> f);
 };
 
 struct globconf {
