@@ -94,7 +94,7 @@ media_display_win::media_display_win(wxWindow *parent, media_id_type media_id_)
 		}
 		if(data) free(data);
 	}
-	if(!(me->flags&ME_HAVE_FULL) && me->media_url.size()) {
+	if(!(me->flags&ME_FULL_NET_INPROGRESS) && !(me->flags&ME_HAVE_FULL) && me->media_url.size()) {
 		new mediaimgdlconn(me->media_url, media_id_, MIDC_FULLIMG | MIDC_OPPORTUNIST_THUMB | MIDC_OPPORTUNIST_REDRAW_TWEETS);
 	}
 
@@ -244,16 +244,15 @@ void media_display_win::GetImage(wxString &message) {
 				if(anim.GetFrameCount() > 1) {
 					LogMsgFormat(LFT_OTHERTRACE, wxT("media_display_win::GetImage found animation: %d frames"), anim.GetFrameCount());
 					is_animated = true;
-					img_ok = true;
 					current_img = anim.GetFrame(0);
 					current_frame_index = 0;
 					animation_timer.SetOwner(this, MDID_TIMER_EVT);
-					load_image = false;
 				}
 				#if defined(__WXGTK__)
 				else {
-					if(anim_ctrl.Create(this, wxID_ANY, anim)) {
-						if(!gdk_pixbuf_animation_is_static_image(anim.GetPixbuf())) using_anim_ctrl = true;
+					if(!using_anim_ctrl && !gdk_pixbuf_animation_is_static_image(anim.GetPixbuf())) {
+						using_anim_ctrl = true;
+						anim_ctrl.Create(this, wxID_ANY, anim);
 					}
 				}
 				#endif
@@ -262,7 +261,6 @@ void media_display_win::GetImage(wxString &message) {
 				wxMemoryInputStream memstream2(me->fulldata.data(), me->fulldata.size());
 				current_img.LoadFile(memstream2, wxBITMAP_TYPE_ANY);
 				if(current_img.IsOk()) img_ok = true;
-
 			}
 			return;
 		}

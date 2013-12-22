@@ -223,7 +223,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 					//try to load from file
 					if(LoadImageFromFileAndCheckHash(me->cached_thumb_filename(), me->thumb_img_sha1, me->thumbimg)) me->flags|=ME_HAVE_THUMB;
 				}
-				if(!(me->flags&ME_HAVE_THUMB)) {
+				if(!(me->flags&ME_HAVE_THUMB) && !(me->flags&ME_FULL_NET_INPROGRESS)) {
 					new mediaimgdlconn(me->media_url, media_id, MIDC_FULLIMG | MIDC_THUMBIMG | MIDC_REDRAW_TWEETS);
 				}
 			}
@@ -295,7 +295,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 				//try to load from file
 				if(LoadImageFromFileAndCheckHash(me->cached_thumb_filename(), me->thumb_img_sha1, me->thumbimg)) me->flags|=ME_HAVE_THUMB;
 			}
-			if(!(me->flags&ME_HAVE_THUMB) && me->media_url.size()>6) {
+			if(!(me->flags&ME_HAVE_THUMB) && !(me->flags&ME_THUMB_NET_INPROGRESS) && me->media_url.size()>6) {
 				std::string thumburl=me->media_url.substr(0, me->media_url.size()-6)+":thumb";
 				new mediaimgdlconn(thumburl, en->media_id, MIDC_THUMBIMG | MIDC_REDRAW_TWEETS);
 			}

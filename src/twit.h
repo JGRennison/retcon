@@ -383,14 +383,16 @@ struct entity {
 };
 
 enum {
-	ME_HAVE_THUMB      = 1<<0,
-	ME_HAVE_FULL       = 1<<1,
-	ME_FULL_FAILED     = 1<<2,
-	ME_SAVED_THUMB     = 1<<3,
-	ME_SAVED_FULL      = 1<<4,
-	ME_LOAD_THUMB      = 1<<5,
-	ME_LOAD_FULL       = 1<<6,
-	ME_IN_DB           = 1<<7,
+	ME_HAVE_THUMB           = 1<<0,
+	ME_HAVE_FULL            = 1<<1,
+	ME_FULL_FAILED          = 1<<2,
+	ME_SAVED_THUMB          = 1<<3,
+	ME_SAVED_FULL           = 1<<4,
+	ME_LOAD_THUMB           = 1<<5,
+	ME_LOAD_FULL            = 1<<6,
+	ME_IN_DB                = 1<<7,
+	ME_THUMB_NET_INPROGRESS = 1<<8,
+	ME_FULL_NET_INPROGRESS  = 1<<9,
 };
 
 struct media_entity {

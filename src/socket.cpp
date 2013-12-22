@@ -253,6 +253,16 @@ wxString profileimgdlconn::GetConnTypeName() {
 void mediaimgdlconn::Init(const std::string &imgurl_, media_id_type media_id_, unsigned int flags_) {
 	media_id=media_id_;
 	flags=flags_;
+	auto it = ad.media_list.find(media_id);
+	if(it != ad.media_list.end()) {
+		media_entity &me=it->second;
+		if(flags & MIDC_FULLIMG) {
+			me.flags |= ME_FULL_NET_INPROGRESS;
+		}
+		else if(flags & MIDC_THUMBIMG) {
+			me.flags |= ME_THUMB_NET_INPROGRESS;
+		}
+	}
 	LogMsgFormat(LFT_NETACT, wxT("Downloading media image %s, id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, flags: %X, conn: %p"), wxstrstd(imgurl_).c_str(), media_id_.m_id, media_id_.t_id, flags_, this);
 	dlconn::Init(imgurl_);
 }
@@ -267,7 +277,11 @@ void mediaimgdlconn::HandleFailure(long httpcode, CURLcode res) {
 		media_entity &me=it->second;
 		if(flags&MIDC_FULLIMG) {
 			me.flags|=ME_FULL_FAILED;
+			me.flags &= ~ME_FULL_NET_INPROGRESS;
 			if(me.win) me.win->Update();
+		}
+		else if(flags & MIDC_THUMBIMG) {
+			me.flags &= ~ME_THUMB_NET_INPROGRESS;
 		}
 	}
 	delete this;
@@ -314,11 +328,15 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 					dbc.UpdateMediaChecksum(me, false);
 				}
 			}
+			if(!(flags&MIDC_FULLIMG)) {
+				me.flags &= ~ME_THUMB_NET_INPROGRESS;
+			}
 		}
 
 		if(flags&MIDC_FULLIMG) {
 			me.fulldata=std::move(data);
 			me.flags|=ME_HAVE_FULL;
+			me.flags &= ~ME_FULL_NET_INPROGRESS;
 			if(me.win) me.win->UpdateImage();
 			if(gc.cachemedia) {
 				wxFile file(me.cached_full_filename(), wxFile::write);
