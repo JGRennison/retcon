@@ -900,19 +900,7 @@ tweetdispscr *tpanelparentwin_nt::PushTweetIndex(const std::shared_ptr<tweet> &t
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweetIndex 3"));
 	#endif
 
-	if(t->in_reply_to_status_id) {
-		std::shared_ptr<tweet> subt=ad.GetTweetById(t->in_reply_to_status_id);
-
-		if(t->IsArrivedHereAnyPerspective()) {	//save
-			subt->lflags |= TLF_SHOULDSAVEINDB;
-		}
-
-		std::shared_ptr<taccount> pacc;
-		t->GetUsableAccount(pacc, GUAF_NOERR) || t->GetUsableAccount(pacc, GUAF_NOERR|GUAF_USERENABLED);
-		subt->pending_ops.emplace_front(new tpanel_subtweet_pending_op(vbox, this, td));
-		subt->lflags |= TLF_ISPENDING;
-		if(CheckFetchPendingSingleTweet(subt, pacc)) UnmarkPendingTweet(subt, 0);
-	}
+	tpanel_subtweet_pending_op::CheckLoadTweetReply(t, vbox, this, td, gc.inlinereplyloadcount, t);
 
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweetIndex %s END"), GetThisName().c_str());

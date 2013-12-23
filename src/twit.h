@@ -305,8 +305,14 @@ struct tpanel_subtweet_pending_op : public pending_op {
 	wxSizer *vbox;
 	magic_ptr_ts<tpanelparentwin_nt> win;
 	magic_ptr_ts<tweetdispscr> parent_td;
+	unsigned int load_count = 0;
+	std::shared_ptr<tweet> top_tweet;
 
-	tpanel_subtweet_pending_op(wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *t);
+	tpanel_subtweet_pending_op(wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *t, unsigned int load_count_,
+		std::shared_ptr<tweet> top_tweet_);
+
+	static void CheckLoadTweetReply(const std::shared_ptr<tweet> &t, wxSizer *v, tpanelparentwin_nt *s,
+		tweetdispscr *tds, unsigned int load_count, const std::shared_ptr<tweet> &top_tweet);
 
 	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags);
 	virtual wxString dump();

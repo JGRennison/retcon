@@ -109,6 +109,7 @@ enum {	//for tweetdispscr.tds_flags
 	TDSF_HIGHLIGHT             = 1<<1,
 	TDSF_HIDDEN                = 1<<2,
 	TDSF_IMGTHUMBHIDEOVERRIDE  = 1<<3,
+	TDSF_CANLOADMOREREPLIES    = 1<<4,
 };
 
 struct tweetdispscr_mouseoverwin : public dispscr_mouseoverwin {

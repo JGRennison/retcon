@@ -310,8 +310,30 @@ wxString tpanelload_pending_op::dump() {
 	return wxString::Format(wxT("Push tweet to tpanel: %s, window: %p, pushflags: 0x%X"), (tp)?wxstrstd(tp->dispname).c_str():wxT("N/A"), window, pushflags);
 }
 
-tpanel_subtweet_pending_op::tpanel_subtweet_pending_op(wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *t)
-		: vbox(v), win(s), parent_td(t) { }
+void tpanel_subtweet_pending_op::CheckLoadTweetReply(const std::shared_ptr<tweet> &t, wxSizer *v, tpanelparentwin_nt *s,
+		tweetdispscr *tds, unsigned int load_count, const std::shared_ptr<tweet> &top_tweet) {
+	if(t->in_reply_to_status_id) {
+		if(load_count == 0) {
+			tds->tds_flags |= TDSF_CANLOADMOREREPLIES;
+			return;
+		}
+		std::shared_ptr<tweet> subt = ad.GetTweetById(t->in_reply_to_status_id);
+
+		if(top_tweet->IsArrivedHereAnyPerspective()) {	//save
+			subt->lflags |= TLF_SHOULDSAVEINDB;
+		}
+
+		std::shared_ptr<taccount> pacc;
+		t->GetUsableAccount(pacc, GUAF_NOERR) || t->GetUsableAccount(pacc, GUAF_NOERR|GUAF_USERENABLED);
+		subt->pending_ops.emplace_front(new tpanel_subtweet_pending_op(v, s, tds, load_count, top_tweet));
+		subt->lflags |= TLF_ISPENDING;
+		if(CheckFetchPendingSingleTweet(subt, pacc)) UnmarkPendingTweet(subt, 0);
+	}
+}
+
+tpanel_subtweet_pending_op::tpanel_subtweet_pending_op(wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *t,
+		unsigned int load_count_, std::shared_ptr<tweet> top_tweet_)
+		: vbox(v), win(s), parent_td(t), load_count(load_count_), top_tweet(std::move(top_tweet_)) { }
 
 void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags) {
 	tweetdispscr *tds=parent_td.get();
@@ -366,6 +388,9 @@ void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, 
 		subtd->ForceRefresh();
 	}
 	window->EndScrollFreeze(sf);
+
+	CheckLoadTweetReply(t, vbox, window, tds, load_count - 1, top_tweet);
+
 	window->scrollwin->Thaw();
 }
 

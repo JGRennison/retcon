@@ -64,6 +64,7 @@ genoptglobconf gcglobdefaults {
 	{ wxT("0"), 1 },
 	{ wxT(""), 1 },
 	{ wxT(""), 1 },
+	{ wxT("1"), 1 },
 };
 
 void taccount::CFGWriteOut(DBWriteConfig &twfc) {
@@ -122,6 +123,7 @@ void globconf::CFGParamConv() {
 	setproxy=(gcfg.setproxy.val==wxT("1"));
 	proxyurl=stdstrwx(gc.gcfg.proxyurl.val);
 	proxyhttptunnel=(gcfg.proxyhttptunnel.val==wxT("1"));
+	gcfg.inlinereplyloadcount.val.ToULong(&inlinereplyloadcount);
 
 	noproxylist = "";
 	wxStringTokenizer tkn(gc.gcfg.noproxylist.val, wxT(",\r\n"), wxTOKEN_STRTOK);
@@ -200,6 +202,7 @@ void genoptglobconf::IterateConfs(std::function<void(const std::string &, genopt
 	f("proxyhttptunnel", &genoptglobconf::proxyhttptunnel);
 	f("noproxylist", &genoptglobconf::noproxylist);
 	f("netiface", &genoptglobconf::netiface);
+	f("inlinereplyloadcount", &genoptglobconf::inlinereplyloadcount);
 }
 
 void genopt::CFGWriteOutCurDir(DBWriteConfig &twfc, const char *name) {

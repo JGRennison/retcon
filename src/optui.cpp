@@ -501,6 +501,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	FilterTextValidator filterval(ad.incoming_filter, &gc.gcfg.incoming_filter.val);
 	AddSettingRow_String(OPTWIN_FILTER, panel, fgs,  wxT("Incoming Tweet Filter\nRead Documentation Before Use"), DCBV_ISGLOBALCFG | DCBV_MULTILINE | DCBV_ADVOPTION, gc.gcfg.incoming_filter, gcglobdefaults.incoming_filter, 0, &filterval);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("Unhide Image Thumbnail Time / seconds"), DCBV_ISGLOBALCFG, gc.gcfg.imgthumbunhidetime, gcglobdefaults.imgthumbunhidetime, wxFILTER_NUMERIC);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("No. of tweet replies to load inline"), DCBV_ISGLOBALCFG, gc.gcfg.inlinereplyloadcount, gcglobdefaults.inlinereplyloadcount, wxFILTER_NUMERIC);
 
 	wxFlexGridSizer *proxyfgs = 0;
 	addfgsizerblock(wxT("Proxy Settings"), proxyfgs);
