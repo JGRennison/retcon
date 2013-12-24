@@ -152,6 +152,7 @@ void dlconn::Reset() {
 void dlconn::Init(const std::string &url_) {
 	url=url_;
 	if(!curlHandle) curlHandle = curl_easy_init();
+	else curl_easy_reset(curlHandle);
 	#ifdef __WINDOWS__
 	curl_easy_setopt(curlHandle, CURLOPT_CAINFO, "./cacert.pem");
 	#endif
@@ -499,8 +500,16 @@ bool socketmanager::AddConn(CURL* ch, mcurlconn *cs) {
 		curl_easy_setopt(ch, CURLOPT_NOPROXY, gc.noproxylist.c_str());
 		curl_easy_setopt(ch, CURLOPT_HTTPPROXYTUNNEL, gc.proxyhttptunnel ? 1 : 0);
 	}
+	else {
+		curl_easy_setopt(ch, CURLOPT_PROXY, nullptr);
+		curl_easy_setopt(ch, CURLOPT_NOPROXY, nullptr);
+		curl_easy_setopt(ch, CURLOPT_HTTPPROXYTUNNEL, 0);
+	}
 	if(!gc.netiface.empty()) {
 		curl_easy_setopt(ch, CURLOPT_INTERFACE, gc.netiface.c_str());
+	}
+	else {
+		curl_easy_setopt(ch, CURLOPT_INTERFACE, nullptr);
 	}
 	bool ret = (CURLM_OK == curl_multi_add_handle(curlmulti, ch));
 	curl_multi_socket_action(curlmulti, 0, 0, &curnumsocks);
