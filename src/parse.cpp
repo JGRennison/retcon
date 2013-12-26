@@ -613,17 +613,12 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 	if(tac->ssl) tobj->flags.Set('s');
 	if(sflags&JDTP_DEL) {
 		tobj->flags.Set('X');
-		ad.cids.deletedids.insert(tobj->id);
-	}
+		UpdateSingleTweetFlagState(tobj, tweet_flags::GetFlagValue('X'));
 
-	if(sflags&JDTP_DEL && (!tobj->user || tobj->createtime == 0)) {
-		//delete received where tweet incomplete or not in memory before
-		//send speculative update to DB in case tweet already stored there
-		tweetidset delidset;
-		delidset.insert(tweetid);
-		dbupdatetweetsetflagsmsg *msg=new dbupdatetweetsetflagsmsg(std::move(delidset), tweet_flags::GetFlagValue('X'), 0);
-		dbc.SendMessage(msg);
-		return std::make_shared<tweet>();
+		if(!tobj->user || tobj->createtime == 0) {
+			//delete received where tweet incomplete or not in memory before
+			return std::make_shared<tweet>();
+		}
 	}
 
 	//Clear net load flag
