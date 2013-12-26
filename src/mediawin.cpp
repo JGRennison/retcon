@@ -237,30 +237,33 @@ void media_display_win::GetImage(wxString &message) {
 	if(me) {
 		if(me->flags&ME_HAVE_FULL) {
 			is_animated = false;
-			img_ok = false;
-			bool load_image = true;
-			wxMemoryInputStream memstream(me->fulldata.data(), me->fulldata.size());
-			if(anim.Load(memstream, wxANIMATION_TYPE_ANY)) {
-				if(anim.GetFrameCount() > 1) {
-					LogMsgFormat(LFT_OTHERTRACE, wxT("media_display_win::GetImage found animation: %d frames"), anim.GetFrameCount());
-					is_animated = true;
-					current_img = anim.GetFrame(0);
-					current_frame_index = 0;
-					animation_timer.SetOwner(this, MDID_TIMER_EVT);
-				}
-				#if defined(__WXGTK__)
-				else {
-					if(!using_anim_ctrl && !gdk_pixbuf_animation_is_static_image(anim.GetPixbuf())) {
-						using_anim_ctrl = true;
-						anim_ctrl.Create(this, wxID_ANY, anim);
+
+			wxMemoryInputStream memstream2(me->fulldata.data(), me->fulldata.size());
+			current_img.LoadFile(memstream2, wxBITMAP_TYPE_ANY);
+			img_ok = current_img.IsOk();
+
+			if(img_ok) {
+				wxMemoryInputStream memstream(me->fulldata.data(), me->fulldata.size());
+				if(anim.Load(memstream, wxANIMATION_TYPE_ANY)) {
+					if(anim.GetFrameCount() > 1) {
+						LogMsgFormat(LFT_OTHERTRACE, wxT("media_display_win::GetImage found animation: %d frames"), anim.GetFrameCount());
+						is_animated = true;
+						current_img = anim.GetFrame(0);
+						current_frame_index = 0;
+						animation_timer.SetOwner(this, MDID_TIMER_EVT);
 					}
+					#if defined(__WXGTK__)
+					else {
+						if(!using_anim_ctrl && !gdk_pixbuf_animation_is_static_image(anim.GetPixbuf())) {
+							using_anim_ctrl = true;
+							anim_ctrl.Create(this, wxID_ANY, anim);
+						}
+					}
+					#endif
 				}
-				#endif
 			}
-			if(load_image) {
-				wxMemoryInputStream memstream2(me->fulldata.data(), me->fulldata.size());
-				current_img.LoadFile(memstream2, wxBITMAP_TYPE_ANY);
-				if(current_img.IsOk()) img_ok = true;
+			else {
+				LogMsgFormat(LFT_OTHERERR, wxT("media_display_win::GetImage: Image is not OK, corrupted or partial download?"));
 			}
 			return;
 		}

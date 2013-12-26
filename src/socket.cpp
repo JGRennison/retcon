@@ -229,16 +229,21 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 
 		//user->cached_profile_img=std::make_shared<wxImage>(memstream);
 		wxImage img(memstream);
-		user->SetProfileBitmapFromwxImage(img);
+		if(!img.IsOk()) {
+			LogMsgFormat(LFT_OTHERERR, wxT("Profile image downloaded: %s for user id %" wxLongLongFmtSpec "d (@%s), is not OK, possible partial download?"), wxstrstd(url).c_str(), user->id, wxstrstd(user->GetUser().screen_name).c_str());
+		}
+		else {
+			user->SetProfileBitmapFromwxImage(img);
 
-		user->cached_profile_img_url=url;
-		SHA1((const unsigned char *) data.data(), (unsigned long) data.size(), user->cached_profile_img_sha1);
-		user->lastupdate_wrotetodb=0;		//force user to be written out to database
-		dbc.InsertUser(user);
-		data.clear();
-		user->CheckPendingTweets();
-		UpdateUsersTweet(user->id, true);
-		if(user->udc_flags&UDC_WINDOWOPEN) user_window::CheckRefresh(user->id, true);
+			user->cached_profile_img_url=url;
+			SHA1((const unsigned char *) data.data(), (unsigned long) data.size(), user->cached_profile_img_sha1);
+			user->lastupdate_wrotetodb=0;		//force user to be written out to database
+			dbc.InsertUser(user);
+			data.clear();
+			user->CheckPendingTweets();
+			UpdateUsersTweet(user->id, true);
+			if(user->udc_flags&UDC_WINDOWOPEN) user_window::CheckRefresh(user->id, true);
+		}
 	}
 	else {
 		LogMsgFormat(LFT_OTHERERR, wxT("Profile image downloaded: %s for user id %" wxLongLongFmtSpec "d (@%s), does not match expected url of: %s. Maybe user updated profile during download?"), wxstrstd(url).c_str(), user->id, wxstrstd(user->GetUser().screen_name).c_str(), wxstrstd(user->GetUser().profile_img_url).c_str());
@@ -279,7 +284,7 @@ void mediaimgdlconn::HandleFailure(long httpcode, CURLcode res) {
 		if(flags&MIDC_FULLIMG) {
 			me.flags|=ME_FULL_FAILED;
 			me.flags &= ~ME_FULL_NET_INPROGRESS;
-			if(me.win) me.win->Update();
+			if(me.win) me.win->UpdateImage();
 		}
 		else if(flags & MIDC_THUMBIMG) {
 			me.flags &= ~ME_THUMB_NET_INPROGRESS;
@@ -328,6 +333,9 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 					SHA1(data, size, me.thumb_img_sha1);
 					dbc.UpdateMediaChecksum(me, false);
 				}
+			}
+			else {
+				LogMsgFormat(LFT_OTHERERR, wxT("Media image downloaded: %s, id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, flags: %X, conn: %p, is not OK, possible partial download?"), wxstrstd(url).c_str(), media_id.m_id, media_id.t_id, flags, this);
 			}
 			if(!(flags&MIDC_FULLIMG)) {
 				me.flags &= ~ME_THUMB_NET_INPROGRESS;
