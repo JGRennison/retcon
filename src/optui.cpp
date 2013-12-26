@@ -483,25 +483,32 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Date-Time Format (strftime)"), DCBV_ISGLOBALCFG, gc.gcfg.datetimeformat, gcglobdefaults.datetimeformat);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Max Profile Image Size / px"), DCBV_ISGLOBALCFG, gc.gcfg.maxpanelprofimgsize, gcglobdefaults.maxpanelprofimgsize, wxFILTER_NUMERIC);
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs,  wxT("Display Native Re-Tweets"), DCBV_ISGLOBALCFG, gc.gcfg.rtdisp, gcglobdefaults.rtdisp);
-	AddSettingRow_String(OPTWIN_CACHING, panel, fgs, wxT("Cached User Expiry Time / minutes"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.userexpiretimemins, gcglobdefaults.userexpiretimemins, wxFILTER_NUMERIC);
-	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Tweet display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.tweetdispformat, gcglobdefaults.tweetdispformat);
-	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("DM display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.dmdispformat, gcglobdefaults.dmdispformat);
-	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Native Re-Tweet display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.rtdispformat, gcglobdefaults.rtdispformat);
-	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("User display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.userdispformat, gcglobdefaults.userdispformat);
-	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Tweet mouse-over format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.mouseover_tweetdispformat, gcglobdefaults.mouseover_tweetdispformat);
-	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("DM mouse-over format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.mouseover_dmdispformat, gcglobdefaults.mouseover_dmdispformat);
-	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Native Re-Tweet mouse-over format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.mouseover_rtdispformat, gcglobdefaults.mouseover_rtdispformat);
-	//AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("User mouse-over format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.mouseover_userdispformat, gcglobdefaults.mouseover_userdispformat);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("Unhide Image Thumbnail Time / seconds"), DCBV_ISGLOBALCFG, gc.gcfg.imgthumbunhidetime, gcglobdefaults.imgthumbunhidetime, wxFILTER_NUMERIC);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("No. of tweet replies to load inline"), DCBV_ISGLOBALCFG, gc.gcfg.inlinereplyloadcount, gcglobdefaults.inlinereplyloadcount, wxFILTER_NUMERIC);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Highlight Colour"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.highlight_colourdelta, gcglobdefaults.highlight_colourdelta);
+	wxFlexGridSizer *formatfgs = 0;
+	addfgsizerblock(wxT("Display Format Settings"), formatfgs);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, formatfgs, wxT("Tweet display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.tweetdispformat, gcglobdefaults.tweetdispformat);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, formatfgs, wxT("DM display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.dmdispformat, gcglobdefaults.dmdispformat);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, formatfgs, wxT("Native Re-Tweet display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.rtdispformat, gcglobdefaults.rtdispformat);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, formatfgs, wxT("User display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.userdispformat, gcglobdefaults.userdispformat);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, formatfgs, wxT("Tweet mouse-over format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.mouseover_tweetdispformat, gcglobdefaults.mouseover_tweetdispformat);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, formatfgs, wxT("DM mouse-over format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.mouseover_dmdispformat, gcglobdefaults.mouseover_dmdispformat);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, formatfgs, wxT("Native Re-Tweet mouse-over format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.mouseover_rtdispformat, gcglobdefaults.mouseover_rtdispformat);
+
+	AddSettingRow_String(OPTWIN_CACHING, panel, fgs, wxT("Cached User Expiry Time / minutes"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.userexpiretimemins, gcglobdefaults.userexpiretimemins, wxFILTER_NUMERIC);
+	//AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("User mouse-over format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.mouseover_userdispformat, gcglobdefaults.mouseover_userdispformat);
 	AddSettingRow_Bool(OPTWIN_CACHING, panel, fgs,  wxT("Cache media image thumbnails"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.cachethumbs, gcglobdefaults.cachethumbs);
 	AddSettingRow_Bool(OPTWIN_CACHING, panel, fgs,  wxT("Cache full-size media images"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.cachemedia, gcglobdefaults.cachemedia);
 	AddSettingRow_Bool(OPTWIN_CACHING, panel, fgs,  wxT("Check incoming media against cache"), DCBV_ISGLOBALCFG | DCBV_VERYADVOPTION, gc.gcfg.persistentmediacache, gcglobdefaults.persistentmediacache);
+
 	AddSettingRow_Bool(OPTWIN_TWITTER, panel, fgs,  wxT("Assume that mentions are a subset of the home timeline"), DCBV_ISGLOBALCFG | DCBV_VERYADVOPTION, gc.gcfg.assumementionistweet, gcglobdefaults.assumementionistweet);
+
 	AddSettingRow_String(OPTWIN_SAVING, panel, fgs,  wxT("Media Image\nSave Directories\n(1 per line)"), DCBV_ISGLOBALCFG | DCBV_MULTILINE, gc.gcfg.mediasave_directorylist, gcglobdefaults.mediasave_directorylist);
+
 	FilterTextValidator filterval(ad.incoming_filter, &gc.gcfg.incoming_filter.val);
 	AddSettingRow_String(OPTWIN_FILTER, panel, fgs,  wxT("Incoming Tweet Filter\nRead Documentation Before Use"), DCBV_ISGLOBALCFG | DCBV_MULTILINE | DCBV_ADVOPTION, gc.gcfg.incoming_filter, gcglobdefaults.incoming_filter, 0, &filterval);
-	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("Unhide Image Thumbnail Time / seconds"), DCBV_ISGLOBALCFG, gc.gcfg.imgthumbunhidetime, gcglobdefaults.imgthumbunhidetime, wxFILTER_NUMERIC);
-	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("No. of tweet replies to load inline"), DCBV_ISGLOBALCFG, gc.gcfg.inlinereplyloadcount, gcglobdefaults.inlinereplyloadcount, wxFILTER_NUMERIC);
+
 
 	wxFlexGridSizer *proxyfgs = 0;
 	addfgsizerblock(wxT("Proxy Settings"), proxyfgs);
