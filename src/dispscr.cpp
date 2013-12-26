@@ -866,7 +866,8 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 		if(bm2) bm2->Show(show);
 	};
 
-	bool hidden = tw.flags.Get('h') && !(tpsw->parent->tppw_flags & TPPWF_SHOWHIDDEN);
+	bool hidden = (tw.flags.Get('h') && !(tpsw->parent->tppw_flags & TPPWF_SHOWHIDDEN))
+		|| (tw.flags.Get('X') && !(tpsw->parent->tppw_flags & TPPWF_SHOWDELETED));
 	if(hidden && !(tds_flags&TDSF_HIDDEN)) {
 		hideactions(false);
 		tds_flags |= TDSF_HIDDEN;

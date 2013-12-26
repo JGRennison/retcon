@@ -631,6 +631,8 @@ void cached_id_sets::CheckTweet(tweet &tw) {
 	else highlightids.erase(tw.id);
 	if(tw.flags.Get('h')) hiddenids.insert(tw.id);
 	else hiddenids.erase(tw.id);
+	if(tw.flags.Get('X')) deletedids.insert(tw.id);
+	else deletedids.erase(tw.id);
 }
 
 void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, std::function<tweetidset &(cached_id_sets &)> idsetselector, bool remove, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc) {

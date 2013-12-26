@@ -548,6 +548,10 @@ panelparentwin_base::panelparentwin_base(wxWindow *parent, bool fitnow, wxString
 	//vbox->Add(tpw, 1, wxALIGN_TOP | wxEXPAND, 0);
 	//SetSizer(vbox);
 
+	if(gc.showdeletedtweetsbydefault) {
+		tppw_flags |= TPPWF_SHOWDELETED;
+	}
+
 	wxBoxSizer* outersizer = new wxBoxSizer(wxVERTICAL);
 	headersizer = new wxBoxSizer(wxHORIZONTAL);
 	scrollwin = new tpanelscrollwin(this);
@@ -1196,21 +1200,25 @@ void tpanelparentwin_nt::setupnavbuttonhandlers() {
 		}
 	});
 
-	addhandler(TPPWID_TOGGLEHIDDEN, [this](wxCommandEvent &event) {
-		tppw_flags ^= TPPWF_SHOWHIDDEN;
-		tppw_flags |= TPPWF_NOUPDATEONPUSH;
+	auto hidesettogglefunc = [&](int cmdid, unsigned int tppwflag, tweetidset cached_id_sets::* setptr, const wxString &logstr) {
+		addhandler(cmdid, [this, tppwflag, setptr, logstr](wxCommandEvent &event) {
+			tppw_flags ^= tppwflag;
+			tppw_flags |= TPPWF_NOUPDATEONPUSH;
 
-		//refresh any currently displayed tweets which are marked as hidden
-		IterateCurrentDisp([&](uint64_t id, dispscr_base *scr) {
-			if(tp->cids.hiddenids.find(id) != tp->cids.hiddenids.end()) {
-				#if TPANEL_COPIOUS_LOGGING
-					LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::setupnavbuttonhandlers TPPWID_TOGGLEHIDDEN: About to refresh: %" wxLongLongFmtSpec "d, hidden items: %d"), id, tp->cids.hiddenids.size());
-				#endif
-				static_cast<tweetdispscr *>(scr)->DisplayTweet(false);
-			}
+			//refresh any currently displayed tweets which are marked as hidden
+			IterateCurrentDisp([&](uint64_t id, dispscr_base *scr) {
+				if((tp->cids.*setptr).find(id) != (tp->cids.*setptr).end()) {
+					#if TPANEL_COPIOUS_LOGGING
+						LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::setupnavbuttonhandlers: %s: About to refresh: %" wxLongLongFmtSpec "d, items: %d"), logstr.c_str(), id, (tp->cids.*setptr).size());
+					#endif
+					static_cast<tweetdispscr *>(scr)->DisplayTweet(false);
+				}
+			});
+			CheckClearNoUpdateFlag();
 		});
-		CheckClearNoUpdateFlag();
-	});
+	};
+	hidesettogglefunc(TPPWID_TOGGLEHIDDEN, TPPWF_SHOWHIDDEN, &cached_id_sets::hiddenids, wxT("TPPWID_TOGGLEHIDDEN: Hidden IDs"));
+	hidesettogglefunc(TPPWID_TOGGLEHIDEDELETED, TPPWF_SHOWDELETED, &cached_id_sets::deletedids, wxT("TPPWID_TOGGLEHIDEDELETED: Deleted IDs"));
 }
 
 void tpanelparentwin_nt::morebtnhandler(wxCommandEvent &event) {
@@ -1238,6 +1246,8 @@ void tpanelparentwin_nt::morebtnhandler(wxCommandEvent &event) {
 	pmenu.AppendSeparator();
 	wxMenuItem *wmith = pmenu.Append(TPPWID_TOGGLEHIDDEN, wxString::Format(wxT("Show Hidden Tweets (%d)"), tp->cids.hiddenids.size()), wxT(""), wxITEM_CHECK);
 	wmith->Check(tppw_flags & TPPWF_SHOWHIDDEN);
+	wxMenuItem *wmith2 = pmenu.Append(TPPWID_TOGGLEHIDEDELETED, wxString::Format(wxT("Show Deleted Tweets (%d)"), tp->cids.deletedids.size()), wxT(""), wxITEM_CHECK);
+	wmith2->Check(tppw_flags & TPPWF_SHOWDELETED);
 
 	PopupMenu(&pmenu, btnrect.GetLeft(), btnrect.GetBottom());
 }

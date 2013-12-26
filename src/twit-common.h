@@ -35,11 +35,13 @@ struct cached_id_sets {
 	tweetidset unreadids;
 	tweetidset highlightids;
 	tweetidset hiddenids;
+	tweetidset deletedids;
 
 	inline static void IterateLists(std::function<void(const char *, tweetidset cached_id_sets::*)> f) {
 		f("unreadids", &cached_id_sets::unreadids);
 		f("highlightids", &cached_id_sets::highlightids);
 		f("hiddenids", &cached_id_sets::hiddenids);
+		f("deletedids", &cached_id_sets::deletedids);
 	}
 	inline void foreach(std::function<void(tweetidset &)> f) {
 		IterateLists([&](const char *name, tweetidset cached_id_sets::*ptr) {

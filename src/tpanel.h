@@ -191,6 +191,7 @@ enum {	//window IDs
 	TPPWID_JUMPTONUM,
 	TPPWID_JUMPTOID,
 	TPPWID_TOGGLEHIDDEN,
+	TPPWID_TOGGLEHIDEDELETED,
 };
 
 enum {	//for pushflags
@@ -207,6 +208,7 @@ enum {	//for tppw_flags
 	TPPWF_CANALWAYSSCROLLDOWN   = 1<<1,
 	TPPWF_CLABELUPDATEPENDING   = 1<<2,
 	TPPWF_SHOWHIDDEN            = 1<<3,
+	TPPWF_SHOWDELETED           = 1<<4,
 };
 
 struct panelparentwin_base : public wxPanel, public magic_ptr_base {

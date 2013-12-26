@@ -611,7 +611,10 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 	if(sflags&JDTP_ISDM) tobj->flags.Set('D');
 	else tobj->flags.Set('T');
 	if(tac->ssl) tobj->flags.Set('s');
-	if(sflags&JDTP_DEL) tobj->flags.Set('X');
+	if(sflags&JDTP_DEL) {
+		tobj->flags.Set('X');
+		ad.cids.deletedids.insert(tobj->id);
+	}
 
 	if(sflags&JDTP_DEL && (!tobj->user || tobj->createtime == 0)) {
 		//delete received where tweet incomplete or not in memory before

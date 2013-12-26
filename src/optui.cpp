@@ -486,6 +486,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("Unhide Image Thumbnail Time / seconds"), DCBV_ISGLOBALCFG, gc.gcfg.imgthumbunhidetime, gcglobdefaults.imgthumbunhidetime, wxFILTER_NUMERIC);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("No. of tweet replies to load inline"), DCBV_ISGLOBALCFG, gc.gcfg.inlinereplyloadcount, gcglobdefaults.inlinereplyloadcount, wxFILTER_NUMERIC);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Highlight Colour"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.highlight_colourdelta, gcglobdefaults.highlight_colourdelta);
+	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs, wxT("Show deleted tweets by default"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.showdeletedtweetsbydefault, gcglobdefaults.showdeletedtweetsbydefault);
 	wxFlexGridSizer *formatfgs = 0;
 	addfgsizerblock(wxT("Display Format Settings"), formatfgs);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, formatfgs, wxT("Tweet display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.tweetdispformat, gcglobdefaults.tweetdispformat);
