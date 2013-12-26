@@ -683,15 +683,11 @@ void UpdateSingleTweetFlagState(const std::shared_ptr<tweet> &tw, unsigned long 
 	tweetidset ids;
 	ids.insert(tw->id);
 
-	if(mask & tweet_flags::GetFlagValue('H')) {
-		MarkTweetIDSetCIDS(ids, 0, [&](cached_id_sets &cids) -> tweetidset & { return cids.highlightids; }, ! tw->flags.Get('H'));
-	}
-	if(mask & (tweet_flags::GetFlagValue('u') | tweet_flags::GetFlagValue('r'))) {
-		MarkTweetIDSetCIDS(ids, 0, [&](cached_id_sets &cids) -> tweetidset & { return cids.unreadids; }, ! tw->flags.Get('u'));
-	}
-	if(mask & tweet_flags::GetFlagValue('h')) {
-		MarkTweetIDSetCIDS(ids, 0, [&](cached_id_sets &cids) -> tweetidset & { return cids.hiddenids; }, ! tw->flags.Get('h'));
-	}
+	cached_id_sets::IterateLists([&](const char *name, tweetidset cached_id_sets::*ptr, unsigned long long tweetflag) {
+		if(mask & tweetflag) {
+			MarkTweetIDSetCIDS(ids, 0, [&](cached_id_sets &cids) -> tweetidset & { return cids.*ptr; }, !(tw->flags.Save() & tweetflag));
+		}
+	});
 
 	SendTweetFlagUpdate(tw, mask);
 	UpdateTweet(*tw, false);

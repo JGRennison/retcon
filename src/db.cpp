@@ -1062,7 +1062,7 @@ void dbconn::SyncReadInCIDSLists(sqlite3 *adb) {
 		sqlite3_reset(getstmt);
 	};
 
-	cached_id_sets::IterateLists([&](const char *name, tweetidset cached_id_sets::*ptr) {
+	cached_id_sets::IterateLists([&](const char *name, tweetidset cached_id_sets::*ptr, unsigned long long tweetflag) {
 		doonelist(name, ad.cids.*ptr);
 	});
 
@@ -1088,7 +1088,7 @@ void dbconn::SyncWriteBackCIDSLists(sqlite3 *adb) {
 		sqlite3_reset(setstmt);
 	};
 
-	cached_id_sets::IterateLists([&](const char *name, tweetidset cached_id_sets::*ptr) {
+	cached_id_sets::IterateLists([&](const char *name, tweetidset cached_id_sets::*ptr, unsigned long long tweetflag) {
 		doonelist(name, ad.cids.*ptr);
 	});
 
