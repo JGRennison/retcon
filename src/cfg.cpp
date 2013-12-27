@@ -249,6 +249,7 @@ void WriteAllCFGOut(sqlite3 *db, globconf &gc, std::list<std::shared_ptr<taccoun
 }
 
 void AllUsersInheritFromParentIfUnset() {
+	gc.cfg.InheritFromParent(gcdefaults, true);
 	for(auto it=alist.begin() ; it != alist.end(); ++it ) (*it)->cfg.InheritFromParent(gc.cfg, true);
 }
 
