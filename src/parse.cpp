@@ -689,6 +689,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 				if(useridval.IsUint64()) {
 					uint64_t userid=useridval.GetUint64();
 					tobj->user=CheckParseUserObj(userid, userobj, *this);
+					if(tobj->user->udc_flags&UDC_THIS_IS_ACC_USER_HINT) tobj->flags.Set('O', true);
 				}
 			}
 		}

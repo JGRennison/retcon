@@ -14,3 +14,4 @@ H	Is highlighted
 p	Hide image preview
 h	Is hidden
 P	Tweet marked as "possibly sensitive"
+O	Is a tweet from an own account
