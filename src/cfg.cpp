@@ -51,9 +51,9 @@ genoptglobconf gcglobdefaults {
 	{ wxT("1"), 1 },
 	{ wxT("1"), 1 },
 	{ wxT("0"), 1 },
-	{ wxT("XiXrXtXfXd"), 1 },
+	{ wxT("XmXiXrXtXfXd"), 1 },
 	{ wxT("XiXd"), 1 },
-	{ wxT("XiXrXtXfXd"), 1 },
+	{ wxT("XmXiXrXtXfXd"), 1 },
 	{ wxT(""), 1 },
 	{ wxT("+#320000"), 1 },
 	{ wxT(""), 1 },
@@ -65,6 +65,7 @@ genoptglobconf gcglobdefaults {
 	{ wxT(""), 1 },
 	{ wxT(""), 1 },
 	{ wxT("1"), 1 },
+	{ wxT("3"), 1 },
 	{ wxT("0"), 1 },
 	{ wxT("1"), 1 },
 	{ wxT("1"), 1 },
@@ -139,6 +140,7 @@ void globconf::CFGParamConv() {
 
 	netiface=stdstrwx(gc.gcfg.netiface.val);
 	gcfg.inlinereplyloadcount.val.ToULong(&inlinereplyloadcount);
+	gcfg.inlinereplyloadmorecount.val.ToULong(&inlinereplyloadmorecount);
 	showdeletedtweetsbydefault=(gcfg.showdeletedtweetsbydefault.val==wxT("1"));
 	markowntweetsasread=(gcfg.markowntweetsasread.val==wxT("1"));
 	markdeletedtweetsasread=(gcfg.markdeletedtweetsasread.val==wxT("1"));
@@ -209,7 +211,9 @@ void genoptglobconf::IterateConfs(std::function<void(const std::string &, genopt
 	f("noproxylist", &genoptglobconf::noproxylist);
 	f("netiface", &genoptglobconf::netiface);
 	f("inlinereplyloadcount", &genoptglobconf::inlinereplyloadcount);
+	f("inlinereplyloadmorecount", &genoptglobconf::inlinereplyloadmorecount);
 	f("showdeletedtweetsbydefault", &genoptglobconf::showdeletedtweetsbydefault);
+	f("markowntweetsasread", &genoptglobconf::markowntweetsasread);
 	f("markdeletedtweetsasread", &genoptglobconf::markdeletedtweetsasread);
 }
 

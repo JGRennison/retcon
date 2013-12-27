@@ -904,7 +904,7 @@ tweetdispscr *tpanelparentwin_nt::PushTweetIndex(const std::shared_ptr<tweet> &t
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweetIndex 3"));
 	#endif
 
-	tpanel_subtweet_pending_op::CheckLoadTweetReply(t, vbox, this, td, gc.inlinereplyloadcount, t);
+	tpanel_subtweet_pending_op::CheckLoadTweetReply(t, vbox, this, td, gc.inlinereplyloadcount, t, td);
 
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweetIndex %s END"), GetThisName().c_str());

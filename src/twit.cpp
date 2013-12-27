@@ -311,23 +311,30 @@ wxString tpanelload_pending_op::dump() {
 }
 
 void tpanel_subtweet_pending_op::CheckLoadTweetReply(const std::shared_ptr<tweet> &t, wxSizer *v, tpanelparentwin_nt *s,
-		tweetdispscr *tds, unsigned int load_count, const std::shared_ptr<tweet> &top_tweet) {
+		tweetdispscr *tds, unsigned int load_count, const std::shared_ptr<tweet> &top_tweet, tweetdispscr *top_tds) {
 	if(t->in_reply_to_status_id) {
+		std::function<void(unsigned int)> loadmorefunc = [=](unsigned int load_count) {
+			std::shared_ptr<tweet> subt = ad.GetTweetById(t->in_reply_to_status_id);
+
+			if(top_tweet->IsArrivedHereAnyPerspective()) {	//save
+				subt->lflags |= TLF_SHOULDSAVEINDB;
+			}
+
+			std::shared_ptr<taccount> pacc;
+			t->GetUsableAccount(pacc, GUAF_NOERR) || t->GetUsableAccount(pacc, GUAF_NOERR|GUAF_USERENABLED);
+			subt->pending_ops.emplace_front(new tpanel_subtweet_pending_op(v, s, tds, load_count, top_tweet));
+			subt->lflags |= TLF_ISPENDING;
+			if(CheckFetchPendingSingleTweet(subt, pacc)) UnmarkPendingTweet(subt, 0);
+		};
+
 		if(load_count == 0) {
 			tds->tds_flags |= TDSF_CANLOADMOREREPLIES;
+			tds->loadmorereplies = [=]() {
+				loadmorefunc(gc.inlinereplyloadmorecount);
+			};
 			return;
 		}
-		std::shared_ptr<tweet> subt = ad.GetTweetById(t->in_reply_to_status_id);
-
-		if(top_tweet->IsArrivedHereAnyPerspective()) {	//save
-			subt->lflags |= TLF_SHOULDSAVEINDB;
-		}
-
-		std::shared_ptr<taccount> pacc;
-		t->GetUsableAccount(pacc, GUAF_NOERR) || t->GetUsableAccount(pacc, GUAF_NOERR|GUAF_USERENABLED);
-		subt->pending_ops.emplace_front(new tpanel_subtweet_pending_op(v, s, tds, load_count, top_tweet));
-		subt->lflags |= TLF_ISPENDING;
-		if(CheckFetchPendingSingleTweet(subt, pacc)) UnmarkPendingTweet(subt, 0);
+		else loadmorefunc(load_count);
 	}
 }
 
@@ -353,6 +360,7 @@ void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, 
 	subtd->tds_flags |= TDSF_SUBTWEET;
 
 	tds->subtweets.emplace_front(subtd);
+	subtd->parent_tweet.set(tds);
 
 	if(t->rtsrc && gc.rtdisp) {
 		t->rtsrc->user->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
@@ -389,7 +397,7 @@ void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, 
 	}
 	window->EndScrollFreeze(sf);
 
-	CheckLoadTweetReply(t, vbox, window, tds, load_count - 1, top_tweet);
+	CheckLoadTweetReply(t, vbox, window, subtd, load_count - 1, top_tweet, tds);
 
 	window->scrollwin->Thaw();
 }

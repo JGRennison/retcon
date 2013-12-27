@@ -447,16 +447,23 @@ bool CondCodeProc(generic_disp_base *obj, size_t &i, const wxString &format, wxS
 			}
 			loopexit:
 
-			tweetdispscr *tds=dynamic_cast<tweetdispscr *>(obj);
-			if(!tds) break;
+			std::shared_ptr<tweet> td = obj->GetTweet();
+			if(!td) break;
 
 			result=true;
-			uint64_t curflags=tds->td->flags.Save();
+			uint64_t curflags=td->flags.Save();
 			if(any && !(curflags&any)) result=false;
 			if(all && (curflags&all)!=all) result=false;
 			if(none && (curflags&none)) result=false;
 			if(missing && (curflags|missing)==curflags) result=false;
 
+			break;
+		}
+		case 'm': {
+			unsigned int tds_flags = obj->GetTDSFlags();
+			if(tds_flags & TDSF_CANLOADMOREREPLIES && gc.inlinereplyloadmorecount) {
+				result = true;
+			}
 			break;
 		}
 	}
@@ -665,6 +672,12 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 							});
 							obj->WriteImage(*icon);
 							imginserted=true;
+						}
+						break;
+					}
+					case 'm': {
+						if(tds_flags & TDSF_CANLOADMOREREPLIES && gc.inlinereplyloadmorecount) {
+							obj->WriteText(wxString::Format(wxT("%d\x25BC"), gc.inlinereplyloadmorecount));
 						}
 						break;
 					}
@@ -1174,6 +1187,18 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 				if(tds) tds->unhideimageoverridetimeoutexec();
 				break;
 			}
+			case 'm': {
+				tweetdispscr *tds = 0;
+				generic_disp_base *gdb = dynamic_cast<generic_disp_base *>(win);
+				if(gdb) tds = gdb->GetTDS();
+				if(!tds) break;
+				if(tds->loadmorereplies) {
+					tds->loadmorereplies();
+					tds->loadmorereplies = nullptr;
+				}
+				tds->tds_flags &= ~TDSF_CANLOADMOREREPLIES;
+				break;
+			}
 		}
 	}
 	else {
@@ -1351,6 +1376,7 @@ tweetdispscr_mouseoverwin *tweetdispscr::MakeMouseOverWin() {
 	tweetdispscr_mouseoverwin *mw = static_cast<tpanelparentwin_nt *>(tppw)->MakeMouseOverWin();
 	mw->td = td;
 	mw->tds_flags = tds_flags;
+	mw->current_tds.set(this);
 	mw->SetBackgroundColour(GetBackgroundColour());
 	return mw;
 }

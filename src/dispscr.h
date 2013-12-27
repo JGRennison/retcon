@@ -43,6 +43,7 @@ struct tpanelscrollwin;
 struct profimg_staticbitmap;
 struct tweet;
 struct userdatacontainer;
+struct tweetdispscr;
 
 struct generic_disp_base : public wxRichTextCtrl, public magic_ptr_base {
 	panelparentwin_base *tppw;
@@ -62,6 +63,9 @@ struct generic_disp_base : public wxRichTextCtrl, public magic_ptr_base {
 	inline wxString GetThisName() const { return thisname; }
 	virtual bool IsFrozen() const override;
 	void ForceRefresh();
+	virtual std::shared_ptr<tweet> GetTweet() const { return std::shared_ptr<tweet>(); }
+	virtual tweetdispscr *GetTDS() { return nullptr; }
+	virtual unsigned int GetTDSFlags() const { return 0; }
 
 	DECLARE_EVENT_TABLE()
 };
@@ -115,12 +119,17 @@ enum {	//for tweetdispscr.tds_flags
 struct tweetdispscr_mouseoverwin : public dispscr_mouseoverwin {
 	std::shared_ptr<tweet> td;
 	unsigned int tds_flags = 0;
+	magic_ptr_ts<tweetdispscr> current_tds;
 
 	tweetdispscr_mouseoverwin(wxWindow *parent, panelparentwin_base *tppw_, wxString thisname_ = wxT(""));
 	virtual bool RefreshContent() override;
 	virtual void urlhandler(wxString url) override;
 	void rightclickhandler(wxMouseEvent &event);
 	void OnTweetActMenuCmd(wxCommandEvent &event);
+
+	virtual std::shared_ptr<tweet> GetTweet() const override { return td; }
+	virtual tweetdispscr *GetTDS() override { return current_tds.get(); }
+	virtual unsigned int GetTDSFlags() const override { return tds_flags; }
 
 	DECLARE_EVENT_TABLE()
 };
@@ -139,7 +148,9 @@ struct tweetdispscr : public dispscr_base {
 	uint64_t rtid;
 	unsigned int tds_flags = 0;
 	std::forward_list<magic_ptr_ts<tweetdispscr> > subtweets;
+	magic_ptr_ts<tweetdispscr> parent_tweet;
 	std::unique_ptr<wxTimer> imghideoverridetimer;
+	std::function<void()> loadmorereplies;
 
 	tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
 	~tweetdispscr();
@@ -153,6 +164,10 @@ struct tweetdispscr : public dispscr_base {
 	void unhideimageoverridetimeouthandler(wxTimerEvent &event);
 	void unhideimageoverridetimeoutexec();
 	void unhideimageoverridestarttimeout();
+
+	virtual std::shared_ptr<tweet> GetTweet() const override { return td; }
+	virtual tweetdispscr *GetTDS() override { return this; }
+	virtual unsigned int GetTDSFlags() const override { return tds_flags; }
 
 	DECLARE_EVENT_TABLE()
 };

@@ -80,6 +80,7 @@ struct genoptglobconf {
 	genopt noproxylist;
 	genopt netiface;
 	genopt inlinereplyloadcount;
+	genopt inlinereplyloadmorecount;
 	genopt showdeletedtweetsbydefault;
 	genopt markowntweetsasread;
 	genopt markdeletedtweetsasread;
@@ -108,6 +109,7 @@ struct globconf {
 	std::string noproxylist;
 	std::string netiface;
 	unsigned long inlinereplyloadcount;
+	unsigned long inlinereplyloadmorecount;
 	bool showdeletedtweetsbydefault;
 	bool markowntweetsasread;
 	bool markdeletedtweetsasread;

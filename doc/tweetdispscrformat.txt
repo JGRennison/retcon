@@ -30,6 +30,7 @@ Xf          Favourite button
 Xr          Reply button
 Xd          DM button
 Xt          Retweet button
+Xm          Load more inline replies button
 m(          Conditional: process contents of brackets if not a subtweet and in a multi-account panel
 A           Display list of accounts tweet arrived on
 J           Tweet ID
@@ -50,6 +51,7 @@ S?p(        Conditional: process contents of brackets if Tweet Source is present
    p(       Conditional: process contents of brackets if > 0
    P(       Conditional: process contents of brackets if == 0
    n        Display number
+
 
 User Display Codes:
 n           Screen name
@@ -73,6 +75,7 @@ F?                  Test tweet flags
     =FLAGS          All of FLAGS must be set
     -FLAGS          None of FLAGS must be set
     /FLAGS          At least one of FLAGS must be unset
+m                   Test if tweet can load more inline replies
 
 
 Colour codes: K(*)  This is also used for the highlight colour setting
