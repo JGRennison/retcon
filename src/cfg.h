@@ -81,6 +81,7 @@ struct genoptglobconf {
 	genopt netiface;
 	genopt inlinereplyloadcount;
 	genopt showdeletedtweetsbydefault;
+	genopt markowntweetsasread;
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent);
 
@@ -107,6 +108,7 @@ struct globconf {
 	std::string netiface;
 	unsigned long inlinereplyloadcount;
 	bool showdeletedtweetsbydefault;
+	bool markowntweetsasread;
 
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc);

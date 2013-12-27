@@ -765,6 +765,10 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 		tobj->lflags |= TLF_SHOULDSAVEINDB;
 		tobj->flags.Set('B');
 		if(has_just_arrived && !(sflags&JDTP_ISRTSRC) && !(sflags&JDTP_USERTIMELINE)) {
+			if(gc.markowntweetsasread && !tobj->flags.Get('u') && (tobj->flags.Get('O') || tobj->flags.Get('S'))) {
+				//tweet is marked O or S, is own tweet or DM, mark read if not already unread
+				tobj->flags.Set('r');
+			}
 			if(!tobj->flags.Get('r')) tobj->flags.Set('u');
 			ad.incoming_filter.FilterTweet(*tobj, tac.get());
 			ad.cids.CheckTweet(*tobj);
