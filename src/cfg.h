@@ -82,6 +82,7 @@ struct genoptglobconf {
 	genopt inlinereplyloadcount;
 	genopt showdeletedtweetsbydefault;
 	genopt markowntweetsasread;
+	genopt markdeletedtweetsasread;
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent);
 
@@ -109,6 +110,7 @@ struct globconf {
 	unsigned long inlinereplyloadcount;
 	bool showdeletedtweetsbydefault;
 	bool markowntweetsasread;
+	bool markdeletedtweetsasread;
 
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc);

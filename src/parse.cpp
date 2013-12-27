@@ -613,7 +613,13 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 	if(tac->ssl) tobj->flags.Set('s');
 	if(sflags&JDTP_DEL) {
 		tobj->flags.Set('X');
-		UpdateSingleTweetFlagState(tobj, tweet_flags::GetFlagValue('X'));
+		unsigned long long flagmask = tweet_flags::GetFlagValue('X');
+		if(gc.markdeletedtweetsasread) {
+			tobj->flags.Set('r');
+			tobj->flags.Set('u', false);
+			flagmask |= tweet_flags::GetFlagValue('u') | tweet_flags::GetFlagValue('r');
+		}
+		UpdateSingleTweetFlagState(tobj, flagmask);
 
 		if(!tobj->user || tobj->createtime == 0) {
 			//delete received where tweet incomplete or not in memory before

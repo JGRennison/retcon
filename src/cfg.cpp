@@ -67,6 +67,7 @@ genoptglobconf gcglobdefaults {
 	{ wxT("1"), 1 },
 	{ wxT("0"), 1 },
 	{ wxT("1"), 1 },
+	{ wxT("1"), 1 },
 };
 
 void taccount::CFGWriteOut(DBWriteConfig &twfc) {
@@ -140,6 +141,7 @@ void globconf::CFGParamConv() {
 	gcfg.inlinereplyloadcount.val.ToULong(&inlinereplyloadcount);
 	showdeletedtweetsbydefault=(gcfg.showdeletedtweetsbydefault.val==wxT("1"));
 	markowntweetsasread=(gcfg.markowntweetsasread.val==wxT("1"));
+	markdeletedtweetsasread=(gcfg.markdeletedtweetsasread.val==wxT("1"));
 }
 
 void genoptconf::CFGWriteOutCurDir(DBWriteConfig &twfc) {
@@ -208,6 +210,7 @@ void genoptglobconf::IterateConfs(std::function<void(const std::string &, genopt
 	f("netiface", &genoptglobconf::netiface);
 	f("inlinereplyloadcount", &genoptglobconf::inlinereplyloadcount);
 	f("showdeletedtweetsbydefault", &genoptglobconf::showdeletedtweetsbydefault);
+	f("markdeletedtweetsasread", &genoptglobconf::markdeletedtweetsasread);
 }
 
 void genopt::CFGWriteOutCurDir(DBWriteConfig &twfc, const char *name) {

@@ -487,6 +487,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("No. of tweet replies to load inline"), DCBV_ISGLOBALCFG, gc.gcfg.inlinereplyloadcount, gcglobdefaults.inlinereplyloadcount, wxFILTER_NUMERIC);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Highlight Colour"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.highlight_colourdelta, gcglobdefaults.highlight_colourdelta);
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs, wxT("Show deleted tweets by default"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.showdeletedtweetsbydefault, gcglobdefaults.showdeletedtweetsbydefault);
+	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs, wxT("Mark deleted tweets and DMs as read"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.markdeletedtweetsasread, gcglobdefaults.markdeletedtweetsasread);
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs, wxT("Mark own tweets and DMs as read"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.markowntweetsasread, gcglobdefaults.markowntweetsasread);
 	wxFlexGridSizer *formatfgs = 0;
 	addfgsizerblock(wxT("Display Format Settings"), formatfgs);
