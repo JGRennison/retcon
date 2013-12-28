@@ -1197,6 +1197,12 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 					tds->loadmorereplies = nullptr;
 				}
 				tds->tds_flags &= ~TDSF_CANLOADMOREREPLIES;
+				tds->DisplayTweet(false);
+				tweetdispscr_mouseoverwin *tdsmow = dynamic_cast<tweetdispscr_mouseoverwin *>(gdb);
+				if(tdsmow) {
+					tdsmow->tds_flags &= ~TDSF_CANLOADMOREREPLIES;
+					tdsmow->RefreshContent();
+				}
 				break;
 			}
 		}
