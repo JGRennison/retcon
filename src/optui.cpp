@@ -346,6 +346,7 @@ struct FilterTextValidator : public wxTextValidator {
 enum {
 	OPTWIN_ALL = 0,
 	OPTWIN_DISPLAY,
+	OPTWIN_FORMAT,
 	OPTWIN_NETWORK,
 	OPTWIN_CACHING,
 	OPTWIN_TWITTER,
@@ -459,6 +460,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 		cat_buttons[id] = btn;
 	};
 	addbtn(OPTWIN_DISPLAY, wxT("Display"));
+	addbtn(OPTWIN_FORMAT, wxT("Format"));
 	addbtn(OPTWIN_NETWORK, wxT("Network"));
 	addbtn(OPTWIN_CACHING, wxT("Caching"));
 	addbtn(OPTWIN_TWITTER, wxT("Twitter"));
@@ -490,18 +492,16 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs, wxT("Show deleted tweets by default"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.showdeletedtweetsbydefault, gcglobdefaults.showdeletedtweetsbydefault);
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs, wxT("Mark deleted tweets and DMs as read"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.markdeletedtweetsasread, gcglobdefaults.markdeletedtweetsasread);
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs, wxT("Mark own tweets and DMs as read"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.markowntweetsasread, gcglobdefaults.markowntweetsasread);
-	wxFlexGridSizer *formatfgs = 0;
-	addfgsizerblock(wxT("Display Format Settings"), formatfgs);
-	AddSettingRow_String(OPTWIN_DISPLAY, panel, formatfgs, wxT("Tweet display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.tweetdispformat, gcglobdefaults.tweetdispformat);
-	AddSettingRow_String(OPTWIN_DISPLAY, panel, formatfgs, wxT("DM display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.dmdispformat, gcglobdefaults.dmdispformat);
-	AddSettingRow_String(OPTWIN_DISPLAY, panel, formatfgs, wxT("Native Re-Tweet display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.rtdispformat, gcglobdefaults.rtdispformat);
-	AddSettingRow_String(OPTWIN_DISPLAY, panel, formatfgs, wxT("User display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.userdispformat, gcglobdefaults.userdispformat);
-	AddSettingRow_String(OPTWIN_DISPLAY, panel, formatfgs, wxT("Tweet mouse-over format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.mouseover_tweetdispformat, gcglobdefaults.mouseover_tweetdispformat);
-	AddSettingRow_String(OPTWIN_DISPLAY, panel, formatfgs, wxT("DM mouse-over format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.mouseover_dmdispformat, gcglobdefaults.mouseover_dmdispformat);
-	AddSettingRow_String(OPTWIN_DISPLAY, panel, formatfgs, wxT("Native Re-Tweet mouse-over format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.mouseover_rtdispformat, gcglobdefaults.mouseover_rtdispformat);
+
+	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("Tweet display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.tweetdispformat, gcglobdefaults.tweetdispformat);
+	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("DM display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.dmdispformat, gcglobdefaults.dmdispformat);
+	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("Native Re-Tweet display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.rtdispformat, gcglobdefaults.rtdispformat);
+	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("User display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.userdispformat, gcglobdefaults.userdispformat);
+	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("Tweet mouse-over format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.mouseover_tweetdispformat, gcglobdefaults.mouseover_tweetdispformat);
+	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("DM mouse-over format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.mouseover_dmdispformat, gcglobdefaults.mouseover_dmdispformat);
+	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("Native Re-Tweet mouse-over format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.mouseover_rtdispformat, gcglobdefaults.mouseover_rtdispformat);
 
 	AddSettingRow_String(OPTWIN_CACHING, panel, fgs, wxT("Cached User Expiry Time / minutes"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.userexpiretimemins, gcglobdefaults.userexpiretimemins, wxFILTER_NUMERIC);
-	//AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("User mouse-over format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.mouseover_userdispformat, gcglobdefaults.mouseover_userdispformat);
 	AddSettingRow_Bool(OPTWIN_CACHING, panel, fgs,  wxT("Cache media image thumbnails"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.cachethumbs, gcglobdefaults.cachethumbs);
 	AddSettingRow_Bool(OPTWIN_CACHING, panel, fgs,  wxT("Cache full-size media images"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.cachemedia, gcglobdefaults.cachemedia);
 	AddSettingRow_Bool(OPTWIN_CACHING, panel, fgs,  wxT("Check incoming media against cache"), DCBV_ISGLOBALCFG | DCBV_VERYADVOPTION, gc.gcfg.persistentmediacache, gcglobdefaults.persistentmediacache);
@@ -525,7 +525,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	wxString proxyurllabel = wxT("Proxy URL (HTTP only)");
 #endif
 	AddSettingRow_String(OPTWIN_NETWORK, panel, proxyfgs, proxyurllabel, DCBV_ISGLOBALCFG, gc.gcfg.proxyurl, gcglobdefaults.proxyurl);
-	AddSettingRow_Bool(OPTWIN_NETWORK, panel, proxyfgs, wxT("Use tunnelling HTTP proxy (HTTP CONNECT)."), DCBV_ISGLOBALCFG | DCBV_VERYADVOPTION, gc.gcfg.proxyhttptunnel, gcglobdefaults.proxyhttptunnel);
+	AddSettingRow_Bool(OPTWIN_NETWORK, panel, proxyfgs, wxT("Use tunnelling HTTP proxy (HTTP CONNECT)."), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.proxyhttptunnel, gcglobdefaults.proxyhttptunnel);
 	AddSettingRow_String(OPTWIN_NETWORK, panel, proxyfgs, wxT("List of host names which should not be proxied.\nSeparate with commas or newlines"), DCBV_ISGLOBALCFG | DCBV_MULTILINE, gc.gcfg.noproxylist, gcglobdefaults.noproxylist);
 
 #if LIBCURL_VERSION_NUM >= 0x071800
