@@ -1041,7 +1041,11 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 		if(ad.media_list[media_id].win) {
 			ad.media_list[media_id].win->Raise();
 		}
-		else new media_display_win(win, media_id);
+		else {
+			mainframe *parent_mf = GetMainframeAncestor(win, false);
+			if(parent_mf) win = parent_mf;
+			new media_display_win(win, media_id);
+		}
 	}
 	else if(url[0]=='U') {
 		uint64_t userid=ParseUrlID(url);
