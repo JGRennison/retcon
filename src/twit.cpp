@@ -322,7 +322,7 @@ void tpanel_subtweet_pending_op::CheckLoadTweetReply(const std::shared_ptr<tweet
 
 			std::shared_ptr<taccount> pacc;
 			t->GetUsableAccount(pacc, GUAF_NOERR) || t->GetUsableAccount(pacc, GUAF_NOERR|GUAF_USERENABLED);
-			subt->pending_ops.emplace_front(new tpanel_subtweet_pending_op(v, s, tds, load_count, top_tweet));
+			subt->pending_ops.emplace_front(new tpanel_subtweet_pending_op(v, s, top_tds, load_count, top_tweet));
 			subt->lflags |= TLF_ISPENDING;
 			if(CheckFetchPendingSingleTweet(subt, pacc)) UnmarkPendingTweet(subt, 0);
 		};
@@ -338,12 +338,12 @@ void tpanel_subtweet_pending_op::CheckLoadTweetReply(const std::shared_ptr<tweet
 	}
 }
 
-tpanel_subtweet_pending_op::tpanel_subtweet_pending_op(wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *t,
+tpanel_subtweet_pending_op::tpanel_subtweet_pending_op(wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *top_tds_,
 		unsigned int load_count_, std::shared_ptr<tweet> top_tweet_)
-		: vbox(v), win(s), parent_td(t), load_count(load_count_), top_tweet(std::move(top_tweet_)) { }
+		: vbox(v), win(s), top_tds(top_tds_), load_count(load_count_), top_tweet(std::move(top_tweet_)) { }
 
 void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags) {
-	tweetdispscr *tds=parent_td.get();
+	tweetdispscr *tds=top_tds.get();
 	tpanelparentwin_nt *window=win.get();
 	if(!tds || !window) return;
 
@@ -403,7 +403,7 @@ void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, 
 }
 
 wxString tpanel_subtweet_pending_op::dump() {
-	return wxString::Format(wxT("Push inline tweet reply to tpanel: %p, %p, %p"), vbox, win.get(), parent_td.get());
+	return wxString::Format(wxT("Push inline tweet reply to tpanel: %p, %p, %p"), vbox, win.get(), top_tds.get());
 }
 
 void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, unsigned int umpt_flags) {
