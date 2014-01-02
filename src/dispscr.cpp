@@ -259,8 +259,7 @@ tweetdispscr::~tweetdispscr() {
 	//tppw->currentdisp.remove_if([this](const std::pair<uint64_t, tweetdispscr *> &p){ return p.second==this; });
 }
 
-//use -1 for end to run until end of string
-static void DoWriteSubstr(generic_disp_base &td, const std::string &str, int start, int end, int &track_byte, int &track_index, bool trim) {
+void TweetReplaceStringSeq(std::function<void(const char *, size_t)> func, const std::string &str, int start, int end, int &track_byte, int &track_index) {
 	while(str[track_byte]) {
 		if(track_index==start) break;
 		register int charsize=utf8firsttonumbytes(str[track_byte]);
@@ -295,10 +294,10 @@ static void DoWriteSubstr(generic_disp_base &td, const std::string &str, int sta
 				delta=5;
 			}
 			if(rep) {
-				td.WriteText(wxString::FromUTF8(&str[start_offset], track_byte-start_offset));
+				func(&str[start_offset], track_byte-start_offset);
 				track_index+=delta;
 				track_byte+=delta;
-				td.WriteText(wxString((wxChar) rep));
+				func(&rep, 1);
 				start_offset=track_byte;
 				continue;
 			}
@@ -308,9 +307,27 @@ static void DoWriteSubstr(generic_disp_base &td, const std::string &str, int sta
 		track_index++;
 	}
 	int end_offset=track_byte;
-	wxString wstr=wxString::FromUTF8(&str[start_offset], end_offset-start_offset);
-	if(trim) wstr.Trim();
-	if(wstr.Len()) td.WriteText(wstr);
+	func(&str[start_offset], end_offset-start_offset);
+}
+
+//use -1 for end to run until end of string
+static void DoWriteSubstr(generic_disp_base &td, const std::string &str, int start, int end, int &track_byte, int &track_index, bool trim) {
+	wxString output;
+	TweetReplaceStringSeq([&](const char *str, size_t len) {
+		output += wxString::FromUTF8(str, len);
+	}, str, start, end, track_byte, track_index);
+	if(trim) output.Trim();
+	if(output.Len()) td.WriteText(output);
+}
+
+std::string TweetReplaceAllStringSeqs(const std::string &str) {
+	std::string output;
+	int track_byte = 0;
+	int track_index = 0;
+	TweetReplaceStringSeq([&](const char *str, size_t len) {
+		output += std::string(str, len);
+	}, str, 0, str.size(), track_byte, track_index);
+	return output;
 }
 
 inline void GenFlush(generic_disp_base *obj, wxString &str) {

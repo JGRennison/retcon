@@ -491,7 +491,7 @@ void tweetpostwin::NotifyPostResult(bool success) {
 
 void tweetpostwin::UpdateReplyDesc() {
 	if(tweet_reply_targ) {
-		replydesc->SetLabel(wxT("Reply to: @") + wxstrstd(tweet_reply_targ->user->GetUser().screen_name) + wxT(": ") + wxstrstd(tweet_reply_targ->text));
+		replydesc->SetLabel(wxT("Reply to: @") + wxstrstd(tweet_reply_targ->user->GetUser().screen_name) + wxT(": ") + wxstrstd(TweetReplaceAllStringSeqs(tweet_reply_targ->text)));
 		replydesc->Show(true);
 		replydesclosebtn->Show(true);
 		sendbtn->SetLabel(wxT("Reply"));
