@@ -44,7 +44,7 @@ BEGIN_EVENT_TABLE(image_panel, wxPanel)
 	EVT_SIZE(image_panel::OnResize)
 END_EVENT_TABLE()
 
-image_panel::image_panel(media_display_win *parent, wxSize size) : wxPanel(parent, wxID_ANY, wxDefaultPosition, size) {
+image_panel::image_panel(wxWindow *parent, wxSize size) : wxPanel(parent, wxID_ANY, wxDefaultPosition, size) {
 
 }
 
@@ -72,14 +72,29 @@ void image_panel::UpdateBitmap() {
 	Refresh();
 }
 
+enum {
+	MDID_SAVE            = 1,
+	MDID_TIMER_EVT       = 2,
+	MDID_ZOOM_FIT        = 3,
+	MDID_ZOOM_ORIG       = 4,
+	MDID_DYN_START       = wxID_HIGHEST + 1,
+};
+
+enum {
+	MDZF_ZOOMSET         = 1<<0,
+};
+
 BEGIN_EVENT_TABLE(media_display_win, wxFrame)
 	EVT_MENU(MDID_SAVE,  media_display_win::OnSave)
 	EVT_TIMER(MDID_TIMER_EVT, media_display_win::OnAnimationTimer)
 	EVT_MENU_OPEN(media_display_win::OnMenuOpen)
+	EVT_MENU(MDID_ZOOM_FIT,  media_display_win::OnMenuZoomFit)
+	EVT_MENU(MDID_ZOOM_ORIG,  media_display_win::OnMenuZoomOrig)
 END_EVENT_TABLE()
 
 media_display_win::media_display_win(wxWindow *parent, media_id_type media_id_)
-	: wxFrame(parent, wxID_ANY, wxstrstd(ad.media_list[media_id_].media_url)), media_id(media_id_), sb(0), st(0), sz(0) {
+	: wxFrame(parent, wxID_ANY, wxstrstd(ad.media_list[media_id_].media_url)), media_id(media_id_),
+		sb(0), st(0), sz(0), next_dynmenu_id(MDID_DYN_START) {
 	Freeze();
 	media_entity *me=&ad.media_list[media_id_];
 	me->win=this;
@@ -143,6 +158,33 @@ media_display_win::media_display_win(wxWindow *parent, media_id_type media_id_)
 
 	menuBar->Append(menuF, wxT("&Save Image"));
 
+	zoom_menu = new wxMenu;
+
+	menuopenhandlers.push_back([this](wxMenuEvent &event) {
+		if(event.GetMenu() != zoom_menu) return;
+
+		wxMenuItemList items = zoom_menu->GetMenuItems();		//make a copy to avoid memory issues if Destroy modifies the list
+		for(auto &it : items) {
+			zoom_menu->Destroy(it);
+		}
+
+#if defined(__WXGTK__)
+		if(using_anim_ctrl) {
+			wxMenuItem *wmi = zoom_menu->Append(MDID_ZOOM_ORIG, wxT("&Original Size"), wxT(""), wxITEM_CHECK);
+			wmi->Check(true);
+			wmi->Enable(false);
+			return;
+		}
+#endif
+
+		wxMenuItem *wmi1 = zoom_menu->Append(MDID_ZOOM_FIT, wxT("&Fit to Window"), wxT(""), wxITEM_CHECK);
+		wmi1->Check(zoomflags == 0);
+		wxMenuItem *wmi2 = zoom_menu->Append(MDID_ZOOM_ORIG, wxT("&Original Size"), wxT(""), wxITEM_CHECK);
+		wmi2->Check(zoomflags & MDZF_ZOOMSET && zoomvalue == 1.0);
+	});
+
+	menuBar->Append(zoom_menu, wxT("&Zoom"));
+
 	SetMenuBar( menuBar );
 
 	sz=new wxBoxSizer(wxVERTICAL);
@@ -177,42 +219,21 @@ void media_display_win::UpdateImage() {
 			st->Destroy();
 			st=0;
 		}
-		wxSize imgsize(current_img.GetWidth(), current_img.GetHeight());
-		wxSize origwinsize = ClientToWindowSize(imgsize);
-		wxSize winsize = origwinsize;
-		int scrwidth, scrheight;
-		wxClientDisplayRect(0, 0, &scrwidth, &scrheight);
-		if(winsize.GetWidth() > scrwidth) {
-			double scale = (((double) scrwidth) / ((double) winsize.GetWidth()));
-			winsize.Scale(scale, scale);
-		}
-		if(winsize.GetHeight() > scrheight) {
-			double scale = (((double) scrheight) / ((double) winsize.GetHeight()));
-			winsize.Scale(scale, scale);
-		}
-		wxSize targsize = WindowToClientSize(winsize);
-		//LogMsgFormat(LFT_OTHERTRACE, wxT("Media Display Window: targsize: %d, %d, imgsize: %d, %d, origwinsize: %d, %d, winsize: %d, %d, scr: %d, %d"), targsize.GetWidth(), targsize.GetHeight(), img.GetWidth(), img.GetHeight(), origwinsize.GetWidth(), origwinsize.GetHeight(), winsize.GetWidth(), winsize.GetHeight(), scrwidth, scrheight);
 
 		#if defined(__WXGTK__)
 		if(using_anim_ctrl) {
+			wxSize imgsize(current_img.GetWidth(), current_img.GetHeight());
+			wxSize origwinsize = ClientToWindowSize(imgsize);
 			sz->Add(&anim_ctrl, 1, wxEXPAND | wxALIGN_CENTRE);
 			anim_ctrl.Play();
-			SetSize(winsize);
-			SetMinSize(winsize);	//don't allow resizing the window, as animation controls don't scale
-			SetMaxSize(winsize);
+			SetSize(origwinsize);
+			SetMinSize(origwinsize);	//don't allow resizing the window, as animation controls don't scale
+			SetMaxSize(origwinsize);
 			return;
 		}
 		#endif
 
-		if(!sb) {
-			sb=new image_panel(this, targsize);
-			sb->img = current_img;
-			sb->SetMinSize(wxSize(1, 1));
-			sz->Add(sb, 1, wxEXPAND | wxALIGN_CENTRE);
-		}
-		sb->SetSize(targsize);
-		SetSize(winsize);
-		sb->UpdateBitmap();
+		ImgSizerLayout();
 		if(is_animated) DelayLoadNextAnimFrame();
 	}
 	else {
@@ -230,6 +251,76 @@ void media_display_win::UpdateImage() {
 		else st->SetLabel(message);
 		sz->Fit(this);
 	}
+}
+
+void media_display_win::CalcSizes(wxSize imgsize, wxSize &winsize, wxSize &targimgsize) {
+	int scrwidth, scrheight;
+	wxClientDisplayRect(0, 0, &scrwidth, &scrheight);
+
+	if(zoomflags & MDZF_ZOOMSET) {
+		targimgsize.SetWidth(imgsize.GetWidth() * zoomvalue);
+		targimgsize.SetHeight(imgsize.GetHeight() * zoomvalue);
+
+		winsize = ClientToWindowSize(targimgsize);
+		if(winsize.GetWidth() > scrwidth) winsize.SetWidth(scrwidth);
+		if(winsize.GetHeight() > scrheight) winsize.SetHeight(scrheight);
+	}
+	else {
+		winsize = ClientToWindowSize(imgsize);
+		if(winsize.GetWidth() > scrwidth) {
+			double scale = (((double) scrwidth) / ((double) winsize.GetWidth()));
+			winsize.Scale(scale, scale);
+		}
+		if(winsize.GetHeight() > scrheight) {
+			double scale = (((double) scrheight) / ((double) winsize.GetHeight()));
+			winsize.Scale(scale, scale);
+		}
+		targimgsize = WindowToClientSize(winsize);
+	}
+}
+
+void media_display_win::ImgSizerLayout() {
+	wxSize imgsize(current_img.GetWidth(), current_img.GetHeight());
+
+	wxSize winsize, targsize;
+	CalcSizes(imgsize, winsize, targsize);
+
+	//LogMsgFormat(LFT_OTHERTRACE, wxT("Media Display Window: targsize: %d, %d, imgsize: %d, %d, origwinsize: %d, %d, winsize: %d, %d, scr: %d, %d"), targsize.GetWidth(), targsize.GetHeight(), img.GetWidth(), img.GetHeight(), origwinsize.GetWidth(), origwinsize.GetHeight(), winsize.GetWidth(), winsize.GetHeight(), scrwidth, scrheight);
+
+	if(!sb) {
+		sb=new image_panel(this, targsize);
+		sb->img = current_img;
+	}
+	else {
+		sz->Detach(sb);
+	}
+
+	if(zoomflags & MDZF_ZOOMSET) {
+		if(!scrollwin) {
+			scrollwin = new wxScrolledWindow(this);
+			scrollwin->SetVirtualSize(targsize);
+			scrollwin->SetScrollRate(1, 1);
+			sz->Add(scrollwin, 1, wxEXPAND | wxALIGN_CENTRE);
+			sb->Reparent(scrollwin);
+		}
+		sb->SetPosition(wxPoint(0,0));
+		sb->SetSize(targsize);
+		SetSize(winsize);
+	}
+	else {
+		if(scrollwin) {
+			sb->Reparent(this);
+			sz->Detach(scrollwin);
+			scrollwin->Destroy();
+			scrollwin = 0;
+		}
+		sb->SetSize(targsize);
+		SetSize(winsize);
+		sb->SetMinSize(wxSize(1, 1));
+		sz->Add(sb, 1, wxEXPAND | wxALIGN_CENTRE);
+	}
+	sb->UpdateBitmap();
+	Layout();
 }
 
 void media_display_win::GetImage(wxString &message) {
@@ -325,4 +416,15 @@ void media_display_win::SaveToDir(const wxString &dir) {
 			file.Write(me->fulldata.data(), me->fulldata.size());
 		}
 	}
+}
+
+void media_display_win::OnMenuZoomFit(wxCommandEvent &event) {
+	zoomflags &= ~MDZF_ZOOMSET;
+	ImgSizerLayout();
+}
+
+void media_display_win::OnMenuZoomOrig(wxCommandEvent &event) {
+	zoomflags |= MDZF_ZOOMSET;
+	zoomvalue = 1.0;
+	ImgSizerLayout();
 }

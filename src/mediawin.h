@@ -35,6 +35,7 @@
 #include <wx/stattext.h>
 #include <wx/window.h>
 #include <wx/frame.h>
+#include <wx/scrolwin.h>
 #include <string>
 #include <functional>
 #include <vector>
@@ -44,7 +45,7 @@ struct media_display_win;
 struct media_entity;
 
 struct image_panel : public wxPanel {
-	image_panel(media_display_win *parent, wxSize size = wxDefaultSize);
+	image_panel(wxWindow *parent, wxSize size = wxDefaultSize);
 	void OnPaint(wxPaintEvent &event);
 	void OnResize(wxSizeEvent &event);
 	void UpdateBitmap();
@@ -53,12 +54,6 @@ struct image_panel : public wxPanel {
 	wxImage img;
 
 	DECLARE_EVENT_TABLE()
-};
-
-enum {
-	MDID_SAVE            = 1,
-	MDID_TIMER_EVT       = 2,
-	MDID_DYN_START       = wxID_HIGHEST + 1,
 };
 
 struct media_display_win : public wxFrame {
@@ -80,7 +75,11 @@ struct media_display_win : public wxFrame {
 	bool using_anim_ctrl = false;
 #endif
 	std::map<int, std::function<void(wxCommandEvent &event)> > dynmenuhandlerlist;
-	int next_dynmenu_id = MDID_DYN_START;
+	int next_dynmenu_id;
+	wxMenu *zoom_menu;
+	wxScrolledWindow *scrollwin = 0;
+	unsigned int zoomflags = 0;
+	double zoomvalue = 1.0;
 
 	media_display_win(wxWindow *parent, media_id_type media_id_);
 	~media_display_win();
@@ -93,6 +92,10 @@ struct media_display_win : public wxFrame {
 	void OnAnimationTimer(wxTimerEvent& event);
 	void dynmenudispatchhandler(wxCommandEvent &event);
 	void OnMenuOpen(wxMenuEvent &event);
+	void OnMenuZoomFit(wxCommandEvent &event);
+	void OnMenuZoomOrig(wxCommandEvent &event);
+	void CalcSizes(wxSize imgsize, wxSize &winsize, wxSize &targimgsize);
+	void ImgSizerLayout();
 
 	DECLARE_EVENT_TABLE()
 };
