@@ -94,6 +94,7 @@ struct media_display_win : public wxFrame {
 	void OnMenuOpen(wxMenuEvent &event);
 	void OnMenuZoomFit(wxCommandEvent &event);
 	void OnMenuZoomOrig(wxCommandEvent &event);
+	void OnMenuZoomSet(wxCommandEvent &event);
 	void CalcSizes(wxSize imgsize, wxSize &winsize, wxSize &targimgsize);
 	void ImgSizerLayout();
 

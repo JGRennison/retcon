@@ -33,7 +33,10 @@
 #include <wx/tokenzr.h>
 #include <wx/filename.h>
 #include <wx/mstream.h>
+#include <wx/textdlg.h>
+#include <wx/msgdlg.h>
 #include <wx/file.h>
+#include <cmath>
 
 #if defined(__WXGTK__)
 #include <gdk-pixbuf/gdk-pixbuf.h>
@@ -77,6 +80,7 @@ enum {
 	MDID_TIMER_EVT       = 2,
 	MDID_ZOOM_FIT        = 3,
 	MDID_ZOOM_ORIG       = 4,
+	MDID_ZOOM_SET        = 5,
 	MDID_DYN_START       = wxID_HIGHEST + 1,
 };
 
@@ -90,6 +94,7 @@ BEGIN_EVENT_TABLE(media_display_win, wxFrame)
 	EVT_MENU_OPEN(media_display_win::OnMenuOpen)
 	EVT_MENU(MDID_ZOOM_FIT,  media_display_win::OnMenuZoomFit)
 	EVT_MENU(MDID_ZOOM_ORIG,  media_display_win::OnMenuZoomOrig)
+	EVT_MENU(MDID_ZOOM_SET,  media_display_win::OnMenuZoomSet)
 END_EVENT_TABLE()
 
 media_display_win::media_display_win(wxWindow *parent, media_id_type media_id_)
@@ -181,6 +186,7 @@ media_display_win::media_display_win(wxWindow *parent, media_id_type media_id_)
 		wmi1->Check(zoomflags == 0);
 		wxMenuItem *wmi2 = zoom_menu->Append(MDID_ZOOM_ORIG, wxT("&Original Size"), wxT(""), wxITEM_CHECK);
 		wmi2->Check(zoomflags & MDZF_ZOOMSET && zoomvalue == 1.0);
+		zoom_menu->Append(MDID_ZOOM_SET, wxT("&Zoom to..."));
 	});
 
 	menuBar->Append(zoom_menu, wxT("&Zoom"));
@@ -298,13 +304,17 @@ void media_display_win::ImgSizerLayout() {
 	if(zoomflags & MDZF_ZOOMSET) {
 		if(!scrollwin) {
 			scrollwin = new wxScrolledWindow(this);
-			scrollwin->SetVirtualSize(targsize);
 			scrollwin->SetScrollRate(1, 1);
 			sz->Add(scrollwin, 1, wxEXPAND | wxALIGN_CENTRE);
 			sb->Reparent(scrollwin);
 		}
+		scrollwin->SetVirtualSize(targsize);
 		sb->SetPosition(wxPoint(0,0));
 		sb->SetSize(targsize);
+		wxSize winsizeinc(winsize);
+		winsizeinc.IncBy(50);
+		SetSize(winsizeinc);    //This is to encourage scrollbars to disappear
+		Layout();
 		SetSize(winsize);
 	}
 	else {
@@ -427,4 +437,20 @@ void media_display_win::OnMenuZoomOrig(wxCommandEvent &event) {
 	zoomflags |= MDZF_ZOOMSET;
 	zoomvalue = 1.0;
 	ImgSizerLayout();
+}
+
+void media_display_win::OnMenuZoomSet(wxCommandEvent &event) {
+	wxString str = ::wxGetTextFromUser(wxT("Enter zoom value in percent (%)"), wxT("Input Number"), wxT(""), this);
+	if(!str.IsEmpty()) {
+		std::string stdstr = stdstrwx(str);
+		char *pos = 0;
+		double value = strtod(stdstr.c_str(), &pos);
+		if((pos && *pos != 0) || (!std::isnormal(value)) || value <= 0) {
+			::wxMessageBox(wxString::Format(wxT("'%s' does not appear to be a positive finite number"), str.c_str()), wxT("Invalid Input"), wxOK | wxICON_EXCLAMATION, this);
+			return;
+		}
+		zoomflags |= MDZF_ZOOMSET;
+		zoomvalue = value / 100;
+		ImgSizerLayout();
+	}
 }
