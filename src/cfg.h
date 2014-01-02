@@ -84,6 +84,8 @@ struct genoptglobconf {
 	genopt showdeletedtweetsbydefault;
 	genopt markowntweetsasread;
 	genopt markdeletedtweetsasread;
+	genopt mediawinscreensizewidthreduction;
+	genopt mediawinscreensizeheightreduction;
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent);
 
@@ -113,6 +115,8 @@ struct globconf {
 	bool showdeletedtweetsbydefault;
 	bool markowntweetsasread;
 	bool markdeletedtweetsasread;
+	unsigned long mediawinscreensizewidthreduction;
+	unsigned long mediawinscreensizeheightreduction;
 
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc);

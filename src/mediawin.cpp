@@ -262,6 +262,10 @@ void media_display_win::UpdateImage() {
 void media_display_win::CalcSizes(wxSize imgsize, wxSize &winsize, wxSize &targimgsize) {
 	int scrwidth, scrheight;
 	wxClientDisplayRect(0, 0, &scrwidth, &scrheight);
+	scrwidth -= gc.mediawinscreensizewidthreduction;
+	scrheight -= gc.mediawinscreensizeheightreduction;
+	if(scrwidth < 1) scrwidth = 1;
+	if(scrheight < 1) scrheight = 1;
 
 	if(zoomflags & MDZF_ZOOMSET) {
 		targimgsize.SetWidth(imgsize.GetWidth() * zoomvalue);

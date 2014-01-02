@@ -493,6 +493,11 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs, wxT("Mark deleted tweets and DMs as read"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.markdeletedtweetsasread, gcglobdefaults.markdeletedtweetsasread);
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs, wxT("Mark own tweets and DMs as read"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.markowntweetsasread, gcglobdefaults.markowntweetsasread);
 
+	wxFlexGridSizer *mediawinposfgs = 0;
+	addfgsizerblock(wxT("Media Window Positioning"), mediawinposfgs);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, mediawinposfgs, wxT("Screen width reduction"), DCBV_ISGLOBALCFG | DCBV_VERYADVOPTION, gc.gcfg.mediawinscreensizewidthreduction, gcglobdefaults.mediawinscreensizewidthreduction);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, mediawinposfgs, wxT("Screen height reduction"), DCBV_ISGLOBALCFG | DCBV_VERYADVOPTION, gc.gcfg.mediawinscreensizeheightreduction, gcglobdefaults.mediawinscreensizeheightreduction);
+
 	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("Tweet display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.tweetdispformat, gcglobdefaults.tweetdispformat);
 	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("DM display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.dmdispformat, gcglobdefaults.dmdispformat);
 	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("Native Re-Tweet display format"), DCBV_ISGLOBALCFG | DCBV_ADVOPTION, gc.gcfg.rtdispformat, gcglobdefaults.rtdispformat);
