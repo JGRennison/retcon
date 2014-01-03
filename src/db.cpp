@@ -771,9 +771,7 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 			if((*it)->enabled) (*it)->StartRestQueryPendings();
 		}
 	}
-	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
-		(*it)->CheckClearNoUpdateFlag();
-	}
+	CheckClearNoUpdateFlag_All();
 }
 
 void dbconn::OnDBThreadDebugMsg(wxCommandEvent &event) {
