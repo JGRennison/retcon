@@ -176,7 +176,7 @@ void CheckClearNoUpdateFlag_All() {
 }
 
 void tpanel::PushTweet(const std::shared_ptr<tweet> &t, unsigned int pushflags) {
-	LogMsgFormat(LFT_TPANEL, wxT("Pushing tweet id %" wxLongLongFmtSpec "d to panel %s"), t->id, wxstrstd(name).c_str());
+	LogMsgFormat(LFT_TPANEL, wxT("Pushing tweet id %" wxLongLongFmtSpec "d to panel %s (pushflags: 0x%X)"), t->id, wxstrstd(name).c_str(), pushflags);
 	if(RegisterTweet(t)) {
 		for(auto &i : twin) {
 			#if TPANEL_COPIOUS_LOGGING
@@ -786,7 +786,7 @@ tpanelparentwin_nt::~tpanelparentwin_nt() {
 
 void tpanelparentwin_nt::PushTweet(const std::shared_ptr<tweet> &t, unsigned int pushflags) {
 	scrollwin->Freeze();
-	LogMsgFormat(LFT_TPANEL, "tpanelparentwin_nt::PushTweet %s, id: %" wxLongLongFmtSpec "d, %d, 0x%X, %d", GetThisName().c_str(), t->id, displayoffset, pushflags, (int) currentdisp.size());
+	LogMsgFormat(LFT_TPANEL, "tpanelparentwin_nt::PushTweet %s, id: %" wxLongLongFmtSpec "d, displayoffset: %d, pushflags: 0x%X, currentdisp: %d, tppw_flags: 0x%X", GetThisName().c_str(), t->id, displayoffset, pushflags, (int) currentdisp.size(), tppw_flags);
 	tppw_scrollfreeze sf;
 	if(pushflags & TPPWPF_ABOVE) sf.flags = tppw_scrollfreeze::TPPWSF_ALWAYSFREEZE;
 	StartScrollFreeze(sf);
