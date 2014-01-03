@@ -796,7 +796,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 	}
 
 	if(!have_checked_pending) is_ready = tac->CheckMarkPending(tobj, true);
-	if(tobj->lflags & TLF_ISPENDING && is_ready) UnmarkPendingTweet(tobj, UMPTF_TPDB_NOUPDF);
+	if(tobj->lflags & TLF_ISPENDING && is_ready) UnmarkPendingTweet(tobj);
 
 	if(tobj->lflags&TLF_SHOULDSAVEINDB || tobj->lflags&TLF_SAVED_IN_DB) {
 		if(!(tobj->lflags&TLF_SAVED_IN_DB)) {
