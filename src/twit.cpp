@@ -982,6 +982,9 @@ void ParseTwitterDate(struct tm *createtm, time_t *createtm_t, const std::string
 	#endif
 }
 
+#define TCO_LINK_LENGTH 22
+#define TCO_LINK_LENGTH_HTTPS 23
+
 //adapted from twitter code: https://github.com/twitter/twitter-text-java/blob/master/src/com/twitter/Regex.java
 #define URL_VALID_PRECEEDING_CHARS "(?:[^A-Z0-9@\\x{FF20}$#\\x{FF03}\\x{202A}-\\x{202E}]|^)"
 #define LATIN_ACCENTS_CHARS \
@@ -1141,7 +1144,7 @@ unsigned int TwitterCharCount(const char *in, size_t inlen) {
 			}
 			size_t urllen=strlen_utf8(start, bytes);
 			outsize-=urllen;
-			outsize+=(https)?21:20;
+			outsize+=(https)?TCO_LINK_LENGTH_HTTPS:TCO_LINK_LENGTH;
 		} while(true);
 	}
 	free(comp);
