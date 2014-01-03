@@ -154,6 +154,18 @@ static bool ReadEntityIndices(entity &en, const rapidjson::Value& val) {
 	return ReadEntityIndices(en.start, en.end, val);
 }
 
+static std::string ProcessMediaURL(std::string url, const wxURI &wxuri) {
+	if(!wxuri.HasServer()) return url;
+
+	wxString host = wxuri.GetServer();
+	if(host == wxT("dropbox.com") || host.EndsWith(wxT(".dropbox.com"), nullptr)) {
+		if(wxuri.GetPath().StartsWith(wxT("/s/")) && !wxuri.HasQuery()) {
+			return url + "?dl=1";
+		}
+	}
+	return url;
+}
+
 void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shared_ptr<tweet> &t, bool isnew, dbsendmsg_list *dbmsglist) {
 	LogMsg(LFT_PARSE, wxT("jsonparser::DoEntitiesParse"));
 
@@ -207,7 +219,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 				if(it==ad.media_list.end()) {
 					me=&ad.media_list[media_id];
 					me->media_id=media_id;
-					me->media_url=en->fullurl;
+					me->media_url=ProcessMediaURL(en->fullurl, url);
 					if(gc.cachethumbs || gc.cachemedia) dbc.InsertMedia(*me, dbmsglist);
 				}
 				else me=&it->second;
