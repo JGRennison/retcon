@@ -1168,10 +1168,21 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 				menu.Append(nextid, wxT("Reply"));
 				AppendToTAMIMenuMap(tamd, nextid, TAMI_REPLY, td);
 
-				std::shared_ptr<userdatacontainer> targ=td->user_recipient;
-				if(!targ || targ->udc_flags&UDC_THIS_IS_ACC_USER_HINT) targ=targ=td->user;
-				menu.Append(nextid, wxT("Send DM"));
-				AppendToTAMIMenuMap(tamd, nextid, TAMI_DM, td, 0, targ);
+				if(td->rtsrc) {
+					menu.Append(nextid, wxT("Reply to Original Tweet"));
+					AppendToTAMIMenuMap(tamd, nextid, TAMI_REPLY, td->rtsrc);
+				}
+
+				auto dosenddmmenuitem = [&](const std::shared_ptr<tweet> &t) {
+					std::shared_ptr<userdatacontainer> targ = t->user_recipient;
+					if(!targ || targ->udc_flags&UDC_THIS_IS_ACC_USER_HINT) targ = t->user;
+					menu.Append(nextid, wxT("Send DM to @") + wxstrstd(targ->user.screen_name));
+					AppendToTAMIMenuMap(tamd, nextid, TAMI_DM, td, 0, targ);
+				};
+				dosenddmmenuitem(td);
+				if(td->rtsrc) {
+					dosenddmmenuitem(td->rtsrc);
+				}
 
 				menu.Append(nextid, wxT("Open in Browser"));
 				AppendToTAMIMenuMap(tamd, nextid, TAMI_BROWSER, td);
