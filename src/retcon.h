@@ -35,6 +35,7 @@ class retcon: public wxApp
 
 	public:
 	std::string datadir;
+	unsigned int popuprecursion;
 
 	DECLARE_EVENT_TABLE()
 

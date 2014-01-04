@@ -158,7 +158,7 @@ mainframe::~mainframe() {
 	auim->UnInit();
 	delete auim;
 
-	LogMsgFormat(LFT_OTHERTRACE, wxT("Deleting mainframe: %p, %d mainframes, top win: %p"), this, mainframelist.size(), wxGetApp().GetTopWindow());
+	LogMsgFormat(LFT_OTHERTRACE, wxT("Deleting mainframe: %p, %d mainframes, top win: %p, popup recursion: %d"), this, mainframelist.size(), wxGetApp().GetTopWindow(), wxGetApp().popuprecursion);
 
 	if(mainframelist.empty()) {
 		if(globallogwindow) globallogwindow->Destroy();

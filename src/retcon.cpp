@@ -137,7 +137,8 @@ int retcon::FilterEvent(wxEvent& event) {
 }
 
 void retcon::OnQuitMsg(wxCommandEvent &event) {
-	LogMsgFormat(LFT_OTHERTRACE, wxT("retcon::OnQuitMsg, about to call wxExit(), %d termination requests, %d mainframes, top win: %p"), terms_requested, mainframelist.size(), GetTopWindow());
+	LogMsgFormat(LFT_OTHERTRACE, wxT("retcon::OnQuitMsg, about to call wxExit(), %d termination requests, %d mainframes, top win: %p, popup recursion: %d"),
+			terms_requested, mainframelist.size(), GetTopWindow(), popuprecursion);
 	wxExit();
 }
 

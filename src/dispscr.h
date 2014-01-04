@@ -45,6 +45,8 @@ struct tweet;
 struct userdatacontainer;
 struct tweetdispscr;
 
+DECLARE_EVENT_TYPE(wxextGDB_Popup_Evt, -1)
+
 struct generic_disp_base : public wxRichTextCtrl, public magic_ptr_base {
 	panelparentwin_base *tppw;
 	wxColour default_background_colour;
@@ -55,6 +57,7 @@ struct generic_disp_base : public wxRichTextCtrl, public magic_ptr_base {
 		GDB_FF_FORCEUNFROZEN    = 1<<1,
 	};
 	unsigned int freezeflags = 0;
+	std::shared_ptr<wxMenu> menuptr;
 
 	generic_disp_base(wxWindow *parent, panelparentwin_base *tppw_, long extraflags = 0, wxString thisname_ = wxT(""));
 	void mousewheelhandler(wxMouseEvent &event);
@@ -66,6 +69,7 @@ struct generic_disp_base : public wxRichTextCtrl, public magic_ptr_base {
 	virtual std::shared_ptr<tweet> GetTweet() const { return std::shared_ptr<tweet>(); }
 	virtual tweetdispscr *GetTDS() { return nullptr; }
 	virtual unsigned int GetTDSFlags() const { return 0; }
+	void popupmenuhandler(wxCommandEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };

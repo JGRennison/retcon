@@ -30,6 +30,8 @@
 #include "mainui.h"
 #include "alldata.h"
 #include "util.h"
+#include "log.h"
+#include "retcon.h"
 #include <wx/colour.h>
 #include <wx/clipbrd.h>
 #include <wx/dataobj.h>
@@ -507,3 +509,10 @@ wxColour ColourOp(const wxColour &in, const wxString &co_str) {
 	return out;
 }
 
+void GenericPopupWrapper(wxWindow *win, wxMenu *menu, const wxPoint& pos) {
+	LogMsgFormat(LFT_TPANEL, wxT("About to popup menu: %p, win: %p, recursion: %d"), menu, win, wxGetApp().popuprecursion);
+	wxGetApp().popuprecursion++;
+	bool result = win->PopupMenu(menu, pos);
+	wxGetApp().popuprecursion--;
+	LogMsgFormat(LFT_TPANEL, wxT("Finished popup menu: %p, win: %p, recursion: %d, result: %d"), menu, win, wxGetApp().popuprecursion, result);
+}

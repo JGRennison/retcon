@@ -32,6 +32,7 @@
 #include "mediawin.h"
 #include "userui.h"
 #include "mainui.h"
+#include "retcon.h"
 #define PCRE_STATIC
 #include <pcre.h>
 
@@ -39,9 +40,12 @@
 #define DISPSCR_COPIOUS_LOGGING 0
 #endif
 
+DEFINE_EVENT_TYPE(wxextGDB_Popup_Evt)
+
 BEGIN_EVENT_TABLE(generic_disp_base, wxRichTextCtrl)
 	EVT_MOUSEWHEEL(generic_disp_base::mousewheelhandler)
 	EVT_TEXT_URL(wxID_ANY, generic_disp_base::urleventhandler)
+	EVT_COMMAND(wxID_ANY, wxextGDB_Popup_Evt, generic_disp_base::popupmenuhandler)
 END_EVENT_TABLE()
 
 generic_disp_base::generic_disp_base(wxWindow *parent, panelparentwin_base *tppw_, long extraflags, wxString thisname_)
@@ -79,6 +83,18 @@ void generic_disp_base::ForceRefresh() {
 	freezeflags = GDB_FF_FORCEUNFROZEN;
 	LayoutContent(false);
 	freezeflags = ffsave;
+}
+
+void generic_disp_base::popupmenuhandler(wxCommandEvent &event) {
+	if(menuptr) {
+		LogMsgFormat(LFT_TPANEL, wxT("About to popup menu: %p, window: %s (%p), recusion: %d"),
+				menuptr.get(), thisname.c_str(), this, wxGetApp().popuprecursion);
+		wxGetApp().popuprecursion++;
+		bool result = PopupMenu(menuptr.get());
+		wxGetApp().popuprecursion--;
+		LogMsgFormat(LFT_TPANEL, wxT("Finished popup menu: %p, window: %s (%p), recusion: %d, result: %d"),
+				menuptr.get(), thisname.c_str(), this, wxGetApp().popuprecursion, result);
+	}
 }
 
 BEGIN_EVENT_TABLE(dispscr_mouseoverwin, generic_disp_base)
@@ -1050,7 +1066,36 @@ void tweetdispscr::unhideimageoverridestarttimeout() {
 	}
 }
 
+/* Note on PopupMenu:
+ * win may be a mouseover window, which could potentially disappear before the popup menu returns,
+ * which could lead to issues such as the popup never being deleted, and its event loop lingering, preventing termination
+ * Hence use associated tweetdispscr instead if available
+ * Creating a popup during a URL click handler has dubious results on GTK, use a pending event instead
+ * Also log before and after to make debugging lingering popups easier
+ */
 void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &td, panelparentwin_base *tppw) {
+
+	auto dopopupmenu = [&](std::shared_ptr<wxMenu> menu) {
+		generic_disp_base *gdb = dynamic_cast<generic_disp_base *>(win);
+		if(gdb) {
+			generic_disp_base *popwin = gdb;
+			tweetdispscr *tds = gdb->GetTDS();
+			if(tds) popwin = tds;
+			LogMsgFormat(LFT_TPANEL, wxT("Sending popup menu message: %p, to window: %s (%p), win: %s (%p), tppw: %p"),
+					menu.get(), popwin->thisname.c_str(), popwin, gdb->thisname.c_str(), gdb, tppw);
+			popwin->menuptr = menu;
+			wxCommandEvent event(wxextGDB_Popup_Evt, win->GetId());
+			popwin->GetEventHandler()->AddPendingEvent(event);
+		}
+		else {
+			LogMsgFormat(LFT_TPANEL, wxT("About to popup menu: %p, win: %p, tppw: %p, recursion: %d"), menu.get(), win, tppw, wxGetApp().popuprecursion);
+			wxGetApp().popuprecursion++;
+			bool result = win->PopupMenu(menu.get());
+			wxGetApp().popuprecursion--;
+			LogMsgFormat(LFT_TPANEL, wxT("Finished popup menu: %p, win: %p, tppw: %p, recursion: %d, result: %d"), menu.get(), win, tppw, wxGetApp().popuprecursion, result);
+		}
+	};
+
 	if(url[0]=='M') {
 		media_id_type media_id=ParseMediaID(url);
 
@@ -1099,25 +1144,26 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 			case 'f': {//fav
 				tamd.clear();
 				int nextid=tweetactmenustartid;
-				wxMenu menu;
-				menu.SetTitle(wxT("Favourite:"));
-				MakeFavMenu(&menu, tamd, nextid, td);
-				win->PopupMenu(&menu);
+				auto menu = std::make_shared<wxMenu>();
+				menu->SetTitle(wxT("Favourite:"));
+				MakeFavMenu(menu.get(), tamd, nextid, td);
+				dopopupmenu(menu);  // See note above on PopupMenu
 				break;
 			}
 			case 't': {//retweet
 				tamd.clear();
 				int nextid=tweetactmenustartid;
-				wxMenu menu;
-				menu.SetTitle(wxT("Retweet:"));
-				MakeRetweetMenu(&menu, tamd, nextid, td);
-				win->PopupMenu(&menu);
+				auto menu = std::make_shared<wxMenu>();
+				menu->SetTitle(wxT("Retweet:"));
+				MakeRetweetMenu(menu.get(), tamd, nextid, td);
+				dopopupmenu(menu);  // See note above on PopupMenu
 				break;
 			}
 			case 'i': {//info
 				tamd.clear();
 				int nextid=tweetactmenustartid;
-				wxMenu menu;
+				auto menuptr = std::make_shared<wxMenu>();
+				wxMenu &menu = *menuptr;
 
 				menu.Append(nextid, wxT("Reply"));
 				AppendToTAMIMenuMap(tamd, nextid, TAMI_REPLY, td);
@@ -1190,7 +1236,7 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 					AppendToTAMIMenuMap(tamd, nextid, TAMI_DELETE, td, deldbindex2?deldbindex2:deldbindex);
 				}
 
-				win->PopupMenu(&menu);
+				dopopupmenu(menuptr);  // See note above on PopupMenu
 				break;
 			}
 			case 'p': {
@@ -1318,21 +1364,21 @@ void TweetRightClickHandler(generic_disp_base *win, wxMouseEvent &event, const s
 			menu.Append(nextid, wxT("Open Media in Window"));
 			AppendToTAMIMenuMap(tamd, nextid, TAMI_MEDIAWIN, td, 0, std::shared_ptr<userdatacontainer>(), 0, url);
 			urlmenupopup(wxstrstd(ad.media_list[media_id].media_url));
-			win->PopupMenu(&menu);
+			GenericPopupWrapper(win, &menu);
 		}
 		else if(url[0]=='U') {
 			uint64_t userid=ParseUrlID(url);
 			if(userid) {
 				std::shared_ptr<userdatacontainer> user=ad.GetUserContainerById(userid);
 				AppendUserMenuItems(menu, tamd, nextid, user, td);
-				win->PopupMenu(&menu);
+				GenericPopupWrapper(win, &menu);
 			}
 		}
 		else if(url[0]=='W') {
 			menu.Append(nextid, wxT("Open URL in Browser"));
 			AppendToTAMIMenuMap(tamd, nextid, TAMI_BROWSEREXTRA, td, 0, std::shared_ptr<userdatacontainer>(), 0, url.Mid(1));
 			urlmenupopup(url.Mid(1));
-			win->PopupMenu(&menu);
+			GenericPopupWrapper(win, &menu);
 		}
 		else if(url[0]=='X') {
 			return;
@@ -1362,11 +1408,11 @@ void TweetRightClickHandler(generic_disp_base *win, wxMouseEvent &event, const s
 							menu.Append(nextid, wxT("Open URL in Browser"));
 							AppendToTAMIMenuMap(tamd, nextid, TAMI_BROWSEREXTRA, td, 0, std::shared_ptr<userdatacontainer>(), 0, wxstrstd(et.fullurl));
 							urlmenupopup(wxstrstd(et.fullurl));
-							win->PopupMenu(&menu);
+							GenericPopupWrapper(win, &menu);
 						break;
 						case ENT_MENTION: {
 							AppendUserMenuItems(menu, tamd, nextid, et.user, td);
-							win->PopupMenu(&menu);
+							GenericPopupWrapper(win, &menu);
 							break;
 						}
 					}

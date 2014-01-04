@@ -402,7 +402,7 @@ void tpanelnotebook::tabrightclickhandler(wxAuiNotebookEvent& event) {
 		menu.Append(TPPWID_DUP, wxT("Duplicate"));
 		menu.Append(TPPWID_DETACHDUP, wxT("Detached Duplicate"));
 		menu.Append(TPPWID_CLOSE, wxT("Close"));
-		tppw->PopupMenu(&menu);
+		GenericPopupWrapper(tppw, &menu);
 	}
 }
 
@@ -1249,7 +1249,7 @@ void tpanelparentwin_nt::morebtnhandler(wxCommandEvent &event) {
 	wxMenuItem *wmith2 = pmenu.Append(TPPWID_TOGGLEHIDEDELETED, wxString::Format(wxT("Show Deleted Tweets (%d)"), tp->cids.deletedids.size()), wxT(""), wxITEM_CHECK);
 	wmith2->Check(tppw_flags & TPPWF_SHOWDELETED);
 
-	PopupMenu(&pmenu, btnrect.GetLeft(), btnrect.GetBottom());
+	GenericPopupWrapper(this, &pmenu, btnrect.GetLeft(), btnrect.GetBottom());
 }
 
 //this does not clear the subset
@@ -1921,7 +1921,7 @@ void profimg_staticbitmap::RightClickHandler(wxMouseEvent &event) {
 		int nextid=tweetactmenustartid;
 		tamd.clear();
 		AppendUserMenuItems(menu, tamd, nextid, ad.GetUserContainerById(userid), ad.GetTweetById(tweetid));
-		PopupMenu(&menu);
+		GenericPopupWrapper(this, &menu);
 	}
 }
 
