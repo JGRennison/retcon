@@ -837,11 +837,11 @@ void userdatacontainer::Dump() const {
 }
 
 void tweet::Dump() const {
-	LogMsgFormat(LFT_PARSE, wxT("id: %" wxLongLongFmtSpec "d\nreply_id: %" wxLongLongFmtSpec "d\nretweet_count: %d\nfavourite_count: %d"
+	LogMsgFormat(LFT_PARSE, wxT("id: %" wxLongLongFmtSpec "d\nreply_id: %" wxLongLongFmtSpec "d\nretweet_count: %d\nfavourite_count: %d\n"
 		"source: %s\ntext: %s\ncreated_at: %s"),
 		id, in_reply_to_status_id, retweet_count, favourite_count, wxstrstd(source).c_str(),
 		wxstrstd(text).c_str(), wxstrstd(ctime(&createtime)).c_str());
 	IterateTP([&](const tweet_perspective &tp) {
-		LogMsgFormat(LFT_PARSE, wxT("Perspectival attributes: %s\nretweeted: %d\nfavourited: %d"), tp.acc->dispname.c_str(), tp.IsRetweeted(), tp.IsFavourited());
+		LogMsgFormat(LFT_PARSE, wxT("Perspectival attributes: %s\nretweeted: %d\nfavourited: %d\nFlags: %s"), tp.acc->dispname.c_str(), tp.IsRetweeted(), tp.IsFavourited(), wxstrstd(tp.GetFlagString()).c_str());
 	});
 }
