@@ -256,6 +256,9 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	virtual void IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const;
 
 	DECLARE_EVENT_TABLE()
+
+	private:
+	void RemoveIndexIntl(size_t offset);
 };
 
 struct tpanelparentwin_nt : public panelparentwin_base {

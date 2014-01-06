@@ -595,13 +595,7 @@ void panelparentwin_base::PopTop() {
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::PopTop() %s START"), GetThisName().c_str());
 	#endif
-	//currentdisp.front().second->Destroy();
-	size_t offset=0;
-	wxSizer *sz=sizer->GetItem(offset)->GetSizer();
-	if(sz) {
-		sz->Clear(true);
-		sizer->Remove(offset);
-	}
+	RemoveIndexIntl(0);
 	currentdisp.pop_front();
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::PopTop() %s END"), GetThisName().c_str());
@@ -612,17 +606,19 @@ void panelparentwin_base::PopBottom() {
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::PopBottom() %s START"), GetThisName().c_str());
 	#endif
-	//currentdisp.back().second->Destroy();
-	size_t offset=currentdisp.size()-1;
+	RemoveIndexIntl(currentdisp.size() - 1);
+	currentdisp.pop_back();
+	#if TPANEL_COPIOUS_LOGGING
+		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::PopBottom() %s END"), GetThisName().c_str());
+	#endif
+}
+
+void panelparentwin_base::RemoveIndexIntl(size_t offset) {
 	wxSizer *sz=sizer->GetItem(offset)->GetSizer();
 	if(sz) {
 		sz->Clear(true);
 		sizer->Remove(offset);
 	}
-	currentdisp.pop_back();
-	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::PopBottom() %s END"), GetThisName().c_str());
-	#endif
 }
 
 void panelparentwin_base::pageupevthandler(wxCommandEvent &event) {
