@@ -52,11 +52,17 @@ struct generic_disp_base : public wxRichTextCtrl, public magic_ptr_base {
 	wxColour default_background_colour;
 	wxColour default_foreground_colour;
 	wxString thisname;
+
 	enum {
 		GDB_FF_FORCEFROZEN      = 1<<0,
 		GDB_FF_FORCEUNFROZEN    = 1<<1,
 	};
 	unsigned int freezeflags = 0;
+
+	enum {
+		GDB_F_NEEDSREFRESH      = 1<<0,
+	};
+	unsigned int gdb_flags = 0;
 	std::shared_ptr<wxMenu> menuptr;
 
 	generic_disp_base(wxWindow *parent, panelparentwin_base *tppw_, long extraflags = 0, wxString thisname_ = wxT(""));
@@ -66,6 +72,12 @@ struct generic_disp_base : public wxRichTextCtrl, public magic_ptr_base {
 	inline wxString GetThisName() const { return thisname; }
 	virtual bool IsFrozen() const override;
 	void ForceRefresh();
+	void CheckRefresh() {
+		if(gdb_flags & GDB_F_NEEDSREFRESH) {
+			gdb_flags &= ~GDB_F_NEEDSREFRESH;
+			ForceRefresh();
+		}
+	}
 	virtual std::shared_ptr<tweet> GetTweet() const { return std::shared_ptr<tweet>(); }
 	virtual tweetdispscr *GetTDS() { return nullptr; }
 	virtual unsigned int GetTDSFlags() const { return 0; }

@@ -299,7 +299,7 @@ void tpanelload_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, unsig
 	if(tp) tp->PushTweet(t);
 	tpanelparentwin_nt *window=win.get();
 	if(window) {
-		if(umpt_flags&UMPTF_TPDB_NOUPDF) window->tppw_flags|=TPPWF_NOUPDATEONPUSH;
+		if(umpt_flags&UMPTF_TPDB_NOUPDF) window->SetNoUpdateFlag();
 		window->PushTweet(t, pushflags);
 	}
 }
@@ -351,7 +351,7 @@ void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, 
 	window->StartScrollFreeze(sf);
 	window->scrollwin->Freeze();
 
-	if(umpt_flags&UMPTF_TPDB_NOUPDF) window->tppw_flags|=TPPWF_NOUPDATEONPUSH;
+	if(umpt_flags&UMPTF_TPDB_NOUPDF) window->SetNoUpdateFlag();
 
 	wxBoxSizer *subhbox = new wxBoxSizer(wxHORIZONTAL);
 	vbox->Add(subhbox, 0, wxALL | wxEXPAND, 1);
