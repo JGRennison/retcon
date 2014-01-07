@@ -38,6 +38,10 @@
 #include <zlib.h>
 #include <wx/msgdlg.h>
 
+#ifndef DB_COPIOUS_LOGGING
+#define DB_COPIOUS_LOGGING 0
+#endif
+
 dbconn dbc;
 
 //don't modify these
@@ -239,7 +243,9 @@ static unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsi
 	static size_t cumout=0;
 	cumin+=insize;
 	cumout+=sz;
-	DBLogMsgFormat(LFT_ZLIBTRACE, wxT("compress: %d -> %d, cum: %f"), insize, sz, (double) cumout/ (double) cumin);
+	#if DB_COPIOUS_LOGGING
+		DBLogMsgFormat(LFT_ZLIBTRACE, wxT("compress: %d -> %d, cum: %f"), insize, sz, (double) cumout/ (double) cumin);
+	#endif
 
 	return data;
 }
@@ -316,7 +322,9 @@ static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsiz
 		outsize<<=8;
 		outsize+=in[i];
 	}
-	DBLogMsgFormat(LFT_ZLIBTRACE, wxT("DoDecompress: insize %d, outsize %d"), insize, outsize);
+	#if DB_COPIOUS_LOGGING
+		DBLogMsgFormat(LFT_ZLIBTRACE, wxT("DoDecompress: insize %d, outsize %d"), insize, outsize);
+	#endif
 	unsigned char *data=(unsigned char *) malloc(outsize+1);
 	strm.next_out=data;
 	strm.avail_out=outsize;
@@ -347,7 +355,9 @@ static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsiz
 	inflateEnd(&strm);
 	data[outsize]=0;
 
-	DBLogMsgFormat(LFT_ZLIBTRACE,wxT("decompress: %d -> %d, text: %s"), insize, outsize, wxstrstd((const char*) data).c_str());
+	#if DB_COPIOUS_LOGGING
+		DBLogMsgFormat(LFT_ZLIBTRACE,wxT("decompress: %d -> %d, text: %s"), insize, outsize, wxstrstd((const char*) data).c_str());
+	#endif
 	return (char *) data;
 }
 
@@ -423,7 +433,9 @@ static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetm
 	int res=sqlite3_step(stmt);
 	uint64_t rtid=0;
 	if(res==SQLITE_ROW) {
-		DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_SELTWEET got id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) id);
+		#if DB_COPIOUS_LOGGING
+			DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_SELTWEET got id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) id);
+		#endif
 		recv_data.emplace_front();
 		dbrettweetdata &rd=recv_data.front();
 		size_t outsize;
@@ -733,7 +745,9 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 	bool checkpendings=false;
 	for(auto it=msg->data.begin(); it!=msg->data.end(); ++it) {
 		dbrettweetdata &dt=*it;
-		DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::OnTpanelTweetLoadFromDB got tweet: id:%" wxLongLongFmtSpec "d, statjson: %s, dynjson: %s"), dt.id, wxstrstd(dt.statjson).c_str(), wxstrstd(dt.dynjson).c_str());
+		#if DB_COPIOUS_LOGGING
+			DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::OnTpanelTweetLoadFromDB got tweet: id:%" wxLongLongFmtSpec "d, statjson: %s, dynjson: %s"), dt.id, wxstrstd(dt.statjson).c_str(), wxstrstd(dt.dynjson).c_str());
+		#endif
 		std::shared_ptr<tweet> &t=ad.GetTweetById(dt.id);
 		t->lflags|=TLF_SAVED_IN_DB;
 		t->lflags|=TLF_LOADED_FROM_DB;
@@ -1188,7 +1202,9 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 			if(json) free(json);
 			if(profimg) free(profimg);
 			setfromcompressedblob([&](uint64_t &id) { u.mention_index.push_back(id); }, stmt, 6);
-			LogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncReadInAllUsers retrieved user id: %" wxLongLongFmtSpec "d"), (sqlite3_int64) id);
+			#if DB_COPIOUS_LOGGING
+				LogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncReadInAllUsers retrieved user id: %" wxLongLongFmtSpec "d"), (sqlite3_int64) id);
+			#endif
 		}
 		else if(res!=SQLITE_DONE) { LogMsgFormat(LFT_DBERR, wxT("dbconn::SyncReadInAllUsers got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
 		else break;
@@ -1296,7 +1312,9 @@ void dbconn::SyncReadInAllMediaEntities(sqlite3 *adb) {
 			}
 			else memset(me.thumb_img_sha1, 0, sizeof(me.thumb_img_sha1));
 
-			LogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncReadInAllMediaEntities retrieved media entity %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d"), id.m_id, id.t_id);
+			#if DB_COPIOUS_LOGGING
+				LogMsgFormat(LFT_DBTRACE, wxT("dbconn::SyncReadInAllMediaEntities retrieved media entity %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d"), id.m_id, id.t_id);
+			#endif
 		}
 		else if(res!=SQLITE_DONE) { LogMsgFormat(LFT_DBERR, wxT("dbconn::SyncReadInAllMediaEntities got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
 		else break;
