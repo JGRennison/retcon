@@ -38,6 +38,7 @@
 struct media_entity;
 struct tweet;
 struct userdatacontainer;
+struct dbconn;
 
 typedef enum {
 	DBPSC_START = 0,
@@ -88,10 +89,16 @@ struct dbiothread : public wxThread {
 
 	sqlite3 *db;
 	dbpscache cache;
+	std::deque<std::pair<wxEvtHandler *, std::unique_ptr<wxEvent> > > reply_list;
+	dbconn *dbc;
 
 	dbiothread() : wxThread(wxTHREAD_JOINABLE) { }
 	wxThread::ExitCode Entry();
 	void MsgLoop();
+};
+
+struct dbreplyevtstruct {
+	std::deque<std::pair<wxEvtHandler *, std::unique_ptr<wxEvent> > > reply_list;
 };
 
 typedef enum {
@@ -130,7 +137,7 @@ struct dbsendmsg_callback : public dbsendmsg {
 	WXTYPE cmdevtype;
 	int winid;
 
-	void SendReply(void *data);
+	void SendReply(void *data, dbiothread *th);
 };
 
 struct dbinserttweetmsg : public dbsendmsg {
@@ -257,6 +264,8 @@ enum {
 	wxDBCONNEVT_ID_TPANELTWEETLOAD = 1,
 	wxDBCONNEVT_ID_DEBUGMSG,
 	wxDBCONNEVT_ID_INSERTNEWACC,
+	wxDBCONNEVT_ID_SENDBATCH,
+	wxDBCONNEVT_ID_REPLY,
 };
 
 struct dbconn : public wxEvtHandler {
@@ -265,17 +274,27 @@ struct dbconn : public wxEvtHandler {
 	#else
 	int pipefd;
 	#endif
-	bool isinited;
 	sqlite3 *syncdb;
-	dbiothread *th;
+	dbiothread *th = 0;
 	dbpscache cache;
+	dbsendmsg_list *batchqueue = 0;
 
-	dbconn() : isinited(0), th(0) { }
+	enum {
+		DBCF_INITED                = 1<<0,
+		DBCF_BATCHEVTPENDING       = 1<<1,
+		DBCF_REPLY_CLEARNOUPDF     = 1<<2,
+		DBCF_REPLY_CHECKPENDINGS   = 1<<3,
+	};
+
+	unsigned int dbc_flags = 0;
+
+	dbconn() { }
 	~dbconn() { DeInit(); }
 	bool Init(const std::string &filename);
 	void DeInit();
 	void SendMessage(dbsendmsg *msg);
 	void SendMessageOrAddToList(dbsendmsg *msg, dbsendmsg_list *msglist);
+	void SendMessageBatched(dbsendmsg *msg);
 
 	void InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string statjson, dbsendmsg_list *msglist = 0);
 	void UpdateTweetDyn(const std::shared_ptr<tweet> &tobj, dbsendmsg_list *msglist = 0);
@@ -292,6 +311,8 @@ struct dbconn : public wxEvtHandler {
 	void OnTpanelTweetLoadFromDB(wxCommandEvent &event);
 	void OnDBThreadDebugMsg(wxCommandEvent &event);
 	void OnDBNewAccountInsert(wxCommandEvent &event);
+	void OnSendBatchEvt(wxCommandEvent &event);
+	void OnDBReplyEvt(wxCommandEvent &event);
 	void SyncReadInCIDSLists(sqlite3 *adb);
 	void SyncWriteBackCIDSLists(sqlite3 *adb);
 	void SyncReadInWindowLayout(sqlite3 *adb);

@@ -468,7 +468,7 @@ static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetm
 	}
 }
 
-static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cache) {
+static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cache, dbiothread *th) {
 	switch(msg->type) {
 		case DBSM_QUIT:
 			ok=false;
@@ -545,7 +545,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			}
 			if(!recv_data.empty() || m->flags&DBSTMF_NET_FALLBACK) {
 				m->data=std::move(recv_data);
-				m->SendReply(m);
+				m->SendReply(m, th);
 				return;
 			}
 			break;
@@ -577,7 +577,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			if(res!=SQLITE_DONE) { DBLogMsgFormat(LFT_DBERR, wxT("DBSM_INSERTACC got error: %d (%s) for account name: %s"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), wxstrstd(m->dispname).c_str()); }
 			else { DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_INSERTACC inserted account dbindex: %d, name: %s"), m->dbindex, wxstrstd(m->dispname).c_str()); }
 			sqlite3_reset(stmt);
-			m->SendReply(m);
+			m->SendReply(m, th);
 			return;
 		}
 		case DBSM_DELACC: {
@@ -634,7 +634,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			dbsendmsg_list *m=(dbsendmsg_list*) msg;
 			DBLogMsgFormat(LFT_DBTRACE, wxT("DBSM_MSGLIST: queue size: %d"), m->msglist.size());
 			while(!m->msglist.empty()) {
-				ProcessMessage(db, m->msglist.front(), ok, cache);
+				ProcessMessage(db, m->msglist.front(), ok, cache, th);
 				m->msglist.pop();
 			}
 			cache.EndTransaction(db);
@@ -678,7 +678,17 @@ void dbiothread::MsgLoop() {
 			}
 		}
 		#endif
-		ProcessMessage(db, msg, ok, cache);
+		ProcessMessage(db, msg, ok, cache, this);
+		if(!reply_list.empty()) {
+			dbreplyevtstruct *rs = new dbreplyevtstruct;
+			rs->reply_list = std::move(reply_list);
+
+			wxCommandEvent evt(wxextDBCONN_NOTIFY, wxDBCONNEVT_ID_REPLY);
+			evt.SetClientData(rs);
+			dbc->AddPendingEvent(evt);
+
+			reply_list.clear();
+		}
 	}
 }
 
@@ -688,10 +698,13 @@ BEGIN_EVENT_TABLE(dbconn, wxEvtHandler)
 EVT_COMMAND(wxDBCONNEVT_ID_TPANELTWEETLOAD, wxextDBCONN_NOTIFY, dbconn::OnTpanelTweetLoadFromDB)
 EVT_COMMAND(wxDBCONNEVT_ID_DEBUGMSG, wxextDBCONN_NOTIFY, dbconn::OnDBThreadDebugMsg)
 EVT_COMMAND(wxDBCONNEVT_ID_INSERTNEWACC, wxextDBCONN_NOTIFY, dbconn::OnDBNewAccountInsert)
+EVT_COMMAND(wxDBCONNEVT_ID_SENDBATCH, wxextDBCONN_NOTIFY, dbconn::OnSendBatchEvt)
+EVT_COMMAND(wxDBCONNEVT_ID_REPLY, wxextDBCONN_NOTIFY, dbconn::OnDBReplyEvt)
 END_EVENT_TABLE()
 
 void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 	dbseltweetmsg *msg=(dbseltweetmsg *) event.GetClientData();
+	event.SetClientData(0);
 
 	if(msg->flags&DBSTMF_NET_FALLBACK) {
 		dbseltweetmsg_netfallback *fmsg = dynamic_cast<dbseltweetmsg_netfallback *>(msg);
@@ -742,7 +755,6 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 		me.flags|=dt.flags|ME_IN_DB;
 	}
 
-	bool checkpendings=false;
 	for(auto it=msg->data.begin(); it!=msg->data.end(); ++it) {
 		dbrettweetdata &dt=*it;
 		#if DB_COPIOUS_LOGGING
@@ -776,16 +788,12 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 			UnmarkPendingTweet(t, UMPTF_TPDB_NOUPDF);
 		}
 		else {
-			checkpendings=true;
+			dbc.dbc_flags |= DBCF_REPLY_CHECKPENDINGS;
 		}
 	}
 	delete msg;
-	if(checkpendings) {
-		for(auto it=alist.begin(); it!=alist.end(); ++it) {
-			if((*it)->enabled) (*it)->StartRestQueryPendings();
-		}
-	}
-	CheckClearNoUpdateFlag_All();
+
+	dbc.dbc_flags |= DBCF_REPLY_CLEARNOUPDF;
 }
 
 void dbconn::OnDBThreadDebugMsg(wxCommandEvent &event) {
@@ -801,6 +809,52 @@ void dbconn::OnDBNewAccountInsert(wxCommandEvent &event) {
 			(*it)->beinginsertedintodb=false;
 			(*it)->CalcEnabled();
 			(*it)->Exec();
+		}
+	}
+}
+
+void dbconn::SendMessageBatched(dbsendmsg *msg) {
+	if(!batchqueue)
+		batchqueue = new dbsendmsg_list;
+
+	batchqueue->msglist.push(msg);
+	if(!(dbc_flags & DBCF_BATCHEVTPENDING)) {
+		dbc_flags |= DBCF_BATCHEVTPENDING;
+		wxCommandEvent evt(wxextDBCONN_NOTIFY, wxDBCONNEVT_ID_SENDBATCH);
+		AddPendingEvent(evt);
+	}
+}
+
+void dbconn::OnSendBatchEvt(wxCommandEvent &event) {
+	if(!(dbc_flags & DBCF_INITED)) return;
+
+	dbc_flags &= ~DBCF_BATCHEVTPENDING;
+	if(batchqueue) {
+		SendMessage(batchqueue);
+		batchqueue = 0;
+	}
+}
+
+void dbconn::OnDBReplyEvt(wxCommandEvent &event) {
+	dbreplyevtstruct *msg = (dbreplyevtstruct *) event.GetClientData();
+	event.SetClientData(0);
+
+	if(dbc_flags & DBCF_INITED) {
+		for(auto &it : msg->reply_list) {
+			it.first->ProcessEvent(*it.second);
+		}
+	}
+	delete msg;
+
+	if(dbc_flags & DBCF_REPLY_CLEARNOUPDF) {
+		dbc_flags &= ~DBCF_REPLY_CLEARNOUPDF;
+		CheckClearNoUpdateFlag_All();
+	}
+
+	if(dbc_flags & DBCF_REPLY_CHECKPENDINGS) {
+		dbc_flags &= ~DBCF_REPLY_CHECKPENDINGS;
+		for(auto &it : alist) {
+			if(it->enabled) it->StartRestQueryPendings();
 		}
 	}
 }
@@ -837,7 +891,7 @@ void dbconn::SendMessage(dbsendmsg *msg) {
 }
 
 bool dbconn::Init(const std::string &filename /*UTF-8*/) {
-	if(isinited) return true;
+	if(dbc_flags & DBCF_INITED) return true;
 
 	LogMsgFormat(LFT_DBTRACE, wxT("dbconn::Init(): About to initialise database connection"));
 
@@ -879,6 +933,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	th=new dbiothread();
 	th->filename=filename;
 	th->db=syncdb;
+	th->dbc = this;
 	syncdb=0;
 
 	#ifdef __WINDOWS__
@@ -911,13 +966,19 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	th->Run();
 	LogMsgFormat(LFT_DBTRACE, wxT("dbconn::Init(): Created database thread: %d"), th->GetId());
 
-	isinited=true;
+	dbc_flags |= DBCF_INITED;
 	return true;
 }
 
 void dbconn::DeInit() {
-	if(!isinited) return;
-	isinited=false;
+	if(!(dbc_flags & DBCF_INITED)) return;
+
+	if(batchqueue) {
+		SendMessage(batchqueue);
+		batchqueue = 0;
+	}
+
+	dbc_flags &= ~DBCF_INITED;
 
 	LogMsg(LFT_DBTRACE, wxT("dbconn::DeInit: About to terminate database thread and write back state"));
 
@@ -1470,10 +1531,10 @@ void dbconn::SyncWriteBackWindowLayout(sqlite3 *adb) {
 	LogMsg(LFT_DBTRACE, wxT("dbconn::SyncWriteBackWindowLayout end"));
 }
 
-void dbsendmsg_callback::SendReply(void *data) {
-	wxCommandEvent evt(cmdevtype, winid);
-	evt.SetClientData(data);
-	targ->AddPendingEvent(evt);
+void dbsendmsg_callback::SendReply(void *data, dbiothread *th) {
+	wxCommandEvent *evt = new wxCommandEvent(cmdevtype, winid);
+	evt->SetClientData(data);
+	th->reply_list.emplace_back(targ, std::unique_ptr<wxEvent>(evt));
 }
 
 static const char globstr[]="G";

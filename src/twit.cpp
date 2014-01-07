@@ -711,7 +711,7 @@ void SendTweetFlagUpdate(const std::shared_ptr<tweet> &tw, unsigned long long ma
 	unsigned long long setmask = mask & tw->flags.Save();
 	unsigned long long unsetmask = mask & (~tw->flags.Save());
 	dbupdatetweetsetflagsmsg *msg=new dbupdatetweetsetflagsmsg(std::move(ids), setmask, unsetmask);
-	dbc.SendMessage(msg);
+	dbc.SendMessageBatched(msg);
 }
 
 //the following set of procedures should be kept in sync
@@ -859,7 +859,7 @@ bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::share
 			loadmsg->flags|=DBSTMF_NO_ERR;
 			if(acc_hint) loadmsg->dbindex=acc_hint->dbindex;
 			if(!gc.persistentmediacache) loadmsg->flags|=DBSTMF_PULLMEDIA;
-			dbc.SendMessage(loadmsg);
+			dbc.SendMessageBatched(loadmsg);
 		}
 		return false;
 	}
