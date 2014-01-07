@@ -395,6 +395,7 @@ void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, 
 	if(!(window->tppw_flags&TPPWF_NOUPDATEONPUSH)) {
 		subtd->ForceRefresh();
 	}
+	else subtd->gdb_flags |= tweetdispscr::GDB_F_NEEDSREFRESH;
 	window->EndScrollFreeze(sf);
 
 	CheckLoadTweetReply(t, vbox, window, subtd, load_count - 1, top_tweet, tds);

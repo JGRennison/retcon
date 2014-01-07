@@ -40,6 +40,8 @@
 #include <deque>
 #include <forward_list>
 
+#define BATCH_TIMER_DELAY 200
+
 struct tpanelparentwin;
 struct dispscr_base;
 struct tpanelscrollwin;
@@ -192,6 +194,7 @@ enum {	//window IDs
 	TPPWID_JUMPTOID,
 	TPPWID_TOGGLEHIDDEN,
 	TPPWID_TOGGLEHIDEDELETED,
+	TPPWID_TIMER_BATCHMODE,
 };
 
 enum {	//for pushflags
@@ -210,6 +213,7 @@ enum {	//for tppw_flags
 	TPPWF_SHOWHIDDEN            = 1<<3,
 	TPPWF_SHOWDELETED           = 1<<4,
 	TPPWF_FROZEN                = 1<<5,
+	TPPWF_BATCHTIMERMODE        = 1<<6,
 };
 
 struct panelparentwin_base : public wxPanel, public magic_ptr_base {
@@ -231,6 +235,7 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	std::multimap<std::string, wxButton *> showhidemap;
 	std::list<std::pair<uint64_t, dispscr_base *> > currentdisp;
 	wxString thisname;
+	wxTimer batchtimer;
 
 	panelparentwin_base(wxWindow *parent, bool fitnow=true, wxString thisname_ = wxT(""));
 	virtual ~panelparentwin_base() { }
@@ -257,8 +262,12 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	inline wxString GetThisName() const { return thisname; }
 	uint64_t GetCurrentViewTopID() const;
 	virtual void IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const;
+	virtual void StartBatchTimerMode() { }
 
 	DECLARE_EVENT_TABLE()
+
+	protected:
+	void ResetBatchTimer();
 
 	private:
 	void RemoveIndexIntl(size_t offset);
@@ -268,6 +277,7 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	std::shared_ptr<tpanel> tp;
 	tweetdispscr_mouseoverwin *mouseoverwin = 0;
 	std::map<int, std::function<void(wxCommandEvent &event)> > btnhandlerlist;
+	std::deque<std::pair<std::shared_ptr<tweet>, unsigned int> > pushtweetbatchqueue;
 
 	tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent, wxString thisname_ = wxT(""));
 	virtual ~tpanelparentwin_nt();
@@ -296,6 +306,8 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	void UpdateOwnTweet(const tweet &t, bool redrawimg);
 	tweetdispscr_mouseoverwin *MakeMouseOverWin();
 	virtual void IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const;
+	virtual void StartBatchTimerMode() override;
+	void OnBatchTimerModeTimer(wxTimerEvent& event);
 
 	DECLARE_EVENT_TABLE()
 };
@@ -401,6 +413,7 @@ bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid=0);
 void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map);
 void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent);
 void CheckClearNoUpdateFlag_All();
+void StartBatchTimerMode_All();
 
 extern std::forward_list<tpanelparentwin_nt*> tpanelparentwinlist;
 

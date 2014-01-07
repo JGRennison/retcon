@@ -175,6 +175,12 @@ void CheckClearNoUpdateFlag_All() {
 	}
 }
 
+void StartBatchTimerMode_All() {
+	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
+		(*it)->StartBatchTimerMode();
+	}
+}
+
 void tpanel::PushTweet(const std::shared_ptr<tweet> &t, unsigned int pushflags) {
 	LogMsgFormat(LFT_TPANEL, wxT("Pushing tweet id %" wxLongLongFmtSpec "d to panel %s (pushflags: 0x%X)"), t->id, wxstrstd(name).c_str(), pushflags);
 	if(RegisterTweet(t)) {
@@ -643,7 +649,19 @@ void panelparentwin_base::CheckClearNoUpdateFlag() {
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::CheckClearNoUpdateFlag() %s START"), GetThisName().c_str());
 	#endif
+
+	if(tppw_flags & TPPWF_BATCHTIMERMODE) {
+		#if TPANEL_COPIOUS_LOGGING
+			LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::CheckClearNoUpdateFlag() %s TPPWF_BATCHTIMERMODE"), GetThisName().c_str());
+		#endif
+		ResetBatchTimer();
+		return;
+	}
+
 	if(tppw_flags & TPPWF_NOUPDATEONPUSH) {
+		#if TPANEL_COPIOUS_LOGGING
+			LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::CheckClearNoUpdateFlag() %s TPPWF_NOUPDATEONPUSH"), GetThisName().c_str());
+		#endif
 		scrollwin->Freeze();
 		tppw_scrollfreeze sf;
 		StartScrollFreeze(sf);
@@ -665,13 +683,24 @@ void panelparentwin_base::CheckClearNoUpdateFlag() {
 			Thaw();
 		}
 	}
+
 	if(tppw_flags & TPPWF_CLABELUPDATEPENDING) {
+		#if TPANEL_COPIOUS_LOGGING
+			LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::CheckClearNoUpdateFlag() %s TPPWF_CLABELUPDATEPENDING"), GetThisName().c_str());
+		#endif
 		UpdateCLabel();
 		tppw_flags &= ~TPPWF_CLABELUPDATEPENDING;
 	}
+
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::CheckClearNoUpdateFlag() %s END"), GetThisName().c_str());
 	#endif
+}
+
+void panelparentwin_base::ResetBatchTimer() {
+	tppw_flags |= TPPWF_BATCHTIMERMODE;
+	batchtimer.SetOwner(this, TPPWID_TIMER_BATCHMODE);
+	batchtimer.Start(BATCH_TIMER_DELAY, wxTIMER_ONE_SHOT);
 }
 
 uint64_t panelparentwin_base::GetCurrentViewTopID() const {
@@ -774,6 +803,7 @@ EVT_BUTTON(TPPWID_UNHIGHLIGHTALLBTN, tpanelparentwin_nt::markremoveallhighlights
 EVT_MENU(TPPWID_MARKALLREADBTN, tpanelparentwin_nt::markallreadevthandler)
 EVT_MENU(TPPWID_UNHIGHLIGHTALLBTN, tpanelparentwin_nt::markremoveallhighlightshandler)
 EVT_BUTTON(TPPWID_MOREBTN, tpanelparentwin_nt::morebtnhandler)
+EVT_TIMER(TPPWID_TIMER_BATCHMODE, tpanelparentwin_nt::OnBatchTimerModeTimer)
 END_EVENT_TABLE()
 
 tpanelparentwin_nt::tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent, wxString thisname_)
@@ -796,6 +826,11 @@ tpanelparentwin_nt::~tpanelparentwin_nt() {
 }
 
 void tpanelparentwin_nt::PushTweet(const std::shared_ptr<tweet> &t, unsigned int pushflags) {
+	if(tppw_flags & TPPWF_BATCHTIMERMODE) {
+		pushtweetbatchqueue.emplace_back(t, pushflags);
+		return;
+	}
+
 	scrollwin->Freeze();
 	LogMsgFormat(LFT_TPANEL, "tpanelparentwin_nt::PushTweet %s, id: %" wxLongLongFmtSpec "d, displayoffset: %d, pushflags: 0x%X, currentdisp: %d, tppw_flags: 0x%X", GetThisName().c_str(), t->id, displayoffset, pushflags, (int) currentdisp.size(), tppw_flags);
 	tppw_scrollfreeze sf;
@@ -1333,6 +1368,71 @@ void tpanelparentwin_nt::IterateCurrentDisp(std::function<void(uint64_t, dispscr
 			}
 		}
 	}
+}
+
+void tpanelparentwin_nt::StartBatchTimerMode() {
+	if(tppw_flags & TPPWF_BATCHTIMERMODE) return;
+
+	tppw_flags |= TPPWF_BATCHTIMERMODE;
+	ResetBatchTimer();
+}
+
+void tpanelparentwin_nt::OnBatchTimerModeTimer(wxTimerEvent& event) {
+	tppw_flags &= ~TPPWF_BATCHTIMERMODE;
+
+	if(pushtweetbatchqueue.empty()) {
+		CheckClearNoUpdateFlag();
+		return;
+	}
+
+	SetNoUpdateFlag();
+
+	struct simulation_disp {
+		uint64_t id;
+		std::pair<std::shared_ptr<tweet>, unsigned int> *pushptr;
+	};
+	std::list<simulation_disp> simulation_currentdisp;
+	for(auto &it : currentdisp) {
+		simulation_currentdisp.push_back({ it.first, 0 });
+	}
+
+	for(auto &item : pushtweetbatchqueue) {
+		uint64_t id = item.first->id;
+		unsigned int pushflags = item.second;
+
+		if(simulation_currentdisp.size() == gc.maxtweetsdisplayinpanel) {
+			if(id < simulation_currentdisp.back().id) {    //off the end of the list
+				if(pushflags & TPPWPF_BELOW || pushflags & TPPWPF_USERTL) {
+					simulation_currentdisp.pop_front();
+				}
+				else continue;
+			}
+			else simulation_currentdisp.pop_back();    //too many in list, remove the last one
+		}
+
+		size_t index = 0;
+		auto it = simulation_currentdisp.begin();
+		for(; it != simulation_currentdisp.end(); it++, index++) {
+			if(it->id < id) break;	//insert before this iterator
+		}
+
+		simulation_currentdisp.insert(it, { id, &item });
+	}
+
+	size_t pushcount = 0;
+	for(auto &it : simulation_currentdisp) {
+		if(it.pushptr) {
+			PushTweet(it.pushptr->first, it.pushptr->second);
+			pushcount++;
+		}
+	}
+
+	LogMsgFormat(LFT_TPANEL, wxT("tpanelparentwin_nt::OnBatchTimerModeTimer: %s, Reduced %u pushes to %u pushes."), GetThisName().c_str(), pushtweetbatchqueue.size(), pushcount);
+
+	simulation_currentdisp.clear();
+	pushtweetbatchqueue.clear();
+
+	CheckClearNoUpdateFlag();
 }
 
 tweetdispscr_mouseoverwin *tpanelparentwin_nt::MakeMouseOverWin() {
