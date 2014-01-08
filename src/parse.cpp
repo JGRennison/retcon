@@ -651,9 +651,12 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 
 	if(!(sflags&JDTP_DEL)) {
 		is_new_tweet_perspective = !tp->IsReceivedHere();
-		if(!(sflags&JDTP_USERTIMELINE) && !(sflags&JDTP_CHECKPENDINGONLY)) {
+		if(!(sflags&JDTP_USERTIMELINE) && !(sflags&JDTP_CHECKPENDINGONLY) && !(sflags&JDTP_ISRTSRC)) {
 			has_just_arrived = !tp->IsArrivedHere();
 			tp->SetArrivedHere(true);
+
+			if(!(sflags&JDTP_ISDM)) tac->tweet_ids.insert(tweetid);
+			else tac->dm_ids.insert(tweetid);
 		}
 		tp->SetReceivedHere(true);
 		ParsePerspectivalTweetProps(val, tp, 0);
@@ -702,7 +705,6 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 
 	if(is_new_tweet_perspective) {	//this filters out duplicate tweets from the same account
 		if(!(sflags&JDTP_ISDM)) {
-			if(!(sflags&JDTP_ISRTSRC)) tac->tweet_ids.insert(tweetid);
 			const rapidjson::Value& userobj = val["user"];
 			if(userobj.IsObject()) {
 				const rapidjson::Value& useridval = userobj["id"];
@@ -714,7 +716,6 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 			}
 		}
 		else {	//direct message
-			tac->dm_ids.insert(tweetid);
 			if(val["sender_id"].IsUint64() && val["sender"].IsObject()) {
 				uint64_t senderid=val["sender_id"].GetUint64();
 				tobj->user=CheckParseUserObj(senderid, val["sender"], *this);
