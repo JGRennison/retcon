@@ -1846,36 +1846,58 @@ std::shared_ptr<tpanel> tpanelparentwin_usertweets::GetUserTweetTPanel(uint64_t 
 	else return std::shared_ptr<tpanel>();
 }
 
-void tpanelparentwin_usertweets::LoadMore(unsigned int n, uint64_t lessthanid, unsigned int pushflags) {
+//if lessthanid is non-zero, is an exclusive upper id limit, iterate downwards
+//if greaterthanid, is an exclusive lower limit, iterate upwards
+//cannot set both
+//if neither set: start at highest in set and iterate down
+void tpanelparentwin_usertweets::LoadMore(unsigned int n, uint64_t lessthanid, uint64_t greaterthanid, unsigned int pushflags) {
 	std::shared_ptr<taccount> tac = getacc(*this);
 	if(!tac) return;
 	SetNoUpdateFlag();
 
 	tweetidset::const_iterator stit;
-	if(lessthanid) stit=tp->tweetlist.upper_bound(lessthanid);	//finds the first id *less than* lessthanid
-	else stit=tp->tweetlist.cbegin();
+	bool revdir = false;
+	if(lessthanid) stit = tp->tweetlist.upper_bound(lessthanid);  //finds the first id *less than* lessthanid
+	else if(greaterthanid) {
+		stit = tp->tweetlist.lower_bound(greaterthanid);          //finds the first id *greater than or equal to* greaterthanid
+		if(*stit == greaterthanid) --stit;
+		revdir = true;
+	}
+	else stit = tp->tweetlist.cbegin();
 
-	unsigned int numleft=n;
-	uint64_t lower_bound=lessthanid;
+	unsigned int numleft = n;
+	uint64_t load_lessthanid = lessthanid;
+	uint64_t load_greaterthanid = greaterthanid;
+
 	while(numleft) {
-		if(stit==tp->tweetlist.cend()) break;
+		if(stit == tp->tweetlist.cend()) break;
 
-		std::shared_ptr<tweet> t=ad.GetTweetById(*stit);
-		if(tac->CheckMarkPending(t)) PushTweet(t, TPPWPF_USERTL);
-		else MarkPending_TPanelMap(t, 0, TPPWPF_USERTL, &tp);
+		std::shared_ptr<tweet> t = ad.GetTweetById(*stit);
+		if(tac->CheckMarkPending(t)) PushTweet(t, TPPWPF_USERTL | pushflags);
+		else MarkPending_TPanelMap(t, 0, TPPWPF_USERTL | pushflags, &tp);
 
-		if((*stit)<lower_bound) lower_bound=*stit;
-		++stit;
+		if(revdir) {
+			if((*stit) > load_greaterthanid) load_greaterthanid = *stit;
+			if(stit == tp->tweetlist.cbegin()) break;
+			--stit;
+		}
+		else {
+			if((*stit) < load_lessthanid) load_lessthanid = *stit;
+			++stit;
+		}
 		numleft--;
 	}
 	if(numleft) {
-		uint64_t lower_id=0;
-		uint64_t upper_id=0;
-		if(lessthanid) {
-			upper_id=lower_bound-1;
+		uint64_t lower_id = 0;
+		uint64_t upper_id = 0;
+		if(load_lessthanid) {
+			upper_id = load_lessthanid - 1;
+		}
+		else if(load_greaterthanid) {
+			lower_id = load_greaterthanid;
 		}
 		else {
-			if(tp->tweetlist.begin()!=tp->tweetlist.end()) lower_id=*(tp->tweetlist.begin());
+			if(tp->tweetlist.begin() != tp->tweetlist.end()) lower_id = *(tp->tweetlist.begin());
 		}
 		tac->SetGetTwitCurlExtHook([&](twitcurlext *tce) { tce->mp = this; });
 		tac->StartRestGetTweetBackfill(lower_id /*lower limit, exclusive*/, upper_id /*upper limit, inclusive*/, numleft, type, user->id);

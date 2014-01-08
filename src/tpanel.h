@@ -55,7 +55,7 @@ DECLARE_EVENT_TYPE(wxextTP_PAGEDOWN_EVENT, -1)
 struct tweetdispscr_mouseoverwin;
 
 struct tpanelreltimeupdater : public wxTimer {
-	void Notify();
+	void Notify() override;
 };
 
 struct tpanelglobal {
@@ -155,7 +155,7 @@ struct tpanelnotebook : public wxAuiNotebook {
 	void tabclosedhandler(wxAuiNotebookEvent& event);
 	void onsizeevt(wxSizeEvent &event);
 	void tabnumcheck();
-	virtual void Split(size_t page, int direction);
+	virtual void Split(size_t page, int direction) override;
 	void PostSplitSizeCorrect();
 	void FillWindowLayout(unsigned int mainframeindex);
 
@@ -285,11 +285,11 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	tweetdispscr *PushTweetIndex(const std::shared_ptr<tweet> &t, size_t index);
 	virtual void LoadMore(unsigned int n, uint64_t lessthanid = 0, uint64_t greaterthanid = 0, unsigned int pushflags = 0) { }
 	virtual void UpdateCLabel();
-	virtual void PageUpHandler();
-	virtual void PageDownHandler();
-	virtual void PageTopHandler();
+	virtual void PageUpHandler() override;
+	virtual void PageDownHandler() override;
+	virtual void PageTopHandler() override;
 	virtual void JumpToTweetID(uint64_t id);
-	virtual void HandleScrollToIDOnUpdate();
+	virtual void HandleScrollToIDOnUpdate() override;
 	void markallreadevthandler(wxCommandEvent &event);
 	void MarkSetRead();
 	void MarkSetRead(tweetidset &&subset);
@@ -301,11 +301,11 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	void morebtnhandler(wxCommandEvent &event);
 	void MarkClearCIDSSetHandler(std::function<tweetidset &(cached_id_sets &)> idsetselector,
 			std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc, const tweetidset &subset);
-	virtual bool IsSingleAccountWin() const { return tp->IsSingleAccountTPanel(); }
+	virtual bool IsSingleAccountWin() const override { return tp->IsSingleAccountTPanel(); }
 	void EnumDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush);
 	void UpdateOwnTweet(const tweet &t, bool redrawimg);
 	tweetdispscr_mouseoverwin *MakeMouseOverWin();
-	virtual void IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const;
+	virtual void IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const override;
 	virtual void StartBatchTimerMode() override;
 	void OnBatchTimerModeTimer(wxTimerEvent& event);
 
@@ -320,8 +320,8 @@ struct tpanelparentwin : public tpanelparentwin_nt {
 	};
 
 	tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select = false, wxString thisname_ = wxT(""));
-	virtual void LoadMore(unsigned int n, uint64_t lessthanid = 0, uint64_t greaterthanid = 0, unsigned int pushflags = 0);
-	virtual mainframe *GetMainframe() { return owner; }
+	virtual void LoadMore(unsigned int n, uint64_t lessthanid = 0, uint64_t greaterthanid = 0, unsigned int pushflags = 0) override;
+	virtual mainframe *GetMainframe() override { return owner; }
 	uint64_t PushTweetOrRetLoadId(uint64_t id, unsigned int pushflags = 0);
 	uint64_t PushTweetOrRetLoadId(const std::shared_ptr<tweet> &tobj, unsigned int pushflags=0);
 	void tabdetachhandler(wxCommandEvent &event);
@@ -329,7 +329,7 @@ struct tpanelparentwin : public tpanelparentwin_nt {
 	void tabdetachedduphandler(wxCommandEvent &event);
 	void tabclosehandler(wxCommandEvent &event);
 	void tabsplitcmdhandler(wxCommandEvent &event);
-	virtual void UpdateCLabel();
+	virtual void UpdateCLabel() override;
 
 	DECLARE_EVENT_TABLE()
 };
@@ -345,12 +345,12 @@ struct tpanelparentwin_usertweets : public tpanelparentwin_nt {
 	tpanelparentwin_usertweets(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent,
 			std::function<std::shared_ptr<taccount>(tpanelparentwin_usertweets &)> getacc, RBFS_TYPE type_ = RBFS_USER_TIMELINE, wxString thisname_ = wxT(""));
 	~tpanelparentwin_usertweets();
-	virtual void LoadMore(unsigned int n, uint64_t lessthanid = 0, unsigned int pushflags = 0);
-	virtual void UpdateCLabel();
+	virtual void LoadMore(unsigned int n, uint64_t lessthanid = 0, uint64_t greaterthanid = 0, unsigned int pushflags = 0) override;
+	virtual void UpdateCLabel() override;
 	static std::shared_ptr<tpanel> MkUserTweetTPanel(const std::shared_ptr<userdatacontainer> &user, RBFS_TYPE type_ = RBFS_USER_TIMELINE);
 	static std::shared_ptr<tpanel> GetUserTweetTPanel(uint64_t userid, RBFS_TYPE type_ = RBFS_USER_TIMELINE);
-	virtual bool IsSingleAccountWin() const { return true; }
-	virtual void NotifyRequestFailed();
+	virtual bool IsSingleAccountWin() const override { return true; }
+	virtual void NotifyRequestFailed() override;
 
 	DECLARE_EVENT_TABLE()
 };
@@ -365,9 +365,9 @@ struct tpanelparentwin_user : public panelparentwin_base {
 	bool PushBackUser(const std::shared_ptr<userdatacontainer> &u);
 	bool UpdateUser(const std::shared_ptr<userdatacontainer> &u, size_t offset);
 	virtual void LoadMoreToBack(unsigned int n) { }
-	virtual void PageUpHandler();
-	virtual void PageDownHandler();
-	virtual void PageTopHandler();
+	virtual void PageUpHandler() override;
+	virtual void PageDownHandler() override;
+	virtual void PageTopHandler() override;
 	virtual size_t ItemCount() { return userlist.size(); }
 
 	DECLARE_EVENT_TABLE()
@@ -384,11 +384,11 @@ struct tpanelparentwin_userproplisting : public tpanelparentwin_user {
 	tpanelparentwin_userproplisting(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent,
 			std::function<std::shared_ptr<taccount>(tpanelparentwin_userproplisting &)> getacc, CS_ENUMTYPE type_, wxString thisname_ = wxT(""));
 	~tpanelparentwin_userproplisting();
-	virtual void LoadMoreToBack(unsigned int n);
-	virtual void UpdateCLabel();
+	virtual void LoadMoreToBack(unsigned int n) override;
+	virtual void UpdateCLabel() override;
 	virtual void Init();
-	virtual size_t ItemCount() { return useridlist.size(); }
-	virtual void NotifyRequestFailed();
+	virtual size_t ItemCount() override { return useridlist.size(); }
+	virtual void NotifyRequestFailed() override;
 
 	DECLARE_EVENT_TABLE()
 };
