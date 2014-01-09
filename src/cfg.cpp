@@ -37,40 +37,49 @@ genoptconf gcdefaults {
 	{ wxT("300"), 1},
 };
 
+
+#define CFGDEFAULT_userexpiretimemins                       wxT("90")
+#define CFGDEFAULT_datetimeformat                           wxT("%Y-%m-%d %H:%M:%S")
+#define CFGDEFAULT_maxpanelprofimgsize                      wxT("48")
+#define CFGDEFAULT_maxtweetsdisplayinpanel                  wxT("40")
+#define CFGDEFAULT_tweetdispformat                          wxT("uZB@unbzuvup - T - t - Fm( - An)QF+u(' - 'BK(+#000080)'Unread'kb)NC")
+#define CFGDEFAULT_dmdispformat                             wxT("uZB@unbzuvup -> UZB@UnbzUvUp - T - t - Fm( - An)QF+u(' - 'BK(+#000080)'Unread'kb)NC")
+#define CFGDEFAULT_rtdispformat                             wxT("rZB@rnbzrvrp 'RT by' uZB@unbzuvup - T - t - Fm( - An)QF+u(' - 'BK(+#000080)'Unread'kb)Nc")
+#define CFGDEFAULT_userdispformat                           wxT("uZB@unbzuvup - uN - ulNuDNuw")
+#define CFGDEFAULT_cachethumbs                              wxT("1")
+#define CFGDEFAULT_cachemedia                               wxT("0")
+#define CFGDEFAULT_persistentmediacache                     wxT("1")
+#define CFGDEFAULT_rtdisp                                   wxT("1")
+#define CFGDEFAULT_assumementionistweet                     wxT("0")
+#define CFGDEFAULT_mouseover_tweetdispformat                wxT("XmXiXrXtXfXd")
+#define CFGDEFAULT_mouseover_dmdispformat                   wxT("XiXd")
+#define CFGDEFAULT_mouseover_rtdispformat                   wxT("XmXiXrXtXfXd")
+#define CFGDEFAULT_mouseover_userdispformat                 wxT("")
+#define CFGDEFAULT_highlight_colourdelta                    wxT("+#320000")
+#define CFGDEFAULT_mediasave_directorylist                  wxT("")    //this is initialised in InitCFGDefaults()
+#define CFGDEFAULT_incoming_filter                          wxT("")
+#define CFGDEFAULT_imgthumbunhidetime                       wxT("10")
+#define CFGDEFAULT_setproxy                                 wxT("0")
+#define CFGDEFAULT_proxyurl                                 wxT("")
+#define CFGDEFAULT_proxyhttptunnel                          wxT("0")
+#define CFGDEFAULT_noproxylist                              wxT("")
+#define CFGDEFAULT_netiface                                 wxT("")
+#define CFGDEFAULT_inlinereplyloadcount                     wxT("1")
+#define CFGDEFAULT_inlinereplyloadmorecount                 wxT("3")
+#define CFGDEFAULT_showdeletedtweetsbydefault               wxT("0")
+#define CFGDEFAULT_markowntweetsasread                      wxT("1")
+#define CFGDEFAULT_markdeletedtweetsasread                  wxT("1")
+#define CFGDEFAULT_mediawinscreensizewidthreduction         wxT("0")
+#define CFGDEFAULT_mediawinscreensizeheightreduction        wxT("0")
+
 genoptglobconf gcglobdefaults {
-	{ wxT("90"), 1},
-	{ wxT("%Y-%m-%d %H:%M:%S"), 1},
-	{ wxT("48"), 1},
-	{ wxT("40"), 1},
-	{ wxT("uZB@unbzuvup - T - t - Fm( - An)QF+u(' - 'BK(+#000080)'Unread'kb)NC"), 1},
-	{ wxT("uZB@unbzuvup -> UZB@UnbzUvUp - T - t - Fm( - An)QF+u(' - 'BK(+#000080)'Unread'kb)NC"), 1},
-	{ wxT("rZB@rnbzrvrp 'RT by' uZB@unbzuvup - T - t - Fm( - An)QF+u(' - 'BK(+#000080)'Unread'kb)Nc"), 1},
-	{ wxT("uZB@unbzuvup - uN - ulNuDNuw"), 1},
-	{ wxT("1"), 1 },
-	{ wxT("0"), 1 },
-	{ wxT("1"), 1 },
-	{ wxT("1"), 1 },
-	{ wxT("0"), 1 },
-	{ wxT("XmXiXrXtXfXd"), 1 },
-	{ wxT("XiXd"), 1 },
-	{ wxT("XmXiXrXtXfXd"), 1 },
-	{ wxT(""), 1 },
-	{ wxT("+#320000"), 1 },
-	{ wxT(""), 1 },
-	{ wxT(""), 1 },		//this is initialised in InitCFGDefaults()
-	{ wxT("10"), 1 },
-	{ wxT("0"), 1 },
-	{ wxT(""), 1 },
-	{ wxT("0"), 1 },
-	{ wxT(""), 1 },
-	{ wxT(""), 1 },
-	{ wxT("1"), 1 },
-	{ wxT("3"), 1 },
-	{ wxT("0"), 1 },
-	{ wxT("1"), 1 },
-	{ wxT("1"), 1 },
-	{ wxT("0"), 1 },
-	{ wxT("0"), 1 },
+#define CFGTEMPL(x) { CFGDEFAULT_##x, 1},
+#define CFGTEMPL_UL(x) CFGTEMPL(x)
+#define CFGTEMPL_BOOL(x) CFGTEMPL(x)
+	CFGTEMPL_EXPAND
+#undef CFGTEMPL
+#undef CFGTEMPL_UL
+#undef CFGTEMPL_BOOL
 };
 
 void taccount::CFGWriteOut(DBWriteConfig &twfc) {
@@ -116,19 +125,18 @@ void globconf::CFGReadIn(DBReadConfig &twfc) {
 	CFGParamConv();
 }
 void globconf::CFGParamConv() {
+#define CFGTEMPL(x)
+#define CFGTEMPL_UL(x) gcfg.x.val.ToULong(&x);
+#define CFGTEMPL_BOOL(x) x = (gcfg.x.val == wxT("1"));
+	CFGTEMPL_EXPAND
+#undef CFGTEMPL
+#undef CFGTEMPL_UL
+#undef CFGTEMPL_BOOL
+
 	gcfg.userexpiretimemins.val.ToULong(&userexpiretime);
-	userexpiretime*=60;
-	gcfg.maxpanelprofimgsize.val.ToULong(&maxpanelprofimgsize);
-	gcfg.maxtweetsdisplayinpanel.val.ToULong(&maxtweetsdisplayinpanel);
-	cachethumbs=(gcfg.cachethumbs.val==wxT("1"));
-	cachemedia=(gcfg.cachemedia.val==wxT("1"));
-	persistentmediacache=(gcfg.persistentmediacache.val==wxT("1"));
-	rtdisp=(gcfg.rtdisp.val==wxT("1"));
-	assumementionistweet=(gcfg.assumementionistweet.val==wxT("1"));
-	gcfg.imgthumbunhidetime.val.ToULong(&imgthumbunhidetime);
-	setproxy=(gcfg.setproxy.val==wxT("1"));
-	proxyurl=stdstrwx(gc.gcfg.proxyurl.val);
-	proxyhttptunnel=(gcfg.proxyhttptunnel.val==wxT("1"));
+	userexpiretime *= 60;
+
+	proxyurl = stdstrwx(gc.gcfg.proxyurl.val);
 
 	noproxylist = "";
 	wxStringTokenizer tkn(gc.gcfg.noproxylist.val, wxT(",\r\n"), wxTOKEN_STRTOK);
@@ -140,14 +148,7 @@ void globconf::CFGParamConv() {
 		noproxylist += stdstrwx(token);
 	}
 
-	netiface=stdstrwx(gc.gcfg.netiface.val);
-	gcfg.inlinereplyloadcount.val.ToULong(&inlinereplyloadcount);
-	gcfg.inlinereplyloadmorecount.val.ToULong(&inlinereplyloadmorecount);
-	showdeletedtweetsbydefault=(gcfg.showdeletedtweetsbydefault.val==wxT("1"));
-	markowntweetsasread=(gcfg.markowntweetsasread.val==wxT("1"));
-	markdeletedtweetsasread=(gcfg.markdeletedtweetsasread.val==wxT("1"));
-	gcfg.mediawinscreensizewidthreduction.val.ToULong(&mediawinscreensizewidthreduction);
-	gcfg.mediawinscreensizeheightreduction.val.ToULong(&mediawinscreensizeheightreduction);
+	netiface = stdstrwx(gc.gcfg.netiface.val);
 }
 
 void genoptconf::CFGWriteOutCurDir(DBWriteConfig &twfc) {
@@ -188,39 +189,13 @@ void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent)
 }
 
 void genoptglobconf::IterateConfs(std::function<void(const std::string &, genopt genoptglobconf::*)> f) {
-	f("userexpiretimemins", &genoptglobconf::userexpiretimemins);
-	f("datetimeformat", &genoptglobconf::datetimeformat);
-	f("maxpanelprofimgsize", &genoptglobconf::maxpanelprofimgsize);
-	f("maxtweetsdisplayinpanel", &genoptglobconf::maxtweetsdisplayinpanel);
-	f("tweetdispformat", &genoptglobconf::tweetdispformat);
-	f("dmdispformat", &genoptglobconf::dmdispformat);
-	f("rtdispformat", &genoptglobconf::rtdispformat);
-	f("userdispformat", &genoptglobconf::userdispformat);
-	f("mouseover_tweetdispformat", &genoptglobconf::mouseover_tweetdispformat);
-	f("mouseover_dmdispformat", &genoptglobconf::mouseover_dmdispformat);
-	f("mouseover_rtdispformat", &genoptglobconf::mouseover_rtdispformat);
-	f("mouseover_userdispformat", &genoptglobconf::mouseover_userdispformat);
-	f("highlight_colourdelta", &genoptglobconf::highlight_colourdelta);
-	f("cachethumbs", &genoptglobconf::cachethumbs);
-	f("cachemedia", &genoptglobconf::cachemedia);
-	f("persistentmediacache", &genoptglobconf::persistentmediacache);
-	f("rtdisp", &genoptglobconf::rtdisp);
-	f("assumementionistweet", &genoptglobconf::assumementionistweet);
-	f("mediasave_directorylist", &genoptglobconf::mediasave_directorylist);
-	f("incoming_filter", &genoptglobconf::incoming_filter);
-	f("imgthumbunhidetime", &genoptglobconf::imgthumbunhidetime);
-	f("setproxy", &genoptglobconf::setproxy);
-	f("proxyurl", &genoptglobconf::proxyurl);
-	f("proxyhttptunnel", &genoptglobconf::proxyhttptunnel);
-	f("noproxylist", &genoptglobconf::noproxylist);
-	f("netiface", &genoptglobconf::netiface);
-	f("inlinereplyloadcount", &genoptglobconf::inlinereplyloadcount);
-	f("inlinereplyloadmorecount", &genoptglobconf::inlinereplyloadmorecount);
-	f("showdeletedtweetsbydefault", &genoptglobconf::showdeletedtweetsbydefault);
-	f("markowntweetsasread", &genoptglobconf::markowntweetsasread);
-	f("markdeletedtweetsasread", &genoptglobconf::markdeletedtweetsasread);
-	f("mediawinscreensizewidthreduction", &genoptglobconf::mediawinscreensizewidthreduction);
-	f("mediawinscreensizeheightreduction", &genoptglobconf::mediawinscreensizeheightreduction);
+#define CFGTEMPL(x) f(#x, &genoptglobconf::x);
+#define CFGTEMPL_UL(x) CFGTEMPL(x)
+#define CFGTEMPL_BOOL(x) CFGTEMPL(x)
+	CFGTEMPL_EXPAND
+#undef CFGTEMPL
+#undef CFGTEMPL_UL
+#undef CFGTEMPL_BOOL
 }
 
 void genopt::CFGWriteOutCurDir(DBWriteConfig &twfc, const char *name) {

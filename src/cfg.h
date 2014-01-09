@@ -52,40 +52,50 @@ struct genoptconf {
 	static void IterateConfs(std::function<void(const std::string &, genopt genoptconf::*)> f);
 };
 
+#define CFGTEMPL_EXPAND \
+	CFGTEMPL(userexpiretimemins) \
+	CFGTEMPL(datetimeformat) \
+	CFGTEMPL_UL(maxpanelprofimgsize) \
+	CFGTEMPL_UL(maxtweetsdisplayinpanel) \
+	CFGTEMPL(tweetdispformat) \
+	CFGTEMPL(dmdispformat) \
+	CFGTEMPL(rtdispformat) \
+	CFGTEMPL(userdispformat) \
+	CFGTEMPL_BOOL(cachethumbs) \
+	CFGTEMPL_BOOL(cachemedia) \
+	CFGTEMPL_BOOL(persistentmediacache) \
+	CFGTEMPL_BOOL(rtdisp) \
+	CFGTEMPL_BOOL(assumementionistweet) \
+	CFGTEMPL(mouseover_tweetdispformat) \
+	CFGTEMPL(mouseover_dmdispformat) \
+	CFGTEMPL(mouseover_rtdispformat) \
+	CFGTEMPL(mouseover_userdispformat) \
+	CFGTEMPL(highlight_colourdelta) \
+	CFGTEMPL(mediasave_directorylist) \
+	CFGTEMPL(incoming_filter) \
+	CFGTEMPL_UL(imgthumbunhidetime) \
+	CFGTEMPL_BOOL(setproxy) \
+	CFGTEMPL(proxyurl) \
+	CFGTEMPL_BOOL(proxyhttptunnel) \
+	CFGTEMPL(noproxylist) \
+	CFGTEMPL(netiface) \
+	CFGTEMPL_UL(inlinereplyloadcount) \
+	CFGTEMPL_UL(inlinereplyloadmorecount) \
+	CFGTEMPL_BOOL(showdeletedtweetsbydefault) \
+	CFGTEMPL_BOOL(markowntweetsasread) \
+	CFGTEMPL_BOOL(markdeletedtweetsasread) \
+	CFGTEMPL_UL(mediawinscreensizewidthreduction) \
+	CFGTEMPL_UL(mediawinscreensizeheightreduction)
+
 struct genoptglobconf {
-	genopt userexpiretimemins;
-	genopt datetimeformat;
-	genopt maxpanelprofimgsize;
-	genopt maxtweetsdisplayinpanel;
-	genopt tweetdispformat;
-	genopt dmdispformat;
-	genopt rtdispformat;
-	genopt userdispformat;
-	genopt cachethumbs;
-	genopt cachemedia;
-	genopt persistentmediacache;
-	genopt rtdisp;
-	genopt assumementionistweet;
-	genopt mouseover_tweetdispformat;
-	genopt mouseover_dmdispformat;
-	genopt mouseover_rtdispformat;
-	genopt mouseover_userdispformat;
-	genopt highlight_colourdelta;
-	genopt mediasave_directorylist;
-	genopt incoming_filter;
-	genopt imgthumbunhidetime;
-	genopt setproxy;
-	genopt proxyurl;
-	genopt proxyhttptunnel;
-	genopt noproxylist;
-	genopt netiface;
-	genopt inlinereplyloadcount;
-	genopt inlinereplyloadmorecount;
-	genopt showdeletedtweetsbydefault;
-	genopt markowntweetsasread;
-	genopt markdeletedtweetsasread;
-	genopt mediawinscreensizewidthreduction;
-	genopt mediawinscreensizeheightreduction;
+#define CFGTEMPL(x) genopt x;
+#define CFGTEMPL_UL(x) CFGTEMPL(x)
+#define CFGTEMPL_BOOL(x) CFGTEMPL(x)
+	CFGTEMPL_EXPAND
+#undef CFGTEMPL
+#undef CFGTEMPL_UL
+#undef CFGTEMPL_BOOL
+
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent);
 
@@ -96,27 +106,18 @@ struct globconf {
 	genoptconf cfg;
 	genoptglobconf gcfg;
 
+#define CFGTEMPL(x)
+#define CFGTEMPL_UL(x) unsigned long x;
+#define CFGTEMPL_BOOL(x) bool x;
+	CFGTEMPL_EXPAND
+#undef CFGTEMPL
+#undef CFGTEMPL_UL
+#undef CFGTEMPL_BOOL
+
 	unsigned long userexpiretime;
-	unsigned long maxpanelprofimgsize;
-	unsigned long maxtweetsdisplayinpanel;
-	bool cachethumbs;
-	bool cachemedia;
-	bool persistentmediacache;
-	bool rtdisp;
-	bool assumementionistweet;
-	unsigned long imgthumbunhidetime;
-	bool setproxy;
 	std::string proxyurl;
-	bool proxyhttptunnel;
 	std::string noproxylist;
 	std::string netiface;
-	unsigned long inlinereplyloadcount;
-	unsigned long inlinereplyloadmorecount;
-	bool showdeletedtweetsbydefault;
-	bool markowntweetsasread;
-	bool markdeletedtweetsasread;
-	unsigned long mediawinscreensizewidthreduction;
-	unsigned long mediawinscreensizeheightreduction;
 
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc);
