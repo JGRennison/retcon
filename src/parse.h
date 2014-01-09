@@ -29,6 +29,7 @@
 #include <wx/string.h>
 #include <string>
 #include <memory>
+#include <vector>
 
 struct dbsendmsg_list;
 struct taccount;
@@ -77,14 +78,20 @@ enum {
 	JDTP_UNFAV              = 1<<3,
 	JDTP_DEL                = 1<<4,
 	JDTP_USERTIMELINE       = 1<<5,
-	JDTP_CHECKPENDINGONLY   = 1<<6
+	JDTP_CHECKPENDINGONLY   = 1<<6,
+	JDTP_POSTDBLOAD         = 1<<7,
 };
 
 struct jsonparser : public genjsonparser {
 	std::shared_ptr<taccount> tac;
 	CS_ENUMTYPE type;
 	twitcurlext *twit;
-	rapidjson::Document dc;
+
+	struct parse_data {
+		std::vector<char> json;
+		rapidjson::Document doc;
+	};
+	std::shared_ptr<parse_data> data;
 	dbsendmsg_list *dbmsglist;
 
 	std::shared_ptr<userdatacontainer> DoUserParse(const rapidjson::Value& val, unsigned int umpt_flags = 0);

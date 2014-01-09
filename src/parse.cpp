@@ -383,14 +383,13 @@ void jsonparser::DoFriendLookupParse(const rapidjson::Value& val) {
 }
 
 bool jsonparser::ParseString(const char *str, size_t len) {
-	//char *json=strndup(str, len);	//not supported on all systems
-	char *json=(char *) malloc(len+1);
-	memcpy(json, str, len);
-	json[len]=0;
+	data = std::make_shared<parse_data>();
+	data->json.assign(str, str + len);
+	data->json.push_back(0);
+	rapidjson::Document &dc = data->doc;
 
-	if (dc.ParseInsitu<0>(json).HasParseError()) {
-		DisplayParseErrorMsg(dc, wxT("jsonparser::ParseString"), json);
-		free(json);
+	if(dc.ParseInsitu<0>(data->json.data()).HasParseError()) {
+		DisplayParseErrorMsg(dc, wxT("jsonparser::ParseString"), data->json.data());
 		return false;
 	}
 
@@ -406,7 +405,6 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 						wxstrstd(auser->GetUser().name).c_str(), wxstrstd(auser->GetUser().screen_name).c_str(), auser->id);
 					LogMsg(LFT_OTHERERR, message);
 					wxMessageBox(message, wxT("Authentication Error"), wxOK | wxICON_ERROR);
-					free(json);
 					tac->userenabled=false;
 					return false;
 				}
@@ -418,7 +416,6 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 					wxstrstd(tac->usercont->GetUser().name).c_str(), wxstrstd(tac->usercont->GetUser().screen_name).c_str(), tac->usercont->id);
 				LogMsg(LFT_OTHERERR, message);
 				wxMessageBox(message, wxT("Authentication Error"), wxOK | wxICON_ERROR);
-				free(json);
 				tac->userenabled=false;
 				return false;
 			}
@@ -574,7 +571,6 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 		else delete dbmsglist;
 		dbmsglist=0;
 	}
-	free(json);
 	return true;
 }
 
@@ -618,9 +614,66 @@ inline std::shared_ptr<userdatacontainer> CheckParseUserObj(uint64_t id, const r
 
 std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, unsigned int sflags) {
 	uint64_t tweetid;
-	if(!CheckTransJsonValueDef(tweetid, val, "id", 0, 0)) return std::make_shared<tweet>();
+	if(!CheckTransJsonValueDef(tweetid, val, "id", 0, 0)) {
+		LogMsgFormat(LFT_PARSEERR, wxT("jsonparser::DoTweetParse: No ID present in document."));
+		return std::make_shared<tweet>();
+	}
 
 	std::shared_ptr<tweet> &tobj=ad.GetTweetById(tweetid);
+
+	if(ad.unloaded_db_tweet_ids.find(tweetid) != ad.unloaded_db_tweet_ids.end()) {
+		/* Oops, we're about to parse a received tweet which is already in the database,
+		 * but not loaded in memory.
+		 * This is bad news as the two versions of the tweet will likely diverge.
+		 * To deal with this, load the existing tweet out of the DB first, then apply the
+		 * new update on top, then write back as usual.
+		 * This is slightly awkward, but should occur relatively infrequently.
+		 * The main culprit is user profile tweet lookups.
+		 */
+
+		LogMsgFormat(LFT_PARSE | LFT_DBTRACE, wxT("jsonparser::DoTweetParse: Tweet id: %" wxLongLongFmtSpec "d, is in DB but not loaded. Loading and deferring parse."), tobj->id);
+
+		tobj->lflags |= TLF_BEINGLOADEDFROMDB;
+
+		dbseltweetmsg *msg = new dbseltweetmsg();
+		msg->id_set.insert(tweetid);
+
+		struct funcdata {
+			CS_ENUMTYPE type;
+			std::weak_ptr<taccount> acc;
+			std::shared_ptr<jsonparser::parse_data> jp_data;
+			const rapidjson::Value *val;
+			unsigned int sflags;
+			uint64_t tweetid;
+		};
+		std::shared_ptr<funcdata> data = std::make_shared<funcdata>();
+		data->type = type;
+		data->acc = tac;
+		data->jp_data = this->data;
+		data->val = &val;
+		data->sflags = sflags;
+		data->tweetid = tweetid;
+
+		dbc.SetDBSelTweetMsgHandler(msg, [data](dbseltweetmsg *msg, dbconn *dbc) {
+			//Do not use *this, it will have long since gone out of scope
+
+			LogMsgFormat(LFT_PARSE | LFT_DBTRACE, wxT("jsonparser::DoTweetParse: Tweet id: %" wxLongLongFmtSpec "d, now doing deferred parse."), data->tweetid);
+
+			dbc->HandleDBSelTweetMsg(msg, dbconn::HDBSF_NOPENDINGS);
+
+			std::shared_ptr<taccount> acc = data->acc.lock();
+			if(acc) {
+				jsonparser jp(data->type, acc);
+				jp.data = data->jp_data;
+				jp.DoTweetParse(*(data->val), data->sflags | JDTP_POSTDBLOAD);
+			}
+			else {
+				LogMsgFormat(LFT_PARSEERR | LFT_DBERR, wxT("jsonparser::DoTweetParse: Tweet id: %" wxLongLongFmtSpec "d, deferred parse failed as account no longer exists."), data->tweetid);
+			}
+		});
+		dbc.SendMessageBatched(msg);
+		return tobj;
+	}
 
 	if(sflags&JDTP_ISDM) tobj->flags.Set('D');
 	else tobj->flags.Set('T');
@@ -701,7 +754,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 		tobj->flags.Set('P');
 	}
 
-	LogMsgFormat(LFT_PARSE, wxT("id: %" wxLongLongFmtSpec "d, is_new_tweet_perspective: %d, isdm: %d"), tobj->id, is_new_tweet_perspective, !!(sflags&JDTP_ISDM));
+	LogMsgFormat(LFT_PARSE, wxT("id: %" wxLongLongFmtSpec "d, is_new_tweet_perspective: %d, has_just_arrived: %d, isdm: %d, sflags: 0x%X"), tobj->id, is_new_tweet_perspective, has_just_arrived, !!(sflags&JDTP_ISDM), sflags);
 
 	if(is_new_tweet_perspective) {	//this filters out duplicate tweets from the same account
 		if(!(sflags&JDTP_ISDM)) {
@@ -785,7 +838,13 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 		tp->SetRecvTypeNorm(true);
 		tobj->lflags |= TLF_SHOULDSAVEINDB;
 		tobj->flags.Set('B');
-		if(has_just_arrived && !(sflags&JDTP_ISRTSRC) && !(sflags&JDTP_USERTIMELINE)) {
+
+		/* The JDTP_POSTDBLOAD test is because in the event that the program is not terminated cleanly,
+		 * the tweet, once reloaded from the DB, will be marked as already arrived here, but will not be in the appropriate
+		 * ID lists, in particular the timeline list, as those were not written out.
+		 * If everything was written out, we would not be loading the same timeline tweet again.
+		 */
+		if((has_just_arrived || (sflags & JDTP_POSTDBLOAD)) && !(sflags&JDTP_ISRTSRC) && !(sflags&JDTP_USERTIMELINE)) {
 			if(gc.markowntweetsasread && !tobj->flags.Get('u') && (tobj->flags.Get('O') || tobj->flags.Get('S'))) {
 				//tweet is marked O or S, is own tweet or DM, mark read if not already unread
 				tobj->flags.Set('r');
