@@ -700,12 +700,42 @@ EVT_COMMAND(wxDBCONNEVT_ID_DEBUGMSG, wxextDBCONN_NOTIFY, dbconn::OnDBThreadDebug
 EVT_COMMAND(wxDBCONNEVT_ID_INSERTNEWACC, wxextDBCONN_NOTIFY, dbconn::OnDBNewAccountInsert)
 EVT_COMMAND(wxDBCONNEVT_ID_SENDBATCH, wxextDBCONN_NOTIFY, dbconn::OnSendBatchEvt)
 EVT_COMMAND(wxDBCONNEVT_ID_REPLY, wxextDBCONN_NOTIFY, dbconn::OnDBReplyEvt)
+EVT_COMMAND(wxDBCONNEVT_ID_GENERICSELTWEET, wxextDBCONN_NOTIFY, dbconn::GenericDBSelTweetMsgHandler)
 END_EVENT_TABLE()
 
 void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
-	dbseltweetmsg *msg=(dbseltweetmsg *) event.GetClientData();
+	dbseltweetmsg *msg = (dbseltweetmsg *) event.GetClientData();
+	event.SetClientData(0);
+	HandleDBSelTweetMsg(msg, 0);
+	delete msg;
+	dbc_flags |= DBCF_REPLY_CLEARNOUPDF;
+}
+
+void dbconn::GenericDBSelTweetMsgHandler(wxCommandEvent &event) {
+	dbseltweetmsg *msg = (dbseltweetmsg *) event.GetClientData();
 	event.SetClientData(0);
 
+	const auto &it = generic_sel_funcs.find(reinterpret_cast<intptr_t>(msg));
+	if(it != generic_sel_funcs.end()) {
+		it->second(msg, this);
+		generic_sel_funcs.erase(it);
+	}
+	else {
+		DBLogMsgFormat(LFT_DBERR, wxT("dbconn::GenericDBSelTweetMsgHandler could not find handler for %p."), msg);
+	}
+
+	delete msg;
+	dbc_flags |= DBCF_REPLY_CLEARNOUPDF;
+}
+
+void dbconn::SetDBSelTweetMsgHandler(dbseltweetmsg *msg, std::function<void(dbseltweetmsg *, dbconn *)> f) {
+	msg->targ = this;
+	msg->cmdevtype = wxextDBCONN_NOTIFY;
+	msg->winid = wxDBCONNEVT_ID_GENERICSELTWEET;
+	generic_sel_funcs[reinterpret_cast<intptr_t>(msg)] = std::move(f);
+}
+
+void dbconn::HandleDBSelTweetMsg(dbseltweetmsg *msg, unsigned int flags) {
 	if(msg->flags&DBSTMF_NET_FALLBACK) {
 		dbseltweetmsg_netfallback *fmsg = dynamic_cast<dbseltweetmsg_netfallback *>(msg);
 		std::shared_ptr<taccount> acc;
@@ -730,11 +760,11 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 					twit->extra_id=t->id;
 					twit->QueueAsyncExec();
 
-					DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::OnTpanelTweetLoadFromDB falling back to network for tweet: id: %" wxLongLongFmtSpec "d, account: %s."), t->id, curacc->dispname.c_str());
+					DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::HandleDBSelTweetMsg falling back to network for tweet: id: %" wxLongLongFmtSpec "d, account: %s."), t->id, curacc->dispname.c_str());
 				}
 				else {
 					ad.noacc_pending_tweetobjs[t->id] = t;
-					DBLogMsgFormat(LFT_DBERR, wxT("dbconn::OnTpanelTweetLoadFromDB could not fall back to network for tweet: id:%" wxLongLongFmtSpec "d, no usable account."), t->id);
+					DBLogMsgFormat(LFT_DBERR, wxT("dbconn::HandleDBSelTweetMsg could not fall back to network for tweet: id:%" wxLongLongFmtSpec "d, no usable account."), t->id);
 				}
 			}
 		}
@@ -758,22 +788,28 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 	for(auto it=msg->data.begin(); it!=msg->data.end(); ++it) {
 		dbrettweetdata &dt=*it;
 		#if DB_COPIOUS_LOGGING
-			DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::OnTpanelTweetLoadFromDB got tweet: id:%" wxLongLongFmtSpec "d, statjson: %s, dynjson: %s"), dt.id, wxstrstd(dt.statjson).c_str(), wxstrstd(dt.dynjson).c_str());
+			DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::HandleDBSelTweetMsg got tweet: id:%" wxLongLongFmtSpec "d, statjson: %s, dynjson: %s"), dt.id, wxstrstd(dt.statjson).c_str(), wxstrstd(dt.dynjson).c_str());
 		#endif
-		std::shared_ptr<tweet> &t=ad.GetTweetById(dt.id);
-		t->lflags|=TLF_SAVED_IN_DB;
-		t->lflags|=TLF_LOADED_FROM_DB;
+		ad.unloaded_db_tweet_ids.erase(dt.id);
+		std::shared_ptr<tweet> &t = ad.GetTweetById(dt.id);
+		t->lflags |= TLF_SAVED_IN_DB;
+		t->lflags |= TLF_LOADED_FROM_DB;
+
 		rapidjson::Document dc;
 		if(dt.statjson && !dc.ParseInsitu<0>(dt.statjson).HasParseError() && dc.IsObject()) {
-			//DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::OnTpanelTweetLoadFromDB about to parse tweet statics"));
 			genjsonparser::ParseTweetStatics(dc, t, 0);
 		}
-		else { DBLogMsgFormat(LFT_PARSEERR | LFT_DBERR, wxT("dbconn::OnTpanelTweetLoadFromDB static JSON parse error: malformed or missing, tweet id: %" wxLongLongFmtSpec "d"), dt.id); }
+		else {
+			DBLogMsgFormat(LFT_PARSEERR | LFT_DBERR, wxT("dbconn::HandleDBSelTweetMsg static JSON parse error: malformed or missing, tweet id: %" wxLongLongFmtSpec "d"), dt.id);
+		}
+
 		if(dt.dynjson && !dc.ParseInsitu<0>(dt.dynjson).HasParseError() && dc.IsObject()) {
-			//DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::OnTpanelTweetLoadFromDB about to parse tweet dyn"));
 			genjsonparser::ParseTweetDyn(dc, t);
 		}
-		else { DBLogMsgFormat(LFT_PARSEERR | LFT_DBERR, wxT("dbconn::OnTpanelTweetLoadFromDB dyn JSON parse error: malformed or missing, tweet id: s%" wxLongLongFmtSpec "d"), dt.id); }
+		else {
+			DBLogMsgFormat(LFT_PARSEERR | LFT_DBERR, wxT("dbconn::HandleDBSelTweetMsg dyn JSON parse error: malformed or missing, tweet id: s%" wxLongLongFmtSpec "d"), dt.id);
+		}
+
 		t->user=ad.GetUserContainerById(dt.user1);
 		if(dt.user2) t->user_recipient=ad.GetUserContainerById(dt.user2);
 		t->createtime=(time_t) dt.timestamp;
@@ -783,17 +819,17 @@ void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
 		}
 
 		t->updcf_flags=UPDCF_DEFAULT;
-		if(CheckMarkPending_GetAcc(t, true)) {
-			t->lflags&=~TLF_BEINGLOADEDFROMDB;
-			UnmarkPendingTweet(t, UMPTF_TPDB_NOUPDF);
-		}
-		else {
-			dbc.dbc_flags |= DBCF_REPLY_CHECKPENDINGS;
+
+		if(!(flags & HDBSF_NOPENDINGS)) {
+			if(CheckMarkPending_GetAcc(t, true)) {
+				t->lflags&=~TLF_BEINGLOADEDFROMDB;
+				UnmarkPendingTweet(t, UMPTF_TPDB_NOUPDF);
+			}
+			else {
+				dbc.dbc_flags |= DBCF_REPLY_CHECKPENDINGS;
+			}
 		}
 	}
-	delete msg;
-
-	dbc.dbc_flags |= DBCF_REPLY_CLEARNOUPDF;
 }
 
 void dbconn::OnDBThreadDebugMsg(wxCommandEvent &event) {
@@ -927,6 +963,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	if(gc.persistentmediacache) SyncReadInAllMediaEntities(syncdb);
 	SyncReadInCIDSLists(syncdb);
 	SyncReadInWindowLayout(syncdb);
+	SyncReadInAllTweetIDs(syncdb);
 
 	LogMsgFormat(LFT_DBTRACE, wxT("dbconn::Init(): State read in from database complete, about to create database thread"));
 
@@ -1117,6 +1154,27 @@ void dbconn::AccountSync(sqlite3 *adb) {
 	LogMsg(LFT_DBTRACE, wxT("dbconn::AccountSync end"));
 }
 
+void dbconn::SyncReadInAllTweetIDs(sqlite3 *adb) {
+	LogMsg(LFT_DBTRACE, wxT("dbconn::SyncReadInAllTweetIDs start"));
+	const char gettweetids[]="SELECT id FROM tweets;";
+	sqlite3_stmt *getstmt = 0;
+	sqlite3_prepare_v2(adb, gettweetids, sizeof(gettweetids), &getstmt, 0);
+	do {
+		int res = sqlite3_step(getstmt);
+		if(res == SQLITE_ROW) {
+			uint64_t id = (uint64_t) sqlite3_column_int64(getstmt, 0);
+			ad.unloaded_db_tweet_ids.insert(id);
+		}
+		else if(res != SQLITE_DONE) {
+			LogMsgFormat(LFT_DBERR, wxT("dbconn::SyncReadInAllTweetIDs got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str());
+		}
+		else break;
+	} while(true);
+
+	sqlite3_finalize(getstmt);
+	LogMsg(LFT_DBTRACE, wxT("dbconn::SyncReadInAllTweetIDs end"));
+}
+
 void dbconn::SyncReadInCIDSLists(sqlite3 *adb) {
 	LogMsg(LFT_DBTRACE, wxT("dbconn::SyncReadInCIDSLists start"));
 	const char getcidslist[]="SELECT value FROM settings WHERE name == ?;";
@@ -1127,8 +1185,11 @@ void dbconn::SyncReadInCIDSLists(sqlite3 *adb) {
 		sqlite3_bind_text(getstmt, 1, name.c_str(), name.size(), SQLITE_STATIC);
 		do {
 			int res=sqlite3_step(getstmt);
-			if(res==SQLITE_ROW) {
+			if(res == SQLITE_ROW) {
 				setfromcompressedblob([&](uint64_t &id) { tlist.insert(id); }, getstmt, 0);
+			}
+			else if(res != SQLITE_DONE) {
+				LogMsgFormat(LFT_DBERR, wxT("dbconn::SyncReadInCIDSLists got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str());
 			}
 			else break;
 		} while(true);

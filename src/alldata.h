@@ -40,6 +40,7 @@ struct alldata {
 	std::unordered_map<std::string,media_id_type> img_media_map;
 	std::map<uint64_t,std::shared_ptr<tweet> > noacc_pending_tweetobjs;
 	std::map<uint64_t,std::shared_ptr<userdatacontainer> > noacc_pending_userconts;
+	tweetidset unloaded_db_tweet_ids;
 	unsigned int next_media_id;
 	cached_id_sets cids;
 	std::vector<twin_layout_desc> twinlayout;

@@ -27,6 +27,7 @@
 #include <queue>
 #include <string>
 #include <set>
+#include <map>
 #include <forward_list>
 #include <wx/string.h>
 #include <wx/event.h>
@@ -266,6 +267,7 @@ enum {
 	wxDBCONNEVT_ID_INSERTNEWACC,
 	wxDBCONNEVT_ID_SENDBATCH,
 	wxDBCONNEVT_ID_REPLY,
+	wxDBCONNEVT_ID_GENERICSELTWEET,
 };
 
 struct dbconn : public wxEvtHandler {
@@ -279,6 +281,10 @@ struct dbconn : public wxEvtHandler {
 	dbpscache cache;
 	dbsendmsg_list *batchqueue = 0;
 
+	private:
+	std::map<intptr_t, std::function<void(dbseltweetmsg *, dbconn *)> > generic_sel_funcs;
+
+	public:
 	enum {
 		DBCF_INITED                = 1<<0,
 		DBCF_BATCHEVTPENDING       = 1<<1,
@@ -317,6 +323,14 @@ struct dbconn : public wxEvtHandler {
 	void SyncWriteBackCIDSLists(sqlite3 *adb);
 	void SyncReadInWindowLayout(sqlite3 *adb);
 	void SyncWriteBackWindowLayout(sqlite3 *adb);
+	void SyncReadInAllTweetIDs(sqlite3 *adb);
+
+	enum {
+		HDBSF_NOPENDINGS         = 1<<0,
+	};
+	void HandleDBSelTweetMsg(dbseltweetmsg *msg, unsigned int flags);
+	void GenericDBSelTweetMsgHandler(wxCommandEvent &event);
+	void SetDBSelTweetMsgHandler(dbseltweetmsg *msg, std::function<void(dbseltweetmsg *, dbconn *)> f);
 
 	DECLARE_EVENT_TABLE()
 };
