@@ -752,18 +752,13 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg *msg, unsigned int flags) {
 			if(!t->text.size() && !(t->lflags&TLF_BEINGLOADEDOVERNET)) {	//tweet still not loaded at all
 
 				t->lflags &= ~TLF_BEINGLOADEDFROMDB;
-				std::shared_ptr<taccount> curacc=acc;
-				if(t->GetUsableAccount(curacc, GUAF_CHECKEXISTING)) {
-					t->lflags|=TLF_BEINGLOADEDOVERNET;
-					twitcurlext *twit=curacc->GetTwitCurlExt();
-					twit->connmode=CS_SINGLETWEET;
-					twit->extra_id=t->id;
-					twit->QueueAsyncExec();
 
+				std::shared_ptr<taccount> curacc = acc;
+				bool result = CheckLoadSingleTweet(t, curacc);
+				if(result) {
 					DBLogMsgFormat(LFT_DBTRACE, wxT("dbconn::HandleDBSelTweetMsg falling back to network for tweet: id: %" wxLongLongFmtSpec "d, account: %s."), t->id, curacc->dispname.c_str());
 				}
 				else {
-					ad.noacc_pending_tweetobjs[t->id] = t;
 					DBLogMsgFormat(LFT_DBERR, wxT("dbconn::HandleDBSelTweetMsg could not fall back to network for tweet: id:%" wxLongLongFmtSpec "d, no usable account."), t->id);
 				}
 			}

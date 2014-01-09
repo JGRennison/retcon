@@ -851,16 +851,41 @@ bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::share
 	}
 	else {	//tweet not loaded at all
 		if(!(tobj->lflags&TLF_BEINGLOADEDFROMDB) && !(tobj->lflags&TLF_BEINGLOADEDOVERNET)) {
-			dbseltweetmsg_netfallback *loadmsg=new dbseltweetmsg_netfallback;
-			loadmsg->id_set.insert(tobj->id);
-			loadmsg->targ=&dbc;
-			loadmsg->cmdevtype=wxextDBCONN_NOTIFY;
-			loadmsg->winid=wxDBCONNEVT_ID_TPANELTWEETLOAD;
-			loadmsg->flags|=DBSTMF_NO_ERR;
-			if(acc_hint) loadmsg->dbindex=acc_hint->dbindex;
-			if(!gc.persistentmediacache) loadmsg->flags|=DBSTMF_PULLMEDIA;
-			dbc.SendMessageBatched(loadmsg);
+			if(ad.unloaded_db_tweet_ids.find(tobj->id) == ad.unloaded_db_tweet_ids.end()) {
+				//tweet is not listed as stored in DB, don't bother querying it first
+				std::shared_ptr<taccount> curacc = acc_hint;
+				CheckLoadSingleTweet(tobj, curacc);
+			}
+			else {
+				dbseltweetmsg_netfallback *loadmsg=new dbseltweetmsg_netfallback;
+				loadmsg->id_set.insert(tobj->id);
+				loadmsg->targ=&dbc;
+				loadmsg->cmdevtype=wxextDBCONN_NOTIFY;
+				loadmsg->winid=wxDBCONNEVT_ID_TPANELTWEETLOAD;
+				loadmsg->flags|=DBSTMF_NO_ERR;
+				if(acc_hint) loadmsg->dbindex=acc_hint->dbindex;
+				if(!gc.persistentmediacache) loadmsg->flags|=DBSTMF_PULLMEDIA;
+				dbc.SendMessageBatched(loadmsg);
+			}
 		}
+		return false;
+	}
+}
+
+//returns true on success, otherwise add tweet to pending list
+//modifies acc_hint to account actually used
+bool CheckLoadSingleTweet(const std::shared_ptr<tweet> &t, std::shared_ptr<taccount> &acc_hint) {
+	if(t->GetUsableAccount(acc_hint, GUAF_CHECKEXISTING)) {
+		t->lflags |= TLF_BEINGLOADEDOVERNET;
+		twitcurlext *twit = acc_hint->GetTwitCurlExt();
+		twit->connmode = CS_SINGLETWEET;
+		twit->extra_id = t->id;
+		twit->QueueAsyncExec();
+		return true;
+	}
+	else {
+		ad.noacc_pending_tweetobjs[t->id] = t;
+		LogMsgFormat(LFT_OTHERERR, wxT("Cannot lookup tweet: id:%" wxLongLongFmtSpec "d, no usable account, marking pending."), t->id);
 		return false;
 	}
 }
