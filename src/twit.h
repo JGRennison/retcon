@@ -45,7 +45,7 @@ struct tweet;
 struct taccount;
 class wxSizer;
 
-void HandleNewTweet(const std::shared_ptr<tweet> &t);
+void HandleNewTweet(const std::shared_ptr<tweet> &t, const std::shared_ptr<taccount> &acc);
 void UpdateTweet(const tweet &t, bool redrawimg = false);
 void UpdateAllTweets(bool redrawimg=false, bool resethighlight = false);
 void UpdateUsersTweet(uint64_t userid, bool redrawimg = false);
@@ -187,7 +187,6 @@ struct tweet_perspective {
 enum {	//for tweet.lflags
 	TLF_DYNDIRTY             = 1<<0,
 	TLF_BEINGLOADEDFROMDB    = 1<<1,
-	TLF_PENDINGHANDLENEW     = 1<<2,
 	TLF_SAVED_IN_DB          = 1<<3,
 	TLF_BEINGLOADEDOVERNET   = 1<<4,
 	TLF_HAVEFIRSTTP          = 1<<5,
@@ -244,6 +243,14 @@ struct tpanel_subtweet_pending_op : public pending_op {
 
 	static void CheckLoadTweetReply(const std::shared_ptr<tweet> &t, wxSizer *v, tpanelparentwin_nt *s,
 		tweetdispscr *tds, unsigned int load_count, const std::shared_ptr<tweet> &top_tweet, tweetdispscr *top_tds);
+
+	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags);
+	virtual wxString dump();
+};
+
+struct handlenew_pending_op : public pending_op {
+	std::weak_ptr<taccount> tac;
+	handlenew_pending_op(const std::shared_ptr<taccount> &acc) : tac(acc) { }
 
 	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags);
 	virtual wxString dump();

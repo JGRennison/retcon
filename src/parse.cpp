@@ -850,8 +850,6 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, uns
 				tobj->flags.Set('r');
 			}
 			if(!tobj->flags.Get('r')) tobj->flags.Set('u');
-			ad.incoming_filter.FilterTweet(*tobj, tac.get());
-			ad.cids.CheckTweet(*tobj);
 			have_checked_pending = true;
 			is_ready = tac->MarkPendingOrHandle(tobj);
 		}

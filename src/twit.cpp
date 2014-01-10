@@ -50,8 +50,10 @@
 #include <wx/stdpaths.h>
 #include <algorithm>
 
-void HandleNewTweet(const std::shared_ptr<tweet> &t) {
-	//do some filtering, etc
+//Do not assume that *acc is non-null
+void HandleNewTweet(const std::shared_ptr<tweet> &t, const std::shared_ptr<taccount> &acc) {
+	ad.incoming_filter.FilterTweet(*t, acc.get());
+	ad.cids.CheckTweet(*t);
 
 	for(auto it=ad.tpanels.begin(); it!=ad.tpanels.end(); ++it) {
 		tpanel &tp=*(it->second);
@@ -407,14 +409,19 @@ wxString tpanel_subtweet_pending_op::dump() {
 	return wxString::Format(wxT("Push inline tweet reply to tpanel: %p, %p, %p"), vbox, win.get(), top_tds.get());
 }
 
+void handlenew_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags) {
+	HandleNewTweet(t, tac.lock());
+}
+
+wxString handlenew_pending_op::dump() {
+	std::shared_ptr<taccount> acc = tac.lock();
+	return wxString::Format(wxT("Handle arrived on account: %s"), acc ? acc->dispname.c_str() : wxT("N/A"));
+}
+
 void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, unsigned int umpt_flags) {
 	LogMsgFormat(LFT_PENDTRACE, wxT("Unmark Pending: %s"), tweet_log_line(t.get()).c_str());
 	t->lflags &= ~TLF_BEINGLOADEDFROMDB;
 	t->lflags &= ~TLF_ISPENDING;
-	if(t->lflags & TLF_PENDINGHANDLENEW) {
-		t->lflags &= ~TLF_PENDINGHANDLENEW;
-		HandleNewTweet(t);
-	}
 	for(auto &it : t->pending_ops) {
 		it->MarkUnpending(t, umpt_flags);
 	}
@@ -915,8 +922,8 @@ bool tweet::IsReady(unsigned int updcf_flags) {
 
 bool taccount::MarkPendingOrHandle(const std::shared_ptr<tweet> &t) {
 	bool isready = CheckMarkPending(t);
-	if(isready) HandleNewTweet(t);
-	else t->lflags |= TLF_PENDINGHANDLENEW;
+	if(isready) HandleNewTweet(t, shared_from_this());
+	else t->pending_ops.emplace_front(new handlenew_pending_op(shared_from_this()));
 	return isready;
 }
 
