@@ -731,7 +731,8 @@ void FastMarkPendingNonAcc(const std::shared_ptr<tweet> &t, unsigned int mark, b
 	t->lflags |= TLF_ISPENDING;
 	if(mark&1) t->user->MarkTweetPending(t, checkfirst);
 	if(mark&2) t->user_recipient->MarkTweetPending(t, checkfirst);
-	if(mark&4) {
+	if(mark&4) t->rtsrc->user->MarkTweetPending(t->rtsrc, checkfirst);
+	if(mark&64) {
 		t->rtsrc->lflags |= TLF_ISPENDING;
 		bool insertnewrtpo=true;
 		for(auto it=t->rtsrc->pending_ops.begin(); it!=t->rtsrc->pending_ops.end(); ++it) {
@@ -742,7 +743,6 @@ void FastMarkPendingNonAcc(const std::shared_ptr<tweet> &t, unsigned int mark, b
 			}
 		}
 		if(insertnewrtpo) t->rtsrc->pending_ops.emplace_front(new rt_pending_op(t));
-		t->rtsrc->user->MarkTweetPending(t->rtsrc, checkfirst);
 	}
 }
 
@@ -782,9 +782,15 @@ unsigned int CheckTweetPendings(const tweet &t) {
 		if(t.user_recipient->NeedsUpdating(t.updcf_flags, t.createtime)) retval |= 16;
 		retval |= 2;
 	}
-	if(t.rtsrc && t.rtsrc->user && !t.rtsrc->user->IsReady(t.rtsrc->updcf_flags, t.rtsrc->createtime)) {
-		if(t.rtsrc->user->NeedsUpdating(t.rtsrc->updcf_flags, t.rtsrc->createtime)) retval |= 32;
-		retval |= 4;
+	if(t.rtsrc) {
+		if(t.rtsrc->createtime == 0 || !t.rtsrc->user) {
+			//Retweet source is not inited at all
+			retval |= 64;
+		}
+		else if(t.rtsrc->user && !t.rtsrc->user->IsReady(t.rtsrc->updcf_flags, t.rtsrc->createtime)) {
+			if(t.rtsrc->user->NeedsUpdating(t.rtsrc->updcf_flags, t.rtsrc->createtime)) retval |= 32;
+			retval |= 4 | 64;
+		}
 	}
 	return retval;
 }
