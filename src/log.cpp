@@ -47,6 +47,7 @@ log_window *globallogwindow = 0;
 std::unique_ptr<Redirector_wxLog> globalwxlogredirector;
 
 LOGT currentlogflags = LOGT::ZERO;
+flagwrapper<LOGIMPLF> logimpl_flags = 0;
 std::forward_list<log_object*> logfunclist;
 
 static void dump_non_acc_user_pendings(LOGT logflags, const wxString &indent, const wxString &indentstep);
@@ -315,7 +316,7 @@ log_file::~log_file() {
 
 void log_file::log_str(LOGT logflags, const wxString &str) {
 	fprintf(fp, "%s", (const char *) str.ToUTF8());
-	fflush(fp);
+	if(logimpl_flags & LOGIMPLF::FFLUSH) fflush(fp);
 }
 
 LOGT StrToLogFlags(const wxString &str) {

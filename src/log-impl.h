@@ -23,6 +23,7 @@
 
 #include "univdefs.h"
 #include "log.h"
+#include "flags.h"
 #include <wx/frame.h>
 #include <wx/event.h>
 #include <queue>
@@ -30,6 +31,12 @@
 struct tpanelparentwin_nt;
 struct taccount;
 struct tweet;
+
+enum class LOGIMPLF : unsigned int {
+	FFLUSH                = 1<<0,
+};
+template<> struct enum_traits<LOGIMPLF> { static constexpr bool flags = true; };
+extern flagwrapper<LOGIMPLF> logimpl_flags;
 
 struct log_object {
 	LOGT lo_flags;

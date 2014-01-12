@@ -30,7 +30,7 @@
 
 typedef CSimpleOptTempl<wxChar> CSO;
 
-enum { OPT_LOGWIN, OPT_FILE, OPT_STDERR, OPT_FILEAUTO, OPT_DATADIR };
+enum { OPT_LOGWIN, OPT_FILE, OPT_STDERR, OPT_FILEAUTO, OPT_DATADIR, OPT_FFLUSH };
 
 CSO::SOption g_rgOptions[] =
 {
@@ -44,6 +44,8 @@ CSO::SOption g_rgOptions[] =
 	{ OPT_FILEAUTO,wxT("--log-file-auto"),SO_REQ_SHRT  },
 	{ OPT_STDERR,  wxT("--log-stderr"),   SO_REQ_SHRT  },
 	{ OPT_DATADIR, wxT("--data-dir"),     SO_REQ_SHRT  },
+	{ OPT_FFLUSH,  wxT("-F"),             SO_NONE      },
+	{ OPT_FFLUSH,  wxT("--log-fflush"),   SO_NONE      },
 
 	SO_END_OF_OPTIONS
 };
@@ -108,6 +110,10 @@ int cmdlineproc(wxChar ** argv, int argc) {
 			}
 			case OPT_DATADIR: {
 				wxGetApp().datadir = stdstrwx(args.OptionArg());
+				break;
+			}
+			case OPT_FFLUSH: {
+				logimpl_flags |= LOGIMPLF::FFLUSH;
 				break;
 			}
 		}
