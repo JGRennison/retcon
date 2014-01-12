@@ -330,7 +330,6 @@ struct entity {
 };
 
 enum class MEF : unsigned int {
-	ZERO                 = 0,
 	HAVE_THUMB           = 1<<0,
 	HAVE_FULL            = 1<<1,
 	FULL_FAILED          = 1<<2,
@@ -341,8 +340,16 @@ enum class MEF : unsigned int {
 	IN_DB                = 1<<7,
 	THUMB_NET_INPROGRESS = 1<<8,
 	FULL_NET_INPROGRESS  = 1<<9,
+	THUMB_FAILED         = 1<<10,
 };
 template<> struct enum_traits<MEF> { static constexpr bool flags = true; };
+
+enum class MELF {
+	LOADTIME             = 1<<0,
+	DISPTIME             = 1<<1,
+	FORCE                = 1<<2,
+};
+template<> struct enum_traits<MELF> { static constexpr bool flags = true; };
 
 struct media_entity {
 	media_id_type media_id; //compound type used to prevent id-clashes between media-entity images and non-media-entity images
@@ -354,10 +361,16 @@ struct media_entity {
 	unsigned char full_img_sha1[20];
 	unsigned char thumb_img_sha1[20];
 
-	MEF flags = MEF::ZERO;
+	flagwrapper<MEF> flags = 0;
 
 	wxString cached_full_filename() const;
 	wxString cached_thumb_filename() const;
+
+	std::function<void(media_entity *, flagwrapper<MELF>)> check_load_thumb_func;
+
+	void CheckLoadThumb(flagwrapper<MELF> melf) {
+		if(check_load_thumb_func) check_load_thumb_func(this, melf);
+	}
 };
 
 struct userlookup {

@@ -168,7 +168,7 @@ void mediaimgdlconn::Init(const std::string &imgurl_, media_id_type media_id_, f
 		if(flags & MIDC::FULLIMG) {
 			me.flags |= MEF::FULL_NET_INPROGRESS;
 		}
-		else if(flags & MIDC::THUMBIMG) {
+		if(flags & MIDC::THUMBIMG) {
 			me.flags |= MEF::THUMB_NET_INPROGRESS;
 		}
 	}
@@ -184,13 +184,19 @@ void mediaimgdlconn::HandleFailure(long httpcode, CURLcode res) {
 	auto it = ad.media_list.find(media_id);
 	if(it != ad.media_list.end()) {
 		media_entity &me = it->second;
-		if(flags&MIDC::FULLIMG) {
+		if(flags & MIDC::FULLIMG) {
 			me.flags |= MEF::FULL_FAILED;
 			me.flags &= ~MEF::FULL_NET_INPROGRESS;
 			if(me.win) me.win->UpdateImage();
 		}
-		else if(flags & MIDC::THUMBIMG) {
+		if(flags & MIDC::THUMBIMG) {
+			me.flags |= MEF::THUMB_FAILED;
 			me.flags &= ~MEF::THUMB_NET_INPROGRESS;
+		}
+		if(flags & MIDC::REDRAW_TWEETS) {
+			for(auto &it : me.tweet_list) {
+				UpdateTweet(*it);
+			}
 		}
 	}
 	delete this;
@@ -239,10 +245,9 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 			}
 			else {
 				LogMsgFormat(LOGT::OTHERERR, wxT("Media image downloaded: %s, id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, flags: %X, conn: %p, is not OK, possible partial download?"), wxstrstd(url).c_str(), media_id.m_id, media_id.t_id, flags, this);
+				me.flags |= MEF::THUMB_FAILED;
 			}
-			if(!(flags&MIDC::FULLIMG)) {
-				me.flags &= ~MEF::THUMB_NET_INPROGRESS;
-			}
+			me.flags &= ~MEF::THUMB_NET_INPROGRESS;
 		}
 
 		if(flags&MIDC::FULLIMG) {
@@ -258,10 +263,9 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 			}
 		}
 
-		if(flags&MIDC::REDRAW_TWEETS) {
-			for(auto it=me.tweet_list.begin(); it!=me.tweet_list.end(); ++it) {
-				LogMsgFormat(LOGT::SOCKTRACE, wxT("Media: UpdateTweet"));
-				UpdateTweet(**it);
+		if(flags & MIDC::REDRAW_TWEETS) {
+			for(auto &it : me.tweet_list) {
+				UpdateTweet(*it);
 			}
 		}
 	}

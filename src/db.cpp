@@ -524,7 +524,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 						m->media_data.emplace_front();
 						dbretmediadata &md=m->media_data.front();
 						md.media_id=*it;
-						md.flags = MEF::ZERO;
+						md.flags = 0;
 						size_t outsize;
 						md.url=column_get_compressed(mstmt, 0, outsize);
 						if(sqlite3_column_bytes(mstmt, 1)==sizeof(md.full_img_sha1)) {

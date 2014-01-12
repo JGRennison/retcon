@@ -965,28 +965,57 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 			bool hidden_thumbnails = false;
 			bool hidden_thumbnails_override = tds_flags & TDSF::IMGTHUMBHIDEOVERRIDE;
 			bool shown_thumbnails = false;
+			bool have_first = false;
 			Newline();
 			BeginAlignment(wxTEXT_ALIGNMENT_CENTRE);
-			for(auto it=me_list.begin(); it!=me_list.end(); ++it) {
-				BeginURL(wxString::Format(wxT("M%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), (int64_t) (*it)->media_id.m_id, (int64_t) (*it)->media_id.t_id));
-				if((*it)->flags & MEF::HAVE_THUMB) {
-					if(tw.flags.Get('p') && !hidden_thumbnails_override) {
-						BeginUnderline();
-						WriteText(wxT("[Hidden Image Thumbnail]"));
-						EndUnderline();
-						hidden_thumbnails = true;
-					}
-					else {
-						AddImage((*it)->thumbimg);
-						shown_thumbnails = true;
-					}
+			for(auto &it : me_list) {
+				if(have_first) WriteText(wxT(" - "));
+
+				bool hidden = (tw.flags.Get('p') || gc.hideallthumbs) && !hidden_thumbnails_override;
+
+				if(gc.dispthumbs && !(!gc.loadhiddenthumbs && hidden)) {
+					it->CheckLoadThumb(MELF::DISPTIME);
 				}
-				else {
+
+				BeginURL(wxString::Format(wxT("M%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), (int64_t) it->media_id.m_id, (int64_t) it->media_id.t_id));
+				if(!gc.dispthumbs) {
+					BeginUnderline();
+					WriteText(wxT("[Image]"));
+					EndUnderline();
+				}
+				else if(it->flags & MEF::HAVE_THUMB && !hidden) {
+					AddImage(it->thumbimg);
+					shown_thumbnails = true;
+				}
+				else if(it->flags & MEF::THUMB_NET_INPROGRESS) {
 					BeginUnderline();
 					WriteText(wxT("[Image Loading...]"));
 					EndUnderline();
 				}
+				else if(it->flags & MEF::THUMB_FAILED) {
+					BeginUnderline();
+					WriteText(wxT("[Failed to Load Image Thumbnail]"));
+					EndUnderline();
+				}
+				else if(hidden) {
+					BeginUnderline();
+					WriteText(wxT("[Hidden Image Thumbnail]"));
+					EndUnderline();
+					hidden_thumbnails = true;
+				}
+				else {
+					BeginUnderline();
+					WriteText(wxT("[Image]"));
+					EndUnderline();
+					EndURL();
+					WriteText(wxT(" "));
+					BeginURL(wxString::Format(wxT("L%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), (int64_t) it->media_id.m_id, (int64_t) it->media_id.t_id));
+					BeginUnderline();
+					WriteText(wxT("[Click to Load Thumbnail]"));
+					EndUnderline();
+				}
 				EndURL();
+				have_first = true;
 			}
 			Newline();
 			EndAlignment();
@@ -1107,6 +1136,14 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 			mainframe *parent_mf = GetMainframeAncestor(win, false);
 			if(parent_mf) win = parent_mf;
 			new media_display_win(win, media_id);
+		}
+	}
+	else if(url[0]=='L') {
+		media_id_type media_id = ParseMediaID(url);
+
+		ad.media_list[media_id].CheckLoadThumb(MELF::FORCE);
+		for(auto &it : ad.media_list[media_id].tweet_list) {
+			UpdateTweet(*it);
 		}
 	}
 	else if(url[0]=='U') {

@@ -181,7 +181,7 @@ struct dbretmediadata {
 	char *url;	//free when done
 	unsigned char full_img_sha1[20];
 	unsigned char thumb_img_sha1[20];
-	MEF flags;
+	flagwrapper<MEF> flags;
 
 	dbretmediadata() : url(0) { }
 	~dbretmediadata() {

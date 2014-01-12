@@ -339,6 +339,7 @@ enum {
 	OPTWIN_ALL = 0,
 	OPTWIN_DISPLAY,
 	OPTWIN_FORMAT,
+	OPTWIN_IMAGE,
 	OPTWIN_NETWORK,
 	OPTWIN_CACHING,
 	OPTWIN_TWITTER,
@@ -453,6 +454,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	};
 	addbtn(OPTWIN_DISPLAY, wxT("Display"));
 	addbtn(OPTWIN_FORMAT, wxT("Format"));
+	addbtn(OPTWIN_IMAGE, wxT("Image"));
 	addbtn(OPTWIN_NETWORK, wxT("Network"));
 	addbtn(OPTWIN_CACHING, wxT("Caching"));
 	addbtn(OPTWIN_TWITTER, wxT("Twitter"));
@@ -475,9 +477,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Max No. of Items to Display in Panel"), DBCV::ISGLOBALCFG, gc.gcfg.maxtweetsdisplayinpanel, gcglobdefaults.maxtweetsdisplayinpanel, wxFILTER_NUMERIC);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Date-Time Format (strftime)"), DBCV::ISGLOBALCFG, gc.gcfg.datetimeformat, gcglobdefaults.datetimeformat);
-	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Max Profile Image Size / px"), DBCV::ISGLOBALCFG, gc.gcfg.maxpanelprofimgsize, gcglobdefaults.maxpanelprofimgsize, wxFILTER_NUMERIC);
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs,  wxT("Display Native Re-Tweets"), DBCV::ISGLOBALCFG, gc.gcfg.rtdisp, gcglobdefaults.rtdisp);
-	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("Unhide Image Thumbnail Time / seconds"), DBCV::ISGLOBALCFG, gc.gcfg.imgthumbunhidetime, gcglobdefaults.imgthumbunhidetime, wxFILTER_NUMERIC);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("No. of inline tweet replies"), DBCV::ISGLOBALCFG, gc.gcfg.inlinereplyloadcount, gcglobdefaults.inlinereplyloadcount, wxFILTER_NUMERIC);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("No. of inline tweet replies to load on request"), DBCV::ISGLOBALCFG, gc.gcfg.inlinereplyloadmorecount, gcglobdefaults.inlinereplyloadmorecount, wxFILTER_NUMERIC);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Highlight Colour"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.highlight_colourdelta, gcglobdefaults.highlight_colourdelta);
@@ -497,6 +497,22 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("Tweet mouse-over format"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.mouseover_tweetdispformat, gcglobdefaults.mouseover_tweetdispformat);
 	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("DM mouse-over format"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.mouseover_dmdispformat, gcglobdefaults.mouseover_dmdispformat);
 	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("Native Re-Tweet mouse-over format"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.mouseover_rtdispformat, gcglobdefaults.mouseover_rtdispformat);
+
+	AddSettingRow_String(OPTWIN_IMAGE, panel, fgs, wxT("Max profile image size / px"), DBCV::ISGLOBALCFG, gc.gcfg.maxpanelprofimgsize, gcglobdefaults.maxpanelprofimgsize, wxFILTER_NUMERIC);
+	AddSettingRow_Bool(OPTWIN_IMAGE, panel, fgs, wxT("Display image thumbnails"), DBCV::ISGLOBALCFG, gc.gcfg.dispthumbs, gcglobdefaults.dispthumbs);
+	wxFlexGridSizer *loadthumbfgs = 0;
+	addfgsizerblock(wxT("Load image thumbnails"), loadthumbfgs);
+	AddSettingRow_Bool(OPTWIN_IMAGE, panel, loadthumbfgs, wxT("Twitter image thumbnails"), DBCV::ISGLOBALCFG, gc.gcfg.disploadthumb_thumb, gcglobdefaults.disploadthumb_thumb);
+	AddSettingRow_Bool(OPTWIN_IMAGE, panel, loadthumbfgs, wxT("Full-size images as thumbnails"), DBCV::ISGLOBALCFG, gc.gcfg.disploadthumb_full, gcglobdefaults.disploadthumb_full);
+	wxFlexGridSizer *autoloadthumbfgs = 0;
+	addfgsizerblock(wxT("Pre-load image thumbnails even when not displayed"), autoloadthumbfgs);
+	AddSettingRow_Bool(OPTWIN_IMAGE, panel, autoloadthumbfgs, wxT("Twitter image thumbnails"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.autoloadthumb_thumb, gcglobdefaults.autoloadthumb_thumb);
+	AddSettingRow_Bool(OPTWIN_IMAGE, panel, autoloadthumbfgs, wxT("Full-size images as thumbnails"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.autoloadthumb_full, gcglobdefaults.autoloadthumb_full);
+	wxFlexGridSizer *hiddenthumbfgs = 0;
+	addfgsizerblock(wxT("Hidden image thumbnails"), hiddenthumbfgs);
+	AddSettingRow_Bool(OPTWIN_IMAGE, panel, hiddenthumbfgs, wxT("Hide all image thumbnails"), DBCV::ISGLOBALCFG, gc.gcfg.hideallthumbs, gcglobdefaults.hideallthumbs);
+	AddSettingRow_String(OPTWIN_IMAGE, panel, hiddenthumbfgs,  wxT("Unhide image thumbnail time / seconds"), DBCV::ISGLOBALCFG, gc.gcfg.imgthumbunhidetime, gcglobdefaults.imgthumbunhidetime, wxFILTER_NUMERIC);
+	AddSettingRow_Bool(OPTWIN_IMAGE, panel, hiddenthumbfgs, wxT("Pre-load hidden thumbnails"), DBCV::ISGLOBALCFG, gc.gcfg.loadhiddenthumbs, gcglobdefaults.loadhiddenthumbs);
 
 	AddSettingRow_String(OPTWIN_CACHING, panel, fgs, wxT("Cached User Expiry Time / minutes"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.userexpiretimemins, gcglobdefaults.userexpiretimemins, wxFILTER_NUMERIC);
 	AddSettingRow_Bool(OPTWIN_CACHING, panel, fgs,  wxT("Cache media image thumbnails"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.cachethumbs, gcglobdefaults.cachethumbs);

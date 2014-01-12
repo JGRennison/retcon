@@ -192,6 +192,23 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 		}
 	}
 
+	auto mk_media_load_func = [&](std::string url, flagwrapper<MIDC> net_flags, flagwrapper<MELF> netloadmask) {
+		netloadmask |= MELF::FORCE;
+		return [url, net_flags, netloadmask](media_entity *me, flagwrapper<MELF> mel_flags) {
+			if(me->flags & MEF::LOAD_THUMB && !(me->flags & MEF::HAVE_THUMB)) {
+				//Don't bother loading a cached thumb now, that can wait
+				if(mel_flags & MELF::LOADTIME) return;
+
+				//try to load from file
+				if(LoadImageFromFileAndCheckHash(me->cached_thumb_filename(), me->thumb_img_sha1, me->thumbimg)) me->flags |= MEF::HAVE_THUMB;
+				else me->flags &= ~MEF::LOAD_THUMB;
+			}
+			if(!(me->flags & MEF::HAVE_THUMB) && !(url.empty()) && (netloadmask & mel_flags) && !(me->flags & MEF::THUMB_NET_INPROGRESS) && !(me->flags & MEF::THUMB_FAILED)) {
+				new mediaimgdlconn(url, me->media_id, net_flags);
+			}
+		};
+	};
+
 	if(urls.IsArray()) {
 		for(rapidjson::SizeType i = 0; i < urls.Size(); i++) {
 			t->entlist.emplace_back(ENT_URL);
@@ -232,15 +249,11 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 					me->tweet_list.push_front(t);
 				}
 
-				if(me->flags & MEF::LOAD_THUMB && !(me->flags & MEF::HAVE_THUMB)) {
-					//try to load from file
-					if(LoadImageFromFileAndCheckHash(me->cached_thumb_filename(), me->thumb_img_sha1, me->thumbimg)) {
-						me->flags |= MEF::HAVE_THUMB;
-					}
-				}
-				if(!(me->flags & MEF::HAVE_THUMB) && !(me->flags & MEF::FULL_NET_INPROGRESS)) {
-					new mediaimgdlconn(me->media_url, media_id, MIDC::FULLIMG | MIDC::THUMBIMG | MIDC::REDRAW_TWEETS);
-				}
+				flagwrapper<MELF> netloadmask = 0;
+				if(gc.autoloadthumb_full) netloadmask |= MELF::LOADTIME;
+				if(gc.disploadthumb_full) netloadmask |= MELF::DISPTIME;
+				me->check_load_thumb_func = mk_media_load_func(me->media_url, MIDC::FULLIMG | MIDC::THUMBIMG | MIDC::REDRAW_TWEETS, netloadmask);
+				me->CheckLoadThumb(MELF::LOADTIME);
 			}
 		}
 	}
@@ -306,14 +319,15 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 				me->tweet_list.push_front(t);
 			}
 
-			if(me->flags & MEF::LOAD_THUMB && !(me->flags & MEF::HAVE_THUMB)) {
-				//try to load from file
-				if(LoadImageFromFileAndCheckHash(me->cached_thumb_filename(), me->thumb_img_sha1, me->thumbimg)) me->flags |= MEF::HAVE_THUMB;
+			std::string thumburl;
+			if(me->media_url.size() > 6) {
+				thumburl = me->media_url.substr(0, me->media_url.size() - 6) + ":thumb";
 			}
-			if(!(me->flags & MEF::HAVE_THUMB) && !(me->flags & MEF::THUMB_NET_INPROGRESS) && me->media_url.size()>6) {
-				std::string thumburl=me->media_url.substr(0, me->media_url.size()-6)+":thumb";
-				new mediaimgdlconn(thumburl, en->media_id, MIDC::THUMBIMG | MIDC::REDRAW_TWEETS);
-			}
+			flagwrapper<MELF> netloadmask = 0;
+			if(gc.autoloadthumb_thumb) netloadmask |= MELF::LOADTIME;
+			if(gc.disploadthumb_thumb) netloadmask |= MELF::DISPTIME;
+			me->check_load_thumb_func = mk_media_load_func(thumburl, MIDC::THUMBIMG | MIDC::REDRAW_TWEETS, netloadmask);
+			me->CheckLoadThumb(MELF::LOADTIME);
 		}
 	}
 

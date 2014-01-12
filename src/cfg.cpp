@@ -71,6 +71,13 @@ genoptconf gcdefaults {
 #define CFGDEFAULT_markdeletedtweetsasread                  wxT("1")
 #define CFGDEFAULT_mediawinscreensizewidthreduction         wxT("0")
 #define CFGDEFAULT_mediawinscreensizeheightreduction        wxT("0")
+#define CFGDEFAULT_autoloadthumb_thumb                      wxT("0")
+#define CFGDEFAULT_autoloadthumb_full                       wxT("0")
+#define CFGDEFAULT_disploadthumb_thumb                      wxT("1")
+#define CFGDEFAULT_disploadthumb_full                       wxT("1")
+#define CFGDEFAULT_dispthumbs                               wxT("1")
+#define CFGDEFAULT_hideallthumbs                            wxT("0")
+#define CFGDEFAULT_loadhiddenthumbs                         wxT("0")
 
 genoptglobconf gcglobdefaults {
 #define CFGTEMPL(x) { CFGDEFAULT_##x, 1},

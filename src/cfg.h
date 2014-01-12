@@ -85,7 +85,14 @@ struct genoptconf {
 	CFGTEMPL_BOOL(markowntweetsasread) \
 	CFGTEMPL_BOOL(markdeletedtweetsasread) \
 	CFGTEMPL_UL(mediawinscreensizewidthreduction) \
-	CFGTEMPL_UL(mediawinscreensizeheightreduction)
+	CFGTEMPL_UL(mediawinscreensizeheightreduction) \
+	CFGTEMPL_BOOL(autoloadthumb_thumb) \
+	CFGTEMPL_BOOL(autoloadthumb_full) \
+	CFGTEMPL_BOOL(disploadthumb_thumb) \
+	CFGTEMPL_BOOL(disploadthumb_full) \
+	CFGTEMPL_BOOL(dispthumbs) \
+	CFGTEMPL_BOOL(hideallthumbs) \
+	CFGTEMPL_BOOL(loadhiddenthumbs) \
 
 struct genoptglobconf {
 #define CFGTEMPL(x) genopt x;
