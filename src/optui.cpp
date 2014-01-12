@@ -53,7 +53,6 @@ std::set<acc_window *> acc_window::currentset;
 acc_window::acc_window(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name)
 	: wxDialog(parent, id, title, pos, size, style, name) {
 
-	//wxPanel *panel = new wxPanel(this, -1);
 	wxWindow *panel=this;
 
 	wxBoxSizer *vbox = new wxBoxSizer(wxVERTICAL);
@@ -416,7 +415,6 @@ END_EVENT_TABLE()
 settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name, taccount *defshow)
 	: wxDialog(parent, id, title, pos, size, style, name) {
 
-	//wxPanel *panel = new wxPanel(this, -1);
 	wxWindow *panel=this;
 	current=0;
 

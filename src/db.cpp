@@ -224,7 +224,9 @@ static unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsi
 			strm.avail_out=maxsize;
 			strm.next_out=data+HEADERSIZE;
 			int res=deflate(&strm, Z_FINISH);
-			//DBLogMsgFormat(LOGT::ZLIBTRACE, wxT("deflate: %d, %d, %d"), res, strm.avail_in, strm.avail_out);
+			#ifdef DB_COPIOUS_LOGGING
+				DBLogMsgFormat(LOGT::ZLIBTRACE, wxT("deflate: %d, %d, %d"), res, strm.avail_in, strm.avail_out);
+			#endif
 			if(res!=Z_STREAM_END) { DBLogMsgFormat(LOGT::ZLIBERR, wxT("DoCompress: deflate: error: res: %d (%s)"), res, wxstrstd(strm.msg).c_str()); }
 			sz=HEADERSIZE+maxsize-strm.avail_out;
 			deflateEnd(&strm);
@@ -331,7 +333,9 @@ static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsiz
 	strm.avail_out=outsize;
 	while(true) {
 		int res=inflate(&strm, Z_FINISH);
-		//DBLogMsgFormat(LOGT::ZLIBTRACE, wxT("inflate: %d, %d, %d"), res, strm.avail_in, strm.avail_out);
+		#ifdef DB_COPIOUS_LOGGING
+			DBLogMsgFormat(LOGT::ZLIBTRACE, wxT("inflate: %d, %d, %d"), res, strm.avail_in, strm.avail_out);
+		#endif
 		if(res==Z_NEED_DICT) {
 			if(dict) inflateSetDictionary(&strm, dict, dict_size);
 			else {
@@ -413,9 +417,6 @@ template <typename C> unsigned char *settocompressedblob(const C &set, size_t &s
 	free(data);
 	return comdata;
 }
-
-	//const unsigned char *tweetarray=(const unsigned char*) sqlite3_column_blob(getstmt, 2);
-	//tweetarraysize=sqlite3_column_bytes(getstmt, 2);
 
 template <typename C> void setfromcompressedblob(C func, sqlite3_stmt *stmt, int columnid) {
 	size_t blarraysize;
@@ -1257,7 +1258,6 @@ void dbconn::AccountIdListsSync(sqlite3 *adb) {
 void dbconn::SyncWriteBackAllUsers(sqlite3 *adb) {
 	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncWriteBackAllUsers start"));
 	cache.BeginTransaction(adb);
-	//sqlite3_exec(adb, "DELETE FROM users", 0, 0, 0);
 
 	sqlite3_stmt *stmt=cache.GetStmt(adb, DBPSC_INSUSER);
 	size_t user_count = 0;

@@ -345,7 +345,6 @@ bool taccount::TwDoOAuth(wxWindow *pf, twitcurlext &twit) {
 	twit.SetNoPerformFlag(false);
 	twit.oAuthRequestToken(authUrl);
 	wxString authUrlWx=wxString::FromUTF8(authUrl.c_str());
-	//twit.oAuthHandlePIN(authUrl);
 	LogMsgFormat(LOGT::OTHERTRACE, wxT("taccount::TwDoOAuth: %s, %s, %s"), cfg.tokenk.val.c_str(), cfg.tokens.val.c_str(), authUrlWx.c_str());
 	wxLaunchDefaultBrowser(authUrlWx);
 	wxString pin;
@@ -478,7 +477,7 @@ void taccount::CheckFailedPendingConns() {
 		failed_pending_conns.pop_front();
 	}
 	if(pending_failed_conn_retry_timer) pending_failed_conn_retry_timer->Stop();
-	//LogMsgFormat(LOGT::SOCKERR, wxT("taccount::CheckFailedPendingConns(), stream_fail_count: %d, enabled: %d, userstreams: %d, streaming_on: %d, for account: %s"), stream_fail_count, enabled, userstreams, streaming_on, dispname.c_str());
+	LogMsgFormat(LOGT::SOCKTRACE, wxT("taccount::CheckFailedPendingConns(), stream_fail_count: %d, enabled: %d, userstreams: %d, streaming_on: %d, for account: %s"), stream_fail_count, enabled, userstreams, streaming_on, dispname.c_str());
 	if(stream_fail_count && enabled && userstreams && !streaming_on) {
 		if(!stream_restart_timer) stream_restart_timer=new wxTimer(this, TAF_STREAM_RESTART_TIMER);
 		if(!stream_restart_timer->IsRunning()) stream_restart_timer->Start(90*1000, wxTIMER_ONE_SHOT);	//give a little time for any other operations to try to connect first
@@ -486,7 +485,7 @@ void taccount::CheckFailedPendingConns() {
 }
 
 void taccount::AddFailedPendingConn(twitcurlext *conn) {
-	//LogMsgFormat(LOGT::SOCKERR, wxT("Connection failed (account: %s). Next reconnection attempt in 512 seconds, or upon successful network activity on this account (whichever is first)."), dispname.c_str());
+	LogMsgFormat(LOGT::SOCKTRACE, wxT("Connection failed (account: %s). Next reconnection attempt in 512 seconds, or upon successful network activity on this account (whichever is first)."), dispname.c_str());
 	failed_pending_conns.push_back(conn);
 	if(!pending_failed_conn_retry_timer) pending_failed_conn_retry_timer=new wxTimer(this, TAF_FAILED_PENDING_CONN_RETRY_TIMER);
 	if(!pending_failed_conn_retry_timer->IsRunning()) pending_failed_conn_retry_timer->Start(512*1000, wxTIMER_ONE_SHOT);
@@ -497,10 +496,10 @@ void taccount::OnFailedPendingConnRetryTimer(wxTimerEvent& event) {
 }
 
 void taccount::OnStreamRestartTimer(wxTimerEvent& event) {
-	//LogMsgFormat(LOGT::SOCKERR, wxT("taccount::OnStreamRestartTimer(), stream_fail_count: %d, enabled: %d, userstreams: %d, streaming_on: %d, for account: %s"), stream_fail_count, enabled, userstreams, streaming_on, dispname.c_str());
+	LogMsgFormat(LOGT::SOCKTRACE, wxT("taccount::OnStreamRestartTimer(), stream_fail_count: %d, enabled: %d, userstreams: %d, streaming_on: %d, for account: %s"), stream_fail_count, enabled, userstreams, streaming_on, dispname.c_str());
 	for(auto it=cp.activeset.begin(); it!=cp.activeset.end(); ++it) {
 		if((*it)->tc_flags & twitcurlext::TCF::ISSTREAM) {
-			//LogMsgFormat(LOGT::SOCKERR, wxT("taccount::OnStreamRestartTimer(), stream connection already active, aborting"));
+			LogMsgFormat(LOGT::SOCKTRACE, wxT("taccount::OnStreamRestartTimer(), stream connection already active, aborting"));
 			return;				//stream connection already present
 		}
 	}

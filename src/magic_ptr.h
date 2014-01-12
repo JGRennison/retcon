@@ -33,7 +33,6 @@ struct magic_ptr_base {
 	virtual ~magic_ptr_base();
 
 	protected:
-	//std::set<magic_ptr*> list;
 	std::vector<magic_ptr*> list;
 
 	void Mark(magic_ptr* t);
@@ -103,7 +102,6 @@ inline magic_ptr_base::~magic_ptr_base() {
 }
 
 inline void magic_ptr_base::Mark(magic_ptr* t) {
-	//list.insert(t);
 	for(size_t i=0; i<list.size(); i++) {
 		if(list[i]==t) return;
 	}
@@ -111,7 +109,6 @@ inline void magic_ptr_base::Mark(magic_ptr* t) {
 }
 
 inline void magic_ptr_base::Unmark(magic_ptr* t) {
-	//list.erase(t);
 	for(size_t i=0; i<list.size(); i++) {
 		if(list[i]==t) {
 			if(i+1<list.size()) {

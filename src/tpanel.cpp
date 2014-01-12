@@ -234,10 +234,8 @@ void tpanelnotebook::tabrightclickhandler(wxAuiNotebookEvent& event) {
 }
 
 void tpanelnotebook::Split(size_t page, int direction) {
-	//owner->Freeze();
 	wxAuiNotebook::Split(page, direction);
 	PostSplitSizeCorrect();
-	//owner->Thaw();
 }
 
 void tpanelnotebook::PostSplitSizeCorrect() {
@@ -363,17 +361,6 @@ panelparentwin_base::panelparentwin_base(wxWindow *parent, bool fitnow, wxString
 : wxPanel(parent, wxID_ANY, wxPoint(-1000, -1000)), displayoffset(0), parent_win(parent), tppw_flags(0), thisname(thisname_) {
 
 	tpg=tpanelglobal::Get();
-
-	// wxVisualAttributes va=wxRichTextCtrl::GetClassDefaultAttributes();
-	// wxColour col=va.colBg;
-	// if(!col.IsOk()) col=*wxWHITE;
-	// SetOwnBackgroundColour(col);
-	// SetBackgroundStyle(wxBG_STYLE_COLOUR);
-
-	//tpw = new tpanelwin(this);
-	//wxBoxSizer *vbox = new wxBoxSizer(wxHORIZONTAL);
-	//vbox->Add(tpw, 1, wxALIGN_TOP | wxEXPAND, 0);
-	//SetSizer(vbox);
 
 	if(gc.showdeletedtweetsbydefault) {
 		tppw_flags |= TPPWF::SHOWDELETED;
@@ -1579,9 +1566,6 @@ void tpanelscrollwin::resizehandler(wxSizeEvent &event) {
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelscrollwin::resizehandler: %s, %d, %d"), GetThisName().c_str(), event.GetSize().GetWidth(), event.GetSize().GetHeight());
 	#endif
-	//FitInside();
-	//Refresh();
-	//Update();
 }
 
 void tpanelscrollwin::resizemsghandler(wxCommandEvent &event) {
@@ -1591,7 +1575,6 @@ void tpanelscrollwin::resizemsghandler(wxCommandEvent &event) {
 	tppw_scrollfreeze sf;
 	parent->StartScrollFreeze(sf);
 	FitInside();
-	//Refresh();
 	resize_update_pending=false;
 	parent->EndScrollFreeze(sf);
 	Thaw();
@@ -1817,12 +1800,16 @@ void tpanelparentwin_userproplisting::NotifyRequestFailed() {
 }
 
 bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid) {
-	//LogMsg(LOGT::TPANEL, wxT("Redirect MouseWheel"));
+	#if TPANEL_COPIOUS_LOGGING
+		LogMsg(LOGT::TPANEL, wxT("TCL: RedirectMouseWheelEvent"));
+	#endif
 	wxWindow *wind=wxFindWindowAtPoint(wxGetMousePosition() /*event.GetPosition()*/);
 	while(wind) {
 		if(wind!=avoid && std::count(tpanelparentwinlist.begin(), tpanelparentwinlist.end(), wind)) {
 			tpanelparentwin *tppw=(tpanelparentwin*) wind;
-			//LogMsgFormat(LOGT::TPANEL, wxT("Redirect MouseWheel: Dispatching to %s"), wxstrstd(tppw->tp->name).c_str());
+			#if TPANEL_COPIOUS_LOGGING
+				LogMsgFormat(LOGT::TPANEL, wxT("TCL: RedirectMouseWheelEvent: Dispatching to %s"), wxstrstd(tppw->tp->name).c_str());
+			#endif
 			event.SetEventObject(tppw->scrollwin);
 			tppw->scrollwin->GetEventHandler()->ProcessEvent(event);
 			return true;
@@ -1890,13 +1877,6 @@ void profimg_staticbitmap::OnTweetActMenuCmd(wxCommandEvent &event) {
 }
 
 tpanelglobal::tpanelglobal() : arrow_dim(0) {
-	// int targheight=0;
-	// wxVisualAttributes va=wxRichTextCtrl::GetClassDefaultAttributes();
-	// if(va.font.IsOk()) {
-		// wxSize res=wxScreenDC().GetPPI();
-		// targheight=2+((((double) va.font.GetPointSize())/72.0) * ((double) res.GetHeight()));
-	// }
-	// targheight=std::max(targheight,16);
 	GetInfoIcon(&infoicon, &infoicon_img);
 	GetReplyIcon(&replyicon, &replyicon_img);
 	GetFavIcon(&favicon, &favicon_img);

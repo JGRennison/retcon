@@ -288,9 +288,6 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 			CheckTransJsonValueDef(en->fullurl, media[i], "expanded_url", en->text);
 			if(!CheckTransJsonValueDef(en->media_id.m_id, media[i], "id", 0)) { t->entlist.pop_back(); continue; }
 			en->media_id.t_id=0;
-			//auto pair = ad.media_list.emplace(en->media_id);	//emplace is not yet implemented in libstdc
-			//if(pair.second) { //new element inserted
-			//	media_entity &me=*(pair.first);
 
 			media_entity *me=0;
 			auto it=ad.media_list.find(en->media_id);
@@ -392,6 +389,7 @@ void jsonparser::DoFriendLookupParse(const rapidjson::Value& val) {
 							else if(type=="following_requested") tac->SetUserRelationship(userid, URF::IFOLLOW_KNOWN | URF::IFOLLOW_PENDING, optime);
 							else if(type=="followed_by") tac->SetUserRelationship(userid, URF::FOLLOWSME_KNOWN | URF::FOLLOWSME_TRUE, optime);
 							//else if(type=="none") tac->SetUserRelationship(userid, URF::IFOLLOW_KNOWN | URF::FOLLOWSME_KNOWN, optime);
+							//This last line is redundant, as we initialise to that value anyway
 						}
 					}
 				}
@@ -750,7 +748,6 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, fla
 			ParseTwitterDate(0, &tobj->createtime, created_at);
 		}
 		else {
-			//tobj->createtime.SetToCurrent();
 			tobj->createtime=time(0);
 		}
 		auto &rtval=val["retweeted_status"];

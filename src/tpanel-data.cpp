@@ -28,6 +28,10 @@
 #include "taccount.h"
 #include <algorithm>
 
+#ifndef TPANEL_COPIOUS_LOGGING
+#define TPANEL_COPIOUS_LOGGING 0
+#endif
+
 void tpanel::PushTweet(const std::shared_ptr<tweet> &t, flagwrapper<PUSHFLAGS> pushflags) {
 	LogMsgFormat(LOGT::TPANEL, wxT("Pushing tweet id %" wxLongLongFmtSpec "d to panel %s (pushflags: 0x%X)"), t->id, wxstrstd(name).c_str(), pushflags);
 	if(RegisterTweet(t)) {

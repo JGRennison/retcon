@@ -58,7 +58,9 @@ generic_disp_base::generic_disp_base(wxWindow *parent, panelparentwin_base *tppw
 }
 
 void generic_disp_base::mousewheelhandler(wxMouseEvent &event) {
-	//LogMsg(LOGT::TPANEL, wxT("MouseWheel"));
+	#if DISPSCR_COPIOUS_LOGGING
+		LogMsg(LOGT::TPANEL, wxT("DCL: MouseWheel"));
+	#endif
 	event.SetEventObject(GetParent());
 	GetParent()->GetEventHandler()->ProcessEvent(event);
 }
@@ -220,16 +222,7 @@ void dispscr_base::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 	wxRichTextCtrl::SetScrollbars(0, 0, 0, 0, 0, 0, noRefresh);
 	int newheight=(pixelsPerUnitY*noUnitsY)+4;
 	hbox->SetItemMinSize(this, 10, newheight);
-	//hbox->SetMinSize(10, newheight+4);
-	//SetSize(wxDefaultCoord, wxDefaultCoord, wxDefaultCoord, newheight, wxSIZE_USE_EXISTING);
-	/*if(!tpsw->fit_inside_blocked) {
-		tppw_scrollfreeze sf;
-		tpsw->Freeze();
-		tppw->StartScrollFreeze(sf);
-		tpsw->FitInside();
-		tppw->EndScrollFreeze(sf);
-		tpsw->Thaw();
-	}*/
+
 	if(!tpsw->fit_inside_blocked) tpsw->FitInside();
 	if(!tpsw->resize_update_pending) {
 		tpsw->resize_update_pending=true;

@@ -127,10 +127,8 @@ void mainframe::OnSettings(wxCommandEvent &event) {
 }
 void mainframe::OnAccounts(wxCommandEvent &event) {
 	acc_window *acc=new acc_window(this, -1, wxT("Accounts"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
-	//acc->Show(true);
 	acc->ShowModal();
 	acc->Destroy();
-	//delete acc;
 }
 void mainframe::OnViewlog(wxCommandEvent &event) {
 	if(globallogwindow) globallogwindow->LWShow(true);
@@ -206,7 +204,6 @@ void mainframe::OnTPanelMenuCmd(wxCommandEvent &event) {
 }
 
 void mainframe::OnLookupUser(wxCommandEvent &event) {
-	//wxString username=::wxGetTextFromUser(wxT("Enter user screen name (eg. @twitter) or numeric identifier (eg. 783214) to look up."), wxT("Lookup User"), wxT(""), this, wxDefaultCoord, wxDefaultCoord, false);
 	int type;
 	wxString value;
 	std::shared_ptr<taccount> acctouse;
@@ -260,7 +257,6 @@ DECLARE_EVENT_TYPE(wxextTPRESIZE_UPDATE_EVENT, -1)
 DEFINE_EVENT_TYPE(wxextTPRESIZE_UPDATE_EVENT)
 
 BEGIN_EVENT_TABLE(tweetposttextbox, wxRichTextCtrl)
-	//EVT_RICHTEXT_CHARACTER(wxID_ANY, tweetposttextbox::OnTCChar)
 	EVT_TEXT(wxID_ANY, tweetposttextbox::OnTCUpdate)
 END_EVENT_TABLE()
 

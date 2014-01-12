@@ -162,10 +162,6 @@ static int sock_cb(CURL *e, curl_socket_t s, int what, socketmanager *smp, mcurl
 }
 
 static int multi_timer_cb(CURLM *multi, long timeout_ms, socketmanager *smp) {
-	//long new_timeout_ms;
-	//if(timeout_ms<=0 || timeout_ms>90000) new_timeout_ms=90000;
-	//else new_timeout_ms=timeout_ms;
-
 	LogMsgFormat(LOGT::SOCKTRACE, wxT("Socket Timer Callback: %d ms"), timeout_ms);
 
 	if(timeout_ms>0) smp->st->Start(timeout_ms,wxTIMER_ONE_SHOT);
@@ -245,7 +241,6 @@ void sockettimeout::Notify() {
 	LogMsgFormat(LOGT::SOCKTRACE, wxT("Socket Timer Event"));
 	curl_multi_socket_action(sm.curlmulti, CURL_SOCKET_TIMEOUT, 0, &sm.curnumsocks);
 	check_multi_info(&sm);
-	//if(!IsRunning() && sm.curnumsocks) Start(90000,wxTIMER_ONE_SHOT);
 }
 
 void socketmanager::NotifySockEvent(curl_socket_t sockfd, int ev_bitmask) {

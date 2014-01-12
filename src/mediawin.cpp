@@ -291,8 +291,6 @@ void media_display_win::ImgSizerLayout() {
 	wxSize winsize, targsize;
 	CalcSizes(imgsize, winsize, targsize);
 
-	//LogMsgFormat(LOGT::OTHERTRACE, wxT("Media Display Window: targsize: %d, %d, imgsize: %d, %d, origwinsize: %d, %d, winsize: %d, %d, scr: %d, %d"), targsize.GetWidth(), targsize.GetHeight(), img.GetWidth(), img.GetHeight(), origwinsize.GetWidth(), origwinsize.GetHeight(), winsize.GetWidth(), winsize.GetHeight(), scrwidth, scrheight);
-
 	if(!sb) {
 		sb=new image_panel(this, targsize);
 		sb->img = current_img;
