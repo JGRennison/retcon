@@ -26,11 +26,13 @@
 #include "log.h"
 #include "db.h"
 #include "tpanel.h"
+#include "tpanel-data.h"
 #include "dispscr.h"
 #include "util.h"
 #include "userui.h"
 #include "alldata.h"
 #include "twitcurlext.h"
+#include "socket-ops.h"
 #include "mainui.h"
 #include "log-impl.h"
 
@@ -72,43 +74,6 @@ void HandleNewTweet(const std::shared_ptr<tweet> &t, const std::shared_ptr<tacco
 				}
 			}
 		}
-	}
-}
-
-void EnumAllDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush) {
-	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
-		(*it)->EnumDisplayedTweets(func, setnoupdateonpush);
-	}
-}
-
-void UpdateAllTweets(bool redrawimg, bool resethighlight) {
-	EnumAllDisplayedTweets([&](tweetdispscr *tds) {
-		if(resethighlight) tds->tds_flags &= ~TDSF::HIGHLIGHT;
-		tds->DisplayTweet(redrawimg);
-		return true;
-	}, true);
-}
-
-void UpdateUsersTweet(uint64_t userid, bool redrawimg) {
-	EnumAllDisplayedTweets([&](tweetdispscr *tds) {
-		bool found=false;
-		if((tds->td->user && tds->td->user->id==userid)
-		|| (tds->td->user_recipient && tds->td->user_recipient->id==userid)) found=true;
-		if(tds->td->rtsrc) {
-			if((tds->td->rtsrc->user && tds->td->rtsrc->user->id==userid)
-			|| (tds->td->rtsrc->user_recipient && tds->td->rtsrc->user_recipient->id==userid)) found=true;
-		}
-		if(found) {
-			LogMsgFormat(LOGT::TPANEL, wxT("UpdateUsersTweet: Found Entry %" wxLongLongFmtSpec "d."), tds->td->id);
-			tds->DisplayTweet(redrawimg);
-		}
-		return true;
-	}, true);
-}
-
-void UpdateTweet(const tweet &t, bool redrawimg) {
-	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
-		(*it)->UpdateOwnTweet(t, redrawimg);
 	}
 }
 

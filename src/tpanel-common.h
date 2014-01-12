@@ -29,6 +29,7 @@
 #include <wx/gdicmn.h>
 
 struct taccount;
+struct tweet;
 
 enum class TPF {
 	DELETEONWINCLOSE      = 1<<0,
@@ -93,6 +94,10 @@ enum class TPPWF {	//for tppw_flags
 	BATCHTIMERMODE        = 1<<6,
 };
 template<> struct enum_traits<TPPWF> { static constexpr bool flags = true; };
+
+void UpdateTweet(const tweet &t, bool redrawimg = false);
+void UpdateAllTweets(bool redrawimg = false, bool resethighlight = false);
+void UpdateUsersTweet(uint64_t userid, bool redrawimg = false);
 
 #endif
 

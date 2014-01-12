@@ -49,9 +49,6 @@ struct taccount;
 class wxSizer;
 
 void HandleNewTweet(const std::shared_ptr<tweet> &t, const std::shared_ptr<taccount> &acc);
-void UpdateTweet(const tweet &t, bool redrawimg = false);
-void UpdateAllTweets(bool redrawimg=false, bool resethighlight = false);
-void UpdateUsersTweet(uint64_t userid, bool redrawimg = false);
 bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t, bool checkfirst = false);
 unsigned int CheckTweetPendings(const tweet &t);
 inline unsigned int CheckTweetPendings(const std::shared_ptr<tweet> &t) {

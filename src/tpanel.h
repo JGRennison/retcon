@@ -40,6 +40,7 @@
 #include <map>
 #include <deque>
 #include <forward_list>
+#include <functional>
 
 #define BATCH_TIMER_DELAY 200
 
@@ -47,6 +48,8 @@ struct tpanelparentwin;
 struct dispscr_base;
 struct tpanelscrollwin;
 struct mainframe;
+struct tweetdispscr;
+struct tpanel;
 struct tweetdispscr;
 
 DECLARE_EVENT_TYPE(wxextRESIZE_UPDATE_EVENT, -1)
@@ -110,35 +113,6 @@ struct profimg_staticbitmap: public wxStaticBitmap {
 	DECLARE_EVENT_TABLE()
 };
 template<> struct enum_traits<profimg_staticbitmap::PISBF> { static constexpr bool flags = true; };
-
-struct tpanel : std::enable_shared_from_this<tpanel> {
-	std::string name;
-	std::string dispname;
-	tweetidset tweetlist;
-	std::forward_list<tpanelparentwin_nt*> twin;
-	flagwrapper<TPF> flags;
-	uint64_t upperid;
-	uint64_t lowerid;
-	cached_id_sets cids;
-	std::vector<tpanel_auto> tpautos;
-
-	static std::shared_ptr<tpanel> MkTPanel(const std::string &name_, const std::string &dispname_, flagwrapper<TPF> flags_ = 0, std::shared_ptr<taccount> *acc = 0);
-	static std::shared_ptr<tpanel> MkTPanel(const std::string &name_, const std::string &dispname_, flagwrapper<TPF> flags_, std::vector<tpanel_auto> tpautos_);
-	tpanel(const std::string &name_, const std::string &dispname_, flagwrapper<TPF> flags_, std::vector<tpanel_auto> tpautos_);		//don't use this directly
-	~tpanel();
-
-	static void NameDefaults(std::string &name, std::string &dispname, const std::vector<tpanel_auto> &tpautos);
-
-	void PushTweet(const std::shared_ptr<tweet> &t, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
-	bool RegisterTweet(const std::shared_ptr<tweet> &t);
-	tpanelparentwin *MkTPanelWin(mainframe *parent, bool select=false);
-	void OnTPanelWinClose(tpanelparentwin_nt *tppw);
-	bool IsSingleAccountTPanel() const;
-	void TPPWFlagMaskAllTWins(flagwrapper<TPPWF> set, flagwrapper<TPPWF> clear) const;
-
-	private:
-	void RecalculateSets();
-};
 
 struct tpanelnotebook : public wxAuiNotebook {
 	mainframe *owner;
@@ -278,7 +252,7 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	void morebtnhandler(wxCommandEvent &event);
 	void MarkClearCIDSSetHandler(std::function<tweetidset &(cached_id_sets &)> idsetselector,
 			std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc, const tweetidset &subset);
-	virtual bool IsSingleAccountWin() const override { return tp->IsSingleAccountTPanel(); }
+	virtual bool IsSingleAccountWin() const override;
 	void EnumDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush);
 	void UpdateOwnTweet(const tweet &t, bool redrawimg);
 	tweetdispscr_mouseoverwin *MakeMouseOverWin();
@@ -393,6 +367,8 @@ void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map);
 void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent);
 void CheckClearNoUpdateFlag_All();
 void StartBatchTimerMode_All();
+
+void EnumAllDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush);
 
 extern std::forward_list<tpanelparentwin_nt*> tpanelparentwinlist;
 

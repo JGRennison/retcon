@@ -24,7 +24,7 @@
 #include "twit.h"
 #include "util.h"
 #include "log.h"
-#include "socket.h"
+#include "socket-ops.h"
 #include "cfg.h"
 #include <wx/filename.h>
 #include <wx/filedlg.h>

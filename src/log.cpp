@@ -26,6 +26,7 @@
 #include "taccount.h"
 #include "util.h"
 #include "tpanel.h"
+#include "tpanel-data.h"
 #include "alldata.h"
 #include "twitcurlext.h"
 #include <wx/tokenzr.h>

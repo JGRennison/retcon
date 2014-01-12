@@ -25,6 +25,7 @@
 #include "twitcurlext.h"
 #include "taccount.h"
 #include "tpanel.h"
+#include "tpanel-data.h"
 #include "userui.h"
 #include "mediawin.h"
 #include "mainui.h"

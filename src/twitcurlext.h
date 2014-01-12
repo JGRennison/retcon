@@ -23,6 +23,7 @@
 
 #include "univdefs.h"
 #include "twitcurlext-common.h"
+#include "twit-common.h"
 #include "libtwitcurl/twitcurl.h"
 #include "socket.h"
 #include "magic_ptr.h"

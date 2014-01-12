@@ -27,13 +27,13 @@
 #include "cfg.h"
 #include "signal.h"
 #include "cmdline.h"
-#include "socket.h"
+#include "socket-ops.h"
 #include "mainui.h"
 #include "taccount.h"
 #include "db.h"
 #include "filter/filter-ops.h"
 #include "util.h"
-#include "tpanel.h"
+#include "tpanel-data.h"
 #include <wx/image.h>
 #include <wx/stdpaths.h>
 #include <cstdio>
