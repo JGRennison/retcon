@@ -22,6 +22,7 @@
 #define HGUARD_SRC_OPTUI
 
 #include "univdefs.h"
+#include "flags.h"
 #include <wx/tglbtn.h>
 #include <wx/listbox.h>
 #include <wx/dialog.h>
@@ -45,6 +46,15 @@
 struct taccount;
 struct genopt;
 struct genoptconf;
+
+enum class DBCV {
+	HIDDENDEFAULT   = 1<<0,
+	ISGLOBALCFG     = 1<<1,
+	ADVOPTION       = 1<<2,
+	VERYADVOPTION   = 1<<3,
+	MULTILINE       = 1<<4,
+};
+template<> struct enum_traits<DBCV> { static constexpr bool flags = true; };
 
 struct acc_window: public wxDialog {
 	acc_window(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name = wxT("dialogBox"));
@@ -83,7 +93,7 @@ struct settings_window : public wxDialog {
 		wxSizer *sizer;
 		wxWindow *win;
 		unsigned int cat;
-		unsigned int flags;
+		flagwrapper<DBCV> flags;
 	};
 
 	std::forward_list<option_item> opts;
@@ -102,14 +112,14 @@ struct settings_window : public wxDialog {
 	void ShowAdvCtrlChange(wxCommandEvent &event);
 	void ShowVeryAdvCtrlChange(wxCommandEvent &event);
 
-	void AddSettingRow_String(unsigned int win, wxWindow* parent, wxSizer *sizer, const wxString &name, unsigned int flags,
+	void AddSettingRow_String(unsigned int win, wxWindow* parent, wxSizer *sizer, const wxString &name, flagwrapper<DBCV> flags,
 			genopt &val, genopt &parentval, long style=wxFILTER_NONE, wxValidator *textctrlvalidator = 0);
-	void AddSettingRow_Bool(unsigned int win, wxWindow* parent, wxSizer *sizer, const wxString &name, unsigned int flags,
+	void AddSettingRow_Bool(unsigned int win, wxWindow* parent, wxSizer *sizer, const wxString &name, flagwrapper<DBCV> flags,
 			genopt &val, genopt &parentval);
 	wxStaticBoxSizer *AddGenoptconfSettingBlock(wxWindow* parent, wxSizer *sizer, const wxString &name, genoptconf &goc,
-			genoptconf &parentgoc, unsigned int flags);
+			genoptconf &parentgoc, flagwrapper<DBCV> flags);
 
-	void OptShowHide(unsigned int setmask);
+	void OptShowHide(flagwrapper<DBCV> setmask);
 	void PostOptShowHide();
 	void CategoryButtonClick(wxCommandEvent &event);
 

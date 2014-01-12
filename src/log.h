@@ -22,45 +22,45 @@
 #define HGUARD_SRC_LOG
 
 #include "univdefs.h"
+#include "flags.h"
 #include <wx/log.h>
 
-typedef unsigned int logflagtype;
+enum class LOGT : unsigned int;
+template<> struct enum_traits<LOGT> { static constexpr bool flags = true; };
 
-enum {
-	LFT_CURLVERB       = 1<<0,
-	LFT_PARSE          = 1<<1,
-	LFT_PARSEERR       = 1<<2,
-	LFT_SOCKTRACE      = 1<<3,
-	LFT_SOCKERR        = 1<<4,
-	LFT_TPANEL         = 1<<5,
-	LFT_NETACT         = 1<<6,
-	LFT_DBTRACE        = 1<<7,
-	LFT_DBERR          = 1<<8,
-	LFT_ZLIBTRACE      = 1<<9,
-	LFT_ZLIBERR        = 1<<10,
-	LFT_OTHERTRACE     = 1<<11,
-	LFT_OTHERERR       = 1<<12,
-	LFT_USERREQ        = 1<<13,
-	LFT_PENDTRACE      = 1<<14,
-	LFT_WXLOG          = 1<<15,
-	LFT_WXVERBOSE      = 1<<16,
-	LFT_FILTERERR      = 1<<17,
-	LFT_FILTERTRACE    = 1<<18,
+enum class LOGT : unsigned int {
+	ZERO               = 0,
+	CURLVERB           = 1<<0,
+	PARSE              = 1<<1,
+	PARSEERR           = 1<<2,
+	SOCKTRACE          = 1<<3,
+	SOCKERR            = 1<<4,
+	TPANEL             = 1<<5,
+	NETACT             = 1<<6,
+	DBTRACE            = 1<<7,
+	DBERR              = 1<<8,
+	ZLIBTRACE          = 1<<9,
+	ZLIBERR            = 1<<10,
+	OTHERTRACE         = 1<<11,
+	OTHERERR           = 1<<12,
+	USERREQ            = 1<<13,
+	PENDTRACE          = 1<<14,
+	WXLOG              = 1<<15,
+	WXVERBOSE          = 1<<16,
+	FILTERERR          = 1<<17,
+	FILTERTRACE        = 1<<18,
+
+	GROUP_ALL          = CURLVERB | PARSE | PARSEERR | SOCKTRACE | SOCKERR | TPANEL | NETACT | DBTRACE | DBERR | ZLIBTRACE | ZLIBERR |
+	                     OTHERTRACE | OTHERERR | USERREQ | PENDTRACE | WXLOG | WXVERBOSE | FILTERERR | FILTERTRACE,
+	GROUP_STR          = GROUP_ALL,
+	GROUP_ERR          = SOCKERR | DBERR | ZLIBERR | PARSEERR | OTHERERR | WXLOG | FILTERERR,
+	GROUP_LOGWINDEF    = GROUP_ERR | USERREQ,
 };
 
-enum logflagdefs {
-	lfd_allmask = LFT_CURLVERB | LFT_PARSE | LFT_PARSEERR | LFT_SOCKTRACE | LFT_SOCKERR | LFT_TPANEL | LFT_NETACT | LFT_DBTRACE | LFT_DBERR | \
-			LFT_ZLIBTRACE | LFT_ZLIBERR | LFT_OTHERTRACE | LFT_OTHERERR | LFT_USERREQ | LFT_PENDTRACE | LFT_WXLOG | LFT_WXVERBOSE | \
-			LFT_FILTERERR | LFT_FILTERTRACE,
-	lfd_stringmask = lfd_allmask,
-	lfd_err = LFT_SOCKERR | LFT_DBERR | LFT_ZLIBERR | LFT_PARSEERR | LFT_OTHERERR | LFT_WXLOG | LFT_FILTERERR,
-	lfd_defaultwin = lfd_err | LFT_USERREQ,
-};
+extern LOGT currentlogflags;
 
-extern logflagtype currentlogflags;
-
-void LogMsgRaw(logflagtype logflags, const wxString &str);
-void LogMsgProcess(logflagtype logflags, const wxString &str);
+void LogMsgRaw(LOGT logflags, const wxString &str);
+void LogMsgProcess(LOGT logflags, const wxString &str);
 void Update_currentlogflags();
 
 #define LogMsg(l, s) if( currentlogflags & (l) ) LogMsgProcess(l, s)

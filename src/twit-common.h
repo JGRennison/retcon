@@ -22,6 +22,7 @@
 #define HGUARD_SRC_TWIT_COMMON
 
 #include "univdefs.h"
+#include "flags.h"
 #include <functional>
 #include <set>
 #include <bitset>
@@ -172,5 +173,11 @@ typedef enum {
 	CS_USERFOLLOWERS,
 	CS_SINGLETWEET,
 } CS_ENUMTYPE;
+
+enum class UMPTF { //For UnmarkPendingTweet
+	TPDB_NOUPDF        = 1<<0,
+	RMV_LKPINPRGFLG    = 1<<1,  //Clear UDC::LOOKUP_IN_PROGRESS
+};
+template<> struct enum_traits<UMPTF> { static constexpr bool flags = true; };
 
 #endif

@@ -84,10 +84,6 @@ enum {
 	MDID_DYN_START       = wxID_HIGHEST + 1,
 };
 
-enum {
-	MDZF_ZOOMSET         = 1<<0,
-};
-
 BEGIN_EVENT_TABLE(media_display_win, wxFrame)
 	EVT_MENU(MDID_SAVE,  media_display_win::OnSave)
 	EVT_TIMER(MDID_TIMER_EVT, media_display_win::OnAnimationTimer)
@@ -104,18 +100,18 @@ media_display_win::media_display_win(wxWindow *parent, media_id_type media_id_)
 	media_entity *me=&ad.media_list[media_id_];
 	me->win=this;
 
-	if(me->flags&ME_LOAD_FULL && !(me->flags&ME_HAVE_FULL)) {
+	if(me->flags & MEF::LOAD_FULL && !(me->flags & MEF::HAVE_FULL)) {
 		//try to load from file
 		char *data=0;
 		size_t size;
 		if(LoadFromFileAndCheckHash(me->cached_full_filename(), me->full_img_sha1, data, size)) {
-			me->flags|=ME_HAVE_FULL;
+			me->flags |= MEF::HAVE_FULL;
 			me->fulldata.assign(data, size);	//redundant copy, but oh well
 		}
 		if(data) free(data);
 	}
-	if(!(me->flags&ME_FULL_NET_INPROGRESS) && !(me->flags&ME_HAVE_FULL) && me->media_url.size()) {
-		new mediaimgdlconn(me->media_url, media_id_, MIDC_FULLIMG | MIDC_OPPORTUNIST_THUMB | MIDC_OPPORTUNIST_REDRAW_TWEETS);
+	if(!(me->flags & MEF::FULL_NET_INPROGRESS) && !(me->flags & MEF::HAVE_FULL) && me->media_url.size()) {
+		new mediaimgdlconn(me->media_url, media_id_, MIDC::FULLIMG | MIDC::OPPORTUNIST_THUMB | MIDC::OPPORTUNIST_REDRAW_TWEETS);
 	}
 
 	wxMenu *menuF = new wxMenu;
@@ -183,9 +179,9 @@ media_display_win::media_display_win(wxWindow *parent, media_id_type media_id_)
 #endif
 
 		wxMenuItem *wmi1 = zoom_menu->Append(MDID_ZOOM_FIT, wxT("&Fit to Window"), wxT(""), wxITEM_CHECK);
-		wmi1->Check(zoomflags == 0);
+		wmi1->Check(zoomflags == static_cast<MDZF>(0));
 		wxMenuItem *wmi2 = zoom_menu->Append(MDID_ZOOM_ORIG, wxT("&Original Size"), wxT(""), wxITEM_CHECK);
-		wmi2->Check(zoomflags & MDZF_ZOOMSET && zoomvalue == 1.0);
+		wmi2->Check(zoomflags & MDZF::ZOOMSET && zoomvalue == 1.0);
 		zoom_menu->Append(MDID_ZOOM_SET, wxT("&Zoom to..."));
 	});
 
@@ -267,7 +263,7 @@ void media_display_win::CalcSizes(wxSize imgsize, wxSize &winsize, wxSize &targi
 	if(scrwidth < 1) scrwidth = 1;
 	if(scrheight < 1) scrheight = 1;
 
-	if(zoomflags & MDZF_ZOOMSET) {
+	if(zoomflags & MDZF::ZOOMSET) {
 		targimgsize.SetWidth(imgsize.GetWidth() * zoomvalue);
 		targimgsize.SetHeight(imgsize.GetHeight() * zoomvalue);
 
@@ -295,7 +291,7 @@ void media_display_win::ImgSizerLayout() {
 	wxSize winsize, targsize;
 	CalcSizes(imgsize, winsize, targsize);
 
-	//LogMsgFormat(LFT_OTHERTRACE, wxT("Media Display Window: targsize: %d, %d, imgsize: %d, %d, origwinsize: %d, %d, winsize: %d, %d, scr: %d, %d"), targsize.GetWidth(), targsize.GetHeight(), img.GetWidth(), img.GetHeight(), origwinsize.GetWidth(), origwinsize.GetHeight(), winsize.GetWidth(), winsize.GetHeight(), scrwidth, scrheight);
+	//LogMsgFormat(LOGT::OTHERTRACE, wxT("Media Display Window: targsize: %d, %d, imgsize: %d, %d, origwinsize: %d, %d, winsize: %d, %d, scr: %d, %d"), targsize.GetWidth(), targsize.GetHeight(), img.GetWidth(), img.GetHeight(), origwinsize.GetWidth(), origwinsize.GetHeight(), winsize.GetWidth(), winsize.GetHeight(), scrwidth, scrheight);
 
 	if(!sb) {
 		sb=new image_panel(this, targsize);
@@ -305,7 +301,7 @@ void media_display_win::ImgSizerLayout() {
 		sz->Detach(sb);
 	}
 
-	if(zoomflags & MDZF_ZOOMSET) {
+	if(zoomflags & MDZF::ZOOMSET) {
 		if(!scrollwin) {
 			scrollwin = new wxScrolledWindow(this);
 			scrollwin->SetScrollRate(1, 1);
@@ -340,7 +336,7 @@ void media_display_win::ImgSizerLayout() {
 void media_display_win::GetImage(wxString &message) {
 	media_entity *me=GetMediaEntity();
 	if(me) {
-		if(me->flags&ME_HAVE_FULL) {
+		if(me->flags & MEF::HAVE_FULL) {
 			is_animated = false;
 
 			wxMemoryInputStream memstream2(me->fulldata.data(), me->fulldata.size());
@@ -351,7 +347,7 @@ void media_display_win::GetImage(wxString &message) {
 				wxMemoryInputStream memstream(me->fulldata.data(), me->fulldata.size());
 				if(anim.Load(memstream, wxANIMATION_TYPE_ANY)) {
 					if(anim.GetFrameCount() > 1) {
-						LogMsgFormat(LFT_OTHERTRACE, wxT("media_display_win::GetImage found animation: %d frames"), anim.GetFrameCount());
+						LogMsgFormat(LOGT::OTHERTRACE, wxT("media_display_win::GetImage found animation: %d frames"), anim.GetFrameCount());
 						is_animated = true;
 						current_img = anim.GetFrame(0);
 						current_frame_index = 0;
@@ -368,11 +364,11 @@ void media_display_win::GetImage(wxString &message) {
 				}
 			}
 			else {
-				LogMsgFormat(LFT_OTHERERR, wxT("media_display_win::GetImage: Image is not OK, corrupted or partial download?"));
+				LogMsgFormat(LOGT::OTHERERR, wxT("media_display_win::GetImage: Image is not OK, corrupted or partial download?"));
 			}
 			return;
 		}
-		else if(me->flags&ME_FULL_FAILED) {
+		else if(me->flags & MEF::FULL_FAILED) {
 			message=wxT("Failed to Load Image");
 		}
 		else {
@@ -433,12 +429,12 @@ void media_display_win::SaveToDir(const wxString &dir) {
 }
 
 void media_display_win::OnMenuZoomFit(wxCommandEvent &event) {
-	zoomflags &= ~MDZF_ZOOMSET;
+	zoomflags &= ~MDZF::ZOOMSET;
 	ImgSizerLayout();
 }
 
 void media_display_win::OnMenuZoomOrig(wxCommandEvent &event) {
-	zoomflags |= MDZF_ZOOMSET;
+	zoomflags |= MDZF::ZOOMSET;
 	zoomvalue = 1.0;
 	ImgSizerLayout();
 }
@@ -453,7 +449,7 @@ void media_display_win::OnMenuZoomSet(wxCommandEvent &event) {
 			::wxMessageBox(wxString::Format(wxT("'%s' does not appear to be a positive finite number"), str.c_str()), wxT("Invalid Input"), wxOK | wxICON_EXCLAMATION, this);
 			return;
 		}
-		zoomflags |= MDZF_ZOOMSET;
+		zoomflags |= MDZF::ZOOMSET;
 		zoomvalue = value / 100;
 		ImgSizerLayout();
 	}

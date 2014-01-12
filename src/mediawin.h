@@ -23,6 +23,7 @@
 
 #include "univdefs.h"
 #include "twit-common.h"
+#include "flags.h"
 #include <wx/panel.h>
 #include <wx/gdicmn.h>
 #include <wx/event.h>
@@ -56,6 +57,11 @@ struct image_panel : public wxPanel {
 	DECLARE_EVENT_TABLE()
 };
 
+enum class MDZF {
+	ZOOMSET         = 1<<0,
+};
+template<> struct enum_traits<MDZF> { static constexpr bool flags = true; };
+
 struct media_display_win : public wxFrame {
 	media_id_type media_id;
 	std::string media_url;
@@ -78,7 +84,7 @@ struct media_display_win : public wxFrame {
 	int next_dynmenu_id;
 	wxMenu *zoom_menu;
 	wxScrolledWindow *scrollwin = 0;
-	unsigned int zoomflags = 0;
+	flagwrapper<MDZF> zoomflags = 0;
 	double zoomvalue = 1.0;
 
 	media_display_win(wxWindow *parent, media_id_type media_id_);

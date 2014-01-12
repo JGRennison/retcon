@@ -118,7 +118,7 @@ uint64_t ParseUrlID(wxString url) {
 }
 
 void AppendToTAMIMenuMap(tweetactmenudata &map, int &nextid, TAMI_TYPE type, std::shared_ptr<tweet> tw, unsigned int dbindex, std::shared_ptr<userdatacontainer> user,
-		unsigned int flags, wxString extra, panelparentwin_base *ppwb) {
+		flagwrapper<TPF> flags, wxString extra, panelparentwin_base *ppwb) {
 	map[nextid]={tw, user, type, dbindex, flags, extra, ppwb};
 	nextid++;
 }
@@ -510,9 +510,9 @@ wxColour ColourOp(const wxColour &in, const wxString &co_str) {
 }
 
 void GenericPopupWrapper(wxWindow *win, wxMenu *menu, const wxPoint& pos) {
-	LogMsgFormat(LFT_TPANEL, wxT("About to popup menu: %p, win: %p, recursion: %d"), menu, win, wxGetApp().popuprecursion);
+	LogMsgFormat(LOGT::TPANEL, wxT("About to popup menu: %p, win: %p, recursion: %d"), menu, win, wxGetApp().popuprecursion);
 	wxGetApp().popuprecursion++;
 	bool result = win->PopupMenu(menu, pos);
 	wxGetApp().popuprecursion--;
-	LogMsgFormat(LFT_TPANEL, wxT("Finished popup menu: %p, win: %p, recursion: %d, result: %d"), menu, win, wxGetApp().popuprecursion, result);
+	LogMsgFormat(LOGT::TPANEL, wxT("Finished popup menu: %p, win: %p, recursion: %d, result: %d"), menu, win, wxGetApp().popuprecursion, result);
 }

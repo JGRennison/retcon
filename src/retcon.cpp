@@ -56,7 +56,7 @@ bool retcon::OnInit() {
 	srand((unsigned int) time(0));
 	datadir = stdstrwx(wxStandardPaths::Get().GetUserDataDir());
 	cmdlineproc(argv, argc);
-	if(!globallogwindow) new log_window(0, lfd_defaultwin, false);
+	if(!globallogwindow) new log_window(0, LOGT::GROUP_LOGWINDEF, false);
 	if(!datadir.empty() && datadir.back() == '/') datadir.pop_back();
 	wxString wxdatadir = wxstrstd(datadir);
 	if(!::wxDirExists(wxdatadir)) {
@@ -80,12 +80,12 @@ bool retcon::OnInit() {
 		if(alist.empty() && ad.tpanels.empty()) {
 			//everything is empty, maybe new user
 			//make 3 basic auto tpanels to make things more obvious
-			unsigned int flags = TPAF_ALLACCS | TPF_DELETEONWINCLOSE;
-			auto tpt = tpanel::MkTPanel("", "", flags | TPAF_TW, 0);
+			auto flags = TPF::AUTO_ALLACCS | TPF::DELETEONWINCLOSE;
+			auto tpt = tpanel::MkTPanel("", "", flags | TPF::AUTO_TW, 0);
 			tpt->MkTPanelWin(mf, true);
-			auto tpm = tpanel::MkTPanel("", "", flags | TPAF_MN, 0);
+			auto tpm = tpanel::MkTPanel("", "", flags | TPF::AUTO_MN, 0);
 			tpm->MkTPanelWin(mf, false);
-			auto tpd = tpanel::MkTPanel("", "", flags | TPAF_DM, 0);
+			auto tpd = tpanel::MkTPanel("", "", flags | TPF::AUTO_DM, 0);
 			tpd->MkTPanelWin(mf, false);
 		}
 	}
@@ -105,7 +105,7 @@ bool retcon::OnInit() {
 }
 
 int retcon::OnExit() {
-	LogMsg(LFT_OTHERTRACE, wxT("retcon::OnExit"));
+	LogMsg(LOGT::OTHERTRACE, wxT("retcon::OnExit"));
 	for(auto it=alist.begin() ; it != alist.end(); it++) {
 		(*it)->cp.ClearAllConns();
 	}
@@ -137,7 +137,7 @@ int retcon::FilterEvent(wxEvent& event) {
 }
 
 void retcon::OnQuitMsg(wxCommandEvent &event) {
-	LogMsgFormat(LFT_OTHERTRACE, wxT("retcon::OnQuitMsg, about to call wxExit(), %d termination requests, %d mainframes, top win: %p, popup recursion: %d"),
+	LogMsgFormat(LOGT::OTHERTRACE, wxT("retcon::OnQuitMsg, about to call wxExit(), %d termination requests, %d mainframes, top win: %p, popup recursion: %d"),
 			terms_requested, mainframelist.size(), GetTopWindow(), popuprecursion);
 	wxExit();
 }

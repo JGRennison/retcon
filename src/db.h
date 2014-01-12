@@ -23,6 +23,7 @@
 
 #include "univdefs.h"
 #include "twit-common.h"
+#include "flags.h"
 #include <cstdlib>
 #include <queue>
 #include <string>
@@ -40,6 +41,7 @@ struct media_entity;
 struct tweet;
 struct userdatacontainer;
 struct dbconn;
+enum class MEF : unsigned int;
 
 typedef enum {
 	DBPSC_START = 0,
@@ -179,7 +181,7 @@ struct dbretmediadata {
 	char *url;	//free when done
 	unsigned char full_img_sha1[20];
 	unsigned char thumb_img_sha1[20];
-	unsigned int flags;
+	MEF flags;
 
 	dbretmediadata() : url(0) { }
 	~dbretmediadata() {
@@ -188,16 +190,17 @@ struct dbretmediadata {
 	dbretmediadata(const dbretmediadata& that) = delete;
 };
 
-enum {
-	DBSTMF_PULLMEDIA	= 1<<0,
-	DBSTMF_NO_ERR		= 1<<1,
-	DBSTMF_NET_FALLBACK	= 1<<2,
+enum class DBSTMF {
+	PULLMEDIA       = 1<<0,
+	NO_ERR          = 1<<1,
+	NET_FALLBACK    = 1<<2,
 };
+template<> struct enum_traits<DBSTMF> { static constexpr bool flags = true; };
 
 struct dbseltweetmsg : public dbsendmsg_callback {
 	dbseltweetmsg() : dbsendmsg_callback(DBSM_SELTWEET), flags(0) { }
 
-	unsigned int flags;
+	flagwrapper<DBSTMF> flags;
 	std::set<uint64_t> id_set;                      //ids to select
 	std::forward_list<dbrettweetdata> data;         //return data
 	std::forward_list<dbretmediadata> media_data;   //return data
@@ -205,7 +208,7 @@ struct dbseltweetmsg : public dbsendmsg_callback {
 
 struct dbseltweetmsg_netfallback : public dbseltweetmsg {
 	dbseltweetmsg_netfallback() : dbseltweetmsg(), dbindex(0) {
-		flags|=DBSTMF_NET_FALLBACK;
+		flags |= DBSTMF::NET_FALLBACK;
 	}
 
 	unsigned int dbindex;				//for the use of the main thread only
@@ -285,14 +288,14 @@ struct dbconn : public wxEvtHandler {
 	std::map<intptr_t, std::function<void(dbseltweetmsg *, dbconn *)> > generic_sel_funcs;
 
 	public:
-	enum {
-		DBCF_INITED                = 1<<0,
-		DBCF_BATCHEVTPENDING       = 1<<1,
-		DBCF_REPLY_CLEARNOUPDF     = 1<<2,
-		DBCF_REPLY_CHECKPENDINGS   = 1<<3,
+	enum class DBCF {
+		INITED                = 1<<0,
+		BATCHEVTPENDING       = 1<<1,
+		REPLY_CLEARNOUPDF     = 1<<2,
+		REPLY_CHECKPENDINGS   = 1<<3,
 	};
 
-	unsigned int dbc_flags = 0;
+	flagwrapper<DBCF> dbc_flags = 0;
 
 	dbconn() { }
 	~dbconn() { DeInit(); }
@@ -325,15 +328,17 @@ struct dbconn : public wxEvtHandler {
 	void SyncWriteBackWindowLayout(sqlite3 *adb);
 	void SyncReadInAllTweetIDs(sqlite3 *adb);
 
-	enum {
-		HDBSF_NOPENDINGS         = 1<<0,
+	enum class HDBSF {
+		NOPENDINGS         = 1<<0,
 	};
-	void HandleDBSelTweetMsg(dbseltweetmsg *msg, unsigned int flags);
+	void HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags);
 	void GenericDBSelTweetMsgHandler(wxCommandEvent &event);
 	void SetDBSelTweetMsgHandler(dbseltweetmsg *msg, std::function<void(dbseltweetmsg *, dbconn *)> f);
 
 	DECLARE_EVENT_TABLE()
 };
+template<> struct enum_traits<dbconn::DBCF> { static constexpr bool flags = true; };
+template<> struct enum_traits<dbconn::HDBSF> { static constexpr bool flags = true; };
 
 struct DBGenConfig {
 	void SetDBIndexGlobal();

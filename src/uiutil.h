@@ -23,6 +23,7 @@
 
 #include "univdefs.h"
 #include "twit-common.h"
+#include "tpanel-common.h"
 #include <wx/colour.h>
 #include <wx/string.h>
 #include <wx/menu.h>
@@ -44,7 +45,7 @@ enum { lookupprofileendid          = wxID_HIGHEST + 17000 };
 
 struct tpanelmenuitem {
 	unsigned int dbindex;
-	unsigned int flags;
+	flagwrapper<TPF> flags;
 };
 
 typedef enum {
@@ -80,7 +81,7 @@ struct tweetactmenuitem {
 	std::shared_ptr<userdatacontainer> user;
 	TAMI_TYPE type;
 	unsigned int dbindex;
-	unsigned int flags;
+	flagwrapper<TPF> flags;
 	wxString extra;
 	panelparentwin_base *ppwb;
 };
@@ -92,7 +93,7 @@ extern tweetactmenudata tamd;
 
 void AppendToTAMIMenuMap(tweetactmenudata &map, int &nextid, TAMI_TYPE type, std::shared_ptr<tweet> tw,
 		unsigned int dbindex = 0, std::shared_ptr<userdatacontainer> user = std::shared_ptr<userdatacontainer>(),
-		unsigned int flags = 0, wxString extra = wxT(""), panelparentwin_base *ppwb = 0);
+		flagwrapper<TPF> flags = 0, wxString extra = wxT(""), panelparentwin_base *ppwb = 0);
 void MakeRetweetMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw);
 void MakeFavMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw);
 void MakeCopyMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw);

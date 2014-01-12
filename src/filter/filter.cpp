@@ -26,32 +26,35 @@
 #include "../cfg.h"
 #include "filter.h"
 #include "../taccount.h"
+#include "../flags.h"
 #define PCRE_STATIC
 #include <pcre.h>
 #include <list>
 
-enum {
-	FRSF_DONEIF          = 1<<0,
-	FRSF_ACTIVE          = 1<<1,
-	FRSF_PARENTINACTIVE  = 1<<2,
+enum class FRSF {
+	DONEIF          = 1<<0,
+	ACTIVE          = 1<<1,
+	PARENTINACTIVE  = 1<<2,
 };
+template<> struct enum_traits<FRSF> { static constexpr bool flags = true; };
 
 struct filter_run_state {
-	std::vector<char> recursion;
+	std::vector<flagwrapper<FRSF>> recursion;
 	taccount *tac = 0;
 };
 
-enum {
-	FIF_COND      = 1<<0,
-	FIF_ELIF      = 1<<1,
-	FIF_NEG       = 1<<2,
-	FIF_ENDIF     = 1<<3,
-	FIF_ELSE      = 1<<4,
-	FIF_ORIF      = 1<<5,
+enum class FIF {
+	COND      = 1<<0,
+	ELIF      = 1<<1,
+	NEG       = 1<<2,
+	ENDIF     = 1<<3,
+	ELSE      = 1<<4,
+	ORIF      = 1<<5,
 };
+template<> struct enum_traits<FIF> { static constexpr bool flags = true; };
 
 struct filter_item {
-	unsigned int flags = 0;
+	flagwrapper<FIF> flags = 0;
 	virtual void exec(tweet &tw, filter_run_state &frs) = 0;
 	virtual ~filter_item() { }
 	virtual bool test_recursion(filter_run_state &frs, std::string &err) { return true; }
@@ -60,62 +63,62 @@ struct filter_item {
 struct filter_item_cond : public filter_item {
 	virtual bool test(tweet &tw, filter_run_state &frs) { return true; }
 	void exec(tweet &tw, filter_run_state &frs) override {
-		if(flags & FIF_ENDIF) {
+		if(flags & FIF::ENDIF) {
 			frs.recursion.pop_back();
 			return;
 		}
-		else if(flags & FIF_ELIF) {
-			if(frs.recursion.back() & (FRSF_DONEIF | FRSF_PARENTINACTIVE)) {
-				frs.recursion.back() &= ~FRSF_ACTIVE;
+		else if(flags & FIF::ELIF) {
+			if(frs.recursion.back() & (FRSF::DONEIF | FRSF::PARENTINACTIVE)) {
+				frs.recursion.back() &= ~FRSF::ACTIVE;
 				return;
 			}
 		}
-		else if(flags & FIF_ORIF) {
-			if(frs.recursion.back() & FRSF_ACTIVE) {
+		else if(flags & FIF::ORIF) {
+			if(frs.recursion.back() & FRSF::ACTIVE) {
 				//leave the active bit set
 				return;
 			}
-			if(frs.recursion.back() & (FRSF_DONEIF | FRSF_PARENTINACTIVE)) {
-				frs.recursion.back() &= ~FRSF_ACTIVE;
+			if(frs.recursion.back() & (FRSF::DONEIF | FRSF::PARENTINACTIVE)) {
+				frs.recursion.back() &= ~FRSF::ACTIVE;
 				return;
 			}
 		}
-		else if(flags & FIF_ELSE) {
-			if(frs.recursion.back() & (FRSF_DONEIF | FRSF_PARENTINACTIVE)) {
-				frs.recursion.back() &= ~FRSF_ACTIVE;
+		else if(flags & FIF::ELSE) {
+			if(frs.recursion.back() & (FRSF::DONEIF | FRSF::PARENTINACTIVE)) {
+				frs.recursion.back() &= ~FRSF::ACTIVE;
 			}
 			else {
-				frs.recursion.back() |= FRSF_DONEIF | FRSF_ACTIVE;
+				frs.recursion.back() |= FRSF::DONEIF | FRSF::ACTIVE;
 			}
 			return;
 		}
 		else {
-			if(!frs.recursion.empty() && !(frs.recursion.back() & FRSF_ACTIVE)) {
+			if(!frs.recursion.empty() && !(frs.recursion.back() & FRSF::ACTIVE)) {
 				//this is a nested if, the parent if is not active
-				frs.recursion.push_back(FRSF_PARENTINACTIVE);
+				frs.recursion.push_back(FRSF::PARENTINACTIVE);
 				return;
 			}
 			frs.recursion.push_back(0);
 		}
 
 		bool testresult = test(tw, frs);
-		if(flags & FIF_NEG) testresult = !testresult;
+		if(flags & FIF::NEG) testresult = !testresult;
 		if(testresult) {
-			frs.recursion.back() |= FRSF_DONEIF | FRSF_ACTIVE;
+			frs.recursion.back() |= FRSF::DONEIF | FRSF::ACTIVE;
 		}
 		else {
-			frs.recursion.back() &= ~FRSF_ACTIVE;
+			frs.recursion.back() &= ~FRSF::ACTIVE;
 		}
 	}
 	bool test_recursion(filter_run_state &frs, std::string &err) override {
-		if(flags & FIF_ENDIF) {
+		if(flags & FIF::ENDIF) {
 			if(frs.recursion.empty()) {
 				err = "endif/fi without opening if";
 				return false;
 			}
 			frs.recursion.pop_back();
 		}
-		else if(flags & FIF_ELIF || flags & FIF_ELSE || flags & FIF_ORIF) {
+		else if(flags & FIF::ELIF || flags & FIF::ELSE || flags & FIF::ORIF) {
 			if(frs.recursion.empty()) {
 				err = "elif/orif/else without corresponding if";
 				return false;
@@ -139,7 +142,7 @@ struct filter_item_cond_regex : public filter_item_cond {
 		const int ovecsize = 30;
 		int ovector[30];
 		bool result = (pcre_exec(ptn, extra,  str.c_str(), str.size(), 0, 0, ovector, ovecsize) >= 1);
-		LogMsgFormat(LFT_FILTERTRACE, wxT("String Regular Expression Test for Tweet: %" wxLongLongFmtSpec "d, String: '%s', Regex: '%s', Result: %smatch"),
+		LogMsgFormat(LOGT::FILTERTRACE, wxT("String Regular Expression Test for Tweet: %" wxLongLongFmtSpec "d, String: '%s', Regex: '%s', Result: %smatch"),
 				tw.id, wxstrstd(str).c_str(), wxstrstd(regexstr).c_str(), result ? wxT("") : wxT("no "));
 		return result;
 	}
@@ -164,7 +167,7 @@ struct filter_item_cond_flags : public filter_item_cond {
 		if(all && (curflags&all)!=all) result = false;
 		if(none && (curflags&none)) result = false;
 		if(missing && (curflags|missing)==curflags) result = false;
-		LogMsgFormat(LFT_FILTERTRACE, wxT("Tweet Flag Test for Tweet: %" wxLongLongFmtSpec "d, Flags: %s, Criteria: %s, Result: %smatch"),
+		LogMsgFormat(LOGT::FILTERTRACE, wxT("Tweet Flag Test for Tweet: %" wxLongLongFmtSpec "d, Flags: %s, Criteria: %s, Result: %smatch"),
 				tw.id, wxstrstd(tw.flags.GetString()).c_str(), wxstrstd(teststr).c_str(), result ? wxT("") : wxT("no "));
 		return result;
 	}
@@ -174,7 +177,7 @@ struct filter_item_action : public filter_item {
 	virtual void action(tweet &tw) = 0;
 	void exec(tweet &tw, filter_run_state &frs) {
 		if(frs.recursion.empty()) action(tw);
-		else if(frs.recursion.back() & FRSF_ACTIVE) action(tw);
+		else if(frs.recursion.back() & FRSF::ACTIVE) action(tw);
 	}
 };
 
@@ -188,7 +191,7 @@ struct filter_item_action_setflag : public filter_item_action {
 		unsigned long long oldflags = tw.flags.Save();
 		unsigned long long newflags = (oldflags | setflags) & ~unsetflags;
 		tw.flags = tweet_flags(newflags);
-		LogMsgFormat(LFT_FILTERTRACE, wxT("Setting Tweet Flags for Tweet: %" wxLongLongFmtSpec "d, Flags: Before %s, Action: %s, Result: %s"),
+		LogMsgFormat(LOGT::FILTERTRACE, wxT("Setting Tweet Flags for Tweet: %" wxLongLongFmtSpec "d, Flags: Before %s, Action: %s, Result: %s"),
 				tw.id, wxstrstd(tweet_flags::GetValueString(oldflags)).c_str(), wxstrstd(setstr).c_str(), wxstrstd(tweet_flags::GetValueString(newflags)).c_str());
 	}
 };
@@ -240,7 +243,7 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 
 		*ptn = pcre_compile(str, PCRE_NO_UTF8_CHECK | PCRE_CASELESS | PCRE_UTF8, &errptr, &erroffset, 0);
 		if(!*ptn) {
-			LogMsgFormat(LFT_FILTERERR, wxT("pcre_compile failed: %s (%d)\n%s"), wxstrstd(errptr).c_str(), erroffset, wxstrstd(str).c_str());
+			LogMsgFormat(LOGT::FILTERERR, wxT("pcre_compile failed: %s (%d)\n%s"), wxstrstd(errptr).c_str(), erroffset, wxstrstd(str).c_str());
 			ok = false;
 			return;
 		}
@@ -291,7 +294,10 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 			bool isorif = ovector[4] >= 0;
 			bool isnegative = ovector[6] >= 0;
 
-			unsigned int flags = FIF_COND | (iselif ? FIF_ELIF : 0) | (isnegative ? FIF_NEG : 0) | (isorif ? FIF_ORIF : 0);
+			flagwrapper<FIF> flags = FIF::COND;
+			if(iselif) flags |= FIF::ELIF;
+			if(isnegative) flags |= FIF::NEG;
+			if(isorif) flags |= FIF::ORIF;
 
 			if(pcre_exec(flagtest_pattern, flagtest_patextra, pos + nextsectionoffset, linelen - nextsectionoffset, 0, 0, ovector, ovecsize) >= 1) {
 				std::unique_ptr<filter_item_cond_flags> fitem(new filter_item_cond_flags);
@@ -324,7 +330,7 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 				std::string userptnstr(pos + nextsectionoffset + ovector[6], ovector[7] - ovector[6]);
 				ritem->ptn = pcre_compile(userptnstr.c_str(), PCRE_NO_UTF8_CHECK | PCRE_UTF8, &errptr, &erroffset, 0);
 				if(!ritem->ptn) {
-					LogMsgFormat(LFT_FILTERERR, wxT("pcre_compile failed: %s (%d)\n%s"), wxstrstd(errptr).c_str(), erroffset, wxstrstd(userptnstr).c_str());
+					LogMsgFormat(LOGT::FILTERERR, wxT("pcre_compile failed: %s (%d)\n%s"), wxstrstd(errptr).c_str(), erroffset, wxstrstd(userptnstr).c_str());
 					ok = false;
 				}
 				else ritem->extra = pcre_study(ritem->ptn, 0, &errptr);
@@ -433,12 +439,12 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 		}
 		else if(pcre_exec(else_pattern, 0,  pos, linelen, 0, 0, ovector, ovecsize) >= 1) {
 			std::unique_ptr<filter_item_cond> citem(new filter_item_cond);
-			citem->flags = FIF_COND | FIF_ELSE;
+			citem->flags = FIF::COND | FIF::ELSE;
 			out.filters.emplace_back(std::move(citem));
 		}
 		else if(pcre_exec(endif_pattern, 0,  pos, linelen, 0, 0, ovector, ovecsize) >= 1) {
 			std::unique_ptr<filter_item_cond> citem(new filter_item_cond);
-			citem->flags = FIF_COND | FIF_ENDIF;
+			citem->flags = FIF::COND | FIF::ENDIF;
 			out.filters.emplace_back(std::move(citem));
 		}
 		else if(pcre_exec(flagset_pattern, flagset_patextra,  pos, linelen, 0, 0, ovector, ovecsize) >= 1) {
@@ -495,7 +501,7 @@ bool LoadFilter(const std::string &input, filter_set &out) {
 	std::string errmsgs;
 	ParseFilter(input, out, errmsgs);
 	if(!errmsgs.empty()) {
-		LogMsgFormat(LFT_FILTERERR, wxT("Could not parse filter: Error: %s"), wxstrstd(errmsgs).c_str());
+		LogMsgFormat(LOGT::FILTERERR, wxT("Could not parse filter: Error: %s"), wxstrstd(errmsgs).c_str());
 		return false;
 	}
 	return true;

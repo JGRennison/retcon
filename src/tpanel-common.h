@@ -22,6 +22,7 @@
 #define HGUARD_SRC_TPANEL_COMMON
 
 #include "univdefs.h"
+#include "flags.h"
 #include <vector>
 #include <string>
 #include <memory>
@@ -29,16 +30,28 @@
 
 struct taccount;
 
+enum class TPF {
+	DELETEONWINCLOSE      = 1<<0,
+	SAVETODB              = 1<<1,
+	USER_TIMELINE         = 1<<2,
+	MASK                  = 0xFF,
+
+	AUTO_DM               = 1<<8,
+	AUTO_TW               = 1<<9,
+	AUTO_MN               = 1<<10,
+	AUTO_ALLACCS          = 1<<11,
+	AUTO_MASK             = 0xFF00,
+
+	INTL_CUSTOMAUTO       = 1<<24,
+};
+template<> struct enum_traits<TPF> { static constexpr bool flags = true; };
+
 enum {
-	TPAF_DM                   = 1<<8,
-	TPAF_TW                   = 1<<9,
-	TPAF_MN                   = 1<<10,
-	TPAF_ALLACCS              = 1<<11,
-	TPAF_MASK                 = 0xFF00,
+	TPF_AUTO_SHIFT        = 8,
 };
 
 struct tpanel_auto {
-	unsigned int autoflags;
+	flagwrapper<TPF> autoflags;
 	std::shared_ptr<taccount> acc;
 };
 
@@ -49,7 +62,7 @@ struct twin_layout_desc {
 	std::vector<tpanel_auto> tpautos;
 	std::string name;
 	std::string dispname;
-	unsigned int flags;
+	flagwrapper<TPF> flags;
 };
 
 struct mf_layout_desc {
@@ -58,6 +71,28 @@ struct mf_layout_desc {
 	wxSize size;
 	bool maximised;
 };
+
+enum class PUSHFLAGS {	//for pushflags
+	DEFAULT              = 0,
+	ABOVE                = 1<<0,
+	BELOW                = 1<<1,
+	USERTL               = 1<<2,
+	SETNOUPDATEFLAG      = 1<<3,
+	NOINCDISPOFFSET      = 1<<4,
+	CHECKSCROLLTOID      = 1<<5,
+};
+template<> struct enum_traits<PUSHFLAGS> { static constexpr bool flags = true; };
+
+enum class TPPWF {	//for tppw_flags
+	NOUPDATEONPUSH        = 1<<0,
+	CANALWAYSSCROLLDOWN   = 1<<1,
+	CLABELUPDATEPENDING   = 1<<2,
+	SHOWHIDDEN            = 1<<3,
+	SHOWDELETED           = 1<<4,
+	FROZEN                = 1<<5,
+	BATCHTIMERMODE        = 1<<6,
+};
+template<> struct enum_traits<TPPWF> { static constexpr bool flags = true; };
 
 #endif
 

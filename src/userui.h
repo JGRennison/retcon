@@ -23,6 +23,7 @@
 
 #include "univdefs.h"
 #include "magic_ptr.h"
+#include "flags.h"
 #include <wx/hyperlink.h>
 #include <wx/radiobox.h>
 #include <wx/valgen.h>
@@ -133,20 +134,20 @@ struct user_window: public wxDialog, public magic_ptr_base {
 	DECLARE_EVENT_TABLE()
 };
 
-enum {
-	ACCCF_OKBTNCTRL     = 1<<0,
-	ACCCF_NOACCITEM     = 1<<1,
-};
-
 typedef void (*acc_choice_callback)(void *, acc_choice *, bool);
 
 struct acc_choice: public wxChoice {
 	std::shared_ptr<taccount> &curacc;
-	unsigned int flags;
+
+	enum class ACCCF {
+		OKBTNCTRL     = 1<<0,
+		NOACCITEM     = 1<<1,
+	};
+	flagwrapper<ACCCF> flags;
 	acc_choice_callback fnptr;
 	void *fnextra;
 
-	acc_choice(wxWindow *parent, std::shared_ptr<taccount> &acc, unsigned int flags_, int winid = wxID_ANY, acc_choice_callback callbck = 0, void *extra = 0);
+	acc_choice(wxWindow *parent, std::shared_ptr<taccount> &acc, flagwrapper<ACCCF> flags_, int winid = wxID_ANY, acc_choice_callback callbck = 0, void *extra = 0);
 	void UpdateSel();
 	void OnSelChange(wxCommandEvent &event);
 	void fill_acc();
@@ -154,6 +155,7 @@ struct acc_choice: public wxChoice {
 
 	DECLARE_EVENT_TABLE()
 };
+template<> struct enum_traits<acc_choice::ACCCF> { static constexpr bool flags = true; };
 
 struct user_lookup_dlg: public wxDialog {
 	std::shared_ptr<taccount> &curacc;

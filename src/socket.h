@@ -24,6 +24,7 @@
 #include "univdefs.h"
 #include "socket-common.h"
 #include "twit-common.h"
+#include "flags.h"
 #include <wx/timer.h>
 #include <wx/defs.h>
 #include <wx/version.h>
@@ -64,18 +65,18 @@ typedef enum {
 enum {	MCCT_RETRY = wxID_HIGHEST+1,
 };
 
-enum {
-	MCF_NOTIMEOUT             = 1<<0,
-	MCF_IN_RETRY_QUEUE        = 1<<1,
-	MCF_RETRY_NOW_ON_SUCCESS  = 1<<2,
-};
-
 struct mcurlconn : public wxEvtHandler {
+	enum class MCF {
+		NOTIMEOUT             = 1<<0,
+		IN_RETRY_QUEUE        = 1<<1,
+		RETRY_NOW_ON_SUCCESS  = 1<<2,
+	};
+
 	void NotifyDone(CURL *easy, CURLcode res);
 	void HandleError(CURL *easy, long httpcode, CURLcode res);      //may cause object death
 	void StandbyTidy();
 	unsigned int errorcount;
-	unsigned int mcflags;
+	flagwrapper<MCF> mcflags;
 	std::string url;
 	mcurlconn() : errorcount(0), mcflags(0) {}
 	virtual ~mcurlconn();
@@ -90,6 +91,7 @@ struct mcurlconn : public wxEvtHandler {
 
 	DECLARE_EVENT_TABLE()
 };
+template<> struct enum_traits<mcurlconn::MCF> { static constexpr bool flags = true; };
 
 struct dlconn : public mcurlconn {
 	CURL* curlHandle;
@@ -117,20 +119,21 @@ struct profileimgdlconn : public dlconn {
 	virtual wxString GetConnTypeName();
 };
 
-enum {
-	MIDC_FULLIMG                      = 1<<0,
-	MIDC_THUMBIMG                     = 1<<1,
-	MIDC_REDRAW_TWEETS                = 1<<2,
-	MIDC_OPPORTUNIST_THUMB            = 1<<3,
-	MIDC_OPPORTUNIST_REDRAW_TWEETS    = 1<<4,
+enum class MIDC {
+	FULLIMG                      = 1<<0,
+	THUMBIMG                     = 1<<1,
+	REDRAW_TWEETS                = 1<<2,
+	OPPORTUNIST_THUMB            = 1<<3,
+	OPPORTUNIST_REDRAW_TWEETS    = 1<<4,
 };
+template<> struct enum_traits<MIDC> { static constexpr bool flags = true; };
 
 struct mediaimgdlconn : public dlconn {
 	media_id_type media_id;
-	unsigned int flags;
+	flagwrapper<MIDC> flags;
 
-	void Init(const std::string &imgurl_, media_id_type media_id_, unsigned int flags_ = 0);
-	mediaimgdlconn(const std::string &imgurl_, media_id_type media_id_, unsigned int flags_ = 0) { Init(imgurl_, media_id_, flags_); }
+	void Init(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_ = 0);
+	mediaimgdlconn(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_ = 0) { Init(imgurl_, media_id_, flags_); }
 
 	void NotifyDoneSuccess(CURL *easy, CURLcode res);
 	void Reset();

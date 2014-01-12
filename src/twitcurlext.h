@@ -22,9 +22,11 @@
 #define HGUARD_SRC_TWITCURLEXT
 
 #include "univdefs.h"
+#include "twitcurlext-common.h"
 #include "libtwitcurl/twitcurl.h"
 #include "socket.h"
 #include "magic_ptr.h"
+#include "flags.h"
 #include <memory>
 #include <string>
 
@@ -36,11 +38,15 @@ struct userlookup;
 struct mainframe;
 
 struct twitcurlext: public twitCurl, public mcurlconn {
+	enum class TCF {
+		ISSTREAM       = 1<<0,
+	};
+
 	std::weak_ptr<taccount> tacc;
 	CS_ENUMTYPE connmode = CS_ENUMTYPE::CS_NULL;
 	bool inited = false;
-	unsigned int tc_flags = 0;
-	unsigned int post_action_flags = 0;
+	flagwrapper<TCF> tc_flags = 0;
+	flagwrapper<PAF> post_action_flags = 0;
 	std::shared_ptr<streamconntimeout> scto;
 	restbackfillstate *rbfs = 0;
 	std::unique_ptr<userlookup> ul;
@@ -69,6 +75,7 @@ struct twitcurlext: public twitCurl, public mcurlconn {
 
 	DECLARE_EVENT_TABLE()
 };
+template<> struct enum_traits<twitcurlext::TCF> { static constexpr bool flags = true; };
 
 void StreamCallback(std::string &data, twitCurl* pTwitCurlObj, void *userdata);
 void StreamActivityCallback(twitCurl* pTwitCurlObj, void *userdata);

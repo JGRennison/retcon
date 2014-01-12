@@ -24,6 +24,7 @@
 #include "univdefs.h"
 #include "rapidjson-inc.h"
 #include "twit-common.h"
+#include "flags.h"
 #include <wx/version.h>
 #include <wx/defs.h>
 #include <wx/string.h>
@@ -71,16 +72,17 @@ struct genjsonparser {
 	static void ParseTweetDyn(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj);
 };
 
-enum {
-	JDTP_ISDM               = 1<<0,
-	JDTP_ISRTSRC            = 1<<1,
-	JDTP_FAV                = 1<<2,
-	JDTP_UNFAV              = 1<<3,
-	JDTP_DEL                = 1<<4,
-	JDTP_USERTIMELINE       = 1<<5,
-	JDTP_CHECKPENDINGONLY   = 1<<6,
-	JDTP_POSTDBLOAD         = 1<<7,
+enum class JDTP {
+	ISDM               = 1<<0,
+	ISRTSRC            = 1<<1,
+	FAV                = 1<<2,
+	UNFAV              = 1<<3,
+	DEL                = 1<<4,
+	USERTIMELINE       = 1<<5,
+	CHECKPENDINGONLY   = 1<<6,
+	POSTDBLOAD         = 1<<7,
 };
+template<> struct enum_traits<JDTP> { static constexpr bool flags = true; };
 
 struct jsonparser : public genjsonparser {
 	std::shared_ptr<taccount> tac;
@@ -94,10 +96,10 @@ struct jsonparser : public genjsonparser {
 	std::shared_ptr<parse_data> data;
 	dbsendmsg_list *dbmsglist;
 
-	std::shared_ptr<userdatacontainer> DoUserParse(const rapidjson::Value& val, unsigned int umpt_flags = 0);
+	std::shared_ptr<userdatacontainer> DoUserParse(const rapidjson::Value& val, flagwrapper<UMPTF> umpt_flags = 0);
 	void DoEventParse(const rapidjson::Value& val);
 	void DoFriendLookupParse(const rapidjson::Value& val);
-	std::shared_ptr<tweet> DoTweetParse(const rapidjson::Value& val, unsigned int sflags = 0);
+	std::shared_ptr<tweet> DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP> sflags = 0);
 	void RestTweetUpdateParams(const tweet &t);
 	void RestTweetPreParseUpdateParams();
 

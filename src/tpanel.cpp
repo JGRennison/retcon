@@ -47,10 +47,6 @@
 
 std::forward_list<tpanelparentwin_nt*> tpanelparentwinlist;
 
-enum {
-	TPINTLF_CUSTOMAUTO        = 1<<24,
-};
-
 std::shared_ptr<tpanelglobal> tpanelglobal::Get() {
 	if(tpg_glob.expired()) {
 		std::shared_ptr<tpanelglobal> tmp=std::make_shared<tpanelglobal>();
@@ -62,18 +58,18 @@ std::shared_ptr<tpanelglobal> tpanelglobal::Get() {
 
 std::weak_ptr<tpanelglobal> tpanelglobal::tpg_glob;
 
-static void PerAccTPanelMenu(wxMenu *menu, tpanelmenudata &map, int &nextid, unsigned int flagbase, unsigned int dbindex) {
-	map[nextid]={dbindex, flagbase | TPAF_TW};
+static void PerAccTPanelMenu(wxMenu *menu, tpanelmenudata &map, int &nextid, flagwrapper<TPF> flagbase, unsigned int dbindex) {
+	map[nextid]={dbindex, flagbase | TPF::AUTO_TW};
 	menu->Append(nextid++, wxT("&Tweets"));
-	map[nextid]={dbindex, flagbase | TPAF_MN};
+	map[nextid]={dbindex, flagbase | TPF::AUTO_MN};
 	menu->Append(nextid++, wxT("&Mentions"));
-	map[nextid]={dbindex, flagbase | TPAF_DM};
+	map[nextid]={dbindex, flagbase | TPF::AUTO_DM};
 	menu->Append(nextid++, wxT("&DMs"));
-	map[nextid]={dbindex, flagbase | TPAF_TW | TPAF_MN};
+	map[nextid]={dbindex, flagbase | TPF::AUTO_TW | TPF::AUTO_MN};
 	menu->Append(nextid++, wxT("T&weets and Mentions"));
-	map[nextid]={dbindex, flagbase | TPAF_MN | TPAF_DM};
+	map[nextid]={dbindex, flagbase | TPF::AUTO_MN | TPF::AUTO_DM};
 	menu->Append(nextid++, wxT("M&entions and DMs"));
-	map[nextid]={dbindex, flagbase | TPAF_TW | TPAF_MN | TPAF_DM};
+	map[nextid]={dbindex, flagbase | TPF::AUTO_TW | TPF::AUTO_MN | TPF::AUTO_DM};
 	menu->Append(nextid++, wxT("Tweets, Mentions &and DMs"));
 }
 
@@ -85,18 +81,18 @@ void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map) {
 	map.clear();
 
 	int nextid=tpanelmenustartid;
-	PerAccTPanelMenu(menuP, map, nextid, TPAF_ALLACCS | TPF_DELETEONWINCLOSE, 0);
+	PerAccTPanelMenu(menuP, map, nextid, TPF::AUTO_ALLACCS | TPF::DELETEONWINCLOSE, 0);
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
 		wxMenu *submenu = new wxMenu;
 		menuP->AppendSubMenu(submenu, (*it)->dispname);
-		PerAccTPanelMenu(submenu, map, nextid, TPF_DELETEONWINCLOSE, (*it)->dbindex);
+		PerAccTPanelMenu(submenu, map, nextid, TPF::DELETEONWINCLOSE, (*it)->dbindex);
 	}
-	map[nextid]={0, TPF_DELETEONWINCLOSE | TPINTLF_CUSTOMAUTO};
+	map[nextid]={0, TPF::DELETEONWINCLOSE | TPF::INTL_CUSTOMAUTO};
 	menuP->Append(nextid++, wxT("Custom"));
 
 }
 
-void TPanelMenuActionCustom(mainframe *parent, unsigned int flags) {
+void TPanelMenuActionCustom(mainframe *parent, flagwrapper<TPF> flags) {
 	wxArrayInt selections;
 	wxArrayString choices;
 	std::vector<tpanel_auto> tmpltpautos;
@@ -109,7 +105,7 @@ void TPanelMenuActionCustom(mainframe *parent, unsigned int flags) {
 	};
 
 	tmpltpautos.emplace_back();
-	tmpltpautos.back().autoflags = TPAF_ALLACCS;
+	tmpltpautos.back().autoflags = TPF::AUTO_ALLACCS;
 	add_items(wxT("All Accounts"));
 	for(auto &it : alist) {
 		tmpltpautos.emplace_back();
@@ -125,10 +121,10 @@ void TPanelMenuActionCustom(mainframe *parent, unsigned int flags) {
 		int offset = index / 3;
 		int part = index % 3;
 
-		unsigned int flag = 0;
-		if(part == 0) flag = TPAF_TW;
-		else if(part == 1) flag = TPAF_MN;
-		else if(part == 2) flag = TPAF_DM;
+		flagwrapper<TPF> flag = 0;
+		if(part == 0) flag = TPF::AUTO_TW;
+		else if(part == 1) flag = TPF::AUTO_MN;
+		else if(part == 2) flag = TPF::AUTO_DM;
 
 		if(offset != 0) {
 			if(tmpltpautos[0].autoflags & flag) continue; // don't set the bit for the account, if the corresponding all accounts bit is already set
@@ -139,7 +135,7 @@ void TPanelMenuActionCustom(mainframe *parent, unsigned int flags) {
 
 	std::vector<tpanel_auto> tpautos;
 	for(auto &it : tmpltpautos) {
-		if(it.autoflags & (TPAF_TW | TPAF_MN | TPAF_DM)) {
+		if(it.autoflags & (TPF::AUTO_TW | TPF::AUTO_MN | TPF::AUTO_DM)) {
 			tpautos.emplace_back(it);
 		}
 	}
@@ -152,10 +148,10 @@ void TPanelMenuActionCustom(mainframe *parent, unsigned int flags) {
 
 void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent) {
 	unsigned int dbindex = map[curid].dbindex;
-	unsigned int flags = map[curid].flags;
+	flagwrapper<TPF> flags = map[curid].flags;
 
-	if(flags & TPINTLF_CUSTOMAUTO) {
-		TPanelMenuActionCustom(parent, flags & TPF_MASK);
+	if(flags & TPF::INTL_CUSTOMAUTO) {
+		TPanelMenuActionCustom(parent, flags & TPF::MASK);
 		return;
 	}
 
@@ -181,12 +177,12 @@ void StartBatchTimerMode_All() {
 	}
 }
 
-void tpanel::PushTweet(const std::shared_ptr<tweet> &t, unsigned int pushflags) {
-	LogMsgFormat(LFT_TPANEL, wxT("Pushing tweet id %" wxLongLongFmtSpec "d to panel %s (pushflags: 0x%X)"), t->id, wxstrstd(name).c_str(), pushflags);
+void tpanel::PushTweet(const std::shared_ptr<tweet> &t, flagwrapper<PUSHFLAGS> pushflags) {
+	LogMsgFormat(LOGT::TPANEL, wxT("Pushing tweet id %" wxLongLongFmtSpec "d to panel %s (pushflags: 0x%X)"), t->id, wxstrstd(name).c_str(), pushflags);
 	if(RegisterTweet(t)) {
 		for(auto &i : twin) {
 			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LFT_TPANEL, wxT("TCL: Pushing tweet id %" wxLongLongFmtSpec "d to tpanel window"), t->id);
+				LogMsgFormat(LOGT::TPANEL, wxT("TCL: Pushing tweet id %" wxLongLongFmtSpec "d to tpanel window"), t->id);
 			#endif
 			i->PushTweet(t, pushflags);
 		}
@@ -194,7 +190,7 @@ void tpanel::PushTweet(const std::shared_ptr<tweet> &t, unsigned int pushflags) 
 	else {	//already have this in tpanel, update it
 		for(auto &i : twin) {
 			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LFT_TPANEL, wxT("TCL: Updating tpanel window tweet: id %" wxLongLongFmtSpec "d"), t->id);
+				LogMsgFormat(LOGT::TPANEL, wxT("TCL: Updating tpanel window tweet: id %" wxLongLongFmtSpec "d"), t->id);
 			#endif
 			i->UpdateOwnTweet(*(t.get()), false);
 		}
@@ -216,25 +212,25 @@ bool tpanel::RegisterTweet(const std::shared_ptr<tweet> &t) {
 	}
 }
 
-tpanel::tpanel(const std::string &name_, const std::string &dispname_, unsigned int flags_, std::vector<tpanel_auto> tpautos_)
+tpanel::tpanel(const std::string &name_, const std::string &dispname_, flagwrapper<TPF> flags_, std::vector<tpanel_auto> tpautos_)
 : name(name_), dispname(dispname_), flags(flags_) {
 	twin.clear();
 	tpautos = std::move(tpautos_);
 	RecalculateSets();
 }
 
-std::shared_ptr<tpanel> tpanel::MkTPanel(const std::string &name_, const std::string &dispname_, unsigned int flags_, std::shared_ptr<taccount> *acc) {
+std::shared_ptr<tpanel> tpanel::MkTPanel(const std::string &name_, const std::string &dispname_, flagwrapper<TPF> flags_, std::shared_ptr<taccount> *acc) {
 	std::vector<tpanel_auto> tpautos;
-	unsigned int autoflags_ = flags_ & TPAF_MASK;
-	if((acc && *acc) || autoflags_ & TPAF_ALLACCS) {
+	flagwrapper<TPF> autoflags_ = flags_ & TPF::AUTO_MASK;
+	if((acc && *acc) || autoflags_ & TPF::AUTO_ALLACCS) {
 		tpautos.emplace_back();
 		tpautos.back().autoflags = autoflags_;
 		if(acc) tpautos.back().acc = *acc;
 	}
-	return std::move(MkTPanel(name_, dispname_, flags_ & TPF_MASK, std::move(tpautos)));
+	return std::move(MkTPanel(name_, dispname_, flags_ & TPF::MASK, std::move(tpautos)));
 }
 
-std::shared_ptr<tpanel> tpanel::MkTPanel(const std::string &name_, const std::string &dispname_, unsigned int flags_, std::vector<tpanel_auto> tpautos_) {
+std::shared_ptr<tpanel> tpanel::MkTPanel(const std::string &name_, const std::string &dispname_, flagwrapper<TPF> flags_, std::vector<tpanel_auto> tpautos_) {
 	std::string name = name_;
 	std::string dispname = dispname_;
 
@@ -256,8 +252,8 @@ void tpanel::NameDefaults(std::string &name, std::string &dispname, const std::v
 
 	if(newname || newdispname) {
 		std::array<std::vector<std::string>, 8> buildarray;
-		const unsigned int flagmask = TPAF_TW | TPAF_MN | TPAF_DM;
-		const unsigned int flagshift = 8;
+		const flagwrapper<TPF> flagmask = TPF::AUTO_TW | TPF::AUTO_MN | TPF::AUTO_DM;
+		const unsigned int flagshift = TPF_AUTO_SHIFT;
 		for(auto &it : tpautos) {
 			std::string accname;
 			std::string accdispname;
@@ -272,28 +268,28 @@ void tpanel::NameDefaults(std::string &name, std::string &dispname, const std::v
 				accdispname = "All Accounts";
 			}
 
-			if(it.autoflags & TPAF_TW) type += "T";
-			if(it.autoflags & TPAF_DM) type += "D";
-			if(it.autoflags & TPAF_MN) type += "M";
+			if(it.autoflags & TPF::AUTO_TW) type += "T";
+			if(it.autoflags & TPF::AUTO_DM) type += "D";
+			if(it.autoflags & TPF::AUTO_MN) type += "M";
 
 			if(newname) name += "_" + accname + "_" + type;
-			if(newdispname) buildarray[(it.autoflags & flagmask) >> flagshift].emplace_back(accdispname);
+			if(newdispname) buildarray[flag_unwrap<TPF>(it.autoflags & flagmask) >> flagshift].emplace_back(accdispname);
 		}
 
 		if(newdispname) {
 			dispname = "[";
 			for(unsigned int i = 0; i < buildarray.size(); i++) {
 				if(buildarray[i].empty()) continue;
-				unsigned int autoflags = i << flagshift;
+				flagwrapper<TPF> autoflags = flag_wrap<TPF>(i << flagshift);
 
 				std::string disptype;
-				if(autoflags & TPAF_TW && autoflags & TPAF_MN && autoflags & TPAF_DM) disptype = "All";
-				else if(autoflags & TPAF_TW && autoflags & TPAF_MN) disptype = "Tweets & Mentions";
-				else if(autoflags & TPAF_MN && autoflags & TPAF_DM) disptype = "Mentions & DMs";
-				else if(autoflags & TPAF_TW && autoflags & TPAF_DM) disptype = "Tweets & DMs";
-				else if(autoflags & TPAF_TW) disptype = "Tweets";
-				else if(autoflags & TPAF_DM) disptype = "DMs";
-				else if(autoflags & TPAF_MN) disptype = "Mentions";
+				if(autoflags & TPF::AUTO_TW && autoflags & TPF::AUTO_MN && autoflags & TPF::AUTO_DM) disptype = "All";
+				else if(autoflags & TPF::AUTO_TW && autoflags & TPF::AUTO_MN) disptype = "Tweets & Mentions";
+				else if(autoflags & TPF::AUTO_MN && autoflags & TPF::AUTO_DM) disptype = "Mentions & DMs";
+				else if(autoflags & TPF::AUTO_TW && autoflags & TPF::AUTO_DM) disptype = "Tweets & DMs";
+				else if(autoflags & TPF::AUTO_TW) disptype = "Tweets";
+				else if(autoflags & TPF::AUTO_DM) disptype = "DMs";
+				else if(autoflags & TPF::AUTO_MN) disptype = "Mentions";
 
 				for(auto &it : buildarray[i]) {
 					if(dispname.size() > 1) dispname += ", ";
@@ -313,14 +309,14 @@ tpanel::~tpanel() {
 void tpanel::RecalculateSets() {
 	for(auto &tpa : tpautos) {
 		std::forward_list<taccount *> accs;
-		if(tpa.autoflags & TPAF_ALLACCS) {
+		if(tpa.autoflags & TPF::AUTO_ALLACCS) {
 			for(auto &it : alist) accs.push_front(it.get());
 		}
 		else accs.push_front(tpa.acc.get());
 		for(auto & it : accs) {
-			if(tpa.autoflags & TPAF_DM) tweetlist.insert(it->dm_ids.begin(), it->dm_ids.end());
-			if(tpa.autoflags & TPAF_TW) tweetlist.insert(it->tweet_ids.begin(), it->tweet_ids.end());
-			if(tpa.autoflags & TPAF_MN) tweetlist.insert(it->usercont->mention_index.begin(), it->usercont->mention_index.end());
+			if(tpa.autoflags & TPF::AUTO_DM) tweetlist.insert(it->dm_ids.begin(), it->dm_ids.end());
+			if(tpa.autoflags & TPF::AUTO_TW) tweetlist.insert(it->tweet_ids.begin(), it->tweet_ids.end());
+			if(tpa.autoflags & TPF::AUTO_MN) tweetlist.insert(it->usercont->mention_index.begin(), it->usercont->mention_index.end());
 		}
 	}
 	ad.cids.foreach(this->cids, [&](tweetidset &adtis, tweetidset &thistis) {
@@ -330,7 +326,7 @@ void tpanel::RecalculateSets() {
 
 void tpanel::OnTPanelWinClose(tpanelparentwin_nt *tppw) {
 	twin.remove(tppw);
-	if(twin.empty() && flags&TPF_DELETEONWINCLOSE) {
+	if(twin.empty() && flags&TPF::DELETEONWINCLOSE) {
 		ad.tpanels.erase(name);
 	}
 }
@@ -343,14 +339,14 @@ bool tpanel::IsSingleAccountTPanel() const {
 	if(alist.size() <= 1) return true;
 	if(tpautos.size() > 1) return false;
 	else if(tpautos.size() == 1) {
-		if(tpautos[0].autoflags & TPAF_ALLACCS) return false;
+		if(tpautos[0].autoflags & TPF::AUTO_ALLACCS) return false;
 		else return true;
 	}
-	if(flags & TPF_USER_TIMELINE) return true;
+	if(flags & TPF::USER_TIMELINE) return true;
 	return false;
 }
 
-void tpanel::TPPWFlagMaskAllTWins(unsigned int set, unsigned int clear) const {
+void tpanel::TPPWFlagMaskAllTWins(flagwrapper<TPPWF> set, flagwrapper<TPPWF> clear) const {
 	for(auto &jt : twin) {
 		jt->tppw_flags |= set;
 		jt->tppw_flags &= ~clear;
@@ -421,7 +417,7 @@ void tpanelnotebook::Split(size_t page, int direction) {
 
 void tpanelnotebook::PostSplitSizeCorrect() {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelnotebook::PostSplitSizeCorrect(): START"));
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelnotebook::PostSplitSizeCorrect(): START"));
 	#endif
 	wxSize totalsize=GetClientSize();
 
@@ -434,7 +430,7 @@ void tpanelnotebook::PostSplitSizeCorrect() {
 			tabctrl_count++;
 			tabctrlarray.push_front(&(all_panes.Item(i)));
 			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LFT_TPANEL, wxT("TCL: PostSplitSizeCorrect1 %d %d %d %d"), all_panes.Item(i).dock_direction, all_panes.Item(i).dock_layer, all_panes.Item(i).dock_row, all_panes.Item(i).dock_pos);
+				LogMsgFormat(LOGT::TPANEL, wxT("TCL: PostSplitSizeCorrect1 %d %d %d %d"), all_panes.Item(i).dock_direction, all_panes.Item(i).dock_layer, all_panes.Item(i).dock_row, all_panes.Item(i).dock_pos);
 			#endif
 		}
 	}
@@ -470,7 +466,7 @@ void tpanelnotebook::PostSplitSizeCorrect() {
 	for(size_t i = 0; i < pane_count; ++i) {
 		if(all_panes.Item(i).name != wxT("dummy")) {
 			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LFT_TPANEL, wxT("TCL: PostSplitSizeCorrect2 %d %d %d %d"), all_panes.Item(i).dock_direction, all_panes.Item(i).dock_layer, all_panes.Item(i).dock_row, all_panes.Item(i).dock_pos);
+				LogMsgFormat(LOGT::TPANEL, wxT("TCL: PostSplitSizeCorrect2 %d %d %d %d"), all_panes.Item(i).dock_direction, all_panes.Item(i).dock_layer, all_panes.Item(i).dock_row, all_panes.Item(i).dock_pos);
 			#endif
 		}
 	}
@@ -478,7 +474,7 @@ void tpanelnotebook::PostSplitSizeCorrect() {
 	DoSizing();
 	owner->Refresh();
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelnotebook::PostSplitSizeCorrect(): END"));
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelnotebook::PostSplitSizeCorrect(): END"));
 	#endif
 }
 
@@ -555,7 +551,7 @@ panelparentwin_base::panelparentwin_base(wxWindow *parent, bool fitnow, wxString
 	//SetSizer(vbox);
 
 	if(gc.showdeletedtweetsbydefault) {
-		tppw_flags |= TPPWF_SHOWDELETED;
+		tppw_flags |= TPPWF::SHOWDELETED;
 	}
 
 	wxBoxSizer* outersizer = new wxBoxSizer(wxVERTICAL);
@@ -599,23 +595,23 @@ void panelparentwin_base::ShowHideButtons(std::string type, bool show) {
 
 void panelparentwin_base::PopTop() {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::PopTop() %s START"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: panelparentwin_base::PopTop() %s START"), GetThisName().c_str());
 	#endif
 	RemoveIndexIntl(0);
 	currentdisp.pop_front();
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::PopTop() %s END"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: panelparentwin_base::PopTop() %s END"), GetThisName().c_str());
 	#endif
 }
 
 void panelparentwin_base::PopBottom() {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::PopBottom() %s START"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: panelparentwin_base::PopBottom() %s START"), GetThisName().c_str());
 	#endif
 	RemoveIndexIntl(currentdisp.size() - 1);
 	currentdisp.pop_back();
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::PopBottom() %s END"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: panelparentwin_base::PopBottom() %s END"), GetThisName().c_str());
 	#endif
 }
 
@@ -638,29 +634,29 @@ void panelparentwin_base::pagetopevthandler(wxCommandEvent &event) {
 }
 
 void panelparentwin_base::SetNoUpdateFlag() {
-	tppw_flags |= TPPWF_NOUPDATEONPUSH;
-	if(!(tppw_flags & TPPWF_FROZEN)) {
-		tppw_flags |= TPPWF_FROZEN;
+	tppw_flags |= TPPWF::NOUPDATEONPUSH;
+	if(!(tppw_flags & TPPWF::FROZEN)) {
+		tppw_flags |= TPPWF::FROZEN;
 		Freeze();
 	}
 }
 
 void panelparentwin_base::CheckClearNoUpdateFlag() {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::CheckClearNoUpdateFlag() %s START"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: panelparentwin_base::CheckClearNoUpdateFlag() %s START"), GetThisName().c_str());
 	#endif
 
-	if(tppw_flags & TPPWF_BATCHTIMERMODE) {
+	if(tppw_flags & TPPWF::BATCHTIMERMODE) {
 		#if TPANEL_COPIOUS_LOGGING
-			LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::CheckClearNoUpdateFlag() %s TPPWF_BATCHTIMERMODE"), GetThisName().c_str());
+			LogMsgFormat(LOGT::TPANEL, wxT("TCL: panelparentwin_base::CheckClearNoUpdateFlag() %s TPPWF::BATCHTIMERMODE"), GetThisName().c_str());
 		#endif
 		ResetBatchTimer();
 		return;
 	}
 
-	if(tppw_flags & TPPWF_NOUPDATEONPUSH) {
+	if(tppw_flags & TPPWF::NOUPDATEONPUSH) {
 		#if TPANEL_COPIOUS_LOGGING
-			LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::CheckClearNoUpdateFlag() %s TPPWF_NOUPDATEONPUSH"), GetThisName().c_str());
+			LogMsgFormat(LOGT::TPANEL, wxT("TCL: panelparentwin_base::CheckClearNoUpdateFlag() %s TPPWF::NOUPDATEONPUSH"), GetThisName().c_str());
 		#endif
 		scrollwin->Freeze();
 		tppw_scrollfreeze sf;
@@ -675,30 +671,30 @@ void panelparentwin_base::CheckClearNoUpdateFlag() {
 		EndScrollFreeze(sf);
 		if(scrolltoid_onupdate) HandleScrollToIDOnUpdate();
 		scrollwin->Thaw();
-		tppw_flags &= ~TPPWF_NOUPDATEONPUSH;
+		tppw_flags &= ~TPPWF::NOUPDATEONPUSH;
 		scrollwin->resize_update_pending = rup;
 		scrollwin->fit_inside_blocked = false;
-		if(tppw_flags & TPPWF_FROZEN) {
-			tppw_flags &= ~TPPWF_FROZEN;
+		if(tppw_flags & TPPWF::FROZEN) {
+			tppw_flags &= ~TPPWF::FROZEN;
 			Thaw();
 		}
 	}
 
-	if(tppw_flags & TPPWF_CLABELUPDATEPENDING) {
+	if(tppw_flags & TPPWF::CLABELUPDATEPENDING) {
 		#if TPANEL_COPIOUS_LOGGING
-			LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::CheckClearNoUpdateFlag() %s TPPWF_CLABELUPDATEPENDING"), GetThisName().c_str());
+			LogMsgFormat(LOGT::TPANEL, wxT("TCL: panelparentwin_base::CheckClearNoUpdateFlag() %s TPPWF::CLABELUPDATEPENDING"), GetThisName().c_str());
 		#endif
 		UpdateCLabel();
-		tppw_flags &= ~TPPWF_CLABELUPDATEPENDING;
+		tppw_flags &= ~TPPWF::CLABELUPDATEPENDING;
 	}
 
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::CheckClearNoUpdateFlag() %s END"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: panelparentwin_base::CheckClearNoUpdateFlag() %s END"), GetThisName().c_str());
 	#endif
 }
 
 void panelparentwin_base::ResetBatchTimer() {
-	tppw_flags |= TPPWF_BATCHTIMERMODE;
+	tppw_flags |= TPPWF::BATCHTIMERMODE;
 	batchtimer.SetOwner(this, TPPWID_TIMER_BATCHMODE);
 	batchtimer.Start(BATCH_TIMER_DELAY, wxTIMER_ONE_SHOT);
 }
@@ -716,11 +712,11 @@ uint64_t panelparentwin_base::GetCurrentViewTopID() const {
 
 void panelparentwin_base::StartScrollFreeze(tppw_scrollfreeze &s) {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::StartScrollFreeze(): %s"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: panelparentwin_base::StartScrollFreeze(): %s"), GetThisName().c_str());
 	#endif
 	int scrollstart;
 	scrollwin->GetViewStart(0, &scrollstart);
-	if((!scrollstart && !displayoffset && !(s.flags & tppw_scrollfreeze::TPPWSF_ALWAYSFREEZE)) || currentdisp.size() <= 2)  {
+	if((!scrollstart && !displayoffset && !(s.flags & tppw_scrollfreeze::SF::ALWAYSFREEZE)) || currentdisp.size() <= 2)  {
 		s.scr=0;
 		s.extrapixels=0;
 		return;
@@ -746,7 +742,7 @@ void panelparentwin_base::StartScrollFreeze(tppw_scrollfreeze &s) {
 			s.scr=(*it).second;
 			s.extrapixels=y;
 			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::StartScrollFreeze(): %s, Using id: %" wxLongLongFmtSpec "d, extrapixels: %d"), GetThisName().c_str(), (*it).first, y);
+				LogMsgFormat(LOGT::TPANEL, wxT("TCL: panelparentwin_base::StartScrollFreeze(): %s, Using id: %" wxLongLongFmtSpec "d, extrapixels: %d"), GetThisName().c_str(), (*it).first, y);
 			#endif
 			return;
 		}
@@ -759,7 +755,7 @@ void panelparentwin_base::StartScrollFreeze(tppw_scrollfreeze &s) {
 void panelparentwin_base::EndScrollFreeze(tppw_scrollfreeze &s) {
 	if(s.scr) {
 		#if TPANEL_COPIOUS_LOGGING
-			LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::EndScrollFreeze() %s"), GetThisName().c_str());
+			LogMsgFormat(LOGT::TPANEL, wxT("TCL: panelparentwin_base::EndScrollFreeze() %s"), GetThisName().c_str());
 		#endif
 		int y;
 		s.scr->GetPosition(0, &y);
@@ -772,7 +768,7 @@ void panelparentwin_base::EndScrollFreeze(tppw_scrollfreeze &s) {
 
 void panelparentwin_base::SetScrollFreeze(tppw_scrollfreeze &s, dispscr_base *scr) {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::SetScrollFreeze() %s"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: panelparentwin_base::SetScrollFreeze() %s"), GetThisName().c_str());
 	#endif
 	s.scr = scr;
 	s.extrapixels = 0;
@@ -792,9 +788,9 @@ void panelparentwin_base::IterateCurrentDisp(std::function<void(uint64_t, dispsc
 	}
 }
 
-void panelparentwin_base::CLabelNeedsUpdating(unsigned int pushflags) {
-	if(!(tppw_flags & TPPWF_NOUPDATEONPUSH) && !(pushflags & TPPWPF_SETNOUPDATEFLAG)) UpdateCLabel();
-	else tppw_flags |= TPPWF_CLABELUPDATEPENDING;
+void panelparentwin_base::CLabelNeedsUpdating(flagwrapper<PUSHFLAGS> pushflags) {
+	if(!(tppw_flags & TPPWF::NOUPDATEONPUSH) && !(pushflags & PUSHFLAGS::SETNOUPDATEFLAG)) UpdateCLabel();
+	else tppw_flags |= TPPWF::CLABELUPDATEPENDING;
 }
 
 BEGIN_EVENT_TABLE(tpanelparentwin_nt, panelparentwin_base)
@@ -808,7 +804,7 @@ END_EVENT_TABLE()
 
 tpanelparentwin_nt::tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent, wxString thisname_)
 : panelparentwin_base(parent, false, thisname_), tp(tp_) {
-	LogMsgFormat(LFT_TPANEL, wxT("Creating tweet panel window %s"), wxstrstd(tp->name).c_str());
+	LogMsgFormat(LOGT::TPANEL, wxT("Creating tweet panel window %s"), wxstrstd(tp->name).c_str());
 
 	tp->twin.push_front(this);
 	tpanelparentwinlist.push_front(this);
@@ -825,34 +821,34 @@ tpanelparentwin_nt::~tpanelparentwin_nt() {
 	tpanelparentwinlist.remove(this);
 }
 
-void tpanelparentwin_nt::PushTweet(const std::shared_ptr<tweet> &t, unsigned int pushflags) {
-	if(tppw_flags & TPPWF_BATCHTIMERMODE) {
+void tpanelparentwin_nt::PushTweet(const std::shared_ptr<tweet> &t, flagwrapper<PUSHFLAGS> pushflags) {
+	if(tppw_flags & TPPWF::BATCHTIMERMODE) {
 		pushtweetbatchqueue.emplace_back(t, pushflags);
 		return;
 	}
 
 	scrollwin->Freeze();
-	LogMsgFormat(LFT_TPANEL, "tpanelparentwin_nt::PushTweet %s, id: %" wxLongLongFmtSpec "d, displayoffset: %d, pushflags: 0x%X, currentdisp: %d, tppw_flags: 0x%X", GetThisName().c_str(), t->id, displayoffset, pushflags, (int) currentdisp.size(), tppw_flags);
+	LogMsgFormat(LOGT::TPANEL, "tpanelparentwin_nt::PushTweet %s, id: %" wxLongLongFmtSpec "d, displayoffset: %d, pushflags: 0x%X, currentdisp: %d, tppw_flags: 0x%X", GetThisName().c_str(), t->id, displayoffset, pushflags, (int) currentdisp.size(), tppw_flags);
 	tppw_scrollfreeze sf;
-	if(pushflags & TPPWPF_ABOVE) sf.flags = tppw_scrollfreeze::TPPWSF_ALWAYSFREEZE;
+	if(pushflags & PUSHFLAGS::ABOVE) sf.flags = tppw_scrollfreeze::SF::ALWAYSFREEZE;
 	StartScrollFreeze(sf);
 	uint64_t id=t->id;
 	bool recalcdisplayoffset = false;
-	if(pushflags&TPPWPF_NOINCDISPOFFSET && currentdisp.empty()) recalcdisplayoffset = true;
+	if(pushflags & PUSHFLAGS::NOINCDISPOFFSET && currentdisp.empty()) recalcdisplayoffset = true;
 	if(displayoffset) {
 		if(id>currentdisp.front().first) {
-			if(!(pushflags&TPPWPF_ABOVE)) {
-				if(!(pushflags&TPPWPF_NOINCDISPOFFSET)) displayoffset++;
+			if(!(pushflags & PUSHFLAGS::ABOVE)) {
+				if(!(pushflags & PUSHFLAGS::NOINCDISPOFFSET)) displayoffset++;
 				scrollwin->Thaw();
 				CLabelNeedsUpdating(pushflags);
 				return;
 			}
-			else if(pushflags&TPPWPF_NOINCDISPOFFSET) recalcdisplayoffset = true;
+			else if(pushflags & PUSHFLAGS::NOINCDISPOFFSET) recalcdisplayoffset = true;
 		}
 	}
 	if(currentdisp.size()==gc.maxtweetsdisplayinpanel) {
 		if(t->id<currentdisp.back().first) {			//off the end of the list
-			if(pushflags&TPPWPF_BELOW || pushflags&TPPWPF_USERTL) {
+			if(pushflags & PUSHFLAGS::BELOW || pushflags & PUSHFLAGS::USERTL) {
 				PopTop();
 				displayoffset++;
 			}
@@ -865,16 +861,16 @@ void tpanelparentwin_nt::PushTweet(const std::shared_ptr<tweet> &t, unsigned int
 		else PopBottom();					//too many in list, remove the last one
 	}
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweet 1, %d, %d, %d"), displayoffset, (int) currentdisp.size(), recalcdisplayoffset);
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweet 1, %d, %d, %d"), displayoffset, (int) currentdisp.size(), recalcdisplayoffset);
 	#endif
-	if(pushflags&TPPWPF_SETNOUPDATEFLAG) tppw_flags|=TPPWF_NOUPDATEONPUSH;
+	if(pushflags & PUSHFLAGS::SETNOUPDATEFLAG) tppw_flags |= TPPWF::NOUPDATEONPUSH;
 	size_t index=0;
 	auto it=currentdisp.begin();
 	for(; it!=currentdisp.end(); it++, index++) {
 		if(it->first<id) break;	//insert before this iterator
 	}
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweet 2, %d, %d, %d, %d"), displayoffset, currentdisp.size(), index, recalcdisplayoffset);
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweet 2, %d, %d, %d, %d"), displayoffset, currentdisp.size(), index, recalcdisplayoffset);
 	#endif
 	if(recalcdisplayoffset) {
 		tweetidset::const_iterator stit = tp->tweetlist.find(id);
@@ -882,34 +878,34 @@ void tpanelparentwin_nt::PushTweet(const std::shared_ptr<tweet> &t, unsigned int
 		else displayoffset = 0;
 	}
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweet 3, %d, %d, %d, %d"), displayoffset, currentdisp.size(), index, recalcdisplayoffset);
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweet 3, %d, %d, %d, %d"), displayoffset, currentdisp.size(), index, recalcdisplayoffset);
 	#endif
 	tweetdispscr *td = PushTweetIndex(t, index);
 	currentdisp.insert(it, std::make_pair(id, td));
-	if(pushflags&TPPWPF_CHECKSCROLLTOID) {
-		if(tppw_flags&TPPWF_NOUPDATEONPUSH) scrolltoid_onupdate = scrolltoid;
+	if(pushflags & PUSHFLAGS::CHECKSCROLLTOID) {
+		if(tppw_flags & TPPWF::NOUPDATEONPUSH) scrolltoid_onupdate = scrolltoid;
 		else if(scrolltoid == id) SetScrollFreeze(sf, td);
 	}
 
 	CLabelNeedsUpdating(pushflags);
 
-	if(!(tppw_flags&TPPWF_NOUPDATEONPUSH)) td->ForceRefresh();
-	else td->gdb_flags |= tweetdispscr::GDB_F_NEEDSREFRESH;
+	if(!(tppw_flags & TPPWF::NOUPDATEONPUSH)) td->ForceRefresh();
+	else td->gdb_flags |= tweetdispscr::GDB_F::NEEDSREFRESH;
 	EndScrollFreeze(sf);
 	scrollwin->Thaw();
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweet %s END, %d, %d"), GetThisName().c_str(), displayoffset, currentdisp.size());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweet %s END, %d, %d"), GetThisName().c_str(), displayoffset, currentdisp.size());
 	#endif
 }
 
 tweetdispscr *tpanelparentwin_nt::PushTweetIndex(const std::shared_ptr<tweet> &t, size_t index) {
-	LogMsgFormat(LFT_TPANEL, "tpanelparentwin_nt::PushTweetIndex, %s, id: %" wxLongLongFmtSpec "d, %d", GetThisName().c_str(), t->id, index);
+	LogMsgFormat(LOGT::TPANEL, "tpanelparentwin_nt::PushTweetIndex, %s, id: %" wxLongLongFmtSpec "d, %d", GetThisName().c_str(), t->id, index);
 	wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
 	wxBoxSizer *vbox = new wxBoxSizer(wxVERTICAL);
 
 	tweetdispscr *td=new tweetdispscr(t, scrollwin, this, vbox);
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweetIndex 1"));
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweetIndex 1"));
 	#endif
 
 	if(t->flags.Get('T')) {
@@ -922,10 +918,10 @@ tweetdispscr *tpanelparentwin_nt::PushTweetIndex(const std::shared_ptr<tweet> &t
 		hbox->Add(td->bm, 0, wxALL, 2);
 	}
 	else if(t->flags.Get('D') && t->user_recipient) {
-			t->user->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
-			t->user_recipient->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
-			td->bm = new profimg_staticbitmap(scrollwin, t->user->cached_profile_img_half, t->user->id, t->id, GetMainframe(), PISBF_HALF);
-			td->bm2 = new profimg_staticbitmap(scrollwin, t->user_recipient->cached_profile_img_half, t->user_recipient->id, t->id, GetMainframe(), PISBF_HALF);
+			t->user->ImgHalfIsReady(UPDCF::DOWNLOADIMG);
+			t->user_recipient->ImgHalfIsReady(UPDCF::DOWNLOADIMG);
+			td->bm = new profimg_staticbitmap(scrollwin, t->user->cached_profile_img_half, t->user->id, t->id, GetMainframe(), profimg_staticbitmap::PISBF::HALF);
+			td->bm2 = new profimg_staticbitmap(scrollwin, t->user_recipient->cached_profile_img_half, t->user_recipient->id, t->id, GetMainframe(), profimg_staticbitmap::PISBF::HALF);
 			int dim=gc.maxpanelprofimgsize/2;
 			if(tpg->arrow_dim!=dim) {
 				tpg->arrow=GetArrowIconDim(dim);
@@ -941,7 +937,7 @@ tweetdispscr *tpanelparentwin_nt::PushTweetIndex(const std::shared_ptr<tweet> &t
 	}
 
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweetIndex 2"));
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweetIndex 2"));
 	#endif
 
 	vbox->Add(td, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
@@ -951,13 +947,13 @@ tweetdispscr *tpanelparentwin_nt::PushTweetIndex(const std::shared_ptr<tweet> &t
 	td->DisplayTweet();
 
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweetIndex 3"));
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweetIndex 3"));
 	#endif
 
 	tpanel_subtweet_pending_op::CheckLoadTweetReply(t, vbox, this, td, gc.inlinereplyloadcount, t, td);
 
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweetIndex %s END"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt::PushTweetIndex %s END"), GetThisName().c_str());
 	#endif
 
 	return td;
@@ -966,9 +962,9 @@ tweetdispscr *tpanelparentwin_nt::PushTweetIndex(const std::shared_ptr<tweet> &t
 void tpanelparentwin_nt::PageUpHandler() {
 	if(displayoffset) {
 		SetNoUpdateFlag();
-		size_t pagemove=std::min((size_t) (gc.maxtweetsdisplayinpanel+1)/2, displayoffset);
+		size_t pagemove = std::min((size_t) (gc.maxtweetsdisplayinpanel + 1) / 2, displayoffset);
 		uint64_t greaterthanid=currentdisp.front().first;
-		LoadMore(pagemove, 0, greaterthanid, TPPWPF_ABOVE | TPPWPF_NOINCDISPOFFSET);
+		LoadMore(pagemove, 0, greaterthanid, PUSHFLAGS::ABOVE | PUSHFLAGS::NOINCDISPOFFSET);
 		CheckClearNoUpdateFlag();
 	}
 	scrollwin->page_scroll_blocked=false;
@@ -977,12 +973,12 @@ void tpanelparentwin_nt::PageDownHandler() {
 	SetNoUpdateFlag();
 	size_t curnum=currentdisp.size();
 	size_t tweetnum=tp->tweetlist.size();
-	if(curnum+displayoffset<tweetnum || tppw_flags&TPPWF_CANALWAYSSCROLLDOWN) {
+	if(curnum+displayoffset<tweetnum || tppw_flags & TPPWF::CANALWAYSSCROLLDOWN) {
 		size_t pagemove;
-		if(tppw_flags&TPPWF_CANALWAYSSCROLLDOWN) pagemove=(gc.maxtweetsdisplayinpanel+1)/2;
-		else pagemove=std::min((size_t) (gc.maxtweetsdisplayinpanel+1)/2, tweetnum-(curnum+displayoffset));
+		if(tppw_flags & TPPWF::CANALWAYSSCROLLDOWN) pagemove = (gc.maxtweetsdisplayinpanel + 1) / 2;
+		else pagemove = std::min((size_t) (gc.maxtweetsdisplayinpanel+1)/2, tweetnum-(curnum+displayoffset));
 		uint64_t lessthanid=currentdisp.back().first;
-		LoadMore(pagemove, lessthanid, 0, TPPWPF_BELOW | TPPWPF_NOINCDISPOFFSET);
+		LoadMore(pagemove, lessthanid, 0, PUSHFLAGS::BELOW | PUSHFLAGS::NOINCDISPOFFSET);
 	}
 	scrollwin->page_scroll_blocked=false;
 	CheckClearNoUpdateFlag();
@@ -993,14 +989,14 @@ void tpanelparentwin_nt::PageTopHandler() {
 		SetNoUpdateFlag();
 		size_t pushcount=std::min(displayoffset, (size_t) gc.maxtweetsdisplayinpanel);
 		displayoffset=0;
-		LoadMore(pushcount, 0, 0, TPPWPF_ABOVE | TPPWPF_NOINCDISPOFFSET);
+		LoadMore(pushcount, 0, 0, PUSHFLAGS::ABOVE | PUSHFLAGS::NOINCDISPOFFSET);
 		CheckClearNoUpdateFlag();
 	}
 	scrollwin->Scroll(-1, 0);
 }
 
 void tpanelparentwin_nt::JumpToTweetID(uint64_t id) {
-	LogMsgFormat(LFT_TPANEL, "tpanel::JumpToTweetID %s, %" wxLongLongFmtSpec "d, displayoffset: %d, display count: %d, tweets: %d", GetThisName().c_str(), id, displayoffset, (int) currentdisp.size(), (int) tp->tweetlist.size());
+	LogMsgFormat(LOGT::TPANEL, "tpanel::JumpToTweetID %s, %" wxLongLongFmtSpec "d, displayoffset: %d, display count: %d, tweets: %d", GetThisName().c_str(), id, displayoffset, (int) currentdisp.size(), (int) tp->tweetlist.size());
 
 	bool alldone = false;
 
@@ -1011,7 +1007,7 @@ void tpanelparentwin_nt::JumpToTweetID(uint64_t id) {
 				SetScrollFreeze(sf, disp.second);
 				EndScrollFreeze(sf);
 				#if TPANEL_COPIOUS_LOGGING
-					LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanel::JumpToTweetID setting scrollfreeze"));
+					LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanel::JumpToTweetID setting scrollfreeze"));
 				#endif
 				if(GetCurrentViewTopID() == id) alldone = true;  //if this isn't true, load some more tweets below to make it true
 				break;
@@ -1038,7 +1034,7 @@ void tpanelparentwin_nt::JumpToTweetID(uint64_t id) {
 		uint64_t bottom_id = *std::next(stit, offset_down_delta);
 
 		#if TPANEL_COPIOUS_LOGGING
-			LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanel::JumpToTweetID targ_offset: %d, oud: %d, odd: %d, ti: %" wxLongLongFmtSpec "d, bi: %" wxLongLongFmtSpec "d"), targ_offset, offset_up_delta, offset_down_delta, top_id, bottom_id);
+			LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanel::JumpToTweetID targ_offset: %d, oud: %d, odd: %d, ti: %" wxLongLongFmtSpec "d, bi: %" wxLongLongFmtSpec "d"), targ_offset, offset_up_delta, offset_down_delta, top_id, bottom_id);
 		#endif
 
 		//get rid of tweets which lie outside the new bounds
@@ -1053,7 +1049,7 @@ void tpanelparentwin_nt::JumpToTweetID(uint64_t id) {
 		unsigned int loadcount = offset_up_delta + offset_down_delta + 1 - currentdisp.size();
 
 		#if TPANEL_COPIOUS_LOGGING
-			LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanel::JumpToTweetID displayoffset: %d, loadcount: %d, display count: %d"), displayoffset, loadcount, (int) currentdisp.size());
+			LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanel::JumpToTweetID displayoffset: %d, loadcount: %d, display count: %d"), displayoffset, loadcount, (int) currentdisp.size());
 		#endif
 
 		scrollwin->Thaw();
@@ -1063,23 +1059,23 @@ void tpanelparentwin_nt::JumpToTweetID(uint64_t id) {
 			//if the new top id is also the top of the existing range, start loading from below the bottom of the existing range
 			if(!currentdisp.empty() && top_id == currentdisp.front().first) {
 				#if TPANEL_COPIOUS_LOGGING
-					LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanel::JumpToTweetID adjusting load bound: %" wxLongLongFmtSpec "d"), currentdisp.back().first);
+					LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanel::JumpToTweetID adjusting load bound: %" wxLongLongFmtSpec "d"), currentdisp.back().first);
 				#endif
-				LoadMore(loadcount, currentdisp.back().first, 0, TPPWPF_ABOVE | TPPWPF_CHECKSCROLLTOID | TPPWPF_NOINCDISPOFFSET);
+				LoadMore(loadcount, currentdisp.back().first, 0, PUSHFLAGS::ABOVE | PUSHFLAGS::CHECKSCROLLTOID | PUSHFLAGS::NOINCDISPOFFSET);
 			}
-			else LoadMore(loadcount, top_id + 1, 0, TPPWPF_ABOVE | TPPWPF_CHECKSCROLLTOID | TPPWPF_NOINCDISPOFFSET);
+			else LoadMore(loadcount, top_id + 1, 0, PUSHFLAGS::ABOVE | PUSHFLAGS::CHECKSCROLLTOID | PUSHFLAGS::NOINCDISPOFFSET);
 		}
 		else CheckClearNoUpdateFlag();
 	}
 
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanel::JumpToTweetID %s END"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanel::JumpToTweetID %s END"), GetThisName().c_str());
 	#endif
 }
 
 void tpanelparentwin_nt::UpdateCLabel() {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::UpdateCLabel %s START"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt::UpdateCLabel %s START"), GetThisName().c_str());
 	#endif
 	size_t curnum=currentdisp.size();
 	if(curnum) {
@@ -1098,7 +1094,7 @@ void tpanelparentwin_nt::UpdateCLabel() {
 	ShowHideButtons("more", true);
 	headersizer->Layout();
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::UpdateCLabel %s END"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt::UpdateCLabel %s END"), GetThisName().c_str());
 	#endif
 }
 
@@ -1112,7 +1108,7 @@ void tpanelparentwin_nt::MarkSetRead() {
 
 void tpanelparentwin_nt::MarkSetRead(tweetidset &&subset) {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::MarkSetRead %s START"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt::MarkSetRead %s START"), GetThisName().c_str());
 	#endif
 	tweetidset cached_ids = std::move(subset);
 	MarkClearCIDSSetHandler(
@@ -1127,7 +1123,7 @@ void tpanelparentwin_nt::MarkSetRead(tweetidset &&subset) {
 	dbupdatetweetsetflagsmsg *msg = new dbupdatetweetsetflagsmsg(std::move(cached_ids), tweet_flags::GetFlagValue('r'), tweet_flags::GetFlagValue('u'));
 	dbc.SendMessage(msg);
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::MarkSetRead %s END"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt::MarkSetRead %s END"), GetThisName().c_str());
 	#endif
 }
 
@@ -1141,7 +1137,7 @@ void tpanelparentwin_nt::MarkSetUnhighlighted() {
 
 void tpanelparentwin_nt::MarkSetUnhighlighted(tweetidset &&subset) {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::MarkSetUnhighlighted %s START"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt::MarkSetUnhighlighted %s START"), GetThisName().c_str());
 	#endif
 	tweetidset cached_ids = std::move(subset);
 	MarkClearCIDSSetHandler(
@@ -1157,7 +1153,7 @@ void tpanelparentwin_nt::MarkSetUnhighlighted(tweetidset &&subset) {
 	dbupdatetweetsetflagsmsg *msg = new dbupdatetweetsetflagsmsg(std::move(cached_ids), 0, tweet_flags::GetFlagValue('H'));
 	dbc.SendMessage(msg);
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::MarkSetUnhighlighted %s END"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt::MarkSetUnhighlighted %s END"), GetThisName().c_str());
 	#endif
 }
 
@@ -1250,7 +1246,7 @@ void tpanelparentwin_nt::setupnavbuttonhandlers() {
 		}
 	});
 
-	auto hidesettogglefunc = [&](int cmdid, unsigned int tppwflag, tweetidset cached_id_sets::* setptr, const wxString &logstr) {
+	auto hidesettogglefunc = [&](int cmdid, flagwrapper<TPPWF> tppwflag, tweetidset cached_id_sets::* setptr, const wxString &logstr) {
 		addhandler(cmdid, [this, tppwflag, setptr, logstr](wxCommandEvent &event) {
 			tppw_flags ^= tppwflag;
 			SetNoUpdateFlag();
@@ -1259,7 +1255,7 @@ void tpanelparentwin_nt::setupnavbuttonhandlers() {
 			IterateCurrentDisp([&](uint64_t id, dispscr_base *scr) {
 				if((tp->cids.*setptr).find(id) != (tp->cids.*setptr).end()) {
 					#if TPANEL_COPIOUS_LOGGING
-						LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::setupnavbuttonhandlers: %s: About to refresh: %" wxLongLongFmtSpec "d, items: %d"), logstr.c_str(), id, (tp->cids.*setptr).size());
+						LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt::setupnavbuttonhandlers: %s: About to refresh: %" wxLongLongFmtSpec "d, items: %d"), logstr.c_str(), id, (tp->cids.*setptr).size());
 					#endif
 					static_cast<tweetdispscr *>(scr)->DisplayTweet(false);
 				}
@@ -1267,8 +1263,8 @@ void tpanelparentwin_nt::setupnavbuttonhandlers() {
 			CheckClearNoUpdateFlag();
 		});
 	};
-	hidesettogglefunc(TPPWID_TOGGLEHIDDEN, TPPWF_SHOWHIDDEN, &cached_id_sets::hiddenids, wxT("TPPWID_TOGGLEHIDDEN: Hidden IDs"));
-	hidesettogglefunc(TPPWID_TOGGLEHIDEDELETED, TPPWF_SHOWDELETED, &cached_id_sets::deletedids, wxT("TPPWID_TOGGLEHIDEDELETED: Deleted IDs"));
+	hidesettogglefunc(TPPWID_TOGGLEHIDDEN, TPPWF::SHOWHIDDEN, &cached_id_sets::hiddenids, wxT("TPPWID_TOGGLEHIDDEN: Hidden IDs"));
+	hidesettogglefunc(TPPWID_TOGGLEHIDEDELETED, TPPWF::SHOWDELETED, &cached_id_sets::deletedids, wxT("TPPWID_TOGGLEHIDEDELETED: Deleted IDs"));
 }
 
 void tpanelparentwin_nt::morebtnhandler(wxCommandEvent &event) {
@@ -1295,9 +1291,9 @@ void tpanelparentwin_nt::morebtnhandler(wxCommandEvent &event) {
 	}
 	pmenu.AppendSeparator();
 	wxMenuItem *wmith = pmenu.Append(TPPWID_TOGGLEHIDDEN, wxString::Format(wxT("Show Hidden Tweets (%d)"), tp->cids.hiddenids.size()), wxT(""), wxITEM_CHECK);
-	wmith->Check(tppw_flags & TPPWF_SHOWHIDDEN);
+	wmith->Check(tppw_flags & TPPWF::SHOWHIDDEN);
 	wxMenuItem *wmith2 = pmenu.Append(TPPWID_TOGGLEHIDEDELETED, wxString::Format(wxT("Show Deleted Tweets (%d)"), tp->cids.deletedids.size()), wxT(""), wxITEM_CHECK);
-	wmith2->Check(tppw_flags & TPPWF_SHOWDELETED);
+	wmith2->Check(tppw_flags & TPPWF::SHOWDELETED);
 
 	GenericPopupWrapper(this, &pmenu, btnrect.GetLeft(), btnrect.GetBottom());
 }
@@ -1306,7 +1302,7 @@ void tpanelparentwin_nt::morebtnhandler(wxCommandEvent &event) {
 //note that the tpanel cids should be cleared/modified *before* calling this function
 void tpanelparentwin_nt::MarkClearCIDSSetHandler(std::function<tweetidset &(cached_id_sets &)> idsetselector, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc, const tweetidset &subset) {
 	Freeze();
-	tp->TPPWFlagMaskAllTWins(TPPWF_CLABELUPDATEPENDING|TPPWF_NOUPDATEONPUSH, 0);
+	tp->TPPWFlagMaskAllTWins(TPPWF::CLABELUPDATEPENDING|TPPWF::NOUPDATEONPUSH, 0);
 	MarkTweetIDSetCIDS(subset, tp.get(), idsetselector, true, existingtweetfunc);
 	CheckClearNoUpdateFlag_All();
 	Thaw();
@@ -1316,7 +1312,7 @@ void tpanelparentwin_nt::EnumDisplayedTweets(std::function<bool (tweetdispscr *)
 	Freeze();
 	bool checkupdateflag=false;
 	if(setnoupdateonpush) {
-		checkupdateflag=!(tppw_flags&TPPWF_NOUPDATEONPUSH);
+		checkupdateflag=!(tppw_flags&TPPWF::NOUPDATEONPUSH);
 		SetNoUpdateFlag();
 	}
 	for(auto jt=currentdisp.begin(); jt!=currentdisp.end(); ++jt) {
@@ -1336,7 +1332,7 @@ void tpanelparentwin_nt::EnumDisplayedTweets(std::function<bool (tweetdispscr *)
 void tpanelparentwin_nt::UpdateOwnTweet(const tweet &t, bool redrawimg) {
 	EnumDisplayedTweets([&](tweetdispscr *tds) {
 		if(tds->td->id==t.id || tds->rtid==t.id) {	//found matching entry
-			LogMsgFormat(LFT_TPANEL, wxT("UpdateOwnTweet: %s, Found Entry %" wxLongLongFmtSpec "d."), GetThisName().c_str(), t.id);
+			LogMsgFormat(LOGT::TPANEL, wxT("UpdateOwnTweet: %s, Found Entry %" wxLongLongFmtSpec "d."), GetThisName().c_str(), t.id);
 			tds->DisplayTweet(redrawimg);
 		}
 		return true;
@@ -1347,7 +1343,7 @@ void tpanelparentwin_nt::HandleScrollToIDOnUpdate() {
 	for(auto &it : currentdisp) {
 		if(it.first == scrolltoid_onupdate) {
 			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::HandleScrollToIDOnUpdate() %s"), GetThisName().c_str());
+				LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt::HandleScrollToIDOnUpdate() %s"), GetThisName().c_str());
 			#endif
 			tppw_scrollfreeze sf;
 			SetScrollFreeze(sf, it.second);
@@ -1371,14 +1367,14 @@ void tpanelparentwin_nt::IterateCurrentDisp(std::function<void(uint64_t, dispscr
 }
 
 void tpanelparentwin_nt::StartBatchTimerMode() {
-	if(tppw_flags & TPPWF_BATCHTIMERMODE) return;
+	if(tppw_flags & TPPWF::BATCHTIMERMODE) return;
 
-	tppw_flags |= TPPWF_BATCHTIMERMODE;
+	tppw_flags |= TPPWF::BATCHTIMERMODE;
 	ResetBatchTimer();
 }
 
 void tpanelparentwin_nt::OnBatchTimerModeTimer(wxTimerEvent& event) {
-	tppw_flags &= ~TPPWF_BATCHTIMERMODE;
+	tppw_flags &= ~TPPWF::BATCHTIMERMODE;
 
 	if(pushtweetbatchqueue.empty()) {
 		CheckClearNoUpdateFlag();
@@ -1389,7 +1385,7 @@ void tpanelparentwin_nt::OnBatchTimerModeTimer(wxTimerEvent& event) {
 
 	struct simulation_disp {
 		uint64_t id;
-		std::pair<std::shared_ptr<tweet>, unsigned int> *pushptr;
+		std::pair<std::shared_ptr<tweet>, flagwrapper<PUSHFLAGS> > *pushptr;
 	};
 	std::list<simulation_disp> simulation_currentdisp;
 	for(auto &it : currentdisp) {
@@ -1398,11 +1394,11 @@ void tpanelparentwin_nt::OnBatchTimerModeTimer(wxTimerEvent& event) {
 
 	for(auto &item : pushtweetbatchqueue) {
 		uint64_t id = item.first->id;
-		unsigned int pushflags = item.second;
+		flagwrapper<PUSHFLAGS> pushflags = item.second;
 
 		if(simulation_currentdisp.size() == gc.maxtweetsdisplayinpanel) {
 			if(id < simulation_currentdisp.back().id) {    //off the end of the list
-				if(pushflags & TPPWPF_BELOW || pushflags & TPPWPF_USERTL) {
+				if(pushflags & PUSHFLAGS::BELOW || pushflags & PUSHFLAGS::USERTL) {
 					simulation_currentdisp.pop_front();
 				}
 				else continue;
@@ -1427,7 +1423,7 @@ void tpanelparentwin_nt::OnBatchTimerModeTimer(wxTimerEvent& event) {
 		}
 	}
 
-	LogMsgFormat(LFT_TPANEL, wxT("tpanelparentwin_nt::OnBatchTimerModeTimer: %s, Reduced %u pushes to %u pushes."), GetThisName().c_str(), pushtweetbatchqueue.size(), pushcount);
+	LogMsgFormat(LOGT::TPANEL, wxT("tpanelparentwin_nt::OnBatchTimerModeTimer: %s, Reduced %u pushes to %u pushes."), GetThisName().c_str(), pushtweetbatchqueue.size(), pushcount);
 
 	simulation_currentdisp.clear();
 	pushtweetbatchqueue.clear();
@@ -1455,22 +1451,22 @@ tpanelparentwin::tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *
 	LoadMore(gc.maxtweetsdisplayinpanel);
 }
 
-uint64_t tpanelparentwin::PushTweetOrRetLoadId(uint64_t id, unsigned int pushflags) {
+uint64_t tpanelparentwin::PushTweetOrRetLoadId(uint64_t id, flagwrapper<PUSHFLAGS> pushflags) {
 	bool isnew;
 	std::shared_ptr<tweet> tobj=ad.GetTweetById(id, &isnew);
 	if(!isnew) {
 		return PushTweetOrRetLoadId(tobj, pushflags);
 	}
 	else {
-		tobj->lflags|=TLF_BEINGLOADEDFROMDB;
+		tobj->lflags|=TLF::BEINGLOADEDFROMDB;
 		MarkPending_TPanelMap(tobj, this, pushflags);
 		return id;
 	}
 }
 
-uint64_t tpanelparentwin::PushTweetOrRetLoadId(const std::shared_ptr<tweet> &tobj, unsigned int pushflags) {
+uint64_t tpanelparentwin::PushTweetOrRetLoadId(const std::shared_ptr<tweet> &tobj, flagwrapper<PUSHFLAGS> pushflags) {
 	bool insertpending=false;
-	if(tobj->lflags&TLF_BEINGLOADEDFROMDB) {
+	if(tobj->lflags&TLF::BEINGLOADEDFROMDB) {
 		insertpending=true;
 	}
 	else {
@@ -1487,10 +1483,10 @@ uint64_t tpanelparentwin::PushTweetOrRetLoadId(const std::shared_ptr<tweet> &tob
 //if greaterthanid, is an exclusive lower limit, iterate upwards
 //cannot set both
 //if neither set: start at highest in set and iterate down
-void tpanelparentwin::LoadMore(unsigned int n, uint64_t lessthanid, uint64_t greaterthanid, unsigned int pushflags) {
+void tpanelparentwin::LoadMore(unsigned int n, uint64_t lessthanid, uint64_t greaterthanid, flagwrapper<PUSHFLAGS> pushflags) {
 	dbseltweetmsg *loadmsg=0;
 
-	LogMsgFormat(LFT_TPANEL, "tpanelparentwin::LoadMore %s called with n: %d, lessthanid: %" wxLongLongFmtSpec "d, greaterthanid: %" wxLongLongFmtSpec "d, pushflags: 0x%X", GetThisName().c_str(), n, lessthanid, greaterthanid, pushflags);
+	LogMsgFormat(LOGT::TPANEL, "tpanelparentwin::LoadMore %s called with n: %d, lessthanid: %" wxLongLongFmtSpec "d, greaterthanid: %" wxLongLongFmtSpec "d, pushflags: 0x%X", GetThisName().c_str(), n, lessthanid, greaterthanid, pushflags);
 
 	SetNoUpdateFlag();
 
@@ -1508,7 +1504,7 @@ void tpanelparentwin::LoadMore(unsigned int n, uint64_t lessthanid, uint64_t gre
 		if(stit==tp->tweetlist.cend()) break;
 		uint64_t loadid=PushTweetOrRetLoadId(*stit, pushflags);
 		if(loadid) {
-			LogMsgFormat(LFT_TPANEL, "tpanelparentwin::LoadMore loading from db id: %" wxLongLongFmtSpec "d", loadid);
+			LogMsgFormat(LOGT::TPANEL, "tpanelparentwin::LoadMore loading from db id: %" wxLongLongFmtSpec "d", loadid);
 			if(!loadmsg) loadmsg=new dbseltweetmsg;
 			loadmsg->id_set.insert(loadid);
 		}
@@ -1522,14 +1518,14 @@ void tpanelparentwin::LoadMore(unsigned int n, uint64_t lessthanid, uint64_t gre
 		loadmsg->targ=&dbc;
 		loadmsg->cmdevtype=wxextDBCONN_NOTIFY;
 		loadmsg->winid=wxDBCONNEVT_ID_TPANELTWEETLOAD;
-		if(!gc.persistentmediacache) loadmsg->flags|=DBSTMF_PULLMEDIA;
+		if(!gc.persistentmediacache) loadmsg->flags|=DBSTMF::PULLMEDIA;
 		dbc.SendMessage(loadmsg);
 	}
-	if(currentlogflags&LFT_PENDTRACE) dump_tweet_pendings(LFT_PENDTRACE, wxT(""), wxT("\t"));
+	if(currentlogflags&LOGT::PENDTRACE) dump_tweet_pendings(LOGT::PENDTRACE, wxT(""), wxT("\t"));
 
 	CheckClearNoUpdateFlag();
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin::LoadMore %s END"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin::LoadMore %s END"), GetThisName().c_str());
 	#endif
 }
 
@@ -1568,27 +1564,27 @@ void tpanelparentwin::tabsplitcmdhandler(wxCommandEvent &event) {
 
 void tpanelparentwin::UpdateCLabel() {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin::UpdateCLabel %s START"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin::UpdateCLabel %s START"), GetThisName().c_str());
 	#endif
 	tpanelparentwin_nt::UpdateCLabel();
 	int pageid = owner->auib->GetPageIndex(this);
 	int unreadcount = tp->cids.unreadids.size();
 	if(!unreadcount) {
 		owner->auib->SetPageText(pageid, wxstrstd(tp->dispname));
-		if((tpw_flags & TPWF_UNREADBITMAPDISP)) {
+		if((tpw_flags & TPWF::UNREADBITMAPDISP)) {
 			owner->auib->SetPageBitmap(pageid, wxNullBitmap);
-			tpw_flags &= ~TPWF_UNREADBITMAPDISP;
+			tpw_flags &= ~TPWF::UNREADBITMAPDISP;
 		}
 	}
 	else {
 		owner->auib->SetPageText(pageid, wxString::Format(wxT("%d - %s"), unreadcount, wxstrstd(tp->dispname).c_str()));
-		if(!(tpw_flags & TPWF_UNREADBITMAPDISP)) {
+		if(!(tpw_flags & TPWF::UNREADBITMAPDISP)) {
 			owner->auib->SetPageBitmap(pageid, tpg->multiunreadicon);
-			tpw_flags |= TPWF_UNREADBITMAPDISP;
+			tpw_flags |= TPWF::UNREADBITMAPDISP;
 		}
 	}
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin::UpdateCLabel %s END"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin::UpdateCLabel %s END"), GetThisName().c_str());
 	#endif
 }
 
@@ -1623,7 +1619,7 @@ void tpanelparentwin_user::PageUpHandler() {
 			it--;
 			displayoffset--;
 			const std::shared_ptr<userdatacontainer> &u=*it;
-			if(u->IsReady(UPDCF_DOWNLOADIMG)) UpdateUser(u, displayoffset);
+			if(u->IsReady(UPDCF::DOWNLOADIMG)) UpdateUser(u, displayoffset);
 		}
 		CheckClearNoUpdateFlag();
 	}
@@ -1633,9 +1629,9 @@ void tpanelparentwin_user::PageDownHandler() {
 	SetNoUpdateFlag();
 	size_t curnum=currentdisp.size();
 	size_t num=ItemCount();
-	if(curnum+displayoffset<num || tppw_flags&TPPWF_CANALWAYSSCROLLDOWN) {
+	if(curnum+displayoffset<num || tppw_flags&TPPWF::CANALWAYSSCROLLDOWN) {
 		size_t pagemove;
-		if(tppw_flags&TPPWF_CANALWAYSSCROLLDOWN) pagemove=(gc.maxtweetsdisplayinpanel+1)/2;
+		if(tppw_flags&TPPWF::CANALWAYSSCROLLDOWN) pagemove=(gc.maxtweetsdisplayinpanel+1)/2;
 		else pagemove=std::min((size_t) (gc.maxtweetsdisplayinpanel+1)/2, (size_t) (num-(curnum+displayoffset)));
 		size_t topdrop=std::min(curnum, (size_t) (curnum+pagemove-gc.maxtweetsdisplayinpanel));
 		for(size_t i=0; i<topdrop; i++) PopTop();
@@ -1658,7 +1654,7 @@ void tpanelparentwin_user::PageTopHandler() {
 		size_t i=0;
 		for(auto it=userlist.begin(); it!=userlist.end() && pushcount; ++it, --pushcount, i++) {
 			const std::shared_ptr<userdatacontainer> &u=*it;
-			if(u->IsReady(UPDCF_DOWNLOADIMG)) UpdateUser(u, i);
+			if(u->IsReady(UPDCF::DOWNLOADIMG)) UpdateUser(u, i);
 		}
 		CheckClearNoUpdateFlag();
 	}
@@ -1703,7 +1699,7 @@ bool tpanelparentwin_user::UpdateUser(const std::shared_ptr<userdatacontainer> &
 	}
 	auto pos=currentdisp.begin();
 	std::advance(pos, index);
-	if(u->IsReady(UPDCF_DOWNLOADIMG|UPDCF_USEREXPIRE)) {
+	if(u->IsReady(UPDCF::DOWNLOADIMG|UPDCF::USEREXPIRE)) {
 		wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
 		userdispscr *td=new userdispscr(u, scrollwin, this, hbox);
 
@@ -1716,8 +1712,8 @@ bool tpanelparentwin_user::UpdateUser(const std::shared_ptr<userdatacontainer> &
 		currentdisp.insert(pos, std::make_pair(u->id, td));
 		td->Display();
 		CLabelNeedsUpdating(0);
-		if(!(tppw_flags&TPPWF_NOUPDATEONPUSH)) td->ForceRefresh();
-		else td->gdb_flags |= tweetdispscr::GDB_F_NEEDSREFRESH;
+		if(!(tppw_flags&TPPWF::NOUPDATEONPUSH)) td->ForceRefresh();
+		else td->gdb_flags |= tweetdispscr::GDB_F::NEEDSREFRESH;
 		return false;
 	}
 	else {
@@ -1752,7 +1748,7 @@ tpanelscrollwin::tpanelscrollwin(panelparentwin_base *parent_)
 
 void tpanelscrollwin::resizehandler(wxSizeEvent &event) {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelscrollwin::resizehandler: %s, %d, %d"), GetThisName().c_str(), event.GetSize().GetWidth(), event.GetSize().GetHeight());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelscrollwin::resizehandler: %s, %d, %d"), GetThisName().c_str(), event.GetSize().GetWidth(), event.GetSize().GetHeight());
 	#endif
 	//FitInside();
 	//Refresh();
@@ -1761,7 +1757,7 @@ void tpanelscrollwin::resizehandler(wxSizeEvent &event) {
 
 void tpanelscrollwin::resizemsghandler(wxCommandEvent &event) {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelscrollwin::resizemsghandler %s"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelscrollwin::resizemsghandler %s"), GetThisName().c_str());
 	#endif
 	tppw_scrollfreeze sf;
 	parent->StartScrollFreeze(sf);
@@ -1789,7 +1785,7 @@ void tpanelscrollwin::OnScrollHandler(wxScrollWinEvent &event) {
 	GetClientSize(0, &cy);
 	int endpos=(y*sy)+cy;
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelscrollwin::OnScrollHandler %s, %d %d %d %d %d"), GetThisName().c_str(), y, sy, wy, cy, endpos);
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelscrollwin::OnScrollHandler %s, %d %d %d %d %d"), GetThisName().c_str(), y, sy, wy, cy, endpos);
 	#endif
 	bool scrollup=(y==0 && upok);
 	bool scrolldown=(endpos>=wy && downok);
@@ -1823,7 +1819,7 @@ tpanelparentwin_usertweets::tpanelparentwin_usertweets(std::shared_ptr<userdatac
 : tpanelparentwin_nt(MkUserTweetTPanel(user_, type_), parent, thisname_.empty() ? wxString::Format(wxT("tpanelparentwin_usertweets for: %" wxLongLongFmtSpec "d"), user_->id) : thisname_),
 user(user_), getacc(getacc_), havestarted(false), type(type_) {
 
-	tppw_flags|=TPPWF_CANALWAYSSCROLLDOWN;
+	tppw_flags|=TPPWF::CANALWAYSSCROLLDOWN;
 }
 
 tpanelparentwin_usertweets::~tpanelparentwin_usertweets() {
@@ -1833,7 +1829,7 @@ tpanelparentwin_usertweets::~tpanelparentwin_usertweets() {
 std::shared_ptr<tpanel> tpanelparentwin_usertweets::MkUserTweetTPanel(const std::shared_ptr<userdatacontainer> &user, RBFS_TYPE type_) {
 	std::shared_ptr<tpanel> &tp=usertpanelmap[std::make_pair(user->id, type_)];
 	if(!tp) {
-		tp=tpanel::MkTPanel("___UTL_" + std::to_string(user->id) + "_" + std::to_string((size_t) type_), "User Timeline: @" + user->GetUser().screen_name, TPF_DELETEONWINCLOSE|TPF_USER_TIMELINE);
+		tp=tpanel::MkTPanel("___UTL_" + std::to_string(user->id) + "_" + std::to_string((size_t) type_), "User Timeline: @" + user->GetUser().screen_name, TPF::DELETEONWINCLOSE|TPF::USER_TIMELINE);
 	}
 	return tp;
 }
@@ -1850,7 +1846,7 @@ std::shared_ptr<tpanel> tpanelparentwin_usertweets::GetUserTweetTPanel(uint64_t 
 //if greaterthanid, is an exclusive lower limit, iterate upwards
 //cannot set both
 //if neither set: start at highest in set and iterate down
-void tpanelparentwin_usertweets::LoadMore(unsigned int n, uint64_t lessthanid, uint64_t greaterthanid, unsigned int pushflags) {
+void tpanelparentwin_usertweets::LoadMore(unsigned int n, uint64_t lessthanid, uint64_t greaterthanid, flagwrapper<PUSHFLAGS> pushflags) {
 	std::shared_ptr<taccount> tac = getacc(*this);
 	if(!tac) return;
 	SetNoUpdateFlag();
@@ -1873,8 +1869,8 @@ void tpanelparentwin_usertweets::LoadMore(unsigned int n, uint64_t lessthanid, u
 		if(stit == tp->tweetlist.cend()) break;
 
 		std::shared_ptr<tweet> t = ad.GetTweetById(*stit);
-		if(tac->CheckMarkPending(t)) PushTweet(t, TPPWPF_USERTL | pushflags);
-		else MarkPending_TPanelMap(t, 0, TPPWPF_USERTL | pushflags, &tp);
+		if(tac->CheckMarkPending(t)) PushTweet(t, PUSHFLAGS::USERTL | pushflags);
+		else MarkPending_TPanelMap(t, 0, PUSHFLAGS::USERTL | pushflags, &tp);
 
 		if(revdir) {
 			if((*stit) > load_greaterthanid) load_greaterthanid = *stit;
@@ -1973,7 +1969,7 @@ void tpanelparentwin_userproplisting::LoadMoreToBack(unsigned int n) {
 	for(size_t i=0; i<n && index<useridlist.size(); i++, index++) {
 		std::shared_ptr<userdatacontainer> u=ad.GetUserContainerById(useridlist[index]);
 		if(PushBackUser(u)) {
-			u->udc_flags|=UDC_CHECK_USERLISTWIN;
+			u->udc_flags|=UDC::CHECK_USERLISTWIN;
 			tac->pendingusers[u->id]=u;
 			querypendings=true;
 		}
@@ -1992,12 +1988,12 @@ void tpanelparentwin_userproplisting::NotifyRequestFailed() {
 }
 
 bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid) {
-	//LogMsg(LFT_TPANEL, wxT("Redirect MouseWheel"));
+	//LogMsg(LOGT::TPANEL, wxT("Redirect MouseWheel"));
 	wxWindow *wind=wxFindWindowAtPoint(wxGetMousePosition() /*event.GetPosition()*/);
 	while(wind) {
 		if(wind!=avoid && std::count(tpanelparentwinlist.begin(), tpanelparentwinlist.end(), wind)) {
 			tpanelparentwin *tppw=(tpanelparentwin*) wind;
-			//LogMsgFormat(LFT_TPANEL, wxT("Redirect MouseWheel: Dispatching to %s"), wxstrstd(tppw->tp->name).c_str());
+			//LogMsgFormat(LOGT::TPANEL, wxT("Redirect MouseWheel: Dispatching to %s"), wxstrstd(tppw->tp->name).c_str());
 			event.SetEventObject(tppw->scrollwin);
 			tppw->scrollwin->GetEventHandler()->ProcessEvent(event);
 			return true;
@@ -2049,7 +2045,7 @@ void profimg_staticbitmap::ClickHandler(wxMouseEvent &event) {
 }
 
 void profimg_staticbitmap::RightClickHandler(wxMouseEvent &event) {
-	if(owner || !(pisb_flags&PISBF_DONTUSEDEFAULTMF)) {
+	if(owner || !(pisb_flags&PISBF::DONTUSEDEFAULTMF)) {
 		wxMenu menu;
 		int nextid=tweetactmenustartid;
 		tamd.clear();
@@ -2060,7 +2056,7 @@ void profimg_staticbitmap::RightClickHandler(wxMouseEvent &event) {
 
 void profimg_staticbitmap::OnTweetActMenuCmd(wxCommandEvent &event) {
 	mainframe *mf = owner;
-	if(!mf && mainframelist.size() && !(pisb_flags&PISBF_DONTUSEDEFAULTMF)) mf = mainframelist.front();
+	if(!mf && mainframelist.size() && !(pisb_flags&PISBF::DONTUSEDEFAULTMF)) mf = mainframelist.front();
 	TweetActMenuAction(tamd, event.GetId(), mf);
 }
 

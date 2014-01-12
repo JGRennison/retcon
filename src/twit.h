@@ -24,6 +24,9 @@
 #include "univdefs.h"
 #include "magic_ptr.h"
 #include "twit-common.h"
+#include "twitcurlext-common.h"
+#include "tpanel-common.h"
+#include "flags.h"
 #include <memory>
 #include <functional>
 #include <wx/bitmap.h>
@@ -56,7 +59,7 @@ inline unsigned int CheckTweetPendings(const std::shared_ptr<tweet> &t) {
 }
 void FastMarkPendingNonAcc(const std::shared_ptr<tweet> &t, unsigned int mark, bool checkfirst);
 bool FastMarkPendingNoAccFallback(const std::shared_ptr<tweet> &t, unsigned int mark, bool checkfirst, const wxString &logprefix);
-bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_nt* win_, unsigned int pushflags = 0, std::shared_ptr<tpanel> *pushtpanel_ = 0);
+bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_nt* win_, PUSHFLAGS pushflags = PUSHFLAGS::DEFAULT, std::shared_ptr<tpanel> *pushtpanel_ = 0);
 bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::shared_ptr<taccount> acc_hint);
 bool CheckLoadSingleTweet(const std::shared_ptr<tweet> &t, std::shared_ptr<taccount> &acc_hint);
 void MarkTweetIDSetAsRead(const tweetidset &ids, const tpanel *exclude);
@@ -67,24 +70,30 @@ void UpdateSingleTweetUnreadState(const std::shared_ptr<tweet> &tw);
 void UpdateSingleTweetHighlightState(const std::shared_ptr<tweet> &tw);
 void UpdateSingleTweetFlagState(const std::shared_ptr<tweet> &tw, unsigned long long mask);
 
-enum {	//for UnmarkPendingTweet: umpt_flags
-	UMPTF_TPDB_NOUPDF        = 1<<0,
-	UMPTF_RMV_LKPINPRGFLG    = 1<<1,
+enum class UPDCF {
+	DOWNLOADIMG        = 1<<0,
+	USEREXPIRE         = 1<<1,
+	DEFAULT            = DOWNLOADIMG | USEREXPIRE,
 };
+template<> struct enum_traits<UPDCF> { static constexpr bool flags = true; };
 
-void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, unsigned int umpt_flags = 0);
+inline flagwrapper<UPDCF> ConstUPDCF(flagwrapper<UPDCF> updcf) {
+	return updcf & UPDCF::USEREXPIRE;
+}
 
-enum {	//for u_flags
-	UF_ISPROTECTED           = 1<<0,
-	UF_ISVERIFIED            = 1<<1,
-	UF_ISDEAD                = 1<<2,
-};
+void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags = 0);
 
 struct userdata {
+	enum class UF {
+		ISPROTECTED           = 1<<0,
+		ISVERIFIED            = 1<<1,
+		ISDEAD                = 1<<2,
+	};
+
 	std::string name;
 	std::string screen_name;
 	std::string profile_img_url;
-	unsigned int u_flags;
+	flagwrapper<UF> u_flags;
 	time_t createtime;
 	std::string description;
 	std::string location;
@@ -96,26 +105,28 @@ struct userdata {
 
 	userdata() : u_flags(0), createtime(0), statuses_count(0), followers_count(0), friends_count(0), favourites_count(0) { }
 };
+template<> struct enum_traits<userdata::UF> { static constexpr bool flags = true; };
 
-enum {
-	UDC_LOOKUP_IN_PROGRESS        = 1<<0,
-	UDC_IMAGE_DL_IN_PROGRESS      = 1<<1,
-	UDC_THIS_IS_ACC_USER_HINT     = 1<<2,
-	UDC_PROFILE_BITMAP_SET        = 1<<3,
-	UDC_HALF_PROFILE_BITMAP_SET   = 1<<4,
-	UDC_WINDOWOPEN                = 1<<5,
-	UDC_FORCE_REFRESH             = 1<<6,
-	UDC_FRIENDACT_IN_PROGRESS     = 1<<7,
-	UDC_CHECK_USERLISTWIN         = 1<<8,
-	UDC_PROFILE_IMAGE_DL_FAILED   = 1<<9,
+enum class UDC {
+	LOOKUP_IN_PROGRESS        = 1<<0,
+	IMAGE_DL_IN_PROGRESS      = 1<<1,
+	THIS_IS_ACC_USER_HINT     = 1<<2,
+	PROFILE_BITMAP_SET        = 1<<3,
+	HALF_PROFILE_BITMAP_SET   = 1<<4,
+	WINDOWOPEN                = 1<<5,
+	FORCE_REFRESH             = 1<<6,
+	FRIENDACT_IN_PROGRESS     = 1<<7,
+	CHECK_USERLISTWIN         = 1<<8,
+	PROFILE_IMAGE_DL_FAILED   = 1<<9,
 };
+template<> struct enum_traits<UDC> { static constexpr bool flags = true; };
 
 struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	uint64_t id;
 	userdata user;
 	uint64_t lastupdate;
 	uint64_t lastupdate_wrotetodb;
-	unsigned int udc_flags;
+	flagwrapper<UDC> udc_flags;
 
 	std::string cached_profile_img_url;
 	unsigned char cached_profile_img_sha1[20];
@@ -124,9 +135,9 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	std::forward_list<std::shared_ptr<tweet> > pendingtweets;
 	std::deque<uint64_t> mention_index;
 
-	bool NeedsUpdating(unsigned int updcf_flags, time_t timevalue = 0) const;
-	bool IsReady(unsigned int updcf_flags, time_t timevalue = 0);
-	void CheckPendingTweets(unsigned int umpt_flags = 0);
+	bool NeedsUpdating(flagwrapper<UPDCF> updcf_flags, time_t timevalue = 0) const;
+	bool IsReady(flagwrapper<UPDCF> updcf_flags, time_t timevalue = 0);
+	void CheckPendingTweets(flagwrapper<UMPTF> umpt_flags = 0);
 	void MarkTweetPending(const std::shared_ptr<tweet> &t, bool checkfirst=false);
 	std::shared_ptr<taccount> GetAccountOfUser() const;
 	void GetImageLocalFilename(wxString &filename)  const;
@@ -137,14 +148,13 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	wxBitmap MkProfileBitmapFromwxImage(const wxImage &img, double limitscalefactor);
 	void SetProfileBitmapFromwxImage(const wxImage &img);
 	void Dump() const;
-	bool ImgIsReady(unsigned int updcf_flags);
-	bool ImgHalfIsReady(unsigned int updcf_flags);
+	bool ImgIsReady(flagwrapper<UPDCF> updcf_flags);
+	bool ImgHalfIsReady(flagwrapper<UPDCF> updcf_flags);
 	bool GetUsableAccount(std::shared_ptr<taccount> &tac, bool enabledonly = true) const;
 	std::string GetPermalink(bool ssl) const;
 };
 
-struct tweet_perspective {
-	std::shared_ptr<taccount> acc;
+class tweet_perspective {
 	enum {
 		TP_IAH           = 1<<0,
 		TP_FAV           = 1<<1,
@@ -156,6 +166,9 @@ struct tweet_perspective {
 		TP_RECV_NORM     = 1<<7,
 		TP_RECV_RTSRC    = 1<<8,
 	};
+
+	public:
+	std::shared_ptr<taccount> acc;
 
 	tweet_perspective(const std::shared_ptr<taccount> &tac) : acc(tac), flags(0) { }
 	tweet_perspective() : flags(0) { }
@@ -184,31 +197,10 @@ struct tweet_perspective {
 	unsigned int flags;
 };
 
-enum {	//for tweet.lflags
-	TLF_DYNDIRTY             = 1<<0,
-	TLF_BEINGLOADEDFROMDB    = 1<<1,
-	TLF_SAVED_IN_DB          = 1<<3,
-	TLF_BEINGLOADEDOVERNET   = 1<<4,
-	TLF_HAVEFIRSTTP          = 1<<5,
-	TLF_SHOULDSAVEINDB       = 1<<6,
-	TLF_LOADED_FROM_DB       = 1<<7,
-	TLF_ISPENDING            = 1<<8,
-};
-
-enum {	//for tweet.updcf_flags
-	UPDCF_DOWNLOADIMG        = 1<<0,
-	UPDCF_USEREXPIRE         = 1<<1,
-	UPDCF_DEFAULT            = UPDCF_DOWNLOADIMG | UPDCF_USEREXPIRE,
-};
-
-inline unsigned int ConstUPDCF(unsigned int updcf) {
-	return updcf & UPDCF_USEREXPIRE;
-}
-
 struct pending_op {
 	virtual ~pending_op() { }
 
-	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags) = 0;
+	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags) = 0;
 	virtual wxString dump()=0;
 };
 
@@ -216,18 +208,18 @@ struct rt_pending_op : public pending_op {
 	std::shared_ptr<tweet> target_retweet;
 	rt_pending_op(const std::shared_ptr<tweet> &t) : target_retweet(t) { }
 
-	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags);
+	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags);
 	virtual wxString dump();
 };
 
 struct tpanelload_pending_op : public pending_op {
 	magic_ptr_ts<tpanelparentwin_nt> win;
 	std::weak_ptr<tpanel> pushtpanel;
-	unsigned int pushflags;
+	flagwrapper<PUSHFLAGS> pushflags;
 
-	tpanelload_pending_op(tpanelparentwin_nt* win_, unsigned int pushflags_ = 0, std::shared_ptr<tpanel> *pushtpanel_ = 0);
+	tpanelload_pending_op(tpanelparentwin_nt* win_, flagwrapper<PUSHFLAGS> pushflags_ = PUSHFLAGS::DEFAULT, std::shared_ptr<tpanel> *pushtpanel_ = 0);
 
-	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags);
+	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags);
 	virtual wxString dump();
 };
 
@@ -244,7 +236,7 @@ struct tpanel_subtweet_pending_op : public pending_op {
 	static void CheckLoadTweetReply(const std::shared_ptr<tweet> &t, wxSizer *v, tpanelparentwin_nt *s,
 		tweetdispscr *tds, unsigned int load_count, const std::shared_ptr<tweet> &top_tweet, tweetdispscr *top_tds);
 
-	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags);
+	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags);
 	virtual wxString dump();
 };
 
@@ -252,15 +244,21 @@ struct handlenew_pending_op : public pending_op {
 	std::weak_ptr<taccount> tac;
 	handlenew_pending_op(const std::shared_ptr<taccount> &acc) : tac(acc) { }
 
-	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags);
+	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags);
 	virtual wxString dump();
 };
 
-enum {
-	GUAF_CHECKEXISTING        = 1<<0,
-	GUAF_NOERR                = 1<<1,
-	GUAF_USERENABLED          = 1<<2,
+enum class TLF {	//for tweet.lflags
+	DYNDIRTY             = 1<<0,
+	BEINGLOADEDFROMDB    = 1<<1,
+	SAVED_IN_DB          = 1<<3,
+	BEINGLOADEDOVERNET   = 1<<4,
+	HAVEFIRSTTP          = 1<<5,
+	SHOULDSAVEINDB       = 1<<6,
+	LOADED_FROM_DB       = 1<<7,
+	ISPENDING            = 1<<8,
 };
+template<> struct enum_traits<TLF> { static constexpr bool flags = true; };
 
 struct tweet {
 	uint64_t id;
@@ -276,35 +274,43 @@ struct tweet {
 	tweet_perspective first_tp;
 	std::vector<tweet_perspective> tp_extra_list;
 	std::shared_ptr<tweet> rtsrc;				//for retweets, this is the source tweet
-	unsigned int updcf_flags;
+	flagwrapper<UPDCF> updcf_flags;
 	std::forward_list<std::unique_ptr<pending_op> > pending_ops;
 
 	tweet_flags flags;
-	unsigned int lflags;
+	flagwrapper<TLF> lflags = 0;
 
-	tweet() : updcf_flags(UPDCF_DEFAULT), lflags(0) { };
+	tweet() : updcf_flags(UPDCF::DEFAULT) { };
 	void Dump() const;
 	tweet_perspective *AddTPToTweet(const std::shared_ptr<taccount> &tac, bool *isnew = 0);
 	tweet_perspective *GetTweetTP(const std::shared_ptr<taccount> &tac);
 	std::string mkdynjson() const;
-	bool GetUsableAccount(std::shared_ptr<taccount> &tac, unsigned int guaflags = 0) const;
-	bool IsReady(unsigned int updcf_flags);
+
+	enum class GUAF {
+		CHECKEXISTING        = 1<<0,
+		NOERR                = 1<<1,
+		USERENABLED          = 1<<2,  // Use this account even if not enabled, if userenabled
+	};
+	bool GetUsableAccount(std::shared_ptr<taccount> &tac, flagwrapper<GUAF> guaflags = 0) const;
+
+	bool IsReady(flagwrapper<UPDCF> updcf_flags);
 	bool IsReady() { return IsReady(updcf_flags); }
-	bool IsReadyConst(unsigned int updcf_flags) const { return const_cast<tweet *>(this)->IsReady(ConstUPDCF(updcf_flags)); }
+	bool IsReadyConst(flagwrapper<UPDCF> updcf_flags) const { return const_cast<tweet *>(this)->IsReady(ConstUPDCF(updcf_flags)); }
 	bool IsFavouritable() const;
 	bool IsRetweetable() const;
 	bool IsArrivedHereAnyPerspective() const;
 	std::string GetPermalink() const;
 	void UpdateMarkedAsRead(const tpanel *exclude = 0);
 	inline void IterateTP(std::function<void(const tweet_perspective &)> f) const {
-		if(lflags & TLF_HAVEFIRSTTP) f(first_tp);
+		if(lflags & TLF::HAVEFIRSTTP) f(first_tp);
 		for(auto &it : tp_extra_list) f(it);
 	}
 	inline void IterateTP(std::function<void(tweet_perspective &)> f) {
-		if(lflags & TLF_HAVEFIRSTTP) f(first_tp);
+		if(lflags & TLF::HAVEFIRSTTP) f(first_tp);
 		for(auto &it : tp_extra_list) f(it);
 	}
 };
+template<> struct enum_traits<tweet::GUAF> { static constexpr bool flags = true; };
 
 typedef enum {
 	ENT_HASHTAG = 1,
@@ -326,18 +332,20 @@ struct entity {
 	entity(ENT_ENUMTYPE t) : type(t) {}
 };
 
-enum {
-	ME_HAVE_THUMB           = 1<<0,
-	ME_HAVE_FULL            = 1<<1,
-	ME_FULL_FAILED          = 1<<2,
-	ME_SAVED_THUMB          = 1<<3,
-	ME_SAVED_FULL           = 1<<4,
-	ME_LOAD_THUMB           = 1<<5,
-	ME_LOAD_FULL            = 1<<6,
-	ME_IN_DB                = 1<<7,
-	ME_THUMB_NET_INPROGRESS = 1<<8,
-	ME_FULL_NET_INPROGRESS  = 1<<9,
+enum class MEF : unsigned int {
+	ZERO                 = 0,
+	HAVE_THUMB           = 1<<0,
+	HAVE_FULL            = 1<<1,
+	FULL_FAILED          = 1<<2,
+	SAVED_THUMB          = 1<<3,
+	SAVED_FULL           = 1<<4,
+	LOAD_THUMB           = 1<<5,
+	LOAD_FULL            = 1<<6,
+	IN_DB                = 1<<7,
+	THUMB_NET_INPROGRESS = 1<<8,
+	FULL_NET_INPROGRESS  = 1<<9,
 };
+template<> struct enum_traits<MEF> { static constexpr bool flags = true; };
 
 struct media_entity {
 	media_id_type media_id; //compound type used to prevent id-clashes between media-entity images and non-media-entity images
@@ -345,21 +353,14 @@ struct media_entity {
 	std::string fulldata;	//the full unmodified content of the image data
 	wxImage thumbimg;
 	std::forward_list<std::shared_ptr<tweet> > tweet_list;
-	media_display_win *win;
-	unsigned int flags;
+	media_display_win *win = 0;
 	unsigned char full_img_sha1[20];
 	unsigned char thumb_img_sha1[20];
 
+	MEF flags = MEF::ZERO;
+
 	wxString cached_full_filename() const;
 	wxString cached_thumb_filename() const;
-
-	media_entity() : win(0), flags(0) { }
-};
-
-//for post_action_flags
-enum {
-	PAF_RESOLVE_PENDINGS            = 1<<0,
-	PAF_STREAM_CONN_READ_BACKFILL   = 1<<1,
 };
 
 struct userlookup {
@@ -376,10 +377,6 @@ struct streamconntimeout : public wxTimer {
 	void Notify();
 	void Arm();
 	~streamconntimeout() { Stop(); }
-};
-
-enum {
-	TCF_ISSTREAM       = 1<<0,
 };
 
 struct friendlookup {

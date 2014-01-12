@@ -56,7 +56,7 @@ END_EVENT_TABLE()
 
 int curl_debug_func(CURL *cl, curl_infotype ci, char *txt, size_t len, void *extra) {
 	if(ci==CURLINFO_TEXT) {
-		LogMsgProcess(LFT_CURLVERB, wxString::FromUTF8(txt, len));
+		LogMsgProcess(LOGT::CURLVERB, wxString::FromUTF8(txt, len));
 	}
 	return 0;
 }
@@ -71,7 +71,7 @@ mcurlconn::~mcurlconn() {
 }
 
 void mcurlconn::KillConn() {
-	LogMsgFormat(LFT_SOCKTRACE, wxT("KillConn: conn: %p"), this);
+	LogMsgFormat(LOGT::SOCKTRACE, wxT("KillConn: conn: %p"), this);
 	sm.RemoveConn(GenGetCurlHandle());
 }
 
@@ -86,16 +86,16 @@ void mcurlconn::NotifyDone(CURL *easy, CURLcode res) {
 		if(res==CURLE_OK) {
 			char *url;
 			curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &url);
-			LogMsgFormat(LFT_SOCKERR, wxT("Request failed: type: %s, conn: %p, code: %d, url: %s"), GetConnTypeName().c_str(), this, httpcode, wxstrstd(url).c_str());
+			LogMsgFormat(LOGT::SOCKERR, wxT("Request failed: type: %s, conn: %p, code: %d, url: %s"), GetConnTypeName().c_str(), this, httpcode, wxstrstd(url).c_str());
 		}
 		else {
-			LogMsgFormat(LFT_SOCKERR, wxT("Socket error: type: %s, conn: %p, code: %d, message: %s"), GetConnTypeName().c_str(), this, res, wxstrstd(curl_easy_strerror(res)).c_str());
+			LogMsgFormat(LOGT::SOCKERR, wxT("Socket error: type: %s, conn: %p, code: %d, message: %s"), GetConnTypeName().c_str(), this, res, wxstrstd(curl_easy_strerror(res)).c_str());
 		}
 		HandleError(easy, httpcode, res);    //this may re-add the connection, or cause object death
 	}
 	else {
-		if(mcflags&MCF_RETRY_NOW_ON_SUCCESS) {
-			mcflags&=~MCF_RETRY_NOW_ON_SUCCESS;
+		if(mcflags&MCF::RETRY_NOW_ON_SUCCESS) {
+			mcflags&=~MCF::RETRY_NOW_ON_SUCCESS;
 			sm.RetryConnNow();
 		}
 		errorcount=0;
@@ -114,11 +114,11 @@ void mcurlconn::HandleError(CURL *easy, long httpcode, CURLcode res) {
 	}
 	switch(err) {
 		case MCC_RETRY:
-			LogMsgFormat(LFT_SOCKERR, wxT("Adding request to retry queue: type: %s, conn: %p, url: %s"), GetConnTypeName().c_str(), this, wxstrstd(url).c_str());
+			LogMsgFormat(LOGT::SOCKERR, wxT("Adding request to retry queue: type: %s, conn: %p, url: %s"), GetConnTypeName().c_str(), this, wxstrstd(url).c_str());
 			sm.RetryConn(this);
 			break;
 		case MCC_FAILED:
-			LogMsgFormat(LFT_SOCKERR, wxT("Calling failure handler: type: %s, conn: %p, url: %s"), GetConnTypeName().c_str(), this, wxstrstd(url).c_str());
+			LogMsgFormat(LOGT::SOCKERR, wxT("Calling failure handler: type: %s, conn: %p, url: %s"), GetConnTypeName().c_str(), this, wxstrstd(url).c_str());
 			HandleFailure(httpcode, res);    //may cause object death
 			sm.RetryConnLater();
 			break;
@@ -175,9 +175,9 @@ int dlconn::curlCallback(char* data, size_t size, size_t nmemb, dlconn *obj) {
 }
 
 void profileimgdlconn::Init(const std::string &imgurl_, const std::shared_ptr<userdatacontainer> &user_) {
-	user=user_;
-	user->udc_flags|=UDC_IMAGE_DL_IN_PROGRESS;
-	LogMsgFormat(LFT_NETACT, wxT("Downloading profile image %s for user id %" wxLongLongFmtSpec "d (@%s), conn: %p"), wxstrstd(imgurl_).c_str(), user_->id, wxstrstd(user_->GetUser().screen_name).c_str(), this);
+	user = user_;
+	user->udc_flags |= UDC::IMAGE_DL_IN_PROGRESS;
+	LogMsgFormat(LOGT::NETACT, wxT("Downloading profile image %s for user id %" wxLongLongFmtSpec "d (@%s), conn: %p"), wxstrstd(imgurl_).c_str(), user_->id, wxstrstd(user_->GetUser().screen_name).c_str(), this);
 	dlconn::Init(imgurl_);
 }
 
@@ -187,17 +187,17 @@ void profileimgdlconn::DoRetry() {
 }
 
 void profileimgdlconn::HandleFailure(long httpcode, CURLcode res) {
-	if(url==user->GetUser().profile_img_url) {
-		if(!user->udc_flags&UDC_PROFILE_BITMAP_SET) {	//generate a placeholder image
-			user->cached_profile_img.Create(48,48,-1);
+	if(url == user->GetUser().profile_img_url) {
+		if(!(user->udc_flags & UDC::PROFILE_BITMAP_SET)) {	//generate a placeholder image
+			user->cached_profile_img.Create(48, 48, -1);
 			wxMemoryDC dc(user->cached_profile_img);
-			dc.SetBackground(wxBrush(wxColour(0,0,0,wxALPHA_TRANSPARENT)));
+			dc.SetBackground(wxBrush(wxColour(0, 0, 0, wxALPHA_TRANSPARENT)));
 			dc.Clear();
-			user->udc_flags|=UDC_PROFILE_BITMAP_SET;
+			user->udc_flags|=UDC::PROFILE_BITMAP_SET;
 		}
-		user->udc_flags&=~UDC_IMAGE_DL_IN_PROGRESS;
-		user->udc_flags&=~UDC_HALF_PROFILE_BITMAP_SET;
-		user->udc_flags|=UDC_PROFILE_IMAGE_DL_FAILED;
+		user->udc_flags &= ~UDC::IMAGE_DL_IN_PROGRESS;
+		user->udc_flags &= ~UDC::HALF_PROFILE_BITMAP_SET;
+		user->udc_flags |= UDC::PROFILE_IMAGE_DL_FAILED;
 		user->CheckPendingTweets();
 	}
 	cp.Standby(this);
@@ -215,22 +215,21 @@ profileimgdlconn *profileimgdlconn::GetConn(const std::string &imgurl_, const st
 }
 
 void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
-	LogMsgFormat(LFT_NETACT, wxT("Profile image downloaded: %s for user id %" wxLongLongFmtSpec "d (@%s), conn: %p"), wxstrstd(url).c_str(), user->id, wxstrstd(user->GetUser().screen_name).c_str(), this);
+	LogMsgFormat(LOGT::NETACT, wxT("Profile image downloaded: %s for user id %" wxLongLongFmtSpec "d (@%s), conn: %p"), wxstrstd(url).c_str(), user->id, wxstrstd(user->GetUser().screen_name).c_str(), this);
 
-	user->udc_flags&=~UDC_IMAGE_DL_IN_PROGRESS;
-	user->udc_flags&=~UDC_HALF_PROFILE_BITMAP_SET;
+	user->udc_flags &= ~UDC::IMAGE_DL_IN_PROGRESS;
+	user->udc_flags &= ~UDC::HALF_PROFILE_BITMAP_SET;
 
-	if(url==user->GetUser().profile_img_url) {
+	if(url == user->GetUser().profile_img_url) {
 		wxString filename;
 		user->GetImageLocalFilename(filename);
 		wxFile file(filename, wxFile::write);
 		file.Write(data.data(), data.size());
 		wxMemoryInputStream memstream(data.data(), data.size());
 
-		//user->cached_profile_img=std::make_shared<wxImage>(memstream);
 		wxImage img(memstream);
 		if(!img.IsOk()) {
-			LogMsgFormat(LFT_OTHERERR, wxT("Profile image downloaded: %s for user id %" wxLongLongFmtSpec "d (@%s), is not OK, possible partial download?"), wxstrstd(url).c_str(), user->id, wxstrstd(user->GetUser().screen_name).c_str());
+			LogMsgFormat(LOGT::OTHERERR, wxT("Profile image downloaded: %s for user id %" wxLongLongFmtSpec "d (@%s), is not OK, possible partial download?"), wxstrstd(url).c_str(), user->id, wxstrstd(user->GetUser().screen_name).c_str());
 		}
 		else {
 			user->SetProfileBitmapFromwxImage(img);
@@ -242,11 +241,11 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 			data.clear();
 			user->CheckPendingTweets();
 			UpdateUsersTweet(user->id, true);
-			if(user->udc_flags&UDC_WINDOWOPEN) user_window::CheckRefresh(user->id, true);
+			if(user->udc_flags & UDC::WINDOWOPEN) user_window::CheckRefresh(user->id, true);
 		}
 	}
 	else {
-		LogMsgFormat(LFT_OTHERERR, wxT("Profile image downloaded: %s for user id %" wxLongLongFmtSpec "d (@%s), does not match expected url of: %s. Maybe user updated profile during download?"), wxstrstd(url).c_str(), user->id, wxstrstd(user->GetUser().screen_name).c_str(), wxstrstd(user->GetUser().profile_img_url).c_str());
+		LogMsgFormat(LOGT::OTHERERR, wxT("Profile image downloaded: %s for user id %" wxLongLongFmtSpec "d (@%s), does not match expected url of: %s. Maybe user updated profile during download?"), wxstrstd(url).c_str(), user->id, wxstrstd(user->GetUser().screen_name).c_str(), wxstrstd(user->GetUser().profile_img_url).c_str());
 	}
 
 	cp.Standby(this);
@@ -256,20 +255,20 @@ wxString profileimgdlconn::GetConnTypeName() {
 	return wxT("Profile image download");
 }
 
-void mediaimgdlconn::Init(const std::string &imgurl_, media_id_type media_id_, unsigned int flags_) {
-	media_id=media_id_;
-	flags=flags_;
+void mediaimgdlconn::Init(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_) {
+	media_id = media_id_;
+	flags = flags_;
 	auto it = ad.media_list.find(media_id);
 	if(it != ad.media_list.end()) {
 		media_entity &me=it->second;
-		if(flags & MIDC_FULLIMG) {
-			me.flags |= ME_FULL_NET_INPROGRESS;
+		if(flags & MIDC::FULLIMG) {
+			me.flags |= MEF::FULL_NET_INPROGRESS;
 		}
-		else if(flags & MIDC_THUMBIMG) {
-			me.flags |= ME_THUMB_NET_INPROGRESS;
+		else if(flags & MIDC::THUMBIMG) {
+			me.flags |= MEF::THUMB_NET_INPROGRESS;
 		}
 	}
-	LogMsgFormat(LFT_NETACT, wxT("Downloading media image %s, id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, flags: %X, conn: %p"), wxstrstd(imgurl_).c_str(), media_id_.m_id, media_id_.t_id, flags_, this);
+	LogMsgFormat(LOGT::NETACT, wxT("Downloading media image %s, id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, flags: %X, conn: %p"), wxstrstd(imgurl_).c_str(), media_id_.m_id, media_id_.t_id, flags_, this);
 	dlconn::Init(imgurl_);
 }
 
@@ -278,16 +277,16 @@ void mediaimgdlconn::DoRetry() {
 }
 
 void mediaimgdlconn::HandleFailure(long httpcode, CURLcode res) {
-	auto it=ad.media_list.find(media_id);
-	if(it!=ad.media_list.end()) {
-		media_entity &me=it->second;
-		if(flags&MIDC_FULLIMG) {
-			me.flags|=ME_FULL_FAILED;
-			me.flags &= ~ME_FULL_NET_INPROGRESS;
+	auto it = ad.media_list.find(media_id);
+	if(it != ad.media_list.end()) {
+		media_entity &me = it->second;
+		if(flags&MIDC::FULLIMG) {
+			me.flags |= MEF::FULL_FAILED;
+			me.flags &= ~MEF::FULL_NET_INPROGRESS;
 			if(me.win) me.win->UpdateImage();
 		}
-		else if(flags & MIDC_THUMBIMG) {
-			me.flags &= ~ME_THUMB_NET_INPROGRESS;
+		else if(flags & MIDC::THUMBIMG) {
+			me.flags &= ~MEF::THUMB_NET_INPROGRESS;
 		}
 	}
 	delete this;
@@ -299,18 +298,18 @@ void mediaimgdlconn::Reset() {
 
 void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 
-	LogMsgFormat(LFT_NETACT, wxT("Media image downloaded: %s, id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, flags: %X, conn: %p"), wxstrstd(url).c_str(), media_id.m_id, media_id.t_id, flags, this);
+	LogMsgFormat(LOGT::NETACT, wxT("Media image downloaded: %s, id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, flags: %X, conn: %p"), wxstrstd(url).c_str(), media_id.m_id, media_id.t_id, flags, this);
 
 	auto it=ad.media_list.find(media_id);
 	if(it!=ad.media_list.end()) {
 		media_entity &me=it->second;
 
-		if(flags&MIDC_OPPORTUNIST_THUMB && !(flags&MIDC_THUMBIMG)) {
-			flags|=MIDC_THUMBIMG;
-			if(flags&MIDC_OPPORTUNIST_REDRAW_TWEETS) flags|=MIDC_REDRAW_TWEETS;
+		if(flags&MIDC::OPPORTUNIST_THUMB && !(flags&MIDC::THUMBIMG)) {
+			flags|=MIDC::THUMBIMG;
+			if(flags&MIDC::OPPORTUNIST_REDRAW_TWEETS) flags|=MIDC::REDRAW_TWEETS;
 		}
 
-		if(flags&MIDC_THUMBIMG) {
+		if(flags&MIDC::THUMBIMG) {
 			wxMemoryInputStream memstream(data.data(), data.size());
 			wxImage img(memstream);
 			if(img.IsOk()) {
@@ -322,7 +321,7 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 					me.thumbimg=img.Scale(std::lround(newwidth), std::lround(newheight), wxIMAGE_QUALITY_HIGH);
 				}
 				else me.thumbimg=img;
-				me.flags|=ME_HAVE_THUMB;
+				me.flags |= MEF::HAVE_THUMB;
 				if(gc.cachethumbs) {
 					wxMemoryOutputStream memstr;
 					me.thumbimg.SaveFile(memstr, wxBITMAP_TYPE_PNG);
@@ -335,17 +334,17 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 				}
 			}
 			else {
-				LogMsgFormat(LFT_OTHERERR, wxT("Media image downloaded: %s, id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, flags: %X, conn: %p, is not OK, possible partial download?"), wxstrstd(url).c_str(), media_id.m_id, media_id.t_id, flags, this);
+				LogMsgFormat(LOGT::OTHERERR, wxT("Media image downloaded: %s, id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, flags: %X, conn: %p, is not OK, possible partial download?"), wxstrstd(url).c_str(), media_id.m_id, media_id.t_id, flags, this);
 			}
-			if(!(flags&MIDC_FULLIMG)) {
-				me.flags &= ~ME_THUMB_NET_INPROGRESS;
+			if(!(flags&MIDC::FULLIMG)) {
+				me.flags &= ~MEF::THUMB_NET_INPROGRESS;
 			}
 		}
 
-		if(flags&MIDC_FULLIMG) {
+		if(flags&MIDC::FULLIMG) {
 			me.fulldata=std::move(data);
-			me.flags|=ME_HAVE_FULL;
-			me.flags &= ~ME_FULL_NET_INPROGRESS;
+			me.flags |= MEF::HAVE_FULL;
+			me.flags &= ~MEF::FULL_NET_INPROGRESS;
 			if(me.win) me.win->UpdateImage();
 			if(gc.cachemedia) {
 				wxFile file(me.cached_full_filename(), wxFile::write);
@@ -355,9 +354,9 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 			}
 		}
 
-		if(flags&MIDC_REDRAW_TWEETS) {
+		if(flags&MIDC::REDRAW_TWEETS) {
 			for(auto it=me.tweet_list.begin(); it!=me.tweet_list.end(); ++it) {
-				LogMsgFormat(LFT_SOCKTRACE, wxT("Media: UpdateTweet"));
+				LogMsgFormat(LOGT::SOCKTRACE, wxT("Media: UpdateTweet"));
 				UpdateTweet(**it);
 			}
 		}
@@ -429,18 +428,18 @@ static void check_multi_info(socketmanager *smp) {
 			long httpcode;
 			curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &httpcode);
 			curl_easy_getinfo(easy, CURLINFO_PRIVATE, &conn);
-			LogMsgFormat(LFT_SOCKTRACE, wxT("Socket Done, conn: %p, res: %d, http: %d"), conn, res, httpcode);
+			LogMsgFormat(LOGT::SOCKTRACE, wxT("Socket Done, conn: %p, res: %d, http: %d"), conn, res, httpcode);
 			conn->NotifyDone(easy, res);
 		}
 	}
 	if(sm.curnumsocks==0) {
-		LogMsgFormat(LFT_SOCKTRACE, wxT("No Sockets Left, Stopping Timer"));
+		LogMsgFormat(LOGT::SOCKTRACE, wxT("No Sockets Left, Stopping Timer"));
 		smp->st->Stop();
 	}
 }
 
 static int sock_cb(CURL *e, curl_socket_t s, int what, socketmanager *smp, mcurlconn *cs) {
-	LogMsgFormat(LFT_SOCKTRACE, wxT("Socket Interest Change Callback: %d, %d, conn: %p"), s, what, cs);
+	LogMsgFormat(LOGT::SOCKTRACE, wxT("Socket Interest Change Callback: %d, %d, conn: %p"), s, what, cs);
 	if(what!=CURL_POLL_REMOVE) {
 		if(!cs) {
 			curl_easy_getinfo(e, CURLINFO_PRIVATE, &cs);
@@ -456,7 +455,7 @@ static int multi_timer_cb(CURLM *multi, long timeout_ms, socketmanager *smp) {
 	//if(timeout_ms<=0 || timeout_ms>90000) new_timeout_ms=90000;
 	//else new_timeout_ms=timeout_ms;
 
-	LogMsgFormat(LFT_SOCKTRACE, wxT("Socket Timer Callback: %d ms"), timeout_ms);
+	LogMsgFormat(LOGT::SOCKTRACE, wxT("Socket Timer Callback: %d ms"), timeout_ms);
 
 	if(timeout_ms>0) smp->st->Start(timeout_ms,wxTIMER_ONE_SHOT);
 	else smp->st->Stop();
@@ -470,7 +469,7 @@ socketmanager::socketmanager() : st(0), curnumsocks(0), retry(0) {
 }
 
 socketmanager::~socketmanager() {
-	LogMsgFormat(LFT_SOCKERR, wxT("socketmanager::~socketmanager()"));
+	LogMsgFormat(LOGT::SOCKERR, wxT("socketmanager::~socketmanager()"));
 	if(retry) {
 		delete retry;
 		retry=0;
@@ -487,7 +486,7 @@ curl_socket_t pre_connect_func(void *clientp, curl_socket_t curlfd, curlsocktype
 	mcurlconn *cs = (mcurlconn *) clientp;
 	double lookuptime;
 	curl_easy_getinfo(cs->GenGetCurlHandle(), CURLINFO_NAMELOOKUP_TIME, &lookuptime);
-	LogMsgFormat(LFT_SOCKTRACE, wxT("DNS lookup took: %fs. Request: type: %s, conn: %p, url: %s"), lookuptime, cs->GetConnTypeName().c_str(), cs, wxstrstd(cs->url).c_str());
+	LogMsgFormat(LOGT::SOCKTRACE, wxT("DNS lookup took: %fs. Request: type: %s, conn: %p, url: %s"), lookuptime, cs->GetConnTypeName().c_str(), cs, wxstrstd(cs->url).c_str());
 	return 0;
 }
 
@@ -496,10 +495,10 @@ bool socketmanager::AddConn(CURL* ch, mcurlconn *cs) {
 		if(asyncdns->CheckAsync(ch, cs)) return true;
 	}
 	connlist.push_front(std::make_pair(ch, cs));
-	SetCurlHandleVerboseState(ch, currentlogflags&LFT_CURLVERB);
-	curl_easy_setopt(ch, CURLOPT_TIMEOUT, (cs->mcflags&MCF_NOTIMEOUT)?0:180);
+	SetCurlHandleVerboseState(ch, currentlogflags&LOGT::CURLVERB);
+	curl_easy_setopt(ch, CURLOPT_TIMEOUT, (cs->mcflags & mcurlconn::MCF::NOTIMEOUT) ? 0 : 180);
 	curl_easy_setopt(ch, CURLOPT_PRIVATE, cs);
-	if(currentlogflags&LFT_SOCKTRACE) {
+	if(currentlogflags&LOGT::SOCKTRACE) {
 		curl_easy_setopt(ch, CURLOPT_SOCKOPTFUNCTION, &pre_connect_func);
 		curl_easy_setopt(ch, CURLOPT_SOCKOPTDATA, cs);
 	}
@@ -536,14 +535,14 @@ void socketmanager::RemoveConn(CURL* ch) {
 }
 
 void sockettimeout::Notify() {
-	LogMsgFormat(LFT_SOCKTRACE, wxT("Socket Timer Event"));
+	LogMsgFormat(LOGT::SOCKTRACE, wxT("Socket Timer Event"));
 	curl_multi_socket_action(sm.curlmulti, CURL_SOCKET_TIMEOUT, 0, &sm.curnumsocks);
 	check_multi_info(&sm);
 	//if(!IsRunning() && sm.curnumsocks) Start(90000,wxTIMER_ONE_SHOT);
 }
 
 void socketmanager::NotifySockEvent(curl_socket_t sockfd, int ev_bitmask) {
-	LogMsgFormat(LFT_SOCKTRACE, wxT("Socket Notify (%d)"), sockfd);
+	LogMsgFormat(LOGT::SOCKTRACE, wxT("Socket Notify (%d)"), sockfd);
 	curl_multi_socket_action(curlmulti, sockfd, ev_bitmask, &curnumsocks);
 	check_multi_info(this);
 }
@@ -557,11 +556,11 @@ adns::~adns() {
 	if(n) {
 		size_t i = 0;
 		for(auto &it : dns_threads) {
-			LogMsgFormat(LFT_SOCKTRACE, wxT("Waiting for all DNS threads to terminate: %d of %d"), i, n);
+			LogMsgFormat(LOGT::SOCKTRACE, wxT("Waiting for all DNS threads to terminate: %d of %d"), i, n);
 			it.second.Wait();
 			i++;
 		}
-		LogMsg(LFT_SOCKTRACE, wxT("All DNS threads terminated"));
+		LogMsg(LOGT::SOCKTRACE, wxT("All DNS threads terminated"));
 	}
 	RemoveShareHndl();
 }
@@ -623,12 +622,12 @@ bool adns::CheckAsync(CURL* ch, mcurlconn *cs) {
 
 	for(auto &it : dns_threads) {
 		if(it.first == name) {
-			LogMsgFormat(LFT_SOCKTRACE, wxT("DNS lookup thread already exists: %s, %s"), wxstrstd(url).c_str(), wxstrstd(name).c_str());
+			LogMsgFormat(LOGT::SOCKTRACE, wxT("DNS lookup thread already exists: %s, %s"), wxstrstd(url).c_str(), wxstrstd(name).c_str());
 			return true;
 		}
 	}
 
-	LogMsgFormat(LFT_SOCKTRACE, wxT("Creating DNS lookup thread: %s, %s"), wxstrstd(url).c_str(), wxstrstd(name).c_str());
+	LogMsgFormat(LOGT::SOCKTRACE, wxT("Creating DNS lookup thread: %s, %s"), wxstrstd(url).c_str(), wxstrstd(name).c_str());
 	dns_threads.emplace_front(std::piecewise_construct, std::forward_as_tuple(name), std::forward_as_tuple(url, name, sm, GetHndl()));
 	adns_thread &ad = dns_threads.front().second;
 	ad.Create();
@@ -649,11 +648,11 @@ void adns::DNSResolutionEvent(wxCommandEvent &event) {
 	at->Wait();
 
 	if(at->success) {
-		LogMsgFormat(LFT_SOCKTRACE, wxT("Asynchronous DNS lookup succeeded: %s, %s, time: %fs"), wxstrstd(at->hostname).c_str(), wxstrstd(at->url).c_str(), at->lookuptime);
+		LogMsgFormat(LOGT::SOCKTRACE, wxT("Asynchronous DNS lookup succeeded: %s, %s, time: %fs"), wxstrstd(at->hostname).c_str(), wxstrstd(at->url).c_str(), at->lookuptime);
 		cached_names.insert(at->hostname);
 	}
 	else {
-		LogMsgFormat(LFT_SOCKERR, wxT("Asynchronous DNS lookup failed: %s, (%s), error: %s (%d), time: %fs"), wxstrstd(at->hostname).c_str(), wxstrstd(at->url).c_str(), wxstrstd(curl_easy_strerror(at->result)).c_str(), at->result, at->lookuptime);
+		LogMsgFormat(LOGT::SOCKERR, wxT("Asynchronous DNS lookup failed: %s, (%s), error: %s (%d), time: %fs"), wxstrstd(at->hostname).c_str(), wxstrstd(at->url).c_str(), wxstrstd(curl_easy_strerror(at->result)).c_str(), at->result, at->lookuptime);
 	}
 
 	std::vector<std::tuple<std::string, CURL *, mcurlconn *> > current_dns_pending_conns;
@@ -673,11 +672,11 @@ void adns::DNSResolutionEvent(wxCommandEvent &event) {
 		CURL *ch = std::get<1>(it);
 		mcurlconn *mc = std::get<2>(it);
 		if(at->success) {
-			LogMsgFormat(LFT_SOCKTRACE, wxT("Launching request as DNS lookup succeeded: type: %s, conn: %p, url: %s"), mc->GetConnTypeName().c_str(), mc, wxstrstd(mc->url).c_str());
+			LogMsgFormat(LOGT::SOCKTRACE, wxT("Launching request as DNS lookup succeeded: type: %s, conn: %p, url: %s"), mc->GetConnTypeName().c_str(), mc, wxstrstd(mc->url).c_str());
 			sm->AddConn(ch, mc);
 		}
 		else {
-			LogMsgFormat(LFT_SOCKERR, wxT("Request failed due to asynchronous DNS lookup failure: type: %s, conn: %p, url: %s"), mc->GetConnTypeName().c_str(), mc, wxstrstd(mc->url).c_str());
+			LogMsgFormat(LOGT::SOCKERR, wxT("Request failed due to asynchronous DNS lookup failure: type: %s, conn: %p, url: %s"), mc->GetConnTypeName().c_str(), mc, wxstrstd(mc->url).c_str());
 			mc->HandleError(ch, 0, CURLE_COULDNT_RESOLVE_HOST);
 		}
 	}
@@ -721,7 +720,7 @@ END_EVENT_TABLE()
 DEFINE_EVENT_TYPE(wxextDNS_RESOLUTION_EVENT)
 
 void socketmanager::InitMultiIOHandlerCommon() {
-	LogMsg(LFT_SOCKTRACE, wxT("socketmanager::InitMultiIOHandlerCommon"));
+	LogMsg(LOGT::SOCKTRACE, wxT("socketmanager::InitMultiIOHandlerCommon"));
 	st=new sockettimeout(*this);
 	curlmulti=curl_multi_init();
 	curl_multi_setopt(curlmulti, CURLMOPT_SOCKETFUNCTION, sock_cb);
@@ -731,13 +730,13 @@ void socketmanager::InitMultiIOHandlerCommon() {
 
 	curl_version_info_data *data = curl_version_info(CURLVERSION_NOW);
 	if(!(data->features & CURL_VERSION_ASYNCHDNS)) {
-		LogMsg(LFT_SOCKTRACE, wxT("This version of libcurl does not support asynchronous DNS resolution, using a workaround."));
+		LogMsg(LOGT::SOCKTRACE, wxT("This version of libcurl does not support asynchronous DNS resolution, using a workaround."));
 		asyncdns.reset(new adns(this));
 	}
 }
 
 void socketmanager::DeInitMultiIOHandlerCommon() {
-	LogMsg(LFT_SOCKTRACE, wxT("socketmanager::DeInitMultiIOHandlerCommon"));
+	LogMsg(LOGT::SOCKTRACE, wxT("socketmanager::DeInitMultiIOHandlerCommon"));
 	if(asyncdns) asyncdns.reset();
 	curl_multi_cleanup(curlmulti);
 	if(st) {
@@ -752,16 +751,16 @@ void socketmanager::DeInitMultiIOHandlerCommon() {
 
 void socketmanager::RetryConn(mcurlconn *cs) {
 	retry_conns.push_back(cs);
-	cs->mcflags|=MCF_IN_RETRY_QUEUE;
+	cs->mcflags |= mcurlconn::MCF::IN_RETRY_QUEUE;
 	RetryConnLater();
 }
 
 void socketmanager::UnregisterRetryConn(mcurlconn *cs) {
-	if(!(cs->mcflags&MCF_IN_RETRY_QUEUE)) return;
+	if(!(cs->mcflags & mcurlconn::MCF::IN_RETRY_QUEUE)) return;
 	for(auto it=retry_conns.begin(); it!=retry_conns.end(); ++it) {
 		if(*it==cs) *it=0;
 	}
-	cs->mcflags&=~MCF_IN_RETRY_QUEUE;
+	cs->mcflags &= ~mcurlconn::MCF::IN_RETRY_QUEUE;
 }
 
 void socketmanager::RetryConnNow() {
@@ -772,9 +771,9 @@ void socketmanager::RetryConnNow() {
 		retry_conns.pop_front();
 		if(cs) break;
 	}
-	cs->mcflags&=~MCF_IN_RETRY_QUEUE;
-	cs->mcflags|=MCF_RETRY_NOW_ON_SUCCESS;
-	LogMsgFormat(LFT_SOCKTRACE, wxT("Dequeueing request from retry queue: type: %s, conn: %p, url: %s"), cs->GetConnTypeName().c_str(), cs, wxstrstd(cs->url).c_str());
+	cs->mcflags &= ~mcurlconn::MCF::IN_RETRY_QUEUE;
+	cs->mcflags |= mcurlconn::MCF::RETRY_NOW_ON_SUCCESS;
+	LogMsgFormat(LOGT::SOCKTRACE, wxT("Dequeueing request from retry queue: type: %s, conn: %p, url: %s"), cs->GetConnTypeName().c_str(), cs, wxstrstd(cs->url).c_str());
 	cs->DoRetry();
 }
 
@@ -1090,7 +1089,7 @@ void socketmanager::InitMultiIOHandler() {
 	this->pipefd=pipefd[1];
 	th->Create();
 	th->Run();
-	LogMsgFormat(LFT_SOCKTRACE, wxT("socketmanager::InitMultiIOHandler(): Created socket poll() thread: %d"), th->GetId());
+	LogMsgFormat(LOGT::SOCKTRACE, wxT("socketmanager::InitMultiIOHandler(): Created socket poll() thread: %d"), th->GetId());
 
 	MultiIOHandlerInited=true;
 }

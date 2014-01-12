@@ -45,10 +45,10 @@
 log_window *globallogwindow = 0;
 std::unique_ptr<Redirector_wxLog> globalwxlogredirector;
 
-logflagtype currentlogflags=0;
+LOGT currentlogflags = LOGT::ZERO;
 std::forward_list<log_object*> logfunclist;
 
-static void dump_non_acc_user_pendings(logflagtype logflags, const wxString &indent, const wxString &indentstep);
+static void dump_non_acc_user_pendings(LOGT logflags, const wxString &indent, const wxString &indentstep);
 
 const wxChar *logflagsstrings[]={
 	wxT("curlverb"),
@@ -73,40 +73,40 @@ const wxChar *logflagsstrings[]={
 };
 
 void Update_currentlogflags() {
-	logflagtype old_currentlogflags=currentlogflags;
-	logflagtype t_currentlogflags=0;
+	LOGT old_currentlogflags = currentlogflags;
+	LOGT t_currentlogflags = LOGT::ZERO;
 	for(auto it=logfunclist.begin(); it!=logfunclist.end(); ++it) t_currentlogflags|=(*it)->lo_flags;
 	currentlogflags=t_currentlogflags;
-	if((old_currentlogflags ^ currentlogflags) & LFT_CURLVERB) {
+	if((old_currentlogflags ^ currentlogflags) & LOGT::CURLVERB) {
 		for(auto it=sm.connlist.begin(); it!=sm.connlist.end(); ++it) {
-			SetCurlHandleVerboseState(it->first, currentlogflags&LFT_CURLVERB);
+			SetCurlHandleVerboseState(it->first, currentlogflags&LOGT::CURLVERB);
 		}
 	}
-	if(currentlogflags & LFT_WXVERBOSE) wxLog::SetLogLevel(wxLOG_Info);
-	else if(currentlogflags & LFT_WXLOG) wxLog::SetLogLevel(wxLOG_Message);
+	if(currentlogflags & LOGT::WXVERBOSE) wxLog::SetLogLevel(wxLOG_Info);
+	else if(currentlogflags & LOGT::WXLOG) wxLog::SetLogLevel(wxLOG_Message);
 	else wxLog::SetLogLevel(wxLOG_FatalError);
 }
 
-void LogMsgRaw(logflagtype logflags, const wxString &str) {
+void LogMsgRaw(LOGT logflags, const wxString &str) {
 	for(auto it=logfunclist.begin(); it!=logfunclist.end(); ++it) {
 		log_object *lo=*it;
 		if(logflags&lo->lo_flags) lo->log_str(logflags, str);
 	}
 }
 
-wxString LogMsgFlagString(logflagtype logflags) {
+wxString LogMsgFlagString(LOGT logflags) {
 	wxString out;
-	logflagtype bitint=logflags&lfd_stringmask;
+	auto bitint = flag_unwrap<LOGT>(logflags & LOGT::GROUP_STR);
 	while(bitint) {
-		int offset=__builtin_ctzl(bitint);
-		bitint&=~((logflagtype) 1<<offset);
-		if(out.Len()) out+=wxT(",");
-		out+=logflagsstrings[offset];
+		int offset = __builtin_ctzl(bitint);
+		bitint &= ~(static_cast<decltype(bitint)>(1) << offset);
+		if(out.Len()) out += wxT(",");
+		out += logflagsstrings[offset];
 	}
 	return out;
 }
 
-void LogMsgProcess(logflagtype logflags, const wxString &str) {
+void LogMsgProcess(LOGT logflags, const wxString &str) {
 	time_t now=time(0);
 	unsigned int ms;
 	#ifdef __WINDOWS__
@@ -125,7 +125,7 @@ void LogMsgProcess(logflagtype logflags, const wxString &str) {
 	LogMsgRaw(logflags, wxString::Format(wxT("%s %-20s %s\n"), time_str.c_str(), flag_str.c_str(), in.c_str()).c_str());
 }
 
-log_object::log_object(logflagtype flagmask) : lo_flags(flagmask) {
+log_object::log_object(LOGT flagmask) : lo_flags(flagmask) {
 	logfunclist.remove(this);
 	logfunclist.push_front(this);
 	Update_currentlogflags();
@@ -136,16 +136,16 @@ log_object::~log_object() {
 	Update_currentlogflags();
 }
 
-void log_window::log_str(logflagtype logflags, const wxString &str) {
+void log_window::log_str(LOGT logflags, const wxString &str) {
 	if(isshown) txtct->AppendText(str);
 	else pending.push(str);
 }
 
 struct ChkBoxLFFlagValidator : public wxValidator {
-	logflagtype flagbit;
-	logflagtype *targ;
+	LOGT flagbit;
+	LOGT *targ;
 
-	ChkBoxLFFlagValidator(logflagtype flagbit_, logflagtype *targ_)
+	ChkBoxLFFlagValidator(LOGT flagbit_, LOGT *targ_)
 		: wxValidator(), flagbit(flagbit_), targ(targ_) { }
 	virtual wxObject* Clone() const { return new ChkBoxLFFlagValidator(flagbit, targ); }
 	virtual bool TransferFromWindow() {
@@ -159,7 +159,7 @@ struct ChkBoxLFFlagValidator : public wxValidator {
 	}
 	virtual bool TransferToWindow() {
 		wxCheckBox *chk=(wxCheckBox*) GetWindow();
-		logflagtype res=(*targ)&flagbit;
+		LOGT res=(*targ)&flagbit;
 		if(res==flagbit) chk->Set3StateValue(wxCHK_CHECKED);
 		else if(!res) chk->Set3StateValue(wxCHK_UNCHECKED);
 		else chk->Set3StateValue(wxCHK_UNDETERMINED);
@@ -189,26 +189,26 @@ BEGIN_EVENT_TABLE(log_window, wxFrame)
 	EVT_MENU(wxID_FILE3, log_window::OnDumpConnInfo)
 END_EVENT_TABLE()
 
-static void log_window_AddChkBox(log_window *parent, logflagtype flags, const wxString &str, wxSizer *sz) {
+static void log_window_AddChkBox(log_window *parent, LOGT flags, const wxString &str, wxSizer *sz) {
 	ChkBoxLFFlagValidator cbv(flags, &parent->lo_flags);
 	wxCheckBox *chk=new wxCheckBox(parent, wxID_ANY, str, wxDefaultPosition, wxDefaultSize, wxCHK_3STATE, cbv);
 	sz->Add(chk, 0, 0, 0);
 }
 
-log_window::log_window(wxWindow *parent, logflagtype flagmask, bool show)
+log_window::log_window(wxWindow *parent, LOGT flagmask, bool show)
 : log_object(flagmask), wxFrame(parent, wxID_ANY, wxT("Log Window")) {
 	globallogwindow=this;
 	txtct=new wxTextCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY | wxTE_NOHIDESEL | wxHSCROLL);
 	wxBoxSizer *bs=new wxBoxSizer(wxVERTICAL);
 	bs->Add(txtct, 1, wxALL | wxEXPAND, 3);
 	wxGridSizer *hs=new wxGridSizer(5, 1, 4);
-	log_window_AddChkBox(this, lfd_allmask, wxT("ALL"), hs);
-	log_window_AddChkBox(this, lfd_err, wxT("ERRORS"), hs);
-	log_window_AddChkBox(this, lfd_defaultwin, wxT("DEFAULTS"), hs);
-	for(size_t i=hs->GetChildren().GetCount(); (i%hs->GetCols())!=0; i++) hs->AddStretchSpacer();
-	for(unsigned int i=0; i<(sizeof(logflagtype)*8); i++) {
-		if((((logflagtype) 1)<<i)&lfd_stringmask) {
-			log_window_AddChkBox(this, ((logflagtype) 1)<<i, logflagsstrings[i], hs);
+	log_window_AddChkBox(this, LOGT::GROUP_ALL, wxT("ALL"), hs);
+	log_window_AddChkBox(this, LOGT::GROUP_ERR, wxT("ERRORS"), hs);
+	log_window_AddChkBox(this, LOGT::GROUP_LOGWINDEF, wxT("DEFAULTS"), hs);
+	for(size_t i = hs->GetChildren().GetCount(); (i % hs->GetCols()) != 0; i++) hs->AddStretchSpacer();
+	for(unsigned int i = 0; i < (sizeof(LOGT) * 8); i++) {
+		if(flag_wrap<LOGT>(1 << i) & LOGT::GROUP_STR) {
+			log_window_AddChkBox(this, flag_wrap<LOGT>(1 << i), logflagsstrings[i], hs);
 		}
 	}
 	bs->Add(hs, 0, wxALL, 2);
@@ -235,7 +235,7 @@ log_window::log_window(wxWindow *parent, logflagtype flagmask, bool show)
 
 log_window::~log_window() {
 	logfunclist.remove(this);
-	LogMsgFormat(LFT_OTHERTRACE, wxT("log_window::~log_window"));
+	LogMsgFormat(LOGT::OTHERTRACE, wxT("log_window::~log_window"));
 	globallogwindow = 0;
 }
 
@@ -276,61 +276,61 @@ void log_window::OnClear(wxCommandEvent &event) {
 
 void log_window::OnClose(wxCommandEvent &event) {
 	logfunclist.remove(this);
-	LogMsgFormat(LFT_OTHERTRACE, wxT("log_window::OnClose"));
+	LogMsgFormat(LOGT::OTHERTRACE, wxT("log_window::OnClose"));
 	LWShow(false);
 }
 
 void log_window::OnDumpPending(wxCommandEvent &event) {
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
-		dump_pending_acc(LFT_USERREQ, wxT(""), wxT("\t"), (*it).get());
+		dump_pending_acc(LOGT::USERREQ, wxT(""), wxT("\t"), (*it).get());
 	}
-	dump_non_acc_user_pendings(LFT_USERREQ, wxT(""), wxT("\t"));
-	dump_tweet_pendings(LFT_USERREQ, wxT(""), wxT("\t"));
+	dump_non_acc_user_pendings(LOGT::USERREQ, wxT(""), wxT("\t"));
+	dump_tweet_pendings(LOGT::USERREQ, wxT(""), wxT("\t"));
 }
 
 void log_window::OnDumpTPanelWins(wxCommandEvent &event) {
 	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
-		dump_tpanel_scrollwin_data(LFT_USERREQ, wxT(""), wxT("\t"), (*it));
+		dump_tpanel_scrollwin_data(LOGT::USERREQ, wxT(""), wxT("\t"), (*it));
 	}
 }
 
 void log_window::OnDumpConnInfo(wxCommandEvent &event) {
-	dump_pending_active_conn(LFT_USERREQ, wxT(""), wxT("\t"));
-	dump_pending_retry_conn(LFT_USERREQ, wxT(""), wxT("\t"));
+	dump_pending_active_conn(LOGT::USERREQ, wxT(""), wxT("\t"));
+	dump_pending_retry_conn(LOGT::USERREQ, wxT(""), wxT("\t"));
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
-		LogMsgFormat(LFT_USERREQ, wxT("Account: %s (%s)"), (*it)->name.c_str(), (*it)->dispname.c_str());
-		dump_pending_acc_failed_conns(LFT_USERREQ, wxT("\t"), wxT("\t"), (*it).get());
+		LogMsgFormat(LOGT::USERREQ, wxT("Account: %s (%s)"), (*it)->name.c_str(), (*it)->dispname.c_str());
+		dump_pending_acc_failed_conns(LOGT::USERREQ, wxT("\t"), wxT("\t"), (*it).get());
 	}
 }
 
-log_file::log_file(logflagtype flagmask, const char *filename) : log_object(flagmask), closefpondel(0) {
+log_file::log_file(LOGT flagmask, const char *filename) : log_object(flagmask), closefpondel(0) {
 	fp=fopen(filename, "a");
 }
-log_file::log_file(logflagtype flagmask, FILE *fp_, bool closefpondel_) : log_object(flagmask), fp(fp_), closefpondel(closefpondel_) { }
+log_file::log_file(LOGT flagmask, FILE *fp_, bool closefpondel_) : log_object(flagmask), fp(fp_), closefpondel(closefpondel_) { }
 
 log_file::~log_file() {
 	if(closefpondel) fclose(fp);
 }
 
-void log_file::log_str(logflagtype logflags, const wxString &str) {
+void log_file::log_str(LOGT logflags, const wxString &str) {
 	fprintf(fp, "%s", (const char *) str.ToUTF8());
 	fflush(fp);
 }
 
-logflagtype StrToLogFlags(const wxString &str) {
-	logflagtype out=0;
+LOGT StrToLogFlags(const wxString &str) {
+	LOGT out = LOGT::ZERO;
 	wxStringTokenizer tkz(str, wxT(",\t\r\n "), wxTOKEN_STRTOK);
 	while (tkz.HasMoreTokens()) {
 		wxString token = tkz.GetNextToken();
-		if(token==wxT("all")) out|=lfd_allmask;
-		else if(token==wxT("error")) out|=lfd_err;
-		else if(token==wxT("err")) out|=lfd_err;
-		else if(token==wxT("def")) out|=lfd_defaultwin;
-		else if(token==wxT("default")) out|=lfd_defaultwin;
+		if(token == wxT("all")) out |= LOGT::GROUP_ALL;
+		else if(token == wxT("error")) out |= LOGT::GROUP_ERR;
+		else if(token == wxT("err")) out |= LOGT::GROUP_ERR;
+		else if(token == wxT("def")) out |= LOGT::GROUP_LOGWINDEF;
+		else if(token == wxT("default")) out |= LOGT::GROUP_LOGWINDEF;
 		else {
-			for(unsigned int i=0; i<sizeof(logflagsstrings)/sizeof(const wxChar *); i++) {
-				if(token==logflagsstrings[i]) {
-					out|=((logflagtype) 1<<i);
+			for(unsigned int i = 0; i < sizeof(logflagsstrings) / sizeof(const wxChar *); i++) {
+				if(token == logflagsstrings[i]) {
+					out |= flag_wrap<LOGT>(1 << i);
 					break;
 				}
 			}
@@ -343,7 +343,7 @@ wxString tweet_log_line(const tweet *t) {
 	wxString sname = wxT("???");
 	if(t->user && !t->user->GetUser().screen_name.empty()) sname = wxstrstd(t->user->GetUser().screen_name);
 	wxString output = wxString::Format(wxT("Tweet: %" wxLongLongFmtSpec "d @%s (%.20s...) tflags: %s, lflags: 0x%X, updcf_flags: 0x%X, ready: %d, pending flags: 0x%X, TPs: "),
-			t->id, sname.c_str(), wxstrstd(t->text).c_str(), wxstrstd(t->flags.GetString()).c_str(), t->lflags, t->updcf_flags, (int) t->IsReadyConst(UPDCF_DEFAULT), CheckTweetPendings(*t));
+			t->id, sname.c_str(), wxstrstd(t->text).c_str(), wxstrstd(t->flags.GetString()).c_str(), t->lflags, t->updcf_flags, (int) t->IsReadyConst(UPDCF::DEFAULT), CheckTweetPendings(*t));
 	bool needcomma = false;
 	t->IterateTP([&](const tweet_perspective &tp) {
 		wxString thistp = wxstrstd(tp.GetFlagStringWithName());
@@ -355,42 +355,42 @@ wxString tweet_log_line(const tweet *t) {
 	return std::move(output);
 }
 
-static void dump_pending_user_line(logflagtype logflags, const wxString &indent, userdatacontainer *u) {
+static void dump_pending_user_line(LOGT logflags, const wxString &indent, userdatacontainer *u) {
 	time_t now=time(0);
 	LogMsgFormat(logflags, wxT("%sUser: %" wxLongLongFmtSpec "d (%s) udc_flags: 0x%X, last update: %" wxLongLongFmtSpec "ds ago"
 			", last DB update: %" wxLongLongFmtSpec "ds ago, image ready: %d, ready (nx): %d, ready (x): %d"),
 			indent.c_str(), u->id, wxstrstd(u->GetUser().screen_name).c_str(), u->udc_flags, (uint64_t) (now-u->lastupdate),
-			(uint64_t) (now-u->lastupdate_wrotetodb), u->ImgIsReady(0), u->IsReady(0), u->IsReady(UPDCF_USEREXPIRE));
+			(uint64_t) (now-u->lastupdate_wrotetodb), u->ImgIsReady(0), u->IsReady(0), u->IsReady(UPDCF::USEREXPIRE));
 }
 
-static void dump_pending_tweet(logflagtype logflags, const wxString &indent, const wxString &indentstep, tweet *t, userdatacontainer *exclude_user) {
+static void dump_pending_tweet(LOGT logflags, const wxString &indent, const wxString &indentstep, tweet *t, userdatacontainer *exclude_user) {
 	LogMsgFormat(logflags, wxT("%sTweet: %s"), indent.c_str(), tweet_log_line(t).c_str());
 	if(t->user && t->user.get()!=exclude_user) dump_pending_user_line(logflags, indent+indentstep, t->user.get());
 	if(t->user_recipient && t->user_recipient.get()!=exclude_user) dump_pending_user_line(logflags, indent+indentstep, t->user_recipient.get());
 }
 
-static void dump_pending_user(logflagtype logflags, const wxString &indent, const wxString &indentstep, userdatacontainer *u) {
+static void dump_pending_user(LOGT logflags, const wxString &indent, const wxString &indentstep, userdatacontainer *u) {
 	dump_pending_user_line(logflags, indent, u);
 	for(auto it=u->pendingtweets.begin(); it!=u->pendingtweets.end(); ++it) {
 		dump_pending_tweet(logflags, indent+indentstep, indentstep, (*it).get(), u);
 	}
 }
 
-void dump_pending_acc(logflagtype logflags, const wxString &indent, const wxString &indentstep, taccount *acc) {
+void dump_pending_acc(LOGT logflags, const wxString &indent, const wxString &indentstep, taccount *acc) {
 	LogMsgFormat(logflags, wxT("%sAccount: %s (%s)"), indent.c_str(), acc->name.c_str(), acc->dispname.c_str());
 	for(auto it=acc->pendingusers.begin(); it!=acc->pendingusers.end(); ++it) {
 		dump_pending_user(logflags, indent+indentstep, indentstep, (*it).second.get());
 	}
 }
 
-static void dump_tweet_line(logflagtype logflags, const wxString &indent, const wxString &indentstep, const tweet *t) {
+static void dump_tweet_line(LOGT logflags, const wxString &indent, const wxString &indentstep, const tweet *t) {
 	LogMsgFormat(logflags, wxT("%sTweet with operations pending ready state: %s"), indent.c_str(), tweet_log_line(t).c_str());
 	for(auto jt=t->pending_ops.begin(); jt!=t->pending_ops.end(); ++jt) {
 		LogMsgFormat(logflags, wxT("%s%s%s"), indent.c_str(), indentstep.c_str(), (*jt)->dump().c_str());
 	}
 }
 
-void dump_tweet_pendings(logflagtype logflags, const wxString &indent, const wxString &indentstep) {
+void dump_tweet_pendings(LOGT logflags, const wxString &indent, const wxString &indentstep) {
 	bool done_header = false;
 	for(auto it=ad.tweetobjs.begin(); it!=ad.tweetobjs.end(); ++it) {
 		const tweet *t=it->second.get();
@@ -410,7 +410,7 @@ void dump_tweet_pendings(logflagtype logflags, const wxString &indent, const wxS
 	}
 }
 
-static void dump_non_acc_user_pendings(logflagtype logflags, const wxString &indent, const wxString &indentstep) {
+static void dump_non_acc_user_pendings(LOGT logflags, const wxString &indent, const wxString &indentstep) {
 	std::set<uint64_t> acc_pending_users;
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
 		for(auto jt=(*it)->pendingusers.begin(); jt!=(*it)->pendingusers.end(); ++jt) {
@@ -433,14 +433,14 @@ static void dump_non_acc_user_pendings(logflagtype logflags, const wxString &ind
 	}
 }
 
-static void dump_window_pos_data(logflagtype logflags, const wxString &indent, const wxString &indentstep, wxWindow *win) {
+static void dump_window_pos_data(LOGT logflags, const wxString &indent, const wxString &indentstep, wxWindow *win) {
 	int x, y, px, py;
 	win->GetSize(&x, &y);
 	win->GetPosition(&px, &py);
 	LogMsgFormat(logflags, wxT("%sWindow: %p, size: %d, %d, pos: %d, %d"), indent.c_str(), win, x, y, px, py);
 }
 
-void dump_tpanel_scrollwin_data(logflagtype logflags, const wxString &indent, const wxString &indentstep, tpanelparentwin_nt *tppw) {
+void dump_tpanel_scrollwin_data(LOGT logflags, const wxString &indent, const wxString &indentstep, tpanelparentwin_nt *tppw) {
 	int x, y, vx, vy, vsx, vsy;
 	tppw->scrollwin->GetSize(&x, &y);
 	tppw->scrollwin->GetVirtualSize(&vx, &vy);
@@ -452,7 +452,7 @@ void dump_tpanel_scrollwin_data(logflagtype logflags, const wxString &indent, co
 	}
 }
 
-void dump_pending_acc_failed_conns(logflagtype logflags, const wxString &indent, const wxString &indentstep, taccount *acc) {
+void dump_pending_acc_failed_conns(LOGT logflags, const wxString &indent, const wxString &indentstep, taccount *acc) {
 	dump_acc_socket_flags(logflags, indent, acc);
 	LogMsgFormat(logflags, wxT("%sRestartable Failed Connections: %d"), indent.c_str(), acc->failed_pending_conns.size());
 	for(auto it=acc->failed_pending_conns.begin(); it!=acc->failed_pending_conns.end(); ++it) {
@@ -460,14 +460,14 @@ void dump_pending_acc_failed_conns(logflagtype logflags, const wxString &indent,
 	}
 }
 
-void dump_pending_active_conn(logflagtype logflags, const wxString &indent, const wxString &indentstep) {
+void dump_pending_active_conn(LOGT logflags, const wxString &indent, const wxString &indentstep) {
 	LogMsgFormat(logflags, wxT("%sActive connections: %d"), indent.c_str(), std::distance(sm.connlist.begin(), sm.connlist.end()));
 	for(auto it=sm.connlist.begin(); it!=sm.connlist.end(); ++it) {
 		LogMsgFormat(logflags, wxT("%s%sSocket: %s, %p, Error Count: %d, mcflags: 0x%X"), indent.c_str(), indentstep.c_str(), it->second->GetConnTypeName().c_str(), it->second, it->second->errorcount, it->second->mcflags);
 	}
 }
 
-void dump_pending_retry_conn(logflagtype logflags, const wxString &indent, const wxString &indentstep) {
+void dump_pending_retry_conn(LOGT logflags, const wxString &indent, const wxString &indentstep) {
 	size_t count=0;
 	for(auto it=sm.retry_conns.begin(); it!=sm.retry_conns.end(); ++it) {
 		if((*it)) count++;
@@ -479,7 +479,7 @@ void dump_pending_retry_conn(logflagtype logflags, const wxString &indent, const
 	}
 }
 
-void dump_acc_socket_flags(logflagtype logflags, const wxString &indent, taccount *acc) {
+void dump_acc_socket_flags(LOGT logflags, const wxString &indent, taccount *acc) {
 	LogMsgFormat(logflags, wxT("%sssl: %d, userstreams: %d, ta_flags: 0x%X, restinterval: %ds, enabled: %d, userenabled: %d, init: %d, active: %d, streaming_on: %d, stream_fail_count: %d, rest_on: %d"), indent.c_str(), acc->ssl, acc->userstreams, acc->ta_flags, acc->restinterval, acc->enabled, acc->userenabled, acc->init, acc->active, acc->streaming_on, acc->stream_fail_count, acc->rest_on);
 }
 
@@ -489,7 +489,7 @@ void Redirector_wxLog::DoLog(wxLogLevel level, const wxChar *msg, time_t timesta
 }
 
 void Redirector_wxLog::DoLogString(const wxChar *msg, time_t timestamp) {
-	LogMsg(last_loglevel <= wxLOG_Message ? LFT_WXLOG : LFT_WXVERBOSE, msg);
+	LogMsg(last_loglevel <= wxLOG_Message ? LOGT::WXLOG : LOGT::WXVERBOSE, msg);
 }
 
 void InitWxLogger() {

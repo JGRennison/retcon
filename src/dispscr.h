@@ -24,6 +24,7 @@
 #include "univdefs.h"
 #include "magic_ptr.h"
 #include "uiutil.h"
+#include "flags.h"
 #include <wx/colour.h>
 #include <wx/string.h>
 #include <wx/richtext/richtextctrl.h>
@@ -47,22 +48,31 @@ struct tweetdispscr;
 
 DECLARE_EVENT_TYPE(wxextGDB_Popup_Evt, -1)
 
+enum class TDSF {    //for tweetdispscr.tds_flags
+	SUBTWEET              = 1<<0,
+	HIGHLIGHT             = 1<<1,
+	HIDDEN                = 1<<2,
+	IMGTHUMBHIDEOVERRIDE  = 1<<3,
+	CANLOADMOREREPLIES    = 1<<4,
+};
+template<> struct enum_traits<TDSF> { static constexpr bool flags = true; };
+
 struct generic_disp_base : public wxRichTextCtrl, public magic_ptr_base {
 	panelparentwin_base *tppw;
 	wxColour default_background_colour;
 	wxColour default_foreground_colour;
 	wxString thisname;
 
-	enum {
-		GDB_FF_FORCEFROZEN      = 1<<0,
-		GDB_FF_FORCEUNFROZEN    = 1<<1,
+	enum class GDB_FF {
+		FORCEFROZEN      = 1<<0,
+		FORCEUNFROZEN    = 1<<1,
 	};
-	unsigned int freezeflags = 0;
+	flagwrapper<GDB_FF> freezeflags = 0;
 
-	enum {
-		GDB_F_NEEDSREFRESH      = 1<<0,
+	enum class GDB_F {
+		NEEDSREFRESH      = 1<<0,
 	};
-	unsigned int gdb_flags = 0;
+	flagwrapper<GDB_F> gdb_flags = 0;
 	std::shared_ptr<wxMenu> menuptr;
 
 	generic_disp_base(wxWindow *parent, panelparentwin_base *tppw_, long extraflags = 0, wxString thisname_ = wxT(""));
@@ -72,19 +82,23 @@ struct generic_disp_base : public wxRichTextCtrl, public magic_ptr_base {
 	inline wxString GetThisName() const { return thisname; }
 	virtual bool IsFrozen() const override;
 	void ForceRefresh();
-	void CheckRefresh() {
-		if(gdb_flags & GDB_F_NEEDSREFRESH) {
-			gdb_flags &= ~GDB_F_NEEDSREFRESH;
-			ForceRefresh();
-		}
-	}
+	void CheckRefresh();
 	virtual std::shared_ptr<tweet> GetTweet() const { return std::shared_ptr<tweet>(); }
 	virtual tweetdispscr *GetTDS() { return nullptr; }
-	virtual unsigned int GetTDSFlags() const { return 0; }
+	virtual flagwrapper<TDSF> GetTDSFlags() const { return 0; }
 	void popupmenuhandler(wxCommandEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };
+template<> struct enum_traits<generic_disp_base::GDB_FF> { static constexpr bool flags = true; };
+template<> struct enum_traits<generic_disp_base::GDB_F> { static constexpr bool flags = true; };
+
+inline void generic_disp_base::CheckRefresh() {
+	if(gdb_flags & GDB_F::NEEDSREFRESH) {
+		gdb_flags &= ~GDB_F::NEEDSREFRESH;
+		ForceRefresh();
+	}
+}
 
 struct dispscr_mouseoverwin : generic_disp_base, public magic_paired_ptr_ts<dispscr_base, dispscr_mouseoverwin> {
 	unsigned int mouse_refcount = 0;
@@ -124,17 +138,9 @@ struct dispscr_base : public generic_disp_base, public magic_paired_ptr_ts<disps
 	DECLARE_EVENT_TABLE()
 };
 
-enum {	//for tweetdispscr.tds_flags
-	TDSF_SUBTWEET              = 1<<0,
-	TDSF_HIGHLIGHT             = 1<<1,
-	TDSF_HIDDEN                = 1<<2,
-	TDSF_IMGTHUMBHIDEOVERRIDE  = 1<<3,
-	TDSF_CANLOADMOREREPLIES    = 1<<4,
-};
-
 struct tweetdispscr_mouseoverwin : public dispscr_mouseoverwin {
 	std::shared_ptr<tweet> td;
-	unsigned int tds_flags = 0;
+	flagwrapper<TDSF> tds_flags = 0;
 	magic_ptr_ts<tweetdispscr> current_tds;
 
 	tweetdispscr_mouseoverwin(wxWindow *parent, panelparentwin_base *tppw_, wxString thisname_ = wxT(""));
@@ -145,7 +151,7 @@ struct tweetdispscr_mouseoverwin : public dispscr_mouseoverwin {
 
 	virtual std::shared_ptr<tweet> GetTweet() const override { return td; }
 	virtual tweetdispscr *GetTDS() override { return current_tds.get(); }
-	virtual unsigned int GetTDSFlags() const override { return tds_flags; }
+	virtual flagwrapper<TDSF> GetTDSFlags() const override { return tds_flags; }
 
 	DECLARE_EVENT_TABLE()
 };
@@ -162,7 +168,7 @@ struct tweetdispscr : public dispscr_base {
 	long reltimestart;
 	long reltimeend;
 	uint64_t rtid;
-	unsigned int tds_flags = 0;
+	flagwrapper<TDSF> tds_flags = 0;
 	std::forward_list<magic_ptr_ts<tweetdispscr> > subtweets;
 	magic_ptr_ts<tweetdispscr> parent_tweet;
 	std::unique_ptr<wxTimer> imghideoverridetimer;
@@ -183,7 +189,7 @@ struct tweetdispscr : public dispscr_base {
 
 	virtual std::shared_ptr<tweet> GetTweet() const override { return td; }
 	virtual tweetdispscr *GetTDS() override { return this; }
-	virtual unsigned int GetTDSFlags() const override { return tds_flags; }
+	virtual flagwrapper<TDSF> GetTDSFlags() const override { return tds_flags; }
 
 	DECLARE_EVENT_TABLE()
 };

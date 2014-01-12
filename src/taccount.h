@@ -26,7 +26,9 @@
 #include "socket-common.h"
 #include "user_relationship.h"
 #include "twit-common.h"
+#include "twitcurlext-common.h"
 #include "rbfs.h"
+#include "flags.h"
 #include <wx/event.h>
 #include <wx/string.h>
 #include <memory>
@@ -46,11 +48,6 @@ class wxTimerEvent;
 
 typedef enum { ACT_NOTDONE, ACT_INPROGRESS, ACT_FAILED, ACT_DONE } ACT_STATUS;
 
-//flags for taccount::ta_flags
-enum {
-	TAF_STREAM_UP			= 1<<0,
-};
-
 enum {
 	TAF_WINID_RESTTIMER=1,
 	TAF_FAILED_PENDING_CONN_RETRY_TIMER,
@@ -66,7 +63,10 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	wxString cons;
 	bool ssl;
 	bool userstreams;
-	unsigned int ta_flags;
+	enum class TAF {
+		STREAM_UP			= 1<<0,
+	};
+	flagwrapper<TAF> ta_flags;
 	unsigned long restinterval;	//seconds
 	uint64_t max_tweet_id;
 	uint64_t max_mention_id;
@@ -120,14 +120,14 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	std::function<void(twitcurlext *)> TwitCurlExtHook;
 
 	void ClearUsersIFollow();
-	void SetUserRelationship(uint64_t userid, unsigned int flags, const time_t &optime);
+	void SetUserRelationship(uint64_t userid, flagwrapper<user_relationship::URF> flags, const time_t &optime);
 
 	void StartRestGetTweetBackfill(uint64_t start_tweet_id /*lower limit, exclusive*/, uint64_t end_tweet_id /*upper limit, inclusive*/,
 			unsigned int max_tweets_to_read, RBFS_TYPE type=RBFS_TWEETS, uint64_t userid = 0);
 	void ExecRBFS(restbackfillstate *rbfs);
 	void StartRestQueryPendings();
 	void DoPostAction(twitcurlext *lasttce);
-	void DoPostAction(unsigned int postflags);
+	void DoPostAction(flagwrapper<PAF> postflags);
 	void GetRestBackfill();
 	void LookupFriendships(uint64_t userid);
 
@@ -162,6 +162,7 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 
 	DECLARE_EVENT_TABLE()
 };
+template<> struct enum_traits<taccount::TAF> { static constexpr bool flags = true; };
 
 void AccountChangeTrigger();
 bool GetAccByDBIndex(unsigned int dbindex, std::shared_ptr<taccount> &acc);

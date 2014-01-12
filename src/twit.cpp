@@ -58,8 +58,8 @@ void HandleNewTweet(const std::shared_ptr<tweet> &t, const std::shared_ptr<tacco
 	for(auto it=ad.tpanels.begin(); it!=ad.tpanels.end(); ++it) {
 		tpanel &tp=*(it->second);
 		for(auto &tpa : tp.tpautos) {
-			if((tpa.autoflags & TPAF_DM && t->flags.Get('D')) || (tpa.autoflags & TPAF_TW && t->flags.Get('T')) || (tpa.autoflags & TPAF_MN && t->flags.Get('M'))) {
-				if(tpa.autoflags & TPAF_ALLACCS) tp.PushTweet(t);
+			if((tpa.autoflags & TPF::AUTO_DM && t->flags.Get('D')) || (tpa.autoflags & TPF::AUTO_TW && t->flags.Get('T')) || (tpa.autoflags & TPF::AUTO_MN && t->flags.Get('M'))) {
+				if(tpa.autoflags & TPF::AUTO_ALLACCS) tp.PushTweet(t);
 				else {
 					bool stop = false;
 					t->IterateTP([&](const tweet_perspective &twp) {
@@ -83,7 +83,7 @@ void EnumAllDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setn
 
 void UpdateAllTweets(bool redrawimg, bool resethighlight) {
 	EnumAllDisplayedTweets([&](tweetdispscr *tds) {
-		if(resethighlight) tds->tds_flags &= ~TDSF_HIGHLIGHT;
+		if(resethighlight) tds->tds_flags &= ~TDSF::HIGHLIGHT;
 		tds->DisplayTweet(redrawimg);
 		return true;
 	}, true);
@@ -99,7 +99,7 @@ void UpdateUsersTweet(uint64_t userid, bool redrawimg) {
 			|| (tds->td->rtsrc->user_recipient && tds->td->rtsrc->user_recipient->id==userid)) found=true;
 		}
 		if(found) {
-			LogMsgFormat(LFT_TPANEL, wxT("UpdateUsersTweet: Found Entry %" wxLongLongFmtSpec "d."), tds->td->id);
+			LogMsgFormat(LOGT::TPANEL, wxT("UpdateUsersTweet: Found Entry %" wxLongLongFmtSpec "d."), tds->td->id);
 			tds->DisplayTweet(redrawimg);
 		}
 		return true;
@@ -125,13 +125,13 @@ userlookup::~userlookup() {
 
 void userlookup::UnMarkAll() {
 	while(!users_queried.empty()) {
-		users_queried.front()->udc_flags&=~UDC_LOOKUP_IN_PROGRESS;
+		users_queried.front()->udc_flags&=~UDC::LOOKUP_IN_PROGRESS;
 		users_queried.pop_front();
 	}
 }
 
 void userlookup::Mark(std::shared_ptr<userdatacontainer> udc) {
-	udc->udc_flags|=UDC_LOOKUP_IN_PROGRESS;
+	udc->udc_flags|=UDC::LOOKUP_IN_PROGRESS;
 	users_queried.push_front(udc);
 }
 
@@ -167,30 +167,30 @@ void streamconntimeout::Arm() {
 
 void streamconntimeout::Notify() {
 	auto acc = tw->tacc.lock();
-	LogMsgFormat(LFT_SOCKERR, wxT("Stream connection timed out: %s (%p)"), acc?acc->dispname.c_str():wxT(""), tw->GetCurlHandle());
+	LogMsgFormat(LOGT::SOCKERR, wxT("Stream connection timed out: %s (%p)"), acc?acc->dispname.c_str():wxT(""), tw->GetCurlHandle());
 	tw->KillConn();
 	tw->HandleError(tw->GetCurlHandle(),0,CURLE_OPERATION_TIMEDOUT);
 }
 
-bool userdatacontainer::NeedsUpdating(unsigned int updcf_flags, time_t timevalue) const {
+bool userdatacontainer::NeedsUpdating(flagwrapper<UPDCF> updcf_flags, time_t timevalue) const {
 	if(!lastupdate) return true;
 	if(!timevalue) timevalue = time(0);
-	if(!(updcf_flags&UPDCF_USEREXPIRE) && GetUser().screen_name.size()) return false;
+	if(!(updcf_flags&UPDCF::USEREXPIRE) && GetUser().screen_name.size()) return false;
 	else {
 		if((uint64_t) timevalue > (lastupdate + gc.userexpiretime)) return true;
 		else return false;
 	}
 }
 
-bool userdatacontainer::ImgIsReady(unsigned int updcf_flags) {
-	if(udc_flags & UDC_IMAGE_DL_IN_PROGRESS) return false;
+bool userdatacontainer::ImgIsReady(flagwrapper<UPDCF> updcf_flags) {
+	if(udc_flags & UDC::IMAGE_DL_IN_PROGRESS) return false;
 	if(user.profile_img_url.size()) {
 		if(cached_profile_img_url!=user.profile_img_url) {
-			if(udc_flags&UDC_PROFILE_IMAGE_DL_FAILED) return true;
-			if(updcf_flags&UPDCF_DOWNLOADIMG) profileimgdlconn::GetConn(user.profile_img_url, shared_from_this());
+			if(udc_flags & UDC::PROFILE_IMAGE_DL_FAILED) return true;
+			if(updcf_flags&UPDCF::DOWNLOADIMG) profileimgdlconn::GetConn(user.profile_img_url, shared_from_this());
 			return false;
 		}
-		else if(cached_profile_img_url.size() && !(udc_flags&UDC_PROFILE_BITMAP_SET))  {
+		else if(cached_profile_img_url.size() && !(udc_flags & UDC::PROFILE_BITMAP_SET))  {
 			wxImage img;
 			wxString filename;
 			GetImageLocalFilename(filename);
@@ -200,10 +200,10 @@ bool userdatacontainer::ImgIsReady(unsigned int updcf_flags) {
 				return true;
 			}
 			else {
-				LogMsgFormat(LFT_OTHERERR, wxT("userdatacontainer::ImgIsReady, cached profile image file for user id: %" wxLongLongFmtSpec "d (%s), file: %s, url: %s, missing, invalid or failed hash check"),
+				LogMsgFormat(LOGT::OTHERERR, wxT("userdatacontainer::ImgIsReady, cached profile image file for user id: %" wxLongLongFmtSpec "d (%s), file: %s, url: %s, missing, invalid or failed hash check"),
 					id, wxstrstd(GetUser().screen_name).c_str(), filename.c_str(), wxstrstd(cached_profile_img_url).c_str());
 				cached_profile_img_url.clear();
-				if(updcf_flags&UPDCF_DOWNLOADIMG) {					//the saved image is not loadable, clear cache and re-download
+				if(updcf_flags&UPDCF::DOWNLOADIMG) {					//the saved image is not loadable, clear cache and re-download
 					profileimgdlconn::GetConn(user.profile_img_url, shared_from_this());
 				}
 				return false;
@@ -216,25 +216,25 @@ bool userdatacontainer::ImgIsReady(unsigned int updcf_flags) {
 	else return false;
 }
 
-bool userdatacontainer::ImgHalfIsReady(unsigned int updcf_flags) {
+bool userdatacontainer::ImgHalfIsReady(flagwrapper<UPDCF> updcf_flags) {
 	bool res=ImgIsReady(updcf_flags);
-	if(res && !(udc_flags&UDC_HALF_PROFILE_BITMAP_SET)) {
+	if(res && !(udc_flags & UDC::HALF_PROFILE_BITMAP_SET)) {
 		wxImage img=cached_profile_img.ConvertToImage();
 		cached_profile_img_half=MkProfileBitmapFromwxImage(img, 0.5);
-		udc_flags|=UDC_HALF_PROFILE_BITMAP_SET;
+		udc_flags|=UDC::HALF_PROFILE_BITMAP_SET;
 	}
 	return res;
 }
 
-bool userdatacontainer::IsReady(unsigned int updcf_flags, time_t timevalue) {
+bool userdatacontainer::IsReady(flagwrapper<UPDCF> updcf_flags, time_t timevalue) {
 	if(!ImgIsReady(updcf_flags)) return false;
 	if(NeedsUpdating(updcf_flags, timevalue)) return false;
-	else if( !(updcf_flags&UPDCF_USEREXPIRE) ) return true;
-	else if( udc_flags & (UDC_LOOKUP_IN_PROGRESS|UDC_IMAGE_DL_IN_PROGRESS)) return false;
+	else if( !(updcf_flags&UPDCF::USEREXPIRE) ) return true;
+	else if( udc_flags & (UDC::LOOKUP_IN_PROGRESS|UDC::IMAGE_DL_IN_PROGRESS)) return false;
 	else return true;
 }
 
-void userdatacontainer::CheckPendingTweets(unsigned int umpt_flags) {
+void userdatacontainer::CheckPendingTweets(flagwrapper<UMPTF> umpt_flags) {
 	FreezeAll();
 	std::forward_list<std::pair<int, std::shared_ptr<tweet> > > stillpending;
 	for(auto it=pendingtweets.begin(); it!=pendingtweets.end(); ++it) {
@@ -250,7 +250,7 @@ void userdatacontainer::CheckPendingTweets(unsigned int umpt_flags) {
 
 	for(auto it=stillpending.begin(); it!=stillpending.end(); ++it) {
 		std::shared_ptr<taccount> curacc;
-		if(it->second->GetUsableAccount(curacc, true)) {
+		if(it->second->GetUsableAccount(curacc, 0)) {
 			curacc->FastMarkPending(it->second, it->first, true);
 		}
 		else {
@@ -258,11 +258,11 @@ void userdatacontainer::CheckPendingTweets(unsigned int umpt_flags) {
 		}
 	}
 
-	if(udc_flags&UDC_WINDOWOPEN) {
+	if(udc_flags & UDC::WINDOWOPEN) {
 		user_window *uw=user_window::GetWin(id);
 		if(uw) uw->Refresh();
 	}
-	if(udc_flags&UDC_CHECK_USERLISTWIN) {
+	if(udc_flags & UDC::CHECK_USERLISTWIN) {
 		auto pit=tpanelparentwin_user::pendingmap.equal_range(id);
 		for(auto it=pit.first; it!=pit.second; ++it) {
 			it->second->PushBackUser(shared_from_this());
@@ -280,10 +280,10 @@ void userdatacontainer::MarkTweetPending(const std::shared_ptr<tweet> &t, bool c
 		}
 	}
 	pendingtweets.push_front(t);
-	LogMsgFormat(LFT_PENDTRACE, wxT("Mark Pending: User: %" wxLongLongFmtSpec "d (@%s) --> %s"), id, wxstrstd(GetUser().screen_name).c_str(), tweet_log_line(t.get()).c_str());
+	LogMsgFormat(LOGT::PENDTRACE, wxT("Mark Pending: User: %" wxLongLongFmtSpec "d (@%s) --> %s"), id, wxstrstd(GetUser().screen_name).c_str(), tweet_log_line(t.get()).c_str());
 }
 
-void rt_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags) {
+void rt_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags) {
 	if(target_retweet->IsReady()) UnmarkPendingTweet(target_retweet, umpt_flags);
 }
 
@@ -291,17 +291,17 @@ wxString rt_pending_op::dump() {
 	return wxString::Format(wxT("Retweet depends on this: %s"), tweet_log_line(target_retweet.get()).c_str());
 }
 
-tpanelload_pending_op::tpanelload_pending_op(tpanelparentwin_nt* win_, unsigned int pushflags_, std::shared_ptr<tpanel> *pushtpanel_)
+tpanelload_pending_op::tpanelload_pending_op(tpanelparentwin_nt* win_, flagwrapper<PUSHFLAGS> pushflags_, std::shared_ptr<tpanel> *pushtpanel_)
 		: win(win_), pushflags(pushflags_) {
-	if(pushtpanel_) pushtpanel=*pushtpanel_;
+	if(pushtpanel_) pushtpanel = *pushtpanel_;
 }
 
-void tpanelload_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags) {
+void tpanelload_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags) {
 	std::shared_ptr<tpanel> tp=pushtpanel.lock();
 	if(tp) tp->PushTweet(t);
 	tpanelparentwin_nt *window=win.get();
 	if(window) {
-		if(umpt_flags&UMPTF_TPDB_NOUPDF) window->SetNoUpdateFlag();
+		if(umpt_flags&UMPTF::TPDB_NOUPDF) window->SetNoUpdateFlag();
 		window->PushTweet(t, pushflags);
 	}
 }
@@ -314,23 +314,25 @@ wxString tpanelload_pending_op::dump() {
 
 void tpanel_subtweet_pending_op::CheckLoadTweetReply(const std::shared_ptr<tweet> &t, wxSizer *v, tpanelparentwin_nt *s,
 		tweetdispscr *tds, unsigned int load_count, const std::shared_ptr<tweet> &top_tweet, tweetdispscr *top_tds) {
+	using GUAF = tweet::GUAF;
+
 	if(t->in_reply_to_status_id) {
 		std::function<void(unsigned int)> loadmorefunc = [=](unsigned int load_count) {
 			std::shared_ptr<tweet> subt = ad.GetTweetById(t->in_reply_to_status_id);
 
 			if(top_tweet->IsArrivedHereAnyPerspective()) {	//save
-				subt->lflags |= TLF_SHOULDSAVEINDB;
+				subt->lflags |= TLF::SHOULDSAVEINDB;
 			}
 
 			std::shared_ptr<taccount> pacc;
-			t->GetUsableAccount(pacc, GUAF_NOERR) || t->GetUsableAccount(pacc, GUAF_NOERR|GUAF_USERENABLED);
+			t->GetUsableAccount(pacc, GUAF::NOERR) || t->GetUsableAccount(pacc, GUAF::NOERR | GUAF::USERENABLED);
 			subt->pending_ops.emplace_front(new tpanel_subtweet_pending_op(v, s, top_tds, load_count, top_tweet));
-			subt->lflags |= TLF_ISPENDING;
+			subt->lflags |= TLF::ISPENDING;
 			if(CheckFetchPendingSingleTweet(subt, pacc)) UnmarkPendingTweet(subt, 0);
 		};
 
 		if(load_count == 0) {
-			tds->tds_flags |= TDSF_CANLOADMOREREPLIES;
+			tds->tds_flags |= TDSF::CANLOADMOREREPLIES;
 			tds->loadmorereplies = [=]() {
 				loadmorefunc(gc.inlinereplyloadmorecount);
 			};
@@ -344,7 +346,7 @@ tpanel_subtweet_pending_op::tpanel_subtweet_pending_op(wxSizer *v, tpanelparentw
 		unsigned int load_count_, std::shared_ptr<tweet> top_tweet_)
 		: vbox(v), win(s), top_tds(top_tds_), load_count(load_count_), top_tweet(std::move(top_tweet_)) { }
 
-void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags) {
+void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags) {
 	tweetdispscr *tds=top_tds.get();
 	tpanelparentwin_nt *window=win.get();
 	if(!tds || !window) return;
@@ -353,24 +355,24 @@ void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, 
 	window->StartScrollFreeze(sf);
 	window->scrollwin->Freeze();
 
-	if(umpt_flags&UMPTF_TPDB_NOUPDF) window->SetNoUpdateFlag();
+	if(umpt_flags&UMPTF::TPDB_NOUPDF) window->SetNoUpdateFlag();
 
 	wxBoxSizer *subhbox = new wxBoxSizer(wxHORIZONTAL);
 	vbox->Add(subhbox, 0, wxALL | wxEXPAND, 1);
 
 	tweetdispscr *subtd=new tweetdispscr(t, window->scrollwin, window, subhbox);
-	subtd->tds_flags |= TDSF_SUBTWEET;
+	subtd->tds_flags |= TDSF::SUBTWEET;
 
 	tds->subtweets.emplace_front(subtd);
 	subtd->parent_tweet.set(tds);
 
 	if(t->rtsrc && gc.rtdisp) {
-		t->rtsrc->user->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
-		subtd->bm = new profimg_staticbitmap(window->scrollwin, t->rtsrc->user->cached_profile_img_half, t->rtsrc->user->id, t->id, window->GetMainframe(), true);
+		t->rtsrc->user->ImgHalfIsReady(UPDCF::DOWNLOADIMG);
+		subtd->bm = new profimg_staticbitmap(window->scrollwin, t->rtsrc->user->cached_profile_img_half, t->rtsrc->user->id, t->id, window->GetMainframe(), profimg_staticbitmap::PISBF::HALF);
 	}
 	else {
-		t->user->ImgHalfIsReady(UPDCF_DOWNLOADIMG);
-		subtd->bm = new profimg_staticbitmap(window->scrollwin, t->user->cached_profile_img_half, t->user->id, t->id, window->GetMainframe(), true);
+		t->user->ImgHalfIsReady(UPDCF::DOWNLOADIMG);
+		subtd->bm = new profimg_staticbitmap(window->scrollwin, t->user->cached_profile_img_half, t->user->id, t->id, window->GetMainframe(), profimg_staticbitmap::PISBF::HALF);
 	}
 	subhbox->Add(subtd->bm, 0, wxALL, 1);
 	subhbox->Add(subtd, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
@@ -394,10 +396,10 @@ void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, 
 
 	subtd->DisplayTweet();
 
-	if(!(window->tppw_flags&TPPWF_NOUPDATEONPUSH)) {
+	if(!(window->tppw_flags&TPPWF::NOUPDATEONPUSH)) {
 		subtd->ForceRefresh();
 	}
-	else subtd->gdb_flags |= tweetdispscr::GDB_F_NEEDSREFRESH;
+	else subtd->gdb_flags |= tweetdispscr::GDB_F::NEEDSREFRESH;
 	window->EndScrollFreeze(sf);
 
 	CheckLoadTweetReply(t, vbox, window, subtd, load_count - 1, top_tweet, tds);
@@ -409,7 +411,7 @@ wxString tpanel_subtweet_pending_op::dump() {
 	return wxString::Format(wxT("Push inline tweet reply to tpanel: %p, %p, %p"), vbox, win.get(), top_tds.get());
 }
 
-void handlenew_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, unsigned int umpt_flags) {
+void handlenew_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags) {
 	HandleNewTweet(t, tac.lock());
 }
 
@@ -418,15 +420,15 @@ wxString handlenew_pending_op::dump() {
 	return wxString::Format(wxT("Handle arrived on account: %s"), acc ? acc->dispname.c_str() : wxT("N/A"));
 }
 
-void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, unsigned int umpt_flags) {
-	LogMsgFormat(LFT_PENDTRACE, wxT("Unmark Pending: %s"), tweet_log_line(t.get()).c_str());
-	t->lflags &= ~TLF_BEINGLOADEDFROMDB;
-	t->lflags &= ~TLF_ISPENDING;
+void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags) {
+	LogMsgFormat(LOGT::PENDTRACE, wxT("Unmark Pending: %s"), tweet_log_line(t.get()).c_str());
+	t->lflags &= ~TLF::BEINGLOADEDFROMDB;
+	t->lflags &= ~TLF::ISPENDING;
 	for(auto &it : t->pending_ops) {
 		it->MarkUnpending(t, umpt_flags);
 	}
 	t->pending_ops.clear();
-	t->updcf_flags &= ~UPDCF_USEREXPIRE;
+	t->updcf_flags &= ~UPDCF::USEREXPIRE;
 }
 
 std::shared_ptr<taccount> userdatacontainer::GetAccountOfUser() const {
@@ -441,7 +443,7 @@ void userdatacontainer::GetImageLocalFilename(wxString &filename) const {
 
 void userdatacontainer::MarkUpdated() {
 	lastupdate=time(0);
-	ImgIsReady(UPDCF_DOWNLOADIMG);
+	ImgIsReady(UPDCF::DOWNLOADIMG);
 }
 
 std::string userdatacontainer::mkjson() const {
@@ -462,9 +464,9 @@ std::string userdatacontainer::mkjson() const {
 		jw.String(user.profile_img_url);
 	}
 	jw.String("protected");
-	jw.Bool(user.u_flags&UF_ISPROTECTED);
+	jw.Bool(user.u_flags & userdata::userdata::UF::ISPROTECTED);
 	jw.String("verified");
-	jw.Bool(user.u_flags&UF_ISVERIFIED);
+	jw.Bool(user.u_flags & userdata::userdata::UF::ISVERIFIED);
 	jw.String("followers_count");
 	jw.Uint(user.followers_count);
 	jw.String("statuses_count");
@@ -488,17 +490,18 @@ wxBitmap userdatacontainer::MkProfileBitmapFromwxImage(const wxImage &img, doubl
 
 void userdatacontainer::SetProfileBitmapFromwxImage(const wxImage &img) {
 	cached_profile_img=MkProfileBitmapFromwxImage(img, 1.0);
-	udc_flags|=UDC_PROFILE_BITMAP_SET;
+	udc_flags|=UDC::PROFILE_BITMAP_SET;
 }
 
 bool userdatacontainer::GetUsableAccount(std::shared_ptr<taccount> &tac, bool enabledonly) const {
+	using URF = user_relationship::URF;
 	if(!tac) {
 		for(auto it=alist.begin(); it!=alist.end(); ++it) {	//look for users who we follow, or who follow us
 			taccount &acc=**it;
 			if(!enabledonly || acc.enabled) {
 				auto rel=acc.user_relations.find(id);
 				if(rel!=acc.user_relations.end()) {
-					if(rel->second.ur_flags&(URF_FOLLOWSME_TRUE|URF_IFOLLOW_TRUE)) {
+					if(rel->second.ur_flags&(URF::FOLLOWSME_TRUE | URF::IFOLLOW_TRUE)) {
 						tac=*it;
 						break;
 					}
@@ -560,14 +563,14 @@ std::string tweet_perspective::GetFlagStringWithName(bool always) const {
 	else return "";
 }
 
-bool tweet::GetUsableAccount(std::shared_ptr<taccount> &tac, unsigned int guaflags) const {
-	if(guaflags&GUAF_CHECKEXISTING) {
+bool tweet::GetUsableAccount(std::shared_ptr<taccount> &tac, flagwrapper<GUAF> guaflags) const {
+	if(guaflags & GUAF::CHECKEXISTING) {
 		if(tac && tac->enabled) return true;
 	}
 	bool retval = false;
 	IterateTP([&](const tweet_perspective &tp) {
 		if(tp.IsArrivedHere()) {
-			if(tp.acc->enabled || (guaflags&GUAF_USERENABLED && tp.acc->userenabled)) {
+			if(tp.acc->enabled || (guaflags & GUAF::USERENABLED && tp.acc->userenabled)) {
 				tac=tp.acc;
 				retval = true;
 			}
@@ -577,7 +580,7 @@ bool tweet::GetUsableAccount(std::shared_ptr<taccount> &tac, unsigned int guafla
 
 	//try again, but use any associated account
 	IterateTP([&](const tweet_perspective &tp) {
-		if(tp.acc->enabled || (guaflags&GUAF_USERENABLED && tp.acc->userenabled)) {
+		if(tp.acc->enabled || (guaflags & GUAF::USERENABLED && tp.acc->userenabled)) {
 			tac=tp.acc;
 			retval = true;
 		}
@@ -586,22 +589,22 @@ bool tweet::GetUsableAccount(std::shared_ptr<taccount> &tac, unsigned int guafla
 
 	//use the first account which is actually enabled
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
-		if((*it)->enabled || (guaflags&GUAF_USERENABLED && (*it)->userenabled)) {
+		if((*it)->enabled || (guaflags & GUAF::USERENABLED && (*it)->userenabled)) {
 			tac=*it;
 			return true;
 		}
 	}
-	if(!(guaflags&GUAF_NOERR)) {
-		LogMsgFormat(LFT_OTHERERR, wxT("Tweet has no usable enabled account, cannot perform network actions on tweet: %s"), tweet_log_line(this).c_str());
+	if(!(guaflags & GUAF::NOERR)) {
+		LogMsgFormat(LOGT::OTHERERR, wxT("Tweet has no usable enabled account, cannot perform network actions on tweet: %s"), tweet_log_line(this).c_str());
 	}
 	return false;
 }
 
 tweet_perspective *tweet::AddTPToTweet(const std::shared_ptr<taccount> &tac, bool *isnew) {
-	if(! (lflags & TLF_HAVEFIRSTTP)) {
+	if(! (lflags & TLF::HAVEFIRSTTP)) {
 		first_tp.Reset(tac);
 		if(isnew) *isnew=true;
-		lflags |= TLF_HAVEFIRSTTP;
+		lflags |= TLF::HAVEFIRSTTP;
 		return &first_tp;
 	}
 	else if(first_tp.acc.get()==tac.get()) {
@@ -621,7 +624,7 @@ tweet_perspective *tweet::AddTPToTweet(const std::shared_ptr<taccount> &tac, boo
 }
 
 tweet_perspective *tweet::GetTweetTP(const std::shared_ptr<taccount> &tac) {
-	if(lflags & TLF_HAVEFIRSTTP && first_tp.acc.get() == tac.get()) {
+	if(lflags & TLF::HAVEFIRSTTP && first_tp.acc.get() == tac.get()) {
 		return &first_tp;
 	}
 	for(auto it=tp_extra_list.begin(); it!=tp_extra_list.end(); it++) {
@@ -662,7 +665,7 @@ void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, std::funct
 			if(tp == exclude) continue;
 
 			auto updatetp = [&]() {
-				tp->TPPWFlagMaskAllTWins(TPPWF_CLABELUPDATEPENDING|TPPWF_NOUPDATEONPUSH, 0);
+				tp->TPPWFlagMaskAllTWins(TPPWF::CLABELUPDATEPENDING|TPPWF::NOUPDATEONPUSH, 0);
 			};
 
 			tweetidset &tpset = idsetselector(tp->cids);
@@ -735,12 +738,12 @@ bool taccount::CheckMarkPending(const std::shared_ptr<tweet> &t, bool checkfirst
 
 //mark *must* be exactly right
 void FastMarkPendingNonAcc(const std::shared_ptr<tweet> &t, unsigned int mark, bool checkfirst) {
-	t->lflags |= TLF_ISPENDING;
+	t->lflags |= TLF::ISPENDING;
 	if(mark&1) t->user->MarkTweetPending(t, checkfirst);
 	if(mark&2) t->user_recipient->MarkTweetPending(t, checkfirst);
 	if(mark&4) t->rtsrc->user->MarkTweetPending(t->rtsrc, checkfirst);
 	if(mark&64) {
-		t->rtsrc->lflags |= TLF_ISPENDING;
+		t->rtsrc->lflags |= TLF::ISPENDING;
 		bool insertnewrtpo=true;
 		for(auto it=t->rtsrc->pending_ops.begin(); it!=t->rtsrc->pending_ops.end(); ++it) {
 			rt_pending_op *rtpo = dynamic_cast<rt_pending_op*>((*it).get());
@@ -772,7 +775,7 @@ bool FastMarkPendingNoAccFallback(const std::shared_ptr<tweet> &t, unsigned int 
 		if(mark&16) ad.noacc_pending_userconts[t->user_recipient->id] = t->user_recipient;
 		if(mark&32) ad.noacc_pending_userconts[t->rtsrc->user->id] = t->rtsrc->user;
 
-		LogMsgFormat(LFT_PENDTRACE, wxT("%s: Cannot mark pending as there is no usable account, %s"), logprefix.c_str(), tweet_log_line(t.get()).c_str());
+		LogMsgFormat(LOGT::PENDTRACE, wxT("%s: Cannot mark pending as there is no usable account, %s"), logprefix.c_str(), tweet_log_line(t.get()).c_str());
 		return false;
 	}
 	else return true;
@@ -814,7 +817,7 @@ bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t, bool checkfirst) {
 	if(!res) return true;
 	else {
 		std::shared_ptr<taccount> curacc;
-		if(t->GetUsableAccount(curacc, true)) {
+		if(t->GetUsableAccount(curacc, 0)) {
 			curacc->FastMarkPending(t, res, checkfirst);
 			return false;
 		}
@@ -824,7 +827,7 @@ bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t, bool checkfirst) {
 	}
 }
 
-bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_nt* win_, unsigned int pushflags, std::shared_ptr<tpanel> *pushtpanel_) {
+bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_nt* win_, PUSHFLAGS pushflags, std::shared_ptr<tpanel> *pushtpanel_) {
 	tpanel *tp=0;
 	if(pushtpanel_) tp=(*pushtpanel_).get();
 	bool found=false;
@@ -840,7 +843,7 @@ bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_n
 		break;
 	}
 	if(!found) {
-		tobj->lflags |= TLF_ISPENDING;
+		tobj->lflags |= TLF::ISPENDING;
 		tobj->pending_ops.emplace_front(new tpanelload_pending_op(win_, pushflags, pushtpanel_));
 	}
 	return found;
@@ -848,12 +851,14 @@ bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_n
 
 //return true if ready now
 bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::shared_ptr<taccount> acc_hint) {
+	using GUAF = tweet::GUAF;
+
 	if(tobj->text.size()) {
 		unsigned int res=CheckTweetPendings(tobj);
 		if(!res) return true;
 		else {
-			if(tobj->GetUsableAccount(acc_hint, GUAF_CHECKEXISTING|GUAF_NOERR) ||
-					tobj->GetUsableAccount(acc_hint, GUAF_CHECKEXISTING|GUAF_NOERR|GUAF_USERENABLED)) {
+			if(tobj->GetUsableAccount(acc_hint, GUAF::CHECKEXISTING | GUAF::NOERR) ||
+					tobj->GetUsableAccount(acc_hint, GUAF::CHECKEXISTING | GUAF::NOERR | GUAF::USERENABLED)) {
 				acc_hint->FastMarkPending(tobj, res, true);
 				return false;
 			}
@@ -863,7 +868,7 @@ bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::share
 		}
 	}
 	else {	//tweet not loaded at all
-		if(!(tobj->lflags&TLF_BEINGLOADEDFROMDB) && !(tobj->lflags&TLF_BEINGLOADEDOVERNET)) {
+		if(!(tobj->lflags&TLF::BEINGLOADEDFROMDB) && !(tobj->lflags&TLF::BEINGLOADEDOVERNET)) {
 			if(ad.unloaded_db_tweet_ids.find(tobj->id) == ad.unloaded_db_tweet_ids.end()) {
 				//tweet is not listed as stored in DB, don't bother querying it first
 				std::shared_ptr<taccount> curacc = acc_hint;
@@ -875,9 +880,9 @@ bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::share
 				loadmsg->targ=&dbc;
 				loadmsg->cmdevtype=wxextDBCONN_NOTIFY;
 				loadmsg->winid=wxDBCONNEVT_ID_TPANELTWEETLOAD;
-				loadmsg->flags|=DBSTMF_NO_ERR;
+				loadmsg->flags|=DBSTMF::NO_ERR;
 				if(acc_hint) loadmsg->dbindex=acc_hint->dbindex;
-				if(!gc.persistentmediacache) loadmsg->flags|=DBSTMF_PULLMEDIA;
+				if(!gc.persistentmediacache) loadmsg->flags|=DBSTMF::PULLMEDIA;
 				dbc.SendMessageBatched(loadmsg);
 			}
 		}
@@ -888,8 +893,8 @@ bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::share
 //returns true on success, otherwise add tweet to pending list
 //modifies acc_hint to account actually used
 bool CheckLoadSingleTweet(const std::shared_ptr<tweet> &t, std::shared_ptr<taccount> &acc_hint) {
-	if(t->GetUsableAccount(acc_hint, GUAF_CHECKEXISTING)) {
-		t->lflags |= TLF_BEINGLOADEDOVERNET;
+	if(t->GetUsableAccount(acc_hint, tweet::GUAF::CHECKEXISTING)) {
+		t->lflags |= TLF::BEINGLOADEDOVERNET;
 		twitcurlext *twit = acc_hint->GetTwitCurlExt();
 		twit->connmode = CS_SINGLETWEET;
 		twit->extra_id = t->id;
@@ -898,13 +903,13 @@ bool CheckLoadSingleTweet(const std::shared_ptr<tweet> &t, std::shared_ptr<tacco
 	}
 	else {
 		ad.noacc_pending_tweetobjs[t->id] = t;
-		LogMsgFormat(LFT_OTHERERR, wxT("Cannot lookup tweet: id:%" wxLongLongFmtSpec "d, no usable account, marking pending."), t->id);
+		LogMsgFormat(LOGT::OTHERERR, wxT("Cannot lookup tweet: id:%" wxLongLongFmtSpec "d, no usable account, marking pending."), t->id);
 		return false;
 	}
 }
 
 //returns true is ready, false is pending
-bool tweet::IsReady(unsigned int updcf_flags) {
+bool tweet::IsReady(flagwrapper<UPDCF> updcf_flags) {
 	bool isready=true;
 
 	if(rtsrc) {
@@ -971,7 +976,7 @@ bool tweet::IsFavouritable() const {
 }
 
 bool tweet::IsRetweetable() const {
-	return (flags.Get('T') && (rtsrc || !(user->GetUser().u_flags&UF_ISPROTECTED)));
+	return (flags.Get('T') && (rtsrc || !(user->GetUser().u_flags & userdata::userdata::UF::ISPROTECTED)));
 }
 
 bool tweet::IsArrivedHereAnyPerspective() const {
@@ -1139,7 +1144,7 @@ unsigned int TwitterCharCount(const char *in, size_t inlen) {
 		const char *pat=VALID_URL_PATTERN_STRING;
 		pattern=pcre_compile(pat, PCRE_UCP | PCRE_NO_UTF8_CHECK | PCRE_CASELESS | PCRE_UTF8, &errptr, &erroffset, 0);
 		if(!pattern) {
-			LogMsgFormat(LFT_OTHERERR, wxT("TwitterCharCount: pcre_compile failed: %s (%d)\n%s"), wxstrstd(errptr).c_str(), erroffset, wxstrstd(pat).c_str());
+			LogMsgFormat(LOGT::OTHERERR, wxT("TwitterCharCount: pcre_compile failed: %s (%d)\n%s"), wxstrstd(errptr).c_str(), erroffset, wxstrstd(pat).c_str());
 			return 0;
 		}
 		patextra=pcre_study(pattern, 0, &errptr);
@@ -1198,7 +1203,7 @@ bool IsUserMentioned(const char *in, size_t inlen, const std::shared_ptr<userdat
 	std::string pat=IS_USER_MENTIONED_1ST + u->GetUser().screen_name + IS_USER_MENTIONED_2ND;
 	pcre *pattern=pcre_compile(pat.c_str(), PCRE_UCP | PCRE_NO_UTF8_CHECK | PCRE_CASELESS | PCRE_UTF8, &errptr, &erroffset, 0);
 	if(!pattern) {
-		LogMsgFormat(LFT_OTHERERR, wxT("IsUserMentioned: pcre_compile failed: %s (%d)\n%s"), wxstrstd(errptr).c_str(), erroffset, wxstrstd(pat).c_str());
+		LogMsgFormat(LOGT::OTHERERR, wxT("IsUserMentioned: pcre_compile failed: %s (%d)\n%s"), wxstrstd(errptr).c_str(), erroffset, wxstrstd(pat).c_str());
 		return 0;
 	}
 	int ovector[30];
