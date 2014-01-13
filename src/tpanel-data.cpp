@@ -27,6 +27,7 @@
 #include "alldata.h"
 #include "taccount.h"
 #include <algorithm>
+#include <array>
 
 #ifndef TPANEL_COPIOUS_LOGGING
 #define TPANEL_COPIOUS_LOGGING 0

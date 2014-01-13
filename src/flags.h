@@ -27,6 +27,7 @@
 #ifndef INC_FLAGS_ALREADY
 #define INC_FLAGS_ALREADY
 
+#include <cstddef>
 #include <type_traits>
 #include <ostream>
 #include <ios>
@@ -42,7 +43,7 @@ template <typename C> class flagwrapper {
 	public:
 	flagwrapper() : flags(static_cast<C>(0)) { }
 	flagwrapper(C f) : flags(f) { }
-	flagwrapper(nullptr_t n) : flags(static_cast<C>(0)) { }
+	flagwrapper(std::nullptr_t n) : flags(static_cast<C>(0)) { }
 	operator bool() { return flags != static_cast<C>(0); }
 	operator C&() { return flags; }
 	operator C() const { return flags; }
@@ -54,7 +55,7 @@ template <typename C> class flagwrapper {
 	flagwrapper &operator^=(const flagwrapper<C> &r) { flags ^= r; return *this; }
 	flagwrapper &operator|=(const flagwrapper<C> &r) { flags |= r; return *this; }
 	flagwrapper &operator=(C r) { flags = r; return *this; }
-	flagwrapper &operator=(nullptr_t n) { flags = static_cast<C>(0); return *this; }
+	flagwrapper &operator=(std::nullptr_t n) { flags = static_cast<C>(0); return *this; }
 	bool operator!=(C r) { return flags != r; }
 	bool operator==(C r) { return flags == r; }
 	C &getref() { return flags; }

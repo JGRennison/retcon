@@ -38,7 +38,6 @@
 #include <wx/choicdlg.h>
 #include <wx/textdlg.h>
 #include <wx/msgdlg.h>
-#include <array>
 #include <forward_list>
 #include <algorithm>
 

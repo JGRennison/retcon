@@ -34,6 +34,9 @@
 #include "filter/filter-ops.h"
 #include "util.h"
 #include "tpanel-data.h"
+#ifdef __WINDOWS__
+#include "tpanel.h"
+#endif
 #include <wx/image.h>
 #include <wx/stdpaths.h>
 #include <cstdio>
