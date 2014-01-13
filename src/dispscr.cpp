@@ -1014,12 +1014,14 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 			EndAlignment();
 			if(hidden_thumbnails) {
 				BeginAlignment(wxTEXT_ALIGNMENT_CENTRE);
-				BeginURL(wxT("Xp"));
-				BeginUnderline();
-				WriteText(wxT("[Unhide]"));
-				EndUnderline();
-				EndURL();
-				WriteText(wxT(" - "));
+				if(!gc.hideallthumbs) { //Unhide link does nothing when hide all thumbnails option is set
+					BeginURL(wxT("Xp"));
+					BeginUnderline();
+					WriteText(wxT("[Unhide]"));
+					EndUnderline();
+					EndURL();
+					WriteText(wxT(" - "));
+				}
 				BeginURL(wxT("Xq"));
 				BeginUnderline();
 				WriteText(wxString::Format(wxT("[Unhide for %d seconds]"), gc.imgthumbunhidetime));
