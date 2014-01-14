@@ -1,3 +1,42 @@
+retcon 0.0.5
+------------------------------------------------------
+
+Add support for unhiding image previews only temporarily.
+Add support for proxies (SOCKS, HTTP, HTTP tunneling), and excluded hosts.
+Add option to set outgoing network interface.
+Add option to hide all thumbnails.
+Add options to control how and what type of thumbnails are loaded automatically.
+Make the number of tweet replies loaded inline configurable.
+Allow more inline replies to loaded on demand.
+Add option to show deleted tweets and DMs.
+Add option to mark deleted tweets and DMs as read.
+Media windows now have controllable zoom, and scrolling.
+Add support for dropbox image links.
+Add items to tweet info popup menu to reply and DM retweet source user if present.
+Add screen name of target user to tweet info popup menu DM items.
+Fix non timeline tweet lookups being added to the home timeline list.
+Fix user window tweet panels not loading more tweets when scrolled to bottom.
+Fix tweet (un)favourite and DM delete.
+Fix issues where lookups were attempted before authentication was completed.
+Fix various issues with data inconsistencies in certain edge cases.
+Fix issues where tweets would not always be displayed when ready.
+Fix a number of issues with slow or incomplete image downloads (eg. on slow connections).
+Fix OAuth token generation not working after settings window->OK clicked.
+Fix media windows being closed after the tweet which spawned them was closed/scrolled away.
+Fix HTML entities not being decoded in the reply-to line of the tweet post box.
+Fix issues where panel labels/tweet counts would not always be updated in a timely fashion.
+Fix use of tweet mouseover info popup preventing program termination on GTK platforms.
+Fix tweet filtering sometimes being done before the tweet was fully loaded.
+Set tweet flag O for own tweets.
+Update lengths of t.co link wrappers.
+Add options for setting screen margins for media window positioning.
+Log files are no longer fflushed after every line by default. This can be re-enabled using -F/--log-fflush.
+Various other changes to logging.
+Improve performance by reducing unneeded screen updates, and various other changes.
+No longer show full command lines when building with make unless variable V is set.
+Fix missing items in make clean target. Debug builds are now compiled with -Og where available.
+
+
 retcon 0.0.4.1
 ------------------------------------------------------
 
