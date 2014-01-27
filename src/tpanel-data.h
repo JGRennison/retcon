@@ -54,7 +54,9 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	static void NameDefaults(std::string &name, std::string &dispname, const std::vector<tpanel_auto> &tpautos);
 
 	void PushTweet(const std::shared_ptr<tweet> &t, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
+	void RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
 	bool RegisterTweet(const std::shared_ptr<tweet> &t);
+	bool UnRegisterTweet(uint64_t id);
 	tpanelparentwin *MkTPanelWin(mainframe *parent, bool select = false);
 	void OnTPanelWinClose(tpanelparentwin_nt *tppw);
 	bool IsSingleAccountTPanel() const;

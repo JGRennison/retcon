@@ -204,6 +204,7 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	virtual void HandleScrollToIDOnUpdate() { }
 	void PopTop();
 	void PopBottom();
+	void RemoveIndex(size_t offset);
 	void StartScrollFreeze(tppw_scrollfreeze &s);
 	void EndScrollFreeze(tppw_scrollfreeze &s);
 	void SetScrollFreeze(tppw_scrollfreeze &s, dispscr_base *scr);
@@ -233,6 +234,7 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent, wxString thisname_ = wxT(""));
 	virtual ~tpanelparentwin_nt();
 	void PushTweet(const std::shared_ptr<tweet> &t, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
+	void RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
 	tweetdispscr *PushTweetIndex(const std::shared_ptr<tweet> &t, size_t index);
 	virtual void LoadMore(unsigned int n, uint64_t lessthanid = 0, uint64_t greaterthanid = 0, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT) { }
 	virtual void UpdateCLabel();

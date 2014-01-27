@@ -53,6 +53,18 @@ void tpanel::PushTweet(const std::shared_ptr<tweet> &t, flagwrapper<PUSHFLAGS> p
 	}
 }
 
+void tpanel::RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags) {
+	LogMsgFormat(LOGT::TPANEL, wxT("Removing tweet id %" wxLongLongFmtSpec "d from panel %s (pushflags: 0x%X)"), id, wxstrstd(name).c_str(), pushflags);
+	if(UnRegisterTweet(id)) {
+		for(auto &i : twin) {
+			#if TPANEL_COPIOUS_LOGGING
+				LogMsgFormat(LOGT::TPANEL, wxT("TCL: Removing tweet id %" wxLongLongFmtSpec "d from tpanel window"), id);
+			#endif
+			i->RemoveTweet(id, pushflags);
+		}
+	}
+}
+
 //returns true if new tweet
 bool tpanel::RegisterTweet(const std::shared_ptr<tweet> &t) {
 	cids.CheckTweet(*t);
@@ -65,6 +77,18 @@ bool tpanel::RegisterTweet(const std::shared_ptr<tweet> &t) {
 		if(t->id<lowerid || lowerid==0) lowerid=t->id;
 		tweetlist.insert(t->id);
 		return true;
+	}
+}
+
+//returns true if tweet was present
+bool tpanel::UnRegisterTweet(uint64_t id) {
+	if(tweetlist.count(id)) {
+		tweetlist.erase(id);
+		cids.RemoveTweet(id);
+		return true;
+	}
+	else {
+		return false;
 	}
 }
 

@@ -426,6 +426,17 @@ void panelparentwin_base::PopBottom() {
 	#endif
 }
 
+void panelparentwin_base::RemoveIndex(size_t offset) {
+	#if TPANEL_COPIOUS_LOGGING
+		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::RemoveIndex(%u) %s START"), offset, GetThisName().c_str());
+	#endif
+	RemoveIndexIntl(offset);
+	currentdisp.erase(std::next(currentdisp.begin(), offset));
+	#if TPANEL_COPIOUS_LOGGING
+		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base::RemoveIndex(%u) %s END"), offset, GetThisName().c_str());
+	#endif
+}
+
 void panelparentwin_base::RemoveIndexIntl(size_t offset) {
 	wxSizer *sz=sizer->GetItem(offset)->GetSizer();
 	if(sz) {
@@ -768,6 +779,54 @@ tweetdispscr *tpanelparentwin_nt::PushTweetIndex(const std::shared_ptr<tweet> &t
 	#endif
 
 	return td;
+}
+
+void tpanelparentwin_nt::RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags) {
+	auto update_label = [&]() {
+		if(!(tppw_flags & TPPWF::NOUPDATEONPUSH) && !(pushflags & PUSHFLAGS::SETNOUPDATEFLAG)) UpdateCLabel();
+		else tppw_flags |= TPPWF::CLABELUPDATEPENDING;
+	};
+
+	LogMsgFormat(LOGT::TPANEL, "tpanelparentwin_nt::RemoveTweet %s, id: %" wxLongLongFmtSpec "d, displayoffset: %d, pushflags: 0x%X, currentdisp: %d, tppw_flags: 0x%X",
+			GetThisName().c_str(), id, displayoffset, pushflags, (int) currentdisp.size(), tppw_flags);
+
+	if(currentdisp.empty()) {
+		update_label();
+		return;
+	}
+
+	if(id > currentdisp.front().first) {
+		if(!(pushflags & PUSHFLAGS::NOINCDISPOFFSET)) displayoffset--;
+		update_label();
+		return;
+	}
+	if(id < currentdisp.back().first) {
+		update_label();
+		return;
+	}
+
+	size_t index = 0;
+	auto it = currentdisp.begin();
+	for(; it != currentdisp.end(); it++, index++) {
+		if(it->first == id) {
+			scrollwin->Freeze();
+			tppw_scrollfreeze sf;
+			StartScrollFreeze(sf);
+
+			if(pushflags & PUSHFLAGS::SETNOUPDATEFLAG) tppw_flags |= TPPWF::NOUPDATEONPUSH;
+			RemoveIndex(index);
+			update_label();
+
+			if(it->second != sf.scr) { // Don't reset scrolling if top of screen is item being removed
+				EndScrollFreeze(sf);
+			}
+			scrollwin->Thaw();
+			break;
+		}
+	}
+	#if TPANEL_COPIOUS_LOGGING
+		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt::RemoveTweet %s END, %d, %d"), GetThisName().c_str(), displayoffset, currentdisp.size());
+	#endif
 }
 
 void tpanelparentwin_nt::PageUpHandler() {
