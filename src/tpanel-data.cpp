@@ -162,6 +162,26 @@ tpanel::~tpanel() {
 
 }
 
+//Do not assume that *acc is non-null
+bool tpanel::TweetMatches(const std::shared_ptr<tweet> &t, const std::shared_ptr<taccount> &acc) const {
+	for(auto &tpa : tpautos) {
+		if((tpa.autoflags & TPF::AUTO_DM && t->flags.Get('D')) || (tpa.autoflags & TPF::AUTO_TW && t->flags.Get('T')) || (tpa.autoflags & TPF::AUTO_MN && t->flags.Get('M'))) {
+			if(tpa.autoflags & TPF::AUTO_ALLACCS && t->IsArrivedHereAnyPerspective()) return true;
+			else {
+				bool found = false;
+				t->IterateTP([&](const tweet_perspective &twp) {
+					if(found) return;
+					if(twp.acc.get() == tpa.acc.get() && twp.IsArrivedHere()) {
+						found = true;
+					}
+				});
+				if(found == true) return true;
+			}
+		}
+	}
+	return false;
+}
+
 void tpanel::RecalculateSets() {
 	for(auto &tpa : tpautos) {
 		std::forward_list<taccount *> accs;

@@ -57,22 +57,10 @@ void HandleNewTweet(const std::shared_ptr<tweet> &t, const std::shared_ptr<tacco
 	ad.incoming_filter.FilterTweet(*t, acc.get());
 	ad.cids.CheckTweet(*t);
 
-	for(auto it=ad.tpanels.begin(); it!=ad.tpanels.end(); ++it) {
-		tpanel &tp=*(it->second);
-		for(auto &tpa : tp.tpautos) {
-			if((tpa.autoflags & TPF::AUTO_DM && t->flags.Get('D')) || (tpa.autoflags & TPF::AUTO_TW && t->flags.Get('T')) || (tpa.autoflags & TPF::AUTO_MN && t->flags.Get('M'))) {
-				if(tpa.autoflags & TPF::AUTO_ALLACCS) tp.PushTweet(t);
-				else {
-					bool stop = false;
-					t->IterateTP([&](const tweet_perspective &twp) {
-						if(stop) return;
-						if(twp.acc.get()==tpa.acc.get() && twp.IsArrivedHere()) {
-							tp.PushTweet(t);
-							stop = true;
-						}
-					});
-				}
-			}
+	for(auto &it : ad.tpanels) {
+		tpanel &tp = *(it.second);
+		if(tp.TweetMatches(t, acc)) {
+			tp.PushTweet(t);
 		}
 	}
 }

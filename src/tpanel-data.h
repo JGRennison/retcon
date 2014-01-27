@@ -59,6 +59,7 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	void OnTPanelWinClose(tpanelparentwin_nt *tppw);
 	bool IsSingleAccountTPanel() const;
 	void TPPWFlagMaskAllTWins(flagwrapper<TPPWF> set, flagwrapper<TPPWF> clear) const;
+	bool TweetMatches(const std::shared_ptr<tweet> &t, const std::shared_ptr<taccount> &acc) const;
 
 	private:
 	void RecalculateSets();
