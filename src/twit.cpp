@@ -612,37 +612,41 @@ void cached_id_sets::RemoveTweet(uint64_t id) {
 void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, std::function<tweetidset &(cached_id_sets &)> idsetselector, bool remove, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc) {
 	tweetidset &globset = idsetselector(ad.cids);
 
-	for(auto &tweet_id : ids) {
-		for(auto &tpiter : ad.tpanels) {
-			tpanel *tp = tpiter.second.get();
-			if(tp == exclude) continue;
+	if(remove) {
+		for(auto &tweet_id : ids) globset.erase(tweet_id);
+	}
+	else globset.insert(ids.begin(), ids.end());
 
-			auto updatetp = [&]() {
-				tp->TPPWFlagMaskAllTWins(TPPWF::CLABELUPDATEPENDING|TPPWF::NOUPDATEONPUSH, 0);
-			};
+	for(auto &tpiter : ad.tpanels) {
+		tpanel *tp = tpiter.second.get();
+		tp->NotifyCIDSChange();
+		if(tp == exclude) continue;
 
-			tweetidset &tpset = idsetselector(tp->cids);
+		tweetidset &tpset = idsetselector(tp->cids);
+		bool updatetp = false;
 
+		for(auto &tweet_id : ids) {
 			if(remove) {
 				auto item_it = tpset.find(tweet_id);
 				if(item_it != tpset.end()) {
 					tpset.erase(item_it);
-					updatetp();
+					updatetp = true;
 				}
 			}
 			else if(tp->tweetlist.find(tweet_id) != tp->tweetlist.end()) {
 				auto res = tpset.insert(tweet_id);
-				if(res.second) updatetp();
+				if(res.second) updatetp = true;
 			}
 		}
-		if(existingtweetfunc) {
+		if(updatetp) tp->TPPWFlagMaskAllTWins(TPPWF::CLABELUPDATEPENDING | TPPWF::NOUPDATEONPUSH, 0);
+	}
+	if(existingtweetfunc) {
+		for(auto &tweet_id : ids) {
 			auto twshpp = ad.GetExistingTweetById(tweet_id);
 			if(twshpp) {
 				existingtweetfunc(*twshpp);
 			}
 		}
-		if(remove) globset.erase(tweet_id);
-		else globset.insert(tweet_id);
 	}
 }
 

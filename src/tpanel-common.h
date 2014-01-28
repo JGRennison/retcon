@@ -41,6 +41,9 @@ enum class TPF {
 	AUTO_TW               = 1<<9,
 	AUTO_MN               = 1<<10,
 	AUTO_ALLACCS          = 1<<11,
+	AUTO_NOACC            = 1<<12,
+	AUTO_HIGHLIGHTED      = 1<<13,
+	AUTO_UNREAD           = 1<<14,
 	AUTO_MASK             = 0xFF00,
 
 	INTL_CUSTOMAUTO       = 1<<24,

@@ -96,13 +96,18 @@ tpanel::tpanel(const std::string &name_, const std::string &dispname_, flagwrapp
 : name(name_), dispname(dispname_), flags(flags_) {
 	twin.clear();
 	tpautos = std::move(tpautos_);
+	for(auto &it : tpautos) {
+		if(it.autoflags & (TPF::AUTO_HIGHLIGHTED | TPF::AUTO_UNREAD)) {
+			intl_flags |= TPIF::RECALCSETSONCIDSCHANGE;
+		}
+	}
 	RecalculateSets();
 }
 
 std::shared_ptr<tpanel> tpanel::MkTPanel(const std::string &name_, const std::string &dispname_, flagwrapper<TPF> flags_, std::shared_ptr<taccount> *acc) {
 	std::vector<tpanel_auto> tpautos;
 	flagwrapper<TPF> autoflags_ = flags_ & TPF::AUTO_MASK;
-	if((acc && *acc) || autoflags_ & TPF::AUTO_ALLACCS) {
+	if((acc && *acc) || autoflags_ & (TPF::AUTO_ALLACCS | TPF::AUTO_NOACC)) {
 		tpautos.emplace_back();
 		tpautos.back().autoflags = autoflags_;
 		if(acc) tpautos.back().acc = *acc;
@@ -132,6 +137,8 @@ void tpanel::NameDefaults(std::string &name, std::string &dispname, const std::v
 
 	if(newname || newdispname) {
 		std::array<std::vector<std::string>, 8> buildarray;
+		std::vector<std::string> extras;
+
 		const flagwrapper<TPF> flagmask = TPF::AUTO_TW | TPF::AUTO_MN | TPF::AUTO_DM;
 		const unsigned int flagshift = TPF_AUTO_SHIFT;
 		for(auto &it : tpautos) {
@@ -139,25 +146,43 @@ void tpanel::NameDefaults(std::string &name, std::string &dispname, const std::v
 			std::string accdispname;
 			std::string type;
 
-			if(it.acc) {
-				accname = it.acc->name.ToUTF8();
-				accdispname = it.acc->dispname.ToUTF8();
+			if(it.autoflags & TPF::AUTO_NOACC) {
+				accname = "!";
+				if(it.autoflags & TPF::AUTO_HIGHLIGHTED) {
+					type += "H";
+					if(newdispname) extras.emplace_back("All Highlighted");
+				}
+				if(it.autoflags & TPF::AUTO_UNREAD) {
+					type += "U";
+					if(newdispname) extras.emplace_back("All Unread");
+				}
 			}
 			else {
-				accname = "*";
-				accdispname = "All Accounts";
+				if(it.acc) {
+					accname = it.acc->name.ToUTF8();
+					accdispname = it.acc->dispname.ToUTF8();
+				}
+				else {
+					accname = "*";
+					accdispname = "All Accounts";
+				}
+
+				if(it.autoflags & TPF::AUTO_TW) type += "T";
+				if(it.autoflags & TPF::AUTO_DM) type += "D";
+				if(it.autoflags & TPF::AUTO_MN) type += "M";
+
+				if(newdispname) buildarray[flag_unwrap<TPF>(it.autoflags & flagmask) >> flagshift].emplace_back(accdispname);
 			}
 
-			if(it.autoflags & TPF::AUTO_TW) type += "T";
-			if(it.autoflags & TPF::AUTO_DM) type += "D";
-			if(it.autoflags & TPF::AUTO_MN) type += "M";
-
 			if(newname) name += "_" + accname + "_" + type;
-			if(newdispname) buildarray[flag_unwrap<TPF>(it.autoflags & flagmask) >> flagshift].emplace_back(accdispname);
 		}
 
 		if(newdispname) {
 			dispname = "[";
+			for(auto &it : extras) {
+				if(dispname.size() > 1) dispname += ", ";
+				dispname += it;
+			}
 			for(unsigned int i = 0; i < buildarray.size(); i++) {
 				if(buildarray[i].empty()) continue;
 				flagwrapper<TPF> autoflags = flag_wrap<TPF>(i << flagshift);
@@ -202,26 +227,64 @@ bool tpanel::TweetMatches(const std::shared_ptr<tweet> &t, const std::shared_ptr
 				if(found == true) return true;
 			}
 		}
+		if(tpa.autoflags & TPF::AUTO_NOACC) {
+			if(tpa.autoflags & TPF::AUTO_HIGHLIGHTED && t->flags.Get('H')) return true;
+			if(tpa.autoflags & TPF::AUTO_UNREAD && t->flags.Get('u')) return true;
+		}
 	}
 	return false;
 }
 
-void tpanel::RecalculateSets() {
+void tpanel::RecalculateTweetSet() {
 	for(auto &tpa : tpautos) {
 		std::forward_list<taccount *> accs;
 		if(tpa.autoflags & TPF::AUTO_ALLACCS) {
 			for(auto &it : alist) accs.push_front(it.get());
 		}
+		else if(tpa.autoflags & TPF::AUTO_NOACC) {
+			if(tpa.autoflags & TPF::AUTO_HIGHLIGHTED) tweetlist.insert(ad.cids.highlightids.begin(), ad.cids.highlightids.end());
+			if(tpa.autoflags & TPF::AUTO_UNREAD) tweetlist.insert(ad.cids.unreadids.begin(), ad.cids.unreadids.end());
+		}
 		else accs.push_front(tpa.acc.get());
+
 		for(auto & it : accs) {
 			if(tpa.autoflags & TPF::AUTO_DM) tweetlist.insert(it->dm_ids.begin(), it->dm_ids.end());
 			if(tpa.autoflags & TPF::AUTO_TW) tweetlist.insert(it->tweet_ids.begin(), it->tweet_ids.end());
 			if(tpa.autoflags & TPF::AUTO_MN) tweetlist.insert(it->usercont->mention_index.begin(), it->usercont->mention_index.end());
 		}
 	}
+}
+
+void tpanel::RecalculateSets() {
+	RecalculateTweetSet();
+
 	ad.cids.foreach(this->cids, [&](tweetidset &adtis, tweetidset &thistis) {
 		std::set_intersection(tweetlist.begin(), tweetlist.end(), adtis.begin(), adtis.end(), std::inserter(thistis, thistis.end()), tweetlist.key_comp());
 	});
+}
+
+void tpanel::RecalculateSetsWithAddRemove(flagwrapper<PUSHFLAGS> pushflags) {
+	tweetidset oldtweetlist = std::move(tweetlist);
+	RecalculateTweetSet();
+
+	tweetidset added;
+	tweetidset removed;
+	std::set_difference(tweetlist.begin(), tweetlist.end(), oldtweetlist.begin(), oldtweetlist.end(), std::inserter(added, added.end()), tweetlist.key_comp());
+	std::set_difference(oldtweetlist.begin(), oldtweetlist.end(), tweetlist.begin(), tweetlist.end(), std::inserter(removed, removed.end()), tweetlist.key_comp());
+
+	tweetlist = std::move(oldtweetlist); //restore for now
+
+	//Big assumption:
+	//It does not really make sense to explicitly add a tweet to a CIDS when it is not already in memory and ready
+	//Hence this edge-case is not covered here
+	for(auto &it : added) {
+		std::shared_ptr<tweet> tobj = ad.GetTweetById(it);
+		PushTweet(tobj, pushflags);
+	}
+
+	for(auto &it : removed) {
+		RemoveTweet(it, pushflags);
+	}
 }
 
 void tpanel::OnTPanelWinClose(tpanelparentwin_nt *tppw) {

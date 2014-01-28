@@ -62,9 +62,22 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	bool IsSingleAccountTPanel() const;
 	void TPPWFlagMaskAllTWins(flagwrapper<TPPWF> set, flagwrapper<TPPWF> clear) const;
 	bool TweetMatches(const std::shared_ptr<tweet> &t, const std::shared_ptr<taccount> &acc) const;
+	void NotifyCIDSChange();
 
 	private:
+	enum class TPIF {
+		RECALCSETSONCIDSCHANGE       = 1<<0,
+	};
+	flagwrapper<TPIF> intl_flags;
+
 	void RecalculateSets();
+	void RecalculateTweetSet();
+	void RecalculateSetsWithAddRemove(flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
 };
+template<> struct enum_traits<tpanel::TPIF> { static constexpr bool flags = true; };
+
+inline void tpanel::NotifyCIDSChange() {
+	if(intl_flags & tpanel::TPIF::RECALCSETSONCIDSCHANGE) RecalculateSetsWithAddRemove(PUSHFLAGS::SETNOUPDATEFLAG);
+}
 
 #endif

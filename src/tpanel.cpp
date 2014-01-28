@@ -40,6 +40,7 @@
 #include <wx/msgdlg.h>
 #include <forward_list>
 #include <algorithm>
+#include <deque>
 
 #ifndef TPANEL_COPIOUS_LOGGING
 #define TPANEL_COPIOUS_LOGGING 0
@@ -82,11 +83,20 @@ void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map) {
 
 	int nextid=tpanelmenustartid;
 	PerAccTPanelMenu(menuP, map, nextid, TPF::AUTO_ALLACCS | TPF::DELETEONWINCLOSE, 0);
+	menuP->AppendSeparator();
+
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
 		wxMenu *submenu = new wxMenu;
 		menuP->AppendSubMenu(submenu, (*it)->dispname);
 		PerAccTPanelMenu(submenu, map, nextid, TPF::DELETEONWINCLOSE, (*it)->dbindex);
 	}
+	menuP->AppendSeparator();
+
+	map[nextid]={0, TPF::DELETEONWINCLOSE | TPF::AUTO_NOACC | TPF::AUTO_HIGHLIGHTED};
+	menuP->Append(nextid++, wxT("All Highlighted"));
+	map[nextid]={0, TPF::DELETEONWINCLOSE | TPF::AUTO_NOACC | TPF::AUTO_UNREAD};
+	menuP->Append(nextid++, wxT("All Unread"));
+
 	map[nextid]={0, TPF::DELETEONWINCLOSE | TPF::INTL_CUSTOMAUTO};
 	menuP->Append(nextid++, wxT("Custom"));
 
@@ -95,49 +105,52 @@ void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map) {
 void TPanelMenuActionCustom(mainframe *parent, flagwrapper<TPF> flags) {
 	wxArrayInt selections;
 	wxArrayString choices;
-	std::vector<tpanel_auto> tmpltpautos;
+	std::deque<tpanel_auto> tmpltpautos;
 
-	choices.Alloc(3 * (1 + alist.size()));
-	auto add_items = [&](const wxString &prefix) {
-		choices.Add(prefix + wxT(" - Tweets"));
-		choices.Add(prefix + wxT(" - Mentions"));
-		choices.Add(prefix + wxT(" - DMs"));
+	choices.Alloc((3 * (1 + alist.size())) + 2);
+
+	auto add_item = [&](flagwrapper<TPF> tpf, const std::shared_ptr<taccount> &acc, const wxString &str) {
+		choices.Add(str);
+		tmpltpautos.emplace_back();
+		tmpltpautos.back().autoflags = tpf;
+		tmpltpautos.back().acc = acc;
 	};
 
-	tmpltpautos.emplace_back();
-	tmpltpautos.back().autoflags = TPF::AUTO_ALLACCS;
-	add_items(wxT("All Accounts"));
+	auto add_acc_items = [&](flagwrapper<TPF> tpf, const std::shared_ptr<taccount> &acc, const wxString &prefix) {
+		add_item(tpf | TPF::AUTO_TW, acc, prefix + wxT(" - Tweets"));
+		add_item(tpf | TPF::AUTO_MN, acc, prefix + wxT(" - Mentions"));
+		add_item(tpf | TPF::AUTO_DM, acc, prefix + wxT(" - DMs"));
+	};
+
+	add_acc_items(TPF::AUTO_ALLACCS, std::shared_ptr<taccount>(), wxT("All Accounts"));
 	for(auto &it : alist) {
-		tmpltpautos.emplace_back();
-		tmpltpautos.back().autoflags = 0;
-		tmpltpautos.back().acc = it;
-		add_items(it->dispname);
+		add_acc_items(0, it, it->dispname);
 	}
+
+	add_item(TPF::AUTO_NOACC | TPF::AUTO_HIGHLIGHTED, std::shared_ptr<taccount>(), wxT("All Highlighted"));
+	add_item(TPF::AUTO_NOACC | TPF::AUTO_UNREAD, std::shared_ptr<taccount>(), wxT("All Unread"));
 
 	::wxGetMultipleChoices(selections, wxT(""), wxT("Select Accounts and Feed Types"), choices, parent, -1, -1, false);
 
+	std::vector<tpanel_auto> tpautos;
+
 	for(size_t i = 0; i < selections.GetCount(); i++) {
 		int index = selections.Item(i);
-		int offset = index / 3;
-		int part = index % 3;
+		tpanel_auto &tpa = tmpltpautos[index];
+		bool ok = true;
 
-		flagwrapper<TPF> flag = 0;
-		if(part == 0) flag = TPF::AUTO_TW;
-		else if(part == 1) flag = TPF::AUTO_MN;
-		else if(part == 2) flag = TPF::AUTO_DM;
-
-		if(offset != 0) {
-			if(tmpltpautos[0].autoflags & flag) continue; // don't set the bit for the account, if the corresponding all accounts bit is already set
+		flagwrapper<TPF> check_tpf = tpa.autoflags & (TPF::AUTO_TW | TPF::AUTO_MN | TPF::AUTO_DM);
+		if(check_tpf && tpa.acc) {
+			for(tpanel_auto &it : tpautos) {
+				if(it.autoflags & TPF::AUTO_ALLACCS && it.autoflags & check_tpf) {
+					// don't set the bit for the account, if the corresponding all accounts bit is already set
+					ok = false;
+					break;
+				}
+			}
 		}
 
-		tmpltpautos[offset].autoflags |= flag;
-	}
-
-	std::vector<tpanel_auto> tpautos;
-	for(auto &it : tmpltpautos) {
-		if(it.autoflags & (TPF::AUTO_TW | TPF::AUTO_MN | TPF::AUTO_DM)) {
-			tpautos.emplace_back(it);
-		}
+		if(ok) tpautos.emplace_back(tpa);
 	}
 
 	if(tpautos.size()) {
