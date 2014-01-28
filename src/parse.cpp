@@ -175,6 +175,8 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 	auto &user_mentions=val["user_mentions"];
 	auto &media=val["media"];
 
+	t->entlist.clear();
+
 	unsigned int entity_count = 0;
 	if(hashtags.IsArray()) entity_count += hashtags.Size();
 	if(urls.IsArray()) entity_count += urls.Size();
