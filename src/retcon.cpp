@@ -45,8 +45,11 @@ alldata ad;
 
 IMPLEMENT_APP(retcon)
 
+DEFINE_EVENT_TYPE(wxextRetcon_Evt)
+
 BEGIN_EVENT_TABLE(retcon, wxApp)
 	EVT_MENU(ID_Quit,  retcon::OnQuitMsg)
+	EVT_COMMAND(ID_ExecPendings, wxextRetcon_Evt, retcon::OnExecPendingsMsg)
 END_EVENT_TABLE()
 
 bool retcon::OnInit() {
@@ -143,6 +146,21 @@ void retcon::OnQuitMsg(wxCommandEvent &event) {
 	LogMsgFormat(LOGT::OTHERTRACE, wxT("retcon::OnQuitMsg, about to call wxExit(), %d termination requests, %d mainframes, top win: %p, popup recursion: %d"),
 			terms_requested, mainframelist.size(), GetTopWindow(), popuprecursion);
 	wxExit();
+}
+
+void retcon::OnExecPendingsMsg(wxCommandEvent &event) {
+	auto current_pendings = std::move(pendings);
+	pendings.clear();
+
+	for(auto &it : current_pendings) {
+		it();
+	}
+}
+
+void retcon::EnqueuePending(std::function<void()> &&f) {
+	pendings.emplace_back(std::move(f));
+	wxCommandEvent evt(wxextRetcon_Evt, ID_ExecPendings);
+	AddPendingEvent(evt);
 }
 
 std::shared_ptr<userdatacontainer> &alldata::GetUserContainerById(uint64_t id) {

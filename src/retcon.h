@@ -25,6 +25,13 @@
 #include <wx/app.h>
 #include <wx/event.h>
 #include <string>
+#include <vector>
+#include <functional>
+
+DECLARE_EVENT_TYPE(wxextRetcon_Evt, -1)
+enum {
+	ID_ExecPendings      = 1,
+};
 
 class retcon: public wxApp
 {
@@ -32,10 +39,15 @@ class retcon: public wxApp
     virtual int OnExit();
     int FilterEvent(wxEvent& event);
 	void OnQuitMsg(wxCommandEvent &event);
+	void OnExecPendingsMsg(wxCommandEvent &event);
+
+	std::vector<std::function<void()> > pendings;
 
 	public:
 	std::string datadir;
 	unsigned int popuprecursion;
+
+	void EnqueuePending(std::function<void()> &&f);
 
 	DECLARE_EVENT_TABLE()
 

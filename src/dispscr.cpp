@@ -89,13 +89,32 @@ void generic_disp_base::ForceRefresh() {
 
 void generic_disp_base::popupmenuhandler(wxCommandEvent &event) {
 	if(menuptr) {
-		LogMsgFormat(LOGT::TPANEL, wxT("About to popup menu: %p, window: %s (%p), recusion: %d"),
-				menuptr.get(), thisname.c_str(), this, wxGetApp().popuprecursion);
-		wxGetApp().popuprecursion++;
-		bool result = PopupMenu(menuptr.get());
-		wxGetApp().popuprecursion--;
-		LogMsgFormat(LOGT::TPANEL, wxT("Finished popup menu: %p, window: %s (%p), recusion: %d, result: %d"),
-				menuptr.get(), thisname.c_str(), this, wxGetApp().popuprecursion, result);
+		//Action batching is to prevent commands which would destroy this being executed in the popup loop or in this's loop
+		StartActionBatch();
+		GenericPopupWrapper(this, menuptr.get());
+		StopActionBatch();
+	}
+}
+
+void generic_disp_base::StartActionBatch() {
+	gdb_flags |= GDB_F::ACTIONBATCHMODE;
+}
+
+void generic_disp_base::StopActionBatch() {
+	gdb_flags &= ~GDB_F::ACTIONBATCHMODE;
+
+	for(auto &it : action_batch) {
+		wxGetApp().EnqueuePending(std::move(it));
+	}
+	action_batch.clear();
+}
+
+void generic_disp_base::DoAction(std::function<void()> &&f) {
+	if(gdb_flags & GDB_F::ACTIONBATCHMODE) {
+		action_batch.push_back(std::move(f));
+	}
+	else {
+		f();
 	}
 }
 
@@ -1111,13 +1130,7 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 			wxCommandEvent event(wxextGDB_Popup_Evt, win->GetId());
 			popwin->GetEventHandler()->AddPendingEvent(event);
 		}
-		else {
-			LogMsgFormat(LOGT::TPANEL, wxT("About to popup menu: %p, win: %p, tppw: %p, recursion: %d"), menu.get(), win, tppw, wxGetApp().popuprecursion);
-			wxGetApp().popuprecursion++;
-			bool result = win->PopupMenu(menu.get());
-			wxGetApp().popuprecursion--;
-			LogMsgFormat(LOGT::TPANEL, wxT("Finished popup menu: %p, win: %p, tppw: %p, recursion: %d, result: %d"), menu.get(), win, tppw, wxGetApp().popuprecursion, result);
-		}
+		else GenericPopupWrapper(win, menu.get());
 	};
 
 	if(url[0]=='M') {
@@ -1480,7 +1493,10 @@ void tweetdispscr::rightclickhandler(wxMouseEvent &event) {
 void tweetdispscr::OnTweetActMenuCmd(wxCommandEvent &event) {
 	mainframe *mf = tppw->GetMainframe();
 	if(!mf && mainframelist.size()) mf = mainframelist.front();
-	TweetActMenuAction(tamd, event.GetId(), mf);
+	auto id = event.GetId();
+	DoAction([mf, id]() {
+		TweetActMenuAction(tamd, id, mf);
+	});
 }
 
 BEGIN_EVENT_TABLE(tweetdispscr_mouseoverwin, dispscr_mouseoverwin)
@@ -1528,7 +1544,10 @@ void tweetdispscr_mouseoverwin::urlhandler(wxString url) {
 void tweetdispscr_mouseoverwin::OnTweetActMenuCmd(wxCommandEvent &event) {
 	mainframe *mf = tppw->GetMainframe();
 	if(!mf && mainframelist.size()) mf = mainframelist.front();
-	TweetActMenuAction(tamd, event.GetId(), mf);
+	auto id = event.GetId();
+	DoAction([mf, id]() {
+		TweetActMenuAction(tamd, id, mf);
+	});
 }
 
 void tweetdispscr_mouseoverwin::rightclickhandler(wxMouseEvent &event) {

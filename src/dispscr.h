@@ -35,6 +35,8 @@
 #include <wx/menu.h>
 #include <memory>
 #include <forward_list>
+#include <vector>
+#include <functional>
 
 struct panelparentwin_base;
 struct tpanelparentwin_nt;
@@ -71,9 +73,11 @@ struct generic_disp_base : public wxRichTextCtrl, public magic_ptr_base {
 
 	enum class GDB_F {
 		NEEDSREFRESH      = 1<<0,
+		ACTIONBATCHMODE   = 1<<1,
 	};
 	flagwrapper<GDB_F> gdb_flags = 0;
 	std::shared_ptr<wxMenu> menuptr;
+	std::vector<std::function<void()> > action_batch;
 
 	generic_disp_base(wxWindow *parent, panelparentwin_base *tppw_, long extraflags = 0, wxString thisname_ = wxT(""));
 	void mousewheelhandler(wxMouseEvent &event);
@@ -87,6 +91,12 @@ struct generic_disp_base : public wxRichTextCtrl, public magic_ptr_base {
 	virtual tweetdispscr *GetTDS() { return nullptr; }
 	virtual flagwrapper<TDSF> GetTDSFlags() const { return 0; }
 	void popupmenuhandler(wxCommandEvent &event);
+
+	//These functions are primarily intended for delaying the execution of popup commands until the popup has been destroyed
+	//This is because the command may otherwise cause this to be destroyed before the popup is, with unpleasant results...
+	void StartActionBatch();
+	void StopActionBatch();
+	void DoAction(std::function<void()> &&f);
 
 	DECLARE_EVENT_TABLE()
 };
