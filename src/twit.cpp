@@ -807,7 +807,9 @@ bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_n
 }
 
 //return true if ready now
-bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::shared_ptr<taccount> acc_hint) {
+//If existing_dbsel is given, any DB lookup message is stored in/added to it
+//Otherwise any individual DB lookup is executed batched
+bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::shared_ptr<taccount> acc_hint, dbseltweetmsg **existing_dbsel) {
 	using GUAF = tweet::GUAF;
 
 	if(tobj->text.size()) {
@@ -832,15 +834,25 @@ bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::share
 				CheckLoadSingleTweet(tobj, curacc);
 			}
 			else {
-				dbseltweetmsg_netfallback *loadmsg=new dbseltweetmsg_netfallback;
+				dbseltweetmsg *loadmsg;
+				dbseltweetmsg_netfallback *net_loadmsg = 0;
+				if(existing_dbsel && *existing_dbsel) loadmsg = *existing_dbsel;
+				else if(existing_dbsel) *existing_dbsel = loadmsg = net_loadmsg = new dbseltweetmsg_netfallback;
+				else loadmsg = net_loadmsg = new dbseltweetmsg_netfallback;
+
+				tobj->lflags |= TLF::BEINGLOADEDFROMDB;
+
 				loadmsg->id_set.insert(tobj->id);
 				loadmsg->targ=&dbc;
 				loadmsg->cmdevtype=wxextDBCONN_NOTIFY;
 				loadmsg->winid=wxDBCONNEVT_ID_TPANELTWEETLOAD;
 				loadmsg->flags|=DBSTMF::NO_ERR;
-				if(acc_hint) loadmsg->dbindex=acc_hint->dbindex;
+				if(acc_hint) {
+					if(!net_loadmsg) net_loadmsg = dynamic_cast<dbseltweetmsg_netfallback*>(loadmsg);
+					if(net_loadmsg) net_loadmsg->dbindex = acc_hint->dbindex;
+				}
 				if(!gc.persistentmediacache) loadmsg->flags|=DBSTMF::PULLMEDIA;
-				dbc.SendMessageBatched(loadmsg);
+				if(!existing_dbsel) dbc.SendMessageBatched(loadmsg);
 			}
 		}
 		return false;

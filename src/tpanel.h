@@ -276,8 +276,6 @@ struct tpanelparentwin : public tpanelparentwin_nt {
 	tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select = false, wxString thisname_ = wxT(""));
 	virtual void LoadMore(unsigned int n, uint64_t lessthanid = 0, uint64_t greaterthanid = 0, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT) override;
 	virtual mainframe *GetMainframe() override { return owner; }
-	uint64_t PushTweetOrRetLoadId(uint64_t id, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
-	uint64_t PushTweetOrRetLoadId(const std::shared_ptr<tweet> &tobj, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
 	void tabdetachhandler(wxCommandEvent &event);
 	void tabduphandler(wxCommandEvent &event);
 	void tabdetachedduphandler(wxCommandEvent &event);

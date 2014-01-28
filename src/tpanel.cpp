@@ -1338,34 +1338,6 @@ tpanelparentwin::tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *
 	LoadMore(gc.maxtweetsdisplayinpanel);
 }
 
-uint64_t tpanelparentwin::PushTweetOrRetLoadId(uint64_t id, flagwrapper<PUSHFLAGS> pushflags) {
-	bool isnew;
-	std::shared_ptr<tweet> tobj=ad.GetTweetById(id, &isnew);
-	if(!isnew) {
-		return PushTweetOrRetLoadId(tobj, pushflags);
-	}
-	else {
-		tobj->lflags|=TLF::BEINGLOADEDFROMDB;
-		MarkPending_TPanelMap(tobj, this, pushflags);
-		return id;
-	}
-}
-
-uint64_t tpanelparentwin::PushTweetOrRetLoadId(const std::shared_ptr<tweet> &tobj, flagwrapper<PUSHFLAGS> pushflags) {
-	bool insertpending=false;
-	if(tobj->lflags&TLF::BEINGLOADEDFROMDB) {
-		insertpending=true;
-	}
-	else {
-		if(CheckMarkPending_GetAcc(tobj, true)) PushTweet(tobj, pushflags);
-		else insertpending=true;
-	}
-	if(insertpending) {
-		MarkPending_TPanelMap(tobj, this, pushflags);
-	}
-	return 0;
-}
-
 //if lessthanid is non-zero, is an exclusive upper id limit, iterate downwards
 //if greaterthanid, is an exclusive lower limit, iterate upwards
 //cannot set both
@@ -1389,12 +1361,15 @@ void tpanelparentwin::LoadMore(unsigned int n, uint64_t lessthanid, uint64_t gre
 
 	for(unsigned int i=0; i<n; i++) {
 		if(stit==tp->tweetlist.cend()) break;
-		uint64_t loadid=PushTweetOrRetLoadId(*stit, pushflags);
-		if(loadid) {
-			LogMsgFormat(LOGT::TPANEL, "tpanelparentwin::LoadMore loading from db id: %" wxLongLongFmtSpec "d", loadid);
-			if(!loadmsg) loadmsg=new dbseltweetmsg;
-			loadmsg->id_set.insert(loadid);
+
+		std::shared_ptr<tweet> tobj = ad.GetTweetById(*stit);
+		if(CheckFetchPendingSingleTweet(tobj, std::shared_ptr<taccount>(), &loadmsg)) {
+			PushTweet(tobj, pushflags);
 		}
+		else {
+			MarkPending_TPanelMap(tobj, this, pushflags);
+		}
+
 		if(revdir) {
 			if(stit == tp->tweetlist.cbegin()) break;
 			--stit;
