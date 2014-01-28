@@ -224,7 +224,7 @@ static unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsi
 			strm.avail_out=maxsize;
 			strm.next_out=data+HEADERSIZE;
 			int res=deflate(&strm, Z_FINISH);
-			#ifdef DB_COPIOUS_LOGGING
+			#if DB_COPIOUS_LOGGING
 				DBLogMsgFormat(LOGT::ZLIBTRACE, wxT("deflate: %d, %d, %d"), res, strm.avail_in, strm.avail_out);
 			#endif
 			if(res!=Z_STREAM_END) { DBLogMsgFormat(LOGT::ZLIBERR, wxT("DoCompress: deflate: error: res: %d (%s)"), res, wxstrstd(strm.msg).c_str()); }
@@ -333,7 +333,7 @@ static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsiz
 	strm.avail_out=outsize;
 	while(true) {
 		int res=inflate(&strm, Z_FINISH);
-		#ifdef DB_COPIOUS_LOGGING
+		#if DB_COPIOUS_LOGGING
 			DBLogMsgFormat(LOGT::ZLIBTRACE, wxT("inflate: %d, %d, %d"), res, strm.avail_in, strm.avail_out);
 		#endif
 		if(res==Z_NEED_DICT) {
