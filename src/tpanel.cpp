@@ -150,7 +150,37 @@ void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map) {
 			tp->MkTPanelWin(parent, true);
 		}
 	};
-	menuP->Append(nextid++, wxT("New Empty Panel"));
+	menuP->Append(nextid++, wxT("Create New Empty Panel"));
+
+	if(!manual_tps.empty()) {
+		wxMenu *submenu = new wxMenu;
+		menuP->AppendSubMenu(submenu, wxT("Delete Panel"));
+		for(auto &it : manual_tps) {
+			std::weak_ptr<tpanel> tpwp = it;
+			map[nextid] = [tpwp](mainframe *parent) {
+				std::shared_ptr<tpanel> tp = tpwp.lock();
+				if(tp) {
+					wxString msg = wxT("Are you sure that you want to delete panel: ") + wxstrstd(tp->dispname);
+					int res = ::wxMessageBox(msg, wxT("Delete Panel?"), wxICON_EXCLAMATION | wxYES_NO);
+					if(res != wxYES) return;
+
+					//Use temporary vector as tpanel list may be modified as a result of sending close message
+					//Having the list modified from under us whilst iterating would be bad news
+					std::vector<tpanelparentwin *> windows;
+					for(auto &win : tp->twin) {
+						tpanelparentwin *tpw = dynamic_cast<tpanelparentwin *>(win);
+						if(tpw) windows.push_back(tpw);
+					}
+					for(auto &win : windows) {
+						wxCommandEvent evt;
+						win->tabclosehandler(evt);
+					}
+					ad.tpanels.erase(tp->name);
+				}
+			};
+			submenu->Append(nextid++, wxstrstd(it->dispname));
+		}
+	}
 }
 
 void TPanelMenuActionCustom(mainframe *parent, flagwrapper<TPF> flags) {
