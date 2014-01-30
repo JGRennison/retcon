@@ -78,3 +78,46 @@ panel add <PANEL>             Add tweet to manual panel: PANEL
 
 panel remove <PANEL>          Remove tweet from manual panel: PANEL
                               If the panel does not exist this has no effect
+
+
+Example Filters:
+
+Highlight all tweets arriving from user "Alice"
+or from any user with "bob" (any case) in their screen name.
+
+if user.screenname ^Alice$
+or if user.sname (?i)bob
+  set tweet.flags +H
+end if
+
+
+Hide image thumbnails for all tweets with images which arrive on accounts other than "Carol",
+or which Twitter has marked as "possibly sensitive"
+
+if tweet.flags +I
+  ifn accountuser.sname ^Carol$
+  orif tweet.flags +P
+    set tweet.flags +p
+  fi
+fi
+
+
+Add tweets retweeted by user "Dave" or users whose screen names start with "Eve",
+and which contain the text "#hashtag", to panel "#hashtag stuff"
+
+if tweet.flags +R
+  if user.sname ^Dave$|^Eve
+    if tweet.text #hashtag
+      panel add #hashtag stuff
+    fi
+  fi
+fi
+
+
+Hide and clear unread flag for all tweets coming from twitter client "spamapp", which are not mentions
+
+if tweet.source ^spamapp$
+  if tweet.flags -M
+    set tweet.flags +h-u
+  fi
+fi
