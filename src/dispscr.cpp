@@ -33,6 +33,7 @@
 #include "userui.h"
 #include "mainui.h"
 #include "retcon.h"
+#include "tpanel-data.h"
 #define PCRE_STATIC
 #include <pcre.h>
 
@@ -1254,6 +1255,36 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 					tpanelparentwin_nt *tppw_nt = dynamic_cast<tpanelparentwin_nt *>(tppw);
 					if(tppw_nt) {
 						MakeTPanelMarkMenu(marksubmenu, tamd, nextid, td, tppw_nt);
+					}
+				}
+				{
+					std::vector<std::shared_ptr<tpanel> > manual_tps;
+					std::vector<std::shared_ptr<tpanel> > manual_tps_already_in;
+					for(auto &it : ad.tpanels) {
+						if(it.second->flags & TPF::MANUAL) {
+							if(it.second->tweetlist.find(td->id) != it.second->tweetlist.end()) {
+								manual_tps_already_in.push_back(it.second);
+							}
+							else {
+								manual_tps.push_back(it.second);
+							}
+						}
+					}
+					if(!manual_tps.empty()) {
+						wxMenu *panelsubmenu = new wxMenu();
+						menu.AppendSubMenu(panelsubmenu, wxT("Add to Panel"));
+						for(auto &it : manual_tps) {
+							panelsubmenu->Append(nextid, wxstrstd(it->dispname));
+							AppendToTAMIMenuMap(tamd, nextid, TAMI_ADDTOPANEL, td, 0, std::shared_ptr<userdatacontainer>(), 0, wxstrstd(it->name));
+						}
+					}
+					if(!manual_tps_already_in.empty()) {
+						wxMenu *panelsubmenu = new wxMenu();
+						menu.AppendSubMenu(panelsubmenu, wxT("Remove from Panel"));
+						for(auto &it : manual_tps_already_in) {
+							panelsubmenu->Append(nextid, wxstrstd(it->dispname));
+							AppendToTAMIMenuMap(tamd, nextid, TAMI_REMOVEFROMPANEL, td, 0, std::shared_ptr<userdatacontainer>(), 0, wxstrstd(it->name));
+						}
 					}
 				}
 

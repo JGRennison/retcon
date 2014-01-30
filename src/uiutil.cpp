@@ -361,6 +361,16 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 			UpdateSingleTweetFlagState(map[curid].tw, tweet_flags::GetFlagValue('h'));
 			break;
 		}
+		case TAMI_ADDTOPANEL: {
+			std::shared_ptr<tpanel> tp = ad.tpanels[stdstrwx(map[curid].extra)];
+			if(tp) tp->PushTweet(map[curid].tw);
+			break;
+		}
+		case TAMI_REMOVEFROMPANEL: {
+			std::shared_ptr<tpanel> tp = ad.tpanels[stdstrwx(map[curid].extra)];
+			if(tp) tp->RemoveTweet(map[curid].tw->id);
+			break;
+		}
 		case TAMI_NULL: {
 			break;
 		}
