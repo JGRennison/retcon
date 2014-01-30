@@ -72,3 +72,9 @@ set tweet.flags <FLAGS>       Sets or unsets one or more tweet flags
     -FLAGS                    These FLAGS must be UNSET
                               Note that only some flags can be changed in this manner.
                               The flags which can currently be change include those in the set: Hurph
+
+panel add <PANEL>             Add tweet to manual panel: PANEL
+                              If the panel does not exist it will be created on demand
+
+panel remove <PANEL>          Remove tweet from manual panel: PANEL
+                              If the panel does not exist this has no effect

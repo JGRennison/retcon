@@ -27,6 +27,7 @@
 #include "filter.h"
 #include "../taccount.h"
 #include "../flags.h"
+#include "../tpanel-data.h"
 #define PCRE_STATIC
 #include <pcre.h>
 #include <list>
@@ -196,6 +197,26 @@ struct filter_item_action_setflag : public filter_item_action {
 	}
 };
 
+struct filter_item_action_panel : public filter_item_action {
+	bool remove;
+	std::string panel_name;
+
+	void action(tweet &tw) override {
+		if(remove) {
+			std::shared_ptr<tpanel> tp = ad.tpanels[tpanel::ManualName(panel_name)];
+			if(tp) {
+				tp->RemoveTweet(tw.id);
+				LogMsgFormat(LOGT::FILTERTRACE, wxT("Removing Tweet: %" wxLongLongFmtSpec "d from Panel: %s"), tw.id, wxstrstd(panel_name).c_str());
+			}
+		}
+		else {
+			std::shared_ptr<tpanel> tp = tpanel::MkTPanel(tpanel::ManualName(panel_name), panel_name, TPF::MANUAL | TPF::SAVETODB);
+			tp->PushTweet(ad.tweetobjs[tw.id]);
+			LogMsgFormat(LOGT::FILTERTRACE, wxT("Adding Tweet: %" wxLongLongFmtSpec "d to Panel: %s"), tw.id, wxstrstd(panel_name).c_str());
+		}
+	}
+};
+
 const char condsyntax[] = R"(^\s*(?:(?:(el)(?:s(?:e\s*)?)?)?|(or\s*))if(n)?\s+)";
 const char regexsyntax[] = R"(^(\w+)\.(\w+)\s+(.*\S)\s*$)";
 const char flagtestsyntax[] = R"(^(re)?tweet\.flags?\s+([a-zA-Z0-9+=\-/]+)\s*)";
@@ -204,6 +225,7 @@ const char elsesyntax[] = R"(^\s*else\s*$)";
 const char endifsyntax[] = R"(^\s*(?:end\s*if|fi)\s*$)";
 
 const char flagsetsyntax[] = R"(^\s*set\s+tweet\.flags\s+([a-zA-Z0-9+\-]+)\s*$)";
+const char panelsyntax[] = R"(^\s*panel\s+(add|remove)\s+(\S.*\S)\s*$)";
 
 const char blanklinesyntax[] = R"(^(?:\s+#)?\s*$)"; //this also filters comments
 
@@ -221,6 +243,8 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 
 	static pcre *flagset_pattern = 0;
 	static pcre_extra *flagset_patextra = 0;
+	static pcre *panel_pattern = 0;
+	static pcre_extra *panel_patextra = 0;
 
 	static pcre *blankline_pattern = 0;
 
@@ -258,6 +282,7 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 	compile(elsesyntax, &else_pattern, 0);
 	compile(endifsyntax, &endif_pattern, 0);
 	compile(flagsetsyntax, &flagset_pattern, &flagset_patextra);
+	compile(panelsyntax, &panel_pattern, &panel_patextra);
 	compile(blanklinesyntax, &blankline_pattern, 0);
 
 	if(!ok) return;
@@ -469,6 +494,14 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 					}
 				}
 			}
+			out.filters.emplace_back(std::move(fitem));
+		}
+		else if(pcre_exec(panel_pattern, panel_patextra,  pos, linelen, 0, 0, ovector, ovecsize) >= 1) {
+			std::unique_ptr<filter_item_action_panel> fitem(new filter_item_action_panel);
+			std::string verb(pos + ovector[2], ovector[3] - ovector[2]);
+			fitem->remove = (verb == "remove");
+			fitem->panel_name = std::string(pos + ovector[4], ovector[5] - ovector[4]);
+
 			out.filters.emplace_back(std::move(fitem));
 		}
 		else {
