@@ -201,7 +201,7 @@ const char regexsyntax[] = R"(^(\w+)\.(\w+)\s+(.*\S)\s*$)";
 const char flagtestsyntax[] = R"(^(re)?tweet\.flags?\s+([a-zA-Z0-9+=\-/]+)\s*)";
 
 const char elsesyntax[] = R"(^\s*else\s*$)";
-const char endifsyntax[] = R"(^\s*(?:endif|fi)\s*$)";
+const char endifsyntax[] = R"(^\s*(?:end\s*if|fi)\s*$)";
 
 const char flagsetsyntax[] = R"(^\s*set\s+tweet\.flags\s+([a-zA-Z0-9+\-]+)\s*$)";
 

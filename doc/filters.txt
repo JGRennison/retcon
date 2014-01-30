@@ -12,7 +12,10 @@ orif                          Alternative spelling of or if
 
 else                          Executes the contents of the block if no previous if or else if condition was already met
 
-Suffixing a 'n' to if or else if inverts the sense of the condition.
+end if                        Ends the block started by if
+endif, fi                     Alternative spellings of endif
+
+Suffixing a 'n' to if, or if or else if inverts the sense of the condition.
 
 
 
