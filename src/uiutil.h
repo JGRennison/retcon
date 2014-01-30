@@ -43,11 +43,6 @@ enum { tweetactmenuendid           = wxID_HIGHEST + 16000 };
 enum { lookupprofilestartid        = wxID_HIGHEST + 16001 };
 enum { lookupprofileendid          = wxID_HIGHEST + 17000 };
 
-struct tpanelmenuitem {
-	unsigned int dbindex;
-	flagwrapper<TPF> flags;
-};
-
 typedef enum {
 	TAMI_RETWEET=1,
 	TAMI_FAV,
@@ -86,7 +81,7 @@ struct tweetactmenuitem {
 	panelparentwin_base *ppwb;
 };
 
-typedef std::map<int,tpanelmenuitem> tpanelmenudata;
+typedef std::map<int, std::function<void(mainframe *)> > tpanelmenudata;
 typedef std::map<int,tweetactmenuitem> tweetactmenudata;
 
 extern tweetactmenudata tamd;

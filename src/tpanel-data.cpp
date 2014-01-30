@@ -207,6 +207,10 @@ void tpanel::NameDefaults(std::string &name, std::string &dispname, const std::v
 	}
 }
 
+std::string tpanel::ManualName(std::string dispname) {
+	return "__M_" + dispname;
+}
+
 tpanel::~tpanel() {
 
 }
@@ -255,12 +259,15 @@ void tpanel::RecalculateTweetSet() {
 	}
 }
 
-void tpanel::RecalculateSets() {
-	RecalculateTweetSet();
-
+void tpanel::RecalculateCIDS() {
 	ad.cids.foreach(this->cids, [&](tweetidset &adtis, tweetidset &thistis) {
 		std::set_intersection(tweetlist.begin(), tweetlist.end(), adtis.begin(), adtis.end(), std::inserter(thistis, thistis.end()), tweetlist.key_comp());
 	});
+}
+
+void tpanel::RecalculateSets() {
+	RecalculateTweetSet();
+	RecalculateCIDS();
 }
 
 void tpanel::RecalculateSetsWithAddRemove(flagwrapper<PUSHFLAGS> pushflags) {

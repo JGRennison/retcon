@@ -35,6 +35,7 @@ enum class TPF {
 	DELETEONWINCLOSE      = 1<<0,
 	SAVETODB              = 1<<1,
 	USER_TIMELINE         = 1<<2,
+	MANUAL                = 1<<3,
 	MASK                  = 0xFF,
 
 	AUTO_DM               = 1<<8,
@@ -45,8 +46,6 @@ enum class TPF {
 	AUTO_HIGHLIGHTED      = 1<<13,
 	AUTO_UNREAD           = 1<<14,
 	AUTO_MASK             = 0xFF00,
-
-	INTL_CUSTOMAUTO       = 1<<24,
 };
 template<> struct enum_traits<TPF> { static constexpr bool flags = true; };
 

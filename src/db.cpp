@@ -29,6 +29,7 @@
 #include "alldata.h"
 #include "parse.h"
 #include "tpanel.h"
+#include "tpanel-data.h"
 #ifdef __WINDOWS__
 #include <windows.h>
 #endif
@@ -89,6 +90,7 @@ static const char *startup_sql=
 "CREATE TABLE IF NOT EXISTS tpanelwins(mainframeindex INTEGER, splitindex INTEGER, tabindex INTEGER, name TEXT, dispname TEXT, flags INTEGER);"
 "CREATE TABLE IF NOT EXISTS tpanelwinautos(tpw INTEGER, accid INTEGER, autoflags INTEGER);"
 "CREATE TABLE IF NOT EXISTS mainframewins(mainframeindex INTEGER, x INTEGER, y INTEGER, w INTEGER, h INTEGER, maximised INTEGER);"
+"CREATE TABLE IF NOT EXISTS tpanels(name TEXT, dispname TEXT, flags INTEGER, ids BLOB);"
 "INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', 'dirtyflag', strftime('%s','now'));";
 
 static const char *sql[DBPSC_NUM_STATEMENTS]={
@@ -959,6 +961,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	SyncReadInRBFSs(syncdb);
 	if(gc.persistentmediacache) SyncReadInAllMediaEntities(syncdb);
 	SyncReadInCIDSLists(syncdb);
+	SyncReadInTpanels(syncdb);
 	SyncReadInWindowLayout(syncdb);
 	SyncReadInAllTweetIDs(syncdb);
 
@@ -1036,6 +1039,7 @@ void dbconn::DeInit() {
 	WriteAllCFGOut(syncdb, gc, alist);
 	SyncWriteBackCIDSLists(syncdb);
 	SyncWriteBackWindowLayout(syncdb);
+	SyncWriteBackTpanels(syncdb);
 
 	sqlite3_close(syncdb);
 
@@ -1586,6 +1590,62 @@ void dbconn::SyncWriteBackWindowLayout(sqlite3 *adb) {
 	sqlite3_finalize(stmt2);
 	cache.EndTransaction(adb);
 	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncWriteBackWindowLayout end"));
+}
+
+void dbconn::SyncReadInTpanels(sqlite3 *adb) {
+	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncReadInTpanels start"));
+	const char sql[] = "SELECT name, dispname, flags, ids FROM tpanels;";
+	sqlite3_stmt *stmt = 0;
+	int res = sqlite3_prepare_v2(adb, sql, sizeof(sql), &stmt, 0);
+	if(res != SQLITE_OK) {
+		LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncReadInTpanels sqlite3_prepare_v2 failed"));
+		return;
+	}
+
+	do {
+		int res = sqlite3_step(stmt);
+		if(res == SQLITE_ROW) {
+			std::string name = (const char *) sqlite3_column_text(stmt, 0);
+			std::string dispname = (const char *) sqlite3_column_text(stmt, 1);
+			flagwrapper<TPF> flags = static_cast<TPF>(sqlite3_column_int(stmt, 2));
+			std::shared_ptr<tpanel> tp = tpanel::MkTPanel(name, dispname, flags);
+			setfromcompressedblob([&](uint64_t &id) { tp->tweetlist.insert(id); }, stmt, 3);
+			tp->RecalculateCIDS();
+		}
+		else if(res != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncReadInTpanels got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
+		else break;
+	} while(true);
+	sqlite3_finalize(stmt);
+	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncReadInTpanels end"));
+}
+
+void dbconn::SyncWriteBackTpanels(sqlite3 *adb) {
+	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncWriteBackTpanels start"));
+	sqlite3_exec(adb, "DELETE FROM tpanels", 0, 0, 0);
+	const char sql[] = "INSERT INTO tpanels (name, dispname, flags, ids) VALUES (?, ?, ?, ?);";
+	sqlite3_stmt *stmt = 0;
+	int res = sqlite3_prepare_v2(adb, sql, sizeof(sql), &stmt, 0);
+	if(res != SQLITE_OK) {
+		LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncWriteBackTpanels sqlite3_prepare_v2 failed"));
+		return;
+	}
+
+	for(auto &it : ad.tpanels) {
+		tpanel &tp = *(it.second);
+		if(tp.flags & TPF::SAVETODB) {
+			sqlite3_bind_text(stmt, 1, tp.name.c_str(), tp.name.size(), SQLITE_STATIC);
+			sqlite3_bind_text(stmt, 2, tp.dispname.c_str(), tp.dispname.size(), SQLITE_STATIC);
+			sqlite3_bind_int(stmt, 3, flag_unwrap<TPF>(tp.flags));
+			size_t ids_size;
+			unsigned char *ids = settocompressedblob(tp.tweetlist, ids_size);
+			sqlite3_bind_blob(stmt, 4, ids, ids_size, &free);
+
+			int res = sqlite3_step(stmt);
+			if(res != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncWriteBackTpanels got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
+			sqlite3_reset(stmt);
+		}
+	}
+	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncWriteBackTpanels end"));
 }
 
 void dbsendmsg_callback::SendReply(void *data, dbiothread *th) {

@@ -52,6 +52,7 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	~tpanel();
 
 	static void NameDefaults(std::string &name, std::string &dispname, const std::vector<tpanel_auto> &tpautos);
+	static std::string ManualName(std::string dispname);
 
 	void PushTweet(const std::shared_ptr<tweet> &t, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
 	void RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
@@ -63,6 +64,7 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	void TPPWFlagMaskAllTWins(flagwrapper<TPPWF> set, flagwrapper<TPPWF> clear) const;
 	bool TweetMatches(const std::shared_ptr<tweet> &t, const std::shared_ptr<taccount> &acc) const;
 	void NotifyCIDSChange();
+	void RecalculateCIDS();
 
 	private:
 	enum class TPIF {

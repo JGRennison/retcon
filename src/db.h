@@ -327,6 +327,8 @@ struct dbconn : public wxEvtHandler {
 	void SyncReadInWindowLayout(sqlite3 *adb);
 	void SyncWriteBackWindowLayout(sqlite3 *adb);
 	void SyncReadInAllTweetIDs(sqlite3 *adb);
+	void SyncReadInTpanels(sqlite3 *adb);
+	void SyncWriteBackTpanels(sqlite3 *adb);
 
 	enum class HDBSF {
 		NOPENDINGS         = 1<<0,

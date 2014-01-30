@@ -59,18 +59,30 @@ std::shared_ptr<tpanelglobal> tpanelglobal::Get() {
 
 std::weak_ptr<tpanelglobal> tpanelglobal::tpg_glob;
 
+std::function<void(mainframe *)> MkStdTpanelAction(unsigned int dbindex, flagwrapper<TPF> flags) {
+	return [dbindex, flags](mainframe *parent) {
+		std::shared_ptr<taccount> acc;
+		if(dbindex) {
+			if(!GetAccByDBIndex(dbindex, acc)) return;
+		}
+
+		auto tp = tpanel::MkTPanel("", "", flags, &acc);
+		tp->MkTPanelWin(parent, true);
+	};
+}
+
 static void PerAccTPanelMenu(wxMenu *menu, tpanelmenudata &map, int &nextid, flagwrapper<TPF> flagbase, unsigned int dbindex) {
-	map[nextid]={dbindex, flagbase | TPF::AUTO_TW};
+	map[nextid] = MkStdTpanelAction(dbindex, flagbase | TPF::AUTO_TW);
 	menu->Append(nextid++, wxT("&Tweets"));
-	map[nextid]={dbindex, flagbase | TPF::AUTO_MN};
+	map[nextid] = MkStdTpanelAction(dbindex, flagbase | TPF::AUTO_MN);
 	menu->Append(nextid++, wxT("&Mentions"));
-	map[nextid]={dbindex, flagbase | TPF::AUTO_DM};
+	map[nextid] = MkStdTpanelAction(dbindex, flagbase | TPF::AUTO_DM);
 	menu->Append(nextid++, wxT("&DMs"));
-	map[nextid]={dbindex, flagbase | TPF::AUTO_TW | TPF::AUTO_MN};
+	map[nextid] = MkStdTpanelAction(dbindex, flagbase | TPF::AUTO_TW | TPF::AUTO_MN);
 	menu->Append(nextid++, wxT("T&weets and Mentions"));
-	map[nextid]={dbindex, flagbase | TPF::AUTO_MN | TPF::AUTO_DM};
+	map[nextid] = MkStdTpanelAction(dbindex, flagbase | TPF::AUTO_MN | TPF::AUTO_DM);
 	menu->Append(nextid++, wxT("M&entions and DMs"));
-	map[nextid]={dbindex, flagbase | TPF::AUTO_TW | TPF::AUTO_MN | TPF::AUTO_DM};
+	map[nextid] = MkStdTpanelAction(dbindex, flagbase | TPF::AUTO_TW | TPF::AUTO_MN | TPF::AUTO_DM);
 	menu->Append(nextid++, wxT("Tweets, Mentions &and DMs"));
 }
 
@@ -92,14 +104,53 @@ void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map) {
 	}
 	menuP->AppendSeparator();
 
-	map[nextid]={0, TPF::DELETEONWINCLOSE | TPF::AUTO_NOACC | TPF::AUTO_HIGHLIGHTED};
+	map[nextid] = MkStdTpanelAction(0, TPF::DELETEONWINCLOSE | TPF::AUTO_NOACC | TPF::AUTO_HIGHLIGHTED);
 	menuP->Append(nextid++, wxT("All Highlighted"));
-	map[nextid]={0, TPF::DELETEONWINCLOSE | TPF::AUTO_NOACC | TPF::AUTO_UNREAD};
+	map[nextid] = MkStdTpanelAction(0, TPF::DELETEONWINCLOSE | TPF::AUTO_NOACC | TPF::AUTO_UNREAD);
 	menuP->Append(nextid++, wxT("All Unread"));
+	menuP->AppendSeparator();
 
-	map[nextid]={0, TPF::DELETEONWINCLOSE | TPF::INTL_CUSTOMAUTO};
-	menuP->Append(nextid++, wxT("Custom"));
+	std::vector<std::shared_ptr<tpanel> > manual_tps;
+	for(auto &it : ad.tpanels) {
+		if(it.second->flags & TPF::MANUAL) {
+			manual_tps.push_back(it.second);
+		}
+	}
+	if(!manual_tps.empty()) {
+		for(auto &it : manual_tps) {
+			std::weak_ptr<tpanel> tpwp = it;
+			map[nextid] = [tpwp](mainframe *parent) {
+				std::shared_ptr<tpanel> tp = tpwp.lock();
+				if(tp) {
+					tp->MkTPanelWin(parent, true);
+				}
+			};
+			menuP->Append(nextid++, wxstrstd(it->dispname));
+		}
+		menuP->AppendSeparator();
+	}
 
+	map[nextid] = [](mainframe *parent) {
+		TPanelMenuActionCustom(parent, TPF::DELETEONWINCLOSE);
+	};
+	menuP->Append(nextid++, wxT("Custom Combination"));
+	menuP->AppendSeparator();
+
+	map[nextid] = [](mainframe *parent) {
+		std::string default_name;
+		for(size_t i = 0; ; i++) { //stop when no such tpanel exists with the given name
+			default_name = string_format("Unnamed Panel %u", i);
+			if(!ad.tpanels[tpanel::ManualName(default_name)]) break;
+		}
+		wxString str = ::wxGetTextFromUser(wxT("Enter name of new panel"), wxT("Input Name"), wxstrstd(default_name));
+		str.Trim(true).Trim(false);
+		if(!str.IsEmpty()) {
+			std::string dispname = stdstrwx(str);
+			auto tp = tpanel::MkTPanel(tpanel::ManualName(dispname), dispname, TPF::SAVETODB | TPF::MANUAL);
+			tp->MkTPanelWin(parent, true);
+		}
+	};
+	menuP->Append(nextid++, wxT("New Empty Panel"));
 }
 
 void TPanelMenuActionCustom(mainframe *parent, flagwrapper<TPF> flags) {
@@ -160,22 +211,8 @@ void TPanelMenuActionCustom(mainframe *parent, flagwrapper<TPF> flags) {
 }
 
 void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent) {
-	unsigned int dbindex = map[curid].dbindex;
-	flagwrapper<TPF> flags = map[curid].flags;
-
-	if(flags & TPF::INTL_CUSTOMAUTO) {
-		TPanelMenuActionCustom(parent, flags & TPF::MASK);
-		return;
-	}
-
-	std::shared_ptr<taccount> acc;
-
-	if(dbindex) {
-		if(!GetAccByDBIndex(dbindex, acc)) return;
-	}
-
-	auto tp = tpanel::MkTPanel("", "", flags, &acc);
-	tp->MkTPanelWin(parent, true);
+	auto &f = map[curid];
+	if(f) f(parent);
 }
 
 void CheckClearNoUpdateFlag_All() {
@@ -645,6 +682,7 @@ tpanelparentwin_nt::tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWin
 	tpanelparentwinlist.push_front(this);
 
 	clabel->SetLabel(wxT("No Tweets"));
+	ShowHideButtons("more", true);
 	scrollwin->FitInside();
 	FitInside();
 

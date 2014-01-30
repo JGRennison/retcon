@@ -365,6 +365,7 @@ struct tpanelscrollwin : public wxScrolledWindow {
 bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid=0);
 void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map);
 void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent);
+void TPanelMenuActionCustom(mainframe *parent, flagwrapper<TPF> flags);
 void CheckClearNoUpdateFlag_All();
 void StartBatchTimerMode_All();
 
