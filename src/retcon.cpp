@@ -34,6 +34,7 @@
 #include "filter/filter-ops.h"
 #include "util.h"
 #include "tpanel-data.h"
+#include "threadutil.h"
 #ifdef __WINDOWS__
 #include "tpanel.h"
 #endif
@@ -50,6 +51,7 @@ DEFINE_EVENT_TYPE(wxextRetcon_Evt)
 BEGIN_EVENT_TABLE(retcon, wxApp)
 	EVT_MENU(ID_Quit,  retcon::OnQuitMsg)
 	EVT_COMMAND(ID_ExecPendings, wxextRetcon_Evt, retcon::OnExecPendingsMsg)
+	EVT_COMMAND(ID_ThreadPoolExec, wxextRetcon_Evt, retcon::OnExecThreadPoolMsg)
 END_EVENT_TABLE()
 
 bool retcon::OnInit() {
@@ -76,6 +78,7 @@ bool retcon::OnInit() {
 	if(!res) return false;
 	rs.add([&]() { dbc.DeInit(); });
 	if(terms_requested) return false;
+	pool.reset(new ThreadPool::Pool(0));
 
 	InitGlobalFilters();
 
@@ -117,6 +120,7 @@ int retcon::OnExit() {
 	}
 	profileimgdlconn::cp.ClearAllConns();
 	sm.DeInitMultiIOHandler();
+	pool.reset();
 	dbc.DeInit();
 	DeInitWxLogger();
 	return wxApp::OnExit();
@@ -161,6 +165,44 @@ void retcon::EnqueuePending(std::function<void()> &&f) {
 	pendings.emplace_back(std::move(f));
 	wxCommandEvent evt(wxextRetcon_Evt, ID_ExecPendings);
 	AddPendingEvent(evt);
+}
+
+void retcon::OnExecThreadPoolMsg(wxCommandEvent &event) {
+	long jobnum = event.GetExtraLong();
+	auto it = pool_post_jobs.find(jobnum);
+	if(it != pool_post_jobs.end()) {
+		it->second();
+		pool_post_jobs.erase(it);
+	}
+}
+
+void retcon::EnqueueThreadJob(std::function<void()> &&worker_thread_job, std::function<void()> &&main_thread_post_job) {
+	struct job_data {
+		long jobnum;
+		std::function<void()> job;
+		wxEvtHandler *target;
+	};
+	auto data = std::make_shared<job_data>();
+	data->jobnum = next_pool_job;
+	data->job = std::move(worker_thread_job);
+	data->target = this;
+	pool_post_jobs[next_pool_job] = std::move(main_thread_post_job);
+	next_pool_job++;
+
+	pool->enqueue([data](ThreadPool::Worker &w) {
+		data->job();
+
+		wxCommandEvent evt(wxextRetcon_Evt, ID_ThreadPoolExec);
+		evt.SetExtraLong(data->jobnum);
+		data->target->AddPendingEvent(evt);
+	});
+}
+
+void retcon::EnqueueThreadJob(std::function<void()> &&worker_thread_job) {
+	auto data = std::make_shared<std::function<void()> >(std::move(worker_thread_job));
+	pool->enqueue([data](ThreadPool::Worker &w) {
+		(*data)();
+	});
 }
 
 std::shared_ptr<userdatacontainer> &alldata::GetUserContainerById(uint64_t id) {

@@ -27,27 +27,40 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <memory>
+#include <map>
 
 DECLARE_EVENT_TYPE(wxextRetcon_Evt, -1)
 enum {
 	ID_ExecPendings      = 1,
+	ID_ThreadPoolExec,
 };
 
-class retcon: public wxApp
-{
+namespace ThreadPool {
+	class Pool;
+}
+
+class retcon: public wxApp {
     virtual bool OnInit();
     virtual int OnExit();
     int FilterEvent(wxEvent& event);
 	void OnQuitMsg(wxCommandEvent &event);
 	void OnExecPendingsMsg(wxCommandEvent &event);
+	void OnExecThreadPoolMsg(wxCommandEvent &event);
 
 	std::vector<std::function<void()> > pendings;
+
+	std::unique_ptr<ThreadPool::Pool> pool;
+	std::map<long, std::function<void()> > pool_post_jobs;
+	long next_pool_job = 0;
 
 	public:
 	std::string datadir;
 	unsigned int popuprecursion;
 
 	void EnqueuePending(std::function<void()> &&f);
+	void EnqueueThreadJob(std::function<void()> &&worker_thread_job, std::function<void()> &&main_thread_post_job);
+	void EnqueueThreadJob(std::function<void()> &&worker_thread_job);
 
 	DECLARE_EVENT_TABLE()
 
