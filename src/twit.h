@@ -51,23 +51,6 @@ class wxSizer;
 struct dbseltweetmsg;
 
 void HandleNewTweet(const std::shared_ptr<tweet> &t, const std::shared_ptr<taccount> &acc);
-bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t, bool checkfirst = false);
-unsigned int CheckTweetPendings(const tweet &t);
-inline unsigned int CheckTweetPendings(const std::shared_ptr<tweet> &t) {
-	return CheckTweetPendings(*t);
-}
-void FastMarkPendingNonAcc(const std::shared_ptr<tweet> &t, unsigned int mark, bool checkfirst);
-bool FastMarkPendingNoAccFallback(const std::shared_ptr<tweet> &t, unsigned int mark, bool checkfirst, const wxString &logprefix);
-bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_nt* win_, PUSHFLAGS pushflags = PUSHFLAGS::DEFAULT, std::shared_ptr<tpanel> *pushtpanel_ = 0);
-bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::shared_ptr<taccount> acc_hint, dbseltweetmsg **existing_dbsel = 0);
-bool CheckLoadSingleTweet(const std::shared_ptr<tweet> &t, std::shared_ptr<taccount> &acc_hint);
-void MarkTweetIDSetAsRead(const tweetidset &ids, const tpanel *exclude);
-void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, std::function<tweetidset &(cached_id_sets &)> idsetselector,
-		bool remove, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc = std::function<void(const std::shared_ptr<tweet> &)>());
-void SendTweetFlagUpdate(const std::shared_ptr<tweet> &tw, unsigned long long mask);
-void UpdateSingleTweetUnreadState(const std::shared_ptr<tweet> &tw);
-void UpdateSingleTweetHighlightState(const std::shared_ptr<tweet> &tw);
-void UpdateSingleTweetFlagState(const std::shared_ptr<tweet> &tw, unsigned long long mask);
 
 enum class UPDCF {
 	DOWNLOADIMG        = 1<<0,
@@ -417,6 +400,40 @@ inline bool IsUserMentioned(const std::string &str, const std::shared_ptr<userda
 	struct tm *gmtime_r (const time_t *timer, struct tm *result);
 #endif
 
+enum class PENDING : unsigned int;
+template<> struct enum_traits<PENDING> { static constexpr bool flags = true; };
+
+enum class PENDING : unsigned int {
+	T_U                = 1<<0,
+	T_UR               = 1<<1,
+	RT_RTU             = 1<<2,
+	U                  = 1<<3,
+	UR                 = 1<<4,
+	RTU                = 1<<5,
+	RT_MISSING         = 1<<6,
+	ACCMASK            = U | UR | RTU,
+	NONACCMASK         = T_U | T_UR | RT_RTU | RT_MISSING,
+};
+
+bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t, bool checkfirst = false);
+flagwrapper<PENDING> CheckTweetPendings(const tweet &t);
+inline flagwrapper<PENDING> CheckTweetPendings(const std::shared_ptr<tweet> &t) {
+	return CheckTweetPendings(*t);
+}
+void FastMarkPendingNonAcc(const std::shared_ptr<tweet> &t, flagwrapper<PENDING> mark, bool checkfirst);
+bool FastMarkPendingNoAccFallback(const std::shared_ptr<tweet> &t, flagwrapper<PENDING> mark, bool checkfirst, const wxString &logprefix);
+void GenericMarkPending(const std::shared_ptr<tweet> &t, flagwrapper<PENDING> mark, bool checkfirst, const wxString &logprefix, flagwrapper<tweet::GUAF> guaflags = 0);
+
+bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_nt* win_, PUSHFLAGS pushflags = PUSHFLAGS::DEFAULT, std::shared_ptr<tpanel> *pushtpanel_ = 0);
+bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::shared_ptr<taccount> acc_hint, dbseltweetmsg **existing_dbsel = 0);
+bool CheckLoadSingleTweet(const std::shared_ptr<tweet> &t, std::shared_ptr<taccount> &acc_hint);
+void MarkTweetIDSetAsRead(const tweetidset &ids, const tpanel *exclude);
+void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, std::function<tweetidset &(cached_id_sets &)> idsetselector,
+		bool remove, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc = std::function<void(const std::shared_ptr<tweet> &)>());
+void SendTweetFlagUpdate(const std::shared_ptr<tweet> &tw, unsigned long long mask);
+void UpdateSingleTweetUnreadState(const std::shared_ptr<tweet> &tw);
+void UpdateSingleTweetHighlightState(const std::shared_ptr<tweet> &tw);
+void UpdateSingleTweetFlagState(const std::shared_ptr<tweet> &tw, unsigned long long mask);
 void SpliceTweetIDSet(tweetidset &set, tweetidset &out, uint64_t highlim_inc, uint64_t lowlim_inc, bool clearspliced);
 
 #endif
