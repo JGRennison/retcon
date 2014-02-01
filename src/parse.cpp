@@ -32,6 +32,7 @@
 #include "twitcurlext.h"
 #include "mainui.h"
 #include "userui.h"
+#include "retcon.h"
 #include <cstring>
 #include <wx/uri.h>
 #include <wx/msgdlg.h>
@@ -194,20 +195,59 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 		}
 	}
 
-	auto mk_media_load_func = [&](std::string url, flagwrapper<MIDC> net_flags, flagwrapper<MELF> netloadmask) {
+	auto mk_media_thumb_load_func = [&](std::string url, flagwrapper<MIDC> net_flags, flagwrapper<MELF> netloadmask) {
 		netloadmask |= MELF::FORCE;
 		return [url, net_flags, netloadmask](media_entity *me, flagwrapper<MELF> mel_flags) {
+			struct local {
+				static void try_net_dl(media_entity *me, std::string url, flagwrapper<MIDC> net_flags, flagwrapper<MELF> netloadmask, flagwrapper<MELF> mel_flags) {
+					if(!(me->flags & MEF::HAVE_THUMB) && !(url.empty()) && (netloadmask & mel_flags) && !(me->flags & MEF::THUMB_NET_INPROGRESS) && !(me->flags & MEF::THUMB_FAILED)) {
+						new mediaimgdlconn(url, me->media_id, net_flags);
+					}
+				};
+			};
+
 			if(me->flags & MEF::LOAD_THUMB && !(me->flags & MEF::HAVE_THUMB)) {
 				//Don't bother loading a cached thumb now, that can wait
 				if(mel_flags & MELF::LOADTIME) return;
 
 				//try to load from file
-				if(LoadImageFromFileAndCheckHash(me->cached_thumb_filename(), me->thumb_img_sha1, me->thumbimg)) me->flags |= MEF::HAVE_THUMB;
-				else me->flags &= ~MEF::LOAD_THUMB;
+				me->flags |= MEF::THUMB_NET_INPROGRESS;
+				struct loadimg_job_data_struct {
+					shb_iptr hash;
+					media_id_type media_id;
+					wxImage img;
+					bool ok;
+				};
+				auto job_data = std::make_shared<loadimg_job_data_struct>();
+				job_data->hash = me->thumb_img_sha1;
+				job_data->media_id = me->media_id;
+
+				wxGetApp().EnqueueThreadJob([job_data]() {
+					job_data->ok = LoadImageFromFileAndCheckHash(media_entity::cached_thumb_filename(job_data->media_id), job_data->hash, job_data->img);
+				},
+				[job_data, url, net_flags, netloadmask, mel_flags]() {
+					auto it = ad.media_list.find(job_data->media_id);
+					if(it != ad.media_list.end()) {
+						media_entity &me = it->second;
+
+						me.flags &= ~MEF::THUMB_NET_INPROGRESS;
+						if(job_data->ok) {
+							me.thumbimg = job_data->img;
+							me.flags |= MEF::HAVE_THUMB;
+							for(auto &it : me.tweet_list) {
+								UpdateTweet(*it);
+							}
+						}
+						else {
+							LogMsgFormat(LOGT::OTHERERR, wxT("genjsonparser::DoEntitiesParse::mk_media_thumb_load_func, cached media thumbnail file: %s, url: %s, missing, invalid or failed hash check"),
+									media_entity::cached_thumb_filename(job_data->media_id).c_str(), wxstrstd(url).c_str());
+							me.flags &= ~MEF::LOAD_THUMB;
+							local::try_net_dl(&me, url, net_flags, netloadmask, mel_flags);
+						}
+					}
+				});
 			}
-			if(!(me->flags & MEF::HAVE_THUMB) && !(url.empty()) && (netloadmask & mel_flags) && !(me->flags & MEF::THUMB_NET_INPROGRESS) && !(me->flags & MEF::THUMB_FAILED)) {
-				new mediaimgdlconn(url, me->media_id, net_flags);
-			}
+			else local::try_net_dl(me, url, net_flags, netloadmask, mel_flags);
 		};
 	};
 
@@ -254,7 +294,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 				flagwrapper<MELF> netloadmask = 0;
 				if(gc.autoloadthumb_full) netloadmask |= MELF::LOADTIME;
 				if(gc.disploadthumb_full) netloadmask |= MELF::DISPTIME;
-				me->check_load_thumb_func = mk_media_load_func(me->media_url, MIDC::FULLIMG | MIDC::THUMBIMG | MIDC::REDRAW_TWEETS, netloadmask);
+				me->check_load_thumb_func = mk_media_thumb_load_func(me->media_url, MIDC::FULLIMG | MIDC::THUMBIMG | MIDC::REDRAW_TWEETS, netloadmask);
 				me->CheckLoadThumb(MELF::LOADTIME);
 			}
 		}
@@ -325,7 +365,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 			flagwrapper<MELF> netloadmask = 0;
 			if(gc.autoloadthumb_thumb) netloadmask |= MELF::LOADTIME;
 			if(gc.disploadthumb_thumb) netloadmask |= MELF::DISPTIME;
-			me->check_load_thumb_func = mk_media_load_func(thumburl, MIDC::THUMBIMG | MIDC::REDRAW_TWEETS, netloadmask);
+			me->check_load_thumb_func = mk_media_thumb_load_func(thumburl, MIDC::THUMBIMG | MIDC::REDRAW_TWEETS, netloadmask);
 			me->CheckLoadThumb(MELF::LOADTIME);
 		}
 	}
