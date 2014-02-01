@@ -177,6 +177,12 @@ void retcon::OnExecThreadPoolMsg(wxCommandEvent &event) {
 }
 
 void retcon::EnqueueThreadJob(std::function<void()> &&worker_thread_job, std::function<void()> &&main_thread_post_job) {
+	if(!pool->GetThreadLimit()) {
+		worker_thread_job();
+		main_thread_post_job();
+		return;
+	}
+
 	struct job_data {
 		long jobnum;
 		std::function<void()> job;
@@ -199,6 +205,11 @@ void retcon::EnqueueThreadJob(std::function<void()> &&worker_thread_job, std::fu
 }
 
 void retcon::EnqueueThreadJob(std::function<void()> &&worker_thread_job) {
+	if(!pool->GetThreadLimit()) {
+		worker_thread_job();
+		return;
+	}
+
 	auto data = std::make_shared<std::function<void()> >(std::move(worker_thread_job));
 	pool->enqueue([data](ThreadPool::Worker &w) {
 		(*data)();

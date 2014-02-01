@@ -44,10 +44,10 @@ namespace ThreadPool {
 		//Start: protected by lock
 		std::deque<std::unique_ptr<Job> > job_queue;   //jobs are popped from the front of the queue
 		std::deque<std::unique_ptr<Worker> > workers;
-		size_t threadcount = 0;
 		size_t waitingcount = 0;
-		unsigned int next_thread_id = 0;
 		//End: protected by lock
+		size_t threadcount = 0;
+		unsigned int next_thread_id = 0;
 
 		public:
 		Pool(size_t max_threads_) : max_threads(max_threads_) { }
@@ -56,6 +56,7 @@ namespace ThreadPool {
 		void enqueue(Job &&j, bool queue_jump = false) {
 			enqueue(std::unique_ptr<Job>(new Job(std::move(j))));
 		}
+		size_t GetThreadLimit() const { return max_threads; }
 	};
 
 	//Pools must outlive Workers
@@ -68,6 +69,10 @@ namespace ThreadPool {
 		std::thread thread;
 
 		Worker(Pool *parent_, unsigned int id_);
+
+		private:
+		//empty Worker
+		Worker(Pool *parent_) : parent(parent_), id(0) { }
 	};
 
 };

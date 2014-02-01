@@ -31,6 +31,13 @@
 
 namespace ThreadPool {
 	void Pool::enqueue(std::unique_ptr<Job> j, bool queue_jump) {
+		if(max_threads == 0) {
+			//Thread-pool effectively disabled, execute stuff synchronously with a dummy Worker
+			Worker w(this);
+			(*j)(w);
+			return;
+		}
+
 		std::unique_lock<std::mutex> lock(lifeguard);
 
 		if(queue_jump) job_queue.emplace_front(std::move(j));
@@ -40,9 +47,10 @@ namespace ThreadPool {
 			lock.unlock();
 			queue_cv.notify_one();
 		}
-		else if(threadcount < max_threads || max_threads == 0) {
+		else if(threadcount < max_threads) {
 			unsigned int new_thread_id = next_thread_id;
 			next_thread_id++;
+			threadcount++;
 			lock.unlock();
 			workers.emplace_back(new Worker(this, new_thread_id));
 			LogMsgFormat(LOGT::THREADTRACE, wxT("ThreadPool::Pool::enqueue Created thread pool worker: %d"), new_thread_id);
@@ -65,7 +73,7 @@ namespace ThreadPool {
 			it->thread.join();
 		}
 		workers.clear();
-		LogMsg(LOGT::THREADTRACE, wxT("ThreadPool::Pool::~Pool: Threads terminates"));
+		LogMsg(LOGT::THREADTRACE, wxT("ThreadPool::Pool::~Pool: Threads terminated"));
 	}
 
 	Worker::Worker(Pool *parent_, unsigned int id_) : parent(parent_), id(id_) {
@@ -77,7 +85,6 @@ namespace ThreadPool {
 #endif
 #endif
 			std::unique_lock<std::mutex> lock(parent->lifeguard);
-			parent->threadcount++;
 
 			while(alive) {
 				parent->waitingcount++;
