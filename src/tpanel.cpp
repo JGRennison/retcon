@@ -1647,9 +1647,9 @@ bool tpanelparentwin_user::UpdateUser(const std::shared_ptr<userdatacontainer> &
 		return false;
 	}
 	else {
-		auto pit=pendingmap.equal_range(u->id);
-		for(auto it=pit.first; it!=pit.second; ) {
-			if((*it).second==this) {
+		auto pit = pendingmap.equal_range(u->id);
+		for(auto it = pit.first; it != pit.second; ++it) {
+			if((*it).second == this) {
 				return true;
 			}
 		}
