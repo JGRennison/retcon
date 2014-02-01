@@ -42,6 +42,7 @@
 #include <wx/sizer.h>
 #include <wx/menu.h>
 #include <wx/textctrl.h>
+#include <wx/event.h>
 
 log_window *globallogwindow = 0;
 std::unique_ptr<Redirector_wxLog> globalwxlogredirector;
@@ -72,6 +73,7 @@ const wxChar *logflagsstrings[]={
 	wxT("wxverbose"),
 	wxT("filtererr"),
 	wxT("filtertrace"),
+	wxT("threadtrace"),
 };
 
 void Update_currentlogflags() {
@@ -505,4 +507,33 @@ void InitWxLogger() {
 void DeInitWxLogger() {
 	wxLog::SetActiveTarget(nullptr);
 	globalwxlogredirector.reset();
+}
+
+DEFINE_EVENT_TYPE(wxextLOGEVT)
+
+enum {
+	wxextLOGEVT_ID_THREADLOGMSG = 1,
+};
+
+struct logevt_handler : wxEvtHandler {
+	void OnThreadLogMsg(wxCommandEvent &event);
+
+	DECLARE_EVENT_TABLE()
+};
+
+BEGIN_EVENT_TABLE(logevt_handler, wxEvtHandler)
+EVT_COMMAND(wxextLOGEVT_ID_THREADLOGMSG, wxextLOGEVT, logevt_handler::OnThreadLogMsg)
+END_EVENT_TABLE()
+
+void logevt_handler::OnThreadLogMsg(wxCommandEvent &event) {
+	LogMsg(flag_wrap<LOGT>(event.GetExtraLong()), event.GetString());
+}
+
+logevt_handler the_logevt_handler;
+
+void ThreadSafeLogMsg(LOGT logflags, const wxString &str) {
+	wxCommandEvent evt(wxextLOGEVT, wxextLOGEVT_ID_THREADLOGMSG);
+	evt.SetString(str.c_str());	//prevent any COW semantics
+	evt.SetExtraLong(flag_unwrap<LOGT>(logflags));
+	the_logevt_handler.AddPendingEvent(evt);
 }

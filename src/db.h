@@ -266,7 +266,6 @@ DECLARE_EVENT_TYPE(wxextDBCONN_NOTIFY, -1)
 
 enum {
 	wxDBCONNEVT_ID_TPANELTWEETLOAD = 1,
-	wxDBCONNEVT_ID_DEBUGMSG,
 	wxDBCONNEVT_ID_INSERTNEWACC,
 	wxDBCONNEVT_ID_SENDBATCH,
 	wxDBCONNEVT_ID_REPLY,
@@ -318,7 +317,6 @@ struct dbconn : public wxEvtHandler {
 	void SyncReadInRBFSs(sqlite3 *adb);
 	void SyncReadInAllMediaEntities(sqlite3 *adb);
 	void OnTpanelTweetLoadFromDB(wxCommandEvent &event);
-	void OnDBThreadDebugMsg(wxCommandEvent &event);
 	void OnDBNewAccountInsert(wxCommandEvent &event);
 	void OnSendBatchEvt(wxCommandEvent &event);
 	void OnDBReplyEvt(wxCommandEvent &event);

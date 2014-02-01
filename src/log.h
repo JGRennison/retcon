@@ -67,4 +67,9 @@ void Update_currentlogflags();
 #define LogMsg(l, s) if( currentlogflags & (l) ) LogMsgProcess(l, s)
 #define LogMsgFormat(l, ...) if( currentlogflags & (l) ) LogMsgProcess(l, wxString::Format(__VA_ARGS__))
 
+void ThreadSafeLogMsg(LOGT logflags, const wxString &str);
+
+#define TSLogMsgFormat(l, ...) if( currentlogflags & (l) ) ThreadSafeLogMsg(l, wxString::Format(__VA_ARGS__))
+#define TSLogMsg(l, s) if( currentlogflags & (l) ) ThreadSafeLogMsg(l, s)
+
 #endif

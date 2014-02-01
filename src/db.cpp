@@ -111,15 +111,8 @@ static const char *sql[DBPSC_NUM_STATEMENTS]={
 	"UPDATE tweets SET flags = ? | (flags & ?) WHERE id == ?;",
 };
 
-static void DBThreadSafeLogMsg(LOGT logflags, const wxString &str) {
-	wxCommandEvent evt(wxextDBCONN_NOTIFY, wxDBCONNEVT_ID_DEBUGMSG);
-	evt.SetString(str.c_str());	//prevent any COW semantics
-	evt.SetExtraLong(flag_unwrap<LOGT>(logflags));
-	dbc.AddPendingEvent(evt);
-}
-
-#define DBLogMsgFormat(l, ...) if( currentlogflags & (l) ) DBThreadSafeLogMsg(l, wxString::Format(__VA_ARGS__))
-#define DBLogMsg(l, s) if( currentlogflags & (l) ) DBThreadSafeLogMsg(l, s)
+#define DBLogMsgFormat TSLogMsgFormat
+#define DBLogMsg TSLogMsg
 
 static int busy_handler_callback(void *ptr, int count) {
 	if(count < 7) {    //this should lead to a maximum wait of ~3.2s
@@ -700,7 +693,6 @@ DEFINE_EVENT_TYPE(wxextDBCONN_NOTIFY)
 
 BEGIN_EVENT_TABLE(dbconn, wxEvtHandler)
 EVT_COMMAND(wxDBCONNEVT_ID_TPANELTWEETLOAD, wxextDBCONN_NOTIFY, dbconn::OnTpanelTweetLoadFromDB)
-EVT_COMMAND(wxDBCONNEVT_ID_DEBUGMSG, wxextDBCONN_NOTIFY, dbconn::OnDBThreadDebugMsg)
 EVT_COMMAND(wxDBCONNEVT_ID_INSERTNEWACC, wxextDBCONN_NOTIFY, dbconn::OnDBNewAccountInsert)
 EVT_COMMAND(wxDBCONNEVT_ID_SENDBATCH, wxextDBCONN_NOTIFY, dbconn::OnSendBatchEvt)
 EVT_COMMAND(wxDBCONNEVT_ID_REPLY, wxextDBCONN_NOTIFY, dbconn::OnDBReplyEvt)
@@ -829,10 +821,6 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags) {
 			}
 		}
 	}
-}
-
-void dbconn::OnDBThreadDebugMsg(wxCommandEvent &event) {
-	LogMsg(flag_wrap<LOGT>(event.GetExtraLong()), event.GetString());
 }
 
 void dbconn::OnDBNewAccountInsert(wxCommandEvent &event) {
@@ -1001,7 +989,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 #endif
 #endif
 	th->Run();
-	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::Init(): Created database thread: %d"), th->GetId());
+	LogMsgFormat(LOGT::DBTRACE | LOGT::THREADTRACE, wxT("dbconn::Init(): Created database thread: %d"), th->GetId());
 
 	dbc_flags |= DBCF::INITED;
 	return true;
@@ -1017,7 +1005,7 @@ void dbconn::DeInit() {
 
 	dbc_flags &= ~DBCF::INITED;
 
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::DeInit: About to terminate database thread and write back state"));
+	LogMsg(LOGT::DBTRACE | LOGT::THREADTRACE, wxT("dbconn::DeInit: About to terminate database thread and write back state"));
 
 	SendMessage(new dbsendmsg(DBSM_QUIT));
 
@@ -1026,12 +1014,12 @@ void dbconn::DeInit() {
 	#else
 	close(pipefd);
 	#endif
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::DeInit(): Waiting for database thread to terminate"));
+	LogMsg(LOGT::DBTRACE | LOGT::THREADTRACE, wxT("dbconn::DeInit(): Waiting for database thread to terminate"));
 	th->Wait();
 	syncdb=th->db;
 	delete th;
 
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::DeInit(): Database thread terminated"));
+	LogMsg(LOGT::DBTRACE | LOGT::THREADTRACE, wxT("dbconn::DeInit(): Database thread terminated"));
 
 	SyncWriteBackAllUsers(syncdb);
 	AccountIdListsSync(syncdb);
@@ -1043,7 +1031,7 @@ void dbconn::DeInit() {
 
 	sqlite3_close(syncdb);
 
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::DeInit(): State write back to database complete, database connection closed."));
+	LogMsg(LOGT::DBTRACE | LOGT::THREADTRACE, wxT("dbconn::DeInit(): State write back to database complete, database connection closed."));
 }
 
 void dbconn::InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string statjson, dbsendmsg_list *msglist) {
