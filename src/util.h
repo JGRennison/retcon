@@ -22,6 +22,7 @@
 #define HGUARD_SRC_UTIL
 
 #include "univdefs.h"
+#include "hash.h"
 #include <wx/string.h>
 #include <string>
 
@@ -42,8 +43,8 @@ inline std::string stdstrwx(const wxString &st) {
 std::string hexify(const std::string &in);
 wxString hexify_wx(const std::string &in);
 
-bool LoadImageFromFileAndCheckHash(const wxString &filename, const unsigned char *hash, wxImage &img);
-bool LoadFromFileAndCheckHash(const wxString &filename, const unsigned char *hash, char *&data, size_t &size);
+bool LoadImageFromFileAndCheckHash(const wxString &filename, shb_iptr hash, wxImage &img);
+bool LoadFromFileAndCheckHash(const wxString &filename, shb_iptr hash, char *&data, size_t &size);
 
 //fix for MinGW, from http://pastebin.com/7rhvv92A
 #ifdef __MINGW32__

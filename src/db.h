@@ -24,6 +24,7 @@
 #include "univdefs.h"
 #include "twit-common.h"
 #include "flags.h"
+#include "hash.h"
 #include <cstdlib>
 #include <queue>
 #include <string>
@@ -179,8 +180,8 @@ struct dbrettweetdata {
 struct dbretmediadata {
 	media_id_type media_id;
 	char *url;	//free when done
-	unsigned char full_img_sha1[20];
-	unsigned char thumb_img_sha1[20];
+	shb_iptr full_img_sha1;
+	shb_iptr thumb_img_sha1;
 	flagwrapper<MEF> flags;
 
 	dbretmediadata() : url(0) { }
@@ -221,7 +222,7 @@ struct dbinsertusermsg : public dbsendmsg {
 	std::string cached_profile_img_url;
 	time_t createtime;
 	uint64_t lastupdate;
-	std::string cached_profile_img_hash;
+	shb_iptr cached_profile_img_hash;
 	unsigned char *mentionindex;			//already packed and compressed, must be malloced
 	size_t mentionindex_size;
 };
@@ -250,7 +251,7 @@ struct dbinsertmediamsg : public dbsendmsg {
 struct dbupdatemediachecksummsg : public dbsendmsg {
 	dbupdatemediachecksummsg(bool isfull_) : dbsendmsg(DBSM_UPDATEMEDIACHKSM), isfull(isfull_) { }
 	media_id_type media_id;
-	unsigned char chksm[20];
+	shb_iptr chksm;
 	bool isfull;
 };
 

@@ -52,7 +52,8 @@ wxString hexify_wx(const std::string &in) {
 	return out;
 }
 
-bool LoadFromFileAndCheckHash(const wxString &filename, const unsigned char *hash, char *&data, size_t &size) {
+bool LoadFromFileAndCheckHash(const wxString &filename, shb_iptr hash, char *&data, size_t &size) {
+	if(!hash) return false;
 	wxFile file;
 	bool opened = file.Open(filename);
 	if(opened) {
@@ -63,7 +64,7 @@ bool LoadFromFileAndCheckHash(const wxString &filename, const unsigned char *has
 			if(size == (size_t) len) {
 				unsigned char curhash[20];
 				SHA1((const unsigned char *) data, (unsigned long) len, curhash);
-				if(memcmp(curhash, hash, 20) == 0) {
+				if(memcmp(curhash, hash->hash_sha1, 20) == 0) {
 					return true;
 				}
 			}
@@ -75,14 +76,15 @@ bool LoadFromFileAndCheckHash(const wxString &filename, const unsigned char *has
 	return false;
 }
 
-bool LoadImageFromFileAndCheckHash(const wxString &filename, const unsigned char *hash, wxImage &img) {
-	char *data=0;
+bool LoadImageFromFileAndCheckHash(const wxString &filename, shb_iptr hash, wxImage &img) {
+	if(!hash) return false;
+	char *data = 0;
 	size_t size;
-	bool success=false;
+	bool success = false;
 	if(LoadFromFileAndCheckHash(filename, hash, data, size)) {
 		wxMemoryInputStream memstream(data, size);
 		if(img.LoadFile(memstream, wxBITMAP_TYPE_ANY)) {
-			success=true;
+			success = true;
 		}
 	}
 	if(data) free(data);

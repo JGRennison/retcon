@@ -139,7 +139,9 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 			user->SetProfileBitmapFromwxImage(img);
 
 			user->cached_profile_img_url=url;
-			SHA1((const unsigned char *) data.data(), (unsigned long) data.size(), user->cached_profile_img_sha1);
+			std::shared_ptr<sha1_hash_block> hash = std::make_shared<sha1_hash_block>();
+			SHA1((const unsigned char *) data.data(), (unsigned long) data.size(), hash->hash_sha1);
+			user->cached_profile_img_sha1 = std::move(hash);
 			user->lastupdate_wrotetodb=0;		//force user to be written out to database
 			dbc.InsertUser(user);
 			data.clear();
@@ -239,7 +241,11 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 					size_t size=memstr.GetSize();
 					wxFile file(me.cached_thumb_filename(), wxFile::write);
 					file.Write(data, size);
-					SHA1(data, size, me.thumb_img_sha1);
+
+					std::shared_ptr<sha1_hash_block> hash = std::make_shared<sha1_hash_block>();
+					SHA1(data, size, hash->hash_sha1);
+					me.thumb_img_sha1 = std::move(hash);
+
 					dbc.UpdateMediaChecksum(me, false);
 				}
 			}
@@ -258,7 +264,11 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 			if(gc.cachemedia) {
 				wxFile file(me.cached_full_filename(), wxFile::write);
 				file.Write(me.fulldata.data(), me.fulldata.size());
-				SHA1((const unsigned char *) me.fulldata.data(), (unsigned long) me.fulldata.size(), me.full_img_sha1);
+
+				std::shared_ptr<sha1_hash_block> hash = std::make_shared<sha1_hash_block>();
+				SHA1((const unsigned char *) me.fulldata.data(), (unsigned long) me.fulldata.size(), hash->hash_sha1);
+				me.full_img_sha1 = std::move(hash);
+
 				dbc.UpdateMediaChecksum(me, true);
 			}
 		}

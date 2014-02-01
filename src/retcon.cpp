@@ -212,7 +212,6 @@ std::shared_ptr<userdatacontainer> &alldata::GetUserContainerById(uint64_t id) {
 		usercont->id=id;
 		usercont->lastupdate=0;
 		usercont->udc_flags=0;
-		memset(usercont->cached_profile_img_sha1, 0, sizeof(usercont->cached_profile_img_sha1));
 	}
 	return usercont;
 }

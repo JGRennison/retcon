@@ -27,6 +27,7 @@
 #include "twitcurlext-common.h"
 #include "tpanel-common.h"
 #include "flags.h"
+#include "hash.h"
 #include <memory>
 #include <functional>
 #include <wx/bitmap.h>
@@ -127,7 +128,7 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	flagwrapper<UDC> udc_flags;
 
 	std::string cached_profile_img_url;
-	unsigned char cached_profile_img_sha1[20];
+	shb_iptr cached_profile_img_sha1;
 	wxBitmap cached_profile_img;
 	wxBitmap cached_profile_img_half;
 	std::forward_list<std::shared_ptr<tweet> > pendingtweets;
@@ -359,8 +360,8 @@ struct media_entity {
 	wxImage thumbimg;
 	std::forward_list<std::shared_ptr<tweet> > tweet_list;
 	media_display_win *win = 0;
-	unsigned char full_img_sha1[20];
-	unsigned char thumb_img_sha1[20];
+	shb_iptr full_img_sha1;
+	shb_iptr thumb_img_sha1;
 
 	flagwrapper<MEF> flags = 0;
 

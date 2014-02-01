@@ -523,16 +523,18 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 						md.flags = 0;
 						size_t outsize;
 						md.url=column_get_compressed(mstmt, 0, outsize);
-						if(sqlite3_column_bytes(mstmt, 1)==sizeof(md.full_img_sha1)) {
-							memcpy(md.full_img_sha1, sqlite3_column_blob(mstmt, 1), sizeof(md.full_img_sha1));
+						if(sqlite3_column_bytes(mstmt, 1) == sizeof(sha1_hash_block::hash_sha1)) {
+							std::shared_ptr<sha1_hash_block> hashptr = std::make_shared<sha1_hash_block>();
+							memcpy(hashptr->hash_sha1, sqlite3_column_blob(mstmt, 1), sizeof(sha1_hash_block::hash_sha1));
+							md.full_img_sha1 = std::move(hashptr);
 							md.flags|=MEF::LOAD_FULL;
 						}
-						else memset(md.full_img_sha1, 0, sizeof(md.full_img_sha1));
-						if(sqlite3_column_bytes(mstmt, 2)==sizeof(md.thumb_img_sha1)) {
-							memcpy(md.thumb_img_sha1, sqlite3_column_blob(mstmt, 2), sizeof(md.thumb_img_sha1));
+						if(sqlite3_column_bytes(mstmt, 2) == sizeof(sha1_hash_block::hash_sha1)) {
+							std::shared_ptr<sha1_hash_block> hashptr = std::make_shared<sha1_hash_block>();
+							memcpy(hashptr->hash_sha1, sqlite3_column_blob(mstmt, 2), sizeof(sha1_hash_block::hash_sha1));
+							md.thumb_img_sha1 = std::move(hashptr);
 							md.flags|=MEF::LOAD_THUMB;
 						}
-						else memset(md.thumb_img_sha1, 0, sizeof(md.thumb_img_sha1));
 					}
 					else {
 						DBLogMsgFormat(LOGT::DBERR, wxT("DBSM_SELTWEET (media load) got error: %d (%s) for id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, net fallback flag: %d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) it->m_id, (sqlite3_int64) it->t_id, (m->flags&DBSTMF::NET_FALLBACK)?1:0);
@@ -555,7 +557,12 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			bind_compressed(stmt, 3, m->cached_profile_img_url, 'P');
 			sqlite3_bind_int64(stmt, 4, (sqlite3_int64) m->createtime);
 			sqlite3_bind_int64(stmt, 5, (sqlite3_int64) m->lastupdate);
-			sqlite3_bind_blob(stmt, 6, m->cached_profile_img_hash.data(), m->cached_profile_img_hash.size(), SQLITE_TRANSIENT);
+			if(m->cached_profile_img_hash) {
+				sqlite3_bind_blob(stmt, 6, m->cached_profile_img_hash->hash_sha1, sizeof(m->cached_profile_img_hash->hash_sha1), SQLITE_TRANSIENT);
+			}
+			else {
+				sqlite3_bind_null(stmt, 6);
+			}
 			sqlite3_bind_blob(stmt, 7, m->mentionindex, m->mentionindex_size, &free);
 			int res=sqlite3_step(stmt);
 			if(res!=SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBSM_INSERTUSER got error: %d (%s) for id: %" wxLongLongFmtSpec "d"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), m->id); }
@@ -602,9 +609,9 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 		case DBSM_UPDATEMEDIACHKSM: {
 			dbupdatemediachecksummsg *m=(dbupdatemediachecksummsg*) msg;
 			sqlite3_stmt *stmt=cache.GetStmt(db, m->isfull?DBPSC_UPDATEMEDIAFULLCHKSM:DBPSC_UPDATEMEDIATHUMBCHKSM);
+			sqlite3_bind_blob(stmt, 1, m->chksm->hash_sha1, sizeof(m->chksm->hash_sha1), SQLITE_TRANSIENT);
 			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->media_id.m_id);
 			sqlite3_bind_int64(stmt, 3, (sqlite3_int64) m->media_id.t_id);
-			sqlite3_bind_blob(stmt, 1, m->chksm, sizeof(m->chksm), SQLITE_TRANSIENT);
 			int res=sqlite3_step(stmt);
 			if(res!=SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBSM_UPDATEMEDIACHKSM got error: %d (%s) for id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d (%d)"), res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id, m->isfull); }
 			else { DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM_UPDATEMEDIACHKSM updated media checksum id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d (%d)"), (sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id, m->isfull); }
@@ -771,8 +778,8 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags) {
 				ad.img_media_map[me.media_url]=me.media_id;
 			}
 		}
-		if(dt.flags&MEF::LOAD_FULL) memcpy(me.full_img_sha1, dt.full_img_sha1, sizeof(me.full_img_sha1));
-		if(dt.flags&MEF::LOAD_THUMB) memcpy(me.thumb_img_sha1, dt.thumb_img_sha1, sizeof(me.thumb_img_sha1));
+		if(dt.flags & MEF::LOAD_FULL) me.full_img_sha1 = dt.full_img_sha1;
+		if(dt.flags & MEF::LOAD_THUMB) me.thumb_img_sha1 = dt.thumb_img_sha1;
 		me.flags|=dt.flags|MEF::IN_DB;
 	}
 
@@ -1092,7 +1099,7 @@ void dbconn::InsertUser(const std::shared_ptr<userdatacontainer> &u, dbsendmsg_l
 	msg->cached_profile_img_url=std::string(u->cached_profile_img_url.begin(), u->cached_profile_img_url.end());	//prevent any COW semantics
 	msg->createtime=u->user.createtime;
 	msg->lastupdate=u->lastupdate;
-	msg->cached_profile_img_hash.assign((const char*) u->cached_profile_img_sha1, sizeof(u->cached_profile_img_sha1));
+	msg->cached_profile_img_hash = u->cached_profile_img_sha1;
 	msg->mentionindex=settocompressedblob(u->mention_index, msg->mentionindex_size);
 	u->lastupdate_wrotetodb=u->lastupdate;
 	SendMessageOrAddToList(msg, msglist);
@@ -1109,7 +1116,7 @@ void dbconn::InsertMedia(media_entity &me, dbsendmsg_list *msglist) {
 void dbconn::UpdateMediaChecksum(media_entity &me, bool isfull, dbsendmsg_list *msglist) {
 	dbupdatemediachecksummsg *msg=new dbupdatemediachecksummsg(isfull);
 	msg->media_id=me.media_id;
-	memcpy(msg->chksm, isfull?me.full_img_sha1:me.thumb_img_sha1, sizeof(me.thumb_img_sha1));
+	msg->chksm = isfull ? me.full_img_sha1 : me.thumb_img_sha1;
 	SendMessageOrAddToList(msg, msglist);
 }
 
@@ -1263,7 +1270,12 @@ void dbconn::SyncWriteBackAllUsers(sqlite3 *adb) {
 		bind_compressed(stmt, 3, u->cached_profile_img_url, 'P');
 		sqlite3_bind_int64(stmt, 4, (sqlite3_int64) u->user.createtime);
 		sqlite3_bind_int64(stmt, 5, (sqlite3_int64) u->lastupdate);
-		sqlite3_bind_blob(stmt, 6, u->cached_profile_img_sha1, sizeof(u->cached_profile_img_sha1), SQLITE_TRANSIENT);
+		if(u->cached_profile_img_sha1) {
+			sqlite3_bind_blob(stmt, 6, u->cached_profile_img_sha1->hash_sha1, sizeof(u->cached_profile_img_sha1->hash_sha1), SQLITE_TRANSIENT);
+		}
+		else {
+			sqlite3_bind_null(stmt, 6);
+		}
 		size_t mentionindex_size;
 		unsigned char *mentionindex=settocompressedblob(u->mention_index, mentionindex_size);
 		sqlite3_bind_blob(stmt, 7, mentionindex, mentionindex_size, &free);
@@ -1302,11 +1314,13 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 			u.lastupdate_wrotetodb = u.lastupdate;
 			const char *hash=(const char*) sqlite3_column_blob(stmt, 5);
 			int hashsize=sqlite3_column_bytes(stmt, 5);
-			if(hashsize==sizeof(u.cached_profile_img_sha1)) {
-				memcpy(u.cached_profile_img_sha1, hash, sizeof(u.cached_profile_img_sha1));
+			if(hashsize == sizeof(sha1_hash_block::hash_sha1)) {
+				std::shared_ptr<sha1_hash_block> hashptr = std::make_shared<sha1_hash_block>();
+				memcpy(hashptr->hash_sha1, hash, sizeof(sha1_hash_block::hash_sha1));
+				u.cached_profile_img_sha1 = std::move(hashptr);
 			}
 			else {
-				memset(u.cached_profile_img_sha1, 0, sizeof(u.cached_profile_img_sha1));
+				u.cached_profile_img_sha1.reset();
 				if(profimg_size) LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncReadInAllUsers user id: %" wxLongLongFmtSpec "d, has invalid profile image hash length: %d"), (sqlite3_int64) id, hashsize);
 			}
 			if(json) free(json);
@@ -1411,16 +1425,18 @@ void dbconn::SyncReadInAllMediaEntities(sqlite3 *adb) {
 				ad.img_media_map[me.media_url]=me.media_id;
 			}
 			free(url);
-			if(sqlite3_column_bytes(stmt, 3)==sizeof(me.full_img_sha1)) {
-				memcpy(me.full_img_sha1, sqlite3_column_blob(stmt, 3), sizeof(me.full_img_sha1));
+			if(sqlite3_column_bytes(stmt, 3) == sizeof(sha1_hash_block::hash_sha1)) {
+				std::shared_ptr<sha1_hash_block> hash = std::make_shared<sha1_hash_block>();
+				memcpy(hash->hash_sha1, sqlite3_column_blob(stmt, 3), sizeof(hash->hash_sha1));
+				me.full_img_sha1 = std::move(hash);
 				me.flags|=MEF::LOAD_FULL;
 			}
-			else memset(me.full_img_sha1, 0, sizeof(me.full_img_sha1));
-			if(sqlite3_column_bytes(stmt, 4)==sizeof(me.thumb_img_sha1)) {
-				memcpy(me.thumb_img_sha1, sqlite3_column_blob(stmt, 4), sizeof(me.thumb_img_sha1));
+			if(sqlite3_column_bytes(stmt, 4) == sizeof(sha1_hash_block::hash_sha1)) {
+				std::shared_ptr<sha1_hash_block> hash = std::make_shared<sha1_hash_block>();
+				memcpy(hash->hash_sha1, sqlite3_column_blob(stmt, 4), sizeof(hash->hash_sha1));
+				me.thumb_img_sha1 = std::move(hash);
 				me.flags|=MEF::LOAD_THUMB;
 			}
-			else memset(me.thumb_img_sha1, 0, sizeof(me.thumb_img_sha1));
 
 			#if DB_COPIOUS_LOGGING
 				LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncReadInAllMediaEntities retrieved media entity %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d"), id.m_id, id.t_id);
