@@ -157,6 +157,9 @@ bool userdatacontainer::ImgIsReady(flagwrapper<UPDCF> updcf_flags) {
 			data->url = cached_profile_img_url;
 			data->u = this->shared_from_this();
 
+			LogMsgFormat(LOGT::FILEIOTRACE, wxT("userdatacontainer::ImgIsReady, about to load cached profile image for user id: %" wxLongLongFmtSpec "d (%s), file: %s, url: %s"),
+					id, wxstrstd(GetUser().screen_name).c_str(), data->filename.c_str(), wxstrstd(cached_profile_img_url).c_str());
+
 			udc_flags |= UDC::IMAGE_DL_IN_PROGRESS;
 			wxGetApp().EnqueueThreadJob([data]() {
 				wxImage img;
@@ -170,7 +173,7 @@ bool userdatacontainer::ImgIsReady(flagwrapper<UPDCF> updcf_flags) {
 				u->udc_flags &= ~UDC::IMAGE_DL_IN_PROGRESS;
 
 				if(data->url != u->cached_profile_img_url) {
-					LogMsgFormat(LOGT::OTHERERR, wxT("Profile image read from file, which did correspond to url: %s for user id %" wxLongLongFmtSpec "d (@%s), does not match current url of: %s. Maybe user updated profile during read?"),
+					LogMsgFormat(LOGT::OTHERERR, wxT("userdatacontainer::ImgIsReady, cached profile image read from file, which did correspond to url: %s for user id %" wxLongLongFmtSpec "d (@%s), does not match current url of: %s. Maybe user updated profile during read?"),
 							wxstrstd(data->url).c_str(), u->id, wxstrstd(u->GetUser().screen_name).c_str(), wxstrstd(u->GetUser().profile_img_url).c_str());
 					//Try again:
 					u->ImgIsReady(updcf_flags);
@@ -182,7 +185,7 @@ bool userdatacontainer::ImgIsReady(flagwrapper<UPDCF> updcf_flags) {
 					u->NotifyProfileImageChange();
 				}
 				else {
-					LogMsgFormat(LOGT::OTHERERR, wxT("userdatacontainer::ImgIsReady, cached profile image file for user id: %" wxLongLongFmtSpec "d (%s), file: %s, url: %s, missing, invalid or failed hash check"),
+					LogMsgFormat(LOGT::FILEIOERR, wxT("userdatacontainer::ImgIsReady, cached profile image file for user id: %" wxLongLongFmtSpec "d (%s), file: %s, url: %s, missing, invalid or failed hash check"),
 						u->id, wxstrstd(u->GetUser().screen_name).c_str(), data->filename.c_str(), wxstrstd(u->cached_profile_img_url).c_str());
 					u->cached_profile_img_url.clear();
 					if(updcf_flags & UPDCF::DOWNLOADIMG) {    //the saved image is not loadable, clear cache and re-download

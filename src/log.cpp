@@ -74,6 +74,8 @@ const wxChar *logflagsstrings[]={
 	wxT("filtererr"),
 	wxT("filtertrace"),
 	wxT("threadtrace"),
+	wxT("fileiotrace"),
+	wxT("fileioerr"),
 };
 
 void Update_currentlogflags() {

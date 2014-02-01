@@ -222,6 +222,8 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 				job_data->hash = me->thumb_img_sha1;
 				job_data->media_id = me->media_id;
 
+				LogMsgFormat(LOGT::FILEIOTRACE, wxT("genjsonparser::DoEntitiesParse::mk_media_thumb_load_func, about to load cached media thumbnail from file: %s, url: %s"),
+						media_entity::cached_thumb_filename(job_data->media_id).c_str(), wxstrstd(url).c_str());
 				wxGetApp().EnqueueThreadJob([job_data]() {
 					job_data->ok = LoadImageFromFileAndCheckHash(media_entity::cached_thumb_filename(job_data->media_id), job_data->hash, job_data->img);
 				},
@@ -232,6 +234,8 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 
 						me.flags &= ~MEF::THUMB_NET_INPROGRESS;
 						if(job_data->ok) {
+							LogMsgFormat(LOGT::FILEIOTRACE, wxT("genjsonparser::DoEntitiesParse::mk_media_thumb_load_func, successfully loaded cached media thumbnail file: %s, url: %s"),
+									media_entity::cached_thumb_filename(job_data->media_id).c_str(), wxstrstd(url).c_str());
 							me.thumbimg = job_data->img;
 							me.flags |= MEF::HAVE_THUMB;
 							for(auto &it : me.tweet_list) {
@@ -239,7 +243,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 							}
 						}
 						else {
-							LogMsgFormat(LOGT::OTHERERR, wxT("genjsonparser::DoEntitiesParse::mk_media_thumb_load_func, cached media thumbnail file: %s, url: %s, missing, invalid or failed hash check"),
+							LogMsgFormat(LOGT::FILEIOERR, wxT("genjsonparser::DoEntitiesParse::mk_media_thumb_load_func, cached media thumbnail file: %s, url: %s, missing, invalid or failed hash check"),
 									media_entity::cached_thumb_filename(job_data->media_id).c_str(), wxstrstd(url).c_str());
 							me.flags &= ~MEF::LOAD_THUMB;
 							local::try_net_dl(&me, url, net_flags, netloadmask, mel_flags);

@@ -749,6 +749,7 @@ void dbconn::SetDBSelTweetMsgHandler(dbseltweetmsg *msg, std::function<void(dbse
 }
 
 void dbconn::HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags) {
+	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::HandleDBSelTweetMsg start"));
 	if(msg->flags&DBSTMF::NET_FALLBACK) {
 		dbseltweetmsg_netfallback *fmsg = dynamic_cast<dbseltweetmsg_netfallback *>(msg);
 		std::shared_ptr<taccount> acc;
@@ -769,10 +770,10 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags) {
 				std::shared_ptr<taccount> curacc = acc;
 				bool result = CheckLoadSingleTweet(t, curacc);
 				if(result) {
-					DBLogMsgFormat(LOGT::DBTRACE, wxT("dbconn::HandleDBSelTweetMsg falling back to network for tweet: id: %" wxLongLongFmtSpec "d, account: %s."), t->id, curacc->dispname.c_str());
+					LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::HandleDBSelTweetMsg falling back to network for tweet: id: %" wxLongLongFmtSpec "d, account: %s."), t->id, curacc->dispname.c_str());
 				}
 				else {
-					DBLogMsgFormat(LOGT::DBERR, wxT("dbconn::HandleDBSelTweetMsg could not fall back to network for tweet: id:%" wxLongLongFmtSpec "d, no usable account."), t->id);
+					LogMsgFormat(LOGT::DBERR, wxT("dbconn::HandleDBSelTweetMsg could not fall back to network for tweet: id:%" wxLongLongFmtSpec "d, no usable account."), t->id);
 				}
 			}
 		}
@@ -836,6 +837,7 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags) {
 			}
 		}
 	}
+	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::HandleDBSelTweetMsg end"));
 }
 
 void dbconn::OnDBNewAccountInsert(wxCommandEvent &event) {
