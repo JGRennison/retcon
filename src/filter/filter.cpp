@@ -32,6 +32,11 @@
 #include <pcre.h>
 #include <list>
 
+//This is such that PCRE_STUDY_JIT_COMPILE can be used pre PCRE 8.20
+#ifndef PCRE_STUDY_JIT_COMPILE
+#define PCRE_STUDY_JIT_COMPILE 0
+#endif
+
 enum class FRSF {
 	DONEIF          = 1<<0,
 	ACTIVE          = 1<<1,
@@ -239,7 +244,9 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 	static pcre_extra *flagtest_patextra = 0;
 
 	static pcre *else_pattern = 0;
+	static pcre_extra *else_patextra = 0;
 	static pcre *endif_pattern = 0;
+	static pcre_extra *endif_patextra = 0;
 
 	static pcre *flagset_pattern = 0;
 	static pcre_extra *flagset_patextra = 0;
@@ -247,11 +254,13 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 	static pcre_extra *panel_patextra = 0;
 
 	static pcre *blankline_pattern = 0;
+	static pcre_extra *blankline_patextra = 0;
 
 	out.filters.clear();
 	errmsgs.clear();
 
 	bool ok = true;
+	unsigned int jit_count = 0;
 
 	auto compile = [&](const char *str, pcre ** ptn, pcre_extra ** extra) {
 		if(!ptn) {
@@ -272,20 +281,27 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 			return;
 		}
 		if(extra && !*extra) {
-			*extra = pcre_study(*ptn, 0, &errptr);
+			*extra = pcre_study(*ptn, PCRE_STUDY_JIT_COMPILE, &errptr);
+#if PCRE_STUDY_JIT_COMPILE
+			int value = 0;
+			pcre_fullinfo(*ptn, *extra, PCRE_INFO_JIT, &value);
+			if(value) jit_count++;
+#endif
 		}
 	};
 
 	compile(condsyntax, &cond_pattern, &cond_patextra);
 	compile(regexsyntax, &regex_pattern, &regex_patextra);
 	compile(flagtestsyntax, &flagtest_pattern, &flagtest_patextra);
-	compile(elsesyntax, &else_pattern, 0);
-	compile(endifsyntax, &endif_pattern, 0);
+	compile(elsesyntax, &else_pattern, &else_patextra);
+	compile(endifsyntax, &endif_pattern, &endif_patextra);
 	compile(flagsetsyntax, &flagset_pattern, &flagset_patextra);
 	compile(panelsyntax, &panel_pattern, &panel_patextra);
-	compile(blanklinesyntax, &blankline_pattern, 0);
+	compile(blanklinesyntax, &blankline_pattern, &blankline_patextra);
 
 	if(!ok) return;
+
+	LogMsgFormat(LOGT::FILTERTRACE, wxT("ParseFilter: %u JITed"), jit_count);
 
 	const int ovecsize = 60;
 	int ovector[60];
@@ -358,7 +374,16 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 					LogMsgFormat(LOGT::FILTERERR, wxT("pcre_compile failed: %s (%d)\n%s"), wxstrstd(errptr).c_str(), erroffset, wxstrstd(userptnstr).c_str());
 					ok = false;
 				}
-				else ritem->extra = pcre_study(ritem->ptn, 0, &errptr);
+				else {
+					ritem->extra = pcre_study(ritem->ptn, PCRE_STUDY_JIT_COMPILE, &errptr);
+					if(currentlogflags & LOGT::FILTERTRACE) {
+						int jit = 0;
+#if PCRE_STUDY_JIT_COMPILE
+						pcre_fullinfo(ritem->ptn, ritem->extra, PCRE_INFO_JIT, &jit);
+#endif
+						LogMsgFormat(LOGT::FILTERTRACE, wxT("ParseFilter: pcre_compile and pcre_study success: JIT: %u\n%s"), jit_count, wxstrstd(userptnstr).c_str());
+					}
+				}
 				ritem->regexstr = std::move(userptnstr);
 
 				using tweetsrcfptr = tweet &(*)(tweet &);
