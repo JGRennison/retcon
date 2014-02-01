@@ -30,9 +30,11 @@
 #include "twitcurlext.h"
 #include "log.h"
 #include "cfg.h"
+#include "retcon.h"
+#include "raii.h"
+#include "hash.h"
 #include <wx/file.h>
 #include <wx/mstream.h>
-#include <wx/dcmemory.h>
 #include <openssl/sha.h>
 #include <algorithm>
 
@@ -92,17 +94,7 @@ void profileimgdlconn::DoRetry() {
 
 void profileimgdlconn::HandleFailure(long httpcode, CURLcode res) {
 	if(url == user->GetUser().profile_img_url) {
-		if(!(user->udc_flags & UDC::PROFILE_BITMAP_SET)) {	//generate a placeholder image
-			user->cached_profile_img.Create(48, 48, -1);
-			wxMemoryDC dc(user->cached_profile_img);
-			dc.SetBackground(wxBrush(wxColour(0, 0, 0, wxALPHA_TRANSPARENT)));
-			dc.Clear();
-			user->udc_flags|=UDC::PROFILE_BITMAP_SET;
-		}
-		user->udc_flags &= ~UDC::IMAGE_DL_IN_PROGRESS;
-		user->udc_flags &= ~UDC::HALF_PROFILE_BITMAP_SET;
-		user->udc_flags |= UDC::PROFILE_IMAGE_DL_FAILED;
-		user->CheckPendingTweets();
+		user->MakeProfileImageFailurePlaceholder();
 	}
 	cp.Standby(this);
 }
@@ -121,40 +113,88 @@ profileimgdlconn *profileimgdlconn::GetConn(const std::string &imgurl_, const st
 void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 	LogMsgFormat(LOGT::NETACT, wxT("Profile image downloaded: %s for user id %" wxLongLongFmtSpec "d (@%s), conn: %p"), wxstrstd(url).c_str(), user->id, wxstrstd(user->GetUser().screen_name).c_str(), this);
 
-	user->udc_flags &= ~UDC::IMAGE_DL_IN_PROGRESS;
-	user->udc_flags &= ~UDC::HALF_PROFILE_BITMAP_SET;
+	struct local {
+		static void clear_dl_flags(const std::shared_ptr<userdatacontainer> &user) {
+			user->udc_flags &= ~UDC::IMAGE_DL_IN_PROGRESS;
+			user->udc_flags &= ~UDC::HALF_PROFILE_BITMAP_SET;
+		};
+		static void bad_url_handler(const std::string &url, const std::shared_ptr<userdatacontainer> &user) {
+			TSLogMsgFormat(LOGT::OTHERERR, wxT("Profile image downloaded: %s for user id %" wxLongLongFmtSpec "d (@%s), does not match expected url of: %s. Maybe user updated profile during download?"),
+					wxstrstd(url).c_str(), user->id, wxstrstd(user->GetUser().screen_name).c_str(), wxstrstd(user->GetUser().profile_img_url).c_str());
 
-	if(url == user->GetUser().profile_img_url) {
+			//Try again:
+			user->ImgIsReady(UPDCF::DOWNLOADIMG);
+		}
+	};
+
+	//tidy up *this when function returns
+	raii tidy_up_this([&]() {
+		cp.Standby(this);
+	});
+
+	//URL changed, abort
+	if(url != user->GetUser().profile_img_url) {
+		local::clear_dl_flags(user);
+		local::bad_url_handler(url, user);
+		return;
+	}
+
+	struct profimg_job_data_struct {
+		std::string data;
 		wxString filename;
-		user->GetImageLocalFilename(filename);
-		wxFile file(filename, wxFile::write);
-		file.Write(data.data(), data.size());
-		wxMemoryInputStream memstream(data.data(), data.size());
+		wxImage img;
+		bool ok = true;
+		std::shared_ptr<userdatacontainer> user;
+		std::string url;
+		shb_iptr hash;
+	};
+	auto job_data = std::make_shared<profimg_job_data_struct>();
+	job_data->data = std::move(data);
+	user->GetImageLocalFilename(job_data->filename);
+	job_data->user = user;
+	job_data->url = std::move(url);
+
+	wxGetApp().EnqueueThreadJob([job_data]() {
+		std::shared_ptr<userdatacontainer> &user = job_data->user;
+		wxFile file(job_data->filename, wxFile::write);
+		file.Write(job_data->data.data(), job_data->data.size());
+		wxMemoryInputStream memstream(job_data->data.data(), job_data->data.size());
 
 		wxImage img(memstream);
 		if(!img.IsOk()) {
-			LogMsgFormat(LOGT::OTHERERR, wxT("Profile image downloaded: %s for user id %" wxLongLongFmtSpec "d (@%s), is not OK, possible partial download?"), wxstrstd(url).c_str(), user->id, wxstrstd(user->GetUser().screen_name).c_str());
+			TSLogMsgFormat(LOGT::OTHERERR, wxT("Profile image downloaded: %s for user id %" wxLongLongFmtSpec "d (@%s), is not OK, possible partial download?"),
+					wxstrstd(job_data->url).c_str(), user->id, wxstrstd(user->GetUser().screen_name).c_str());
+			job_data->ok = false;
 		}
 		else {
-			user->SetProfileBitmapFromwxImage(img);
-
-			user->cached_profile_img_url=url;
+			job_data->img = userdatacontainer::ScaleImageToProfileSize(img);
 			std::shared_ptr<sha1_hash_block> hash = std::make_shared<sha1_hash_block>();
-			SHA1((const unsigned char *) data.data(), (unsigned long) data.size(), hash->hash_sha1);
-			user->cached_profile_img_sha1 = std::move(hash);
-			user->lastupdate_wrotetodb=0;		//force user to be written out to database
-			dbc.InsertUser(user);
-			data.clear();
-			user->CheckPendingTweets();
-			UpdateUsersTweet(user->id, true);
-			if(user->udc_flags & UDC::WINDOWOPEN) user_window::CheckRefresh(user->id, true);
+			SHA1((const unsigned char *) job_data->data.data(), (unsigned long) job_data->data.size(), hash->hash_sha1);
+			job_data->hash = std::move(hash);
 		}
-	}
-	else {
-		LogMsgFormat(LOGT::OTHERERR, wxT("Profile image downloaded: %s for user id %" wxLongLongFmtSpec "d (@%s), does not match expected url of: %s. Maybe user updated profile during download?"), wxstrstd(url).c_str(), user->id, wxstrstd(user->GetUser().screen_name).c_str(), wxstrstd(user->GetUser().profile_img_url).c_str());
-	}
+	},
+	[job_data]() {
+		std::shared_ptr<userdatacontainer> &user = job_data->user;
+		local::clear_dl_flags(user);
+		if(!job_data->ok) {
+			user->MakeProfileImageFailurePlaceholder();
+		}
+		else if(job_data->url != user->GetUser().profile_img_url) {
+			//Doesn't seem likely, but check again that URL hasn't changed
+			local::bad_url_handler(job_data->url, user);
+		}
+		else {
+			//Must do the bitmap stuff in the main thread, wxBitmaps are not thread safe at all
+			user->SetProfileBitmap(wxBitmap(job_data->img));
 
-	cp.Standby(this);
+			user->cached_profile_img_url = job_data->url;
+			user->cached_profile_img_sha1 = std::move(job_data->hash);
+			user->lastupdate_wrotetodb = 0;    //force user to be written out to database
+
+			dbc.InsertUser(user);
+			user->NotifyProfileImageChange();
+		}
+	});
 }
 
 wxString profileimgdlconn::GetConnTypeName() {

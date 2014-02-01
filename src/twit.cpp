@@ -50,6 +50,7 @@
 #include <pcre.h>
 #include <wx/msgdlg.h>
 #include <wx/stdpaths.h>
+#include <wx/dcmemory.h>
 #include <algorithm>
 
 //Do not assume that *acc is non-null
@@ -144,23 +145,52 @@ bool userdatacontainer::ImgIsReady(flagwrapper<UPDCF> updcf_flags) {
 			return false;
 		}
 		else if(cached_profile_img_url.size() && !(udc_flags & UDC::PROFILE_BITMAP_SET))  {
-			wxImage img;
-			wxString filename;
-			GetImageLocalFilename(filename);
-			bool success=LoadImageFromFileAndCheckHash(filename, cached_profile_img_sha1, img);
-			if(success) {
-				SetProfileBitmapFromwxImage(img);
-				return true;
-			}
-			else {
-				LogMsgFormat(LOGT::OTHERERR, wxT("userdatacontainer::ImgIsReady, cached profile image file for user id: %" wxLongLongFmtSpec "d (%s), file: %s, url: %s, missing, invalid or failed hash check"),
-					id, wxstrstd(GetUser().screen_name).c_str(), filename.c_str(), wxstrstd(cached_profile_img_url).c_str());
-				cached_profile_img_url.clear();
-				if(updcf_flags&UPDCF::DOWNLOADIMG) {					//the saved image is not loadable, clear cache and re-download
-					profileimgdlconn::GetConn(user.profile_img_url, shared_from_this());
+			struct job_data {
+				wxImage img;
+				wxString filename;
+				std::string url;
+				std::shared_ptr<userdatacontainer> u;
+				bool success;
+			};
+			auto data = std::make_shared<job_data>();
+			GetImageLocalFilename(data->filename);
+			data->url = cached_profile_img_url;
+			data->u = this->shared_from_this();
+
+			udc_flags |= UDC::IMAGE_DL_IN_PROGRESS;
+			wxGetApp().EnqueueThreadJob([data]() {
+				wxImage img;
+				//Checking data->u->cached_profile_img_sha1 without locks is OK, as it guaranteed to remain const whilst UDC::IMAGE_DL_IN_PROGRESS remains set
+				data->success = LoadImageFromFileAndCheckHash(data->filename, data->u->cached_profile_img_sha1, img);
+				if(data->success) data->img = userdatacontainer::ScaleImageToProfileSize(img);
+			},
+			[data, updcf_flags]() {
+				std::shared_ptr<userdatacontainer> &u = data->u;
+
+				u->udc_flags &= ~UDC::IMAGE_DL_IN_PROGRESS;
+
+				if(data->url != u->cached_profile_img_url) {
+					LogMsgFormat(LOGT::OTHERERR, wxT("Profile image read from file, which did correspond to url: %s for user id %" wxLongLongFmtSpec "d (@%s), does not match current url of: %s. Maybe user updated profile during read?"),
+							wxstrstd(data->url).c_str(), u->id, wxstrstd(u->GetUser().screen_name).c_str(), wxstrstd(u->GetUser().profile_img_url).c_str());
+					//Try again:
+					u->ImgIsReady(updcf_flags);
+					return;
 				}
-				return false;
-			}
+
+				if(data->success) {
+					u->SetProfileBitmap(wxBitmap(data->img));
+					u->NotifyProfileImageChange();
+				}
+				else {
+					LogMsgFormat(LOGT::OTHERERR, wxT("userdatacontainer::ImgIsReady, cached profile image file for user id: %" wxLongLongFmtSpec "d (%s), file: %s, url: %s, missing, invalid or failed hash check"),
+						u->id, wxstrstd(u->GetUser().screen_name).c_str(), data->filename.c_str(), wxstrstd(u->cached_profile_img_url).c_str());
+					u->cached_profile_img_url.clear();
+					if(updcf_flags & UPDCF::DOWNLOADIMG) {    //the saved image is not loadable, clear cache and re-download
+						profileimgdlconn::GetConn(u->GetUser().profile_img_url, u);
+					}
+				}
+			});
+			return false;
 		}
 		else {
 			return true;
@@ -172,8 +202,8 @@ bool userdatacontainer::ImgIsReady(flagwrapper<UPDCF> updcf_flags) {
 bool userdatacontainer::ImgHalfIsReady(flagwrapper<UPDCF> updcf_flags) {
 	bool res=ImgIsReady(updcf_flags);
 	if(res && !(udc_flags & UDC::HALF_PROFILE_BITMAP_SET)) {
-		wxImage img=cached_profile_img.ConvertToImage();
-		cached_profile_img_half=MkProfileBitmapFromwxImage(img, 0.5);
+		wxImage img = cached_profile_img.ConvertToImage();
+		cached_profile_img_half = wxBitmap(ScaleImageToProfileSize(img, 0.5));
 		udc_flags|=UDC::HALF_PROFILE_BITMAP_SET;
 	}
 	return res;
@@ -430,20 +460,20 @@ std::string userdatacontainer::mkjson() const {
 	return json;
 }
 
-wxBitmap userdatacontainer::MkProfileBitmapFromwxImage(const wxImage &img, double limitscalefactor) {
+wxImage userdatacontainer::ScaleImageToProfileSize(const wxImage &img, double limitscalefactor) {
 	int maxdim=(gc.maxpanelprofimgsize*limitscalefactor);
 	if(img.GetHeight()>maxdim || img.GetWidth()>maxdim) {
 		double scalefactor=(double) maxdim / (double) std::max(img.GetHeight(), img.GetWidth());
 		int newwidth = (double) img.GetWidth() * scalefactor;
 		int newheight = (double) img.GetHeight() * scalefactor;
-		return wxBitmap(img.Scale(std::lround(newwidth), std::lround(newheight), wxIMAGE_QUALITY_HIGH));
+		return img.Scale(std::lround(newwidth), std::lround(newheight), wxIMAGE_QUALITY_HIGH);
 	}
-	else return wxBitmap(img);
+	else return img;
 }
 
-void userdatacontainer::SetProfileBitmapFromwxImage(const wxImage &img) {
-	cached_profile_img=MkProfileBitmapFromwxImage(img, 1.0);
-	udc_flags|=UDC::PROFILE_BITMAP_SET;
+void userdatacontainer::SetProfileBitmap(const wxBitmap &bmp) {
+	cached_profile_img = bmp;
+	udc_flags |= UDC::PROFILE_BITMAP_SET;
 }
 
 bool userdatacontainer::GetUsableAccount(std::shared_ptr<taccount> &tac, bool enabledonly) const {
@@ -938,6 +968,26 @@ std::string tweet::GetPermalink() const {
 std::string userdatacontainer::GetPermalink(bool ssl) const {
 	if(!GetUser().screen_name.size()) return "";
 	return "http" + std::string(ssl?"s":"") + "://twitter.com/" + GetUser().screen_name;
+}
+
+void userdatacontainer::NotifyProfileImageChange() {
+	CheckPendingTweets();
+	UpdateUsersTweet(id, true);
+	if(udc_flags & UDC::WINDOWOPEN) user_window::CheckRefresh(id, true);
+}
+
+void userdatacontainer::MakeProfileImageFailurePlaceholder() {
+	if(!(udc_flags & UDC::PROFILE_BITMAP_SET)) {	//generate a placeholder image
+		cached_profile_img.Create(48, 48, -1);
+		wxMemoryDC dc(cached_profile_img);
+		dc.SetBackground(wxBrush(wxColour(0, 0, 0, wxALPHA_TRANSPARENT)));
+		dc.Clear();
+		udc_flags |= UDC::PROFILE_BITMAP_SET;
+	}
+	udc_flags &= ~UDC::IMAGE_DL_IN_PROGRESS;
+	udc_flags &= ~UDC::HALF_PROFILE_BITMAP_SET;
+	udc_flags |= UDC::PROFILE_IMAGE_DL_FAILED;
+	CheckPendingTweets();
 }
 
 bool tweet::IsFavouritable() const {

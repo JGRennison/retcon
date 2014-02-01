@@ -144,13 +144,15 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	inline const userdata &GetUser() const { return user; }
 	void MarkUpdated();
 	std::string mkjson() const;
-	wxBitmap MkProfileBitmapFromwxImage(const wxImage &img, double limitscalefactor);
-	void SetProfileBitmapFromwxImage(const wxImage &img);
+	static wxImage ScaleImageToProfileSize(const wxImage &img, double limitscalefactor = 1.0);
+	void SetProfileBitmap(const wxBitmap &bmp);
 	void Dump() const;
 	bool ImgIsReady(flagwrapper<UPDCF> updcf_flags);
 	bool ImgHalfIsReady(flagwrapper<UPDCF> updcf_flags);
 	bool GetUsableAccount(std::shared_ptr<taccount> &tac, bool enabledonly = true) const;
 	std::string GetPermalink(bool ssl) const;
+	void NotifyProfileImageChange();
+	void MakeProfileImageFailurePlaceholder();
 };
 
 class tweet_perspective {
