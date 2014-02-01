@@ -1458,6 +1458,9 @@ void dbconn::SyncReadInAllMediaEntities(sqlite3 *adb) {
 		else break;
 	} while(true);
 	sqlite3_finalize(stmt);
+
+	dbc_flags |= DBCF::ALL_MEDIA_ENTITIES_LOADED;
+
 	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncReadInAllMediaEntities end"));
 }
 

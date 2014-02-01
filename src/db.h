@@ -289,10 +289,11 @@ struct dbconn : public wxEvtHandler {
 
 	public:
 	enum class DBCF {
-		INITED                = 1<<0,
-		BATCHEVTPENDING       = 1<<1,
-		REPLY_CLEARNOUPDF     = 1<<2,
-		REPLY_CHECKPENDINGS   = 1<<3,
+		INITED                      = 1<<0,
+		BATCHEVTPENDING             = 1<<1,
+		REPLY_CLEARNOUPDF           = 1<<2,
+		REPLY_CHECKPENDINGS         = 1<<3,
+		ALL_MEDIA_ENTITIES_LOADED   = 1<<4,
 	};
 
 	flagwrapper<DBCF> dbc_flags = 0;

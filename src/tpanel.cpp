@@ -1448,7 +1448,7 @@ void tpanelparentwin::LoadMore(unsigned int n, uint64_t lessthanid, uint64_t gre
 		loadmsg->targ=&dbc;
 		loadmsg->cmdevtype=wxextDBCONN_NOTIFY;
 		loadmsg->winid=wxDBCONNEVT_ID_TPANELTWEETLOAD;
-		if(!gc.persistentmediacache) loadmsg->flags|=DBSTMF::PULLMEDIA;
+		if(!(dbc.dbc_flags & dbconn::DBCF::ALL_MEDIA_ENTITIES_LOADED)) loadmsg->flags |= DBSTMF::PULLMEDIA;
 		dbc.SendMessage(loadmsg);
 	}
 	if(currentlogflags&LOGT::PENDTRACE) dump_tweet_pendings(LOGT::PENDTRACE, wxT(""), wxT("\t"));
