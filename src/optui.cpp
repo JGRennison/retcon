@@ -344,6 +344,7 @@ enum {
 	OPTWIN_TWITTER,
 	OPTWIN_SAVING,
 	OPTWIN_FILTER,
+	OPTWIN_MISC,
 
 	OPTWIN_LAST,
 };
@@ -458,6 +459,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	addbtn(OPTWIN_TWITTER, wxT("Twitter"));
 	addbtn(OPTWIN_SAVING, wxT("Saving"));
 	addbtn(OPTWIN_FILTER, wxT("Filter"));
+	addbtn(OPTWIN_MISC, wxT("Misc"));
 
 	wxBoxSizer *hboxfooter = new wxBoxSizer(wxHORIZONTAL);
 	wxButton *okbtn=new wxButton(panel, wxID_OK, wxT("OK"));
@@ -524,6 +526,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	FilterTextValidator filterval(ad.incoming_filter, &gc.gcfg.incoming_filter.val);
 	AddSettingRow_String(OPTWIN_FILTER, panel, fgs,  wxT("Incoming Tweet Filter\nRead Documentation Before Use"), DBCV::ISGLOBALCFG | DBCV::MULTILINE | DBCV::ADVOPTION, gc.gcfg.incoming_filter, gcglobdefaults.incoming_filter, 0, &filterval);
 
+	AddSettingRow_String(OPTWIN_MISC, panel, fgs, wxT("Thread pool limit, 0 to disable\nDo not set this too high\nRestart retcon for this to take effect"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.threadpoollimit, gcglobdefaults.threadpoollimit, wxFILTER_NUMERIC);
 
 	wxFlexGridSizer *proxyfgs = 0;
 	addfgsizerblock(wxT("Proxy Settings"), proxyfgs);

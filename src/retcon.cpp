@@ -78,7 +78,7 @@ bool retcon::OnInit() {
 	if(!res) return false;
 	rs.add([&]() { dbc.DeInit(); });
 	if(terms_requested) return false;
-	pool.reset(new ThreadPool::Pool(0));
+	pool.reset(new ThreadPool::Pool(gc.threadpoollimit));
 
 	InitGlobalFilters();
 
