@@ -66,10 +66,10 @@ void HandleNewTweet(const std::shared_ptr<tweet> &t, const std::shared_ptr<tacco
 	}
 }
 
-wxString media_entity::cached_full_filename() const {
+wxString media_entity::cached_full_filename(media_id_type media_id) {
 	return wxString::Format(wxT("%s%s%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), wxstrstd(wxGetApp().datadir).c_str(), wxT("/media_"), media_id.m_id, media_id.t_id);
 }
-wxString media_entity::cached_thumb_filename() const {
+wxString media_entity::cached_thumb_filename(media_id_type media_id) {
 	return wxString::Format(wxT("%s%s%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), wxstrstd(wxGetApp().datadir).c_str(), wxT("/mediathumb_"), media_id.m_id, media_id.t_id);
 }
 

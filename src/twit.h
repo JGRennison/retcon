@@ -367,8 +367,10 @@ struct media_entity {
 
 	flagwrapper<MEF> flags = 0;
 
-	wxString cached_full_filename() const;
-	wxString cached_thumb_filename() const;
+	static wxString cached_full_filename(media_id_type media_id);
+	static wxString cached_thumb_filename(media_id_type media_id);
+	wxString cached_full_filename() const { return cached_full_filename(media_id); }
+	wxString cached_thumb_filename() const { return cached_thumb_filename(media_id); }
 
 	std::function<void(media_entity *, flagwrapper<MELF>)> check_load_thumb_func;
 

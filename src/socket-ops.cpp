@@ -249,78 +249,112 @@ void mediaimgdlconn::Reset() {
 }
 
 void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
+	LogMsgFormat(LOGT::NETACT, wxT("Media image downloaded: %s, id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, flags: %X, conn: %p"),
+			wxstrstd(url).c_str(), media_id.m_id, media_id.t_id, flags, this);
 
-	LogMsgFormat(LOGT::NETACT, wxT("Media image downloaded: %s, id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, flags: %X, conn: %p"), wxstrstd(url).c_str(), media_id.m_id, media_id.t_id, flags, this);
+	struct midc_job_data {
+		wxImage thumb;
+		std::string fulldata;
+		media_id_type media_id;
+		shb_iptr full_hash;
+		shb_iptr thumb_hash;
+		MIDC flags;
+		std::string url;
+		bool thumbok = false;
+	};
+	auto job_data = std::make_shared<midc_job_data>();
+	job_data->fulldata = std::move(data);
+	job_data->media_id = media_id;
+	job_data->flags = flags;
+	job_data->url = std::move(url);
 
-	auto it=ad.media_list.find(media_id);
-	if(it!=ad.media_list.end()) {
-		media_entity &me=it->second;
+	wxGetApp().EnqueueThreadJob([job_data]() {
+		MIDC &flags = job_data->flags;
 
-		if(flags&MIDC::OPPORTUNIST_THUMB && !(flags&MIDC::THUMBIMG)) {
-			flags|=MIDC::THUMBIMG;
-			if(flags&MIDC::OPPORTUNIST_REDRAW_TWEETS) flags|=MIDC::REDRAW_TWEETS;
+		if(flags & MIDC::OPPORTUNIST_THUMB && !(flags & MIDC::THUMBIMG)) {
+			flags |= MIDC::THUMBIMG;
+			if(flags & MIDC::OPPORTUNIST_REDRAW_TWEETS) flags |= MIDC::REDRAW_TWEETS;
 		}
 
-		if(flags&MIDC::THUMBIMG) {
-			wxMemoryInputStream memstream(data.data(), data.size());
+		if(flags & MIDC::THUMBIMG) {
+			wxMemoryInputStream memstream(job_data->fulldata.data(), job_data->fulldata.size());
 			wxImage img(memstream);
-			if(img.IsOk()) {
-				const int maxdim=64;
-				if(img.GetHeight()>maxdim || img.GetWidth()>maxdim) {
+			job_data->thumbok = img.IsOk();
+			if(job_data->thumbok) {
+				const int maxdim = 64;
+				if(img.GetHeight() > maxdim || img.GetWidth() > maxdim) {
 					double scalefactor=(double) maxdim / (double) std::max(img.GetHeight(), img.GetWidth());
 					int newwidth = (double) img.GetWidth() * scalefactor;
 					int newheight = (double) img.GetHeight() * scalefactor;
-					me.thumbimg=img.Scale(std::lround(newwidth), std::lround(newheight), wxIMAGE_QUALITY_HIGH);
+					job_data->thumb = img.Scale(std::lround(newwidth), std::lround(newheight), wxIMAGE_QUALITY_HIGH);
 				}
-				else me.thumbimg=img;
-				me.flags |= MEF::HAVE_THUMB;
+				else job_data->thumb = img;
 				if(gc.cachethumbs) {
 					wxMemoryOutputStream memstr;
-					me.thumbimg.SaveFile(memstr, wxBITMAP_TYPE_PNG);
-					const unsigned char *data=(const unsigned char *) memstr.GetOutputStreamBuffer()->GetBufferStart();
-					size_t size=memstr.GetSize();
-					wxFile file(me.cached_thumb_filename(), wxFile::write);
+					job_data->thumb.SaveFile(memstr, wxBITMAP_TYPE_PNG);
+					const unsigned char *data = (const unsigned char *) memstr.GetOutputStreamBuffer()->GetBufferStart();
+					size_t size = memstr.GetSize();
+					wxFile file(media_entity::cached_thumb_filename(job_data->media_id), wxFile::write);
 					file.Write(data, size);
 
 					std::shared_ptr<sha1_hash_block> hash = std::make_shared<sha1_hash_block>();
 					SHA1(data, size, hash->hash_sha1);
-					me.thumb_img_sha1 = std::move(hash);
-
-					dbc.UpdateMediaChecksum(me, false);
+					job_data->thumb_hash = std::move(hash);
 				}
 			}
-			else {
-				LogMsgFormat(LOGT::OTHERERR, wxT("Media image downloaded: %s, id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, flags: %X, conn: %p, is not OK, possible partial download?"), wxstrstd(url).c_str(), media_id.m_id, media_id.t_id, flags, this);
-				me.flags |= MEF::THUMB_FAILED;
-			}
-			me.flags &= ~MEF::THUMB_NET_INPROGRESS;
 		}
 
-		if(flags&MIDC::FULLIMG) {
-			me.fulldata=std::move(data);
-			me.flags |= MEF::HAVE_FULL;
-			me.flags &= ~MEF::FULL_NET_INPROGRESS;
-			if(me.win) me.win->UpdateImage();
+		if(flags & MIDC::FULLIMG) {
 			if(gc.cachemedia) {
-				wxFile file(me.cached_full_filename(), wxFile::write);
-				file.Write(me.fulldata.data(), me.fulldata.size());
-
+				wxFile file(media_entity::cached_full_filename(job_data->media_id), wxFile::write);
+				file.Write(job_data->fulldata.data(), job_data->fulldata.size());
 				std::shared_ptr<sha1_hash_block> hash = std::make_shared<sha1_hash_block>();
-				SHA1((const unsigned char *) me.fulldata.data(), (unsigned long) me.fulldata.size(), hash->hash_sha1);
-				me.full_img_sha1 = std::move(hash);
-
-				dbc.UpdateMediaChecksum(me, true);
+				SHA1((const unsigned char *) job_data->fulldata.data(), (unsigned long) job_data->fulldata.size(), hash->hash_sha1);
+				job_data->full_hash = std::move(hash);
 			}
 		}
+	},
+	[job_data]() {
+		MIDC &flags = job_data->flags;
+		auto it = ad.media_list.find(job_data->media_id);
+		if(it != ad.media_list.end()) {
+			media_entity &me = it->second;
 
-		if(flags & MIDC::REDRAW_TWEETS) {
-			for(auto &it : me.tweet_list) {
-				UpdateTweet(*it);
+			if(flags & MIDC::THUMBIMG) {
+				if(job_data->thumbok) {
+					me.thumbimg = job_data->thumb;
+					me.flags |= MEF::HAVE_THUMB;
+					if(job_data->thumb_hash) {
+						me.thumb_img_sha1 = job_data->thumb_hash;
+						dbc.UpdateMediaChecksum(me, false);
+					}
+				}
+				else {
+					LogMsgFormat(LOGT::OTHERERR, wxT("Media image downloaded: %s, id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, flags: %X, is not OK, possible partial download?"),
+							wxstrstd(job_data->url).c_str(), job_data->media_id.m_id, job_data->media_id.t_id, flags);
+					me.flags |= MEF::THUMB_FAILED;
+				}
+				me.flags &= ~MEF::THUMB_NET_INPROGRESS;
+			}
+
+			if(flags & MIDC::FULLIMG) {
+				me.flags |= MEF::HAVE_FULL;
+				me.flags &= ~MEF::FULL_NET_INPROGRESS;
+				me.fulldata = std::move(job_data->fulldata);
+				if(job_data->full_hash) {
+					me.full_img_sha1 = job_data->full_hash;
+					dbc.UpdateMediaChecksum(me, true);
+				}
+				if(me.win) me.win->UpdateImage();
+			}
+
+			if(flags & MIDC::REDRAW_TWEETS) {
+				for(auto &it : me.tweet_list) {
+					UpdateTweet(*it);
+				}
 			}
 		}
-	}
-
-	data.clear();
+	});
 
 	delete this;
 }
