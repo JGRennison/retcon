@@ -29,6 +29,7 @@
 #include "mainui.h"
 #include "log.h"
 #include "optui.h"
+#include "raii.h"
 #include <wx/timer.h>
 #include <wx/dialog.h>
 #include <wx/clipbrd.h>
@@ -370,7 +371,33 @@ void taccount::PostAccVerifyInit() {
 	Exec();
 }
 
+wxString taccount::DumpStateString() const {
+	return wxString::Format(wxT("enabled: %d, userenabled: %d, init: %d, active: %d, streaming_on: %d, stream_fail_count: %u, rest_on: %d, ")
+			wxT("verifycredstatus: %d, beinginsertedintodb: %d, last_rest_backfill: %u, ssl: %d, userstreams: %d"),
+			enabled, userenabled, init, active, streaming_on, stream_fail_count, rest_on,
+			verifycredstatus, beinginsertedintodb, last_rest_backfill, ssl, userstreams);
+}
+
+void taccount::LogStateChange(const wxString &tag, raii_set *finaliser) {
+	LogMsgFormat(LOGT::OTHERTRACE, wxT("%s (account: %s). State:            %s"), tag.c_str(), dispname.c_str(), DumpStateString().c_str());
+	if((currentlogflags & LOGT::OTHERTRACE) && finaliser) {
+		auto state = [this]() {
+			return std::make_tuple(enabled, userenabled, init, active, streaming_on, stream_fail_count, rest_on,
+			verifycredstatus, beinginsertedintodb, last_rest_backfill, ssl, userstreams);
+		};
+		auto oldstate = state();
+		finaliser->add([=]() {
+			if(oldstate != state()) {
+				LogMsgFormat(LOGT::OTHERTRACE, wxT("%s (account: %s). State changed to: %s"), tag.c_str(), dispname.c_str(), DumpStateString().c_str());
+			}
+		});
+	}
+}
+
 void taccount::Exec() {
+	raii_set finalisers;
+	LogStateChange(wxT("taccount::Exec"), &finalisers);
+
 	if(init) {
 		if(verifycredstatus!=ACT_DONE) {
 			streaming_on=false;
@@ -436,6 +463,9 @@ twitcurlext *taccount::PrepareNewStreamConn() {
 }
 
 void taccount::CalcEnabled() {
+	raii_set finalisers;
+	LogStateChange(wxT("taccount::CalcEnabled"), &finalisers);
+
 	bool oldenabled=enabled;
 	bool oldinit=init;
 	if(userenabled && !beinginsertedintodb) {

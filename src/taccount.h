@@ -42,6 +42,7 @@ struct twitcurlext;
 struct userdatacontainer;
 struct restbackfillstate;
 struct tweet;
+class raii_set;
 
 class wxTimer;
 class wxTimerEvent;
@@ -161,6 +162,9 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	void NoAccPendingContentEvent();
 	void NoAccPendingContentCheck();
 	wxTimer *noacc_pending_content_timer;
+
+	wxString DumpStateString() const;
+	void LogStateChange(const wxString &tag, raii_set *finaliser = 0);
 
 	DECLARE_EVENT_TABLE()
 };
