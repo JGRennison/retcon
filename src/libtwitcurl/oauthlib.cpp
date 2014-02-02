@@ -2,6 +2,7 @@
 #include "HMAC_SHA1.h"
 #include "base64.h"
 #include "urlencode.h"
+#include <string.h>
 
 /*++
 * @method: oAuth::oAuth

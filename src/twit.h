@@ -397,7 +397,9 @@ inline bool IsUserMentioned(const std::string &str, const std::shared_ptr<userda
 }
 
 #ifdef __WINDOWS__
+#ifndef gmtime_r
 	struct tm *gmtime_r (const time_t *timer, struct tm *result);
+#endif
 #endif
 
 enum class PENDING : unsigned int;

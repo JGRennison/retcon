@@ -1013,6 +1013,7 @@ bool tweet::IsArrivedHereAnyPerspective() const {
 }
 
 #ifdef __WINDOWS__
+#ifndef gmtime_r
 struct tm *gmtime_r (const time_t *timer, struct tm *result) {
 	struct tm *local_result;
 	local_result = gmtime(timer);
@@ -1022,6 +1023,7 @@ struct tm *gmtime_r (const time_t *timer, struct tm *result) {
 	memcpy (result, local_result, sizeof (struct tm));
 	return result;
 }
+#endif
 #endif
 
 //wxDateTime performs some braindead timezone adjustments and so is unusable
