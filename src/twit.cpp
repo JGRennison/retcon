@@ -150,12 +150,14 @@ bool userdatacontainer::ImgIsReady(flagwrapper<UPDCF> updcf_flags) {
 				wxString filename;
 				std::string url;
 				std::shared_ptr<userdatacontainer> u;
+				shb_iptr hash;
 				bool success;
 			};
 			auto data = std::make_shared<job_data>();
 			GetImageLocalFilename(data->filename);
 			data->url = cached_profile_img_url;
 			data->u = this->shared_from_this();
+			data->hash = cached_profile_img_sha1;
 
 			LogMsgFormat(LOGT::FILEIOTRACE, wxT("userdatacontainer::ImgIsReady, about to load cached profile image for user id: %" wxLongLongFmtSpec "d (%s), file: %s, url: %s"),
 					id, wxstrstd(GetUser().screen_name).c_str(), data->filename.c_str(), wxstrstd(cached_profile_img_url).c_str());
@@ -163,8 +165,7 @@ bool userdatacontainer::ImgIsReady(flagwrapper<UPDCF> updcf_flags) {
 			udc_flags |= UDC::IMAGE_DL_IN_PROGRESS;
 			wxGetApp().EnqueueThreadJob([this, data]() {
 				wxImage img;
-				//Checking data->u->cached_profile_img_sha1 without locks is OK, as it guaranteed to remain const whilst UDC::IMAGE_DL_IN_PROGRESS remains set
-				data->success = LoadImageFromFileAndCheckHash(data->filename, data->u->cached_profile_img_sha1, img);
+				data->success = LoadImageFromFileAndCheckHash(data->filename, data->hash, img);
 				if(data->success) data->img = userdatacontainer::ScaleImageToProfileSize(img);
 			},
 			[data, updcf_flags]() {
