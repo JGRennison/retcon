@@ -161,7 +161,7 @@ bool userdatacontainer::ImgIsReady(flagwrapper<UPDCF> updcf_flags) {
 					id, wxstrstd(GetUser().screen_name).c_str(), data->filename.c_str(), wxstrstd(cached_profile_img_url).c_str());
 
 			udc_flags |= UDC::IMAGE_DL_IN_PROGRESS;
-			wxGetApp().EnqueueThreadJob([data]() {
+			wxGetApp().EnqueueThreadJob([this, data]() {
 				wxImage img;
 				//Checking data->u->cached_profile_img_sha1 without locks is OK, as it guaranteed to remain const whilst UDC::IMAGE_DL_IN_PROGRESS remains set
 				data->success = LoadImageFromFileAndCheckHash(data->filename, data->u->cached_profile_img_sha1, img);
