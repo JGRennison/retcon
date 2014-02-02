@@ -103,6 +103,7 @@ bool retcon::OnInit() {
 
 	mainframelist[0]->Show(true);
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
+		(*it)->Setup();
 		(*it)->CalcEnabled();
 		(*it)->Exec();
 	}

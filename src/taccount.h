@@ -166,6 +166,13 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	wxString DumpStateString() const;
 	void LogStateChange(const wxString &tag, raii_set *finaliser = 0);
 
+	//After structure filled in, but before it's actually used for anything
+	//Can check values in here
+	void Setup();
+
+	//Set dispname from usercont
+	void SetName();
+
 	DECLARE_EVENT_TABLE()
 };
 template<> struct enum_traits<taccount::TAF> { static constexpr bool flags = true; };

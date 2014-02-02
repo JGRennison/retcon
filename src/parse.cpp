@@ -484,8 +484,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 
 			tac->usercont=auser;
 			tac->usercont->udc_flags|=UDC::THIS_IS_ACC_USER_HINT;
-			if(tac->usercont->GetUser().name.size()) tac->dispname=wxstrstd(tac->usercont->GetUser().name);
-			else tac->dispname=wxstrstd(tac->usercont->GetUser().screen_name);
+			tac->SetName();
 			tac->PostAccVerifyInit();
 			break;
 		}

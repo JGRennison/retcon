@@ -70,6 +70,29 @@ taccount::~taccount() {
 	DeleteRestBackfillTimer();
 }
 
+void taccount::Setup() {
+	if(dispname.Trim(false).Trim(true).IsEmpty()) {
+		SetName();
+		LogMsgFormat(LOGT::OTHERTRACE, wxT("taccount::Setup: dispname is missing for account: %s, setting to new value: %s"), name.c_str(), dispname.c_str());
+	}
+}
+
+void taccount::SetName() {
+	auto checkstr = [&](wxString str) -> bool {
+		str.Trim(false).Trim(true);
+		if(str.IsEmpty()) return false;
+
+		dispname = str;
+		return true;
+	};
+
+	//NB: short-circuit logic
+	checkstr(wxstrstd(usercont->GetUser().name))
+		|| checkstr(wxstrstd(usercont->GetUser().screen_name))
+		|| checkstr(dispname)
+		|| checkstr(wxString::Format(wxT("Account with user ID: %" wxLongLongFmtSpec "d"), usercont->id));
+}
+
 void taccount::ClearUsersIFollow() {
 	using URF = user_relationship::URF;
 	for(auto it=user_relations.begin(); it!=user_relations.end(); ++it) {
