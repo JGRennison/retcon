@@ -89,6 +89,7 @@ static const char *startup_sql=
 "CREATE TABLE IF NOT EXISTS tpanelwinautos(tpw INTEGER, accid INTEGER, autoflags INTEGER);"
 "CREATE TABLE IF NOT EXISTS mainframewins(mainframeindex INTEGER, x INTEGER, y INTEGER, w INTEGER, h INTEGER, maximised INTEGER);"
 "CREATE TABLE IF NOT EXISTS tpanels(name TEXT, dispname TEXT, flags INTEGER, ids BLOB);"
+"UPDATE OR IGNORE settings SET accid = 'G' WHERE (hex(accid) == '4700');"  //This is because previous versions of retcon accidentally inserted an embedded null when writing out the config
 "INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', 'dirtyflag', strftime('%s','now'));";
 
 static const char *sql[DBPSC_NUM_STATEMENTS]={
@@ -1680,7 +1681,7 @@ void dbsendmsg_callback::SendReply(void *data, dbiothread *th) {
 	th->reply_list.emplace_back(targ, std::unique_ptr<wxEvent>(evt));
 }
 
-static const char globstr[] = "G";
+static const std::string globstr = "G";
 
 void DBGenConfig::SetDBIndexGlobal() {
 	dbindex_global=true;
@@ -1691,7 +1692,7 @@ void DBGenConfig::SetDBIndex(unsigned int id) {
 	dbindex=id;
 }
 void DBGenConfig::bind_accid_name(sqlite3_stmt *stmt, const char *name) {
-	if(dbindex_global) sqlite3_bind_text(stmt, 1, globstr, sizeof(globstr), SQLITE_STATIC);
+	if(dbindex_global) sqlite3_bind_text(stmt, 1, globstr.c_str(), globstr.size(), SQLITE_STATIC);
 	else sqlite3_bind_int(stmt, 1, dbindex);
 	sqlite3_bind_text(stmt, 2, name, -1, SQLITE_TRANSIENT);
 }
