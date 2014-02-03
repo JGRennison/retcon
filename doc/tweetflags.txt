@@ -1,17 +1,19 @@
 Tweet Flags:
-D	Is a DM
-T	Is a Tweet
+h*	Is hidden
+p*	Hide image preview
+r*	Has been read
 s	Was retrieved over SSL
-S	Is a sent DM
+u*	Is unread
+B	Backed up to database
+D	Is a DM
+H*	Is highlighted
 I	Media/image attached to tweet
 M	Tweet is a mention
-R	Is a retweet
-X	Deleted
-r	Has been read
-u	Is unread
-B	Backed up to database
-H	Is highlighted
-p	Hide image preview
-h	Is hidden
-P	Tweet marked as "possibly sensitive"
 O	Is a tweet from an own account
+P	Tweet marked as "possibly sensitive"
+R	Is a retweet
+S	Is a sent DM
+T	Is a Tweet
+X	Deleted
+
+* These flags can be manually set, see filters.txt
