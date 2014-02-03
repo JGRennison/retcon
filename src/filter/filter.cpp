@@ -141,10 +141,9 @@ struct filter_item_cond_regex : public filter_item_cond {
 	pcre *ptn = 0;
 	pcre_extra *extra = 0;
 	std::string regexstr;
-	std::function<std::string(tweet &, filter_run_state &)> getstr;
-	bool test(tweet &tw, filter_run_state &frs) override {
-		std::string str = getstr(tw, frs);
+	std::function<void(std::vector<std::string> &, tweet &, filter_run_state &)> getstr;
 
+	bool test_one(const std::string &str, tweet &tw) {
 		const int ovecsize = 30;
 		int ovector[30];
 		bool result = (pcre_exec(ptn, extra,  str.c_str(), str.size(), 0, 0, ovector, ovecsize) >= 1);
@@ -152,6 +151,16 @@ struct filter_item_cond_regex : public filter_item_cond {
 				tw.id, wxstrstd(str).c_str(), wxstrstd(regexstr).c_str(), result ? wxT("") : wxT("no "));
 		return result;
 	}
+
+	bool test(tweet &tw, filter_run_state &frs) override {
+		std::vector<std::string> strs;
+		getstr(strs, tw, frs);
+		for(auto &str : strs) {
+			if(test_one(str, tw)) return true;
+		}
+		return false;
+	}
+
 	virtual ~filter_item_cond_regex() {
          if(ptn) pcre_free(ptn);
          if(ptn) pcre_free_study(extra);
@@ -386,100 +395,113 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 				}
 				ritem->regexstr = std::move(userptnstr);
 
-				using tweetsrcfptr = tweet &(*)(tweet &);
-				using usrsrcfptr = userdatacontainer *(*)(tweet &, filter_run_state &frs);
+				using tweetmodefptr = std::string (*)(tweet &, filter_run_state &);
+				using usrmodefptr = std::string (*)(userdatacontainer *u, tweet &, filter_run_state &frs);
 
-				auto tweetmode = [&](tweetsrcfptr func) {
+				auto tweetmode = [&]() -> tweetmodefptr{
 					if(part2 == "text") {
-						ritem->getstr = [func](tweet &tw, filter_run_state &frs) {
-							return func(tw).text;
+						return [](tweet &tw, filter_run_state &frs) -> std::string {
+							return tw.text;
 						};
 					}
 					else if(part2 == "source") {
-						ritem->getstr = [func](tweet &tw, filter_run_state &frs) {
-							return func(tw).source;
+						return [](tweet &tw, filter_run_state &frs) -> std::string  {
+							return tw.source;
 						};
 					}
 					else {
 						errmsgs += string_format("No such tweet field: %s\n", part2.c_str());
 						ok = false;
-						return;
+						return [](tweet &tw, filter_run_state &frs) -> std::string  {
+							return "";
+						};
 					}
-
-					out.filters.emplace_back(std::move(ritem));
 				};
 
-				auto usermode = [&](usrsrcfptr func) {
+				auto usermode = [&]() -> usrmodefptr {
 					if(part2 == "name") {
-						ritem->getstr = [func](tweet &tw, filter_run_state &frs) {
-							userdatacontainer *u = func(tw, frs);
+						return [](userdatacontainer *u, tweet &tw, filter_run_state &frs) -> std::string  {
 							return u ? u->user.name : "";
 						};
 					}
 					else if(part2 == "screenname" || part2 == "sname") {
-						ritem->getstr = [func](tweet &tw, filter_run_state &frs) {
-							userdatacontainer *u = func(tw, frs);
+						return [](userdatacontainer *u, tweet &tw, filter_run_state &frs) -> std::string  {
 							return u ? u->user.screen_name : "";
 						};
 					}
 					else if(part2 == "description" || part2 == "desc") {
-						ritem->getstr = [func](tweet &tw, filter_run_state &frs) {
-							userdatacontainer *u = func(tw, frs);
+						return [](userdatacontainer *u, tweet &tw, filter_run_state &frs) -> std::string {
 							return u ? u->user.description : "";
 						};
 					}
 					else if(part2 == "loc" || part2 == "location") {
-						ritem->getstr = [func](tweet &tw, filter_run_state &frs) {
-							userdatacontainer *u = func(tw, frs);
+						return [](userdatacontainer *u, tweet &tw, filter_run_state &frs) -> std::string  {
 							return u ? u->user.location : "";
 						};
 					}
 					else {
 						errmsgs += string_format("No such user field: %s\n", part2.c_str());
 						ok = false;
-						return;
+						return [](userdatacontainer *u, tweet &tw, filter_run_state &frs) -> std::string  {
+							return "";
+						};
 					}
-
-					out.filters.emplace_back(std::move(ritem));
 				};
 
 				if(part1 == "retweet") {
-					tweetmode([](tweet &tw) -> tweet & {
-						if(tw.rtsrc) return *tw.rtsrc;
-						else return tw;
-					});
+					auto fptr = tweetmode();
+					ritem->getstr = [fptr](std::vector<std::string> &out, tweet &tw, filter_run_state &frs) {
+						if(tw.rtsrc) out.emplace_back(fptr(*tw.rtsrc, frs));
+						else out.emplace_back(fptr(tw, frs));
+					};
 				}
 				else if(part1 == "tweet") {
-					tweetmode([](tweet &tw) -> tweet & {
-						return tw;
-					});
+					auto fptr = tweetmode();
+					ritem->getstr = [fptr](std::vector<std::string> &out, tweet &tw, filter_run_state &frs) {
+						out.emplace_back(fptr(tw, frs));
+					};
 				}
 				else if(part1 == "user") {
-					usermode([](tweet &tw, filter_run_state &frs) -> userdatacontainer * {
-						return tw.user.get();
-					});
+					auto fptr = usermode();
+					ritem->getstr = [fptr](std::vector<std::string> &out, tweet &tw, filter_run_state &frs) {
+						out.emplace_back(fptr(tw.user.get(), tw, frs));
+					};
 				}
 				else if(part1 == "retweetuser") {
-					usermode([](tweet &tw, filter_run_state &frs) -> userdatacontainer * {
-						if(tw.rtsrc) return tw.rtsrc->user.get();
-						else return tw.user.get();
-					});
+					auto fptr = usermode();
+					ritem->getstr = [fptr](std::vector<std::string> &out, tweet &tw, filter_run_state &frs) {
+						if(tw.rtsrc) out.emplace_back(fptr(tw.rtsrc->user.get(), tw, frs));
+						else out.emplace_back(fptr(tw.user.get(), tw, frs));
+					};
 				}
 				else if(part1 == "userrecipient") {
-					usermode([](tweet &tw, filter_run_state &frs) -> userdatacontainer * {
-						if(tw.user_recipient) return tw.user_recipient.get();
-						else return tw.user.get();
-					});
+					auto fptr = usermode();
+					ritem->getstr = [fptr](std::vector<std::string> &out, tweet &tw, filter_run_state &frs) {
+						if(tw.user_recipient) out.emplace_back(fptr(tw.user_recipient.get(), tw, frs));
+						else out.emplace_back(fptr(tw.user.get(), tw, frs));
+					};
+				}
+				else if(part1 == "anyuser") {
+					auto fptr = usermode();
+					ritem->getstr = [fptr](std::vector<std::string> &out, tweet &tw, filter_run_state &frs) {
+						if(tw.user_recipient) out.emplace_back(fptr(tw.user_recipient.get(), tw, frs));
+						if(tw.rtsrc) out.emplace_back(fptr(tw.rtsrc->user.get(), tw, frs));
+						out.emplace_back(fptr(tw.user.get(), tw, frs));
+					};
 				}
 				else if(part1 == "accountuser") {
-					usermode([](tweet &tw, filter_run_state &frs) -> userdatacontainer * {
-						return frs.tac ? frs.tac->usercont.get() : 0;
-					});
+					auto fptr = usermode();
+					ritem->getstr = [fptr](std::vector<std::string> &out, tweet &tw, filter_run_state &frs) {
+						if(frs.tac) out.emplace_back(fptr(frs.tac->usercont.get(), tw, frs));
+						else out.emplace_back("");
+					};
 				}
 				else {
 					errmsgs += string_format("No such field type: %s\n", part1.c_str());
 					ok = false;
 				}
+
+				if(ok) out.filters.emplace_back(std::move(ritem));
 			}
 			else {
 				//conditional doesn't match

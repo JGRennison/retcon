@@ -32,6 +32,7 @@ retweetuser.<variable>        If this tweet is a retweet, test a property of the
                               otherwise test the tweet's author as normal
 userrecipient.<variable>      If this tweet is a DM, test a property of the DM's recipient,
                               otherwise test the tweet's author as normal
+anyuser.<variable>            Matches if one or more of user, retweetuser and userrecipient would match.
 accountuser.<variable>        User of the account that the tweet is arriving on.
                               If not present, all properties will have the value of the empty string.
 
@@ -112,6 +113,13 @@ if tweet.flags +R
     fi
   fi
 fi
+
+
+Mark all tweets posted by, retweeted by or DMd to/from user "Fred" as read
+
+if anyuser.sname ^Fred$
+  set tweet.flags -u+r
+endif
 
 
 Hide and clear unread flag for all tweets coming from twitter client "spamapp", which are not mentions
