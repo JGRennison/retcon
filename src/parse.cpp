@@ -200,6 +200,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 		return [url, net_flags, netloadmask](media_entity *me, flagwrapper<MELF> mel_flags) {
 			struct local {
 				static void try_net_dl(media_entity *me, std::string url, flagwrapper<MIDC> net_flags, flagwrapper<MELF> netloadmask, flagwrapper<MELF> mel_flags) {
+					if(mel_flags & MELF::NONETLOAD) return;
 					if(!(me->flags & MEF::HAVE_THUMB) && !(url.empty()) && (netloadmask & mel_flags) && !(me->flags & MEF::THUMB_NET_INPROGRESS) && !(me->flags & MEF::THUMB_FAILED)) {
 						new mediaimgdlconn(url, me->media_id, net_flags);
 					}

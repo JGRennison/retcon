@@ -987,7 +987,9 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 				bool hidden = (tw.flags.Get('p') || gc.hideallthumbs) && !hidden_thumbnails_override;
 
 				if(gc.dispthumbs && !(!gc.loadhiddenthumbs && hidden)) {
-					it->CheckLoadThumb(MELF::DISPTIME);
+					flagwrapper<MELF> loadflags = MELF::DISPTIME;
+					if(tw.flags.Get('n')) loadflags |= MELF::NONETLOAD;
+					it->CheckLoadThumb(loadflags);
 				}
 
 				BeginURL(wxString::Format(wxT("M%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), (int64_t) it->media_id.m_id, (int64_t) it->media_id.t_id));
@@ -1012,7 +1014,8 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 				}
 				else if(hidden) {
 					BeginUnderline();
-					WriteText(wxT("[Hidden Image Thumbnail]"));
+					if(it->flags & MEF::HAVE_THUMB) WriteText(wxT("[Hidden Image Thumbnail]"));
+					else WriteText(wxT("[Hidden Image Thumbnail Not Loaded]"));
 					EndUnderline();
 					hidden_thumbnails = true;
 				}

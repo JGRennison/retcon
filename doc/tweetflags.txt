@@ -1,5 +1,7 @@
 Tweet Flags:
 h*	Is hidden
+n*	Do not automatically load image thumbnails over net, overrides "Load image thumbnails" and "Pre-load hidden thumbnails" settings
+	(Note that this does not override the "Pre-load image thumbnails even when not displayed" advanced settings)
 p*	Hide image preview
 r*	Has been read
 s	Was retrieved over SSL

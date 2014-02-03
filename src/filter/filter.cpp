@@ -187,7 +187,7 @@ struct filter_item_action : public filter_item {
 	}
 };
 
-const char setflags_allowed[] = "Hurph";
+const char setflags_allowed[] = "hnpruH";
 struct filter_item_action_setflag : public filter_item_action {
 	uint64_t setflags = 0;
 	uint64_t unsetflags = 0;

@@ -335,6 +335,7 @@ enum class MELF {
 	LOADTIME             = 1<<0,
 	DISPTIME             = 1<<1,
 	FORCE                = 1<<2,
+	NONETLOAD            = 1<<3,
 };
 template<> struct enum_traits<MELF> { static constexpr bool flags = true; };
 
