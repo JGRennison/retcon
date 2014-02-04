@@ -50,6 +50,7 @@ struct taccount;
 class wxSizer;
 struct dbseltweetmsg;
 enum class MEF : unsigned int;
+struct dbsendmsg_list;
 
 void HandleNewTweet(const std::shared_ptr<tweet> &t, const std::shared_ptr<taccount> &acc);
 
@@ -320,6 +321,8 @@ struct entity {
 	entity(ENT_ENUMTYPE t) : type(t) {}
 };
 
+template<> struct enum_traits<MEF> { static constexpr bool flags = true; };
+
 enum class MEF : unsigned int {
 	HAVE_THUMB           = 1<<0,  //Have loaded thumbnail into memory
 	HAVE_FULL            = 1<<1,
@@ -330,8 +333,10 @@ enum class MEF : unsigned int {
 	THUMB_NET_INPROGRESS = 1<<8,
 	FULL_NET_INPROGRESS  = 1<<9,
 	THUMB_FAILED         = 1<<10,
+	MANUALLY_PURGED      = 1<<11,
+
+	DB_SAVE_MASK         = MANUALLY_PURGED,
 };
-template<> struct enum_traits<MEF> { static constexpr bool flags = true; };
 
 enum class MELF {
 	LOADTIME             = 1<<0,
@@ -364,7 +369,8 @@ struct media_entity {
 		if(check_load_thumb_func) check_load_thumb_func(this, melf);
 	}
 
-	void PurgeCache();
+	void PurgeCache(dbsendmsg_list *msglist = 0);
+	void ClearPurgeFlag(dbsendmsg_list *msglist = 0);
 };
 
 struct userlookup {

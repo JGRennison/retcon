@@ -988,7 +988,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 
 				if(gc.dispthumbs && !(!gc.loadhiddenthumbs && hidden)) {
 					flagwrapper<MELF> loadflags = MELF::DISPTIME;
-					if(tw.flags.Get('n')) loadflags |= MELF::NONETLOAD;
+					if(tw.flags.Get('n') || it->flags & MEF::MANUALLY_PURGED) loadflags |= MELF::NONETLOAD;
 					it->CheckLoadThumb(loadflags);
 				}
 

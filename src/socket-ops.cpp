@@ -320,13 +320,15 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 		if(it != ad.media_list.end()) {
 			media_entity &me = it->second;
 
+			me.ClearPurgeFlag();
+
 			if(flags & MIDC::THUMBIMG) {
 				if(job_data->thumbok) {
 					me.thumbimg = job_data->thumb;
 					me.flags |= MEF::HAVE_THUMB;
 					if(job_data->thumb_hash) {
 						me.thumb_img_sha1 = job_data->thumb_hash;
-						dbc.UpdateMediaChecksum(me, false);
+						dbc.UpdateMedia(me, DBUMMT::THUMBCHECKSUM);
 					}
 				}
 				else {
@@ -343,7 +345,7 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 				me.fulldata = std::move(job_data->fulldata);
 				if(job_data->full_hash) {
 					me.full_img_sha1 = job_data->full_hash;
-					dbc.UpdateMediaChecksum(me, true);
+					dbc.UpdateMedia(me, DBUMMT::FULLCHECKSUM);
 				}
 				if(me.win) me.win->UpdateImage();
 			}

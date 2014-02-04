@@ -102,10 +102,11 @@ static const char *sql[DBPSC_NUM_STATEMENTS]={
 	"UPDATE acc SET tweetids = ?, dmids = ?, dispname = ? WHERE id == ?;",
 	"SELECT statjson, dynjson, userid, userrecipid, flags, timestamp, medialist, rtid FROM tweets WHERE id == ?;",
 	"INSERT INTO rbfspending(accid, type, startid, endid, maxleft) VALUES (?, ?, ?, ?, ?);",
-	"SELECT url, fullchecksum, thumbchecksum FROM mediacache WHERE (mid == ? AND tid == ?);",
+	"SELECT url, fullchecksum, thumbchecksum, flags FROM mediacache WHERE (mid == ? AND tid == ?);",
 	"INSERT OR IGNORE INTO mediacache(mid, tid, url) VALUES (?, ?, ?);",
 	"UPDATE OR IGNORE mediacache SET thumbchecksum = ? WHERE (mid == ? AND tid == ?);",
 	"UPDATE OR IGNORE mediacache SET fullchecksum = ? WHERE (mid == ? AND tid == ?);",
+	"UPDATE OR IGNORE mediacache SET flags = ? WHERE (mid == ? AND tid == ?);",
 	"DELETE FROM acc WHERE id == ?;",
 	"UPDATE tweets SET flags = ? | (flags & ?) WHERE id == ?;",
 };
@@ -537,6 +538,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 							md.thumb_img_sha1 = std::move(hashptr);
 							md.flags |= MEF::LOAD_THUMB;
 						}
+						md.flags |= static_cast<MEF>(sqlite3_column_int64(mstmt, 3));
 					}
 					else {
 						DBLogMsgFormat(LOGT::DBERR, wxT("DBSM_SELTWEET (media load) got error: %d (%s) for id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, net fallback flag: %d"),
@@ -614,18 +616,39 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			sqlite3_reset(stmt);
 			break;
 		}
-		case DBSM_UPDATEMEDIACHKSM: {
-			dbupdatemediachecksummsg *m=(dbupdatemediachecksummsg*) msg;
-			sqlite3_stmt *stmt = cache.GetStmt(db, m->isfull ? DBPSC_UPDATEMEDIAFULLCHKSM : DBPSC_UPDATEMEDIATHUMBCHKSM);
-			if(m->chksm) sqlite3_bind_blob(stmt, 1, m->chksm->hash_sha1, sizeof(m->chksm->hash_sha1), SQLITE_TRANSIENT);
-			else sqlite3_bind_null(stmt, 1);
+		case DBSM_UPDATEMEDIAMSG: {
+			dbupdatemediamsg *m = (dbupdatemediamsg*) msg;
+			DBPSC_TYPE stmt_id = static_cast<DBPSC_TYPE>(-1); //invalid value
+			switch(m->update_type) {
+				case DBUMMT::THUMBCHECKSUM:
+					stmt_id = DBPSC_UPDATEMEDIATHUMBCHKSM;
+					break;
+				case DBUMMT::FULLCHECKSUM:
+					stmt_id = DBPSC_UPDATEMEDIAFULLCHKSM;
+					break;
+				case DBUMMT::FLAGS:
+					stmt_id = DBPSC_UPDATEMEDIAFLAGS;
+					break;
+			}
+			sqlite3_stmt *stmt = cache.GetStmt(db, stmt_id);
+			switch(m->update_type) {
+				case DBUMMT::THUMBCHECKSUM:
+				case DBUMMT::FULLCHECKSUM:
+					if(m->chksm) sqlite3_bind_blob(stmt, 1, m->chksm->hash_sha1, sizeof(m->chksm->hash_sha1), SQLITE_TRANSIENT);
+					else sqlite3_bind_null(stmt, 1);
+					break;
+				case DBUMMT::FLAGS:
+					sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->flags.get());
+					break;
+			}
+
 			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->media_id.m_id);
 			sqlite3_bind_int64(stmt, 3, (sqlite3_int64) m->media_id.t_id);
 			int res = sqlite3_step(stmt);
-			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBSM_UPDATEMEDIACHKSM got error: %d (%s) for id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d (%d)"),
-					res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id, m->isfull); }
-			else { DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM_UPDATEMEDIACHKSM updated media checksum id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d (%d)"),
-					(sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id, m->isfull); }
+			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBSM_UPDATEMEDIAMSG got error: %d (%s) for id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d (%d)"),
+					res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id, m->update_type); }
+			else { DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM_UPDATEMEDIAMSG updated media id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d (%d)"),
+					(sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id, m->update_type); }
 			sqlite3_reset(stmt);
 			break;
 		}
@@ -1125,10 +1148,21 @@ void dbconn::InsertMedia(media_entity &me, dbsendmsg_list *msglist) {
 	me.flags |= MEF::IN_DB;
 }
 
-void dbconn::UpdateMediaChecksum(media_entity &me, bool isfull, dbsendmsg_list *msglist) {
-	dbupdatemediachecksummsg *msg = new dbupdatemediachecksummsg(isfull);
+void dbconn::UpdateMedia(media_entity &me, DBUMMT update_type, dbsendmsg_list *msglist) {
+	dbupdatemediamsg *msg = new dbupdatemediamsg(update_type);
 	msg->media_id = me.media_id;
-	msg->chksm = isfull ? me.full_img_sha1 : me.thumb_img_sha1;
+	switch(update_type) {
+		case DBUMMT::THUMBCHECKSUM:
+			msg->chksm = me.thumb_img_sha1;
+			break;
+		case DBUMMT::FULLCHECKSUM:
+			msg->chksm = me.full_img_sha1;
+			break;
+		case DBUMMT::FLAGS:
+			msg->flags = me.flags & MEF::DB_SAVE_MASK;
+			break;
+
+	}
 	SendMessageOrAddToList(msg, msglist);
 }
 
@@ -1422,7 +1456,7 @@ void dbconn::SyncReadInRBFSs(sqlite3 *adb) {
 
 void dbconn::SyncReadInAllMediaEntities(sqlite3 *adb) {
 	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncReadInAllMediaEntities start"));
-	const char sql[] = "SELECT mid, tid, url, fullchecksum, thumbchecksum FROM mediacache;";
+	const char sql[] = "SELECT mid, tid, url, fullchecksum, thumbchecksum, flags FROM mediacache;";
 	sqlite3_stmt *stmt = 0;
 	sqlite3_prepare_v2(adb, sql, sizeof(sql), &stmt, 0);
 
@@ -1453,6 +1487,7 @@ void dbconn::SyncReadInAllMediaEntities(sqlite3 *adb) {
 				me.thumb_img_sha1 = std::move(hash);
 				me.flags |= MEF::LOAD_THUMB;
 			}
+			me.flags |= static_cast<MEF>(sqlite3_column_int64(stmt, 5));
 
 			#if DB_COPIOUS_LOGGING
 				LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncReadInAllMediaEntities retrieved media entity %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d"), id.m_id, id.t_id);

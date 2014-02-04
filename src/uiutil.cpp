@@ -374,7 +374,6 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 			break;
 		}
 		case TAMI_DELETECACHEDIMG: {
-			map[curid].tw->flags.Set('n', true);
 			std::vector<media_entity *> mes;
 			map[curid].tw->GetMediaEntities(mes, MEF::HAVE_THUMB | MEF::HAVE_FULL);
 			std::map<uint64_t, std::shared_ptr<tweet> > tweetupdates;
@@ -387,7 +386,8 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 					UpdateTweet(*it.second);
 				}
 			}
-			UpdateSingleTweetFlagState(map[curid].tw, tweet_flags::GetFlagValue('n'));
+			UpdateTweet(*(map[curid].tw), false);
+			CheckClearNoUpdateFlag_All();
 			break;
 		}
 		case TAMI_TOGGLEHIDDEN: {

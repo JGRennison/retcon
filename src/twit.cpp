@@ -75,9 +75,10 @@ wxString media_entity::cached_thumb_filename(media_id_type media_id) {
 	return wxString::Format(wxT("%s%s%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), wxstrstd(wxGetApp().datadir).c_str(), wxT("/mediathumb_"), media_id.m_id, media_id.t_id);
 }
 
-void media_entity::PurgeCache() {
+void media_entity::PurgeCache(dbsendmsg_list *msglist) {
 	if(win) win->Close(true);
 	flags &= ~(MEF::HAVE_THUMB | MEF::HAVE_FULL | MEF::LOAD_THUMB | MEF::LOAD_FULL);
+	flags |= MEF::MANUALLY_PURGED;
 	full_img_sha1.reset();
 	thumb_img_sha1.reset();
 	fulldata.clear();
@@ -85,8 +86,19 @@ void media_entity::PurgeCache() {
 	::wxRemoveFile(cached_full_filename());
 	::wxRemoveFile(cached_thumb_filename());
 
-	dbc.UpdateMediaChecksum(*this, false);
-	dbc.UpdateMediaChecksum(*this, true);
+	dbsendmsg_list *batch = msglist;
+	if(!msglist) batch = new dbsendmsg_list();
+	dbc.UpdateMedia(*this, DBUMMT::THUMBCHECKSUM, batch);
+	dbc.UpdateMedia(*this, DBUMMT::FULLCHECKSUM, batch);
+	dbc.UpdateMedia(*this, DBUMMT::FLAGS, batch);
+	if(!msglist) dbc.SendMessage(batch);
+}
+
+void media_entity::ClearPurgeFlag(dbsendmsg_list *msglist) {
+	if(flags & MEF::MANUALLY_PURGED) {
+		flags &= ~MEF::MANUALLY_PURGED;
+		dbc.UpdateMedia(*this, DBUMMT::FLAGS, msglist);
+	}
 }
 
 userlookup::~userlookup() {
