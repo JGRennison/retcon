@@ -617,7 +617,8 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 		case DBSM_UPDATEMEDIACHKSM: {
 			dbupdatemediachecksummsg *m=(dbupdatemediachecksummsg*) msg;
 			sqlite3_stmt *stmt = cache.GetStmt(db, m->isfull ? DBPSC_UPDATEMEDIAFULLCHKSM : DBPSC_UPDATEMEDIATHUMBCHKSM);
-			sqlite3_bind_blob(stmt, 1, m->chksm->hash_sha1, sizeof(m->chksm->hash_sha1), SQLITE_TRANSIENT);
+			if(m->chksm) sqlite3_bind_blob(stmt, 1, m->chksm->hash_sha1, sizeof(m->chksm->hash_sha1), SQLITE_TRANSIENT);
+			else sqlite3_bind_null(stmt, 1);
 			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->media_id.m_id);
 			sqlite3_bind_int64(stmt, 3, (sqlite3_int64) m->media_id.t_id);
 			int res = sqlite3_step(stmt);

@@ -49,6 +49,7 @@ struct tweet;
 struct taccount;
 class wxSizer;
 struct dbseltweetmsg;
+enum class MEF : unsigned int;
 
 void HandleNewTweet(const std::shared_ptr<tweet> &t, const std::shared_ptr<taccount> &acc);
 
@@ -293,6 +294,9 @@ struct tweet {
 		if(lflags & TLF::HAVEFIRSTTP) f(first_tp);
 		for(auto &it : tp_extra_list) f(it);
 	}
+
+	//If mask is zero, it is not used
+	void GetMediaEntities(std::vector<media_entity *> &out, flagwrapper<MEF> mask = 0) const;
 };
 template<> struct enum_traits<tweet::GUAF> { static constexpr bool flags = true; };
 
@@ -317,12 +321,10 @@ struct entity {
 };
 
 enum class MEF : unsigned int {
-	HAVE_THUMB           = 1<<0,
+	HAVE_THUMB           = 1<<0,  //Have loaded thumbnail into memory
 	HAVE_FULL            = 1<<1,
 	FULL_FAILED          = 1<<2,
-	SAVED_THUMB          = 1<<3,
-	SAVED_FULL           = 1<<4,
-	LOAD_THUMB           = 1<<5,
+	LOAD_THUMB           = 1<<5,  //Can load thumbnail from file
 	LOAD_FULL            = 1<<6,
 	IN_DB                = 1<<7,
 	THUMB_NET_INPROGRESS = 1<<8,
@@ -361,6 +363,8 @@ struct media_entity {
 	void CheckLoadThumb(flagwrapper<MELF> melf) {
 		if(check_load_thumb_func) check_load_thumb_func(this, melf);
 	}
+
+	void PurgeCache();
 };
 
 struct userlookup {

@@ -179,11 +179,6 @@ void MakeMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::
 	wxMenuItem *wmi6 = menuP->Append(nextid, wxT("Hidden"), wxT(""), wxITEM_CHECK);
 	wmi6->Check(tw->flags.Get('h'));
 	AppendToTAMIMenuMap(map, nextid, TAMI_TOGGLEHIDDEN, tw);
-	if(tw->flags.Get('I')) {
-		wxMenuItem *wmi5 = menuP->Append(nextid, wxT("Image Previews Hidden"), wxT(""), wxITEM_CHECK);
-		wmi5->Check(tw->flags.Get('p'));
-		AppendToTAMIMenuMap(map, nextid, TAMI_TOGGLEHIDEIMG, tw);
-	}
 }
 
 void MakeTPanelMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw, tpanelparentwin_nt *tppw) {
@@ -214,6 +209,23 @@ void MakeTPanelMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const
 	}
 
 	if(pos != menuP->GetMenuItemCount()) menuP->InsertSeparator(pos);
+}
+
+void MakeImageMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw) {
+	wxMenuItem *wmi5 = menuP->Append(nextid, wxT("Image Previews Hidden"), wxT(""), wxITEM_CHECK);
+	wmi5->Check(tw->flags.Get('p'));
+	AppendToTAMIMenuMap(map, nextid, TAMI_TOGGLEHIDEIMG, tw);
+	wxMenuItem *wmi6 = menuP->Append(nextid, wxT("No Image Preview Auto-Download"), wxT(""), wxITEM_CHECK);
+	wmi6->Check(tw->flags.Get('n'));
+	AppendToTAMIMenuMap(map, nextid, TAMI_TOGGLEIMGPREVIEWNOAUTOLOAD, tw);
+
+	std::vector<media_entity *> mes;
+	tw->GetMediaEntities(mes, MEF::HAVE_THUMB | MEF::HAVE_FULL);
+	if(!mes.empty()) {
+		menuP->AppendSeparator();
+		menuP->Append(nextid, wxT("Delete Cached Image data"));
+		AppendToTAMIMenuMap(map, nextid, TAMI_DELETECACHEDIMG, tw);
+	}
 }
 
 void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
@@ -354,6 +366,28 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 		case TAMI_TOGGLEHIDEIMG: {
 			map[curid].tw->flags.Toggle('p');
 			UpdateSingleTweetFlagState(map[curid].tw, tweet_flags::GetFlagValue('p'));
+			break;
+		}
+		case TAMI_TOGGLEIMGPREVIEWNOAUTOLOAD: {
+			map[curid].tw->flags.Toggle('n');
+			UpdateSingleTweetFlagState(map[curid].tw, tweet_flags::GetFlagValue('n'));
+			break;
+		}
+		case TAMI_DELETECACHEDIMG: {
+			map[curid].tw->flags.Set('n', true);
+			std::vector<media_entity *> mes;
+			map[curid].tw->GetMediaEntities(mes, MEF::HAVE_THUMB | MEF::HAVE_FULL);
+			std::map<uint64_t, std::shared_ptr<tweet> > tweetupdates;
+			for(auto &me : mes) {
+				me->PurgeCache();
+				for(auto &it : me->tweet_list) tweetupdates[it->id] = it;
+			}
+			for(auto &it : tweetupdates) {
+				if(it.first != map[curid].tw->id) { //don't update current tweet twice
+					UpdateTweet(*it.second);
+				}
+			}
+			UpdateSingleTweetFlagState(map[curid].tw, tweet_flags::GetFlagValue('n'));
 			break;
 		}
 		case TAMI_TOGGLEHIDDEN: {

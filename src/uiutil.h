@@ -68,6 +68,8 @@ typedef enum {
 	TAMI_MARKNEWERUNHIGHLIGHTED,
 	TAMI_MARKOLDERUNHIGHLIGHTED,
 	TAMI_TOGGLEHIDEIMG,
+	TAMI_TOGGLEIMGPREVIEWNOAUTOLOAD,
+	TAMI_DELETECACHEDIMG,
 	TAMI_TOGGLEHIDDEN,
 	TAMI_ADDTOPANEL,
 	TAMI_REMOVEFROMPANEL,
@@ -96,6 +98,7 @@ void MakeFavMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::s
 void MakeCopyMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw);
 void MakeMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw);
 void MakeTPanelMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw, tpanelparentwin_nt *tppw);
+void MakeImageMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw);
 void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin = 0);
 uint64_t ParseUrlID(wxString url);
 media_id_type ParseMediaID(wxString url);

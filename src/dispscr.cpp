@@ -1260,6 +1260,11 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 						MakeTPanelMarkMenu(marksubmenu, tamd, nextid, td, tppw_nt);
 					}
 				}
+				if(td->flags.Get('I')) {
+					wxMenu *imagesubmenu = new wxMenu();
+					menu.AppendSubMenu(imagesubmenu, wxT("Image"));
+					MakeImageMenu(imagesubmenu, tamd, nextid, td);
+				}
 				{
 					std::vector<std::shared_ptr<tpanel> > manual_tps;
 					std::vector<std::shared_ptr<tpanel> > manual_tps_already_in;

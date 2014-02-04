@@ -35,6 +35,7 @@
 #include "socket-ops.h"
 #include "mainui.h"
 #include "log-impl.h"
+#include "mediawin.h"
 
 #ifdef __WINDOWS__
 #pragma GCC diagnostic push
@@ -51,6 +52,7 @@
 #include <wx/msgdlg.h>
 #include <wx/stdpaths.h>
 #include <wx/dcmemory.h>
+#include <wx/filefn.h>
 #include <algorithm>
 
 //Do not assume that *acc is non-null
@@ -71,6 +73,20 @@ wxString media_entity::cached_full_filename(media_id_type media_id) {
 }
 wxString media_entity::cached_thumb_filename(media_id_type media_id) {
 	return wxString::Format(wxT("%s%s%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), wxstrstd(wxGetApp().datadir).c_str(), wxT("/mediathumb_"), media_id.m_id, media_id.t_id);
+}
+
+void media_entity::PurgeCache() {
+	if(win) win->Close(true);
+	flags &= ~(MEF::HAVE_THUMB | MEF::HAVE_FULL | MEF::LOAD_THUMB | MEF::LOAD_FULL);
+	full_img_sha1.reset();
+	thumb_img_sha1.reset();
+	fulldata.clear();
+
+	::wxRemoveFile(cached_full_filename());
+	::wxRemoveFile(cached_thumb_filename());
+
+	dbc.UpdateMediaChecksum(*this, false);
+	dbc.UpdateMediaChecksum(*this, true);
 }
 
 userlookup::~userlookup() {
@@ -970,6 +986,15 @@ std::string tweet::mkdynjson() const {
 std::string tweet::GetPermalink() const {
 	if(!user || !user->GetUser().screen_name.size()) return "";
 	return "http" + std::string(flags.Get('s')?"s":"") + "://twitter.com/" + user->GetUser().screen_name + "/status/" + std::to_string(id);
+}
+
+void tweet::GetMediaEntities(std::vector<media_entity *> &out, flagwrapper<MEF> mask) const {
+	for(const entity &et  : entlist) {
+		if((et.type == ENT_MEDIA || et.type == ENT_URL_IMG) && et.media_id) {
+			media_entity &me = ad.media_list[et.media_id];
+			if(!mask || me.flags & mask) out.push_back(&me);
+		}
+	}
 }
 
 std::string userdatacontainer::GetPermalink(bool ssl) const {
