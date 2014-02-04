@@ -210,11 +210,14 @@ struct tpanelload_pending_op : public pending_op {
 };
 
 struct tpanel_subtweet_pending_op : public pending_op {
-	wxSizer *vbox;
-	magic_ptr_ts<tpanelparentwin_nt> win;
-	magic_ptr_ts<tweetdispscr> top_tds;
-	unsigned int load_count = 0;
-	std::shared_ptr<tweet> top_tweet;
+	struct tspo_action_data {
+		wxSizer *vbox;
+		magic_ptr_ts<tpanelparentwin_nt> win;
+		magic_ptr_ts<tweetdispscr> top_tds;
+		unsigned int load_count = 0;
+		std::shared_ptr<tweet> top_tweet;
+	};
+	std::shared_ptr<tspo_action_data> action_data;
 
 	tpanel_subtweet_pending_op(wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *top_tds_, unsigned int load_count_,
 		std::shared_ptr<tweet> top_tweet_);

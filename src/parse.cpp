@@ -499,7 +499,6 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			break;
 		case CS_TIMELINE:
 			RestTweetPreParseUpdateParams();
-			StartBatchTimerMode_All();
 			if(dc.IsArray()) {
 				dbmsglist=new dbsendmsg_list();
 				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) RestTweetUpdateParams(*DoTweetParse(dc[i]));
@@ -508,7 +507,6 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			break;
 		case CS_DMTIMELINE:
 			RestTweetPreParseUpdateParams();
-			StartBatchTimerMode_All();
 			if(dc.IsArray()) {
 				dbmsglist=new dbsendmsg_list();
 				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) RestTweetUpdateParams(*DoTweetParse(dc[i], JDTP::ISDM));

@@ -352,72 +352,77 @@ void tpanel_subtweet_pending_op::CheckLoadTweetReply(const std::shared_ptr<tweet
 }
 
 tpanel_subtweet_pending_op::tpanel_subtweet_pending_op(wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *top_tds_,
-		unsigned int load_count_, std::shared_ptr<tweet> top_tweet_)
-		: vbox(v), win(s), top_tds(top_tds_), load_count(load_count_), top_tweet(std::move(top_tweet_)) { }
+		unsigned int load_count_, std::shared_ptr<tweet> top_tweet_) {
+	action_data = std::make_shared<tspo_action_data>();
+	action_data->vbox = v;
+	action_data->win = s;
+	action_data->top_tds = top_tds_;
+	action_data->load_count = load_count_;
+	action_data->top_tweet = std::move(top_tweet_);
+}
 
 void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags) {
-	tweetdispscr *tds=top_tds.get();
-	tpanelparentwin_nt *window=win.get();
-	if(!tds || !window) return;
+	std::shared_ptr<tspo_action_data> data = this->action_data;
 
-	tppw_scrollfreeze sf;
-	window->StartScrollFreeze(sf);
-	window->scrollwin->Freeze();
+	tweetdispscr *tp_tds = data->top_tds.get();
+	tpanelparentwin_nt *tp_window = data->win.get();
+	if(!tp_tds || !tp_window) return;
 
-	if(umpt_flags&UMPTF::TPDB_NOUPDF) window->SetNoUpdateFlag();
+	if(umpt_flags & UMPTF::TPDB_NOUPDF) tp_window->SetNoUpdateFlag();
 
-	wxBoxSizer *subhbox = new wxBoxSizer(wxHORIZONTAL);
-	vbox->Add(subhbox, 0, wxALL | wxEXPAND, 1);
+	tp_window->GenericAction([data, t](tpanelparentwin_nt *window) {
+		tweetdispscr *tds = data->top_tds.get();
 
-	tweetdispscr *subtd=new tweetdispscr(t, window->scrollwin, window, subhbox);
-	subtd->tds_flags |= TDSF::SUBTWEET;
+		wxBoxSizer *subhbox = new wxBoxSizer(wxHORIZONTAL);
+		data->vbox->Add(subhbox, 0, wxALL | wxEXPAND, 1);
 
-	tds->subtweets.emplace_front(subtd);
-	subtd->parent_tweet.set(tds);
+		tweetdispscr *subtd = new tweetdispscr(t, window->scrollwin, window, subhbox);
+		subtd->tds_flags |= TDSF::SUBTWEET;
 
-	if(t->rtsrc && gc.rtdisp) {
-		t->rtsrc->user->ImgHalfIsReady(UPDCF::DOWNLOADIMG);
-		subtd->bm = new profimg_staticbitmap(window->scrollwin, t->rtsrc->user->cached_profile_img_half, t->rtsrc->user->id, t->id, window->GetMainframe(), profimg_staticbitmap::PISBF::HALF);
-	}
-	else {
+		tds->subtweets.emplace_front(subtd);
+		subtd->parent_tweet.set(tds);
+
+		if(t->rtsrc && gc.rtdisp) {
+			t->rtsrc->user->ImgHalfIsReady(UPDCF::DOWNLOADIMG);
+			subtd->bm = new profimg_staticbitmap(window->scrollwin, t->rtsrc->user->cached_profile_img_half, t->rtsrc->user->id, t->id, window->GetMainframe(), profimg_staticbitmap::PISBF::HALF);
+		}
+		else {
 		t->user->ImgHalfIsReady(UPDCF::DOWNLOADIMG);
 		subtd->bm = new profimg_staticbitmap(window->scrollwin, t->user->cached_profile_img_half, t->user->id, t->id, window->GetMainframe(), profimg_staticbitmap::PISBF::HALF);
-	}
-	subhbox->Add(subtd->bm, 0, wxALL, 1);
-	subhbox->Add(subtd, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
+		}
+		subhbox->Add(subtd->bm, 0, wxALL, 1);
+		subhbox->Add(subtd, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
 
-	wxFont newfont;
-	wxTextAttrEx tae(subtd->GetDefaultStyleEx());
-	if(tae.HasFont()) {
-		newfont = tae.GetFont();
-	}
-	else {
-		newfont = subtd->GetFont();
-	}
-	int newsize = 0;
-	if(newfont.IsOk()) newsize = ((newfont.GetPointSize() * 3) + 2) / 4;
-	if(!newsize) newsize = 7;
+		wxFont newfont;
+		wxTextAttrEx tae(subtd->GetDefaultStyleEx());
+		if(tae.HasFont()) {
+			newfont = tae.GetFont();
+		}
+		else {
+			newfont = subtd->GetFont();
+		}
+		int newsize = 0;
+		if(newfont.IsOk()) newsize = ((newfont.GetPointSize() * 3) + 2) / 4;
+		if(!newsize) newsize = 7;
 
-	newfont.SetPointSize(newsize);
-	tae.SetFont(newfont);
-	subtd->SetFont(newfont);
-	subtd->SetDefaultStyle(tae);
+		newfont.SetPointSize(newsize);
+		tae.SetFont(newfont);
+		subtd->SetFont(newfont);
+		subtd->SetDefaultStyle(tae);
 
-	subtd->DisplayTweet();
+		subtd->DisplayTweet();
 
-	if(!(window->tppw_flags&TPPWF::NOUPDATEONPUSH)) {
-		subtd->ForceRefresh();
-	}
-	else subtd->gdb_flags |= tweetdispscr::GDB_F::NEEDSREFRESH;
-	window->EndScrollFreeze(sf);
+		if(!(window->tppw_flags&TPPWF::NOUPDATEONPUSH)) {
+			subtd->ForceRefresh();
+		}
+		else subtd->gdb_flags |= tweetdispscr::GDB_F::NEEDSREFRESH;
 
-	CheckLoadTweetReply(t, vbox, window, subtd, load_count - 1, top_tweet, tds);
-
-	window->scrollwin->Thaw();
+		CheckLoadTweetReply(t, data->vbox, window, subtd, data->load_count - 1, data->top_tweet, tds);
+	});
 }
 
 wxString tpanel_subtweet_pending_op::dump() {
-	return wxString::Format(wxT("Push inline tweet reply to tpanel: %p, %p, %p"), vbox, win.get(), top_tds.get());
+	return wxString::Format(wxT("Push inline tweet reply to tpanel: %p, %p, %p"), action_data->vbox, action_data->win.get(), action_data->top_tds.get());
 }
 
 void handlenew_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags) {

@@ -42,7 +42,7 @@
 #include <forward_list>
 #include <functional>
 
-#define BATCH_TIMER_DELAY 200
+#define BATCH_TIMER_DELAY 100
 
 struct tpanelparentwin;
 struct dispscr_base;
@@ -214,12 +214,15 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	inline wxString GetThisName() const { return thisname; }
 	uint64_t GetCurrentViewTopID() const;
 	virtual void IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const;
-	virtual void StartBatchTimerMode() { }
 
 	DECLARE_EVENT_TABLE()
 
 	protected:
 	void ResetBatchTimer();
+
+	//this calls ResetBatchTimer if TPPWF::NOUPDATEONPUSH is not set
+	//the idea is to prevent excessive handling of the timer
+	void UpdateBatchTimer();
 
 	private:
 	void RemoveIndexIntl(size_t offset);
@@ -230,6 +233,9 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	tweetdispscr_mouseoverwin *mouseoverwin = 0;
 	std::map<int, std::function<void(wxCommandEvent &event)> > btnhandlerlist;
 	std::deque<std::pair<std::shared_ptr<tweet>, flagwrapper<PUSHFLAGS> > > pushtweetbatchqueue;
+	std::deque<std::pair<uint64_t, flagwrapper<PUSHFLAGS> > > removetweetbatchqueue;
+	std::map<uint64_t, bool> updatetweetbatchqueue;
+	std::deque<std::function<void(tpanelparentwin_nt *)> > batchedgenericactions;
 
 	tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent, wxString thisname_ = wxT(""));
 	virtual ~tpanelparentwin_nt();
@@ -256,11 +262,12 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 			std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc, const tweetidset &subset);
 	virtual bool IsSingleAccountWin() const override;
 	void EnumDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush);
+	void UpdateOwnTweet(uint64_t id, bool redrawimg);
 	void UpdateOwnTweet(const tweet &t, bool redrawimg);
 	tweetdispscr_mouseoverwin *MakeMouseOverWin();
 	virtual void IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const override;
-	virtual void StartBatchTimerMode() override;
 	void OnBatchTimerModeTimer(wxTimerEvent& event);
+	void GenericAction(std::function<void(tpanelparentwin_nt *)> func);
 
 	DECLARE_EVENT_TABLE()
 };
@@ -367,7 +374,6 @@ void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map);
 void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent);
 void TPanelMenuActionCustom(mainframe *parent, flagwrapper<TPF> flags);
 void CheckClearNoUpdateFlag_All();
-void StartBatchTimerMode_All();
 
 void EnumAllDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush);
 

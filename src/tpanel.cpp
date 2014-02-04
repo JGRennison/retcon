@@ -35,6 +35,7 @@
 #include "userui.h"
 #include "db.h"
 #include "util.h"
+#include "raii.h"
 #include <wx/choicdlg.h>
 #include <wx/textdlg.h>
 #include <wx/msgdlg.h>
@@ -248,12 +249,6 @@ void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent) {
 void CheckClearNoUpdateFlag_All() {
 	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
 		(*it)->CheckClearNoUpdateFlag();
-	}
-}
-
-void StartBatchTimerMode_All() {
-	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
-		(*it)->StartBatchTimerMode();
 	}
 }
 
@@ -601,6 +596,10 @@ void panelparentwin_base::ResetBatchTimer() {
 	batchtimer.Start(BATCH_TIMER_DELAY, wxTIMER_ONE_SHOT);
 }
 
+void panelparentwin_base::UpdateBatchTimer() {
+	if(!(tppw_flags & TPPWF::NOUPDATEONPUSH)) ResetBatchTimer();
+}
+
 uint64_t panelparentwin_base::GetCurrentViewTopID() const {
 	int scrollstart;
 	scrollwin->GetViewStart(0, &scrollstart);
@@ -716,6 +715,8 @@ tpanelparentwin_nt::tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWin
 	scrollwin->FitInside();
 	FitInside();
 
+	tppw_flags |= TPPWF::BATCHTIMERMODE;
+
 	setupnavbuttonhandlers();
 }
 
@@ -727,6 +728,7 @@ tpanelparentwin_nt::~tpanelparentwin_nt() {
 void tpanelparentwin_nt::PushTweet(const std::shared_ptr<tweet> &t, flagwrapper<PUSHFLAGS> pushflags) {
 	if(tppw_flags & TPPWF::BATCHTIMERMODE) {
 		pushtweetbatchqueue.emplace_back(t, pushflags);
+		UpdateBatchTimer();
 		return;
 	}
 
@@ -863,6 +865,12 @@ tweetdispscr *tpanelparentwin_nt::PushTweetIndex(const std::shared_ptr<tweet> &t
 }
 
 void tpanelparentwin_nt::RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags) {
+	if(tppw_flags & TPPWF::BATCHTIMERMODE) {
+		removetweetbatchqueue.emplace_back(id, pushflags);
+		UpdateBatchTimer();
+		return;
+	}
+
 	auto update_label = [&]() {
 		if(!(tppw_flags & TPPWF::NOUPDATEONPUSH) && !(pushflags & PUSHFLAGS::SETNOUPDATEFLAG)) UpdateCLabel();
 		else tppw_flags |= TPPWF::CLABELUPDATEPENDING;
@@ -943,7 +951,9 @@ void tpanelparentwin_nt::PageTopHandler() {
 		LoadMore(pushcount, 0, 0, PUSHFLAGS::ABOVE | PUSHFLAGS::NOINCDISPOFFSET);
 		CheckClearNoUpdateFlag();
 	}
-	scrollwin->Scroll(-1, 0);
+	GenericAction([](tpanelparentwin_nt *tp) {
+		tp->scrollwin->Scroll(-1, 0);
+	});
 }
 
 void tpanelparentwin_nt::JumpToTweetID(uint64_t id) {
@@ -1285,9 +1295,23 @@ void tpanelparentwin_nt::EnumDisplayedTweets(std::function<bool (tweetdispscr *)
 }
 
 void tpanelparentwin_nt::UpdateOwnTweet(const tweet &t, bool redrawimg) {
+	UpdateOwnTweet(t.id, redrawimg);
+}
+
+void tpanelparentwin_nt::UpdateOwnTweet(uint64_t id, bool redrawimg) {
 	EnumDisplayedTweets([&](tweetdispscr *tds) {
-		if(tds->td->id==t.id || tds->rtid==t.id) {	//found matching entry
-			LogMsgFormat(LOGT::TPANEL, wxT("UpdateOwnTweet: %s, Found Entry %" wxLongLongFmtSpec "d."), GetThisName().c_str(), t.id);
+		if(tds->td->id == id || tds->rtid == id) {    //found matching entry
+
+			//don't bother inserting into updatetweetbatchqueue unless we actually have a corresponding tweetdispscr
+			//otherwise updatetweetbatchqueue will end up quite bloated
+			if(tppw_flags & TPPWF::BATCHTIMERMODE) {
+				bool &redrawimgflag = updatetweetbatchqueue[id];
+				if(redrawimg) redrawimgflag = true;   // if the flag in updatetweetbatchqueue is already true, don't override it to false
+				UpdateBatchTimer();
+				return false;
+			}
+
+			LogMsgFormat(LOGT::TPANEL, wxT("UpdateOwnTweet: %s, Found Entry %" wxLongLongFmtSpec "d."), GetThisName().c_str(), id);
 			tds->DisplayTweet(redrawimg);
 		}
 		return true;
@@ -1321,69 +1345,92 @@ void tpanelparentwin_nt::IterateCurrentDisp(std::function<void(uint64_t, dispscr
 	}
 }
 
-void tpanelparentwin_nt::StartBatchTimerMode() {
-	if(tppw_flags & TPPWF::BATCHTIMERMODE) return;
-
-	tppw_flags |= TPPWF::BATCHTIMERMODE;
-	ResetBatchTimer();
-}
-
 void tpanelparentwin_nt::OnBatchTimerModeTimer(wxTimerEvent& event) {
 	tppw_flags &= ~TPPWF::BATCHTIMERMODE;
 
-	if(pushtweetbatchqueue.empty()) {
+	raii finaliser([&]() {
 		CheckClearNoUpdateFlag();
+		tppw_flags |= TPPWF::BATCHTIMERMODE;
+	});
+
+	if(pushtweetbatchqueue.empty() && removetweetbatchqueue.empty() && updatetweetbatchqueue.empty() && batchedgenericactions.empty()) {
 		return;
 	}
 
 	SetNoUpdateFlag();
 
-	struct simulation_disp {
-		uint64_t id;
-		std::pair<std::shared_ptr<tweet>, flagwrapper<PUSHFLAGS> > *pushptr;
-	};
-	std::list<simulation_disp> simulation_currentdisp;
-	for(auto &it : currentdisp) {
-		simulation_currentdisp.push_back({ it.first, 0 });
+	for(auto &it : removetweetbatchqueue) {
+		RemoveTweet(it.first, it.second);
 	}
+	removetweetbatchqueue.clear();
 
-	for(auto &item : pushtweetbatchqueue) {
-		uint64_t id = item.first->id;
-		flagwrapper<PUSHFLAGS> pushflags = item.second;
+	if(!pushtweetbatchqueue.empty()) {
+		struct simulation_disp {
+			uint64_t id;
+			std::pair<std::shared_ptr<tweet>, flagwrapper<PUSHFLAGS> > *pushptr;
+		};
+		std::list<simulation_disp> simulation_currentdisp;
+		for(auto &it : currentdisp) {
+			simulation_currentdisp.push_back({ it.first, 0 });
+		}
 
-		if(simulation_currentdisp.size() == gc.maxtweetsdisplayinpanel) {
-			if(id < simulation_currentdisp.back().id) {    //off the end of the list
-				if(pushflags & PUSHFLAGS::BELOW || pushflags & PUSHFLAGS::USERTL) {
-					simulation_currentdisp.pop_front();
+		for(auto &item : pushtweetbatchqueue) {
+			uint64_t id = item.first->id;
+			flagwrapper<PUSHFLAGS> pushflags = item.second;
+
+			if(simulation_currentdisp.size() == gc.maxtweetsdisplayinpanel) {
+				if(id < simulation_currentdisp.back().id) {    //off the end of the list
+					if(pushflags & PUSHFLAGS::BELOW || pushflags & PUSHFLAGS::USERTL) {
+						simulation_currentdisp.pop_front();
+					}
+					else continue;
 				}
-				else continue;
+				else simulation_currentdisp.pop_back();    //too many in list, remove the last one
 			}
-			else simulation_currentdisp.pop_back();    //too many in list, remove the last one
+
+			size_t index = 0;
+			auto it = simulation_currentdisp.begin();
+			for(; it != simulation_currentdisp.end(); it++, index++) {
+				if(it->id < id) break;	//insert before this iterator
+			}
+
+			simulation_currentdisp.insert(it, { id, &item });
 		}
 
-		size_t index = 0;
-		auto it = simulation_currentdisp.begin();
-		for(; it != simulation_currentdisp.end(); it++, index++) {
-			if(it->id < id) break;	//insert before this iterator
+		size_t pushcount = 0;
+		for(auto &it : simulation_currentdisp) {
+			if(it.pushptr) {
+				PushTweet(it.pushptr->first, it.pushptr->second);
+				updatetweetbatchqueue.erase(it.pushptr->first->id);  //don't bother updating items we've just pushed
+				pushcount++;
+			}
 		}
 
-		simulation_currentdisp.insert(it, { id, &item });
+		LogMsgFormat(LOGT::TPANEL, wxT("tpanelparentwin_nt::OnBatchTimerModeTimer: %s, Reduced %u pushes to %u pushes."), GetThisName().c_str(), pushtweetbatchqueue.size(), pushcount);
+
+		simulation_currentdisp.clear();
+		pushtweetbatchqueue.clear();
 	}
 
-	size_t pushcount = 0;
-	for(auto &it : simulation_currentdisp) {
-		if(it.pushptr) {
-			PushTweet(it.pushptr->first, it.pushptr->second);
-			pushcount++;
-		}
+	for(auto &it : updatetweetbatchqueue) {
+		UpdateOwnTweet(it.first, it.second);
 	}
+	updatetweetbatchqueue.clear();
 
-	LogMsgFormat(LOGT::TPANEL, wxT("tpanelparentwin_nt::OnBatchTimerModeTimer: %s, Reduced %u pushes to %u pushes."), GetThisName().c_str(), pushtweetbatchqueue.size(), pushcount);
+	for(auto &it : batchedgenericactions) {
+		it(this);
+	}
+	batchedgenericactions.clear();
+}
 
-	simulation_currentdisp.clear();
-	pushtweetbatchqueue.clear();
-
-	CheckClearNoUpdateFlag();
+void tpanelparentwin_nt::GenericAction(std::function<void(tpanelparentwin_nt *)> func) {
+	if(tppw_flags & TPPWF::BATCHTIMERMODE) {
+		batchedgenericactions.emplace_back(std::move(func));
+		UpdateBatchTimer();
+	}
+	else {
+		func(this);
+	}
 }
 
 tweetdispscr_mouseoverwin *tpanelparentwin_nt::MakeMouseOverWin() {
