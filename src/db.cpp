@@ -853,7 +853,7 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags) {
 		t->updcf_flags = UPDCF::DEFAULT;
 
 		if(!(flags & HDBSF::NOPENDINGS)) {
-			if(CheckMarkPending_GetAcc(t, true)) {
+			if(CheckMarkPending_GetAcc(t)) {
 				t->lflags &= ~TLF::BEINGLOADEDFROMDB;
 				UnmarkPendingTweet(t, UMPTF::TPDB_NOUPDF);
 			}

@@ -136,8 +136,8 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 
 	void MarkUserPending(const std::shared_ptr<userdatacontainer> &user);
 	bool MarkPendingOrHandle(const std::shared_ptr<tweet> &t);
-	bool CheckMarkPending(const std::shared_ptr<tweet> &t, bool checkfirst = false);
-	void FastMarkPending(const std::shared_ptr<tweet> &t, flagwrapper<PENDING>, bool checkfirst = false);
+	bool CheckMarkPending(const std::shared_ptr<tweet> &t);
+	void FastMarkPending(const std::shared_ptr<tweet> &t, flagwrapper<PENDING>);
 
 	void OnRestTimer(wxTimerEvent& event);
 	void SetupRestBackfillTimer();

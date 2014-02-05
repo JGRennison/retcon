@@ -116,13 +116,13 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	shb_iptr cached_profile_img_sha1;
 	wxBitmap cached_profile_img;
 	wxBitmap cached_profile_img_half;
-	std::forward_list<std::shared_ptr<tweet> > pendingtweets;
+	std::deque<std::shared_ptr<tweet> > pendingtweets;
 	std::deque<uint64_t> mention_index;
 
 	bool NeedsUpdating(flagwrapper<UPDCF> updcf_flags, time_t timevalue = 0) const;
 	bool IsReady(flagwrapper<UPDCF> updcf_flags, time_t timevalue = 0);
 	void CheckPendingTweets(flagwrapper<UMPTF> umpt_flags = 0);
-	void MarkTweetPending(const std::shared_ptr<tweet> &t, bool checkfirst=false);
+	void MarkTweetPending(const std::shared_ptr<tweet> &t);
 	std::shared_ptr<taccount> GetAccountOfUser() const;
 	void GetImageLocalFilename(wxString &filename)  const;
 	inline userdata &GetUser() { return user; }
@@ -431,14 +431,14 @@ enum class PENDING : unsigned int {
 	NONACCMASK         = T_U | T_UR | RT_RTU | RT_MISSING,
 };
 
-bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t, bool checkfirst = false);
+bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t);
 flagwrapper<PENDING> CheckTweetPendings(const tweet &t);
 inline flagwrapper<PENDING> CheckTweetPendings(const std::shared_ptr<tweet> &t) {
 	return CheckTweetPendings(*t);
 }
-void FastMarkPendingNonAcc(const std::shared_ptr<tweet> &t, flagwrapper<PENDING> mark, bool checkfirst);
-bool FastMarkPendingNoAccFallback(const std::shared_ptr<tweet> &t, flagwrapper<PENDING> mark, bool checkfirst, const wxString &logprefix);
-void GenericMarkPending(const std::shared_ptr<tweet> &t, flagwrapper<PENDING> mark, bool checkfirst, const wxString &logprefix, flagwrapper<tweet::GUAF> guaflags = 0);
+void FastMarkPendingNonAcc(const std::shared_ptr<tweet> &t, flagwrapper<PENDING> mark);
+bool FastMarkPendingNoAccFallback(const std::shared_ptr<tweet> &t, flagwrapper<PENDING> mark, const wxString &logprefix);
+void GenericMarkPending(const std::shared_ptr<tweet> &t, flagwrapper<PENDING> mark, const wxString &logprefix, flagwrapper<tweet::GUAF> guaflags = 0);
 
 bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_nt* win_, PUSHFLAGS pushflags = PUSHFLAGS::DEFAULT, std::shared_ptr<tpanel> *pushtpanel_ = 0);
 bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::shared_ptr<taccount> acc_hint, dbseltweetmsg **existing_dbsel = 0);
