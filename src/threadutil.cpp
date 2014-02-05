@@ -78,12 +78,6 @@ namespace ThreadPool {
 
 	Worker::Worker(Pool *parent_, unsigned int id_) : parent(parent_), id(id_) {
 		thread = std::thread([this] {
-
-#if defined(_GNU_SOURCE)
-#if __GLIBC_PREREQ(2, 12)
-			pthread_setname_np(thread.native_handle(), string_format("retcon-pw-%d", id).c_str());
-#endif
-#endif
 			std::unique_lock<std::mutex> lock(parent->lifeguard);
 
 			while(alive) {
@@ -101,5 +95,10 @@ namespace ThreadPool {
 				lock.lock();
 			}
 		});
+#if defined(_GNU_SOURCE)
+#if __GLIBC_PREREQ(2, 12)
+		pthread_setname_np(thread.native_handle(), string_format("retcon-pw-%d", id).c_str());
+#endif
+#endif
 	}
 }

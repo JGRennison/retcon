@@ -57,22 +57,34 @@ namespace ThreadPool {
 			enqueue(std::unique_ptr<Job>(new Job(std::move(j))));
 		}
 		size_t GetThreadLimit() const { return max_threads; }
+
+		//un-copyable, un-movable
+		Pool(const Pool &) = delete;
+		Pool& operator=(const Pool&) = delete;
+		Pool(Pool &&) = delete;
+		Pool& operator=(Pool &&) = delete;
 	};
 
 	//Pools must outlive Workers
 	class Worker {
 		friend class Pool;
-		Pool *parent;
-		unsigned int id;
-		bool alive = true;
+		Pool * const parent; //*parent should be locked with its mutex before use
+		const unsigned int id;
+		bool alive = true;  //this should only be touched by the spawned thread
 
-		std::thread thread;
+		std::thread thread; //this should only be touched by the main thread
 
 		Worker(Pool *parent_, unsigned int id_);
 
 		private:
 		//empty Worker
 		Worker(Pool *parent_) : parent(parent_), id(0) { }
+
+		//un-copyable, un-movable
+		Worker(const Worker &) = delete;
+		Worker& operator=(const Worker&) = delete;
+		Worker(Worker &&) = delete;
+		Worker& operator=(Worker &&) = delete;
 	};
 
 };
