@@ -368,6 +368,7 @@ void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, 
 
 	tp_window->GenericAction([data, t](tpanelparentwin_nt *window) {
 		tweetdispscr *tds = data->top_tds.get();
+		if(!tds) return;
 
 		wxBoxSizer *subhbox = new wxBoxSizer(wxHORIZONTAL);
 		data->vbox->Add(subhbox, 0, wxALL | wxEXPAND, 1);
