@@ -58,6 +58,7 @@ genoptconf gcdefaults {
 #define CFGDEFAULT_highlight_colourdelta                    wxT("+#320000")
 #define CFGDEFAULT_mediasave_directorylist                  wxT("")    //this is initialised in InitCFGDefaults()
 #define CFGDEFAULT_incoming_filter                          wxT("")
+#define CFGDEFAULT_alltweet_filter                          wxT("")
 #define CFGDEFAULT_imgthumbunhidetime                       wxT("10")
 #define CFGDEFAULT_setproxy                                 wxT("0")
 #define CFGDEFAULT_proxyurl                                 wxT("")

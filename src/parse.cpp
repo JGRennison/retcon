@@ -762,6 +762,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, fla
 	tweet_perspective *tp = tobj->AddTPToTweet(tac);
 	bool is_new_tweet_perspective = false;
 	bool has_just_arrived = false;
+	flagwrapper<ARRIVAL> arr = 0;
 
 	if(!(sflags & JDTP::DEL)) {
 		is_new_tweet_perspective = !tp->IsReceivedHere();
@@ -776,6 +777,8 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, fla
 		ParsePerspectivalTweetProps(val, tp, 0);
 	}
 	else tp->SetRecvTypeDel(true);
+
+	if(is_new_tweet_perspective) arr |= ARRIVAL::RECV;
 
 	if(sflags & JDTP::FAV) tp->SetFavourited(true);
 	if(sflags & JDTP::UNFAV) tp->SetFavourited(false);
@@ -886,7 +889,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, fla
 			std::shared_ptr<tpanel> tp=tpanelparentwin_usertweets::GetUserTweetTPanel(twit->rbfs->userid, twit->rbfs->type);
 			if(tp) {
 				have_checked_pending = true;
-				is_ready = tac->CheckMarkPending(tobj);
+				is_ready = tac->MarkPendingOrHandle(tobj, arr);
 				if(is_ready) {
 					tp->PushTweet(tobj, PUSHFLAGS::USERTL | PUSHFLAGS::SETNOUPDATEFLAG);
 				}
@@ -911,11 +914,11 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, fla
 			}
 			if(!tobj->flags.Get('r')) tobj->flags.Set('u');
 			have_checked_pending = true;
-			is_ready = tac->MarkPendingOrHandle(tobj);
+			is_ready = tac->MarkPendingOrHandle(tobj, arr | ARRIVAL::NEW);
 		}
 	}
 
-	if(!have_checked_pending) is_ready = tac->CheckMarkPending(tobj);
+	if(!have_checked_pending) is_ready = tac->MarkPendingOrHandle(tobj, arr);
 	if(tobj->lflags & TLF::ISPENDING && is_ready) UnmarkPendingTweet(tobj);
 
 	if(tobj->lflags&TLF::SHOULDSAVEINDB || tobj->lflags&TLF::SAVED_IN_DB) {

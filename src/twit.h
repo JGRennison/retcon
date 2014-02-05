@@ -52,7 +52,7 @@ struct dbseltweetmsg;
 enum class MEF : unsigned int;
 struct dbsendmsg_list;
 
-void HandleNewTweet(const std::shared_ptr<tweet> &t, const std::shared_ptr<taccount> &acc);
+void HandleNewTweet(const std::shared_ptr<tweet> &t, const std::shared_ptr<taccount> &acc, flagwrapper<ARRIVAL> arr);
 
 enum class UPDCF {
 	DOWNLOADIMG        = 1<<0,
@@ -231,7 +231,8 @@ struct tpanel_subtweet_pending_op : public pending_op {
 
 struct handlenew_pending_op : public pending_op {
 	std::weak_ptr<taccount> tac;
-	handlenew_pending_op(const std::shared_ptr<taccount> &acc) : tac(acc) { }
+	flagwrapper<ARRIVAL> arr;
+	handlenew_pending_op(const std::shared_ptr<taccount> &acc, flagwrapper<ARRIVAL> arr_) : tac(acc), arr(arr_) { }
 
 	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags);
 	virtual wxString dump();

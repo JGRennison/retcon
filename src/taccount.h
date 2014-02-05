@@ -135,7 +135,7 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	void LookupFriendships(uint64_t userid);
 
 	void MarkUserPending(const std::shared_ptr<userdatacontainer> &user);
-	bool MarkPendingOrHandle(const std::shared_ptr<tweet> &t);
+	bool MarkPendingOrHandle(const std::shared_ptr<tweet> &t, flagwrapper<ARRIVAL> arr);
 	bool CheckMarkPending(const std::shared_ptr<tweet> &t);
 	void FastMarkPending(const std::shared_ptr<tweet> &t, flagwrapper<PENDING>);
 

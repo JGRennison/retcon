@@ -587,12 +587,10 @@ bool LoadFilter(const std::string &input, filter_set &out) {
 	return true;
 }
 
-bool LoadIncomingFilter() {
-	return LoadFilter(stdstrwx(gc.gcfg.incoming_filter.val), ad.incoming_filter);
-}
-
 bool InitGlobalFilters() {
-	return LoadIncomingFilter();
+	bool f1 =  LoadFilter(stdstrwx(gc.gcfg.incoming_filter.val), ad.incoming_filter);
+	bool f2 = LoadFilter(stdstrwx(gc.gcfg.alltweet_filter.val), ad.alltweet_filter);
+	return f1 && f2;
 }
 
 filter_set::filter_set() { }

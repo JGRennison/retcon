@@ -27,7 +27,6 @@
 void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs);
 bool LoadFilter(const std::string &input, filter_set &out);
 
-bool LoadIncomingFilter();
 bool InitGlobalFilters();
 
 #endif

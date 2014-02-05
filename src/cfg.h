@@ -73,6 +73,7 @@ struct genoptconf {
 	CFGTEMPL(highlight_colourdelta) \
 	CFGTEMPL(mediasave_directorylist) \
 	CFGTEMPL(incoming_filter) \
+	CFGTEMPL(alltweet_filter) \
 	CFGTEMPL_UL(imgthumbunhidetime) \
 	CFGTEMPL_BOOL(setproxy) \
 	CFGTEMPL(proxyurl) \

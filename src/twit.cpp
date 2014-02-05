@@ -56,14 +56,17 @@
 #include <algorithm>
 
 //Do not assume that *acc is non-null
-void HandleNewTweet(const std::shared_ptr<tweet> &t, const std::shared_ptr<taccount> &acc) {
-	ad.incoming_filter.FilterTweet(*t, acc.get());
+void HandleNewTweet(const std::shared_ptr<tweet> &t, const std::shared_ptr<taccount> &acc, flagwrapper<ARRIVAL> arr) {
+	if(arr & ARRIVAL::RECV) ad.alltweet_filter.FilterTweet(*t, acc.get());
+	if(arr & ARRIVAL::NEW) ad.incoming_filter.FilterTweet(*t, acc.get());
 	ad.cids.CheckTweet(*t);
 
-	for(auto &it : ad.tpanels) {
-		tpanel &tp = *(it.second);
-		if(tp.TweetMatches(t, acc)) {
-			tp.PushTweet(t);
+	if(arr & ARRIVAL::NEW) {
+		for(auto &it : ad.tpanels) {
+			tpanel &tp = *(it.second);
+			if(tp.TweetMatches(t, acc)) {
+				tp.PushTweet(t);
+			}
 		}
 	}
 }
@@ -423,12 +426,12 @@ wxString tpanel_subtweet_pending_op::dump() {
 }
 
 void handlenew_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags) {
-	HandleNewTweet(t, tac.lock());
+	HandleNewTweet(t, tac.lock(), arr);
 }
 
 wxString handlenew_pending_op::dump() {
 	std::shared_ptr<taccount> acc = tac.lock();
-	return wxString::Format(wxT("Handle arrived on account: %s"), acc ? acc->dispname.c_str() : wxT("N/A"));
+	return wxString::Format(wxT("Handle arrived on account: %s, 0x%X"), acc ? acc->dispname.c_str() : wxT("N/A"), arr.get());
 }
 
 void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags) {
@@ -961,10 +964,12 @@ bool tweet::IsReady(flagwrapper<UPDCF> updcf_flags) {
 	return isready;
 }
 
-bool taccount::MarkPendingOrHandle(const std::shared_ptr<tweet> &t) {
+bool taccount::MarkPendingOrHandle(const std::shared_ptr<tweet> &t, flagwrapper<ARRIVAL> arr) {
 	bool isready = CheckMarkPending(t);
-	if(isready) HandleNewTweet(t, shared_from_this());
-	else t->pending_ops.emplace_front(new handlenew_pending_op(shared_from_this()));
+	if(arr) {
+		if(isready) HandleNewTweet(t, shared_from_this(), arr);
+		else t->pending_ops.emplace_front(new handlenew_pending_op(shared_from_this(), arr));
+	}
 	return isready;
 }
 

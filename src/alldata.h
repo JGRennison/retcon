@@ -47,6 +47,7 @@ struct alldata {
 	std::vector<mf_layout_desc> mflayout;
 	bool twinlayout_final = false;
 	filter_set incoming_filter;
+	filter_set alltweet_filter;
 
 	std::shared_ptr<userdatacontainer> &GetUserContainerById(uint64_t id);
 	std::shared_ptr<userdatacontainer> *GetExistingUserContainerById(uint64_t id);

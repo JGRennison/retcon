@@ -523,8 +523,12 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 
 	AddSettingRow_String(OPTWIN_SAVING, panel, fgs,  wxT("Media Image\nSave Directories\n(1 per line)"), DBCV::ISGLOBALCFG | DBCV::MULTILINE, gc.gcfg.mediasave_directorylist, gcglobdefaults.mediasave_directorylist);
 
+	wxFlexGridSizer *tweetfilterfgs = 0;
+	addfgsizerblock(wxT("Tweet Filters - Read Documentation Before Use"), tweetfilterfgs);
 	FilterTextValidator filterval(ad.incoming_filter, &gc.gcfg.incoming_filter.val);
-	AddSettingRow_String(OPTWIN_FILTER, panel, fgs,  wxT("Incoming Tweet Filter\nRead Documentation Before Use"), DBCV::ISGLOBALCFG | DBCV::MULTILINE | DBCV::ADVOPTION, gc.gcfg.incoming_filter, gcglobdefaults.incoming_filter, 0, &filterval);
+	AddSettingRow_String(OPTWIN_FILTER, panel, tweetfilterfgs,  wxT("Timeline Tweet Filter\nHome timeline, mentions, DMs"), DBCV::ISGLOBALCFG | DBCV::MULTILINE | DBCV::ADVOPTION, gc.gcfg.incoming_filter, gcglobdefaults.incoming_filter, 0, &filterval);
+	FilterTextValidator allt_filterval(ad.alltweet_filter, &gc.gcfg.alltweet_filter.val);
+	AddSettingRow_String(OPTWIN_FILTER, panel, tweetfilterfgs,  wxT("All Tweet Filter\nAbove, plus inline replies,\nuser timelines, etc."), DBCV::ISGLOBALCFG | DBCV::MULTILINE | DBCV::ADVOPTION, gc.gcfg.alltweet_filter, gcglobdefaults.alltweet_filter, 0, &allt_filterval);
 
 	AddSettingRow_String(OPTWIN_MISC, panel, fgs, wxT("Thread pool limit, 0 to disable\nDo not set this too high\nRestart retcon for this to take effect"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.threadpoollimit, gcglobdefaults.threadpoollimit, wxFILTER_NUMERIC);
 

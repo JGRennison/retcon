@@ -180,4 +180,10 @@ enum class UMPTF { //For UnmarkPendingTweet
 };
 template<> struct enum_traits<UMPTF> { static constexpr bool flags = true; };
 
+enum class ARRIVAL {
+	NEW               = 1<<0,
+	RECV              = 1<<1,
+};
+template<> struct enum_traits<ARRIVAL> { static constexpr bool flags = true; };
+
 #endif
