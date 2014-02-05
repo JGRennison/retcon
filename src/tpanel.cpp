@@ -1370,13 +1370,23 @@ void tpanelparentwin_nt::OnBatchTimerModeTimer(wxTimerEvent& event) {
 			std::pair<std::shared_ptr<tweet>, flagwrapper<PUSHFLAGS> > *pushptr;
 		};
 		std::list<simulation_disp> simulation_currentdisp;
+		tweetidset gotids;
 		for(auto &it : currentdisp) {
 			simulation_currentdisp.push_back({ it.first, 0 });
+			gotids.insert(it.first);
 		}
 
 		for(auto &item : pushtweetbatchqueue) {
 			uint64_t id = item.first->id;
 			flagwrapper<PUSHFLAGS> pushflags = item.second;
+
+			auto result = gotids.insert(id);
+			if(!result.second) {
+				//whoops, insertion didn't take place
+				//hence id was already there
+				//this is a duplicate push, and should be discarded
+				continue;
+			}
 
 			if(simulation_currentdisp.size() == gc.maxtweetsdisplayinpanel) {
 				if(id < simulation_currentdisp.back().id) {    //off the end of the list
