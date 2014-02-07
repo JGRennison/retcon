@@ -22,7 +22,7 @@
 #define HGUARD_SRC_ALLDATA
 
 #include "univdefs.h"
-#include "twit.h"
+#include "twit-common.h"
 #include "tpanel-common.h"
 #include "filter/filter.h"
 #include <unordered_map>
@@ -31,12 +31,16 @@
 #include <map>
 
 struct tpanel;
+struct userdatacontainer;
+struct tweet;
+struct media_entity;
+struct media_id_type;
 
 struct alldata {
 	std::unordered_map<uint64_t,std::shared_ptr<userdatacontainer> > userconts;
 	std::map<uint64_t,std::shared_ptr<tweet> > tweetobjs;
 	std::map<std::string,std::shared_ptr<tpanel> > tpanels;
-	std::unordered_map<media_id_type,media_entity> media_list;
+	std::unordered_map<media_id_type,std::unique_ptr<media_entity> > media_list;
 	std::unordered_map<std::string,media_id_type> img_media_map;
 	std::map<uint64_t,std::shared_ptr<tweet> > noacc_pending_tweetobjs;
 	std::map<uint64_t,std::shared_ptr<userdatacontainer> > noacc_pending_userconts;
@@ -49,13 +53,13 @@ struct alldata {
 	filter_set incoming_filter;
 	filter_set alltweet_filter;
 
+	alldata();
+	~alldata();
 	std::shared_ptr<userdatacontainer> &GetUserContainerById(uint64_t id);
 	std::shared_ptr<userdatacontainer> *GetExistingUserContainerById(uint64_t id);
 	std::shared_ptr<tweet> &GetTweetById(uint64_t id, bool *isnew = 0);
 	std::shared_ptr<tweet> *GetExistingTweetById(uint64_t id);
 	void UnlinkTweetById(uint64_t id);
-
-	alldata() : next_media_id(1) { }
 };
 
 extern alldata ad;

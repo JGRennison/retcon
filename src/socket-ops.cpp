@@ -206,7 +206,7 @@ void mediaimgdlconn::Init(const std::string &imgurl_, media_id_type media_id_, f
 	flags = flags_;
 	auto it = ad.media_list.find(media_id);
 	if(it != ad.media_list.end()) {
-		media_entity &me=it->second;
+		media_entity &me = *(it->second);
 		if(flags & MIDC::FULLIMG) {
 			me.flags |= MEF::FULL_NET_INPROGRESS;
 		}
@@ -225,7 +225,7 @@ void mediaimgdlconn::DoRetry() {
 void mediaimgdlconn::HandleFailure(long httpcode, CURLcode res) {
 	auto it = ad.media_list.find(media_id);
 	if(it != ad.media_list.end()) {
-		media_entity &me = it->second;
+		media_entity &me = *(it->second);
 		if(flags & MIDC::FULLIMG) {
 			me.flags |= MEF::FULL_FAILED;
 			me.flags &= ~MEF::FULL_NET_INPROGRESS;
@@ -318,7 +318,7 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 		MIDC &flags = job_data->flags;
 		auto it = ad.media_list.find(job_data->media_id);
 		if(it != ad.media_list.end()) {
-			media_entity &me = it->second;
+			media_entity &me = *(it->second);
 
 			me.ClearPurgeFlag();
 

@@ -35,6 +35,7 @@
 #include "util.h"
 #include "tpanel-data.h"
 #include "threadutil.h"
+#include "twit.h"
 #ifdef __WINDOWS__
 #include "tpanel.h"
 #endif
@@ -216,6 +217,11 @@ void retcon::EnqueueThreadJob(std::function<void()> &&worker_thread_job) {
 		(*data)();
 	});
 }
+
+alldata::alldata()
+	: next_media_id(1) { }
+
+alldata::~alldata() { }
 
 std::shared_ptr<userdatacontainer> &alldata::GetUserContainerById(uint64_t id) {
 	std::shared_ptr<userdatacontainer> &usercont=userconts[id];

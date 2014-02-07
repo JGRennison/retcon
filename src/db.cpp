@@ -805,17 +805,19 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags) {
 	}
 
 	for(dbretmediadata &dt : msg->media_data) {
-		media_entity &me = ad.media_list[dt.media_id];
-		if(!me.media_id) {
-			me.media_id = dt.media_id;
-			me.media_url = dt.url;
-			if(me.media_url.size()) {
-				ad.img_media_map[me.media_url] = me.media_id;
+		std::unique_ptr<media_entity> &me = ad.media_list[dt.media_id];
+		if(!me) {
+			me.reset(new media_entity);
+			me->media_id = dt.media_id;
+			me->media_url = std::move(dt.url);
+			dt.url.clear();
+			if(me->media_url.size()) {
+				ad.img_media_map[me->media_url] = me->media_id;
 			}
 		}
-		if(dt.flags & MEF::LOAD_FULL) me.full_img_sha1 = dt.full_img_sha1;
-		if(dt.flags & MEF::LOAD_THUMB) me.thumb_img_sha1 = dt.thumb_img_sha1;
-		me.flags |= dt.flags | MEF::IN_DB;
+		if(dt.flags & MEF::LOAD_FULL) me->full_img_sha1 = dt.full_img_sha1;
+		if(dt.flags & MEF::LOAD_THUMB) me->thumb_img_sha1 = dt.thumb_img_sha1;
+		me->flags |= dt.flags | MEF::IN_DB;
 	}
 
 	for(dbrettweetdata &dt : msg->data) {
@@ -1091,7 +1093,7 @@ void dbconn::InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string stat
 	else msg->rtid = 0;
 
 	auto shouldsavemediaid = [&](const entity &ent) -> bool {
-		return (ent.media_id && ad.media_list[ent.media_id].flags & MEF::IN_DB);
+		return (ent.media_id && ad.media_list[ent.media_id]->flags & MEF::IN_DB);
 	};
 
 	unsigned int count = 0;
@@ -1466,7 +1468,9 @@ void dbconn::SyncReadInAllMediaEntities(sqlite3 *adb) {
 			media_id_type id;
 			id.m_id = (uint64_t) sqlite3_column_int64(stmt, 0);
 			id.t_id = (uint64_t) sqlite3_column_int64(stmt, 1);
-			media_entity &me = ad.media_list[id];
+			media_entity *meptr = new media_entity;
+			ad.media_list[id].reset(meptr);
+			media_entity &me = *meptr;
 			me.media_id = id;
 			size_t outsize;
 			char *url = column_get_compressed(stmt, 2, outsize);

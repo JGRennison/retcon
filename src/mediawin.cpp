@@ -94,10 +94,10 @@ BEGIN_EVENT_TABLE(media_display_win, wxFrame)
 END_EVENT_TABLE()
 
 media_display_win::media_display_win(wxWindow *parent, media_id_type media_id_)
-	: wxFrame(parent, wxID_ANY, wxstrstd(ad.media_list[media_id_].media_url)), media_id(media_id_),
+	: wxFrame(parent, wxID_ANY, wxstrstd(ad.media_list[media_id_]->media_url)), media_id(media_id_),
 		sb(0), st(0), sz(0), next_dynmenu_id(MDID_DYN_START) {
 	Freeze();
-	media_entity *me=&ad.media_list[media_id_];
+	media_entity *me=ad.media_list[media_id_].get();
 	me->win=this;
 
 	if(me->flags & MEF::LOAD_FULL && !(me->flags & MEF::HAVE_FULL)) {
@@ -399,7 +399,7 @@ void media_display_win::OnAnimationTimer(wxTimerEvent& event) {
 media_entity *media_display_win::GetMediaEntity() {
 	auto it=ad.media_list.find(media_id);
 	if(it!=ad.media_list.end()) {
-		return &it->second;
+		return it->second.get();
 	}
 	else return 0;
 }

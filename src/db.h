@@ -180,15 +180,13 @@ struct dbrettweetdata {
 
 struct dbretmediadata {
 	media_id_type media_id;
-	char *url;	//free when done
+	std::string url;
 	shb_iptr full_img_sha1;
 	shb_iptr thumb_img_sha1;
 	flagwrapper<MEF> flags;
 
 	dbretmediadata() : url(0) { }
-	~dbretmediadata() {
-		if(url) free(url);
-	}
+	~dbretmediadata() { }
 	dbretmediadata(const dbretmediadata& that) = delete;
 };
 

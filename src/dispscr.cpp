@@ -668,7 +668,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 						obj->EndURL();
 						obj->EndUnderline();
 						if((et.type==ENT_MEDIA || et.type==ENT_URL_IMG) && et.media_id) {
-							media_entity &me=ad.media_list[et.media_id];
+							media_entity &me = *(ad.media_list[et.media_id]);
 							me_list->push_back(&me);
 						}
 					}
@@ -1141,8 +1141,8 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 		media_id_type media_id=ParseMediaID(url);
 
 		LogMsgFormat(LOGT::TPANEL, wxT("Media image clicked, str: %s, id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d"), url.Mid(1).c_str(), media_id.m_id, media_id.t_id);
-		if(ad.media_list[media_id].win) {
-			ad.media_list[media_id].win->Raise();
+		if(ad.media_list[media_id]->win) {
+			ad.media_list[media_id]->win->Raise();
 		}
 		else {
 			mainframe *parent_mf = GetMainframeAncestor(win, false);
@@ -1153,8 +1153,8 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 	else if(url[0]=='L') {
 		media_id_type media_id = ParseMediaID(url);
 
-		ad.media_list[media_id].CheckLoadThumb(MELF::FORCE);
-		for(auto &it : ad.media_list[media_id].tweet_list) {
+		ad.media_list[media_id]->CheckLoadThumb(MELF::FORCE);
+		for(auto &it : ad.media_list[media_id]->tweet_list) {
 			UpdateTweet(*it);
 		}
 	}
@@ -1458,7 +1458,7 @@ void TweetRightClickHandler(generic_disp_base *win, wxMouseEvent &event, const s
 			media_id_type media_id=ParseMediaID(url);
 			menu.Append(nextid, wxT("Open Media in Window"));
 			AppendToTAMIMenuMap(tamd, nextid, TAMI_MEDIAWIN, td, 0, std::shared_ptr<userdatacontainer>(), 0, url);
-			urlmenupopup(wxstrstd(ad.media_list[media_id].media_url));
+			urlmenupopup(wxstrstd(ad.media_list[media_id]->media_url));
 			GenericPopupWrapper(win, &menu);
 		}
 		else if(url[0]=='U') {

@@ -231,7 +231,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 				[job_data, url, net_flags, netloadmask, mel_flags]() {
 					auto it = ad.media_list.find(job_data->media_id);
 					if(it != ad.media_list.end()) {
-						media_entity &me = it->second;
+						media_entity &me = *(it->second);
 
 						me.flags &= ~MEF::THUMB_NET_INPROGRESS;
 						if(job_data->ok) {
@@ -281,13 +281,14 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 
 				media_entity *me=0;
 				auto it=ad.media_list.find(media_id);
-				if(it==ad.media_list.end()) {
-					me=&ad.media_list[media_id];
+				if(it == ad.media_list.end()) {
+					me = new media_entity;
+					ad.media_list[media_id].reset(me);
 					me->media_id=media_id;
 					me->media_url=ProcessMediaURL(en->fullurl, url);
 					if(gc.cachethumbs || gc.cachemedia) dbc.InsertMedia(*me, dbmsglist);
 				}
-				else me=&it->second;
+				else me = it->second.get();
 
 				auto res=std::find_if(me->tweet_list.begin(), me->tweet_list.end(), [&](const std::shared_ptr<tweet> &tt) {
 					return tt->id==t->id;
@@ -338,8 +339,9 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 
 			media_entity *me=0;
 			auto it=ad.media_list.find(en->media_id);
-			if(it==ad.media_list.end()) {
-				me=&ad.media_list[en->media_id];
+			if(it == ad.media_list.end()) {
+				me = new media_entity;
+				ad.media_list[en->media_id].reset(me);
 				me->media_id=en->media_id;
 				if(t->flags.Get('s')) {
 					if(!CheckTransJsonValueDef(me->media_url, media[i], "media_url_https", "")) {
@@ -354,7 +356,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 				me->media_url+=":large";
 				if(gc.cachethumbs || gc.cachemedia) dbc.InsertMedia(*me, dbmsglist);
 			}
-			else me=&it->second;
+			else me = it->second.get();
 
 			auto res=std::find_if(me->tweet_list.begin(), me->tweet_list.end(), [&](const std::shared_ptr<tweet> &tt) {
 				return tt->id==t->id;

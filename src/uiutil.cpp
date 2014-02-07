@@ -296,8 +296,8 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 		}
 		case TAMI_MEDIAWIN: {
 			media_id_type media_id=ParseMediaID(map[curid].extra);
-			if(ad.media_list[media_id].win) {
-				ad.media_list[media_id].win->Raise();
+			if(ad.media_list[media_id]->win) {
+				ad.media_list[media_id]->win->Raise();
 			}
 			else new media_display_win(mainwin, media_id);
 			break;

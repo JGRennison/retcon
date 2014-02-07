@@ -1010,7 +1010,7 @@ std::string tweet::GetPermalink() const {
 void tweet::GetMediaEntities(std::vector<media_entity *> &out, flagwrapper<MEF> mask) const {
 	for(const entity &et  : entlist) {
 		if((et.type == ENT_MEDIA || et.type == ENT_URL_IMG) && et.media_id) {
-			media_entity &me = ad.media_list[et.media_id];
+			media_entity &me = *(ad.media_list[et.media_id]);
 			if(!mask || me.flags & mask) out.push_back(&me);
 		}
 	}
