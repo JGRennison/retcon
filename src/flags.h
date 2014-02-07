@@ -29,8 +29,6 @@
 
 #include <cstddef>
 #include <type_traits>
-#include <ostream>
-#include <ios>
 
 template< typename enum_type >
 struct enum_traits {
@@ -85,20 +83,6 @@ template <typename C> typename std::enable_if<enum_traits<C>::flags, flagwrapper
 template <typename C> typename std::enable_if<enum_traits<C>::flags, bool>::type operator!(C l) { return !static_cast<typename std::underlying_type<C>::type >(l); }
 template <typename C> typename std::enable_if<enum_traits<C>::flags, bool>::type operator||(C l, C r) { return static_cast<typename std::underlying_type<C>::type >(l) || static_cast<typename std::underlying_type<C>::type >(r); }
 template <typename C> typename std::enable_if<enum_traits<C>::flags, bool>::type operator&&(C l, C r) { return static_cast<typename std::underlying_type<C>::type >(l) && static_cast<typename std::underlying_type<C>::type >(r); }
-
-template <typename C> typename std::enable_if<enum_traits<C>::flags, std::ostream&>::type
-operator<<(std::ostream& os, C val) {
-	auto prev = os.flags();
-	os << "0x" << std::hex << std::uppercase << static_cast<typename std::underlying_type<C>::type>(val);
-	os.flags(prev);
-	return os;
-}
-
-template <typename C> std::ostream&
-operator<<(std::ostream& os, flagwrapper<C> val) {
-	os << val.get();
-	return os;
-}
 
 template <typename C> typename std::enable_if<enum_traits<C>::flags, flagwrapper<C>>::type flag_wrap(typename std::underlying_type<C>::type in) { return static_cast<C>(in); }
 template <typename C> typename std::enable_if<enum_traits<C>::flags, typename std::underlying_type<C>::type>::type flag_unwrap(C in) { return static_cast<typename std::underlying_type<C>::type>(in); }

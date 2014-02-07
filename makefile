@@ -7,6 +7,7 @@
 #map: set to true to enable linker map
 #cross: set to true if building on Unix, but build target is Windows
 #V: set to true to show full command lines
+#nopch: disable use of pre-compiled header
 
 #On Unixy platforms only
 #WXCFGFLAGS: additional arguments for wx-config
@@ -31,7 +32,7 @@ TCFLAGS=-DSHA1_NO_UTILITY_FUNCTIONS
 GCC:=g++
 LD:=ld
 OBJDIR:=objs
-DIRS=$(OBJDIR) $(OBJDIR)$(PATHSEP)libtwitcurl $(OBJDIR)$(PATHSEP)res $(OBJDIR)$(PATHSEP)utf8proc $(OBJDIR)$(PATHSEP)filter
+DIRS=$(OBJDIR) $(OBJDIR)$(PATHSEP)libtwitcurl $(OBJDIR)$(PATHSEP)res $(OBJDIR)$(PATHSEP)utf8proc $(OBJDIR)$(PATHSEP)filter $(OBJDIR)$(PATHSEP)pch
 
 EXECPREFIX:=./
 PATHSEP:=/
@@ -165,7 +166,16 @@ endif
 
 all: $(TARGS)
 
--include $(ALL_OBJS:.o=.d)
+-include $(ALL_OBJS:.o=.d) $(OBJDIR)/pch/pch.h.d
+
+ifndef nopch
+MPCFLAGS:=-I $(OBJDIR)/pch -include pch.h -Winvalid-pch
+$(OBJDIR)/pch/pch.h.gch: src/pch.h | $(DIRS)
+	@echo '    g++ PCH $<'
+	$(call EXEC,$(GCC) -c src/pch.h -o $(OBJDIR)/pch/pch.h.gch $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS) $(MAKEDEPS))
+
+$(OBJS): $(OBJDIR)/pch/pch.h.gch
+endif
 
 MAKEDEPS = -MMD -MP -MT '$@ $(@:.o=.d)'
 
@@ -180,13 +190,13 @@ else
 	$(call EXEC,mv $(OUTNAME)$(SUFFIX).tmp $(OUTNAME)$(SUFFIX))
 endif
 
-$(OBJDIR)/%.o: src/%.cpp
+$(OBJS): $(OBJDIR)/%.o: src/%.cpp
 	@echo '    g++     $<'
-	$(call EXEC,$(GCC) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS) $(MAKEDEPS))
+	$(call EXEC,$(GCC) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(MPCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS) $(MAKEDEPS))
 
-$(OBJDIR)/%.o: src/%.c
+$(COBJS): $(OBJDIR)/%.o: src/%.c
 	@echo '    gcc     $<'
-	$(call EXEC,$(GCC:++=cc) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(GFLAGS) $(MAKEDEPS))
+	$(call EXEC,$(GCC:++=cc) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(GFLAGS) $(MAKEDEPS))
 
 $(TCOBJS): $(OBJDIR)/%.o: src/%.cpp
 	@echo '    g++     $<'
@@ -217,7 +227,7 @@ $(DIRS):
 
 quickclean:
 	@echo '    Clean main objects, target'
-	$(call EXEC,rm -f $(OBJS) $(OBJS:.o=.ii) $(OBJS:.o=.lst) $(OBJS:.o=.s) $(OBJS:.o=.d) $(OUTNAME)$(SUFFIX) $(OUTNAME)$(SUFFIX).tmp)
+	$(call EXEC,rm -f  $(OBJDIR)/pch/pch.h.d  $(OBJDIR)/pch/pch.h.gch $(OBJS) $(OBJS:.o=.ii) $(OBJS:.o=.lst) $(OBJS:.o=.s) $(OBJS:.o=.d) $(OUTNAME)$(SUFFIX) $(OUTNAME)$(SUFFIX).tmp)
 
 mostlyclean: quickclean
 	@echo '    Clean libtwitcurl objects'
