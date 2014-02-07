@@ -21,11 +21,10 @@
 #include "univdefs.h"
 #include "cfg.h"
 #include "taccount.h"
-#include "db.h"
+#include "db-cfg.h"
 #include "util.h"
 #include <wx/stdpaths.h>
 #include <wx/tokenzr.h>
-#include <sqlite3.h>
 
 globconf gc;
 
@@ -240,7 +239,7 @@ void WriteAllCFGOut(sqlite3 *db, globconf &gc, std::list<std::shared_ptr<taccoun
 	twfc.DeleteAll();
 	gc.CFGWriteOut(twfc);
 	twfc.SetDBIndexGlobal();
-	twfc.WriteInt64("LastUpdate", (sqlite3_int64) time(0));
+	twfc.WriteInt64("LastUpdate", (int64_t) time(0));
 
 	for(auto it=alist.begin() ; it != alist.end(); ++it ) (*it)->CFGWriteOut(twfc);
 }

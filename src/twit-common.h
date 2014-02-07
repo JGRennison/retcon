@@ -23,15 +23,12 @@
 
 #include "univdefs.h"
 #include "flags.h"
-#include <functional>
-#include <set>
+#include "tweetidset.h"
 #include <bitset>
 
 struct userdatacontainer;
 struct tweet;
 struct media_entity;
-
-typedef std::set<uint64_t, std::greater<uint64_t> > tweetidset;		//std::set, sorted in opposite order
 
 struct tweet_flags {
 	protected:
@@ -127,27 +124,6 @@ struct cached_id_sets {
 	void CheckTweet(tweet &tw);
 	void RemoveTweet(uint64_t id);
 };
-
-struct media_id_type {
-	uint64_t m_id;
-	uint64_t t_id;
-	media_id_type() : m_id(0), t_id(0) { }
-	operator bool() const { return m_id || t_id; }
-};
-
-inline bool operator==(const media_id_type &m1, const media_id_type &m2) {
-	return (m1.m_id==m2.m_id) && (m1.t_id==m2.t_id);
-}
-
-namespace std {
-  template <> struct hash<media_id_type> : public unary_function<media_id_type, size_t>
-  {
-    inline size_t operator()(const media_id_type & x) const
-    {
-      return (hash<uint64_t>()(x.m_id)<<1) ^ hash<uint64_t>()(x.t_id);
-    }
-  };
-}
 
 typedef enum {
 	CS_NULL          = 0,

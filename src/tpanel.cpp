@@ -1082,7 +1082,7 @@ void tpanelparentwin_nt::MarkSetRead(tweetidset &&subset) {
 		cached_ids
 	);
 	dbupdatetweetsetflagsmsg *msg = new dbupdatetweetsetflagsmsg(std::move(cached_ids), tweet_flags::GetFlagValue('r'), tweet_flags::GetFlagValue('u'));
-	dbc.SendMessage(msg);
+	DBC_SendMessage(msg);
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt::MarkSetRead %s END"), GetThisName().c_str());
 	#endif
@@ -1112,7 +1112,7 @@ void tpanelparentwin_nt::MarkSetUnhighlighted(tweetidset &&subset) {
 		cached_ids
 	);
 	dbupdatetweetsetflagsmsg *msg = new dbupdatetweetsetflagsmsg(std::move(cached_ids), 0, tweet_flags::GetFlagValue('H'));
-	dbc.SendMessage(msg);
+	DBC_SendMessage(msg);
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt::MarkSetUnhighlighted %s END"), GetThisName().c_str());
 	#endif
@@ -1502,11 +1502,10 @@ void tpanelparentwin::LoadMore(unsigned int n, uint64_t lessthanid, uint64_t gre
 		else ++stit;
 	}
 	if(loadmsg) {
-		loadmsg->targ=&dbc;
-		loadmsg->cmdevtype=wxextDBCONN_NOTIFY;
-		loadmsg->winid=wxDBCONNEVT_ID_TPANELTWEETLOAD;
-		if(!(dbc.dbc_flags & dbconn::DBCF::ALL_MEDIA_ENTITIES_LOADED)) loadmsg->flags |= DBSTMF::PULLMEDIA;
-		dbc.SendMessage(loadmsg);
+		if(!DBC_AllMediaEntitiesLoaded()) loadmsg->flags |= DBSTMF::PULLMEDIA;
+		loadmsg->flags |= DBSTMF::CLEARNOUPDF;
+		DBC_PrepareStdTweetLoadMsg(loadmsg);
+		DBC_SendMessage(loadmsg);
 	}
 	if(currentlogflags&LOGT::PENDTRACE) dump_tweet_pendings(LOGT::PENDTRACE, wxT(""), wxT("\t"));
 

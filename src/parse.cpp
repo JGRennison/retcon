@@ -286,7 +286,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 					ad.media_list[media_id].reset(me);
 					me->media_id=media_id;
 					me->media_url=ProcessMediaURL(en->fullurl, url);
-					if(gc.cachethumbs || gc.cachemedia) dbc.InsertMedia(*me, dbmsglist);
+					if(gc.cachethumbs || gc.cachemedia) DBC_InsertMedia(*me, dbmsglist);
 				}
 				else me = it->second.get();
 
@@ -354,7 +354,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 					}
 				}
 				me->media_url+=":large";
-				if(gc.cachethumbs || gc.cachemedia) dbc.InsertMedia(*me, dbmsglist);
+				if(gc.cachethumbs || gc.cachemedia) DBC_InsertMedia(*me, dbmsglist);
 			}
 			else me = it->second.get();
 
@@ -630,7 +630,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			break;
 	}
 	if(dbmsglist) {
-		if(!dbmsglist->msglist.empty()) dbc.SendMessage(dbmsglist);
+		if(!dbmsglist->msglist.empty()) DBC_SendMessage(dbmsglist);
 		else delete dbmsglist;
 		dbmsglist=0;
 	}
@@ -649,7 +649,7 @@ std::shared_ptr<userdatacontainer> jsonparser::DoUserParse(const rapidjson::Valu
 		std::string created_at;
 		CheckTransJsonValueDef(created_at, val, "created_at", "");
 		ParseTwitterDate(0, &userobj.createtime, created_at);
-		dbc.InsertUser(userdatacont, dbmsglist);
+		DBC_InsertUser(userdatacont, dbmsglist);
 	}
 
 	userdatacont->MarkUpdated();
@@ -717,12 +717,12 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, fla
 		data->sflags = sflags;
 		data->tweetid = tweetid;
 
-		dbc.SetDBSelTweetMsgHandler(msg, [data](dbseltweetmsg *msg, dbconn *dbc) {
+		DBC_SetDBSelTweetMsgHandler(msg, [data](dbseltweetmsg *msg, dbconn *dbc) {
 			//Do not use *this, it will have long since gone out of scope
 
 			LogMsgFormat(LOGT::PARSE | LOGT::DBTRACE, wxT("jsonparser::DoTweetParse: Tweet id: %" wxLongLongFmtSpec "d, now doing deferred parse."), data->tweetid);
 
-			dbc->HandleDBSelTweetMsg(msg, dbconn::HDBSF::NOPENDINGS);
+			DBC_HandleDBSelTweetMsg(msg, HDBSF::NOPENDINGS);
 
 			std::shared_ptr<taccount> acc = data->acc.lock();
 			if(acc) {
@@ -734,7 +734,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, fla
 				LogMsgFormat(LOGT::PARSEERR | LOGT::DBERR, wxT("jsonparser::DoTweetParse: Tweet id: %" wxLongLongFmtSpec "d, deferred parse failed as account no longer exists."), data->tweetid);
 			}
 		});
-		dbc.SendMessageBatched(msg);
+		DBC_SendMessageBatched(msg);
 		return tobj;
 	}
 
@@ -932,10 +932,10 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, fla
 				ParseTweetStatics(val, tobj, &jw, false, 0, false);
 				jw.EndObject();
 			}
-			dbc.InsertNewTweet(tobj, std::move(json), dbmsglist);
+			DBC_InsertNewTweet(tobj, std::move(json), dbmsglist);
 			tobj->lflags|=TLF::SAVED_IN_DB;
 		}
-		else dbc.UpdateTweetDyn(tobj, dbmsglist);
+		else DBC_UpdateTweetDyn(tobj, dbmsglist);
 	}
 
 	return tobj;

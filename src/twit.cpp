@@ -91,16 +91,16 @@ void media_entity::PurgeCache(dbsendmsg_list *msglist) {
 
 	dbsendmsg_list *batch = msglist;
 	if(!msglist) batch = new dbsendmsg_list();
-	dbc.UpdateMedia(*this, DBUMMT::THUMBCHECKSUM, batch);
-	dbc.UpdateMedia(*this, DBUMMT::FULLCHECKSUM, batch);
-	dbc.UpdateMedia(*this, DBUMMT::FLAGS, batch);
-	if(!msglist) dbc.SendMessage(batch);
+	DBC_UpdateMedia(*this, DBUMMT::THUMBCHECKSUM, batch);
+	DBC_UpdateMedia(*this, DBUMMT::FULLCHECKSUM, batch);
+	DBC_UpdateMedia(*this, DBUMMT::FLAGS, batch);
+	if(!msglist) DBC_SendMessage(batch);
 }
 
 void media_entity::ClearPurgeFlag(dbsendmsg_list *msglist) {
 	if(flags & MEF::MANUALLY_PURGED) {
 		flags &= ~MEF::MANUALLY_PURGED;
-		dbc.UpdateMedia(*this, DBUMMT::FLAGS, msglist);
+		DBC_UpdateMedia(*this, DBUMMT::FLAGS, msglist);
 	}
 }
 
@@ -739,7 +739,7 @@ void SendTweetFlagUpdate(const std::shared_ptr<tweet> &tw, unsigned long long ma
 	unsigned long long setmask = mask & tw->flags.Save();
 	unsigned long long unsetmask = mask & (~tw->flags.Save());
 	dbupdatetweetsetflagsmsg *msg=new dbupdatetweetsetflagsmsg(std::move(ids), setmask, unsetmask);
-	dbc.SendMessageBatched(msg);
+	DBC_SendMessageBatched(msg);
 }
 
 //the following set of procedures should be kept in sync
@@ -913,16 +913,14 @@ bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::share
 				tobj->lflags |= TLF::BEINGLOADEDFROMDB;
 
 				loadmsg->id_set.insert(tobj->id);
-				loadmsg->targ=&dbc;
-				loadmsg->cmdevtype=wxextDBCONN_NOTIFY;
-				loadmsg->winid=wxDBCONNEVT_ID_TPANELTWEETLOAD;
-				loadmsg->flags|=DBSTMF::NO_ERR;
+				DBC_PrepareStdTweetLoadMsg(loadmsg);
+				loadmsg->flags |= DBSTMF::NO_ERR | DBSTMF::CLEARNOUPDF;
 				if(acc_hint) {
 					if(!net_loadmsg) net_loadmsg = dynamic_cast<dbseltweetmsg_netfallback*>(loadmsg);
 					if(net_loadmsg) net_loadmsg->dbindex = acc_hint->dbindex;
 				}
-				if(!(dbc.dbc_flags & dbconn::DBCF::ALL_MEDIA_ENTITIES_LOADED)) loadmsg->flags |= DBSTMF::PULLMEDIA;
-				if(!existing_dbsel) dbc.SendMessageBatched(loadmsg);
+				if(!DBC_AllMediaEntitiesLoaded()) loadmsg->flags |= DBSTMF::PULLMEDIA;
+				if(!existing_dbsel) DBC_SendMessageBatched(loadmsg);
 			}
 		}
 		return false;

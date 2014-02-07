@@ -23,7 +23,7 @@
 
 #include "univdefs.h"
 #include "socket.h"
-#include "twit-common.h"
+#include "media_id_type.h"
 #include "flags.h"
 
 struct dlconn : public mcurlconn {

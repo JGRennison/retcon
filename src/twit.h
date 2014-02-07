@@ -28,6 +28,7 @@
 #include "tpanel-common.h"
 #include "flags.h"
 #include "hash.h"
+#include "media_id_type.h"
 #include <memory>
 #include <functional>
 #include <wx/bitmap.h>

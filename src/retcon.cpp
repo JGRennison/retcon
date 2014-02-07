@@ -75,9 +75,9 @@ bool retcon::OnInit() {
 	SetTermSigHandler();
 	sm.InitMultiIOHandler();
 	rs.add([&]() { sm.DeInitMultiIOHandler(); });
-	bool res=dbc.Init(datadir + "/retcondb.sqlite3");
+	bool res=DBC_Init(datadir + "/retcondb.sqlite3");
 	if(!res) return false;
-	rs.add([&]() { dbc.DeInit(); });
+	rs.add([&]() { DBC_DeInit(); });
 	if(terms_requested) return false;
 	pool.reset(new ThreadPool::Pool(gc.threadpoollimit));
 
@@ -123,7 +123,7 @@ int retcon::OnExit() {
 	profileimgdlconn::cp.ClearAllConns();
 	sm.DeInitMultiIOHandler();
 	pool.reset();
-	dbc.DeInit();
+	DBC_DeInit();
 	DeInitWxLogger();
 	return wxApp::OnExit();
 }

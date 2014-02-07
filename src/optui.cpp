@@ -147,7 +147,7 @@ void acc_window::AccDel(wxCommandEvent &event) {
 		acc->Exec();
 		dbdelaccmsg *delmsg=new dbdelaccmsg;
 		delmsg->dbindex=acc->dbindex;
-		dbc.SendMessage(delmsg);
+		DBC_SendMessage(delmsg);
 		alist.remove_if([&](const std::shared_ptr<taccount> &a) { return a.get()==acc; });
 		lb->SetSelection(wxNOT_FOUND);
 		UpdateLB();
@@ -180,10 +180,7 @@ void acc_window::AccNew(wxCommandEvent &event) {
 			insmsg->name=ta->name.ToUTF8();
 			insmsg->dispname=ta->dispname.ToUTF8();
 			insmsg->userid=ta->usercont->id;
-			insmsg->targ=&dbc;
-			insmsg->cmdevtype=wxextDBCONN_NOTIFY;
-			insmsg->winid=wxDBCONNEVT_ID_INSERTNEWACC;
-			dbc.SendMessage(insmsg);
+			DBC_SendAccDBUpdate(insmsg);
 		}
 	}
 	twit->TwDeInit();

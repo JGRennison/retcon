@@ -191,7 +191,7 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 			user->cached_profile_img_sha1 = std::move(job_data->hash);
 			user->lastupdate_wrotetodb = 0;    //force user to be written out to database
 
-			dbc.InsertUser(user);
+			DBC_InsertUser(user);
 			user->NotifyProfileImageChange();
 		}
 	});
@@ -328,7 +328,7 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 					me.flags |= MEF::HAVE_THUMB;
 					if(job_data->thumb_hash) {
 						me.thumb_img_sha1 = job_data->thumb_hash;
-						dbc.UpdateMedia(me, DBUMMT::THUMBCHECKSUM);
+						DBC_UpdateMedia(me, DBUMMT::THUMBCHECKSUM);
 					}
 				}
 				else {
@@ -345,7 +345,7 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 				me.fulldata = std::move(job_data->fulldata);
 				if(job_data->full_hash) {
 					me.full_img_sha1 = job_data->full_hash;
-					dbc.UpdateMedia(me, DBUMMT::FULLCHECKSUM);
+					DBC_UpdateMedia(me, DBUMMT::FULLCHECKSUM);
 				}
 				if(me.win) me.win->UpdateImage();
 			}

@@ -22,7 +22,7 @@
 #define HGUARD_SRC_UIUTIL
 
 #include "univdefs.h"
-#include "twit-common.h"
+#include "media_id_type.h"
 #include "tpanel-common.h"
 #include <wx/colour.h>
 #include <wx/string.h>

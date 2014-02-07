@@ -23,6 +23,7 @@
 
 #include "univdefs.h"
 #include "twit-common.h"
+#include "media_id_type.h"
 #include "tpanel-common.h"
 #include "filter/filter.h"
 #include <unordered_map>
@@ -34,7 +35,6 @@ struct tpanel;
 struct userdatacontainer;
 struct tweet;
 struct media_entity;
-struct media_id_type;
 
 struct alldata {
 	std::unordered_map<uint64_t,std::shared_ptr<userdatacontainer> > userconts;

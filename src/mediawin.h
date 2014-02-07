@@ -23,6 +23,7 @@
 
 #include "univdefs.h"
 #include "twit-common.h"
+#include "media_id_type.h"
 #include "flags.h"
 #include <wx/panel.h>
 #include <wx/gdicmn.h>

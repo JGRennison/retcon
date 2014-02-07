@@ -20,6 +20,8 @@
 
 #include "univdefs.h"
 #include "db.h"
+#include "db-intl.h"
+#include "db-cfg.h"
 #include "taccount.h"
 #include "log.h"
 #include "twit.h"
@@ -431,7 +433,7 @@ static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetm
 	uint64_t rtid = 0;
 	if(res == SQLITE_ROW) {
 		#if DB_COPIOUS_LOGGING
-			DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM_SELTWEET got id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) id);
+			DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM::SELTWEET got id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) id);
 		#endif
 		recv_data.emplace_front();
 		dbrettweetdata &rd = recv_data.front();
@@ -458,7 +460,7 @@ static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetm
 			free(mediaidarray);
 		}
 	}
-	else { DBLogMsgFormat((m->flags&DBSTMF::NO_ERR) ? LOGT::DBTRACE : LOGT::DBERR, wxT("DBSM_SELTWEET got error: %d (%s) for id: %" wxLongLongFmtSpec "d, net fallback flag: %d"),
+	else { DBLogMsgFormat((m->flags&DBSTMF::NO_ERR) ? LOGT::DBTRACE : LOGT::DBERR, wxT("DBSM::SELTWEET got error: %d (%s) for id: %" wxLongLongFmtSpec "d, net fallback flag: %d"),
 			res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) id, (m->flags & DBSTMF::NET_FALLBACK) ? 1 : 0); }
 	sqlite3_reset(stmt);
 	if(rtid) {
@@ -468,11 +470,11 @@ static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetm
 
 static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cache, dbiothread *th) {
 	switch(msg->type) {
-		case DBSM_QUIT:
+		case DBSM::QUIT:
 			ok = false;
-			DBLogMsg(LOGT::DBTRACE, wxT("DBSM_QUIT"));
+			DBLogMsg(LOGT::DBTRACE, wxT("DBSM::QUIT"));
 			break;
-		case DBSM_INSERTTWEET: {
+		case DBSM::INSERTTWEET: {
 			dbinserttweetmsg *m = (dbinserttweetmsg*) msg;
 			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_INSTWEET);
 			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->id);
@@ -485,26 +487,26 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			sqlite3_bind_blob(stmt, 8, m->mediaindex, m->mediaindex_size, &free);
 			sqlite3_bind_int64(stmt, 9, (sqlite3_int64) m->rtid);
 			int res = sqlite3_step(stmt);
-			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBSM_INSERTTWEET got error: %d (%s) for id:%" wxLongLongFmtSpec "d"),
+			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBSM::INSERTTWEET got error: %d (%s) for id:%" wxLongLongFmtSpec "d"),
 					res, wxstrstd(sqlite3_errmsg(db)).c_str(), m->id); }
-			else { DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM_INSERTTWEET inserted row id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) m->id); }
+			else { DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM::INSERTTWEET inserted row id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) m->id); }
 			sqlite3_reset(stmt);
 			break;
 		}
-		case DBSM_UPDATETWEET: {
+		case DBSM::UPDATETWEET: {
 			dbupdatetweetmsg *m = (dbupdatetweetmsg*) msg;
 			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_UPDTWEET);
 			bind_compressed(stmt, 1, m->dynjson, 'J', 0, dynjsontable);
 			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->flags);
 			sqlite3_bind_int64(stmt, 3, (sqlite3_int64) m->id);
 			int res = sqlite3_step(stmt);
-			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBSM_UPDATETWEET got error: %d (%s) for id:%" wxLongLongFmtSpec "d"),
+			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBSM::UPDATETWEET got error: %d (%s) for id:%" wxLongLongFmtSpec "d"),
 					res, wxstrstd(sqlite3_errmsg(db)).c_str(), m->id); }
-			else { DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM_UPDATETWEET updated id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) m->id); }
+			else { DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM::UPDATETWEET updated id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) m->id); }
 			sqlite3_reset(stmt);
 			break;
 		}
-		case DBSM_SELTWEET: {
+		case DBSM::SELTWEET: {
 			dbseltweetmsg *m = (dbseltweetmsg*) msg;
 			sqlite3_stmt *stmt=cache.GetStmt(db, DBPSC_SELTWEET);
 			std::forward_list<dbrettweetdata> recv_data;
@@ -541,7 +543,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 						md.flags |= static_cast<MEF>(sqlite3_column_int64(mstmt, 3));
 					}
 					else {
-						DBLogMsgFormat(LOGT::DBERR, wxT("DBSM_SELTWEET (media load) got error: %d (%s) for id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, net fallback flag: %d"),
+						DBLogMsgFormat(LOGT::DBERR, wxT("DBSM::SELTWEET (media load) got error: %d (%s) for id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, net fallback flag: %d"),
 								res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) it->m_id, (sqlite3_int64) it->t_id, (m->flags&DBSTMF::NET_FALLBACK) ? 1 : 0);
 					}
 					sqlite3_reset(mstmt);
@@ -554,7 +556,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			}
 			break;
 		}
-		case DBSM_INSERTUSER: {
+		case DBSM::INSERTUSER: {
 			dbinsertusermsg *m = (dbinsertusermsg*) msg;
 			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_INSUSER);
 			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->id);
@@ -570,13 +572,13 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			}
 			sqlite3_bind_blob(stmt, 7, m->mentionindex, m->mentionindex_size, &free);
 			int res = sqlite3_step(stmt);
-			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBSM_INSERTUSER got error: %d (%s) for id: %" wxLongLongFmtSpec "d"),
+			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBSM::INSERTUSER got error: %d (%s) for id: %" wxLongLongFmtSpec "d"),
 					res, wxstrstd(sqlite3_errmsg(db)).c_str(), m->id); }
-			else { DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM_INSERTUSER inserted id: %" wxLongLongFmtSpec "d"), (sqlite3_int64) m->id); }
+			else { DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM::INSERTUSER inserted id: %" wxLongLongFmtSpec "d"), (sqlite3_int64) m->id); }
 			sqlite3_reset(stmt);
 			break;
 		}
-		case DBSM_INSERTACC: {
+		case DBSM::INSERTACC: {
 			dbinsertaccmsg *m = (dbinsertaccmsg*) msg;
 			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_INSERTNEWACC);
 			sqlite3_bind_text(stmt, 1, m->name.c_str(), -1, SQLITE_TRANSIENT);
@@ -584,39 +586,39 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			sqlite3_bind_int64(stmt, 3, (sqlite3_int64) m->userid);
 			int res = sqlite3_step(stmt);
 			m->dbindex = (unsigned int) sqlite3_last_insert_rowid(db);
-			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBSM_INSERTACC got error: %d (%s) for account name: %s"),
+			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBSM::INSERTACC got error: %d (%s) for account name: %s"),
 					res, wxstrstd(sqlite3_errmsg(db)).c_str(), wxstrstd(m->dispname).c_str()); }
-			else { DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM_INSERTACC inserted account dbindex: %d, name: %s"), m->dbindex, wxstrstd(m->dispname).c_str()); }
+			else { DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM::INSERTACC inserted account dbindex: %d, name: %s"), m->dbindex, wxstrstd(m->dispname).c_str()); }
 			sqlite3_reset(stmt);
 			m->SendReply(m, th);
 			return;
 		}
-		case DBSM_DELACC: {
+		case DBSM::DELACC: {
 			dbdelaccmsg *m = (dbdelaccmsg*) msg;
 			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_DELACC);
 			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->dbindex);
 			int res = sqlite3_step(stmt);
-			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBSM_DELACC got error: %d (%s) for account dbindex: %d"),
+			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBSM::DELACC got error: %d (%s) for account dbindex: %d"),
 					res, wxstrstd(sqlite3_errmsg(db)).c_str(), m->dbindex); }
-			else { DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM_DELACC deleted account dbindex: %d"), m->dbindex); }
+			else { DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM::DELACC deleted account dbindex: %d"), m->dbindex); }
 			sqlite3_reset(stmt);
 			break;
 		}
-		case DBSM_INSERTMEDIA: {
+		case DBSM::INSERTMEDIA: {
 			dbinsertmediamsg *m=(dbinsertmediamsg*) msg;
 			sqlite3_stmt *stmt=cache.GetStmt(db, DBPSC_INSERTMEDIA);
 			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->media_id.m_id);
 			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->media_id.t_id);
 			bind_compressed(stmt, 3, m->url, 'P');
 			int res = sqlite3_step(stmt);
-			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBSM_INSERTMEDIA got error: %d (%s) for id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d"),
+			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBSM::INSERTMEDIA got error: %d (%s) for id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d"),
 					res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id); }
-			else { DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM_INSERTMEDIA inserted media id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d"),
+			else { DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM::INSERTMEDIA inserted media id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d"),
 					(sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id); }
 			sqlite3_reset(stmt);
 			break;
 		}
-		case DBSM_UPDATEMEDIAMSG: {
+		case DBSM::UPDATEMEDIAMSG: {
 			dbupdatemediamsg *m = (dbupdatemediamsg*) msg;
 			DBPSC_TYPE stmt_id = static_cast<DBPSC_TYPE>(-1); //invalid value
 			switch(m->update_type) {
@@ -645,14 +647,14 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->media_id.m_id);
 			sqlite3_bind_int64(stmt, 3, (sqlite3_int64) m->media_id.t_id);
 			int res = sqlite3_step(stmt);
-			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBSM_UPDATEMEDIAMSG got error: %d (%s) for id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d (%d)"),
+			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBSM::UPDATEMEDIAMSG got error: %d (%s) for id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d (%d)"),
 					res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id, m->update_type); }
-			else { DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM_UPDATEMEDIAMSG updated media id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d (%d)"),
+			else { DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM::UPDATEMEDIAMSG updated media id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d (%d)"),
 					(sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id, m->update_type); }
 			sqlite3_reset(stmt);
 			break;
 		}
-		case DBSM_UPDATETWEETSETFLAGS: {
+		case DBSM::UPDATETWEETSETFLAGS: {
 			dbupdatetweetsetflagsmsg *m = (dbupdatetweetsetflagsmsg*) msg;
 			cache.BeginTransaction(db);
 			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_UPDATETWEETFLAGSMASKED);
@@ -661,17 +663,17 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 				sqlite3_bind_int64(stmt, 2, (sqlite3_int64) (~m->unsetmask));
 				sqlite3_bind_int64(stmt, 3, (sqlite3_int64) *it);
 				int res = sqlite3_step(stmt);
-				if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBSM_UPDATETWEETSETFLAGS got error: %d (%s) for id: %" wxLongLongFmtSpec "d"),
+				if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBSM::UPDATETWEETSETFLAGS got error: %d (%s) for id: %" wxLongLongFmtSpec "d"),
 						res, wxstrstd(sqlite3_errmsg(db)).c_str(), *it); }
 				sqlite3_reset(stmt);
 			}
 			cache.EndTransaction(db);
 			break;
 		}
-		case DBSM_MSGLIST: {
+		case DBSM::MSGLIST: {
 			cache.BeginTransaction(db);
 			dbsendmsg_list *m = (dbsendmsg_list*) msg;
-			DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM_MSGLIST: queue size: %d"), m->msglist.size());
+			DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM::MSGLIST: queue size: %d"), m->msglist.size());
 			while(!m->msglist.empty()) {
 				ProcessMessage(db, m->msglist.front(), ok, cache, th);
 				m->msglist.pop();
@@ -734,19 +736,24 @@ void dbiothread::MsgLoop() {
 DEFINE_EVENT_TYPE(wxextDBCONN_NOTIFY)
 
 BEGIN_EVENT_TABLE(dbconn, wxEvtHandler)
-EVT_COMMAND(wxDBCONNEVT_ID_TPANELTWEETLOAD, wxextDBCONN_NOTIFY, dbconn::OnTpanelTweetLoadFromDB)
+EVT_COMMAND(wxDBCONNEVT_ID_STDTWEETLOAD, wxextDBCONN_NOTIFY, dbconn::OnStdTweetLoadFromDB)
 EVT_COMMAND(wxDBCONNEVT_ID_INSERTNEWACC, wxextDBCONN_NOTIFY, dbconn::OnDBNewAccountInsert)
 EVT_COMMAND(wxDBCONNEVT_ID_SENDBATCH, wxextDBCONN_NOTIFY, dbconn::OnSendBatchEvt)
 EVT_COMMAND(wxDBCONNEVT_ID_REPLY, wxextDBCONN_NOTIFY, dbconn::OnDBReplyEvt)
 EVT_COMMAND(wxDBCONNEVT_ID_GENERICSELTWEET, wxextDBCONN_NOTIFY, dbconn::GenericDBSelTweetMsgHandler)
 END_EVENT_TABLE()
 
-void dbconn::OnTpanelTweetLoadFromDB(wxCommandEvent &event) {
+void dbconn::OnStdTweetLoadFromDB(wxCommandEvent &event) {
 	dbseltweetmsg *msg = (dbseltweetmsg *) event.GetClientData();
 	event.SetClientData(0);
 	HandleDBSelTweetMsg(msg, 0);
 	delete msg;
-	dbc_flags |= DBCF::REPLY_CLEARNOUPDF;
+}
+
+void dbconn::PrepareStdTweetLoadMsg(dbseltweetmsg *loadmsg) {
+	loadmsg->targ = this;
+	loadmsg->cmdevtype = wxextDBCONN_NOTIFY;
+	loadmsg->winid = wxDBCONNEVT_ID_STDTWEETLOAD;
 }
 
 void dbconn::GenericDBSelTweetMsgHandler(wxCommandEvent &event) {
@@ -775,7 +782,10 @@ void dbconn::SetDBSelTweetMsgHandler(dbseltweetmsg *msg, std::function<void(dbse
 
 void dbconn::HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags) {
 	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::HandleDBSelTweetMsg start"));
-	if(msg->flags&DBSTMF::NET_FALLBACK) {
+
+	if(msg->flags & DBSTMF::CLEARNOUPDF) dbc_flags |= DBCF::REPLY_CLEARNOUPDF;
+
+	if(msg->flags & DBSTMF::NET_FALLBACK) {
 		dbseltweetmsg_netfallback *fmsg = dynamic_cast<dbseltweetmsg_netfallback *>(msg);
 		std::shared_ptr<taccount> acc;
 		if(fmsg) {
@@ -957,6 +967,13 @@ void dbconn::SendMessage(dbsendmsg *msg) {
 	#endif
 }
 
+void dbconn::SendAccDBUpdate(dbinsertaccmsg *insmsg) {
+	insmsg->targ = this;
+	insmsg->cmdevtype = wxextDBCONN_NOTIFY;
+	insmsg->winid = wxDBCONNEVT_ID_INSERTNEWACC;
+	dbc.SendMessage(insmsg);
+}
+
 bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	if(dbc_flags & DBCF::INITED) return true;
 
@@ -1051,7 +1068,7 @@ void dbconn::DeInit() {
 
 	LogMsg(LOGT::DBTRACE | LOGT::THREADTRACE, wxT("dbconn::DeInit: About to terminate database thread and write back state"));
 
-	SendMessage(new dbsendmsg(DBSM_QUIT));
+	SendMessage(new dbsendmsg(DBSM::QUIT));
 
 	#ifdef __WINDOWS__
 	CloseHandle(iocp);
@@ -1761,7 +1778,7 @@ void DBWriteConfig::WriteUTF8(const char *name, const char *strval) {
 	sqlite3_bind_text(stmt, 3, strval, -1, SQLITE_TRANSIENT);
 	exec(stmt);
 }
-void DBWriteConfig::WriteInt64(const char *name, sqlite3_int64 val) {
+void DBWriteConfig::WriteInt64(const char *name, int64_t val) {
 	bind_accid_name(stmt, name);
 	sqlite3_bind_int64(stmt, 3, val);
 	exec(stmt);
@@ -1822,16 +1839,16 @@ bool DBReadConfig::Read(const char *name, wxString *strval, const wxString &defv
 }
 
 bool DBReadConfig::ReadBool(const char *name, bool *strval, bool defval) {
-	sqlite3_int64 value;
-	bool res = ReadInt64(name, &value, (sqlite3_int64) defval);
+	int64_t value;
+	bool res = ReadInt64(name, &value, (int64_t) defval);
 	*strval = (bool) value;
 	return res;
 }
 bool DBReadConfig::ReadUInt64(const char *name, uint64_t *strval, uint64_t defval) {
-	return ReadInt64(name, (sqlite3_int64 *) strval, (sqlite3_int64) defval);
+	return ReadInt64(name, (int64_t *) strval, (int64_t) defval);
 }
 
-bool DBReadConfig::ReadInt64(const char *name, sqlite3_int64 *strval, sqlite3_int64 defval) {
+bool DBReadConfig::ReadInt64(const char *name, int64_t *strval, int64_t defval) {
 	bind_accid_name(stmt, name);
 	bool ok = exec(stmt);
 	if(ok) {
@@ -1840,4 +1857,64 @@ bool DBReadConfig::ReadInt64(const char *name, sqlite3_int64 *strval, sqlite3_in
 	else *strval = defval;
 	sqlite3_reset(stmt);
 	return ok;
+}
+
+bool DBC_Init(const std::string &filename) {
+	return dbc.Init(filename);
+}
+
+void DBC_DeInit() {
+	dbc.DeInit();
+}
+
+void DBC_SendMessage(dbsendmsg *msg) {
+	dbc.SendMessage(msg);
+}
+
+void DBC_SendMessageOrAddToList(dbsendmsg *msg, dbsendmsg_list *msglist) {
+	dbc.SendMessageOrAddToList(msg, msglist);
+}
+
+void DBC_SendMessageBatched(dbsendmsg *msg) {
+	dbc.SendMessageBatched(msg);
+}
+
+void DBC_SendAccDBUpdate(dbinsertaccmsg *insmsg) {
+	dbc.SendAccDBUpdate(insmsg);
+}
+
+void DBC_InsertMedia(media_entity &me, dbsendmsg_list *msglist) {
+	dbc.InsertMedia(me, msglist);
+}
+
+void DBC_UpdateMedia(media_entity &me, DBUMMT update_type, dbsendmsg_list *msglist) {
+	dbc.UpdateMedia(me, update_type, msglist);
+}
+
+void DBC_InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string statjson, dbsendmsg_list *msglist) {
+	dbc.InsertNewTweet(tobj, statjson, msglist);
+}
+
+void DBC_UpdateTweetDyn(const std::shared_ptr<tweet> &tobj, dbsendmsg_list *msglist) {
+	dbc.UpdateTweetDyn(tobj, msglist);
+}
+
+void DBC_InsertUser(const std::shared_ptr<userdatacontainer> &u, dbsendmsg_list *msglist) {
+	dbc.InsertUser(u, msglist);
+}
+
+void DBC_HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags) {
+	dbc.HandleDBSelTweetMsg(msg, flags);
+}
+
+void DBC_SetDBSelTweetMsgHandler(dbseltweetmsg *msg, std::function<void(dbseltweetmsg *, dbconn *)> f) {
+	dbc.SetDBSelTweetMsgHandler(msg, std::move(f));
+}
+
+bool DBC_AllMediaEntitiesLoaded() {
+	return (dbc.dbc_flags & dbconn::DBCF::ALL_MEDIA_ENTITIES_LOADED);
+}
+
+void DBC_PrepareStdTweetLoadMsg(dbseltweetmsg *loadmsg) {
+	dbc.PrepareStdTweetLoadMsg(loadmsg);
 }
