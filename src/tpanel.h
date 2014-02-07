@@ -51,6 +51,7 @@ struct mainframe;
 struct tweetdispscr;
 struct tpanel;
 struct tweetdispscr;
+struct bindwxevt_win;
 
 DECLARE_EVENT_TYPE(wxextRESIZE_UPDATE_EVENT, -1)
 DECLARE_EVENT_TYPE(wxextTP_PAGEUP_EVENT, -1)
@@ -188,8 +189,10 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	wxString thisname;
 	wxTimer batchtimer;
 
+	std::unique_ptr<bindwxevt_win> evtbinder;
+
 	panelparentwin_base(wxWindow *parent, bool fitnow=true, wxString thisname_ = wxT(""));
-	virtual ~panelparentwin_base() { }
+	virtual ~panelparentwin_base();
 	virtual mainframe *GetMainframe();
 	virtual void PageUpHandler() { };
 	virtual void PageDownHandler() { };
@@ -231,7 +234,6 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 struct tpanelparentwin_nt : public panelparentwin_base {
 	std::shared_ptr<tpanel> tp;
 	tweetdispscr_mouseoverwin *mouseoverwin = 0;
-	std::map<int, std::function<void(wxCommandEvent &event)> > btnhandlerlist;
 	std::deque<std::pair<std::shared_ptr<tweet>, flagwrapper<PUSHFLAGS> > > pushtweetbatchqueue;
 	std::deque<std::pair<uint64_t, flagwrapper<PUSHFLAGS> > > removetweetbatchqueue;
 	std::map<uint64_t, bool> updatetweetbatchqueue;
@@ -256,7 +258,6 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	void MarkSetUnhighlighted();
 	void MarkSetUnhighlighted(tweetidset &&subset);
 	void setupnavbuttonhandlers();
-	void navbuttondispatchhandler(wxCommandEvent &event);
 	void morebtnhandler(wxCommandEvent &event);
 	void MarkClearCIDSSetHandler(std::function<tweetidset &(cached_id_sets &)> idsetselector,
 			std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc, const tweetidset &subset);

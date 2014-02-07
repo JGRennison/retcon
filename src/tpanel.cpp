@@ -36,6 +36,7 @@
 #include "db.h"
 #include "util.h"
 #include "raii.h"
+#include "bind_wxevt.h"
 #include <wx/choicdlg.h>
 #include <wx/textdlg.h>
 #include <wx/msgdlg.h>
@@ -433,7 +434,7 @@ END_EVENT_TABLE()
 
 panelparentwin_base::panelparentwin_base(wxWindow *parent, bool fitnow, wxString thisname_)
 : wxPanel(parent, wxID_ANY, wxPoint(-1000, -1000)), displayoffset(0), parent_win(parent), tppw_flags(0), thisname(thisname_) {
-
+	evtbinder.reset(new bindwxevt_win(this));
 	tpg=tpanelglobal::Get();
 
 	if(gc.showdeletedtweetsbydefault) {
@@ -473,6 +474,8 @@ panelparentwin_base::panelparentwin_base(wxWindow *parent, bool fitnow, wxString
 		FitInside();
 	}
 }
+
+panelparentwin_base::~panelparentwin_base() { }
 
 void panelparentwin_base::ShowHideButtons(std::string type, bool show) {
 	auto iterpair = showhidemap.equal_range(type);
@@ -1118,15 +1121,11 @@ void tpanelparentwin_nt::MarkSetUnhighlighted(tweetidset &&subset) {
 	#endif
 }
 
-void tpanelparentwin_nt::navbuttondispatchhandler(wxCommandEvent &event) {
-	btnhandlerlist[event.GetId()](event);
-}
-
 void tpanelparentwin_nt::setupnavbuttonhandlers() {
 	auto addhandler = [&](int id, std::function<void(wxCommandEvent &event)> f) {
-		btnhandlerlist[id] = std::move(f);
-		Connect(id, wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(tpanelparentwin_nt::navbuttondispatchhandler));
-		Connect(id, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(tpanelparentwin_nt::navbuttondispatchhandler));
+		auto handler = evtbinder->MakeSharedEvtHandlerSC<wxCommandEvent>(std::move(f));
+		evtbinder->BindEvtHandler(wxEVT_COMMAND_BUTTON_CLICKED, id, handler);
+		evtbinder->BindEvtHandler(wxEVT_COMMAND_MENU_SELECTED, id, handler);
 	};
 
 	auto cidsendjump = [&](int id, tweetidset cached_id_sets::* cid, bool newest) {

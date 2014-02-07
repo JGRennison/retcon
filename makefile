@@ -20,7 +20,7 @@
 
 
 OBJS_SRC := retcon.cpp cfg.cpp optui.cpp parse.cpp socket.cpp socket-ops.cpp tpanel.cpp tpanel-data.cpp twit.cpp db.cpp log.cpp cmdline.cpp userui.cpp mainui.cpp signal.cpp threadutil.cpp
-OBJS_SRC += dispscr.cpp uiutil.cpp mediawin.cpp taccount.cpp util.cpp res.cpp version.cpp aboutwin.cpp twitcurlext.cpp filter/filter.cpp
+OBJS_SRC += dispscr.cpp uiutil.cpp mediawin.cpp taccount.cpp util.cpp res.cpp version.cpp aboutwin.cpp twitcurlext.cpp filter/filter.cpp bind_wxevt.cpp
 TCOBJS_SRC:=libtwitcurl/base64.cpp libtwitcurl/HMAC_SHA1.cpp libtwitcurl/oauthlib.cpp libtwitcurl/SHA1.cpp libtwitcurl/twitcurl.cpp libtwitcurl/urlencode.cpp
 COBJS_SRC:=utf8proc/utf8proc.c
 OUTNAME:=retcon
