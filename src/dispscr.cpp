@@ -1214,6 +1214,10 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 				auto menuptr = std::make_shared<wxMenu>();
 				wxMenu &menu = *menuptr;
 
+				generic_disp_base *gdb = dynamic_cast<generic_disp_base *>(win);
+				tweetdispscr *tds = 0;
+				if(gdb) tds = gdb->GetTDS();
+
 				menu.Append(nextid, wxT("Reply"));
 				AppendToTAMIMenuMap(tamd, nextid, TAMI_REPLY, td);
 
@@ -1256,7 +1260,7 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 					menu.AppendSubMenu(marksubmenu, wxT("Mark"));
 					MakeMarkMenu(marksubmenu, tamd, nextid, td);
 					tpanelparentwin_nt *tppw_nt = dynamic_cast<tpanelparentwin_nt *>(tppw);
-					if(tppw_nt) {
+					if(tppw_nt && tds && !(tds->tds_flags & TDSF::SUBTWEET)) {
 						MakeTPanelMarkMenu(marksubmenu, tamd, nextid, td, tppw_nt);
 					}
 				}
