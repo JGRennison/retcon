@@ -143,7 +143,7 @@ void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map) {
 		std::string default_name;
 		for(size_t i = 0; ; i++) { //stop when no such tpanel exists with the given name
 			default_name = string_format("Unnamed Panel %u", i);
-			if(!ad.tpanels[tpanel::ManualName(default_name)]) break;
+			if(ad.tpanels.find(tpanel::ManualName(default_name)) == ad.tpanels.end()) break;
 		}
 		wxString str = ::wxGetTextFromUser(wxT("Enter name of new panel"), wxT("Input Name"), wxstrstd(default_name));
 		str.Trim(true).Trim(false);
