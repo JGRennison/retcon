@@ -166,6 +166,7 @@ enum {	//window IDs
 	TPPWID_TOGGLEHIDDEN,
 	TPPWID_TOGGLEHIDEDELETED,
 	TPPWID_TIMER_BATCHMODE,
+	TPPWID_FILTERDLGBTN,
 };
 
 struct panelparentwin_base : public wxPanel, public magic_ptr_base {
@@ -375,6 +376,7 @@ void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map);
 void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent);
 void TPanelMenuActionCustom(mainframe *parent, flagwrapper<TPF> flags);
 void CheckClearNoUpdateFlag_All();
+void SetNoUpdateFlag_All();
 
 void EnumAllDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush);
 

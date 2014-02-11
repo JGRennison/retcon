@@ -27,6 +27,7 @@
 #include "twitcurlext.h"
 #include "alldata.h"
 #include "filter/filter-ops.h"
+#include "filter/filter-vldtr.h"
 #include "util.h"
 #include <wx/msgdlg.h>
 #include <wx/sizer.h>
@@ -293,41 +294,6 @@ struct ValueChkBoxValidator : public wxValidator {
 	}
 	virtual bool Validate(wxWindow* parent) {
 		return true;
-	}
-};
-
-struct FilterTextValidator : public wxTextValidator {
-	filter_set &fs;
-	wxString *valPtr;
-	std::shared_ptr<filter_set> ownfilter;
-	FilterTextValidator(filter_set &fs_, wxString* valPtr_ = NULL)
-			: wxTextValidator((long) wxFILTER_NONE, valPtr_), fs(fs_), valPtr(valPtr_) {
-	}
-	virtual wxObject* Clone() const {
-		FilterTextValidator *newfv = new FilterTextValidator(fs, valPtr);
-		newfv->ownfilter = ownfilter;
-		return newfv;
-	}
-	virtual bool TransferFromWindow() {
-		bool result = wxTextValidator::TransferFromWindow();
-		if(result && ownfilter) {
-			fs = std::move(*ownfilter);
-		}
-		return result;
-	}
-	virtual bool Validate(wxWindow* parent) {
-		wxTextCtrl *win = (wxTextCtrl *) GetWindow();
-
-		if(!ownfilter) ownfilter = std::make_shared<filter_set>();
-		std::string errmsg;
-		ParseFilter(stdstrwx(win->GetValue()), *ownfilter, errmsg);
-		if(errmsg.empty()) {
-			return true;
-		}
-		else {
-			::wxMessageBox(wxT("Filter is not valid, please correct errors.\n") + wxstrstd(errmsg), wxT("Filter Validation Failed"), wxOK | wxICON_EXCLAMATION, parent);
-			return false;
-		}
 	}
 };
 

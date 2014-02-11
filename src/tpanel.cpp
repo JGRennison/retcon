@@ -37,6 +37,7 @@
 #include "util.h"
 #include "raii.h"
 #include "bind_wxevt.h"
+#include "filter/filter-dlg.h"
 #include <wx/choicdlg.h>
 #include <wx/textdlg.h>
 #include <wx/msgdlg.h>
@@ -250,6 +251,12 @@ void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent) {
 void CheckClearNoUpdateFlag_All() {
 	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
 		(*it)->CheckClearNoUpdateFlag();
+	}
+}
+
+void SetNoUpdateFlag_All() {
+	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
+		(*it)->SetNoUpdateFlag();
 	}
 }
 
@@ -1225,6 +1232,13 @@ void tpanelparentwin_nt::setupnavbuttonhandlers() {
 	};
 	hidesettogglefunc(TPPWID_TOGGLEHIDDEN, TPPWF::SHOWHIDDEN, &cached_id_sets::hiddenids, wxT("TPPWID_TOGGLEHIDDEN: Hidden IDs"));
 	hidesettogglefunc(TPPWID_TOGGLEHIDEDELETED, TPPWF::SHOWDELETED, &cached_id_sets::deletedids, wxT("TPPWID_TOGGLEHIDEDELETED: Deleted IDs"));
+	addhandler(TPPWID_FILTERDLGBTN, [this](wxCommandEvent &event) {
+		filter_dlg *fdg = new filter_dlg(this, wxID_ANY, [this]() -> const tweetidset * {
+			return &(tp->tweetlist);
+		});
+		fdg->ShowModal();
+		fdg->Destroy();
+	});
 }
 
 void tpanelparentwin_nt::morebtnhandler(wxCommandEvent &event) {
@@ -1248,6 +1262,10 @@ void tpanelparentwin_nt::morebtnhandler(wxCommandEvent &event) {
 		pmenu.Append(TPPWID_OLDESTUNREADBTN, wxT("&Oldest Unread \x2193"));
 		pmenu.Append(TPPWID_NEXT_NEWESTUNREADBTN, wxT("Next Newest Unread \x21E1"));
 		pmenu.Append(TPPWID_NEXT_OLDESTUNREADBTN, wxT("Next Oldest Unread \x21E3"));
+	}
+	if(!tp->tweetlist.empty()) {
+		pmenu.AppendSeparator();
+		pmenu.Append(TPPWID_FILTERDLGBTN, wxT("Apply Filter"));
 	}
 	pmenu.AppendSeparator();
 	wxMenuItem *wmith = pmenu.Append(TPPWID_TOGGLEHIDDEN, wxString::Format(wxT("Show Hidden Tweets (%d)"), tp->cids.hiddenids.size()), wxT(""), wxITEM_CHECK);

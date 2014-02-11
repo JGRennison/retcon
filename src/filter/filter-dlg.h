@@ -15,29 +15,37 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program. If not, see <http://www.gnu.org/licenses/>.
 //
-//  2013 - Jonathan G Rennison <j.g.rennison@gmail.com>
+//  2014 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-#ifndef HGUARD_SRC_FILTER_FILTER
-#define HGUARD_SRC_FILTER_FILTER
+#ifndef HGUARD_SRC_FILTER_FILTER_DLG
+#define HGUARD_SRC_FILTER_FILTER_DLG
 
 #include "../univdefs.h"
-#include <functional>
-#include <string>
+#include "../twit-common.h"
+#include <wx/dialog.h>
+#include <wx/sizer.h>
 #include <memory>
-#include <list>
+#include <map>
 
-struct filter_item;
-struct tweet;
-struct taccount;
+struct selection_category;
+struct filter_dlg_gui;
 
-struct filter_set {
-	std::list<std::unique_ptr<filter_item> > filters;
+class filter_dlg : public wxDialog {
+	std::unique_ptr<filter_dlg_gui> fdg;
+	std::function<const tweetidset *()> getidset;
+	std::map<int, selection_category> checkboxmap;
 
-	void FilterTweet(tweet &tw, taccount *tac = 0);
-	filter_set();
-	~filter_set();
-	filter_set & operator =(filter_set &&other);
+	public:
+	filter_dlg(wxWindow* parent, wxWindowID id, std::function<const tweetidset *()> getidset_, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxDefaultSize);
+	~filter_dlg();
+	void CheckBoxUpdate(wxCommandEvent &event);
+	void RefreshSelection();
+	void ReCalculateCategories();
+	void OnOK(wxCommandEvent &event);
+	void ExecFilter();
+
+	DECLARE_EVENT_TABLE()
 };
 
 #endif
