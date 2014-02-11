@@ -26,6 +26,7 @@
 #include "taccount.h"
 #include "tpanel.h"
 #include "tpanel-data.h"
+#include "tpanel-aux.h"
 #include "userui.h"
 #include "mediawin.h"
 #include "mainui.h"
@@ -185,7 +186,7 @@ void MakeTPanelMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const
 	size_t pos = menuP->GetMenuItemCount();
 
 	uint64_t twid = tw->id;
-	const std::shared_ptr<tpanel> &tp = tppw->tp;
+	const std::shared_ptr<tpanel> &tp = tppw->GetTP();
 
 	if(!tp->cids.unreadids.empty()) {
 		if(twid < *(tp->cids.unreadids.begin())) {
@@ -333,33 +334,33 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 		}
 		case TAMI_MARKNEWERUNREAD: {
 			tpanelparentwin_nt *tppw = static_cast<tpanelparentwin_nt *>(map[curid].ppwb);
-			if(tppw->tp->cids.unreadids.empty()) break;
+			if(tppw->GetTP()->cids.unreadids.empty()) break;
 			tweetidset subset;
-			SpliceTweetIDSet(tppw->tp->cids.unreadids, subset, *(tppw->tp->cids.unreadids.begin()), map[curid].tw->id + 1, true);
+			SpliceTweetIDSet(tppw->GetTP()->cids.unreadids, subset, *(tppw->GetTP()->cids.unreadids.begin()), map[curid].tw->id + 1, true);
 			tppw->MarkSetRead(std::move(subset));
 			break;
 		}
 		case TAMI_MARKOLDERUNREAD: {
 			tpanelparentwin_nt *tppw = static_cast<tpanelparentwin_nt *>(map[curid].ppwb);
-			if(tppw->tp->cids.unreadids.empty()) break;
+			if(tppw->GetTP()->cids.unreadids.empty()) break;
 			tweetidset subset;
-			SpliceTweetIDSet(tppw->tp->cids.unreadids, subset, map[curid].tw->id - 1, 0, true);
+			SpliceTweetIDSet(tppw->GetTP()->cids.unreadids, subset, map[curid].tw->id - 1, 0, true);
 			tppw->MarkSetRead(std::move(subset));
 			break;
 		}
 		case TAMI_MARKNEWERUNHIGHLIGHTED: {
 			tpanelparentwin_nt *tppw = static_cast<tpanelparentwin_nt *>(map[curid].ppwb);
-			if(tppw->tp->cids.highlightids.empty()) break;
+			if(tppw->GetTP()->cids.highlightids.empty()) break;
 			tweetidset subset;
-			SpliceTweetIDSet(tppw->tp->cids.highlightids, subset, *(tppw->tp->cids.highlightids.begin()), map[curid].tw->id + 1, true);
+			SpliceTweetIDSet(tppw->GetTP()->cids.highlightids, subset, *(tppw->GetTP()->cids.highlightids.begin()), map[curid].tw->id + 1, true);
 			tppw->MarkSetUnhighlighted(std::move(subset));
 			break;
 		}
 		case TAMI_MARKOLDERUNHIGHLIGHTED: {
 			tpanelparentwin_nt *tppw = static_cast<tpanelparentwin_nt *>(map[curid].ppwb);
-			if(tppw->tp->cids.highlightids.empty()) break;
+			if(tppw->GetTP()->cids.highlightids.empty()) break;
 			tweetidset subset;
-			SpliceTweetIDSet(tppw->tp->cids.highlightids, subset, map[curid].tw->id - 1, 0, true);
+			SpliceTweetIDSet(tppw->GetTP()->cids.highlightids, subset, map[curid].tw->id - 1, 0, true);
 			tppw->MarkSetUnhighlighted(std::move(subset));
 			break;
 		}

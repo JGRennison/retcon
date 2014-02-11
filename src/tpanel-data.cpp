@@ -316,9 +316,14 @@ bool tpanel::IsSingleAccountTPanel() const {
 	return false;
 }
 
-void tpanel::TPPWFlagMaskAllTWins(flagwrapper<TPPWF> set, flagwrapper<TPPWF> clear) const {
+void tpanel::SetNoUpdateFlag_TP() const {
 	for(auto &jt : twin) {
-		jt->tppw_flags |= set;
-		jt->tppw_flags &= ~clear;
+		jt->SetNoUpdateFlag();
+	}
+}
+
+void tpanel::SetClabelUpdatePendingFlag_TP() const {
+	for(auto &jt : twin) {
+		jt->SetClabelUpdatePendingFlag();
 	}
 }

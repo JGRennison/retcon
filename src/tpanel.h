@@ -28,17 +28,7 @@
 #include "uiutil.h"
 #include "magic_ptr.h"
 #include "flags.h"
-#include <wx/statbmp.h>
-#include <wx/aui/auibook.h>
 #include <wx/panel.h>
-#include <wx/sizer.h>
-#include <wx/button.h>
-#include <wx/stattext.h>
-#include <wx/scrolwin.h>
-#include <wx/image.h>
-#include <list>
-#include <map>
-#include <deque>
 #include <forward_list>
 #include <functional>
 
@@ -59,79 +49,6 @@ DECLARE_EVENT_TYPE(wxextTP_PAGEDOWN_EVENT, -1)
 
 struct tweetdispscr_mouseoverwin;
 
-struct tpanelreltimeupdater : public wxTimer {
-	void Notify() override;
-};
-
-struct tpanelglobal {
-	wxBitmap arrow;
-	int arrow_dim;
-	tpanelreltimeupdater minutetimer;
-	wxBitmap infoicon;
-	wxImage infoicon_img;
-	wxBitmap replyicon;
-	wxImage replyicon_img;
-	wxBitmap favicon;
-	wxImage favicon_img;
-	wxBitmap favonicon;
-	wxImage favonicon_img;
-	wxBitmap retweeticon;
-	wxImage retweeticon_img;
-	wxBitmap retweetonicon;
-	wxImage retweetonicon_img;
-	wxBitmap dmreplyicon;
-	wxImage dmreplyicon_img;
-	wxBitmap proticon;
-	wxImage proticon_img;
-	wxBitmap verifiedicon;
-	wxImage verifiedicon_img;
-	wxBitmap closeicon;
-	wxBitmap multiunreadicon;
-
-	static std::shared_ptr<tpanelglobal> Get();
-	static std::weak_ptr<tpanelglobal> tpg_glob;
-
-	tpanelglobal();	//use Get() instead
-};
-
-struct profimg_staticbitmap: public wxStaticBitmap {
-	uint64_t userid;
-	uint64_t tweetid;
-	mainframe *owner;
-
-	enum class PISBF {
-		HALF                = 1<<0,
-		DONTUSEDEFAULTMF    = 1<<1, //Don't use default mainframe
-	};
-	flagwrapper<PISBF> pisb_flags;
-
-	inline profimg_staticbitmap(wxWindow* parent, const wxBitmap& label, uint64_t userid_, uint64_t tweetid_, mainframe *owner_ = 0, flagwrapper<PISBF> flags = 0)
-		: wxStaticBitmap(parent, wxID_ANY, label, wxPoint(-1000, -1000)), userid(userid_), tweetid(tweetid_), owner(owner_), pisb_flags(flags) { }
-	void ClickHandler(wxMouseEvent &event);
-	void RightClickHandler(wxMouseEvent &event);
-	void OnTweetActMenuCmd(wxCommandEvent &event);
-
-	DECLARE_EVENT_TABLE()
-};
-template<> struct enum_traits<profimg_staticbitmap::PISBF> { static constexpr bool flags = true; };
-
-struct tpanelnotebook : public wxAuiNotebook {
-	mainframe *owner;
-
-	tpanelnotebook(mainframe *owner_, wxWindow *parent);
-	void dragdrophandler(wxAuiNotebookEvent& event);
-	void dragdonehandler(wxAuiNotebookEvent& event);
-	void tabrightclickhandler(wxAuiNotebookEvent& event);
-	void tabclosedhandler(wxAuiNotebookEvent& event);
-	void onsizeevt(wxSizeEvent &event);
-	void tabnumcheck();
-	virtual void Split(size_t page, int direction) override;
-	void PostSplitSizeCorrect();
-	void FillWindowLayout(unsigned int mainframeindex);
-
-	DECLARE_EVENT_TABLE()
-};
-
 struct tppw_scrollfreeze {
 	enum class SF {
 		ALWAYSFREEZE	= 1<<0,
@@ -143,232 +60,102 @@ struct tppw_scrollfreeze {
 };
 template<> struct enum_traits<tppw_scrollfreeze::SF> { static constexpr bool flags = true; };
 
-enum {	//window IDs
-	TPPWID_DETACH = 100,
-	TPPWID_DUP,
-	TPPWID_DETACHDUP,
-	TPPWID_CLOSE,
-	TPPWID_TOPBTN,
-	TPPWID_SPLIT,
-	TPPWID_MARKALLREADBTN,
-	TPPWID_NEWESTUNREADBTN,
-	TPPWID_OLDESTUNREADBTN,
-	TPPWID_NEWESTHIGHLIGHTEDBTN,
-	TPPWID_OLDESTHIGHLIGHTEDBTN,
-	TPPWID_NEXT_NEWESTUNREADBTN,
-	TPPWID_NEXT_OLDESTUNREADBTN,
-	TPPWID_NEXT_NEWESTHIGHLIGHTEDBTN,
-	TPPWID_NEXT_OLDESTHIGHLIGHTEDBTN,
-	TPPWID_UNHIGHLIGHTALLBTN,
-	TPPWID_MOREBTN,
-	TPPWID_JUMPTONUM,
-	TPPWID_JUMPTOID,
-	TPPWID_TOGGLEHIDDEN,
-	TPPWID_TOGGLEHIDEDELETED,
-	TPPWID_TIMER_BATCHMODE,
-	TPPWID_FILTERDLGBTN,
-};
+struct panelparentwin_base_impl;
 
 struct panelparentwin_base : public wxPanel, public magic_ptr_base {
-	std::shared_ptr<tpanelglobal> tpg;
-	wxBoxSizer *sizer;
-	size_t displayoffset;
-	wxWindow *parent_win;
-	tpanelscrollwin *scrollwin;
-	wxStaticText *clabel;
-	flagwrapper<TPPWF> tppw_flags = 0;
-	wxButton *MarkReadBtn;
-	wxButton *NewestUnreadBtn;
-	wxButton *OldestUnreadBtn;
-	wxButton *UnHighlightBtn;
-	wxButton *MoreBtn;
-	wxBoxSizer* headersizer;
-	uint64_t scrolltoid = 0;
-	uint64_t scrolltoid_onupdate = 0;
-	std::multimap<std::string, wxButton *> showhidemap;
-	std::list<std::pair<uint64_t, dispscr_base *> > currentdisp;
-	wxString thisname;
-	wxTimer batchtimer;
+	std::unique_ptr<panelparentwin_base_impl> pimpl_ptr;
 
 	std::unique_ptr<bindwxevt_win> evtbinder;
+	const panelparentwin_base_impl *pimpl() const;
+	panelparentwin_base_impl *pimpl() { return const_cast<panelparentwin_base_impl *>(const_cast<const panelparentwin_base*>(this)->pimpl()); }
 
-	panelparentwin_base(wxWindow *parent, bool fitnow=true, wxString thisname_ = wxT(""));
+	panelparentwin_base(wxWindow *parent, bool fitnow=true, wxString thisname_ = wxT(""), panelparentwin_base_impl *privimpl = 0);
 	virtual ~panelparentwin_base();
-	virtual mainframe *GetMainframe();
-	virtual void PageUpHandler() { };
-	virtual void PageDownHandler() { };
-	virtual void PageTopHandler() { };
-	void pageupevthandler(wxCommandEvent &event);
-	void pagedownevthandler(wxCommandEvent &event);
-	void pagetopevthandler(wxCommandEvent &event);
-	virtual void UpdateCLabel() { }
-	void CLabelNeedsUpdating(flagwrapper<PUSHFLAGS> pushflags);
+	mainframe *GetMainframe();
+	void UpdateCLabel();
 	void SetNoUpdateFlag();
+	void SetClabelUpdatePendingFlag();
 	void CheckClearNoUpdateFlag();
-	virtual void HandleScrollToIDOnUpdate() { }
-	void PopTop();
-	void PopBottom();
-	void RemoveIndex(size_t offset);
 	void StartScrollFreeze(tppw_scrollfreeze &s);
 	void EndScrollFreeze(tppw_scrollfreeze &s);
 	void SetScrollFreeze(tppw_scrollfreeze &s, dispscr_base *scr);
 	virtual bool IsSingleAccountWin() const;
-	void ShowHideButtons(std::string type, bool show);
 	virtual void NotifyRequestFailed() { }
-	inline wxString GetThisName() const { return thisname; }
+	wxString GetThisName() const;
 	uint64_t GetCurrentViewTopID() const;
-	virtual void IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const;
-
-	DECLARE_EVENT_TABLE()
-
-	protected:
-	void ResetBatchTimer();
-
-	//this calls ResetBatchTimer if TPPWF::NOUPDATEONPUSH is not set
-	//the idea is to prevent excessive handling of the timer
-	void UpdateBatchTimer();
-
-	private:
-	void RemoveIndexIntl(size_t offset);
+	void IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const;
+	flagwrapper<TPPWF> GetTPPWFlags() const;
 };
 
+struct tpanelparentwin_nt_impl;
 struct tpanelparentwin_nt : public panelparentwin_base {
-	std::shared_ptr<tpanel> tp;
-	tweetdispscr_mouseoverwin *mouseoverwin = 0;
-	std::deque<std::pair<std::shared_ptr<tweet>, flagwrapper<PUSHFLAGS> > > pushtweetbatchqueue;
-	std::deque<std::pair<uint64_t, flagwrapper<PUSHFLAGS> > > removetweetbatchqueue;
-	std::map<uint64_t, bool> updatetweetbatchqueue;
-	std::deque<std::function<void(tpanelparentwin_nt *)> > batchedgenericactions;
+	const tpanelparentwin_nt_impl *pimpl() const;
+	tpanelparentwin_nt_impl *pimpl() { return const_cast<tpanelparentwin_nt_impl *>(const_cast<const tpanelparentwin_nt*>(this)->pimpl()); }
 
-	tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent, wxString thisname_ = wxT(""));
+	tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent, wxString thisname_ = wxT(""), tpanelparentwin_nt_impl *privimpl = 0);
 	virtual ~tpanelparentwin_nt();
 	void PushTweet(const std::shared_ptr<tweet> &t, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
 	void RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
-	tweetdispscr *PushTweetIndex(const std::shared_ptr<tweet> &t, size_t index);
-	virtual void LoadMore(unsigned int n, uint64_t lessthanid = 0, uint64_t greaterthanid = 0, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT) { }
-	virtual void UpdateCLabel();
-	virtual void PageUpHandler() override;
-	virtual void PageDownHandler() override;
-	virtual void PageTopHandler() override;
-	virtual void JumpToTweetID(uint64_t id);
-	virtual void HandleScrollToIDOnUpdate() override;
-	void markallreadevthandler(wxCommandEvent &event);
-	void MarkSetRead();
-	void MarkSetRead(tweetidset &&subset);
-	void markremoveallhighlightshandler(wxCommandEvent &event);
-	void MarkSetUnhighlighted();
-	void MarkSetUnhighlighted(tweetidset &&subset);
-	void setupnavbuttonhandlers();
-	void morebtnhandler(wxCommandEvent &event);
-	void MarkClearCIDSSetHandler(std::function<tweetidset &(cached_id_sets &)> idsetselector,
-			std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc, const tweetidset &subset);
+	void JumpToTweetID(uint64_t id);
 	virtual bool IsSingleAccountWin() const override;
 	void EnumDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush);
 	void UpdateOwnTweet(uint64_t id, bool redrawimg);
 	void UpdateOwnTweet(const tweet &t, bool redrawimg);
 	tweetdispscr_mouseoverwin *MakeMouseOverWin();
-	virtual void IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const override;
-	void OnBatchTimerModeTimer(wxTimerEvent& event);
 	void GenericAction(std::function<void(tpanelparentwin_nt *)> func);
+	std::shared_ptr<tpanel> GetTP();
 
-	DECLARE_EVENT_TABLE()
+	//These are for TweetActMenuAction
+	void MarkSetRead(tweetidset &&subset);
+	void MarkSetUnhighlighted(tweetidset &&subset);
+
 };
 
+struct tpanelparentwin_impl;
 struct tpanelparentwin : public tpanelparentwin_nt {
-	mainframe *owner;
+	const tpanelparentwin_impl *pimpl() const;
+	tpanelparentwin_impl *pimpl() { return const_cast<tpanelparentwin_impl *>(const_cast<const tpanelparentwin*>(this)->pimpl()); }
 
-	enum class TPWF {
-		UNREADBITMAPDISP	= 1<<0,
-	};
-	flagwrapper<TPWF> tpw_flags = 0;
-
-	tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select = false, wxString thisname_ = wxT(""));
-	virtual void LoadMore(unsigned int n, uint64_t lessthanid = 0, uint64_t greaterthanid = 0, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT) override;
-	virtual mainframe *GetMainframe() override { return owner; }
-	void tabdetachhandler(wxCommandEvent &event);
-	void tabduphandler(wxCommandEvent &event);
-	void tabdetachedduphandler(wxCommandEvent &event);
-	void tabclosehandler(wxCommandEvent &event);
-	void tabsplitcmdhandler(wxCommandEvent &event);
-	virtual void UpdateCLabel() override;
-
-	DECLARE_EVENT_TABLE()
+	tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select = false, wxString thisname_ = wxT(""), tpanelparentwin_impl *privimpl = 0);
 };
-template<> struct enum_traits<tpanelparentwin::TPWF> { static constexpr bool flags = true; };
+struct tpanelparentwin_usertweets_impl;
 
 struct tpanelparentwin_usertweets : public tpanelparentwin_nt {
-	std::shared_ptr<userdatacontainer> user;
-	std::function<std::shared_ptr<taccount>(tpanelparentwin_usertweets &)> getacc;
-	static std::map<std::pair<uint64_t, RBFS_TYPE>, std::shared_ptr<tpanel> > usertpanelmap;	//use map rather than unordered_map due to the hassle associated with specialising std::hash
-	bool havestarted;
-	bool failed = false;
-	RBFS_TYPE type;
+	tpanelparentwin_usertweets_impl *pimpl();
 
 	tpanelparentwin_usertweets(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent,
-			std::function<std::shared_ptr<taccount>(tpanelparentwin_usertweets &)> getacc, RBFS_TYPE type_ = RBFS_USER_TIMELINE, wxString thisname_ = wxT(""));
+			std::function<std::shared_ptr<taccount>(tpanelparentwin_usertweets &)> getacc,
+			RBFS_TYPE type_ = RBFS_USER_TIMELINE, wxString thisname_ = wxT(""), tpanelparentwin_usertweets_impl *privimpl = 0);
 	~tpanelparentwin_usertweets();
-	virtual void LoadMore(unsigned int n, uint64_t lessthanid = 0, uint64_t greaterthanid = 0, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT) override;
-	virtual void UpdateCLabel() override;
 	static std::shared_ptr<tpanel> MkUserTweetTPanel(const std::shared_ptr<userdatacontainer> &user, RBFS_TYPE type_ = RBFS_USER_TIMELINE);
 	static std::shared_ptr<tpanel> GetUserTweetTPanel(uint64_t userid, RBFS_TYPE type_ = RBFS_USER_TIMELINE);
 	virtual bool IsSingleAccountWin() const override { return true; }
 	virtual void NotifyRequestFailed() override;
-
-	DECLARE_EVENT_TABLE()
+	void InitLoading();
 };
 
+struct tpanelparentwin_user_impl;
 struct tpanelparentwin_user : public panelparentwin_base {
-	std::deque< std::shared_ptr<userdatacontainer> > userlist;
+	tpanelparentwin_user_impl *pimpl();
 
-	static std::multimap<uint64_t, tpanelparentwin_user*> pendingmap;
-
-	tpanelparentwin_user(wxWindow *parent, wxString thisname_ = wxT(""));
+	tpanelparentwin_user(wxWindow *parent, wxString thisname_ = wxT(""), tpanelparentwin_user_impl *privimpl = 0);
 	~tpanelparentwin_user();
 	bool PushBackUser(const std::shared_ptr<userdatacontainer> &u);
-	bool UpdateUser(const std::shared_ptr<userdatacontainer> &u, size_t offset);
-	virtual void LoadMoreToBack(unsigned int n) { }
-	virtual void PageUpHandler() override;
-	virtual void PageDownHandler() override;
-	virtual void PageTopHandler() override;
-	virtual size_t ItemCount() { return userlist.size(); }
-
-	DECLARE_EVENT_TABLE()
+	void LoadMoreToBack(unsigned int n);
+	static void CheckPendingUser(const std::shared_ptr<userdatacontainer> &u);
 };
 
+struct tpanelparentwin_userproplisting_impl;
 struct tpanelparentwin_userproplisting : public tpanelparentwin_user {
-	std::deque<uint64_t> useridlist;
-	std::shared_ptr<userdatacontainer> user;
-	std::function<std::shared_ptr<taccount>(tpanelparentwin_userproplisting &)> getacc;
-	bool havestarted;
-	bool failed = false;
-	CS_ENUMTYPE type;
+	tpanelparentwin_userproplisting_impl *pimpl();
 
 	tpanelparentwin_userproplisting(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent,
-			std::function<std::shared_ptr<taccount>(tpanelparentwin_userproplisting &)> getacc, CS_ENUMTYPE type_, wxString thisname_ = wxT(""));
+			std::function<std::shared_ptr<taccount>(tpanelparentwin_userproplisting &)> getacc,
+			CS_ENUMTYPE type_, wxString thisname_ = wxT(""), tpanelparentwin_userproplisting_impl *privimpl = 0);
 	~tpanelparentwin_userproplisting();
-	virtual void LoadMoreToBack(unsigned int n) override;
-	virtual void UpdateCLabel() override;
-	virtual void Init();
-	virtual size_t ItemCount() override { return useridlist.size(); }
 	virtual void NotifyRequestFailed() override;
-
-	DECLARE_EVENT_TABLE()
-};
-
-struct tpanelscrollwin : public wxScrolledWindow {
-	panelparentwin_base *parent;
-	bool resize_update_pending;
-	bool page_scroll_blocked;
-	bool fit_inside_blocked;
-	wxString thisname;
-
-	tpanelscrollwin(panelparentwin_base *parent_);
-	void OnScrollHandler(wxScrollWinEvent &event);
-	void resizehandler(wxSizeEvent &event);
-	void resizemsghandler(wxCommandEvent &event);
-	inline wxString GetThisName() const { return thisname; }
-
-	DECLARE_EVENT_TABLE()
+	void PushUserIDToBack(uint64_t id);
+	void InitLoading();
 };
 
 bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid=0);

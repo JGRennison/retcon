@@ -61,7 +61,8 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	tpanelparentwin *MkTPanelWin(mainframe *parent, bool select = false);
 	void OnTPanelWinClose(tpanelparentwin_nt *tppw);
 	bool IsSingleAccountTPanel() const;
-	void TPPWFlagMaskAllTWins(flagwrapper<TPPWF> set, flagwrapper<TPPWF> clear) const;
+	void SetNoUpdateFlag_TP() const;
+	void SetClabelUpdatePendingFlag_TP() const;
 	bool TweetMatches(const std::shared_ptr<tweet> &t, const std::shared_ptr<taccount> &acc) const;
 	void NotifyCIDSChange();
 	void RecalculateCIDS();

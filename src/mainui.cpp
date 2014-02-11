@@ -23,6 +23,8 @@
 #include "libtwitcurl/urlencode.h"
 #include "aboutwin.h"
 #include "tpanel.h"
+#include "tpanel-aux.h"
+#include "tpg.h"
 #include "log-impl.h"
 #include "twit.h"
 #include "magic_ptr.h"

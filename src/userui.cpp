@@ -38,20 +38,14 @@ END_EVENT_TABLE()
 void notebook_event_prehandler::OnPageChange(wxNotebookEvent &event) {
 	int i = event.GetSelection();
 	if(i >= 0) {
-		for(auto it = timeline_pane_list.begin(); it != timeline_pane_list.end(); ++it) {
-			if(nb->GetPage(i) == (*it)) {
-				if(!(*it)->havestarted) {
-					(*it)->havestarted=true;
-					(*it)->LoadMore(gc.maxtweetsdisplayinpanel);
-				}
+		for(auto &it : timeline_pane_list) {
+			if(nb->GetPage(i) == it) {
+				it->InitLoading();
 			}
 		}
-		for(auto it = userlist_pane_list.begin(); it != userlist_pane_list.end(); ++it) {
-			if(nb->GetPage(i) == (*it)) {
-				if(!(*it)->havestarted) {
-					(*it)->havestarted=true;
-					(*it)->Init();
-				}
+		for(auto &it : userlist_pane_list) {
+			if(nb->GetPage(i) == it) {
+				it->InitLoading();
 			}
 		}
 	}

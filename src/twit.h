@@ -210,26 +210,6 @@ struct tpanelload_pending_op : public pending_op {
 	virtual wxString dump();
 };
 
-struct tpanel_subtweet_pending_op : public pending_op {
-	struct tspo_action_data {
-		wxSizer *vbox;
-		magic_ptr_ts<tpanelparentwin_nt> win;
-		magic_ptr_ts<tweetdispscr> top_tds;
-		unsigned int load_count = 0;
-		std::shared_ptr<tweet> top_tweet;
-	};
-	std::shared_ptr<tspo_action_data> action_data;
-
-	tpanel_subtweet_pending_op(wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *top_tds_, unsigned int load_count_,
-		std::shared_ptr<tweet> top_tweet_);
-
-	static void CheckLoadTweetReply(const std::shared_ptr<tweet> &t, wxSizer *v, tpanelparentwin_nt *s,
-		tweetdispscr *tds, unsigned int load_count, const std::shared_ptr<tweet> &top_tweet, tweetdispscr *top_tds);
-
-	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags);
-	virtual wxString dump();
-};
-
 struct handlenew_pending_op : public pending_op {
 	std::weak_ptr<taccount> tac;
 	flagwrapper<ARRIVAL> arr;

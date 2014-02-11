@@ -615,7 +615,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 				if(dc.IsObject()) {
 					auto &dci=dc["ids"];
 					if(dci.IsArray()) {
-						for(rapidjson::SizeType i = 0; i < dci.Size(); i++) win->useridlist.push_back(dci[i].GetUint64());
+						for(rapidjson::SizeType i = 0; i < dci.Size(); i++) win->PushUserIDToBack(dci[i].GetUint64());
 					}
 				}
 				win->LoadMoreToBack(gc.maxtweetsdisplayinpanel);

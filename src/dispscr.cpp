@@ -23,6 +23,8 @@
 #include "utf8.h"
 #include "log.h"
 #include "tpanel.h"
+#include "tpanel-aux.h"
+#include "tpg.h"
 #include "uiutil.h"
 #include "twit.h"
 #include "util.h"
@@ -395,14 +397,14 @@ void GenUserFmt(generic_disp_base *obj, userdatacontainer *u, size_t &i, const w
 		case 'p':
 			if(u->GetUser().u_flags & userdata::userdata::UF::ISPROTECTED) {
 				GenFlush(obj, str);
-				obj->WriteImage(obj->tppw->tpg->proticon_img);
+				obj->WriteImage(tpanelglobal::Get()->proticon_img);
 				obj->SetInsertionPointEnd();
 			}
 			break;
 		case 'v':
 			if(u->GetUser().u_flags & userdata::userdata::UF::ISVERIFIED) {
 				GenFlush(obj, str);
-				obj->WriteImage(obj->tppw->tpg->verifiedicon_img);
+				obj->WriteImage(tpanelglobal::Get()->verifiedicon_img);
 				obj->SetInsertionPointEnd();
 			}
 			break;
@@ -410,7 +412,7 @@ void GenUserFmt(generic_disp_base *obj, userdatacontainer *u, size_t &i, const w
 			GenFlush(obj, str);
 			long curpos=obj->GetInsertionPoint();
 			obj->BeginURL(wxString::Format(wxT("Xd%" wxLongLongFmtSpec "d"), u->id));
-			obj->WriteImage(obj->tppw->tpg->dmreplyicon_img);
+			obj->WriteImage(tpanelglobal::Get()->dmreplyicon_img);
 			obj->EndURL();
 			obj->SetInsertionPointEnd();
 			wxTextAttrEx attr(obj->GetDefaultStyleEx());
@@ -638,10 +640,11 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 			case 't':
 				flush();
 				if(td_obj) {
-					td_obj->reltimestart=obj->GetInsertionPoint();
+					td_obj->reltimestart = obj->GetInsertionPoint();
 					obj->WriteText(getreltimestr(tw.createtime, td_obj->updatetime));
-					td_obj->reltimeend=obj->GetInsertionPoint();
-					if(!tppw->tpg->minutetimer.IsRunning()) tppw->tpg->minutetimer.Start(60000, wxTIMER_CONTINUOUS);
+					td_obj->reltimeend = obj->GetInsertionPoint();
+					auto tpg = tpanelglobal::Get();
+					if(!tpg->minutetimer.IsRunning()) tpg->minutetimer.Start(60000, wxTIMER_CONTINUOUS);
 				}
 				break;
 			case 'T':
@@ -680,18 +683,22 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 				i++;
 				if(i>=format.size()) break;
 				flush();
-				long curpos=obj->GetInsertionPoint();
-				wxString url=wxString::Format(wxT("X%c"), (wxChar) format[i]);
+				long curpos = obj->GetInsertionPoint();
+				wxString url = wxString::Format(wxT("X%c"), (wxChar) format[i]);
 				obj->BeginURL(url);
-				bool imginserted=false;
+				bool imginserted = false;
+				auto tpg = tpanelglobal::Get();
 				switch((wxChar) format[i]) {
-					case 'i': obj->WriteImage(tppw->tpg->infoicon_img); imginserted=true; break;
+					case 'i':
+						obj->WriteImage(tpg->infoicon_img);
+						imginserted = true;
+						break;
 					case 'f': {
 						if(tw.IsFavouritable()) {
-							wxImage *icon=&tppw->tpg->favicon_img;
+							wxImage *icon = &tpg->favicon_img;
 							tw.IterateTP([&](const tweet_perspective &tp) {
 								if(tp.IsFavourited()) {
-									icon=&tppw->tpg->favonicon_img;
+									icon = &tpg->favonicon_img;
 								}
 							});
 							obj->WriteImage(*icon);
@@ -699,21 +706,26 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 						}
 						break;
 					}
-					case 'r': obj->WriteImage(tppw->tpg->replyicon_img); imginserted=true; break;
+					case 'r':
+						obj->WriteImage(tpg->replyicon_img);
+						imginserted = true;
+						break;
 					case 'd': {
 						obj->EndURL();
-						std::shared_ptr<userdatacontainer> targ=tw.user_recipient;
+						std::shared_ptr<userdatacontainer> targ = tw.user_recipient;
 						if(!targ || targ->udc_flags & UDC::THIS_IS_ACC_USER_HINT) targ=tw.user;
 						url=wxString::Format(wxT("Xd%" wxLongLongFmtSpec "d"), targ->id);
 						obj->BeginURL(url);
-						obj->WriteImage(tppw->tpg->dmreplyicon_img); imginserted=true; break;
+						obj->WriteImage(tpg->dmreplyicon_img);
+						imginserted = true;
+						break;
 					}
 					case 't': {
 						if(tw.IsRetweetable()) {
-							wxImage *icon=&tppw->tpg->retweeticon_img;
+							wxImage *icon = &tpg->retweeticon_img;
 							tw.IterateTP([&](const tweet_perspective &tp) {
 								if(tp.IsRetweeted()) {
-									icon=&tppw->tpg->retweetonicon_img;
+									icon = &tpg->retweetonicon_img;
 								}
 							});
 							obj->WriteImage(*icon);
@@ -925,8 +937,8 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 		if(bm2) bm2->Show(show);
 	};
 
-	bool hidden = (tw.flags.Get('h') && !(tpsw->parent->tppw_flags & TPPWF::SHOWHIDDEN))
-		|| (tw.flags.Get('X') && !(tpsw->parent->tppw_flags & TPPWF::SHOWDELETED));
+	bool hidden = (tw.flags.Get('h') && !(tpsw->parent->GetTPPWFlags() & TPPWF::SHOWHIDDEN))
+		|| (tw.flags.Get('X') && !(tpsw->parent->GetTPPWFlags() & TPPWF::SHOWDELETED));
 	if(hidden && !(tds_flags&TDSF::HIDDEN)) {
 		hideactions(false);
 		tds_flags |= TDSF::HIDDEN;
@@ -1069,9 +1081,9 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 		LogMsgFormat(LOGT::TPANEL, wxT("DCL: tweetdispscr::DisplayTweet 3"));
 	#endif
 
-	if(!(tppw->tppw_flags&TPPWF::NOUPDATEONPUSH)) LayoutContent();
+	if(!(tppw->GetTPPWFlags() & TPPWF::NOUPDATEONPUSH)) LayoutContent();
 
-	if(!(tppw->tppw_flags&TPPWF::NOUPDATEONPUSH)) {
+	if(!(tppw->GetTPPWFlags() & TPPWF::NOUPDATEONPUSH)) {
 		#if DISPSCR_COPIOUS_LOGGING
 			LogMsgFormat(LOGT::TPANEL, wxT("DCL: tweetdispscr::DisplayTweet 4 About to call tpsw->FitInside()"));
 		#endif
@@ -1636,7 +1648,7 @@ void userdispscr::Display(bool redrawimg) {
 	GenFlush(this, str);
 
 	LayoutContent();
-	if(!(tppw->tppw_flags&TPPWF::NOUPDATEONPUSH)) {
+	if(!(tppw->GetTPPWFlags() & TPPWF::NOUPDATEONPUSH)) {
 		tpsw->FitInside();
 	}
 
