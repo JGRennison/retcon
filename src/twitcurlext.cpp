@@ -125,6 +125,8 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 			case RBFS_USER_FAVS:
 				favoriteGet(tmps, std::to_string(rbfs->userid), true);
 				break;
+			case RBFS_NULL:
+				break;
 		}
 		char *cururl;
 		curl_easy_getinfo(GenGetCurlHandle(), CURLINFO_EFFECTIVE_URL, &cururl);
@@ -374,6 +376,8 @@ wxString twitcurlext::GetConnTypeName() {
 				break;
 			case RBFS_USER_FAVS:
 				action+=wxT(" (user favourites)");
+				break;
+			case RBFS_NULL:
 				break;
 		}
 	}

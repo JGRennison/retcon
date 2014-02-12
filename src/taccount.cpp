@@ -239,6 +239,8 @@ void taccount::ExecRBFS(restbackfillstate *rbfs) {
 		case RBFS_USER_FAVS:
 			twit->connmode=CS_USERFAVS;
 			break;
+		case RBFS_NULL:
+			break;
 	}
 	twit->SetNoPerformFlag(true);
 	twit->rbfs=rbfs;

@@ -24,6 +24,7 @@
 #include "univdefs.h"
 
 typedef enum {			//do not change these values, they are saved/loaded to/from the DB
+	RBFS_NULL = 0,
 	RBFS_MIN = 1,
 	RBFS_TWEETS = 1,
 	RBFS_MENTIONS,

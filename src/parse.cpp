@@ -453,6 +453,14 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 	data->json.push_back(0);
 	rapidjson::Document &dc = data->doc;
 
+	/* Save RBFS values which we might want to use
+	 * This is because if we later need do a deferred parse, twit and hence twit->rbfs will be long since out of scope
+	 */
+	if(twit && twit->rbfs) {
+		data->rbfs_userid = twit->rbfs->userid;
+		data->rbfs_type = twit->rbfs->type;
+	}
+
 	if(dc.ParseInsitu<0>(data->json.data()).HasParseError()) {
 		DisplayParseErrorMsg(dc, wxT("jsonparser::ParseString"), data->json.data());
 		return false;
@@ -692,6 +700,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, fla
 		 * new update on top, then write back as usual.
 		 * This is slightly awkward, but should occur relatively infrequently.
 		 * The main culprit is user profile tweet lookups.
+		 * Note that twit is not usable in a deferred parse as it'll be out of scope, use values stored in data.
 		 */
 
 		LogMsgFormat(LOGT::PARSE | LOGT::DBTRACE, wxT("jsonparser::DoTweetParse: Tweet id: %" wxLongLongFmtSpec "d, is in DB but not loaded. Loading and deferring parse."), tobj->id);
@@ -849,26 +858,26 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, fla
 
 	if(!(sflags & JDTP::CHECKPENDINGONLY) && !(sflags & JDTP::ISRTSRC) && !(sflags & JDTP::USERTIMELINE)) {
 		if(sflags & JDTP::ISDM) {
-			if(tobj->user_recipient.get()==tac->usercont.get()) {	//received DM
-				if(tac->max_recvdm_id<tobj->id) tac->max_recvdm_id=tobj->id;
+			if(tobj->user_recipient.get() == tac->usercont.get()) {	//received DM
+				if(tac->max_recvdm_id < tobj->id) tac->max_recvdm_id = tobj->id;
 			}
 			else {
-				if(tac->max_sentdm_id<tobj->id) tac->max_sentdm_id=tobj->id;
+				if(tac->max_sentdm_id < tobj->id) tac->max_sentdm_id = tobj->id;
 				tobj->flags.Set('S');
 			}
 		}
 		else {
-			if(twit && twit->rbfs) {
-				if(twit->rbfs->type==RBFS_TWEETS) {
-					if(tac->max_tweet_id<tobj->id) tac->max_tweet_id=tobj->id;
+			if(data->rbfs_type != RBFS_NULL) {
+				if(data->rbfs_type == RBFS_TWEETS) {
+					if(tac->max_tweet_id < tobj->id) tac->max_tweet_id = tobj->id;
 				}
-				else if(twit->rbfs->type==RBFS_MENTIONS) {
-					if(tac->max_mention_id<tobj->id) tac->max_mention_id=tobj->id;
+				else if(data->rbfs_type == RBFS_MENTIONS) {
+					if(tac->max_mention_id < tobj->id) tac->max_mention_id = tobj->id;
 				}
 			}
 			else {	//streaming mode
-				if(tac->max_tweet_id<tobj->id) tac->max_tweet_id=tobj->id;
-				if(tac->max_mention_id<tobj->id) tac->max_mention_id=tobj->id;
+				if(tac->max_tweet_id < tobj->id) tac->max_tweet_id = tobj->id;
+				if(tac->max_mention_id < tobj->id) tac->max_mention_id = tobj->id;
 			}
 		}
 	}
@@ -886,16 +895,16 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, fla
 		tp->SetRecvTypeCPO(true);
 	}
 	else if(sflags & JDTP::USERTIMELINE) {
-		if(twit && twit->rbfs && !(sflags & JDTP::ISRTSRC)) {
+		if(data->rbfs_type != RBFS_NULL && !(sflags & JDTP::ISRTSRC)) {
 			tp->SetRecvTypeUT(true);
-			std::shared_ptr<tpanel> tp=tpanelparentwin_usertweets::GetUserTweetTPanel(twit->rbfs->userid, twit->rbfs->type);
+			std::shared_ptr<tpanel> tp=tpanelparentwin_usertweets::GetUserTweetTPanel(data->rbfs_userid, data->rbfs_type);
 			if(tp) {
 				have_checked_pending = true;
 				is_ready = tac->MarkPendingOrHandle(tobj, arr);
 				if(is_ready) {
-					tp->PushTweet(tobj, PUSHFLAGS::USERTL | PUSHFLAGS::SETNOUPDATEFLAG);
+					tp->PushTweet(tobj, PUSHFLAGS::USERTL | PUSHFLAGS::BELOW);
 				}
-				else MarkPending_TPanelMap(tobj, 0, PUSHFLAGS::USERTL, &tp);
+				else MarkPending_TPanelMap(tobj, 0, PUSHFLAGS::USERTL | PUSHFLAGS::BELOW, &tp);
 			}
 		}
 	}

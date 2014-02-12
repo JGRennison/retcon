@@ -25,6 +25,7 @@
 #include "rapidjson-inc.h"
 #include "twit-common.h"
 #include "flags.h"
+#include "rbfs.h"
 #include <wx/version.h>
 #include <wx/defs.h>
 #include <wx/string.h>
@@ -87,14 +88,19 @@ template<> struct enum_traits<JDTP> { static constexpr bool flags = true; };
 struct jsonparser : public genjsonparser {
 	std::shared_ptr<taccount> tac;
 	CS_ENUMTYPE type;
+
+	//This will not be saved for deferred parses
+	//This is saved for use of RestTweetUpdateParams et al.
 	twitcurlext *twit;
 
 	struct parse_data {
 		std::vector<char> json;
 		rapidjson::Document doc;
+		uint64_t rbfs_userid = 0;
+		RBFS_TYPE rbfs_type = RBFS_NULL;
 	};
 	std::shared_ptr<parse_data> data;
-	dbsendmsg_list *dbmsglist;
+	dbsendmsg_list *dbmsglist = 0;
 
 	std::shared_ptr<userdatacontainer> DoUserParse(const rapidjson::Value& val, flagwrapper<UMPTF> umpt_flags = 0);
 	void DoEventParse(const rapidjson::Value& val);
@@ -104,9 +110,11 @@ struct jsonparser : public genjsonparser {
 	void RestTweetPreParseUpdateParams();
 
 	jsonparser(CS_ENUMTYPE t, std::shared_ptr<taccount> a, twitcurlext *tw = 0 /*optional*/)
-		: tac(a), type(t), twit(tw), dbmsglist(0) { }
+		: tac(a), type(t), twit(tw) { }
 	bool ParseString(const char *str, size_t len);
-	bool ParseString(const std::string &str) { return ParseString(str.c_str(), str.size()); }
+	bool ParseString(const std::string &str) {
+		return ParseString(str.c_str(), str.size());
+	}
 };
 
 void DisplayParseErrorMsg(rapidjson::Document &dc, const wxString &name, const char *data);

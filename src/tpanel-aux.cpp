@@ -341,7 +341,7 @@ tpanelload_pending_op::tpanelload_pending_op(tpanelparentwin_nt* win_, flagwrapp
 
 void tpanelload_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags) {
 	std::shared_ptr<tpanel> tp=pushtpanel.lock();
-	if(tp) tp->PushTweet(t);
+	if(tp) tp->PushTweet(t, pushflags);
 	tpanelparentwin_nt *window=win.get();
 	if(window) {
 		if(umpt_flags&UMPTF::TPDB_NOUPDF) window->SetNoUpdateFlag();

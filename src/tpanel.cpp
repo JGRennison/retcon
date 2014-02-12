@@ -637,6 +637,7 @@ void tpanelparentwin_nt::PushTweet(const std::shared_ptr<tweet> &t, flagwrapper<
 	pimpl()->PushTweet(t, pushflags);
 }
 
+//This should be kept in sync with OnBatchTimerModeTimer
 void tpanelparentwin_nt_impl::PushTweet(const std::shared_ptr<tweet> &t, flagwrapper<PUSHFLAGS> pushflags) {
 	if(tppw_flags & TPPWF::BATCHTIMERMODE) {
 		pushtweetbatchqueue.emplace_back(t, pushflags);
@@ -665,8 +666,8 @@ void tpanelparentwin_nt_impl::PushTweet(const std::shared_ptr<tweet> &t, flagwra
 		}
 	}
 	if(currentdisp.size()==gc.maxtweetsdisplayinpanel) {
-		if(t->id<currentdisp.back().first) {			//off the end of the list
-			if(pushflags & PUSHFLAGS::BELOW || pushflags & PUSHFLAGS::USERTL) {
+		if(t->id < currentdisp.back().first) {			//off the bottom of the list
+			if(pushflags & PUSHFLAGS::BELOW) {
 				PopTop();
 				displayoffset++;
 			}
@@ -675,6 +676,10 @@ void tpanelparentwin_nt_impl::PushTweet(const std::shared_ptr<tweet> &t, flagwra
 				CLabelNeedsUpdating(pushflags);
 				return;
 			}
+		}
+		else if(pushflags & PUSHFLAGS::BELOW) {
+			PopTop();
+			displayoffset++;
 		}
 		else PopBottom();					//too many in list, remove the last one
 	}
@@ -1295,6 +1300,7 @@ void tpanelparentwin_nt_impl::IterateCurrentDisp(std::function<void(uint64_t, di
 	}
 }
 
+//This should be kept in sync with PushTweet
 void tpanelparentwin_nt_impl::OnBatchTimerModeTimer(wxTimerEvent& event) {
 	tppw_flags &= ~TPPWF::BATCHTIMERMODE;
 
@@ -1340,12 +1346,19 @@ void tpanelparentwin_nt_impl::OnBatchTimerModeTimer(wxTimerEvent& event) {
 
 			if(simulation_currentdisp.size() == gc.maxtweetsdisplayinpanel) {
 				if(id < simulation_currentdisp.back().id) {    //off the end of the list
-					if(pushflags & PUSHFLAGS::BELOW || pushflags & PUSHFLAGS::USERTL) {
+					if(pushflags & PUSHFLAGS::BELOW) {
 						simulation_currentdisp.pop_front();
 					}
 					else continue;
 				}
-				else simulation_currentdisp.pop_back();    //too many in list, remove the last one
+				else if(pushflags & PUSHFLAGS::BELOW) {
+					//too many in list and pushing to bottom, remove the top one
+					simulation_currentdisp.pop_front();
+				}
+				else {
+					//too many in list, remove the bottom one
+					simulation_currentdisp.pop_back();
+				}
 			}
 
 			size_t index = 0;
