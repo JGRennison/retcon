@@ -1332,6 +1332,8 @@ void tpanelparentwin_nt_impl::OnBatchTimerModeTimer(wxTimerEvent& event) {
 			gotids.insert(it.first);
 		}
 
+		bool clabelneedsupdating = false;
+
 		for(auto &item : pushtweetbatchqueue) {
 			uint64_t id = item.first->id;
 			flagwrapper<PUSHFLAGS> pushflags = item.second;
@@ -1343,6 +1345,10 @@ void tpanelparentwin_nt_impl::OnBatchTimerModeTimer(wxTimerEvent& event) {
 				//this is a duplicate push, and should be discarded
 				continue;
 			}
+
+			//If we've got this far, then we really are pushing something to the tpanel
+			//The CLabel should be updated, regardless of whether anything actually gets pushed to the display
+			clabelneedsupdating = true;
 
 			if(simulation_currentdisp.size() == gc.maxtweetsdisplayinpanel) {
 				if(id < simulation_currentdisp.back().id) {    //off the end of the list
@@ -1384,6 +1390,8 @@ void tpanelparentwin_nt_impl::OnBatchTimerModeTimer(wxTimerEvent& event) {
 
 		simulation_currentdisp.clear();
 		pushtweetbatchqueue.clear();
+
+		if(clabelneedsupdating) CLabelNeedsUpdating(0);
 	}
 
 	for(auto &it : updatetweetbatchqueue) {
