@@ -21,6 +21,7 @@
 #include "univdefs.h"
 #include "log.h"
 #include "log-impl.h"
+#include "log-util.h"
 #include "socket.h"
 #include "twit.h"
 #include "taccount.h"
@@ -191,7 +192,6 @@ BEGIN_EVENT_TABLE(log_window, wxFrame)
 	EVT_MENU(wxID_CLEAR, log_window::OnClear)
 	EVT_MENU(wxID_CLOSE, log_window::OnClose)
 	EVT_MENU(wxID_FILE1, log_window::OnDumpPending)
-	EVT_MENU(wxID_FILE2, log_window::OnDumpTPanelWins)
 	EVT_MENU(wxID_FILE3, log_window::OnDumpConnInfo)
 END_EVENT_TABLE()
 
@@ -226,7 +226,6 @@ log_window::log_window(wxWindow *parent, LOGT flagmask, bool show)
 	menuF->Append( wxID_CLOSE, wxT("&Close"));
 	wxMenu *menuD = new wxMenu;
 	menuD->Append( wxID_FILE1, wxT("Dump &Pendings"));
-	menuD->Append( wxID_FILE2, wxT("Dump &Tpanel Window Data"));
 	menuD->Append( wxID_FILE3, wxT("Dump &Socket Data"));
 
 	wxMenuBar *menuBar = new wxMenuBar;
@@ -292,12 +291,6 @@ void log_window::OnDumpPending(wxCommandEvent &event) {
 	}
 	dump_non_acc_user_pendings(LOGT::USERREQ, wxT(""), wxT("\t"));
 	dump_tweet_pendings(LOGT::USERREQ, wxT(""), wxT("\t"));
-}
-
-void log_window::OnDumpTPanelWins(wxCommandEvent &event) {
-	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
-		dump_tpanel_scrollwin_data(LOGT::USERREQ, wxT(""), wxT("\t"), (*it));
-	}
 }
 
 void log_window::OnDumpConnInfo(wxCommandEvent &event) {
@@ -436,25 +429,6 @@ static void dump_non_acc_user_pendings(LOGT logflags, const wxString &indent, co
 		for(auto &it : ad.noacc_pending_userconts) {
 			dump_pending_user(logflags, indent + indentstep, indentstep, it.second.get());
 		}
-	}
-}
-
-static void dump_window_pos_data(LOGT logflags, const wxString &indent, const wxString &indentstep, wxWindow *win) {
-	int x, y, px, py;
-	win->GetSize(&x, &y);
-	win->GetPosition(&px, &py);
-	LogMsgFormat(logflags, wxT("%sWindow: %p, size: %d, %d, pos: %d, %d"), indent.c_str(), win, x, y, px, py);
-}
-
-void dump_tpanel_scrollwin_data(LOGT logflags, const wxString &indent, const wxString &indentstep, tpanelparentwin_nt *tppw) {
-	int x, y, vx, vy, vsx, vsy;
-	tppw->scrollwin->GetSize(&x, &y);
-	tppw->scrollwin->GetVirtualSize(&vx, &vy);
-	tppw->scrollwin->GetViewStart(&vsx, &vsy);
-	const wxWindowList& wl=tppw->scrollwin->GetChildren();
-	LogMsgFormat(logflags, wxT("%sTpanel: %s, size: %d, %d, vsize: %d, %d, vstart: %d, %d, children: %d, numcurdisp: %d"), indent.c_str(), wxstrstd(tppw->tp->name).c_str(), x, y, vx, vy, vsx, vsy, wl.GetCount(), tppw->currentdisp.size());
-	for(auto it=wl.begin(); it!=wl.end(); ++it) {
-		dump_window_pos_data(logflags, indent+indentstep, indentstep, (*it));
 	}
 }
 

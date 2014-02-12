@@ -34,7 +34,7 @@
 #include "twitcurlext.h"
 #include "socket-ops.h"
 #include "mainui.h"
-#include "log-impl.h"
+#include "log-util.h"
 #include "mediawin.h"
 
 #ifdef __WINDOWS__

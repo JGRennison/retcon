@@ -28,7 +28,7 @@
 #include "res.h"
 #include "version.h"
 #include "log.h"
-#include "log-impl.h"
+#include "log-util.h"
 #include "alldata.h"
 #include "mainui.h"
 #include "twitcurlext.h"
