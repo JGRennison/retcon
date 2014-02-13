@@ -1315,10 +1315,14 @@ void tpanelparentwin_nt_impl::OnBatchTimerModeTimer(wxTimerEvent& event) {
 
 	SetNoUpdateFlag();
 
+	size_t pre_remove_dispsize = currentdisp.size();
+
 	for(auto &it : removetweetbatchqueue) {
 		RemoveTweet(it.first, it.second);
 	}
 	removetweetbatchqueue.clear();
+
+	size_t post_remove_dispsize = currentdisp.size();
 
 	if(!pushtweetbatchqueue.empty()) {
 		struct simulation_disp {
@@ -1403,6 +1407,20 @@ void tpanelparentwin_nt_impl::OnBatchTimerModeTimer(wxTimerEvent& event) {
 		it(base());
 	}
 	batchedgenericactions.clear();
+
+	//Items have been removed, load items from the bottom to re-fill the panel
+	if(post_remove_dispsize != pre_remove_dispsize) {
+		size_t dispsize_now = currentdisp.size();
+
+		if(dispsize_now < pre_remove_dispsize) {
+			size_t delta = pre_remove_dispsize - dispsize_now;
+
+			uint64_t lessthan = 0;
+			if(dispsize_now) lessthan = currentdisp.back().first;
+
+			LoadMore(delta, lessthan, 0, 0);
+		}
+	}
 }
 
 void tpanelparentwin_nt::GenericAction(std::function<void(tpanelparentwin_nt *)> func) {
