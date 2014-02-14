@@ -1,5 +1,0 @@
-syntax: regexp
-
-^obj.*/
-\.map$
-^retcon(64)?(_debug)?(\.exe)?$

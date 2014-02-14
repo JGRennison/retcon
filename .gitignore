@@ -1,0 +1,9 @@
+obj*/
+*.map
+
+retcon
+retcon_debug
+retcon.exe
+retcon_debug.exe
+retcon64.exe
+retcon64_debug.exe
