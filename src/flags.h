@@ -1,7 +1,5 @@
 //  retcon
 //
-//  WEBSITE: http://retcon.sourceforge.net
-//
 //  This file was originally part of:
 //  grass - Generic Rail And Signalling Simulator
 //
