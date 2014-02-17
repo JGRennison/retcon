@@ -339,6 +339,7 @@ void panelparentwin_base_impl::PopTop() {
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANEL, wxT("TCL: panelparentwin_base_impl::PopTop() %s START"), GetThisName().c_str());
 	#endif
+	currentdisp.front().second->PanelRemoveEvt();
 	RemoveIndexIntl(0);
 	currentdisp.pop_front();
 	#if TPANEL_COPIOUS_LOGGING
@@ -350,6 +351,7 @@ void panelparentwin_base_impl::PopBottom() {
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANEL, wxT("TCL: panelparentwin_base_impl::PopBottom() %s START"), GetThisName().c_str());
 	#endif
+	currentdisp.back().second->PanelRemoveEvt();
 	RemoveIndexIntl(currentdisp.size() - 1);
 	currentdisp.pop_back();
 	#if TPANEL_COPIOUS_LOGGING
@@ -361,8 +363,10 @@ void panelparentwin_base_impl::RemoveIndex(size_t offset) {
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base_impl::RemoveIndex(%u) %s START"), offset, GetThisName().c_str());
 	#endif
+	auto toremove = std::next(currentdisp.begin(), offset);
+	toremove->second->PanelRemoveEvt();
 	RemoveIndexIntl(offset);
-	currentdisp.erase(std::next(currentdisp.begin(), offset));
+	currentdisp.erase(toremove);
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base_impl::RemoveIndex(%u) %s END"), offset, GetThisName().c_str());
 	#endif
@@ -604,6 +608,8 @@ EVT_BUTTON(TPPWID_MOREBTN, tpanelparentwin_nt_impl::morebtnhandler)
 EVT_TIMER(TPPWID_TIMER_BATCHMODE, tpanelparentwin_nt_impl::OnBatchTimerModeTimer)
 END_EVENT_TABLE()
 
+std::map<uint64_t, unsigned int> tpanelparentwin_nt_impl::all_tweetid_count_map;
+
 const tpanelparentwin_nt_impl *tpanelparentwin_nt::pimpl() const {
 	return static_cast<const tpanelparentwin_nt_impl *>(pimpl_ptr.get());
 }
@@ -765,6 +771,7 @@ tweetdispscr *tpanelparentwin_nt_impl::PushTweetIndex(const std::shared_ptr<twee
 	hbox->Add(vbox, 1, wxEXPAND, 0);
 
 	sizer->Insert(index, hbox, 0, wxALL | wxEXPAND, 1);
+	td->PanelInsertEvt();
 	td->DisplayTweet();
 
 	#if TPANEL_COPIOUS_LOGGING
@@ -1252,18 +1259,21 @@ void tpanelparentwin_nt::UpdateOwnTweet(uint64_t id, bool redrawimg) {
 }
 
 void tpanelparentwin_nt_impl::UpdateOwnTweet(uint64_t id, bool redrawimg) {
+	//Escape hatch: don't bother iterating over displayed tweets if no entry in tweetid_count_map,
+	//ie. no tweet is displayed which is/is a retweet that ID
+	if(tweetid_count_map.find(id) == tweetid_count_map.end()) return;
+
+	//If we get this far then we can insert into updatetweetbatchqueue without unnecessarily bloating it,
+	//as we actually have a corresponding tweetdispscr already
+	if(tppw_flags & TPPWF::BATCHTIMERMODE) {
+		bool &redrawimgflag = updatetweetbatchqueue[id];
+		if(redrawimg) redrawimgflag = true;   // if the flag in updatetweetbatchqueue is already true, don't override it to false
+		UpdateBatchTimer();
+		return;
+	}
+
 	EnumDisplayedTweets([&](tweetdispscr *tds) {
 		if(tds->td->id == id || tds->rtid == id) {    //found matching entry
-
-			//don't bother inserting into updatetweetbatchqueue unless we actually have a corresponding tweetdispscr
-			//otherwise updatetweetbatchqueue will end up quite bloated
-			if(tppw_flags & TPPWF::BATCHTIMERMODE) {
-				bool &redrawimgflag = updatetweetbatchqueue[id];
-				if(redrawimg) redrawimgflag = true;   // if the flag in updatetweetbatchqueue is already true, don't override it to false
-				UpdateBatchTimer();
-				return false;
-			}
-
 			LogMsgFormat(LOGT::TPANEL, wxT("UpdateOwnTweet: %s, Found Entry %" wxLongLongFmtSpec "d."), GetThisName().c_str(), id);
 			tds->DisplayTweet(redrawimg);
 		}
@@ -1446,6 +1456,35 @@ tweetdispscr_mouseoverwin *tpanelparentwin_nt::MakeMouseOverWin() {
 tweetdispscr_mouseoverwin *tpanelparentwin_nt_impl::MakeMouseOverWin() {
 	if(!mouseoverwin) mouseoverwin = new tweetdispscr_mouseoverwin(scrollwin, base());
 	return mouseoverwin;
+}
+
+void tpanelparentwin_nt::IncTweetIDRefCounts(uint64_t tid, uint64_t rtid) {
+	pimpl()->tweetid_count_map[tid]++;
+	pimpl()->all_tweetid_count_map[tid]++;
+	if(rtid) {
+		pimpl()->tweetid_count_map[rtid]++;
+		pimpl()->all_tweetid_count_map[rtid]++;
+	}
+}
+
+void tpanelparentwin_nt::DecTweetIDRefCounts(uint64_t tid, uint64_t rtid) {
+	auto dec_tcm = [&](std::map<uint64_t, unsigned int> &tcm, uint64_t id) {
+		auto it = tcm.find(id);
+		if(it != tcm.end()) {
+			it->second--;
+
+			//Remove IDs with value 0 from map
+			if(it->second == 0) {
+				tcm.erase(it);
+			}
+		}
+	};
+	dec_tcm(pimpl()->tweetid_count_map, tid);
+	dec_tcm(pimpl()->all_tweetid_count_map, tid);
+	if(rtid) {
+		dec_tcm(pimpl()->tweetid_count_map, rtid);
+		dec_tcm(pimpl()->all_tweetid_count_map, rtid);
+	}
 }
 
 BEGIN_EVENT_TABLE(tpanelparentwin_impl, tpanelparentwin_nt_impl)
@@ -1707,6 +1746,7 @@ bool tpanelparentwin_user_impl::UpdateUser(const std::shared_ptr<userdatacontain
 		hbox->Add(td, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
 
 		sizer->Insert(index, hbox, 0, wxALL | wxEXPAND, 1);
+		td->PanelInsertEvt();
 		currentdisp.insert(pos, std::make_pair(u->id, td));
 		td->Display();
 		CLabelNeedsUpdating(0);
@@ -2039,6 +2079,10 @@ void UpdateUsersTweet(uint64_t userid, bool redrawimg) {
 }
 
 void UpdateTweet(const tweet &t, bool redrawimg) {
+	//Escape hatch: don't bother iterating over tpanelparentwinlist if no entry in all_tweetid_count_map,
+	//ie. no tweet is displayed in any panel which is/is a retweet of that ID
+	if(tpanelparentwin_nt_impl::all_tweetid_count_map.find(t.id) == tpanelparentwin_nt_impl::all_tweetid_count_map.end()) return;
+
 	for(auto it=tpanelparentwinlist.begin(); it!=tpanelparentwinlist.end(); ++it) {
 		(*it)->UpdateOwnTweet(t, redrawimg);
 	}

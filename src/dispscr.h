@@ -54,6 +54,7 @@ enum class TDSF {    //for tweetdispscr.tds_flags
 	HIDDEN                = 1<<2,
 	IMGTHUMBHIDEOVERRIDE  = 1<<3,
 	CANLOADMOREREPLIES    = 1<<4,
+	INSERTEDPANELIDREFS   = 1<<5,
 };
 template<> struct enum_traits<TDSF> { static constexpr bool flags = true; };
 
@@ -142,6 +143,8 @@ struct dispscr_base : public generic_disp_base, public magic_paired_ptr_ts<disps
 	void mouseenterhandler(wxMouseEvent &event);
 	void mouseleavehandler(wxMouseEvent &event);
 	virtual dispscr_mouseoverwin *MakeMouseOverWin() { return 0; }
+	virtual void PanelInsertEvt() { }
+	virtual void PanelRemoveEvt() { }
 
 	DECLARE_EVENT_TABLE()
 };
@@ -198,6 +201,9 @@ struct tweetdispscr : public dispscr_base {
 	virtual std::shared_ptr<tweet> GetTweet() const override { return td; }
 	virtual tweetdispscr *GetTDS() override { return this; }
 	virtual flagwrapper<TDSF> GetTDSFlags() const override { return tds_flags; }
+
+	virtual void PanelInsertEvt() override;
+	virtual void PanelRemoveEvt() override;
 
 	DECLARE_EVENT_TABLE()
 };

@@ -122,6 +122,10 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 	std::map<uint64_t, bool> updatetweetbatchqueue;
 	std::deque<std::function<void(tpanelparentwin_nt *)> > batchedgenericactions;
 
+	//These hold tweet IDs and retweet source IDs
+	std::map<uint64_t, unsigned int> tweetid_count_map;
+	static std::map<uint64_t, unsigned int> all_tweetid_count_map;
+
 	void PushTweet(const std::shared_ptr<tweet> &t, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
 	void RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
 	tweetdispscr *PushTweetIndex(const std::shared_ptr<tweet> &t, size_t index);

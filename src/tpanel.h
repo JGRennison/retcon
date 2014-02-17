@@ -107,6 +107,9 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	void MarkSetRead(tweetidset &&subset);
 	void MarkSetUnhighlighted(tweetidset &&subset);
 
+	//These are primarily for for tweetdispscr PanelInsertEvt/PanelRemoveEvt
+	void IncTweetIDRefCounts(uint64_t tid, uint64_t rtid);
+	void DecTweetIDRefCounts(uint64_t tid, uint64_t rtid);
 };
 
 struct tpanelparentwin_impl;

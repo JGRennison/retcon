@@ -285,7 +285,6 @@ tweetdispscr::tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *p
 }
 
 tweetdispscr::~tweetdispscr() {
-	//tppw->currentdisp.remove_if([this](const std::pair<uint64_t, tweetdispscr *> &p){ return p.second==this; });
 }
 
 void TweetReplaceStringSeq(std::function<void(const char *, size_t)> func, const std::string &str, int start, int end, int &track_byte, int &track_index) {
@@ -1121,6 +1120,26 @@ void tweetdispscr::unhideimageoverridestarttimeout() {
 		tds_flags |= TDSF::IMGTHUMBHIDEOVERRIDE;
 		DisplayTweet(false);
 	}
+}
+
+void tweetdispscr::PanelInsertEvt() {
+	dispscr_base::PanelInsertEvt();
+	if(!(tds_flags & TDSF::INSERTEDPANELIDREFS)) {
+		static_cast<tpanelparentwin_nt *>(tppw)->IncTweetIDRefCounts(td->id, rtid);
+		tds_flags |= TDSF::INSERTEDPANELIDREFS;
+	}
+}
+
+void tweetdispscr::PanelRemoveEvt() {
+	if(tds_flags & TDSF::INSERTEDPANELIDREFS) {
+		static_cast<tpanelparentwin_nt *>(tppw)->DecTweetIDRefCounts(td->id, rtid);
+		tds_flags &= ~TDSF::INSERTEDPANELIDREFS;
+	}
+	for(auto &it : subtweets) {
+		tweetdispscr *td = it.get();
+		if(td) td->PanelRemoveEvt();
+	}
+	dispscr_base::PanelRemoveEvt();
 }
 
 /* Note on PopupMenu:

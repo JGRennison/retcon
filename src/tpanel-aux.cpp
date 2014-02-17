@@ -442,7 +442,7 @@ void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, 
 		tae.SetFont(newfont);
 		subtd->SetFont(newfont);
 		subtd->SetDefaultStyle(tae);
-
+		subtd->PanelInsertEvt();
 		subtd->DisplayTweet();
 
 		if(!(window->pimpl()->tppw_flags & TPPWF::NOUPDATEONPUSH)) {
