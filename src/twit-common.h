@@ -95,7 +95,39 @@ struct tweet_flags {
 	std::string GetString() const {
 		return GetValueString(Save());
 	}
+
+	tweet_flags & operator &=(const tweet_flags &other) {
+		bits &= other.bits;
+		return *this;
+	}
+	tweet_flags & operator |=(const tweet_flags &other) {
+		bits |= other.bits;
+		return *this;
+	}
+	tweet_flags & operator ^=(const tweet_flags &other) {
+		bits ^= other.bits;
+		return *this;
+	}
+	tweet_flags operator ~() const {
+		return tweet_flags(~Save());
+	}
 };
+
+inline tweet_flags operator &(const tweet_flags &l, const tweet_flags &r) {
+	tweet_flags result = l;
+	result &= r;
+	return std::move(result);
+}
+inline tweet_flags operator |(const tweet_flags &l, const tweet_flags &r) {
+	tweet_flags result = l;
+	result |= r;
+	return std::move(result);
+}
+inline tweet_flags operator ^(const tweet_flags &l, const tweet_flags &r) {
+	tweet_flags result = l;
+	result ^= r;
+	return std::move(result);
+}
 
 struct cached_id_sets {
 	tweetidset unreadids;
