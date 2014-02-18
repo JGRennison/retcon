@@ -135,18 +135,26 @@ struct cached_id_sets {
 	tweetidset hiddenids;
 	tweetidset deletedids;
 
-	inline static void IterateLists(std::function<void(const char *, tweetidset cached_id_sets::*, unsigned long long)> f) {
+	//! Functor should have signature of void(const char *, tweetidset cached_id_sets::*, unsigned long long)
+	template <typename F>
+	inline static void IterateLists(F f) {
 		f("unreadids", &cached_id_sets::unreadids, tweet_flags::GetFlagValue('u'));
 		f("highlightids", &cached_id_sets::highlightids, tweet_flags::GetFlagValue('H'));
 		f("hiddenids", &cached_id_sets::hiddenids, tweet_flags::GetFlagValue('h'));
 		f("deletedids", &cached_id_sets::deletedids, tweet_flags::GetFlagValue('X'));
 	}
-	inline void foreach(std::function<void(tweetidset &)> f) {
+
+	//! Functor should have signature of void(tweetidset &)
+	template <typename F>
+	inline void foreach(F f) {
 		IterateLists([&](const char *name, tweetidset cached_id_sets::*ptr, unsigned long long tweetflag) {
 			f(this->*ptr);
 		});
 	}
-	inline void foreach(cached_id_sets &cid2, std::function<void(tweetidset &, tweetidset &)> f) {
+
+	//! Functor should have signature of void(tweetidset &, tweetidset &)
+	template <typename F>
+	inline void foreach(cached_id_sets &cid2, F f) {
 		IterateLists([&](const char *name, tweetidset cached_id_sets::*ptr, unsigned long long tweetflag) {
 			f(this->*ptr, cid2.*ptr);
 		});
