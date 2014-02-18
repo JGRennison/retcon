@@ -390,6 +390,15 @@ void panelparentwin_base_impl::pagetopevthandler(wxCommandEvent &event) {
 	PageTopHandler();
 }
 
+void panelparentwin_base::UpdateCLabelLater() {
+	pimpl()->UpdateCLabelLater();
+}
+
+void panelparentwin_base_impl::UpdateCLabelLater() {
+	SetClabelUpdatePendingFlag();
+	UpdateBatchTimer();
+}
+
 void panelparentwin_base::SetNoUpdateFlag() {
 	pimpl()->SetNoUpdateFlag();
 }

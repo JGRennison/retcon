@@ -62,6 +62,7 @@ struct panelparentwin_base_impl : public bindwxevt {
 	void ShowHideButtons(std::string type, bool show);
 	virtual void HandleScrollToIDOnUpdate() { }
 	void SetNoUpdateFlag();
+	void UpdateCLabelLater();
 	void SetClabelUpdatePendingFlag();
 	void CheckClearNoUpdateFlag();
 	virtual void UpdateCLabel() { }

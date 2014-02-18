@@ -71,6 +71,7 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	virtual ~panelparentwin_base();
 	mainframe *GetMainframe();
 	void UpdateCLabel();
+	void UpdateCLabelLater();
 	void SetNoUpdateFlag();
 	void SetClabelUpdatePendingFlag();
 	void CheckClearNoUpdateFlag();

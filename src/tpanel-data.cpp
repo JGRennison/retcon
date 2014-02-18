@@ -325,3 +325,9 @@ void tpanel::SetClabelUpdatePendingFlag_TP() const {
 		jt->SetClabelUpdatePendingFlag();
 	}
 }
+
+void tpanel::UpdateCLabelLater_TP() const {
+	for(auto &jt : twin) {
+		jt->UpdateCLabelLater();
+	}
+}
