@@ -57,7 +57,7 @@
 void HandleNewTweet(const std::shared_ptr<tweet> &t, const std::shared_ptr<taccount> &acc, flagwrapper<ARRIVAL> arr) {
 	if(arr & ARRIVAL::RECV) ad.alltweet_filter.FilterTweet(*t, acc.get());
 	if(arr & ARRIVAL::NEW) ad.incoming_filter.FilterTweet(*t, acc.get());
-	ad.cids.CheckTweet(*t);
+	t->CheckFlagsUpdated(tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
 
 	if(arr & ARRIVAL::NEW) {
 		for(auto &it : ad.tpanels) {
@@ -409,6 +409,15 @@ bool userdatacontainer::GetUsableAccount(std::shared_ptr<taccount> &tac, bool en
 	else return false;
 }
 
+const tweetidset &userdatacontainer::GetMentionSet() {
+	if(!msd) msd.reset(new mention_set_data);
+	if(msd->added_offset < mention_index.size()) {
+		msd->mention_set.insert(mention_index.begin() + msd->added_offset, mention_index.end());
+		msd->added_offset = mention_index.size();
+	}
+	return msd->mention_set;
+}
+
 std::string tweet_flags::GetValueString(unsigned long long bitint) {
 	std::string out;
 	while(bitint) {
@@ -519,11 +528,10 @@ tweet_perspective *tweet::GetTweetTP(const std::shared_ptr<taccount> &tac) {
 	return 0;
 }
 
-void tweet::UpdateMarkedAsRead(const tpanel *exclude) {
+void tweet::MarkFlagsAsRead() {
 	if(flags.Get('u')) {
 		flags.Set('r', true);
 		flags.Set('u', false);
-		UpdateTweet(*this, false);
 	}
 }
 
@@ -540,8 +548,8 @@ void cached_id_sets::RemoveTweet(uint64_t id) {
 	});
 }
 
-void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, std::function<tweetidset &(cached_id_sets &)> idsetselector, bool remove, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc) {
-	tweetidset &globset = idsetselector(ad.cids);
+void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, tweetidset cached_id_sets::* idsetptr, bool remove, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc) {
+	tweetidset &globset = ad.cids.*idsetptr;
 
 	if(remove) {
 		for(auto &tweet_id : ids) globset.erase(tweet_id);
@@ -550,13 +558,13 @@ void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, std::funct
 
 	for(auto &tpiter : ad.tpanels) {
 		tpanel *tp = tpiter.second.get();
-		tp->NotifyCIDSChange();
 		if(tp == exclude) continue;
 
-		tweetidset &tpset = idsetselector(tp->cids);
+		tweetidset &tpset = tp->cids.*idsetptr;
 		bool updatetp = false;
 
 		for(auto &tweet_id : ids) {
+			tp->NotifyCIDSChange_AddRemove(tweet_id, idsetptr, !remove, PUSHFLAGS::SETNOUPDATEFLAG);
 			if(remove) {
 				auto item_it = tpset.find(tweet_id);
 				if(item_it != tpset.end()) {
@@ -574,6 +582,7 @@ void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, std::funct
 			tp->SetClabelUpdatePendingFlag_TP();
 		}
 	}
+
 	if(existingtweetfunc) {
 		for(auto &tweet_id : ids) {
 			auto twshpp = ad.GetExistingTweetById(tweet_id);
@@ -584,34 +593,12 @@ void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, std::funct
 	}
 }
 
-void UpdateSingleTweetUnreadState(const std::shared_ptr<tweet> &tw) {
-	UpdateSingleTweetFlagState(tw, tweet_flags::GetFlagValue('u') | tweet_flags::GetFlagValue('r'));
-}
-void UpdateSingleTweetHighlightState(const std::shared_ptr<tweet> &tw) {
-	UpdateSingleTweetFlagState(tw, tweet_flags::GetFlagValue('H'));
-}
-
-void UpdateSingleTweetFlagState(const std::shared_ptr<tweet> &tw, unsigned long long mask) {
+void SendTweetFlagUpdate(const tweet &tw, unsigned long long mask) {
 	tweetidset ids;
-	ids.insert(tw->id);
-
-	cached_id_sets::IterateLists([&](const char *name, tweetidset cached_id_sets::*ptr, unsigned long long tweetflag) {
-		if(mask & tweetflag) {
-			MarkTweetIDSetCIDS(ids, 0, [&](cached_id_sets &cids) -> tweetidset & { return cids.*ptr; }, !(tw->flags.Save() & tweetflag));
-		}
-	});
-
-	SendTweetFlagUpdate(tw, mask);
-	UpdateTweet(*tw, false);
-	CheckClearNoUpdateFlag_All();
-}
-
-void SendTweetFlagUpdate(const std::shared_ptr<tweet> &tw, unsigned long long mask) {
-	tweetidset ids;
-	ids.insert(tw->id);
-	unsigned long long setmask = mask & tw->flags.Save();
-	unsigned long long unsetmask = mask & (~tw->flags.Save());
-	dbupdatetweetsetflagsmsg *msg=new dbupdatetweetsetflagsmsg(std::move(ids), setmask, unsetmask);
+	ids.insert(tw.id);
+	unsigned long long setmask = mask & tw.flags.Save();
+	unsigned long long unsetmask = mask & (~tw.flags.Save());
+	dbupdatetweetsetflagsmsg *msg = new dbupdatetweetsetflagsmsg(std::move(ids), setmask, unsetmask);
 	DBC_SendMessageBatched(msg);
 }
 
@@ -884,6 +871,43 @@ void tweet::GetMediaEntities(std::vector<media_entity *> &out, flagwrapper<MEF> 
 			media_entity &me = *(ad.media_list[et.media_id]);
 			if(!mask || me.flags & mask) out.push_back(&me);
 		}
+	}
+}
+
+void tweet::CheckFlagsUpdated(flagwrapper<tweet::CFUF> cfuflags) {
+	unsigned long long changemask = flags_at_prev_update.Save() ^ flags.Save();
+	if(!changemask) return;
+
+	flags_at_prev_update = flags;
+
+	cached_id_sets::IterateLists([&](const char *name, tweetidset cached_id_sets::*mptr, unsigned long long flagvalue) {
+		if(changemask & flagvalue) {
+			if(flags.Save() & flagvalue) {
+				auto result = (ad.cids.*mptr).insert(id);
+				if(result.second) {
+					//new insertion
+					for(auto &tpiter : ad.tpanels) {
+						tpiter.second->NotifyCIDSChange(id, mptr, true, 0);
+					}
+				}
+			}
+			else {
+				size_t erasecount = (ad.cids.*mptr).erase(id);
+				if(erasecount) {
+					//did remove
+					for(auto &tpiter : ad.tpanels) {
+						tpiter.second->NotifyCIDSChange(id, mptr, false, 0);
+					}
+				}
+			}
+		}
+	});
+
+	if(cfuflags & CFUF::SET_NOUPDF_ALL) CheckClearNoUpdateFlag_All();
+	if(cfuflags & CFUF::UPDATE_TWEET) UpdateTweet(*this, false);
+	if(cfuflags & CFUF::SEND_DB_UPDATE_ALWAYS) SendTweetFlagUpdate(*this, changemask);
+	else if(cfuflags & CFUF::SEND_DB_UPDATE) {
+		if(lflags & TLF::SAVED_IN_DB) SendTweetFlagUpdate(*this, changemask);
 	}
 }
 

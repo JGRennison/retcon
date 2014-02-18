@@ -116,8 +116,16 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	wxBitmap cached_profile_img;
 	wxBitmap cached_profile_img_half;
 	std::deque<std::shared_ptr<tweet> > pendingtweets;
-	std::deque<uint64_t> mention_index;
+	std::deque<uint64_t> mention_index;    //append only
 
+	private:
+	struct mention_set_data {
+		tweetidset mention_set;
+		size_t added_offset = 0;
+	};
+	std::unique_ptr<mention_set_data> msd;
+
+	public:
 	bool NeedsUpdating(flagwrapper<UPDCF> updcf_flags, time_t timevalue = 0) const;
 	bool IsReady(flagwrapper<UPDCF> updcf_flags, time_t timevalue = 0);
 	void CheckPendingTweets(flagwrapper<UMPTF> umpt_flags = 0);
@@ -137,6 +145,7 @@ struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
 	std::string GetPermalink(bool ssl) const;
 	void NotifyProfileImageChange();
 	void MakeProfileImageFailurePlaceholder();
+	const tweetidset &GetMentionSet();
 };
 
 class tweet_perspective {
@@ -249,6 +258,10 @@ struct tweet {
 	tweet_flags flags;
 	flagwrapper<TLF> lflags = 0;
 
+	private:
+	tweet_flags flags_at_prev_update;
+
+	public:
 	tweet() : updcf_flags(UPDCF::DEFAULT) { };
 	void Dump() const;
 	tweet_perspective *AddTPToTweet(const std::shared_ptr<taccount> &tac, bool *isnew = 0);
@@ -269,7 +282,7 @@ struct tweet {
 	bool IsRetweetable() const;
 	bool IsArrivedHereAnyPerspective() const;
 	std::string GetPermalink() const;
-	void UpdateMarkedAsRead(const tpanel *exclude = 0);
+	void MarkFlagsAsRead();
 	inline void IterateTP(std::function<void(const tweet_perspective &)> f) const {
 		if(lflags & TLF::HAVEFIRSTTP) f(first_tp);
 		for(auto &it : tp_extra_list) f(it);
@@ -281,8 +294,25 @@ struct tweet {
 
 	//If mask is zero, it is not used
 	void GetMediaEntities(std::vector<media_entity *> &out, flagwrapper<MEF> mask = 0) const;
+
+	enum class CFUF {
+		SEND_DB_UPDATE             = 1<<0,
+		SEND_DB_UPDATE_ALWAYS      = 1<<1,
+		UPDATE_TWEET               = 1<<2,
+		SET_NOUPDF_ALL             = 1<<3,
+	};
+	void CheckFlagsUpdated(flagwrapper<CFUF> cfuflags = 0);
+
+	//! Use with caution
+	//! Intended for bulk CIDS operations which do their own state tracking
+	void IgnoreChangeToFlagsByMask(unsigned long long mask) {
+		tweet_flags tmask(mask);
+		flags_at_prev_update &= ~tmask;
+		flags_at_prev_update |= flags & tmask;
+	}
 };
 template<> struct enum_traits<tweet::GUAF> { static constexpr bool flags = true; };
+template<> struct enum_traits<tweet::CFUF> { static constexpr bool flags = true; };
 
 typedef enum {
 	ENT_HASHTAG = 1,
@@ -424,12 +454,9 @@ bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_n
 bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::shared_ptr<taccount> acc_hint, dbseltweetmsg **existing_dbsel = 0);
 bool CheckLoadSingleTweet(const std::shared_ptr<tweet> &t, std::shared_ptr<taccount> &acc_hint);
 void MarkTweetIDSetAsRead(const tweetidset &ids, const tpanel *exclude);
-void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, std::function<tweetidset &(cached_id_sets &)> idsetselector,
+void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, tweetidset cached_id_sets::* idsetptr,
 		bool remove, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc = std::function<void(const std::shared_ptr<tweet> &)>());
-void SendTweetFlagUpdate(const std::shared_ptr<tweet> &tw, unsigned long long mask);
-void UpdateSingleTweetUnreadState(const std::shared_ptr<tweet> &tw);
-void UpdateSingleTweetHighlightState(const std::shared_ptr<tweet> &tw);
-void UpdateSingleTweetFlagState(const std::shared_ptr<tweet> &tw, unsigned long long mask);
+void SendTweetFlagUpdate(const tweet &tw, unsigned long long mask);
 void SpliceTweetIDSet(tweetidset &set, tweetidset &out, uint64_t highlim_inc, uint64_t lowlim_inc, bool clearspliced);
 
 #endif

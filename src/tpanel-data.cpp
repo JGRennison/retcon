@@ -95,8 +95,11 @@ tpanel::tpanel(const std::string &name_, const std::string &dispname_, flagwrapp
 	twin.clear();
 	tpautos = std::move(tpautos_);
 	for(auto &it : tpautos) {
-		if(it.autoflags & (TPF::AUTO_HIGHLIGHTED | TPF::AUTO_UNREAD)) {
-			intl_flags |= TPIF::RECALCSETSONCIDSCHANGE;
+		if(it.autoflags & TPF::AUTO_HIGHLIGHTED) {
+			intl_flags |= TPIF::RECALCSETSONCIDSCHANGE | TPIF::INCCIDS_HIGHLIGHT;
+		}
+		if(it.autoflags & TPF::AUTO_UNREAD) {
+			intl_flags |= TPIF::RECALCSETSONCIDSCHANGE | TPIF::INCCIDS_UNREAD;
 		}
 	}
 	RecalculateSets();
@@ -239,20 +242,75 @@ bool tpanel::TweetMatches(const std::shared_ptr<tweet> &t, const std::shared_ptr
 
 void tpanel::RecalculateTweetSet() {
 	for(auto &tpa : tpautos) {
-		std::forward_list<taccount *> accs;
+		auto doacc = [&](taccount *it) {
+			if(tpa.autoflags & TPF::AUTO_DM) tweetlist.insert(it->dm_ids.begin(), it->dm_ids.end());
+			if(tpa.autoflags & TPF::AUTO_TW) tweetlist.insert(it->tweet_ids.begin(), it->tweet_ids.end());
+			if(tpa.autoflags & TPF::AUTO_MN) tweetlist.insert(it->usercont->mention_index.begin(), it->usercont->mention_index.end());
+		};
+
 		if(tpa.autoflags & TPF::AUTO_ALLACCS) {
-			for(auto &it : alist) accs.push_front(it.get());
+			for(auto &it : alist) doacc(it.get());
 		}
 		else if(tpa.autoflags & TPF::AUTO_NOACC) {
 			if(tpa.autoflags & TPF::AUTO_HIGHLIGHTED) tweetlist.insert(ad.cids.highlightids.begin(), ad.cids.highlightids.end());
 			if(tpa.autoflags & TPF::AUTO_UNREAD) tweetlist.insert(ad.cids.unreadids.begin(), ad.cids.unreadids.end());
 		}
-		else accs.push_front(tpa.acc.get());
+		else doacc(tpa.acc.get());
+	}
+}
 
-		for(auto & it : accs) {
-			if(tpa.autoflags & TPF::AUTO_DM) tweetlist.insert(it->dm_ids.begin(), it->dm_ids.end());
-			if(tpa.autoflags & TPF::AUTO_TW) tweetlist.insert(it->tweet_ids.begin(), it->tweet_ids.end());
-			if(tpa.autoflags & TPF::AUTO_MN) tweetlist.insert(it->usercont->mention_index.begin(), it->usercont->mention_index.end());
+//! This handles all CIDS changes
+//! Bulk CIDS operations do not use this however
+void tpanel::NotifyCIDSChange(uint64_t id, tweetidset cached_id_sets::*ptr, bool add, flagwrapper<PUSHFLAGS> pushflags) {
+	if(add) {
+		if(tweetlist.count(id)) {
+			auto result = (cids.*ptr).insert(id);
+			if(result.second) UpdateCLabelLater_TP();
+		}
+	}
+	else {
+		size_t erasecount = (cids.*ptr).erase(id);
+		if(erasecount) UpdateCLabelLater_TP();
+	}
+
+	NotifyCIDSChange_AddRemove(id, ptr, add, pushflags);
+}
+
+//! This only handles tpanels which includes CIDS sets as auto sources
+//! This is used by bulk CIDS operations
+void tpanel::NotifyCIDSChange_AddRemoveIntl(uint64_t id, tweetidset cached_id_sets::*ptr, bool add, flagwrapper<PUSHFLAGS> pushflags) {
+	if((intl_flags & TPIF::INCCIDS_HIGHLIGHT && ptr == &cached_id_sets::highlightids)
+			|| (intl_flags & TPIF::INCCIDS_UNREAD && ptr == &cached_id_sets::unreadids)) {
+		if(add) PushTweet(ad.tweetobjs[id], pushflags);
+		else if(tweetlist.count(id)) {
+			//we have this tweet, and may be removing it
+
+			size_t havetweet = 0;
+			for(auto &tpa : tpautos) {
+				auto doacc = [&](taccount *it) {
+					if(tpa.autoflags & TPF::AUTO_DM) havetweet += it->dm_ids.count(id);
+					if(tpa.autoflags & TPF::AUTO_TW) havetweet += it->tweet_ids.count(id);
+					if(tpa.autoflags & TPF::AUTO_MN) {
+						const tweetidset &mentions = it->usercont->GetMentionSet();
+						havetweet += mentions.count(id);
+					}
+				};
+
+				if(tpa.autoflags & TPF::AUTO_ALLACCS) {
+					for(auto &it : alist) doacc(it.get());
+				}
+				else if(tpa.autoflags & TPF::AUTO_NOACC) {
+					if(tpa.autoflags & TPF::AUTO_HIGHLIGHTED && ptr != &cached_id_sets::highlightids) havetweet += ad.cids.highlightids.count(id);
+					if(tpa.autoflags & TPF::AUTO_UNREAD  && ptr != &cached_id_sets::unreadids) havetweet += ad.cids.unreadids.count(id);
+				}
+				else doacc(tpa.acc.get());
+				if(havetweet) break;
+			}
+
+			if(!havetweet) {
+				//we are removing the tweet
+				RemoveTweet(id, pushflags);
+			}
 		}
 	}
 }
@@ -266,30 +324,6 @@ void tpanel::RecalculateCIDS() {
 void tpanel::RecalculateSets() {
 	RecalculateTweetSet();
 	RecalculateCIDS();
-}
-
-void tpanel::RecalculateSetsWithAddRemove(flagwrapper<PUSHFLAGS> pushflags) {
-	tweetidset oldtweetlist = std::move(tweetlist);
-	RecalculateTweetSet();
-
-	tweetidset added;
-	tweetidset removed;
-	std::set_difference(tweetlist.begin(), tweetlist.end(), oldtweetlist.begin(), oldtweetlist.end(), std::inserter(added, added.end()), tweetlist.key_comp());
-	std::set_difference(oldtweetlist.begin(), oldtweetlist.end(), tweetlist.begin(), tweetlist.end(), std::inserter(removed, removed.end()), tweetlist.key_comp());
-
-	tweetlist = std::move(oldtweetlist); //restore for now
-
-	//Big assumption:
-	//It does not really make sense to explicitly add a tweet to a CIDS when it is not already in memory and ready
-	//Hence this edge-case is not covered here
-	for(auto &it : added) {
-		std::shared_ptr<tweet> tobj = ad.GetTweetById(it);
-		PushTweet(tobj, pushflags);
-	}
-
-	for(auto &it : removed) {
-		RemoveTweet(it, pushflags);
-	}
 }
 
 void tpanel::OnTPanelWinClose(tpanelparentwin_nt *tppw) {

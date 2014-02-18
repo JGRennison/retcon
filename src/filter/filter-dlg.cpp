@@ -188,12 +188,8 @@ void filter_dlg::OnOK(wxCommandEvent &event) {
 }
 
 void FilterOneTweet(filter_set &fs, const std::shared_ptr<tweet> &t) {
-	unsigned long long mask = t->flags.Save();
 	fs.FilterTweet(*t, 0);
-	mask ^= t->flags.Save();
-	ad.cids.CheckTweet(*t);
-	UpdateTweet(*t, false);
-	if(mask) UpdateSingleTweetFlagState(t, mask);
+	t->CheckFlagsUpdated(tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
 }
 
 struct applyfilter_pending_op : public pending_op {

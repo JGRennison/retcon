@@ -63,23 +63,28 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	void SetClabelUpdatePendingFlag_TP() const;
 	void UpdateCLabelLater_TP() const;
 	bool TweetMatches(const std::shared_ptr<tweet> &t, const std::shared_ptr<taccount> &acc) const;
-	void NotifyCIDSChange();
+
+	//id must correspond to a usable tweet in ad.tweetobjs, if adding
+	void NotifyCIDSChange(uint64_t id, tweetidset cached_id_sets::*ptr, bool add, flagwrapper<PUSHFLAGS> pushflags  = PUSHFLAGS::DEFAULT);
+	void NotifyCIDSChange_AddRemove(uint64_t id, tweetidset cached_id_sets::*ptr, bool add, flagwrapper<PUSHFLAGS> pushflags  = PUSHFLAGS::DEFAULT);
 	void RecalculateCIDS();
 
 	private:
 	enum class TPIF {
 		RECALCSETSONCIDSCHANGE       = 1<<0,
+		INCCIDS_HIGHLIGHT            = 1<<1,
+		INCCIDS_UNREAD               = 1<<2,
 	};
 	flagwrapper<TPIF> intl_flags;
 
 	void RecalculateSets();
 	void RecalculateTweetSet();
-	void RecalculateSetsWithAddRemove(flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
+	void NotifyCIDSChange_AddRemoveIntl(uint64_t id, tweetidset cached_id_sets::*ptr, bool add, flagwrapper<PUSHFLAGS> pushflags);
 };
 template<> struct enum_traits<tpanel::TPIF> { static constexpr bool flags = true; };
 
-inline void tpanel::NotifyCIDSChange() {
-	if(intl_flags & tpanel::TPIF::RECALCSETSONCIDSCHANGE) RecalculateSetsWithAddRemove(PUSHFLAGS::SETNOUPDATEFLAG);
+inline void tpanel::NotifyCIDSChange_AddRemove(uint64_t id, tweetidset cached_id_sets::*ptr, bool add, flagwrapper<PUSHFLAGS> pushflags) {
+	if(intl_flags & tpanel::TPIF::RECALCSETSONCIDSCHANGE) NotifyCIDSChange_AddRemoveIntl(id, ptr, add, pushflags);
 }
 
 #endif

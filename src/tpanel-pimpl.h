@@ -144,8 +144,7 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 	void MarkSetUnhighlighted(tweetidset &&subset);
 	void setupnavbuttonhandlers();
 	void morebtnhandler(wxCommandEvent &event);
-	void MarkClearCIDSSetHandler(std::function<tweetidset &(cached_id_sets &)> idsetselector,
-			std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc, const tweetidset &subset);
+	void MarkClearCIDSSetHandler(tweetidset cached_id_sets::* idsetptr, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc, const tweetidset &subset);
 	void OnBatchTimerModeTimer(wxTimerEvent& event);
 	virtual void IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const override;
 	virtual void UpdateCLabel() override;

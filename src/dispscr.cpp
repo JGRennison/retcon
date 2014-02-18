@@ -1369,7 +1369,7 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 			}
 			case 'p': {
 				td->flags.Set('p', false);
-				UpdateSingleTweetFlagState(td, tweet_flags::GetFlagValue('p'));
+				td->CheckFlagsUpdated(tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
 				break;
 			}
 			case 'q': {

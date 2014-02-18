@@ -309,25 +309,25 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 		}
 		case TAMI_TOGGLEHIGHLIGHT: {
 			map[curid].tw->flags.Toggle('H');
-			UpdateSingleTweetHighlightState(map[curid].tw);
+			map[curid].tw->CheckFlagsUpdated(tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
 			break;
 		}
 		case TAMI_MARKREAD: {
 			map[curid].tw->flags.Set('r', true);
 			map[curid].tw->flags.Set('u', false);
-			UpdateSingleTweetUnreadState(map[curid].tw);
+			map[curid].tw->CheckFlagsUpdated(tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
 			break;
 		}
 		case TAMI_MARKUNREAD: {
 			map[curid].tw->flags.Set('r', false);
 			map[curid].tw->flags.Set('u', true);
-			UpdateSingleTweetUnreadState(map[curid].tw);
+			map[curid].tw->CheckFlagsUpdated(tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
 			break;
 		}
 		case TAMI_MARKNOREADSTATE: {
 			map[curid].tw->flags.Set('r', false);
 			map[curid].tw->flags.Set('u', false);
-			UpdateSingleTweetUnreadState(map[curid].tw);
+			map[curid].tw->CheckFlagsUpdated(tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
 			break;
 		}
 		case TAMI_MARKNEWERUNREAD: {
@@ -364,12 +364,12 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 		}
 		case TAMI_TOGGLEHIDEIMG: {
 			map[curid].tw->flags.Toggle('p');
-			UpdateSingleTweetFlagState(map[curid].tw, tweet_flags::GetFlagValue('p'));
+			map[curid].tw->CheckFlagsUpdated(tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
 			break;
 		}
 		case TAMI_TOGGLEIMGPREVIEWNOAUTOLOAD: {
 			map[curid].tw->flags.Toggle('n');
-			UpdateSingleTweetFlagState(map[curid].tw, tweet_flags::GetFlagValue('n'));
+			map[curid].tw->CheckFlagsUpdated(tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
 			break;
 		}
 		case TAMI_DELETECACHEDIMG: {
@@ -391,7 +391,7 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 		}
 		case TAMI_TOGGLEHIDDEN: {
 			map[curid].tw->flags.Toggle('h');
-			UpdateSingleTweetFlagState(map[curid].tw, tweet_flags::GetFlagValue('h'));
+			map[curid].tw->CheckFlagsUpdated(tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
 			break;
 		}
 		case TAMI_ADDTOPANEL: {

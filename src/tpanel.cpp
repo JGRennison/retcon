@@ -1014,12 +1014,11 @@ void tpanelparentwin_nt_impl::MarkSetRead(tweetidset &&subset) {
 		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt_impl::MarkSetRead %s START"), GetThisName().c_str());
 	#endif
 	tweetidset cached_ids = std::move(subset);
-	MarkClearCIDSSetHandler(
-		[&](cached_id_sets &cids) -> tweetidset & {
-			return cids.unreadids;
-		},
+	MarkClearCIDSSetHandler(&cached_id_sets::unreadids,
 		[&](const std::shared_ptr<tweet> &tw) {
-			tw->UpdateMarkedAsRead(tp.get());
+			tw->MarkFlagsAsRead();
+			tw->IgnoreChangeToFlagsByMask(tweet_flags::GetFlagValue('u') | tweet_flags::GetFlagValue('r'));
+			UpdateTweet(*tw, false);
 		},
 		cached_ids
 	);
@@ -1047,12 +1046,10 @@ void tpanelparentwin_nt_impl::MarkSetUnhighlighted(tweetidset &&subset) {
 		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt_impl::MarkSetUnhighlighted %s START"), GetThisName().c_str());
 	#endif
 	tweetidset cached_ids = std::move(subset);
-	MarkClearCIDSSetHandler(
-		[&](cached_id_sets &cids) -> tweetidset & {
-			return cids.highlightids;
-		},
+	MarkClearCIDSSetHandler(&cached_id_sets::highlightids,
 		[&](const std::shared_ptr<tweet> &tw) {
 			tw->flags.Set('H', false);
+			tw->IgnoreChangeToFlagsByMask(tweet_flags::GetFlagValue('H'));
 			UpdateTweet(*tw, false);
 		},
 		cached_ids
@@ -1217,11 +1214,11 @@ void tpanelparentwin_nt_impl::morebtnhandler(wxCommandEvent &event) {
 
 //this does not clear the subset
 //note that the tpanel cids should be cleared/modified *before* calling this function
-void tpanelparentwin_nt_impl::MarkClearCIDSSetHandler(std::function<tweetidset &(cached_id_sets &)> idsetselector, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc, const tweetidset &subset) {
+void tpanelparentwin_nt_impl::MarkClearCIDSSetHandler(tweetidset cached_id_sets::* idsetptr, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc, const tweetidset &subset) {
 	base()->Freeze();
 	tp->SetNoUpdateFlag_TP();
 	tp->SetClabelUpdatePendingFlag_TP();
-	MarkTweetIDSetCIDS(subset, tp.get(), idsetselector, true, existingtweetfunc);
+	MarkTweetIDSetCIDS(subset, tp.get(), idsetptr, true, existingtweetfunc);
 	CheckClearNoUpdateFlag_All();
 	base()->Thaw();
 }
