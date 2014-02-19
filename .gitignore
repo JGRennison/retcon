@@ -1,9 +1,9 @@
 obj*/
 *.map
+gmon.out
 
 retcon
 retcon_debug
-retcon.exe
-retcon_debug.exe
-retcon64.exe
-retcon64_debug.exe
+retcon_gprof
+retcon_debug_gprof
+*.exe

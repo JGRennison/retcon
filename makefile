@@ -2,9 +2,11 @@
 
 #ARCH: value for the switch: -march=
 #GCC: path to g++
-#debug: set to true to for a debug build
+#debug: set to true for a debug build
+#gprof: set to true for a gprof build
 #list: set to true to enable listings
 #map: set to true to enable linker map
+#strip: set to true to strip binary (using STRIPFLAGS)
 #cross: set to true if building on Unix, but build target is Windows
 #V: set to true to show full command lines
 #nopch: disable use of pre-compiled header
@@ -45,6 +47,13 @@ AFLAGS=-g
 DEBUGPOSTFIX:=_debug
 OBJDIR:=$(OBJDIR)$(DEBUGPOSTFIX)
 WXCFGFLAGS:=--debug=yes
+endif
+
+ifdef gprof
+CFLAGS+=-pg
+AFLAGS+=-pg
+GPROFPOSTFIX:=_gprof
+OBJDIR:=$(OBJDIR)$(GPROFPOSTFIX)
 endif
 
 GCCMACHINE:=$(shell $(GCC) -dumpmachine)
@@ -120,7 +129,7 @@ endef
 endif
 endif
 
-OUTNAME:=$(OUTNAME)$(SIZEPOSTFIX)$(DEBUGPOSTFIX)
+OUTNAME:=$(OUTNAME)$(SIZEPOSTFIX)$(DEBUGPOSTFIX)$(GPROFPOSTFIX)
 
 GCCVER:=$(shell $(GCC) -dumpversion)
 
@@ -141,13 +150,16 @@ endif
 
 TARGS:=$(OUTNAME)$(SUFFIX)
 
+all: $(TARGS)
+
 ifdef list
 CFLAGS+= -masm=intel -g --save-temps -Wa,-msyntax=intel,-aghlms=$*.lst
 endif
 
 ifdef map
 AFLAGS+=-Wl,-Map=$(OUTNAME).map
-TARGS+=$(OUTNAME).map
+$(OUTNAME).map: $(OUTNAME)$(SUFFIX)
+all: $(OUTNAME).map
 endif
 
 OBJS:=$(patsubst src/%.cpp,$(OBJDIR)/%.o,$(addprefix src/,$(OBJS_SRC)))
@@ -163,8 +175,6 @@ CFLAGS2 += -march=$(ARCH)
 endif
 
 .SUFFIXES:
-
-all: $(TARGS)
 
 -include $(ALL_OBJS:.o=.d) $(OBJDIR)/pch/pch.h.d
 
@@ -188,6 +198,10 @@ else
 	$(call EXEC,$(GCC) $(ALL_OBJS) -o $(OUTNAME)$(SUFFIX).tmp $(LIBS) $(AFLAGS) $(GFLAGS))
 	$(call EXEC,rm -f $(OUTNAME)$(SUFFIX))
 	$(call EXEC,mv $(OUTNAME)$(SUFFIX).tmp $(OUTNAME)$(SUFFIX))
+endif
+ifdef strip
+	@echo '    Strip   $(OUTNAME)$(SUFFIX)'
+	$(call EXEC,strip $(STRIPFLAGS) $(OUTNAME)$(SUFFIX))
 endif
 
 $(OBJS): $(OBJDIR)/%.o: src/%.cpp
