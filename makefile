@@ -26,7 +26,7 @@ OBJS_SRC += dispscr.cpp uiutil.cpp mediawin.cpp taccount.cpp util.cpp res.cpp ve
 TCOBJS_SRC:=libtwitcurl/base64.cpp libtwitcurl/HMAC_SHA1.cpp libtwitcurl/oauthlib.cpp libtwitcurl/SHA1.cpp libtwitcurl/twitcurl.cpp libtwitcurl/urlencode.cpp
 COBJS_SRC:=utf8proc/utf8proc.c
 OUTNAME:=retcon
-COMMONCFLAGS=-Wall -Wno-unused-parameter
+COMMONCFLAGS=-Wall -Wno-unused-parameter -Ideps
 CFLAGS=-g -O3 $(COMMONCFLAGS)
 AFLAGS=-g
 CXXFLAGS=-std=gnu++0x -fno-exceptions
@@ -34,7 +34,7 @@ TCFLAGS=-DSHA1_NO_UTILITY_FUNCTIONS
 GCC:=g++
 LD:=ld
 OBJDIR:=objs
-DIRS=$(OBJDIR) $(OBJDIR)$(PATHSEP)libtwitcurl $(OBJDIR)$(PATHSEP)res $(OBJDIR)$(PATHSEP)utf8proc $(OBJDIR)$(PATHSEP)filter $(OBJDIR)$(PATHSEP)pch
+DIRS=$(OBJDIR) $(OBJDIR)$(PATHSEP)libtwitcurl $(OBJDIR)$(PATHSEP)res $(OBJDIR)$(PATHSEP)deps$(PATHSEP)utf8proc $(OBJDIR)$(PATHSEP)filter $(OBJDIR)$(PATHSEP)pch
 
 EXECPREFIX:=./
 PATHSEP:=/
@@ -164,7 +164,7 @@ endif
 
 OBJS:=$(patsubst src/%.cpp,$(OBJDIR)/%.o,$(addprefix src/,$(OBJS_SRC)))
 TCOBJS:=$(patsubst src/%.cpp,$(OBJDIR)/%.o,$(addprefix src/,$(TCOBJS_SRC)))
-COBJS:=$(patsubst src/%.c,$(OBJDIR)/%.o,$(addprefix src/,$(COBJS_SRC)))
+COBJS:=$(patsubst deps/%.c,$(OBJDIR)/deps/%.o,$(addprefix deps/,$(COBJS_SRC)))
 ROBJS:=$(patsubst src/res/%.png,$(OBJDIR)/res/%.o,$(wildcard src/res/*.png))
 EXOBJS:=$(patsubst %.c,$(OBJDIR)/deps/%.o,$(EXCOBJS_SRC))
 
@@ -208,7 +208,7 @@ $(OBJS): $(OBJDIR)/%.o: src/%.cpp
 	@echo '    g++     $<'
 	$(call EXEC,$(GCC) -c $< -o $@ $(CFLAGS) $(MCFLAGS) $(MPCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS) $(MAKEDEPS))
 
-$(COBJS): $(OBJDIR)/%.o: src/%.c
+$(COBJS): $(OBJDIR)/deps/%.o: deps/%.c
 	@echo '    gcc     $<'
 	$(call EXEC,$(GCC:++=cc) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(GFLAGS) $(MAKEDEPS))
 
