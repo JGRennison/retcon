@@ -40,6 +40,7 @@
 #include <wx/image.h>
 #include <wx/stdpaths.h>
 #include <cstdio>
+#include <cstdlib>
 
 alldata ad;
 
@@ -123,7 +124,7 @@ int retcon::OnExit() {
 	pool.reset();
 	DBC_DeInit();
 	DeInitWxLogger();
-	return wxApp::OnExit();
+	std::exit(0);
 }
 
 int retcon::FilterEvent(wxEvent& event) {
