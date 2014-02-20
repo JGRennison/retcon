@@ -26,7 +26,7 @@ OBJS_SRC += dispscr.cpp uiutil.cpp mediawin.cpp taccount.cpp util.cpp res.cpp ve
 TCOBJS_SRC:=libtwitcurl/base64.cpp libtwitcurl/HMAC_SHA1.cpp libtwitcurl/oauthlib.cpp libtwitcurl/SHA1.cpp libtwitcurl/twitcurl.cpp libtwitcurl/urlencode.cpp
 COBJS_SRC:=utf8proc/utf8proc.c
 OUTNAME:=retcon
-COMMONCFLAGS=-Wall -Wno-unused-parameter -Ideps
+COMMONCFLAGS=-Wall -Wextra -Wshadow -Wno-unused-parameter -Ideps
 CFLAGS=-g -O3 $(COMMONCFLAGS)
 AFLAGS=-g
 CXXFLAGS=-std=gnu++0x -fno-exceptions
