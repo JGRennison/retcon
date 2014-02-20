@@ -129,6 +129,9 @@ struct globconf {
 	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc);
 	void CFGParamConv();
+
+	//Set by cmdline
+	bool readonlymode = false;
 };
 
 void ReadAllCFGIn(sqlite3 *db, globconf &gc, std::list<std::shared_ptr<taccount>> &alist);

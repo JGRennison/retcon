@@ -59,7 +59,7 @@ BEGIN_EVENT_TABLE(mainframe, wxFrame)
 END_EVENT_TABLE()
 
 mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& size, bool maximise)
-       : wxFrame(NULL, -1, title, pos, size)
+       : wxFrame(NULL, -1, DecorateTitle(title), pos, size)
 {
 	nominal_pos = pos;
 	nominal_size = size;
@@ -229,6 +229,11 @@ void mainframe::OnSize(wxSizeEvent &event) {
 
 void mainframe::OnMove(wxMoveEvent &event) {
 	if(!IsMaximized()) nominal_pos = event.GetPosition();
+}
+
+wxString mainframe::DecorateTitle(wxString basetitle) {
+	if(gc.readonlymode) basetitle += wxT("  -*- READ-ONLY MODE -*-");
+	return std::move(basetitle);
 }
 
 void AccountUpdateAllMainframes() {

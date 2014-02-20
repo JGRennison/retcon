@@ -81,6 +81,7 @@ public:
 	void OnSize(wxSizeEvent &event);
 	void OnMove(wxMoveEvent &event);
 	void OnOwnProfileMenuCmd(wxCommandEvent &event);
+	static wxString DecorateTitle(wxString basetitle);
 
 	DECLARE_EVENT_TABLE()
 };

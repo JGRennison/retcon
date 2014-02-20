@@ -473,6 +473,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			DBLogMsg(LOGT::DBTRACE, wxT("DBSM::QUIT"));
 			break;
 		case DBSM::INSERTTWEET: {
+			if(gc.readonlymode) break;
 			dbinserttweetmsg *m = (dbinserttweetmsg*) msg;
 			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_INSTWEET);
 			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->id);
@@ -492,6 +493,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			break;
 		}
 		case DBSM::UPDATETWEET: {
+			if(gc.readonlymode) break;
 			dbupdatetweetmsg *m = (dbupdatetweetmsg*) msg;
 			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_UPDTWEET);
 			bind_compressed(stmt, 1, m->dynjson, 'J', 0, dynjsontable);
@@ -555,6 +557,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			break;
 		}
 		case DBSM::INSERTUSER: {
+			if(gc.readonlymode) break;
 			dbinsertusermsg *m = (dbinsertusermsg*) msg;
 			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_INSUSER);
 			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->id);
@@ -577,6 +580,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			break;
 		}
 		case DBSM::INSERTACC: {
+			if(gc.readonlymode) break;
 			dbinsertaccmsg *m = (dbinsertaccmsg*) msg;
 			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_INSERTNEWACC);
 			sqlite3_bind_text(stmt, 1, m->name.c_str(), -1, SQLITE_TRANSIENT);
@@ -592,6 +596,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			return;
 		}
 		case DBSM::DELACC: {
+			if(gc.readonlymode) break;
 			dbdelaccmsg *m = (dbdelaccmsg*) msg;
 			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_DELACC);
 			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->dbindex);
@@ -603,6 +608,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			break;
 		}
 		case DBSM::INSERTMEDIA: {
+			if(gc.readonlymode) break;
 			dbinsertmediamsg *m=(dbinsertmediamsg*) msg;
 			sqlite3_stmt *stmt=cache.GetStmt(db, DBPSC_INSERTMEDIA);
 			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->media_id.m_id);
@@ -617,6 +623,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			break;
 		}
 		case DBSM::UPDATEMEDIAMSG: {
+			if(gc.readonlymode) break;
 			dbupdatemediamsg *m = (dbupdatemediamsg*) msg;
 			DBPSC_TYPE stmt_id = static_cast<DBPSC_TYPE>(-1); //invalid value
 			switch(m->update_type) {
@@ -653,6 +660,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			break;
 		}
 		case DBSM::UPDATETWEETSETFLAGS: {
+			if(gc.readonlymode) break;
 			dbupdatetweetsetflagsmsg *m = (dbupdatetweetsetflagsmsg*) msg;
 			cache.BeginTransaction(db);
 			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_UPDATETWEETFLAGSMASKED);
@@ -980,7 +988,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	sqlite3_config(SQLITE_CONFIG_SINGLETHREAD);		//only use sqlite from one thread at any given time
 	sqlite3_initialize();
 
-	int res = sqlite3_open(filename.c_str(), &syncdb);
+	int res = sqlite3_open_v2(filename.c_str(), &syncdb, gc.readonlymode ? SQLITE_OPEN_READONLY : SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
 	if(res != SQLITE_OK) {
 		wxMessageDialog(0, wxString::Format(wxT("Database could not be opened/created, got error: %d (%s)\nDatabase filename: %s\nCheck that the database is not locked by another process, and that the directory is read/writable."),
 			res, wxstrstd(sqlite3_errmsg(syncdb)).c_str(), wxstrstd(filename).c_str()),
@@ -990,14 +998,16 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 
 	sqlite3_busy_handler(syncdb, &busy_handler_callback, 0);
 
-	res = sqlite3_exec(syncdb, startup_sql, 0, 0, 0);
-	if(res != SQLITE_OK) {
-		wxMessageDialog(0, wxString::Format(wxT("Startup SQL failed, got error: %d (%s)\nDatabase filename: %s\nCheck that the database is not locked by another process, and that the directory is read/writable."),
-			res, wxstrstd(sqlite3_errmsg(syncdb)).c_str(), wxstrstd(filename).c_str()),
-			wxT("Fatal Startup Error"), wxOK | wxICON_ERROR ).ShowModal();
-		sqlite3_close(syncdb);
-		syncdb = 0;
-		return false;
+	if(!gc.readonlymode) {
+		res = sqlite3_exec(syncdb, startup_sql, 0, 0, 0);
+		if(res != SQLITE_OK) {
+			wxMessageDialog(0, wxString::Format(wxT("Startup SQL failed, got error: %d (%s)\nDatabase filename: %s\nCheck that the database is not locked by another process, and that the directory is read/writable."),
+				res, wxstrstd(sqlite3_errmsg(syncdb)).c_str(), wxstrstd(filename).c_str()),
+				wxT("Fatal Startup Error"), wxOK | wxICON_ERROR ).ShowModal();
+			sqlite3_close(syncdb);
+			syncdb = 0;
+			return false;
+		}
 	}
 
 	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::Init(): About to read in state from database"));
@@ -1080,13 +1090,15 @@ void dbconn::DeInit() {
 
 	LogMsg(LOGT::DBTRACE | LOGT::THREADTRACE, wxT("dbconn::DeInit(): Database thread terminated"));
 
-	SyncWriteBackAllUsers(syncdb);
-	AccountIdListsSync(syncdb);
-	SyncWriteOutRBFSs(syncdb);
-	WriteAllCFGOut(syncdb, gc, alist);
-	SyncWriteBackCIDSLists(syncdb);
-	SyncWriteBackWindowLayout(syncdb);
-	SyncWriteBackTpanels(syncdb);
+	if(!gc.readonlymode) {
+		SyncWriteBackAllUsers(syncdb);
+		AccountIdListsSync(syncdb);
+		SyncWriteOutRBFSs(syncdb);
+		WriteAllCFGOut(syncdb, gc, alist);
+		SyncWriteBackCIDSLists(syncdb);
+		SyncWriteBackWindowLayout(syncdb);
+		SyncWriteBackTpanels(syncdb);
+	}
 
 	sqlite3_close(syncdb);
 

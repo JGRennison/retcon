@@ -154,8 +154,10 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 
 	wxGetApp().EnqueueThreadJob([job_data]() {
 		std::shared_ptr<userdatacontainer> &user = job_data->user;
-		wxFile file(job_data->filename, wxFile::write);
-		file.Write(job_data->data.data(), job_data->data.size());
+		if(!gc.readonlymode) {
+			wxFile file(job_data->filename, wxFile::write);
+			file.Write(job_data->data.data(), job_data->data.size());
+		}
 		wxMemoryInputStream memstream(job_data->data.data(), job_data->data.size());
 
 		wxImage img(memstream);
@@ -287,7 +289,7 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 					job_data->thumb = img.Scale(std::lround(newwidth), std::lround(newheight), wxIMAGE_QUALITY_HIGH);
 				}
 				else job_data->thumb = img;
-				if(gc.cachethumbs) {
+				if(gc.cachethumbs && !gc.readonlymode) {
 					wxMemoryOutputStream memstr;
 					job_data->thumb.SaveFile(memstr, wxBITMAP_TYPE_PNG);
 					const unsigned char *data = (const unsigned char *) memstr.GetOutputStreamBuffer()->GetBufferStart();
@@ -303,7 +305,7 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 		}
 
 		if(flags & MIDC::FULLIMG) {
-			if(gc.cachemedia) {
+			if(gc.cachemedia && !gc.readonlymode) {
 				wxFile file(media_entity::cached_full_filename(job_data->media_id), wxFile::write);
 				file.Write(job_data->fulldata.data(), job_data->fulldata.size());
 				std::shared_ptr<sha1_hash_block> hash = std::make_shared<sha1_hash_block>();

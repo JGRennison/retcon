@@ -28,7 +28,7 @@
 
 typedef CSimpleOptTempl<wxChar> CSO;
 
-enum { OPT_LOGWIN, OPT_FILE, OPT_STDERR, OPT_FILEAUTO, OPT_DATADIR, OPT_FFLUSH };
+enum { OPT_LOGWIN, OPT_FILE, OPT_STDERR, OPT_FILEAUTO, OPT_DATADIR, OPT_FFLUSH, OPT_READONLY };
 
 CSO::SOption g_rgOptions[] =
 {
@@ -44,6 +44,8 @@ CSO::SOption g_rgOptions[] =
 	{ OPT_DATADIR, wxT("--data-dir"),     SO_REQ_SHRT  },
 	{ OPT_FFLUSH,  wxT("-F"),             SO_NONE      },
 	{ OPT_FFLUSH,  wxT("--log-fflush"),   SO_NONE      },
+	{ OPT_READONLY,wxT("-r"),             SO_NONE      },
+	{ OPT_READONLY,wxT("--read-only"),    SO_NONE      },
 
 	SO_END_OF_OPTIONS
 };
@@ -112,6 +114,10 @@ int cmdlineproc(wxChar ** argv, int argc) {
 			}
 			case OPT_FFLUSH: {
 				logimpl_flags |= LOGIMPLF::FFLUSH;
+				break;
+			}
+			case OPT_READONLY: {
+				gc.readonlymode = true;
 				break;
 			}
 		}
