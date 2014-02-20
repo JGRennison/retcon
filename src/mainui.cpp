@@ -232,6 +232,9 @@ void mainframe::OnMove(wxMoveEvent &event) {
 }
 
 wxString mainframe::DecorateTitle(wxString basetitle) {
+#ifdef __WXDEBUG__
+	basetitle += wxT("  (debug build)");
+#endif
 	if(gc.readonlymode) basetitle += wxT("  -*- READ-ONLY MODE -*-");
 	return std::move(basetitle);
 }
