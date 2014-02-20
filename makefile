@@ -27,6 +27,7 @@ TCOBJS_SRC:=libtwitcurl/base64.cpp libtwitcurl/HMAC_SHA1.cpp libtwitcurl/oauthli
 COBJS_SRC:=utf8proc/utf8proc.c
 OUTNAME:=retcon
 COMMONCFLAGS=-Wall -Wextra -Wshadow -Wno-unused-parameter -Ideps
+COBJS_CFLAGS=-Wno-missing-field-initializers -Wno-sign-compare
 CFLAGS=-g -O3 $(COMMONCFLAGS)
 AFLAGS=-g
 CXXFLAGS=-std=gnu++0x -fno-exceptions
@@ -210,7 +211,7 @@ $(OBJS): $(OBJDIR)/%.o: src/%.cpp
 
 $(COBJS): $(OBJDIR)/deps/%.o: deps/%.c
 	@echo '    gcc     $<'
-	$(call EXEC,$(GCC:++=cc) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(GFLAGS) $(MAKEDEPS))
+	$(call EXEC,$(GCC:++=cc) -c $< -o $@ $(CFLAGS) $(CFLAGS2) $(COBJS_CFLAGS) $(GFLAGS) $(MAKEDEPS))
 
 $(TCOBJS): $(OBJDIR)/%.o: src/%.cpp
 	@echo '    g++     $<'

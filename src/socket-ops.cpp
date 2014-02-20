@@ -236,8 +236,8 @@ void mediaimgdlconn::HandleFailure(long httpcode, CURLcode res) {
 			me.flags &= ~MEF::THUMB_NET_INPROGRESS;
 		}
 		if(flags & MIDC::REDRAW_TWEETS) {
-			for(auto &it : me.tweet_list) {
-				UpdateTweet(*it);
+			for(auto &jt : me.tweet_list) {
+				UpdateTweet(*jt);
 			}
 		}
 	}
@@ -351,8 +351,8 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 			}
 
 			if(flags & MIDC::REDRAW_TWEETS) {
-				for(auto &it : me.tweet_list) {
-					UpdateTweet(*it);
+				for(auto &jt : me.tweet_list) {
+					UpdateTweet(*jt);
 				}
 			}
 		}

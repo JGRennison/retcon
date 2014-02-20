@@ -341,8 +341,8 @@ void TweetReplaceStringSeq(std::function<void(const char *, size_t)> func, const
 //use -1 for end to run until end of string
 static void DoWriteSubstr(generic_disp_base &td, const std::string &str, int start, int end, int &track_byte, int &track_index, bool trim) {
 	wxString output;
-	TweetReplaceStringSeq([&](const char *str, size_t len) {
-		output += wxString::FromUTF8(str, len);
+	TweetReplaceStringSeq([&](const char *s, size_t len) {
+		output += wxString::FromUTF8(s, len);
 	}, str, start, end, track_byte, track_index);
 	if(trim) output.Trim();
 	if(output.Len()) td.WriteText(output);
@@ -352,8 +352,8 @@ std::string TweetReplaceAllStringSeqs(const std::string &str) {
 	std::string output;
 	int track_byte = 0;
 	int track_index = 0;
-	TweetReplaceStringSeq([&](const char *str, size_t len) {
-		output += std::string(str, len);
+	TweetReplaceStringSeq([&](const char *s, size_t len) {
+		output += std::string(s, len);
 	}, str, 0, str.size(), track_byte, track_index);
 	return output;
 }
@@ -993,9 +993,9 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 			for(auto &it : me_list) {
 				if(have_first) WriteText(wxT(" - "));
 
-				bool hidden = (tw.flags.Get('p') || gc.hideallthumbs) && !hidden_thumbnails_override;
+				bool hide_thumb = (tw.flags.Get('p') || gc.hideallthumbs) && !hidden_thumbnails_override;
 
-				if(gc.dispthumbs && !(!gc.loadhiddenthumbs && hidden)) {
+				if(gc.dispthumbs && !(!gc.loadhiddenthumbs && hide_thumb)) {
 					flagwrapper<MELF> loadflags = MELF::DISPTIME;
 					if(tw.flags.Get('n') || it->flags & MEF::MANUALLY_PURGED) loadflags |= MELF::NONETLOAD;
 					it->CheckLoadThumb(loadflags);
@@ -1007,7 +1007,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 					WriteText(wxT("[Image]"));
 					EndUnderline();
 				}
-				else if(it->flags & MEF::HAVE_THUMB && !hidden) {
+				else if(it->flags & MEF::HAVE_THUMB && !hide_thumb) {
 					AddImage(it->thumbimg);
 					shown_thumbnails = true;
 				}
@@ -1021,7 +1021,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 					WriteText(wxT("[Failed to Load Image Thumbnail]"));
 					EndUnderline();
 				}
-				else if(hidden) {
+				else if(hide_thumb) {
 					BeginUnderline();
 					if(it->flags & MEF::HAVE_THUMB) WriteText(wxT("[Hidden Image Thumbnail]"));
 					else WriteText(wxT("[Hidden Image Thumbnail Not Loaded]"));
@@ -1136,8 +1136,8 @@ void tweetdispscr::PanelRemoveEvt() {
 		tds_flags &= ~TDSF::INSERTEDPANELIDREFS;
 	}
 	for(auto &it : subtweets) {
-		tweetdispscr *td = it.get();
-		if(td) td->PanelRemoveEvt();
+		tweetdispscr *tds = it.get();
+		if(tds) tds->PanelRemoveEvt();
 	}
 	dispscr_base::PanelRemoveEvt();
 }
@@ -1477,13 +1477,13 @@ void TweetRightClickHandler(generic_disp_base *win, wxMouseEvent &event, tweet_p
 		int nextid=tweetactmenustartid;
 		wxMenu menu;
 
-		auto urlmenupopup = [&](const wxString &url) {
+		auto urlmenupopup = [&](const wxString &urlstr) {
 			wxMenu *submenu = new wxMenu;
-			submenu->Append(nextid, url);
-			AppendToTAMIMenuMap(tamd, nextid, TAMI_NULL, td, 0, udc_ptr(), 0, url);
+			submenu->Append(nextid, urlstr);
+			AppendToTAMIMenuMap(tamd, nextid, TAMI_NULL, td, 0, udc_ptr(), 0, urlstr);
 			submenu->AppendSeparator();
 			submenu->Append(nextid, wxT("Copy to Clipboard"));
-			AppendToTAMIMenuMap(tamd, nextid, TAMI_COPYEXTRA, td, 0, udc_ptr(), 0, url);
+			AppendToTAMIMenuMap(tamd, nextid, TAMI_COPYEXTRA, td, 0, udc_ptr(), 0, urlstr);
 			menu.AppendSubMenu(submenu, wxT("URL"));
 		};
 

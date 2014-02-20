@@ -272,8 +272,9 @@ void twitcurlext::QueueAsyncExec() {
 				return;
 			}
 			if(currentlogflags&LOGT::NETACT) {
-				auto acc=tacc.lock();
-				LogMsgFormat(LOGT::NETACT, wxT("About to lookup users: for account: %s, user ids: %s"), acc?acc->dispname.c_str():wxT(""), wxstrstd(userliststr).c_str());
+				auto lacc = tacc.lock();
+				LogMsgFormat(LOGT::NETACT, wxT("About to lookup users: for account: %s, user ids: %s"),
+						lacc ? lacc->dispname.c_str() : wxT(""), wxstrstd(userliststr).c_str());
 			}
 			userLookup(userliststr, "", 0);
 			break;

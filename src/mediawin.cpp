@@ -141,7 +141,7 @@ media_display_win::media_display_win(wxWindow *parent, media_id_type media_id_)
 
 			menuF->Append(next_dynmenu_id, wxT("Save to: ") + token);
 
-			dynmenuhandlerlist[next_dynmenu_id] = [token, this](wxCommandEvent &event) {
+			dynmenuhandlerlist[next_dynmenu_id] = [token, this](wxCommandEvent &e) {
 				this->SaveToDir(token);
 			};
 			Connect(next_dynmenu_id, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(media_display_win::dynmenudispatchhandler));

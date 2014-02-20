@@ -388,8 +388,8 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	btnbox = new wxBoxSizer(wxHORIZONTAL);
 	vbox->Add(btnbox, 0, wxALL | wxALIGN_TOP , 4);
 
-	auto addfgsizerblock = [&](wxString name, wxFlexGridSizer *&fgsr) {
-		wxStaticBoxSizer *hbox1 = new wxStaticBoxSizer(wxVERTICAL, panel, name);
+	auto addfgsizerblock = [&](wxString boxname, wxFlexGridSizer *&fgsr) {
+		wxStaticBoxSizer *hbox1 = new wxStaticBoxSizer(wxVERTICAL, panel, boxname);
 		fgsr = new wxFlexGridSizer(3, 2, 5);
 		fgsr->SetFlexibleDirection(wxBOTH);
 		fgsr->AddGrowableCol(2, 1);
@@ -406,10 +406,10 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	addfgsizerblock(wxT("General Settings"), fgs);
 
 	cat_buttons.resize(OPTWIN_LAST);
-	auto addbtn = [&](unsigned int id, const wxString &name) {
-		wxToggleButton *btn = new wxToggleButton(panel, 4000 + id, name);
+	auto addbtn = [&](unsigned int btnid, const wxString &btnname) {
+		wxToggleButton *btn = new wxToggleButton(panel, 4000 + btnid, btnname);
 		btnbox->Add(btn, 0, wxALL, 2);
-		if(id == currentcat) btn->SetValue(true);
+		if(btnid == currentcat) btn->SetValue(true);
 		cat_buttons[id] = btn;
 	};
 	addbtn(OPTWIN_DISPLAY, wxT("Display"));

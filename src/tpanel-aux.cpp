@@ -177,9 +177,9 @@ void tpanelnotebook::FillWindowLayout(unsigned int mainframeindex) {
 
 		unsigned int splitindex = 0;
 		bool found = false;
-		for(size_t i = 0; i < pane_count; ++i) {
-			if(all_panes.Item(i).name == wxT("dummy")) continue;
-			if(all_panes.Item(i).window == tabframe) {
+		for(size_t j = 0; j < pane_count; ++j) {
+			if(all_panes.Item(j).name == wxT("dummy")) continue;
+			if(all_panes.Item(j).window == tabframe) {
 				found = true;
 				break;
 			}
@@ -358,7 +358,7 @@ void tpanel_subtweet_pending_op::CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, 
 	using GUAF = tweet::GUAF;
 
 	if(t->in_reply_to_status_id) {
-		std::function<void(unsigned int)> loadmorefunc = [=](unsigned int load_count) {
+		std::function<void(unsigned int)> loadmorefunc = [=](unsigned int tweet_load_count) {
 			tweet_ptr subt = ad.GetTweetById(t->in_reply_to_status_id);
 
 			if(top_tweet->IsArrivedHereAnyPerspective()) {	//save
@@ -367,7 +367,7 @@ void tpanel_subtweet_pending_op::CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, 
 
 			std::shared_ptr<taccount> pacc;
 			t->GetUsableAccount(pacc, GUAF::NOERR) || t->GetUsableAccount(pacc, GUAF::NOERR | GUAF::USERENABLED);
-			subt->pending_ops.emplace_front(new tpanel_subtweet_pending_op(v, s, top_tds, load_count, top_tweet));
+			subt->pending_ops.emplace_front(new tpanel_subtweet_pending_op(v, s, top_tds, tweet_load_count, top_tweet));
 			subt->lflags |= TLF::ISPENDING;
 			if(CheckFetchPendingSingleTweet(subt, pacc)) UnmarkPendingTweet(subt, 0);
 		};

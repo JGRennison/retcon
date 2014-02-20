@@ -229,23 +229,23 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, tweet_ptr_p t, 
 				[job_data, url, net_flags, netloadmask, mel_flags]() {
 					auto it = ad.media_list.find(job_data->media_id);
 					if(it != ad.media_list.end()) {
-						media_entity &me = *(it->second);
+						media_entity &m = *(it->second);
 
-						me.flags &= ~MEF::THUMB_NET_INPROGRESS;
+						m.flags &= ~MEF::THUMB_NET_INPROGRESS;
 						if(job_data->ok) {
 							LogMsgFormat(LOGT::FILEIOTRACE, wxT("genjsonparser::DoEntitiesParse::mk_media_thumb_load_func, successfully loaded cached media thumbnail file: %s, url: %s"),
 									media_entity::cached_thumb_filename(job_data->media_id).c_str(), wxstrstd(url).c_str());
-							me.thumbimg = job_data->img;
-							me.flags |= MEF::HAVE_THUMB;
-							for(auto &it : me.tweet_list) {
-								UpdateTweet(*it);
+							m.thumbimg = job_data->img;
+							m.flags |= MEF::HAVE_THUMB;
+							for(auto &jt : m.tweet_list) {
+								UpdateTweet(*jt);
 							}
 						}
 						else {
 							LogMsgFormat(LOGT::FILEIOERR, wxT("genjsonparser::DoEntitiesParse::mk_media_thumb_load_func, cached media thumbnail file: %s, url: %s, missing, invalid or failed hash check"),
 									media_entity::cached_thumb_filename(job_data->media_id).c_str(), wxstrstd(url).c_str());
-							me.flags &= ~MEF::LOAD_THUMB;
-							local::try_net_dl(&me, url, net_flags, netloadmask, mel_flags);
+							m.flags &= ~MEF::LOAD_THUMB;
+							local::try_net_dl(&m, url, net_flags, netloadmask, mel_flags);
 						}
 					}
 				});
@@ -431,11 +431,11 @@ void jsonparser::DoFriendLookupParse(const rapidjson::Value& val) {
 					tac->SetUserRelationship(userid, URF::IFOLLOW_KNOWN | URF::FOLLOWSME_KNOWN, optime);
 					for(rapidjson::SizeType j = 0; j < cons.Size(); j++) {
 						if(cons[j].IsString()) {
-							std::string type=cons[j].GetString();
-							if(type=="following") tac->SetUserRelationship(userid, URF::IFOLLOW_KNOWN | URF::IFOLLOW_TRUE, optime);
-							else if(type=="following_requested") tac->SetUserRelationship(userid, URF::IFOLLOW_KNOWN | URF::IFOLLOW_PENDING, optime);
-							else if(type=="followed_by") tac->SetUserRelationship(userid, URF::FOLLOWSME_KNOWN | URF::FOLLOWSME_TRUE, optime);
-							//else if(type=="none") tac->SetUserRelationship(userid, URF::IFOLLOW_KNOWN | URF::FOLLOWSME_KNOWN, optime);
+							std::string conn_type = cons[j].GetString();
+							if(conn_type == "following") tac->SetUserRelationship(userid, URF::IFOLLOW_KNOWN | URF::IFOLLOW_TRUE, optime);
+							else if(conn_type == "following_requested") tac->SetUserRelationship(userid, URF::IFOLLOW_KNOWN | URF::IFOLLOW_PENDING, optime);
+							else if(conn_type == "followed_by") tac->SetUserRelationship(userid, URF::FOLLOWSME_KNOWN | URF::FOLLOWSME_TRUE, optime);
+							//else if(conn_type == "none") tac->SetUserRelationship(userid, URF::IFOLLOW_KNOWN | URF::FOLLOWSME_KNOWN, optime);
 							//This last line is redundant, as we initialise to that value anyway
 						}
 					}
@@ -716,29 +716,29 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP
 			flagwrapper<JDTP> sflags;
 			uint64_t tweetid;
 		};
-		std::shared_ptr<funcdata> data = std::make_shared<funcdata>();
-		data->type = type;
-		data->acc = tac;
-		data->jp_data = this->data;
-		data->val = &val;
-		data->sflags = sflags;
-		data->tweetid = tweetid;
+		std::shared_ptr<funcdata> pdata = std::make_shared<funcdata>();
+		pdata->type = type;
+		pdata->acc = tac;
+		pdata->jp_data = this->data;
+		pdata->val = &val;
+		pdata->sflags = sflags;
+		pdata->tweetid = tweetid;
 
-		DBC_SetDBSelTweetMsgHandler(msg, [data](dbseltweetmsg *msg, dbconn *dbc) {
+		DBC_SetDBSelTweetMsgHandler(msg, [pdata](dbseltweetmsg *pmsg, dbconn *dbc) {
 			//Do not use *this, it will have long since gone out of scope
 
-			LogMsgFormat(LOGT::PARSE | LOGT::DBTRACE, wxT("jsonparser::DoTweetParse: Tweet id: %" wxLongLongFmtSpec "d, now doing deferred parse."), data->tweetid);
+			LogMsgFormat(LOGT::PARSE | LOGT::DBTRACE, wxT("jsonparser::DoTweetParse: Tweet id: %" wxLongLongFmtSpec "d, now doing deferred parse."), pdata->tweetid);
 
-			DBC_HandleDBSelTweetMsg(msg, HDBSF::NOPENDINGS);
+			DBC_HandleDBSelTweetMsg(pmsg, HDBSF::NOPENDINGS);
 
-			std::shared_ptr<taccount> acc = data->acc.lock();
+			std::shared_ptr<taccount> acc = pdata->acc.lock();
 			if(acc) {
-				jsonparser jp(data->type, acc);
-				jp.data = data->jp_data;
-				jp.DoTweetParse(*(data->val), data->sflags | JDTP::POSTDBLOAD);
+				jsonparser jp(pdata->type, acc);
+				jp.data = pdata->jp_data;
+				jp.DoTweetParse(*(pdata->val), pdata->sflags | JDTP::POSTDBLOAD);
 			}
 			else {
-				LogMsgFormat(LOGT::PARSEERR | LOGT::DBERR, wxT("jsonparser::DoTweetParse: Tweet id: %" wxLongLongFmtSpec "d, deferred parse failed as account no longer exists."), data->tweetid);
+				LogMsgFormat(LOGT::PARSEERR | LOGT::DBERR, wxT("jsonparser::DoTweetParse: Tweet id: %" wxLongLongFmtSpec "d, deferred parse failed as account no longer exists."), pdata->tweetid);
 			}
 		});
 		DBC_SendMessageBatched(msg);
@@ -893,14 +893,14 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP
 	else if(sflags & JDTP::USERTIMELINE) {
 		if(data->rbfs_type != RBFS_NULL && !(sflags & JDTP::ISRTSRC)) {
 			tp->SetRecvTypeUT(true);
-			std::shared_ptr<tpanel> tp=tpanelparentwin_usertweets::GetUserTweetTPanel(data->rbfs_userid, data->rbfs_type);
-			if(tp) {
+			std::shared_ptr<tpanel> usertp = tpanelparentwin_usertweets::GetUserTweetTPanel(data->rbfs_userid, data->rbfs_type);
+			if(usertp) {
 				have_checked_pending = true;
 				is_ready = tac->MarkPendingOrHandle(tobj, arr);
 				if(is_ready) {
-					tp->PushTweet(tobj, PUSHFLAGS::USERTL | PUSHFLAGS::BELOW);
+					usertp->PushTweet(tobj, PUSHFLAGS::USERTL | PUSHFLAGS::BELOW);
 				}
-				else MarkPending_TPanelMap(tobj, 0, PUSHFLAGS::USERTL | PUSHFLAGS::BELOW, &tp);
+				else MarkPending_TPanelMap(tobj, 0, PUSHFLAGS::USERTL | PUSHFLAGS::BELOW, &usertp);
 			}
 		}
 	}

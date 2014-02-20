@@ -150,10 +150,10 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 
 	magic_ptr_ts<user_window> safe_win_ptr(this);
 	std::function<std::shared_ptr<taccount>()> getacc = [safe_win_ptr]() -> std::shared_ptr<taccount> {
-		std::shared_ptr<taccount> acc;
+		std::shared_ptr<taccount> uw_acc;
 		user_window *uw = safe_win_ptr.get();
-		if(uw) acc = uw->acc_hint.lock();
-		return acc;
+		if(uw) uw_acc = uw->acc_hint.lock();
+		return uw_acc;
 	};
 	auto getacc_tw = [getacc](tpanelparentwin_usertweets &src) -> std::shared_ptr<taccount> { return getacc(); };
 	auto getacc_prop = [getacc](tpanelparentwin_userproplisting &src) -> std::shared_ptr<taccount> { return getacc(); };

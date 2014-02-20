@@ -92,7 +92,7 @@ static const char *startup_sql=
 "UPDATE OR IGNORE settings SET accid = 'G' WHERE (hex(accid) == '4700');"  //This is because previous versions of retcon accidentally inserted an embedded null when writing out the config
 "INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', 'dirtyflag', strftime('%s','now'));";
 
-static const char *sql[DBPSC_NUM_STATEMENTS]={
+static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"INSERT OR REPLACE INTO tweets(id, statjson, dynjson, userid, userrecipid, flags, timestamp, medialist, rtid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);",
 	"UPDATE tweets SET dynjson = ?, flags = ? WHERE id == ?;",
 	"BEGIN;",
@@ -127,7 +127,7 @@ static int busy_handler_callback(void *ptr, int count) {
 
 sqlite3_stmt *dbpscache::GetStmt(sqlite3 *adb, DBPSC_TYPE type) {
 	if(!stmts[type]) {
-		sqlite3_prepare_v2(adb, sql[type], -1, &stmts[type], 0);
+		sqlite3_prepare_v2(adb, std_sql_stmts[type], -1, &stmts[type], 0);
 	}
 	return stmts[type];
 }
@@ -1040,16 +1040,16 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 		return false;
 	}
 #else
-	int pipefd[2];
-	int result = pipe(pipefd);
+	int pipepair[2];
+	int result = pipe(pipepair);
 	if(result < 0) {
 		wxMessageDialog(0, wxString::Format(wxT("DB pipe creation failed: %d, %s"), errno, wxstrstd(strerror(errno)).c_str()));
 		sqlite3_close(syncdb);
 		syncdb = 0;
 		return false;
 	}
-	th->pipefd = pipefd[0];
-	this->pipefd = pipefd[1];
+	th->pipefd = pipepair[0];
+	this->pipefd = pipepair[1];
 #endif
 	th->Create();
 #if defined(_GNU_SOURCE)
@@ -1213,8 +1213,8 @@ void dbconn::AccountSync(sqlite3 *adb) {
 			ta->dbindex = id;
 			alist.push_back(ta);
 
-			setfromcompressedblob([&](uint64_t &id) { ta->tweet_ids.insert(id); }, getstmt, 2);
-			setfromcompressedblob([&](uint64_t &id) { ta->dm_ids.insert(id); }, getstmt, 3);
+			setfromcompressedblob([&](uint64_t &tid) { ta->tweet_ids.insert(tid); }, getstmt, 2);
+			setfromcompressedblob([&](uint64_t &tid) { ta->dm_ids.insert(tid); }, getstmt, 3);
 			uint64_t userid = (uint64_t) sqlite3_column_int64(getstmt, 4);
 			ta->usercont = ad.GetUserContainerById(userid);
 			ta->dispname = wxString::FromUTF8((const char*) sqlite3_column_text(getstmt, 5));
@@ -1405,7 +1405,7 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 			}
 			if(json) free(json);
 			if(profimg) free(profimg);
-			setfromcompressedblob([&](uint64_t &id) { u.mention_index.push_back(id); }, stmt, 6);
+			setfromcompressedblob([&](uint64_t &tid) { u.mention_index.push_back(tid); }, stmt, 6);
 			#if DB_COPIOUS_LOGGING
 				LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncReadInAllUsers retrieved user id: %" wxLongLongFmtSpec "d"), (sqlite3_int64) id);
 			#endif
@@ -1572,8 +1572,8 @@ void dbconn::SyncReadInWindowLayout(sqlite3 *adb) {
 	}
 
 	do {
-		int res = sqlite3_step(stmt);
-		if(res == SQLITE_ROW) {
+		int res3 = sqlite3_step(stmt);
+		if(res3 == SQLITE_ROW) {
 			ad.twinlayout.emplace_back();
 			twin_layout_desc &twld = ad.twinlayout.back();
 			twld.mainframeindex = (unsigned int) sqlite3_column_int(stmt, 0);
@@ -1586,8 +1586,8 @@ void dbconn::SyncReadInWindowLayout(sqlite3 *adb) {
 
 			sqlite3_bind_int(stmt2, 1, rowid);
 			do {
-				int res2 = sqlite3_step(stmt2);
-				if(res2 == SQLITE_ROW) {
+				int res4 = sqlite3_step(stmt2);
+				if(res4 == SQLITE_ROW) {
 					std::shared_ptr<taccount> acc;
 					int accid = (int) sqlite3_column_int(stmt2, 0);
 					if(accid > 0) {
@@ -1606,15 +1606,15 @@ void dbconn::SyncReadInWindowLayout(sqlite3 *adb) {
 					twld.tpautos.back().acc = acc;
 					twld.tpautos.back().autoflags = static_cast<TPF>(sqlite3_column_int(stmt2, 1));
 				}
-				else if(res2 != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncReadInWindowLayout (tpanelwinautos) got error: %d (%s)"),
-						res2, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
+				else if(res4 != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncReadInWindowLayout (tpanelwinautos) got error: %d (%s)"),
+						res4, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
 				else break;
 			}
 			while(true);
 			sqlite3_reset(stmt2);
 		}
-		else if(res != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncReadInWindowLayout (tpanelwins) got error: %d (%s)"),
-				res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
+		else if(res3 != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncReadInWindowLayout (tpanelwins) got error: %d (%s)"),
+				res3, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
 		else break;
 	} while(true);
 	sqlite3_finalize(stmt);
@@ -1674,9 +1674,9 @@ void dbconn::SyncWriteBackWindowLayout(sqlite3 *adb) {
 			if(it.acc) sqlite3_bind_int(stmt2, 2, it.acc->dbindex);
 			else sqlite3_bind_int(stmt2, 2, -1);
 			sqlite3_bind_int(stmt2, 3, flag_unwrap<TPF>(it.autoflags));
-			int res = sqlite3_step(stmt2);
-			if(res != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncWriteOutWindowLayout (tpanelwinautos) got error: %d (%s)"),
-					res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
+			int res2 = sqlite3_step(stmt2);
+			if(res2 != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncWriteOutWindowLayout (tpanelwinautos) got error: %d (%s)"),
+					res2, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
 			sqlite3_reset(stmt2);
 		}
 	}
@@ -1697,8 +1697,8 @@ void dbconn::SyncReadInTpanels(sqlite3 *adb) {
 	}
 
 	do {
-		int res = sqlite3_step(stmt);
-		if(res == SQLITE_ROW) {
+		int res2 = sqlite3_step(stmt);
+		if(res2 == SQLITE_ROW) {
 			std::string name = (const char *) sqlite3_column_text(stmt, 0);
 			std::string dispname = (const char *) sqlite3_column_text(stmt, 1);
 			flagwrapper<TPF> flags = static_cast<TPF>(sqlite3_column_int(stmt, 2));
@@ -1706,7 +1706,7 @@ void dbconn::SyncReadInTpanels(sqlite3 *adb) {
 			setfromcompressedblob([&](uint64_t &id) { tp->tweetlist.insert(id); }, stmt, 3);
 			tp->RecalculateCIDS();
 		}
-		else if(res != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncReadInTpanels got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
+		else if(res2 != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncReadInTpanels got error: %d (%s)"), res2, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
 		else break;
 	} while(true);
 	sqlite3_finalize(stmt);
@@ -1734,8 +1734,8 @@ void dbconn::SyncWriteBackTpanels(sqlite3 *adb) {
 			unsigned char *ids = settocompressedblob(tp.tweetlist, ids_size);
 			sqlite3_bind_blob(stmt, 4, ids, ids_size, &free);
 
-			int res = sqlite3_step(stmt);
-			if(res != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncWriteBackTpanels got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
+			int res2 = sqlite3_step(stmt);
+			if(res2 != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncWriteBackTpanels got error: %d (%s)"), res2, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
 			sqlite3_reset(stmt);
 		}
 	}
@@ -1803,10 +1803,10 @@ void DBWriteConfig::DeleteAll() {
 	exec(delall);
 	sqlite3_finalize(delall);
 }
-void DBWriteConfig::exec(sqlite3_stmt *stmt) {
-	int res=sqlite3_step(stmt);
-	if(res!=SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBWriteConfig got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(db)).c_str()); }
-	sqlite3_reset(stmt);
+void DBWriteConfig::exec(sqlite3_stmt *wstmt) {
+	int res = sqlite3_step(wstmt);
+	if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBWriteConfig got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(db)).c_str()); }
+	sqlite3_reset(wstmt);
 }
 
 DBReadConfig::DBReadConfig(sqlite3 *db_) : DBGenConfig(db_), stmt(0) {
@@ -1825,8 +1825,8 @@ DBReadConfig::~DBReadConfig() {
 	sqlite3_finalize(stmt);
 }
 
-bool DBReadConfig::exec(sqlite3_stmt *stmt) {
-	int res = sqlite3_step(stmt);
+bool DBReadConfig::exec(sqlite3_stmt *rstmt) {
+	int res = sqlite3_step(rstmt);
 	if(res == SQLITE_ROW) return true;
 	else if(res == SQLITE_DONE) return false;
 	else {

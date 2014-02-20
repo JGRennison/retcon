@@ -71,9 +71,9 @@ void mcurlconn::NotifyDone(CURL *easy, CURLcode res) {
 	if(httpcode!=200 || res!=CURLE_OK) {
 		//failed
 		if(res==CURLE_OK) {
-			char *url;
-			curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &url);
-			LogMsgFormat(LOGT::SOCKERR, wxT("Request failed: type: %s, conn: %p, code: %d, url: %s"), GetConnTypeName().c_str(), this, httpcode, wxstrstd(url).c_str());
+			char *req_url;
+			curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &req_url);
+			LogMsgFormat(LOGT::SOCKERR, wxT("Request failed: type: %s, conn: %p, code: %d, url: %s"), GetConnTypeName().c_str(), this, httpcode, wxstrstd(req_url).c_str());
 		}
 		else {
 			LogMsgFormat(LOGT::SOCKERR, wxT("Socket error: type: %s, conn: %p, code: %d, message: %s"), GetConnTypeName().c_str(), this, res, wxstrstd(curl_easy_strerror(res)).c_str());

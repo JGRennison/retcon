@@ -193,7 +193,7 @@ enum class DBUMMT {
 };
 
 struct dbupdatemediamsg : public dbsendmsg {
-	dbupdatemediamsg(DBUMMT type) : dbsendmsg(DBSM::UPDATEMEDIAMSG), update_type(type) { }
+	dbupdatemediamsg(DBUMMT type_) : dbsendmsg(DBSM::UPDATEMEDIAMSG), update_type(type_) { }
 	media_id_type media_id;
 	shb_iptr chksm;
 	flagwrapper<MEF> flags;

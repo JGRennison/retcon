@@ -223,28 +223,26 @@ void genopt::InheritFromParent(genopt &parent, bool ifunset) {
 	}
 }
 
-void ReadAllCFGIn(sqlite3 *db, globconf &gc, std::list<std::shared_ptr<taccount>> &alist) {
+void ReadAllCFGIn(sqlite3 *db, globconf &lgc, std::list<std::shared_ptr<taccount>> &lalist) {
 	DBReadConfig twfc(db);
-	gc.CFGReadIn(twfc);
+	lgc.CFGReadIn(twfc);
 
-	for(auto it=alist.begin(); it != alist.end(); it++ ) {
-		(*it)->CFGReadIn(twfc);
-	}
+	for(auto &it : lalist) it->CFGReadIn(twfc);
 }
 
-void WriteAllCFGOut(sqlite3 *db, globconf &gc, std::list<std::shared_ptr<taccount>> &alist) {
+void WriteAllCFGOut(sqlite3 *db, globconf &lgc, std::list<std::shared_ptr<taccount>> &lalist) {
 	DBWriteConfig twfc(db);
 	twfc.DeleteAll();
-	gc.CFGWriteOut(twfc);
+	lgc.CFGWriteOut(twfc);
 	twfc.SetDBIndexGlobal();
 	twfc.WriteInt64("LastUpdate", (int64_t) time(0));
 
-	for(auto it=alist.begin() ; it != alist.end(); ++it ) (*it)->CFGWriteOut(twfc);
+	for(auto &it : lalist) it->CFGWriteOut(twfc);
 }
 
 void AllUsersInheritFromParentIfUnset() {
 	gc.cfg.InheritFromParent(gcdefaults, true);
-	for(auto it=alist.begin() ; it != alist.end(); ++it ) (*it)->cfg.InheritFromParent(gc.cfg, true);
+	for(auto &it : alist) it->cfg.InheritFromParent(gc.cfg, true);
 }
 
 void InitCFGDefaults() {

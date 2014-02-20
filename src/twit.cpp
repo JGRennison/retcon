@@ -806,7 +806,7 @@ bool CheckLoadSingleTweet(tweet_ptr_p t, std::shared_ptr<taccount> &acc_hint) {
 }
 
 //returns true is ready, false is pending
-bool tweet::IsReady(flagwrapper<UPDCF> updcf_flags) {
+bool tweet::IsReady(flagwrapper<UPDCF> updcf) {
 	bool isready=true;
 
 	if(rtsrc) {
@@ -814,10 +814,10 @@ bool tweet::IsReady(flagwrapper<UPDCF> updcf_flags) {
 		if(!rtsrcisready) isready=false;
 	}
 	if(!user) isready=false;
-	else if(!user->IsReady(updcf_flags, createtime)) isready=false;
+	else if(!user->IsReady(updcf, createtime)) isready=false;
 	if(flags.Get('D')) {
 		if(!user_recipient) isready=false;
-		else if(!(user_recipient->IsReady(updcf_flags, createtime))) isready=false;
+		else if(!(user_recipient->IsReady(updcf, createtime))) isready=false;
 	}
 	return isready;
 }

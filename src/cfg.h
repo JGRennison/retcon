@@ -134,8 +134,8 @@ struct globconf {
 	bool readonlymode = false;
 };
 
-void ReadAllCFGIn(sqlite3 *db, globconf &gc, std::list<std::shared_ptr<taccount>> &alist);
-void WriteAllCFGOut(sqlite3 *db, globconf &gc, std::list<std::shared_ptr<taccount>> &alist);
+void ReadAllCFGIn(sqlite3 *db, globconf &gc, std::list<std::shared_ptr<taccount>> &lalist);
+void WriteAllCFGOut(sqlite3 *db, globconf &gc, std::list<std::shared_ptr<taccount>> &lalist);
 void AllUsersInheritFromParentIfUnset();
 void InitCFGDefaults();
 

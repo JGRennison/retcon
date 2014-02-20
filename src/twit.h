@@ -277,7 +277,7 @@ struct tweet {
 
 	bool IsReady(flagwrapper<UPDCF> updcf_flags);
 	bool IsReady() { return IsReady(updcf_flags); }
-	bool IsReadyConst(flagwrapper<UPDCF> updcf_flags) const { return const_cast<tweet *>(this)->IsReady(ConstUPDCF(updcf_flags)); }
+	bool IsReadyConst(flagwrapper<UPDCF> updcf) const { return const_cast<tweet *>(this)->IsReady(ConstUPDCF(updcf)); }
 	bool IsFavouritable() const;
 	bool IsRetweetable() const;
 	bool IsArrivedHereAnyPerspective() const;

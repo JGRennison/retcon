@@ -242,7 +242,7 @@ const char panelsyntax[] = R"(^\s*panel\s+(add|remove)\s+(\S.*\S)\s*$)";
 const char blanklinesyntax[] = R"(^(?:\s+#)?\s*$)"; //this also filters comments
 
 
-void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs) {
+void ParseFilter(const std::string &input, filter_set &filter_output, std::string &errmsgs) {
 	static pcre *cond_pattern = 0;
 	static pcre_extra *cond_patextra = 0;
 	static pcre *regex_pattern = 0;
@@ -263,7 +263,7 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 	static pcre *blankline_pattern = 0;
 	static pcre_extra *blankline_patextra = 0;
 
-	out.filters.clear();
+	filter_output.filters.clear();
 	errmsgs.clear();
 
 	bool ok = true;
@@ -364,7 +364,7 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 
 				fitem->retweet = ovector[2] >= 0;
 				fitem->flags = flags;
-				out.filters.emplace_back(std::move(fitem));
+				filter_output.filters.emplace_back(std::move(fitem));
 			}
 			else if(pcre_exec(regex_pattern, regex_patextra,  pos + nextsectionoffset, linelen - nextsectionoffset, 0, 0, ovector, ovecsize) >= 1) {
 				std::string part1(pos + nextsectionoffset + ovector[2], ovector[3] - ovector[2]);
@@ -499,7 +499,7 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 					ok = false;
 				}
 
-				if(ok) out.filters.emplace_back(std::move(ritem));
+				if(ok) filter_output.filters.emplace_back(std::move(ritem));
 			}
 			else {
 				//conditional doesn't match
@@ -510,12 +510,12 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 		else if(pcre_exec(else_pattern, 0,  pos, linelen, 0, 0, ovector, ovecsize) >= 1) {
 			std::unique_ptr<filter_item_cond> citem(new filter_item_cond);
 			citem->flags = FIF::COND | FIF::ELSE;
-			out.filters.emplace_back(std::move(citem));
+			filter_output.filters.emplace_back(std::move(citem));
 		}
 		else if(pcre_exec(endif_pattern, 0,  pos, linelen, 0, 0, ovector, ovecsize) >= 1) {
 			std::unique_ptr<filter_item_cond> citem(new filter_item_cond);
 			citem->flags = FIF::COND | FIF::ENDIF;
-			out.filters.emplace_back(std::move(citem));
+			filter_output.filters.emplace_back(std::move(citem));
 		}
 		else if(pcre_exec(flagset_pattern, flagset_patextra,  pos, linelen, 0, 0, ovector, ovecsize) >= 1) {
 			static unsigned long long allowed_flags = tweet_flags::GetFlagStringValue(setflags_allowed);
@@ -539,7 +539,7 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 					}
 				}
 			}
-			out.filters.emplace_back(std::move(fitem));
+			filter_output.filters.emplace_back(std::move(fitem));
 		}
 		else if(pcre_exec(panel_pattern, panel_patextra,  pos, linelen, 0, 0, ovector, ovecsize) >= 1) {
 			std::unique_ptr<filter_item_action_panel> fitem(new filter_item_action_panel);
@@ -547,7 +547,7 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 			fitem->remove = (verb == "remove");
 			fitem->panel_name = std::string(pos + ovector[4], ovector[5] - ovector[4]);
 
-			out.filters.emplace_back(std::move(fitem));
+			filter_output.filters.emplace_back(std::move(fitem));
 		}
 		else {
 			//line doesn't match
@@ -557,12 +557,12 @@ void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs
 	}
 
 	if(!ok) {
-		out.filters.clear();
+		filter_output.filters.clear();
 		return;
 	}
 
 	filter_run_state frs;
-	for(auto &it : out.filters) {
+	for(auto &it : filter_output.filters) {
 		std::string err;
 		if(!it->test_recursion(frs, err)) {
 			errmsgs += "Mismatched conditionals: " + err + "\n";
