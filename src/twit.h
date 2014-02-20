@@ -239,20 +239,20 @@ enum class TLF {	//for tweet.lflags
 template<> struct enum_traits<TLF> { static constexpr bool flags = true; };
 
 struct tweet {
-	uint64_t id;
-	uint64_t in_reply_to_status_id;
-	unsigned int retweet_count;
-	unsigned int favourite_count;
+	uint64_t id = 0;
+	uint64_t in_reply_to_status_id = 0;
+	unsigned int retweet_count = 0;
+	unsigned int favourite_count = 0;
 	std::string source;
 	std::string text;
-	time_t createtime;
+	time_t createtime = 0;
 	udc_ptr user;		//for DMs this is the sender
 	udc_ptr user_recipient;	//for DMs this is the recipient, for tweets, unset
 	std::vector<entity> entlist;
 	tweet_perspective first_tp;
 	std::vector<tweet_perspective> tp_extra_list;
 	tweet_ptr rtsrc;				//for retweets, this is the source tweet
-	flagwrapper<UPDCF> updcf_flags;
+	flagwrapper<UPDCF> updcf_flags = UPDCF::DEFAULT;
 	std::forward_list<std::unique_ptr<pending_op> > pending_ops;
 
 	tweet_flags flags;
@@ -262,7 +262,7 @@ struct tweet {
 	tweet_flags flags_at_prev_update;
 
 	public:
-	tweet() : updcf_flags(UPDCF::DEFAULT) { };
+	tweet() { }
 	void Dump() const;
 	tweet_perspective *AddTPToTweet(const std::shared_ptr<taccount> &tac, bool *isnew = 0);
 	tweet_perspective *GetTweetTP(const std::shared_ptr<taccount> &tac);
