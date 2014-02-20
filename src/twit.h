@@ -51,7 +51,7 @@ struct dbseltweetmsg;
 enum class MEF : unsigned int;
 struct dbsendmsg_list;
 
-void HandleNewTweet(const std::shared_ptr<tweet> &t, const std::shared_ptr<taccount> &acc, flagwrapper<ARRIVAL> arr);
+void HandleNewTweet(tweet_ptr_p t, const std::shared_ptr<taccount> &acc, flagwrapper<ARRIVAL> arr);
 
 enum class UPDCF {
 	DOWNLOADIMG        = 1<<0,
@@ -64,7 +64,7 @@ inline flagwrapper<UPDCF> ConstUPDCF(flagwrapper<UPDCF> updcf) {
 	return updcf & UPDCF::USEREXPIRE;
 }
 
-void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags = 0);
+void UnmarkPendingTweet(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags = 0);
 
 struct userdata {
 	enum class UF {
@@ -115,7 +115,7 @@ struct userdatacontainer {
 	shb_iptr cached_profile_img_sha1;
 	wxBitmap cached_profile_img;
 	wxBitmap cached_profile_img_half;
-	std::deque<std::shared_ptr<tweet> > pendingtweets;
+	std::deque<tweet_ptr> pendingtweets;
 	std::deque<uint64_t> mention_index;    //append only
 
 	private:
@@ -129,7 +129,7 @@ struct userdatacontainer {
 	bool NeedsUpdating(flagwrapper<UPDCF> updcf_flags, time_t timevalue = 0) const;
 	bool IsReady(flagwrapper<UPDCF> updcf_flags, time_t timevalue = 0);
 	void CheckPendingTweets(flagwrapper<UMPTF> umpt_flags = 0);
-	void MarkTweetPending(const std::shared_ptr<tweet> &t);
+	void MarkTweetPending(tweet_ptr_p t);
 	std::shared_ptr<taccount> GetAccountOfUser() const;
 	void GetImageLocalFilename(wxString &filename)  const;
 	inline userdata &GetUser() { return user; }
@@ -194,15 +194,15 @@ class tweet_perspective {
 struct pending_op {
 	virtual ~pending_op() { }
 
-	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags) = 0;
+	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) = 0;
 	virtual wxString dump()=0;
 };
 
 struct rt_pending_op : public pending_op {
-	std::shared_ptr<tweet> target_retweet;
-	rt_pending_op(const std::shared_ptr<tweet> &t) : target_retweet(t) { }
+	tweet_ptr target_retweet;
+	rt_pending_op(tweet_ptr_p t) : target_retweet(t) { }
 
-	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags);
+	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags);
 	virtual wxString dump();
 };
 
@@ -213,7 +213,7 @@ struct tpanelload_pending_op : public pending_op {
 
 	tpanelload_pending_op(tpanelparentwin_nt* win_, flagwrapper<PUSHFLAGS> pushflags_ = PUSHFLAGS::DEFAULT, std::shared_ptr<tpanel> *pushtpanel_ = 0);
 
-	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags);
+	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags);
 	virtual wxString dump();
 };
 
@@ -222,7 +222,7 @@ struct handlenew_pending_op : public pending_op {
 	flagwrapper<ARRIVAL> arr;
 	handlenew_pending_op(const std::shared_ptr<taccount> &acc, flagwrapper<ARRIVAL> arr_) : tac(acc), arr(arr_) { }
 
-	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags);
+	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags);
 	virtual wxString dump();
 };
 
@@ -251,7 +251,7 @@ struct tweet {
 	std::vector<entity> entlist;
 	tweet_perspective first_tp;
 	std::vector<tweet_perspective> tp_extra_list;
-	std::shared_ptr<tweet> rtsrc;				//for retweets, this is the source tweet
+	tweet_ptr rtsrc;				//for retweets, this is the source tweet
 	flagwrapper<UPDCF> updcf_flags;
 	std::forward_list<std::unique_ptr<pending_op> > pending_ops;
 
@@ -364,7 +364,7 @@ struct media_entity {
 	std::string media_url;
 	std::string fulldata;	//the full unmodified content of the image data
 	wxImage thumbimg;
-	std::forward_list<std::shared_ptr<tweet> > tweet_list;
+	std::forward_list<tweet_ptr> tweet_list;
 	media_display_win *win = 0;
 	shb_iptr full_img_sha1;
 	shb_iptr thumb_img_sha1;
@@ -441,21 +441,21 @@ enum class PENDING : unsigned int {
 	NONACCMASK         = T_U | T_UR | RT_RTU | RT_MISSING,
 };
 
-bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t);
+bool CheckMarkPending_GetAcc(tweet_ptr_p t);
 flagwrapper<PENDING> CheckTweetPendings(const tweet &t);
-inline flagwrapper<PENDING> CheckTweetPendings(const std::shared_ptr<tweet> &t) {
+inline flagwrapper<PENDING> CheckTweetPendings(tweet_ptr_p t) {
 	return CheckTweetPendings(*t);
 }
-void FastMarkPendingNonAcc(const std::shared_ptr<tweet> &t, flagwrapper<PENDING> mark);
-bool FastMarkPendingNoAccFallback(const std::shared_ptr<tweet> &t, flagwrapper<PENDING> mark, const wxString &logprefix);
-void GenericMarkPending(const std::shared_ptr<tweet> &t, flagwrapper<PENDING> mark, const wxString &logprefix, flagwrapper<tweet::GUAF> guaflags = 0);
+void FastMarkPendingNonAcc(tweet_ptr_p t, flagwrapper<PENDING> mark);
+bool FastMarkPendingNoAccFallback(tweet_ptr_p t, flagwrapper<PENDING> mark, const wxString &logprefix);
+void GenericMarkPending(tweet_ptr_p t, flagwrapper<PENDING> mark, const wxString &logprefix, flagwrapper<tweet::GUAF> guaflags = 0);
 
-bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_nt* win_, PUSHFLAGS pushflags = PUSHFLAGS::DEFAULT, std::shared_ptr<tpanel> *pushtpanel_ = 0);
-bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::shared_ptr<taccount> acc_hint, dbseltweetmsg **existing_dbsel = 0);
-bool CheckLoadSingleTweet(const std::shared_ptr<tweet> &t, std::shared_ptr<taccount> &acc_hint);
+bool MarkPending_TPanelMap(tweet_ptr_p tobj, tpanelparentwin_nt* win_, PUSHFLAGS pushflags = PUSHFLAGS::DEFAULT, std::shared_ptr<tpanel> *pushtpanel_ = 0);
+bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> acc_hint, dbseltweetmsg **existing_dbsel = 0);
+bool CheckLoadSingleTweet(tweet_ptr_p t, std::shared_ptr<taccount> &acc_hint);
 void MarkTweetIDSetAsRead(const tweetidset &ids, const tpanel *exclude);
 void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, tweetidset cached_id_sets::* idsetptr,
-		bool remove, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc = std::function<void(const std::shared_ptr<tweet> &)>());
+		bool remove, std::function<void(tweet_ptr_p )> existingtweetfunc = std::function<void(tweet_ptr_p )>());
 void SendTweetFlagUpdate(const tweet &tw, unsigned long long mask);
 void SpliceTweetIDSet(tweetidset &set, tweetidset &out, uint64_t highlim_inc, uint64_t lowlim_inc, bool clearspliced);
 

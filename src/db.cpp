@@ -802,7 +802,7 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags) {
 			missing_id_set.erase(it.id);
 		}
 		for(auto &it : missing_id_set) {
-			std::shared_ptr<tweet> t = ad.GetTweetById(it);
+			tweet_ptr t = ad.GetTweetById(it);
 
 			if(!t->text.size() && !(t->lflags & TLF::BEINGLOADEDOVERNET)) {	//tweet still not loaded at all
 
@@ -841,7 +841,7 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags) {
 			DBLogMsgFormat(LOGT::DBTRACE, wxT("dbconn::HandleDBSelTweetMsg got tweet: id:%" wxLongLongFmtSpec "d, statjson: %s, dynjson: %s"), dt.id, wxstrstd(dt.statjson).c_str(), wxstrstd(dt.dynjson).c_str());
 		#endif
 		ad.unloaded_db_tweet_ids.erase(dt.id);
-		std::shared_ptr<tweet> &t = ad.GetTweetById(dt.id);
+		tweet_ptr t = ad.GetTweetById(dt.id);
 		t->lflags |= TLF::SAVED_IN_DB;
 		t->lflags |= TLF::LOADED_FROM_DB;
 
@@ -1105,7 +1105,7 @@ void dbconn::DeInit() {
 	LogMsg(LOGT::DBTRACE | LOGT::THREADTRACE, wxT("dbconn::DeInit(): State write back to database complete, database connection closed."));
 }
 
-void dbconn::InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string statjson, dbsendmsg_list *msglist) {
+void dbconn::InsertNewTweet(tweet_ptr_p tobj, std::string statjson, dbsendmsg_list *msglist) {
 	dbinserttweetmsg *msg = new dbinserttweetmsg();
 	msg->statjson = std::move(statjson);
 	msg->statjson.push_back((char) 42);	//modify the string to prevent any possible COW semantics
@@ -1148,7 +1148,7 @@ void dbconn::InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string stat
 	SendMessageOrAddToList(msg, msglist);
 }
 
-void dbconn::UpdateTweetDyn(const std::shared_ptr<tweet> &tobj, dbsendmsg_list *msglist) {
+void dbconn::UpdateTweetDyn(tweet_ptr_p tobj, dbsendmsg_list *msglist) {
 	dbupdatetweetmsg *msg = new dbupdatetweetmsg();
 	msg->dynjson = tobj->mkdynjson();
 	msg->id = tobj->id;
@@ -1901,11 +1901,11 @@ void DBC_UpdateMedia(media_entity &me, DBUMMT update_type, dbsendmsg_list *msgli
 	dbc.UpdateMedia(me, update_type, msglist);
 }
 
-void DBC_InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string statjson, dbsendmsg_list *msglist) {
+void DBC_InsertNewTweet(tweet_ptr_p tobj, std::string statjson, dbsendmsg_list *msglist) {
 	dbc.InsertNewTweet(tobj, statjson, msglist);
 }
 
-void DBC_UpdateTweetDyn(const std::shared_ptr<tweet> &tobj, dbsendmsg_list *msglist) {
+void DBC_UpdateTweetDyn(tweet_ptr_p tobj, dbsendmsg_list *msglist) {
 	dbc.UpdateTweetDyn(tobj, msglist);
 }
 

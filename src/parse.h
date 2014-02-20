@@ -63,12 +63,12 @@ struct Handler : public rapidjson::Writer<writestream> {
 };
 
 struct genjsonparser {
-	static void ParseTweetStatics(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj,
+	static void ParseTweetStatics(const rapidjson::Value& val, tweet_ptr_p tobj,
 			Handler *jw = 0, bool isnew = false, dbsendmsg_list *dbmsglist = 0, bool parse_entities = true);
-	static void DoEntitiesParse(const rapidjson::Value& val, const std::shared_ptr<tweet> &t,
+	static void DoEntitiesParse(const rapidjson::Value& val, tweet_ptr_p t,
 			bool isnew = false, dbsendmsg_list *dbmsglist = 0);
 	static void ParseUserContents(const rapidjson::Value& val, userdata &userobj, bool is_ssl = 0);
-	static void ParseTweetDyn(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj);
+	static void ParseTweetDyn(const rapidjson::Value& val, tweet_ptr_p tobj);
 };
 
 enum class JDTP {
@@ -103,7 +103,7 @@ struct jsonparser : public genjsonparser {
 	udc_ptr DoUserParse(const rapidjson::Value& val, flagwrapper<UMPTF> umpt_flags = 0);
 	void DoEventParse(const rapidjson::Value& val);
 	void DoFriendLookupParse(const rapidjson::Value& val);
-	std::shared_ptr<tweet> DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP> sflags = 0);
+	tweet_ptr DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP> sflags = 0);
 	void RestTweetUpdateParams(const tweet &t);
 	void RestTweetPreParseUpdateParams();
 

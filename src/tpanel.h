@@ -93,7 +93,7 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 
 	tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent, wxString thisname_ = wxT(""), tpanelparentwin_nt_impl *privimpl = 0);
 	virtual ~tpanelparentwin_nt();
-	void PushTweet(const std::shared_ptr<tweet> &t, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
+	void PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
 	void RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
 	void JumpToTweetID(uint64_t id);
 	virtual bool IsSingleAccountWin() const override;

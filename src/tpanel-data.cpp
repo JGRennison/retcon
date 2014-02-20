@@ -31,7 +31,7 @@
 #define TPANEL_COPIOUS_LOGGING 0
 #endif
 
-void tpanel::PushTweet(const std::shared_ptr<tweet> &t, flagwrapper<PUSHFLAGS> pushflags) {
+void tpanel::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags) {
 	LogMsgFormat(LOGT::TPANEL, wxT("Pushing tweet id %" wxLongLongFmtSpec "d to panel %s (pushflags: 0x%X)"), t->id, wxstrstd(name).c_str(), pushflags);
 	if(RegisterTweet(t)) {
 		for(auto &i : twin) {
@@ -64,7 +64,7 @@ void tpanel::RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags) {
 }
 
 //returns true if new tweet
-bool tpanel::RegisterTweet(const std::shared_ptr<tweet> &t) {
+bool tpanel::RegisterTweet(tweet_ptr_p t) {
 	cids.CheckTweet(*t);
 	if(tweetlist.count(t->id)) {
 		//already have this tweet
@@ -217,7 +217,7 @@ tpanel::~tpanel() {
 }
 
 //Do not assume that *acc is non-null
-bool tpanel::TweetMatches(const std::shared_ptr<tweet> &t, const std::shared_ptr<taccount> &acc) const {
+bool tpanel::TweetMatches(tweet_ptr_p t, const std::shared_ptr<taccount> &acc) const {
 	for(auto &tpa : tpautos) {
 		if((tpa.autoflags & TPF::AUTO_DM && t->flags.Get('D')) || (tpa.autoflags & TPF::AUTO_TW && t->flags.Get('T')) || (tpa.autoflags & TPF::AUTO_MN && t->flags.Get('M'))) {
 			if(tpa.autoflags & TPF::AUTO_ALLACCS && t->IsArrivedHereAnyPerspective()) return true;
@@ -281,7 +281,7 @@ void tpanel::NotifyCIDSChange(uint64_t id, tweetidset cached_id_sets::*ptr, bool
 void tpanel::NotifyCIDSChange_AddRemoveIntl(uint64_t id, tweetidset cached_id_sets::*ptr, bool add, flagwrapper<PUSHFLAGS> pushflags) {
 	if((intl_flags & TPIF::INCCIDS_HIGHLIGHT && ptr == &cached_id_sets::highlightids)
 			|| (intl_flags & TPIF::INCCIDS_UNREAD && ptr == &cached_id_sets::unreadids)) {
-		if(add) PushTweet(ad.tweetobjs[id], pushflags);
+		if(add) PushTweet(ad.GetTweetById(id), pushflags);
 		else if(tweetlist.count(id)) {
 			//we have this tweet, and may be removing it
 

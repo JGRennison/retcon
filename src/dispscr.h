@@ -86,7 +86,7 @@ struct generic_disp_base : public wxRichTextCtrl, public magic_ptr_base {
 	virtual bool IsFrozen() const override;
 	void ForceRefresh();
 	void CheckRefresh();
-	virtual std::shared_ptr<tweet> GetTweet() const { return std::shared_ptr<tweet>(); }
+	virtual tweet_ptr GetTweet() const { return tweet_ptr(); }
 	virtual tweetdispscr *GetTDS() { return nullptr; }
 	virtual flagwrapper<TDSF> GetTDSFlags() const { return 0; }
 	void popupmenuhandler(wxCommandEvent &event);
@@ -150,7 +150,7 @@ struct dispscr_base : public generic_disp_base, public magic_paired_ptr_ts<disps
 };
 
 struct tweetdispscr_mouseoverwin : public dispscr_mouseoverwin {
-	std::shared_ptr<tweet> td;
+	tweet_ptr td;
 	flagwrapper<TDSF> tds_flags = 0;
 	magic_ptr_ts<tweetdispscr> current_tds;
 
@@ -160,7 +160,7 @@ struct tweetdispscr_mouseoverwin : public dispscr_mouseoverwin {
 	void rightclickhandler(wxMouseEvent &event);
 	void OnTweetActMenuCmd(wxCommandEvent &event);
 
-	virtual std::shared_ptr<tweet> GetTweet() const override { return td; }
+	virtual tweet_ptr GetTweet() const override { return td; }
 	virtual tweetdispscr *GetTDS() override { return current_tds.get(); }
 	virtual flagwrapper<TDSF> GetTDSFlags() const override { return tds_flags; }
 
@@ -172,7 +172,7 @@ enum {
 };
 
 struct tweetdispscr : public dispscr_base {
-	std::shared_ptr<tweet> td;
+	tweet_ptr td;
 	profimg_staticbitmap *bm;
 	profimg_staticbitmap *bm2;
 	time_t updatetime;
@@ -185,7 +185,7 @@ struct tweetdispscr : public dispscr_base {
 	std::unique_ptr<wxTimer> imghideoverridetimer;
 	std::function<void()> loadmorereplies;
 
-	tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
+	tweetdispscr(tweet_ptr_p td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
 	~tweetdispscr();
 	void DisplayTweet(bool redrawimg = false);
 	void OnTweetActMenuCmd(wxCommandEvent &event);
@@ -198,7 +198,7 @@ struct tweetdispscr : public dispscr_base {
 	void unhideimageoverridetimeoutexec();
 	void unhideimageoverridestarttimeout();
 
-	virtual std::shared_ptr<tweet> GetTweet() const override { return td; }
+	virtual tweet_ptr GetTweet() const override { return td; }
 	virtual tweetdispscr *GetTDS() override { return this; }
 	virtual flagwrapper<TDSF> GetTDSFlags() const override { return tds_flags; }
 
@@ -221,7 +221,7 @@ struct userdispscr : public dispscr_base {
 	DECLARE_EVENT_TABLE()
 };
 
-void AppendUserMenuItems(wxMenu &menu, tweetactmenudata &map, int &nextid, udc_ptr user, std::shared_ptr<tweet> tw);
+void AppendUserMenuItems(wxMenu &menu, tweetactmenudata &map, int &nextid, udc_ptr user, tweet_ptr tw);
 void TweetReplaceStringSeq(std::function<void(const char *, size_t)> func, const std::string &str, int start, int end, int &track_byte, int &track_index);
 std::string TweetReplaceAllStringSeqs(const std::string &str);
 

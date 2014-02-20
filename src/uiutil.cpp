@@ -117,13 +117,13 @@ uint64_t ParseUrlID(wxString url) {
 	return id;
 }
 
-void AppendToTAMIMenuMap(tweetactmenudata &map, int &nextid, TAMI_TYPE type, std::shared_ptr<tweet> tw, unsigned int dbindex, udc_ptr user,
+void AppendToTAMIMenuMap(tweetactmenudata &map, int &nextid, TAMI_TYPE type, tweet_ptr tw, unsigned int dbindex, udc_ptr user,
 		flagwrapper<TPF> flags, wxString extra, panelparentwin_base *ppwb) {
 	map[nextid]={tw, user, type, dbindex, flags, extra, ppwb};
 	nextid++;
 }
 
-void MakeRetweetMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw) {
+void MakeRetweetMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw) {
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
 		wxMenuItem *menuitem=menuP->Append(nextid, (*it)->dispname);
 		menuitem->Enable((*it)->enabled);
@@ -131,7 +131,7 @@ void MakeRetweetMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const st
 	}
 }
 
-void MakeFavMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw) {
+void MakeFavMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw) {
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
 		tweet_perspective *tp=tw->GetTweetTP(*it);
 		bool known=(tp!=0);
@@ -152,7 +152,7 @@ void MakeFavMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::s
 	}
 }
 
-void MakeCopyMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw) {
+void MakeCopyMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw) {
 	menuP->Append(nextid, wxT("Copy Text"));
 	AppendToTAMIMenuMap(map, nextid, TAMI_COPYTEXT, tw);
 	menuP->Append(nextid, wxT("Copy Link to Tweet"));
@@ -161,7 +161,7 @@ void MakeCopyMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::
 	AppendToTAMIMenuMap(map, nextid, TAMI_COPYID, tw);
 }
 
-void MakeMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw) {
+void MakeMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw) {
 	wxMenuItem *wmi1 = menuP->Append(nextid, wxT("Read"), wxT(""), wxITEM_RADIO);
 	wmi1->Check(tw->flags.Get('r'));
 	AppendToTAMIMenuMap(map, nextid, TAMI_MARKREAD, tw);
@@ -180,7 +180,7 @@ void MakeMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::
 	AppendToTAMIMenuMap(map, nextid, TAMI_TOGGLEHIDDEN, tw);
 }
 
-void MakeTPanelMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw, tpanelparentwin_nt *tppw) {
+void MakeTPanelMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw, tpanelparentwin_nt *tppw) {
 	size_t pos = menuP->GetMenuItemCount();
 
 	uint64_t twid = tw->id;
@@ -210,7 +210,7 @@ void MakeTPanelMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const
 	if(pos != menuP->GetMenuItemCount()) menuP->InsertSeparator(pos);
 }
 
-void MakeImageMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw) {
+void MakeImageMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw) {
 	wxMenuItem *wmi5 = menuP->Append(nextid, wxT("Image Previews Hidden"), wxT(""), wxITEM_CHECK);
 	wmi5->Check(tw->flags.Get('p'));
 	AppendToTAMIMenuMap(map, nextid, TAMI_TOGGLEHIDEIMG, tw);
@@ -375,7 +375,7 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 		case TAMI_DELETECACHEDIMG: {
 			std::vector<media_entity *> mes;
 			map[curid].tw->GetMediaEntities(mes, MEF::HAVE_THUMB | MEF::HAVE_FULL);
-			std::map<uint64_t, std::shared_ptr<tweet> > tweetupdates;
+			std::map<uint64_t, tweet_ptr> tweetupdates;
 			for(auto &me : mes) {
 				me->PurgeCache();
 				for(auto &it : me->tweet_list) tweetupdates[it->id] = it;

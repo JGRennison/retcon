@@ -34,11 +34,11 @@ struct media_entity;
 
 struct alldata {
 	std::unordered_map<uint64_t, userdatacontainer> userconts;
-	std::map<uint64_t,std::shared_ptr<tweet> > tweetobjs;
+	std::map<uint64_t, tweet> tweetobjs;
 	std::map<std::string,std::shared_ptr<tpanel> > tpanels;
 	std::unordered_map<media_id_type,std::unique_ptr<media_entity> > media_list;
 	std::unordered_map<std::string,media_id_type> img_media_map;
-	std::map<uint64_t,std::shared_ptr<tweet> > noacc_pending_tweetobjs;
+	std::map<uint64_t,tweet_ptr> noacc_pending_tweetobjs;
 	std::map<uint64_t,udc_ptr> noacc_pending_userconts;
 	tweetidset unloaded_db_tweet_ids;
 	unsigned int next_media_id;
@@ -53,8 +53,8 @@ struct alldata {
 	~alldata();
 	udc_ptr GetUserContainerById(uint64_t id);
 	udc_ptr GetExistingUserContainerById(uint64_t id);
-	std::shared_ptr<tweet> &GetTweetById(uint64_t id, bool *isnew = 0);
-	std::shared_ptr<tweet> *GetExistingTweetById(uint64_t id);
+	tweet_ptr GetTweetById(uint64_t id, bool *isnew = 0);
+	tweet_ptr GetExistingTweetById(uint64_t id);
 	void UnlinkTweetById(uint64_t id);
 };
 

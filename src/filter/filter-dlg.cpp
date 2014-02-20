@@ -187,7 +187,7 @@ void filter_dlg::OnOK(wxCommandEvent &event) {
 	}
 }
 
-void FilterOneTweet(filter_set &fs, const std::shared_ptr<tweet> &t) {
+void FilterOneTweet(filter_set &fs, tweet_ptr_p t) {
 	fs.FilterTweet(*t, 0);
 	t->CheckFlagsUpdated(tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
 }
@@ -198,7 +198,7 @@ struct applyfilter_pending_op : public pending_op {
 	applyfilter_pending_op(std::shared_ptr<filter_set> apply_filter_)
 			: apply_filter(std::move(apply_filter_)) { }
 
-	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags) override {
+	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) override {
 		FilterOneTweet(*apply_filter, t);
 	}
 
@@ -213,7 +213,7 @@ void filter_dlg::ExecFilter() {
 	SetNoUpdateFlag_All();
 
 	for(auto id : fdg->selectedset) {
-		std::shared_ptr<tweet> tobj = ad.GetTweetById(id);
+		tweet_ptr tobj = ad.GetTweetById(id);
 		if(CheckFetchPendingSingleTweet(tobj, std::shared_ptr<taccount>(), &loadmsg)) {
 			FilterOneTweet(*(fdg->apply_filter), tobj);
 		}

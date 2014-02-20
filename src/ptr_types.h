@@ -31,4 +31,7 @@ struct tweet;
 typedef observer_ptr<userdatacontainer> udc_ptr;
 typedef udc_ptr udc_ptr_p;
 
+typedef observer_ptr<tweet> tweet_ptr;
+typedef tweet_ptr tweet_ptr_p;
+
 #endif

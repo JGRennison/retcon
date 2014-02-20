@@ -118,7 +118,7 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 
 	std::shared_ptr<tpanel> tp;
 	tweetdispscr_mouseoverwin *mouseoverwin = 0;
-	std::deque<std::pair<std::shared_ptr<tweet>, flagwrapper<PUSHFLAGS> > > pushtweetbatchqueue;
+	std::deque<std::pair<tweet_ptr, flagwrapper<PUSHFLAGS> > > pushtweetbatchqueue;
 	std::deque<std::pair<uint64_t, flagwrapper<PUSHFLAGS> > > removetweetbatchqueue;
 	std::map<uint64_t, bool> updatetweetbatchqueue;
 	std::deque<std::function<void(tpanelparentwin_nt *)> > batchedgenericactions;
@@ -127,9 +127,9 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 	std::map<uint64_t, unsigned int> tweetid_count_map;
 	static std::map<uint64_t, unsigned int> all_tweetid_count_map;
 
-	void PushTweet(const std::shared_ptr<tweet> &t, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
+	void PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
 	void RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
-	tweetdispscr *PushTweetIndex(const std::shared_ptr<tweet> &t, size_t index);
+	tweetdispscr *PushTweetIndex(tweet_ptr_p t, size_t index);
 	void JumpToTweetID(uint64_t id);
 	virtual void LoadMore(unsigned int n, uint64_t lessthanid = 0, uint64_t greaterthanid = 0, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT) { }
 	virtual void PageUpHandler() override;
@@ -144,7 +144,7 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 	void MarkSetUnhighlighted(tweetidset &&subset);
 	void setupnavbuttonhandlers();
 	void morebtnhandler(wxCommandEvent &event);
-	void MarkClearCIDSSetHandler(tweetidset cached_id_sets::* idsetptr, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc, const tweetidset &subset);
+	void MarkClearCIDSSetHandler(tweetidset cached_id_sets::* idsetptr, std::function<void(tweet_ptr_p )> existingtweetfunc, const tweetidset &subset);
 	void OnBatchTimerModeTimer(wxTimerEvent& event);
 	virtual void IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const override;
 	virtual void UpdateCLabel() override;

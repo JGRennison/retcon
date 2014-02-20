@@ -275,7 +275,7 @@ BEGIN_EVENT_TABLE(tweetdispscr, dispscr_base)
 	EVT_TIMER(TDS_WID_UNHIDEIMGOVERRIDETIMER, tweetdispscr::unhideimageoverridetimeouthandler)
 END_EVENT_TABLE()
 
-tweetdispscr::tweetdispscr(const std::shared_ptr<tweet> &td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_)
+tweetdispscr::tweetdispscr(tweet_ptr_p td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_)
 : dispscr_base(parent, tppw_, hbox_, thisname_.empty() ? wxString::Format(wxT("tweetdispscr: %" wxLongLongFmtSpec "d for %s"), td_->id, tppw_->GetThisName().c_str()) : thisname_), td(td_), bm(0), bm2(0) {
 	if(td_->rtsrc) rtid=td_->rtsrc->id;
 	else rtid=0;
@@ -492,7 +492,7 @@ bool CondCodeProc(generic_disp_base *obj, size_t &i, const wxString &format, wxS
 			}
 			loopexit:
 
-			std::shared_ptr<tweet> td = obj->GetTweet();
+			tweet_ptr td = obj->GetTweet();
 			if(!td) break;
 
 			result=true;
@@ -1149,7 +1149,7 @@ void tweetdispscr::PanelRemoveEvt() {
  * Creating a popup during a URL click handler has dubious results on GTK, use a pending event instead
  * Also log before and after to make debugging lingering popups easier
  */
-void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &td, panelparentwin_base *tppw) {
+void TweetURLHandler(wxWindow *win, wxString url, tweet_ptr_p td, panelparentwin_base *tppw) {
 
 	auto dopopupmenu = [&](std::shared_ptr<wxMenu> menu) {
 		generic_disp_base *gdb = dynamic_cast<generic_disp_base *>(win);
@@ -1255,7 +1255,7 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 					AppendToTAMIMenuMap(tamd, nextid, TAMI_REPLY, td->rtsrc);
 				}
 
-				auto dosenddmmenuitem = [&](const std::shared_ptr<tweet> &t) {
+				auto dosenddmmenuitem = [&](tweet_ptr_p t) {
 					udc_ptr targ = t->user_recipient;
 					if(!targ || targ->udc_flags & UDC::THIS_IS_ACC_USER_HINT) targ = t->user;
 					menu.Append(nextid, wxT("Send DM to @") + wxstrstd(targ->user.screen_name));
@@ -1447,7 +1447,7 @@ void tweetdispscr::urlhandler(wxString url) {
 	TweetURLHandler(this, url, td, tppw);
 }
 
-void AppendUserMenuItems(wxMenu &menu, tweetactmenudata &map, int &nextid, udc_ptr user, std::shared_ptr<tweet> tw) {
+void AppendUserMenuItems(wxMenu &menu, tweetactmenudata &map, int &nextid, udc_ptr user, tweet_ptr tw) {
 	menu.Append(nextid, wxT("Open User Window"));
 	AppendToTAMIMenuMap(map, nextid, TAMI_USERWINDOW, tw, 0, user);
 
@@ -1466,7 +1466,7 @@ void AppendUserMenuItems(wxMenu &menu, tweetactmenudata &map, int &nextid, udc_p
 	AppendToTAMIMenuMap(map, nextid, TAMI_COPYEXTRA, tw, 0, user, 0, useridstr);
 }
 
-void TweetRightClickHandler(generic_disp_base *win, wxMouseEvent &event, const std::shared_ptr<tweet> &td) {
+void TweetRightClickHandler(generic_disp_base *win, wxMouseEvent &event, tweet_ptr_p td) {
 	wxPoint mousepoint=event.GetPosition();
 	long textpos=0;
 	win->HitTest(mousepoint, &textpos);

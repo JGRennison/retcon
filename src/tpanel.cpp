@@ -646,12 +646,12 @@ tpanelparentwin_nt::~tpanelparentwin_nt() {
 	tpanelparentwinlist.remove(this);
 }
 
-void tpanelparentwin_nt::PushTweet(const std::shared_ptr<tweet> &t, flagwrapper<PUSHFLAGS> pushflags) {
+void tpanelparentwin_nt::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags) {
 	pimpl()->PushTweet(t, pushflags);
 }
 
 //This should be kept in sync with OnBatchTimerModeTimer
-void tpanelparentwin_nt_impl::PushTweet(const std::shared_ptr<tweet> &t, flagwrapper<PUSHFLAGS> pushflags) {
+void tpanelparentwin_nt_impl::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags) {
 	if(tppw_flags & TPPWF::BATCHTIMERMODE) {
 		pushtweetbatchqueue.emplace_back(t, pushflags);
 		UpdateBatchTimer();
@@ -734,7 +734,7 @@ void tpanelparentwin_nt_impl::PushTweet(const std::shared_ptr<tweet> &t, flagwra
 	#endif
 }
 
-tweetdispscr *tpanelparentwin_nt_impl::PushTweetIndex(const std::shared_ptr<tweet> &t, size_t index) {
+tweetdispscr *tpanelparentwin_nt_impl::PushTweetIndex(tweet_ptr_p t, size_t index) {
 	LogMsgFormat(LOGT::TPANEL, "tpanelparentwin_nt_impl::PushTweetIndex, %s, id: %" wxLongLongFmtSpec "d, %d", GetThisName().c_str(), t->id, index);
 	wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
 	wxBoxSizer *vbox = new wxBoxSizer(wxVERTICAL);
@@ -1015,7 +1015,7 @@ void tpanelparentwin_nt_impl::MarkSetRead(tweetidset &&subset) {
 	#endif
 	tweetidset cached_ids = std::move(subset);
 	MarkClearCIDSSetHandler(&cached_id_sets::unreadids,
-		[&](const std::shared_ptr<tweet> &tw) {
+		[&](tweet_ptr_p tw) {
 			tw->MarkFlagsAsRead();
 			tw->IgnoreChangeToFlagsByMask(tweet_flags::GetFlagValue('u') | tweet_flags::GetFlagValue('r'));
 			UpdateTweet(*tw, false);
@@ -1047,7 +1047,7 @@ void tpanelparentwin_nt_impl::MarkSetUnhighlighted(tweetidset &&subset) {
 	#endif
 	tweetidset cached_ids = std::move(subset);
 	MarkClearCIDSSetHandler(&cached_id_sets::highlightids,
-		[&](const std::shared_ptr<tweet> &tw) {
+		[&](tweet_ptr_p tw) {
 			tw->flags.Set('H', false);
 			tw->IgnoreChangeToFlagsByMask(tweet_flags::GetFlagValue('H'));
 			UpdateTweet(*tw, false);
@@ -1214,7 +1214,7 @@ void tpanelparentwin_nt_impl::morebtnhandler(wxCommandEvent &event) {
 
 //this does not clear the subset
 //note that the tpanel cids should be cleared/modified *before* calling this function
-void tpanelparentwin_nt_impl::MarkClearCIDSSetHandler(tweetidset cached_id_sets::* idsetptr, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc, const tweetidset &subset) {
+void tpanelparentwin_nt_impl::MarkClearCIDSSetHandler(tweetidset cached_id_sets::* idsetptr, std::function<void(tweet_ptr_p )> existingtweetfunc, const tweetidset &subset) {
 	base()->Freeze();
 	tp->SetNoUpdateFlag_TP();
 	tp->SetClabelUpdatePendingFlag_TP();
@@ -1341,7 +1341,7 @@ void tpanelparentwin_nt_impl::OnBatchTimerModeTimer(wxTimerEvent& event) {
 	if(!pushtweetbatchqueue.empty()) {
 		struct simulation_disp {
 			uint64_t id;
-			std::pair<std::shared_ptr<tweet>, flagwrapper<PUSHFLAGS> > *pushptr;
+			std::pair<tweet_ptr, flagwrapper<PUSHFLAGS> > *pushptr;
 		};
 		std::list<simulation_disp> simulation_currentdisp;
 		tweetidset gotids;
@@ -1537,7 +1537,7 @@ void tpanelparentwin_impl::LoadMore(unsigned int n, uint64_t lessthanid, uint64_
 	for(unsigned int i=0; i<n; i++) {
 		if(stit==tp->tweetlist.cend()) break;
 
-		std::shared_ptr<tweet> tobj = ad.GetTweetById(*stit);
+		tweet_ptr tobj = ad.GetTweetById(*stit);
 		if(CheckFetchPendingSingleTweet(tobj, std::shared_ptr<taccount>(), &loadmsg)) {
 			PushTweet(tobj, pushflags);
 		}
@@ -1850,7 +1850,7 @@ void tpanelparentwin_usertweets_impl::LoadMore(unsigned int n, uint64_t lessthan
 	while(numleft) {
 		if(stit == tp->tweetlist.cend()) break;
 
-		std::shared_ptr<tweet> t = ad.GetTweetById(*stit);
+		tweet_ptr t = ad.GetTweetById(*stit);
 		if(tac->CheckMarkPending(t)) PushTweet(t, PUSHFLAGS::USERTL | pushflags);
 		else MarkPending_TPanelMap(t, 0, PUSHFLAGS::USERTL | pushflags, &tp);
 

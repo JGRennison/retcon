@@ -390,7 +390,7 @@ static void dump_tweet_line(LOGT logflags, const wxString &indent, const wxStrin
 void dump_tweet_pendings(LOGT logflags, const wxString &indent, const wxString &indentstep) {
 	bool done_header = false;
 	for(auto it=ad.tweetobjs.begin(); it!=ad.tweetobjs.end(); ++it) {
-		const tweet *t=it->second.get();
+		const tweet *t = &(it->second);
 		if(t && !(t->pending_ops.empty())) {
 			if(!done_header) {
 				done_header = true;

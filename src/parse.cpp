@@ -98,7 +98,7 @@ void DisplayParseErrorMsg(rapidjson::Document &dc, const wxString &name, const c
 }
 
 //if jw, caller should already have called jw->StartObject(), etc
-void genjsonparser::ParseTweetStatics(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj, Handler *jw, bool isnew, dbsendmsg_list *dbmsglist, bool parse_entities) {
+void genjsonparser::ParseTweetStatics(const rapidjson::Value& val, tweet_ptr_p tobj, Handler *jw, bool isnew, dbsendmsg_list *dbmsglist, bool parse_entities) {
 	CheckTransJsonValueDef(tobj->in_reply_to_status_id, val, "in_reply_to_status_id", 0, jw);
 	CheckTransJsonValueDef(tobj->retweet_count, val, "retweet_count", 0);
 	CheckTransJsonValueDef(tobj->favourite_count, val, "favorite_count", 0);
@@ -115,7 +115,7 @@ void genjsonparser::ParseTweetStatics(const rapidjson::Value& val, const std::sh
 }
 
 //this is paired with tweet::mkdynjson
-void genjsonparser::ParseTweetDyn(const rapidjson::Value& val, const std::shared_ptr<tweet> &tobj) {
+void genjsonparser::ParseTweetDyn(const rapidjson::Value& val, tweet_ptr_p tobj) {
 	const rapidjson::Value &p=val["p"];
 	if(p.IsArray()) {
 		for(rapidjson::SizeType i = 0; i < p.Size(); i++) {
@@ -166,7 +166,7 @@ static std::string ProcessMediaURL(std::string url, const wxURI &wxuri) {
 	return url;
 }
 
-void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shared_ptr<tweet> &t, bool isnew, dbsendmsg_list *dbmsglist) {
+void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, tweet_ptr_p t, bool isnew, dbsendmsg_list *dbmsglist) {
 	LogMsg(LOGT::PARSE, wxT("jsonparser::DoEntitiesParse"));
 
 	auto &hashtags=val["hashtags"];
@@ -288,7 +288,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 				}
 				else me = it->second.get();
 
-				auto res=std::find_if(me->tweet_list.begin(), me->tweet_list.end(), [&](const std::shared_ptr<tweet> &tt) {
+				auto res=std::find_if(me->tweet_list.begin(), me->tweet_list.end(), [&](tweet_ptr_p tt) {
 					return tt->id==t->id;
 				});
 				if(res==me->tweet_list.end()) {
@@ -356,7 +356,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, const std::shar
 			}
 			else me = it->second.get();
 
-			auto res=std::find_if(me->tweet_list.begin(), me->tweet_list.end(), [&](const std::shared_ptr<tweet> &tt) {
+			auto res=std::find_if(me->tweet_list.begin(), me->tweet_list.end(), [&](tweet_ptr_p tt) {
 				return tt->id==t->id;
 			});
 			if(res==me->tweet_list.end()) {
@@ -681,14 +681,14 @@ inline udc_ptr CheckParseUserObj(uint64_t id, const rapidjson::Value& val, jsonp
 	}
 }
 
-std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP> sflags) {
+tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP> sflags) {
 	uint64_t tweetid;
 	if(!CheckTransJsonValueDef(tweetid, val, "id", 0, 0)) {
 		LogMsgFormat(LOGT::PARSEERR, wxT("jsonparser::DoTweetParse: No ID present in document."));
-		return std::make_shared<tweet>();
+		return tweet_ptr();
 	}
 
-	std::shared_ptr<tweet> &tobj=ad.GetTweetById(tweetid);
+	tweet_ptr tobj = ad.GetTweetById(tweetid);
 
 	if(ad.unloaded_db_tweet_ids.find(tweetid) != ad.unloaded_db_tweet_ids.end()) {
 		/* Oops, we're about to parse a received tweet which is already in the database,
@@ -758,7 +758,7 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, fla
 
 		if(!tobj->user || tobj->createtime == 0) {
 			//delete received where tweet incomplete or not in memory before
-			return std::make_shared<tweet>();
+			return tweet_ptr();
 		}
 	}
 
@@ -806,8 +806,8 @@ std::shared_ptr<tweet> jsonparser::DoTweetParse(const rapidjson::Value& val, fla
 		}
 		auto &rtval=val["retweeted_status"];
 		if(rtval.IsObject()) {
-			tobj->rtsrc=DoTweetParse(rtval, sflags|JDTP::ISRTSRC);
-			tobj->flags.Set('R');
+			tobj->rtsrc = DoTweetParse(rtval, sflags|JDTP::ISRTSRC);
+			if(tobj->rtsrc) tobj->flags.Set('R');
 		}
 	}
 	else {

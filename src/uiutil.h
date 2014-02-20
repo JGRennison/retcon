@@ -75,7 +75,7 @@ typedef enum {
 } TAMI_TYPE;
 
 struct tweetactmenuitem {
-	std::shared_ptr<tweet> tw;
+	tweet_ptr tw;
 	udc_ptr user;
 	TAMI_TYPE type;
 	unsigned int dbindex;
@@ -89,15 +89,15 @@ typedef std::map<int,tweetactmenuitem> tweetactmenudata;
 
 extern tweetactmenudata tamd;
 
-void AppendToTAMIMenuMap(tweetactmenudata &map, int &nextid, TAMI_TYPE type, std::shared_ptr<tweet> tw,
+void AppendToTAMIMenuMap(tweetactmenudata &map, int &nextid, TAMI_TYPE type, tweet_ptr tw,
 		unsigned int dbindex = 0, udc_ptr user = udc_ptr(),
 		flagwrapper<TPF> flags = 0, wxString extra = wxT(""), panelparentwin_base *ppwb = 0);
-void MakeRetweetMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw);
-void MakeFavMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw);
-void MakeCopyMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw);
-void MakeMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw);
-void MakeTPanelMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw, tpanelparentwin_nt *tppw);
-void MakeImageMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw);
+void MakeRetweetMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw);
+void MakeFavMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw);
+void MakeCopyMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw);
+void MakeMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw);
+void MakeTPanelMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw, tpanelparentwin_nt *tppw);
+void MakeImageMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw);
 void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin = 0);
 uint64_t ParseUrlID(wxString url);
 media_id_type ParseMediaID(wxString url);

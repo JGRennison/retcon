@@ -54,7 +54,7 @@
 #include <algorithm>
 
 //Do not assume that *acc is non-null
-void HandleNewTweet(const std::shared_ptr<tweet> &t, const std::shared_ptr<taccount> &acc, flagwrapper<ARRIVAL> arr) {
+void HandleNewTweet(tweet_ptr_p t, const std::shared_ptr<taccount> &acc, flagwrapper<ARRIVAL> arr) {
 	if(arr & ARRIVAL::RECV) ad.alltweet_filter.FilterTweet(*t, acc.get());
 	if(arr & ARRIVAL::NEW) ad.incoming_filter.FilterTweet(*t, acc.get());
 	t->CheckFlagsUpdated(tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
@@ -252,7 +252,7 @@ bool userdatacontainer::IsReady(flagwrapper<UPDCF> updcf_flags, time_t timevalue
 
 void userdatacontainer::CheckPendingTweets(flagwrapper<UMPTF> umpt_flags) {
 	FreezeAll();
-	std::forward_list<std::pair<flagwrapper<PENDING>, std::shared_ptr<tweet> > > stillpending;
+	std::forward_list<std::pair<flagwrapper<PENDING>, tweet_ptr> > stillpending;
 	for(auto it=pendingtweets.begin(); it!=pendingtweets.end(); ++it) {
 		flagwrapper<PENDING> res = CheckTweetPendings(*it);
 		if(!res) {
@@ -279,7 +279,7 @@ void userdatacontainer::CheckPendingTweets(flagwrapper<UMPTF> umpt_flags) {
 	ThawAll();
 }
 
-void userdatacontainer::MarkTweetPending(const std::shared_ptr<tweet> &t) {
+void userdatacontainer::MarkTweetPending(tweet_ptr_p t) {
 	if(std::find(pendingtweets.begin(), pendingtweets.end(), t) != pendingtweets.end()) {
 		return;
 	}
@@ -287,7 +287,7 @@ void userdatacontainer::MarkTweetPending(const std::shared_ptr<tweet> &t) {
 	LogMsgFormat(LOGT::PENDTRACE, wxT("Mark Pending: User: %" wxLongLongFmtSpec "d (@%s) --> %s"), id, wxstrstd(GetUser().screen_name).c_str(), tweet_log_line(t.get()).c_str());
 }
 
-void rt_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags) {
+void rt_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) {
 	if(target_retweet->IsReady()) UnmarkPendingTweet(target_retweet, umpt_flags);
 }
 
@@ -295,7 +295,7 @@ wxString rt_pending_op::dump() {
 	return wxString::Format(wxT("Retweet depends on this: %s"), tweet_log_line(target_retweet.get()).c_str());
 }
 
-void handlenew_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags) {
+void handlenew_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) {
 	HandleNewTweet(t, tac.lock(), arr);
 }
 
@@ -304,7 +304,7 @@ wxString handlenew_pending_op::dump() {
 	return wxString::Format(wxT("Handle arrived on account: %s, 0x%X"), acc ? acc->dispname.c_str() : wxT("N/A"), arr.get());
 }
 
-void UnmarkPendingTweet(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags) {
+void UnmarkPendingTweet(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) {
 	LogMsgFormat(LOGT::PENDTRACE, wxT("Unmark Pending: %s"), tweet_log_line(t.get()).c_str());
 	t->lflags &= ~TLF::BEINGLOADEDFROMDB;
 	t->lflags &= ~TLF::ISPENDING;
@@ -548,7 +548,7 @@ void cached_id_sets::RemoveTweet(uint64_t id) {
 	});
 }
 
-void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, tweetidset cached_id_sets::* idsetptr, bool remove, std::function<void(const std::shared_ptr<tweet> &)> existingtweetfunc) {
+void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, tweetidset cached_id_sets::* idsetptr, bool remove, std::function<void(tweet_ptr_p )> existingtweetfunc) {
 	tweetidset &globset = ad.cids.*idsetptr;
 
 	if(remove) {
@@ -587,7 +587,7 @@ void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, tweetidset
 		for(auto &tweet_id : ids) {
 			auto twshpp = ad.GetExistingTweetById(tweet_id);
 			if(twshpp) {
-				existingtweetfunc(*twshpp);
+				existingtweetfunc(twshpp);
 			}
 		}
 	}
@@ -605,7 +605,7 @@ void SendTweetFlagUpdate(const tweet &tw, unsigned long long mask) {
 //the following set of procedures should be kept in sync
 
 //returns true is ready, false is pending
-bool taccount::CheckMarkPending(const std::shared_ptr<tweet> &t) {
+bool taccount::CheckMarkPending(tweet_ptr_p t) {
 	flagwrapper<PENDING> res = CheckTweetPendings(t);
 	if(!res) return true;
 	else {
@@ -615,7 +615,7 @@ bool taccount::CheckMarkPending(const std::shared_ptr<tweet> &t) {
 }
 
 //mark *must* be exactly right
-void FastMarkPendingNonAcc(const std::shared_ptr<tweet> &t, flagwrapper<PENDING> mark) {
+void FastMarkPendingNonAcc(tweet_ptr_p t, flagwrapper<PENDING> mark) {
 	t->lflags |= TLF::ISPENDING;
 	if(mark & PENDING::T_U) t->user->MarkTweetPending(t);
 	if(mark & PENDING::T_UR) t->user_recipient->MarkTweetPending(t);
@@ -635,7 +635,7 @@ void FastMarkPendingNonAcc(const std::shared_ptr<tweet> &t, flagwrapper<PENDING>
 }
 
 //mark *must* be exactly right
-void taccount::FastMarkPending(const std::shared_ptr<tweet> &t, flagwrapper<PENDING> mark) {
+void taccount::FastMarkPending(tweet_ptr_p t, flagwrapper<PENDING> mark) {
 	FastMarkPendingNonAcc(t, mark);
 
 	if(mark & PENDING::U) MarkUserPending(t->user);
@@ -645,7 +645,7 @@ void taccount::FastMarkPending(const std::shared_ptr<tweet> &t, flagwrapper<PEND
 
 //return true if successfully marked pending
 //mark *must* be exactly right
-bool FastMarkPendingNoAccFallback(const std::shared_ptr<tweet> &t, flagwrapper<PENDING> mark, const wxString &logprefix) {
+bool FastMarkPendingNoAccFallback(tweet_ptr_p t, flagwrapper<PENDING> mark, const wxString &logprefix) {
 	FastMarkPendingNonAcc(t, mark);
 
 	if(mark & PENDING::ACCMASK) {
@@ -684,7 +684,7 @@ flagwrapper<PENDING> CheckTweetPendings(const tweet &t) {
 }
 
 //returns true is ready, false is pending
-bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t) {
+bool CheckMarkPending_GetAcc(tweet_ptr_p t) {
 	flagwrapper<PENDING> res = CheckTweetPendings(t);
 	if(!res) return true;
 	else {
@@ -693,7 +693,7 @@ bool CheckMarkPending_GetAcc(const std::shared_ptr<tweet> &t) {
 	}
 }
 
-void GenericMarkPending(const std::shared_ptr<tweet> &t, flagwrapper<PENDING> mark, const wxString &logprefix, flagwrapper<tweet::GUAF> guaflags) {
+void GenericMarkPending(tweet_ptr_p t, flagwrapper<PENDING> mark, const wxString &logprefix, flagwrapper<tweet::GUAF> guaflags) {
 	if(mark & PENDING::ACCMASK) {
 		std::shared_ptr<taccount> curacc;
 		if(t->GetUsableAccount(curacc, guaflags)) {
@@ -714,7 +714,7 @@ void RemoveUserFromAccPendingLists(uint64_t userid) {
 	}
 }
 
-bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_nt* win_, PUSHFLAGS pushflags, std::shared_ptr<tpanel> *pushtpanel_) {
+bool MarkPending_TPanelMap(tweet_ptr_p tobj, tpanelparentwin_nt* win_, PUSHFLAGS pushflags, std::shared_ptr<tpanel> *pushtpanel_) {
 	tpanel *tp=0;
 	if(pushtpanel_) tp=(*pushtpanel_).get();
 	bool found=false;
@@ -739,7 +739,7 @@ bool MarkPending_TPanelMap(const std::shared_ptr<tweet> &tobj, tpanelparentwin_n
 //return true if ready now
 //If existing_dbsel is given, any DB lookup message is stored in/added to it
 //Otherwise any individual DB lookup is executed batched
-bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::shared_ptr<taccount> acc_hint, dbseltweetmsg **existing_dbsel) {
+bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> acc_hint, dbseltweetmsg **existing_dbsel) {
 	using GUAF = tweet::GUAF;
 
 	if(tobj->text.size()) {
@@ -789,7 +789,7 @@ bool CheckFetchPendingSingleTweet(const std::shared_ptr<tweet> &tobj, std::share
 
 //returns true on success, otherwise add tweet to pending list
 //modifies acc_hint to account actually used
-bool CheckLoadSingleTweet(const std::shared_ptr<tweet> &t, std::shared_ptr<taccount> &acc_hint) {
+bool CheckLoadSingleTweet(tweet_ptr_p t, std::shared_ptr<taccount> &acc_hint) {
 	if(t->GetUsableAccount(acc_hint, tweet::GUAF::CHECKEXISTING)) {
 		t->lflags |= TLF::BEINGLOADEDOVERNET;
 		twitcurlext *twit = acc_hint->GetTwitCurlExt();
@@ -822,7 +822,7 @@ bool tweet::IsReady(flagwrapper<UPDCF> updcf_flags) {
 	return isready;
 }
 
-bool taccount::MarkPendingOrHandle(const std::shared_ptr<tweet> &t, flagwrapper<ARRIVAL> arr) {
+bool taccount::MarkPendingOrHandle(tweet_ptr_p t, flagwrapper<ARRIVAL> arr) {
 	bool isready = CheckMarkPending(t);
 	if(arr) {
 		if(isready) HandleNewTweet(t, shared_from_this(), arr);

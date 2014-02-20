@@ -337,7 +337,7 @@ tpanelload_pending_op::tpanelload_pending_op(tpanelparentwin_nt* win_, flagwrapp
 	if(pushtpanel_) pushtpanel = *pushtpanel_;
 }
 
-void tpanelload_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags) {
+void tpanelload_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) {
 	std::shared_ptr<tpanel> tp=pushtpanel.lock();
 	if(tp) tp->PushTweet(t, pushflags);
 	tpanelparentwin_nt *window=win.get();
@@ -353,13 +353,13 @@ wxString tpanelload_pending_op::dump() {
 	return wxString::Format(wxT("Push tweet to tpanel: %s, window: %p, pushflags: 0x%X"), (tp)?wxstrstd(tp->dispname).c_str():wxT("N/A"), window, pushflags);
 }
 
-void tpanel_subtweet_pending_op::CheckLoadTweetReply(const std::shared_ptr<tweet> &t, wxSizer *v, tpanelparentwin_nt *s,
-		tweetdispscr *tds, unsigned int load_count, const std::shared_ptr<tweet> &top_tweet, tweetdispscr *top_tds) {
+void tpanel_subtweet_pending_op::CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, tpanelparentwin_nt *s,
+		tweetdispscr *tds, unsigned int load_count, tweet_ptr_p top_tweet, tweetdispscr *top_tds) {
 	using GUAF = tweet::GUAF;
 
 	if(t->in_reply_to_status_id) {
 		std::function<void(unsigned int)> loadmorefunc = [=](unsigned int load_count) {
-			std::shared_ptr<tweet> subt = ad.GetTweetById(t->in_reply_to_status_id);
+			tweet_ptr subt = ad.GetTweetById(t->in_reply_to_status_id);
 
 			if(top_tweet->IsArrivedHereAnyPerspective()) {	//save
 				subt->lflags |= TLF::SHOULDSAVEINDB;
@@ -384,7 +384,7 @@ void tpanel_subtweet_pending_op::CheckLoadTweetReply(const std::shared_ptr<tweet
 }
 
 tpanel_subtweet_pending_op::tpanel_subtweet_pending_op(wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *top_tds_,
-		unsigned int load_count_, std::shared_ptr<tweet> top_tweet_) {
+		unsigned int load_count_, tweet_ptr top_tweet_) {
 	action_data = std::make_shared<tspo_action_data>();
 	action_data->vbox = v;
 	action_data->win = s;
@@ -393,7 +393,7 @@ tpanel_subtweet_pending_op::tpanel_subtweet_pending_op(wxSizer *v, tpanelparentw
 	action_data->top_tweet = std::move(top_tweet_);
 }
 
-void tpanel_subtweet_pending_op::MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags) {
+void tpanel_subtweet_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) {
 	std::shared_ptr<tspo_action_data> data = this->action_data;
 
 	tweetdispscr *tp_tds = data->top_tds.get();

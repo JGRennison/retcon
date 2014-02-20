@@ -92,17 +92,17 @@ struct tpanel_subtweet_pending_op : public pending_op {
 		magic_ptr_ts<tpanelparentwin_nt> win;
 		magic_ptr_ts<tweetdispscr> top_tds;
 		unsigned int load_count = 0;
-		std::shared_ptr<tweet> top_tweet;
+		tweet_ptr top_tweet;
 	};
 	std::shared_ptr<tspo_action_data> action_data;
 
 	tpanel_subtweet_pending_op(wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *top_tds_, unsigned int load_count_,
-		std::shared_ptr<tweet> top_tweet_);
+		tweet_ptr top_tweet_);
 
-	static void CheckLoadTweetReply(const std::shared_ptr<tweet> &t, wxSizer *v, tpanelparentwin_nt *s,
-		tweetdispscr *tds, unsigned int load_count, const std::shared_ptr<tweet> &top_tweet, tweetdispscr *top_tds);
+	static void CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, tpanelparentwin_nt *s,
+		tweetdispscr *tds, unsigned int load_count, tweet_ptr_p top_tweet, tweetdispscr *top_tds);
 
-	virtual void MarkUnpending(const std::shared_ptr<tweet> &t, flagwrapper<UMPTF> umpt_flags);
+	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags);
 	virtual wxString dump();
 };
 

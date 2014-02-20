@@ -587,11 +587,11 @@ void taccount::NoAccPendingContentEvent() {
 	if(ad.noacc_pending_tweetobjs.empty() && ad.noacc_pending_userconts.empty()) return;
 	LogMsgFormat(LOGT::PENDTRACE, wxT("taccount::NoAccPendingContentEvent: account: %s, About to process %d tweets and %d users"), dispname.c_str(), ad.noacc_pending_tweetobjs.size(), ad.noacc_pending_userconts.size());
 
-	std::map<uint64_t,std::shared_ptr<tweet> > unhandled_tweets;
+	std::map<uint64_t,tweet_ptr> unhandled_tweets;
 	std::map<uint64_t,udc_ptr> unhandled_users;
 
 	for(auto &it : ad.noacc_pending_tweetobjs) {
-		std::shared_ptr<tweet> &t = it.second;
+		tweet_ptr t = it.second;
 		std::shared_ptr<taccount> curacc;
 		if(t->GetUsableAccount(curacc, tweet::GUAF::NOERR)) {
 			t->lflags |= TLF::BEINGLOADEDOVERNET;

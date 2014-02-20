@@ -223,7 +223,7 @@ struct filter_item_action_panel : public filter_item_action {
 		}
 		else {
 			std::shared_ptr<tpanel> tp = tpanel::MkTPanel(tpanel::ManualName(panel_name), panel_name, TPF::MANUAL | TPF::SAVETODB);
-			tp->PushTweet(ad.tweetobjs[tw.id]);
+			tp->PushTweet(ad.GetTweetById(tw.id));
 			LogMsgFormat(LOGT::FILTERTRACE, wxT("Adding Tweet: %" wxLongLongFmtSpec "d to Panel: %s"), tw.id, wxstrstd(panel_name).c_str());
 		}
 	}

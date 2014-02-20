@@ -527,21 +527,21 @@ void CheckUserMentioned(bool &changed, udc_ptr_p user, tweetposttextbox *textctr
 	}
 }
 
-void tweetpostwin::SetReplyTarget(const std::shared_ptr<tweet> &targ) {
+void tweetpostwin::SetReplyTarget(tweet_ptr_p targ) {
 	textctrl->SetInsertionPoint(0);
 	bool changed=false;
 	if(targ) {
-		const std::shared_ptr<tweet> *checktweet;
+		tweet_ptr checktweet;
 		CheckUserMentioned(changed, targ->user, textctrl);
 		if(targ->rtsrc) {
 			CheckUserMentioned(changed, targ->rtsrc->user, textctrl);
-			checktweet=&targ->rtsrc;
+			checktweet = targ->rtsrc;
 		}
-		else checktweet=&targ;
-		for(auto it=(*checktweet)->entlist.begin(); it!=(*checktweet)->entlist.end(); ++it) {
-			if(it->type==ENT_MENTION) {
-				if(! (it->user->udc_flags & UDC::THIS_IS_ACC_USER_HINT)) {
-					CheckUserMentioned(changed, it->user, textctrl);
+		else checktweet = targ;
+		for(auto &it : checktweet->entlist) {
+			if(it.type == ENT_MENTION) {
+				if(! (it.user->udc_flags & UDC::THIS_IS_ACC_USER_HINT)) {
+					CheckUserMentioned(changed, it.user, textctrl);
 				}
 			}
 		}
