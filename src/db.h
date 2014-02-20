@@ -24,6 +24,7 @@
 #include "flags.h"
 #include "hash.h"
 #include "media_id_type.h"
+#include "ptr_types.h"
 #include <string>
 #include <memory>
 #include <deque>
@@ -222,7 +223,7 @@ void DBC_InsertMedia(media_entity &me, dbsendmsg_list *msglist = 0);
 void DBC_UpdateMedia(media_entity &me, DBUMMT update_type, dbsendmsg_list *msglist = 0);
 void DBC_InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string statjson, dbsendmsg_list *msglist = 0);
 void DBC_UpdateTweetDyn(const std::shared_ptr<tweet> &tobj, dbsendmsg_list *msglist = 0);
-void DBC_InsertUser(const std::shared_ptr<userdatacontainer> &u, dbsendmsg_list *msglist = 0);
+void DBC_InsertUser(udc_ptr_p u, dbsendmsg_list *msglist = 0);
 void DBC_HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags);
 void DBC_SetDBSelTweetMsgHandler(dbseltweetmsg *msg, std::function<void(dbseltweetmsg *, dbconn *)> f);
 bool DBC_AllMediaEntitiesLoaded();

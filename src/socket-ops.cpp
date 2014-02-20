@@ -78,7 +78,7 @@ int dlconn::curlCallback(char* data, size_t size, size_t nmemb, dlconn *obj) {
 	return writtenSize;
 }
 
-void profileimgdlconn::Init(const std::string &imgurl_, const std::shared_ptr<userdatacontainer> &user_) {
+void profileimgdlconn::Init(const std::string &imgurl_, udc_ptr_p user_) {
 	user = user_;
 	user->udc_flags |= UDC::IMAGE_DL_IN_PROGRESS;
 	LogMsgFormat(LOGT::NETACT, wxT("Downloading profile image %s for user id %" wxLongLongFmtSpec "d (@%s), conn: %p"), wxstrstd(imgurl_).c_str(), user_->id, wxstrstd(user_->GetUser().screen_name).c_str(), this);
@@ -102,7 +102,7 @@ void profileimgdlconn::Reset() {
 	user.reset();
 }
 
-profileimgdlconn *profileimgdlconn::GetConn(const std::string &imgurl_, const std::shared_ptr<userdatacontainer> &user_) {
+profileimgdlconn *profileimgdlconn::GetConn(const std::string &imgurl_, udc_ptr_p user_) {
 	profileimgdlconn *res=cp.GetConn();
 	res->Init(imgurl_, user_);
 	return res;
@@ -112,11 +112,11 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 	LogMsgFormat(LOGT::NETACT, wxT("Profile image downloaded: %s for user id %" wxLongLongFmtSpec "d (@%s), conn: %p"), wxstrstd(url).c_str(), user->id, wxstrstd(user->GetUser().screen_name).c_str(), this);
 
 	struct local {
-		static void clear_dl_flags(const std::shared_ptr<userdatacontainer> &user) {
+		static void clear_dl_flags(udc_ptr_p user) {
 			user->udc_flags &= ~UDC::IMAGE_DL_IN_PROGRESS;
 			user->udc_flags &= ~UDC::HALF_PROFILE_BITMAP_SET;
 		};
-		static void bad_url_handler(const std::string &url, const std::shared_ptr<userdatacontainer> &user) {
+		static void bad_url_handler(const std::string &url, udc_ptr_p user) {
 			TSLogMsgFormat(LOGT::OTHERERR, wxT("Profile image downloaded: %s for user id %" wxLongLongFmtSpec "d (@%s), does not match expected url of: %s. Maybe user updated profile during download?"),
 					wxstrstd(url).c_str(), user->id, wxstrstd(user->GetUser().screen_name).c_str(), wxstrstd(user->GetUser().profile_img_url).c_str());
 
@@ -142,7 +142,7 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 		wxString filename;
 		wxImage img;
 		bool ok = true;
-		std::shared_ptr<userdatacontainer> user;
+		udc_ptr user;
 		std::string url;
 		shb_iptr hash;
 	};
@@ -153,7 +153,7 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 	job_data->url = std::move(url);
 
 	wxGetApp().EnqueueThreadJob([job_data]() {
-		std::shared_ptr<userdatacontainer> &user = job_data->user;
+		udc_ptr user = job_data->user;
 		if(!gc.readonlymode) {
 			wxFile file(job_data->filename, wxFile::write);
 			file.Write(job_data->data.data(), job_data->data.size());
@@ -174,7 +174,7 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 		}
 	},
 	[job_data]() {
-		std::shared_ptr<userdatacontainer> &user = job_data->user;
+		udc_ptr &user = job_data->user;
 		local::clear_dl_flags(user);
 		if(!job_data->ok) {
 			user->MakeProfileImageFailurePlaceholder();

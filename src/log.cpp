@@ -416,9 +416,9 @@ static void dump_non_acc_user_pendings(LOGT logflags, const wxString &indent, co
 	}
 	LogMsgFormat(logflags, wxT("%sOther pending users:"), indent.c_str());
 	for(auto it=ad.userconts.begin(); it!=ad.userconts.begin(); ++it) {
-		if(!(it->second->pendingtweets.empty())) {
+		if(!(it->second.pendingtweets.empty())) {
 			if(acc_pending_users.find(it->first)==acc_pending_users.end()) {
-				dump_pending_user(logflags, indent + indentstep, indentstep, it->second.get());
+				dump_pending_user(logflags, indent + indentstep, indentstep, &(it->second));
 			}
 		}
 	}

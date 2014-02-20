@@ -117,7 +117,7 @@ uint64_t ParseUrlID(wxString url) {
 	return id;
 }
 
-void AppendToTAMIMenuMap(tweetactmenudata &map, int &nextid, TAMI_TYPE type, std::shared_ptr<tweet> tw, unsigned int dbindex, std::shared_ptr<userdatacontainer> user,
+void AppendToTAMIMenuMap(tweetactmenudata &map, int &nextid, TAMI_TYPE type, std::shared_ptr<tweet> tw, unsigned int dbindex, udc_ptr user,
 		flagwrapper<TPF> flags, wxString extra, panelparentwin_base *ppwb) {
 	map[nextid]={tw, user, type, dbindex, flags, extra, ppwb};
 	nextid++;
@@ -189,21 +189,21 @@ void MakeTPanelMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const
 	if(!tp->cids.unreadids.empty()) {
 		if(twid < *(tp->cids.unreadids.begin())) {
 			menuP->Append(nextid, wxT("Mark Newer Read \x21A5"));
-			AppendToTAMIMenuMap(map, nextid, TAMI_MARKNEWERUNREAD, tw, 0, std::shared_ptr<userdatacontainer>(), 0, wxT(""), tppw);
+			AppendToTAMIMenuMap(map, nextid, TAMI_MARKNEWERUNREAD, tw, 0, udc_ptr(), 0, wxT(""), tppw);
 		}
 		if(twid > *(tp->cids.unreadids.rbegin())) {
 			menuP->Append(nextid, wxT("Mark Older Read \x21A7"));
-			AppendToTAMIMenuMap(map, nextid, TAMI_MARKOLDERUNREAD, tw, 0, std::shared_ptr<userdatacontainer>(), 0, wxT(""), tppw);
+			AppendToTAMIMenuMap(map, nextid, TAMI_MARKOLDERUNREAD, tw, 0, udc_ptr(), 0, wxT(""), tppw);
 		}
 	}
 	if(!tp->cids.highlightids.empty()) {
 		if(twid < *(tp->cids.highlightids.begin())) {
 			menuP->Append(nextid, wxT("Unhighlight Newer \x21A5"));
-			AppendToTAMIMenuMap(map, nextid, TAMI_MARKNEWERUNHIGHLIGHTED, tw, 0, std::shared_ptr<userdatacontainer>(), 0, wxT(""), tppw);
+			AppendToTAMIMenuMap(map, nextid, TAMI_MARKNEWERUNHIGHLIGHTED, tw, 0, udc_ptr(), 0, wxT(""), tppw);
 		}
 		if(twid > *(tp->cids.highlightids.rbegin())) {
 			menuP->Append(nextid, wxT("Unhighlight Older \x21A7"));
-			AppendToTAMIMenuMap(map, nextid, TAMI_MARKOLDERUNHIGHLIGHTED, tw, 0, std::shared_ptr<userdatacontainer>(), 0, wxT(""), tppw);
+			AppendToTAMIMenuMap(map, nextid, TAMI_MARKOLDERUNHIGHLIGHTED, tw, 0, udc_ptr(), 0, wxT(""), tppw);
 		}
 	}
 

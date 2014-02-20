@@ -709,7 +709,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 						break;
 					case 'd': {
 						obj->EndURL();
-						std::shared_ptr<userdatacontainer> targ = tw.user_recipient;
+						udc_ptr targ = tw.user_recipient;
 						if(!targ || targ->udc_flags & UDC::THIS_IS_ACC_USER_HINT) targ=tw.user;
 						url=wxString::Format(wxT("Xd%" wxLongLongFmtSpec "d"), targ->id);
 						obj->BeginURL(url);
@@ -951,14 +951,14 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 		#endif
 		auto updateprofimg = [this](profimg_staticbitmap *b) {
 			if(!b) return;
-			auto udcp = ad.GetExistingUserContainerById(b->userid);
+			udc_ptr udcp = ad.GetExistingUserContainerById(b->userid);
 			if(!udcp) return;
 			if(b->pisb_flags & profimg_staticbitmap::PISBF::HALF) {
-				(*udcp)->ImgHalfIsReady(UPDCF::DOWNLOADIMG);
-				b->SetBitmap((*udcp)->cached_profile_img_half);
+				udcp->ImgHalfIsReady(UPDCF::DOWNLOADIMG);
+				b->SetBitmap(udcp->cached_profile_img_half);
 			}
 			else {
-				b->SetBitmap((*udcp)->cached_profile_img);
+				b->SetBitmap(udcp->cached_profile_img);
 			}
 		};
 		updateprofimg(bm);
@@ -1256,7 +1256,7 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 				}
 
 				auto dosenddmmenuitem = [&](const std::shared_ptr<tweet> &t) {
-					std::shared_ptr<userdatacontainer> targ = t->user_recipient;
+					udc_ptr targ = t->user_recipient;
 					if(!targ || targ->udc_flags & UDC::THIS_IS_ACC_USER_HINT) targ = t->user;
 					menu.Append(nextid, wxT("Send DM to @") + wxstrstd(targ->user.screen_name));
 					AppendToTAMIMenuMap(tamd, nextid, TAMI_DM, td, 0, targ);
@@ -1316,7 +1316,7 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 						menu.AppendSubMenu(panelsubmenu, wxT("Add to Panel"));
 						for(auto &it : manual_tps) {
 							panelsubmenu->Append(nextid, wxstrstd(it->dispname));
-							AppendToTAMIMenuMap(tamd, nextid, TAMI_ADDTOPANEL, td, 0, std::shared_ptr<userdatacontainer>(), 0, wxstrstd(it->name));
+							AppendToTAMIMenuMap(tamd, nextid, TAMI_ADDTOPANEL, td, 0, udc_ptr(), 0, wxstrstd(it->name));
 						}
 					}
 					if(!manual_tps_already_in.empty()) {
@@ -1324,7 +1324,7 @@ void TweetURLHandler(wxWindow *win, wxString url, const std::shared_ptr<tweet> &
 						menu.AppendSubMenu(panelsubmenu, wxT("Remove from Panel"));
 						for(auto &it : manual_tps_already_in) {
 							panelsubmenu->Append(nextid, wxstrstd(it->dispname));
-							AppendToTAMIMenuMap(tamd, nextid, TAMI_REMOVEFROMPANEL, td, 0, std::shared_ptr<userdatacontainer>(), 0, wxstrstd(it->name));
+							AppendToTAMIMenuMap(tamd, nextid, TAMI_REMOVEFROMPANEL, td, 0, udc_ptr(), 0, wxstrstd(it->name));
 						}
 					}
 				}
@@ -1447,7 +1447,7 @@ void tweetdispscr::urlhandler(wxString url) {
 	TweetURLHandler(this, url, td, tppw);
 }
 
-void AppendUserMenuItems(wxMenu &menu, tweetactmenudata &map, int &nextid, std::shared_ptr<userdatacontainer> user, std::shared_ptr<tweet> tw) {
+void AppendUserMenuItems(wxMenu &menu, tweetactmenudata &map, int &nextid, udc_ptr user, std::shared_ptr<tweet> tw) {
 	menu.Append(nextid, wxT("Open User Window"));
 	AppendToTAMIMenuMap(map, nextid, TAMI_USERWINDOW, tw, 0, user);
 
@@ -1480,31 +1480,31 @@ void TweetRightClickHandler(generic_disp_base *win, wxMouseEvent &event, const s
 		auto urlmenupopup = [&](const wxString &url) {
 			wxMenu *submenu = new wxMenu;
 			submenu->Append(nextid, url);
-			AppendToTAMIMenuMap(tamd, nextid, TAMI_NULL, td, 0, std::shared_ptr<userdatacontainer>(), 0, url);
+			AppendToTAMIMenuMap(tamd, nextid, TAMI_NULL, td, 0, udc_ptr(), 0, url);
 			submenu->AppendSeparator();
 			submenu->Append(nextid, wxT("Copy to Clipboard"));
-			AppendToTAMIMenuMap(tamd, nextid, TAMI_COPYEXTRA, td, 0, std::shared_ptr<userdatacontainer>(), 0, url);
+			AppendToTAMIMenuMap(tamd, nextid, TAMI_COPYEXTRA, td, 0, udc_ptr(), 0, url);
 			menu.AppendSubMenu(submenu, wxT("URL"));
 		};
 
 		if(url[0]=='M') {
 			media_id_type media_id=ParseMediaID(url);
 			menu.Append(nextid, wxT("Open Media in Window"));
-			AppendToTAMIMenuMap(tamd, nextid, TAMI_MEDIAWIN, td, 0, std::shared_ptr<userdatacontainer>(), 0, url);
+			AppendToTAMIMenuMap(tamd, nextid, TAMI_MEDIAWIN, td, 0, udc_ptr(), 0, url);
 			urlmenupopup(wxstrstd(ad.media_list[media_id]->media_url));
 			GenericPopupWrapper(win, &menu);
 		}
 		else if(url[0]=='U') {
 			uint64_t userid=ParseUrlID(url);
 			if(userid) {
-				std::shared_ptr<userdatacontainer> user=ad.GetUserContainerById(userid);
+				udc_ptr user=ad.GetUserContainerById(userid);
 				AppendUserMenuItems(menu, tamd, nextid, user, td);
 				GenericPopupWrapper(win, &menu);
 			}
 		}
 		else if(url[0]=='W') {
 			menu.Append(nextid, wxT("Open URL in Browser"));
-			AppendToTAMIMenuMap(tamd, nextid, TAMI_BROWSEREXTRA, td, 0, std::shared_ptr<userdatacontainer>(), 0, url.Mid(1));
+			AppendToTAMIMenuMap(tamd, nextid, TAMI_BROWSEREXTRA, td, 0, udc_ptr(), 0, url.Mid(1));
 			urlmenupopup(url.Mid(1));
 			GenericPopupWrapper(win, &menu);
 		}
@@ -1534,7 +1534,7 @@ void TweetRightClickHandler(generic_disp_base *win, wxMouseEvent &event, const s
 						case ENT_URL_IMG:
 						case ENT_MEDIA:
 							menu.Append(nextid, wxT("Open URL in Browser"));
-							AppendToTAMIMenuMap(tamd, nextid, TAMI_BROWSEREXTRA, td, 0, std::shared_ptr<userdatacontainer>(), 0, wxstrstd(et.fullurl));
+							AppendToTAMIMenuMap(tamd, nextid, TAMI_BROWSEREXTRA, td, 0, udc_ptr(), 0, wxstrstd(et.fullurl));
 							urlmenupopup(wxstrstd(et.fullurl));
 							GenericPopupWrapper(win, &menu);
 						break;
@@ -1630,7 +1630,7 @@ BEGIN_EVENT_TABLE(userdispscr, dispscr_base)
 	EVT_TEXT_URL(wxID_ANY, userdispscr::urleventhandler)
 END_EVENT_TABLE()
 
-userdispscr::userdispscr(const std::shared_ptr<userdatacontainer> &u_, tpanelscrollwin *parent, tpanelparentwin_user *tppw_, wxBoxSizer *hbox_, wxString thisname_)
+userdispscr::userdispscr(udc_ptr_p u_, tpanelscrollwin *parent, tpanelparentwin_user *tppw_, wxBoxSizer *hbox_, wxString thisname_)
 : dispscr_base(parent, tppw_, hbox_, thisname_.empty() ? wxString::Format(wxT("userdispscr: %" wxLongLongFmtSpec "d for %s"), u_->id, tppw_->GetThisName().c_str()) : thisname_), u(u_), bm(0) {
 }
 

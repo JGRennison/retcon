@@ -468,7 +468,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 
 	switch(type) {
 		case CS_ACCVERIFY: {
-			std::shared_ptr<userdatacontainer> auser=DoUserParse(dc);
+			udc_ptr auser=DoUserParse(dc);
 			for(auto it=alist.begin(); it!=alist.end(); ++it) {
 				if(*it==tac) continue;
 				if(auser->id==(*it)->usercont->id) {
@@ -569,7 +569,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			break;
 		case CS_FRIENDACTION_FOLLOW:
 		case CS_FRIENDACTION_UNFOLLOW: {
-			std::shared_ptr<userdatacontainer> u=DoUserParse(dc);
+			udc_ptr u=DoUserParse(dc);
 			u->udc_flags&=~UDC::FRIENDACT_IN_PROGRESS;
 			tac->LookupFriendships(u->id);
 			break;
@@ -644,7 +644,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 }
 
 //don't use this for perspectival attributes
-std::shared_ptr<userdatacontainer> jsonparser::DoUserParse(const rapidjson::Value& val, flagwrapper<UMPTF> umpt_flags) {
+udc_ptr jsonparser::DoUserParse(const rapidjson::Value& val, flagwrapper<UMPTF> umpt_flags) {
 	uint64_t id;
 	CheckTransJsonValueDef(id, val, "id", 0);
 	auto userdatacont = ad.GetUserContainerById(id);
@@ -672,7 +672,7 @@ void ParsePerspectivalTweetProps(const rapidjson::Value& val, tweet_perspective 
 	tp->SetFavourited(CheckGetJsonValueDef<bool>(val, "favourited", false, handler));
 }
 
-inline std::shared_ptr<userdatacontainer> CheckParseUserObj(uint64_t id, const rapidjson::Value& val, jsonparser &jp) {
+inline udc_ptr CheckParseUserObj(uint64_t id, const rapidjson::Value& val, jsonparser &jp) {
 	if(val.HasMember("screen_name")) {	//check to see if this is a trimmed user object
 		return jp.DoUserParse(val);
 	}

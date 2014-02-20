@@ -22,6 +22,7 @@
 #include "univdefs.h"
 #include "media_id_type.h"
 #include "tpanel-common.h"
+#include "ptr_types.h"
 #include <wx/colour.h>
 #include <wx/string.h>
 #include <wx/menu.h>
@@ -75,7 +76,7 @@ typedef enum {
 
 struct tweetactmenuitem {
 	std::shared_ptr<tweet> tw;
-	std::shared_ptr<userdatacontainer> user;
+	udc_ptr user;
 	TAMI_TYPE type;
 	unsigned int dbindex;
 	flagwrapper<TPF> flags;
@@ -89,7 +90,7 @@ typedef std::map<int,tweetactmenuitem> tweetactmenudata;
 extern tweetactmenudata tamd;
 
 void AppendToTAMIMenuMap(tweetactmenudata &map, int &nextid, TAMI_TYPE type, std::shared_ptr<tweet> tw,
-		unsigned int dbindex = 0, std::shared_ptr<userdatacontainer> user = std::shared_ptr<userdatacontainer>(),
+		unsigned int dbindex = 0, udc_ptr user = udc_ptr(),
 		flagwrapper<TPF> flags = 0, wxString extra = wxT(""), panelparentwin_base *ppwb = 0);
 void MakeRetweetMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw);
 void MakeFavMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, const std::shared_ptr<tweet> &tw);

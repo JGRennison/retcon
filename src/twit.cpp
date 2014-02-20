@@ -113,7 +113,7 @@ void userlookup::UnMarkAll() {
 	}
 }
 
-void userlookup::Mark(std::shared_ptr<userdatacontainer> udc) {
+void userlookup::Mark(udc_ptr udc) {
 	udc->udc_flags|=UDC::LOOKUP_IN_PROGRESS;
 	users_queried.push_front(udc);
 }
@@ -170,7 +170,7 @@ bool userdatacontainer::ImgIsReady(flagwrapper<UPDCF> updcf_flags) {
 	if(user.profile_img_url.size()) {
 		if(cached_profile_img_url!=user.profile_img_url) {
 			if(udc_flags & UDC::PROFILE_IMAGE_DL_FAILED) return true;
-			if(updcf_flags&UPDCF::DOWNLOADIMG) profileimgdlconn::GetConn(user.profile_img_url, shared_from_this());
+			if(updcf_flags&UPDCF::DOWNLOADIMG) profileimgdlconn::GetConn(user.profile_img_url, this);
 			return false;
 		}
 		else if(cached_profile_img_url.size() && !(udc_flags & UDC::PROFILE_BITMAP_SET))  {
@@ -178,14 +178,14 @@ bool userdatacontainer::ImgIsReady(flagwrapper<UPDCF> updcf_flags) {
 				wxImage img;
 				wxString filename;
 				std::string url;
-				std::shared_ptr<userdatacontainer> u;
+				udc_ptr u;
 				shb_iptr hash;
 				bool success;
 			};
 			auto data = std::make_shared<job_data>();
 			GetImageLocalFilename(data->filename);
 			data->url = cached_profile_img_url;
-			data->u = this->shared_from_this();
+			data->u = this;
 			data->hash = cached_profile_img_sha1;
 
 			LogMsgFormat(LOGT::FILEIOTRACE, wxT("userdatacontainer::ImgIsReady, about to load cached profile image for user id: %" wxLongLongFmtSpec "d (%s), file: %s, url: %s"),
@@ -198,7 +198,7 @@ bool userdatacontainer::ImgIsReady(flagwrapper<UPDCF> updcf_flags) {
 				if(data->success) data->img = userdatacontainer::ScaleImageToProfileSize(img);
 			},
 			[data, updcf_flags]() {
-				std::shared_ptr<userdatacontainer> &u = data->u;
+				udc_ptr &u = data->u;
 
 				u->udc_flags &= ~UDC::IMAGE_DL_IN_PROGRESS;
 
@@ -274,7 +274,7 @@ void userdatacontainer::CheckPendingTweets(flagwrapper<UMPTF> umpt_flags) {
 	}
 	if(udc_flags & UDC::CHECK_USERLISTWIN) {
 		udc_flags &= ~UDC::CHECK_USERLISTWIN;
-		tpanelparentwin_user::CheckPendingUser(shared_from_this());
+		tpanelparentwin_user::CheckPendingUser(this);
 	}
 	ThawAll();
 }
@@ -1164,7 +1164,7 @@ unsigned int TwitterCharCount(const char *in, size_t inlen) {
 	return outsize;
 }
 
-bool IsUserMentioned(const char *in, size_t inlen, const std::shared_ptr<userdatacontainer> &u) {
+bool IsUserMentioned(const char *in, size_t inlen, udc_ptr_p u) {
 	const char *errptr;
 	int erroffset;
 	std::string pat=IS_USER_MENTIONED_1ST + u->GetUser().screen_name + IS_USER_MENTIONED_2ND;

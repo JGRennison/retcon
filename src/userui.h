@@ -22,6 +22,7 @@
 #include "univdefs.h"
 #include "magic_ptr.h"
 #include "flags.h"
+#include "ptr_types.h"
 #include <wx/hyperlink.h>
 #include <wx/radiobox.h>
 #include <wx/valgen.h>
@@ -58,7 +59,7 @@ struct user_window_timer: public wxTimer {
 
 struct user_window: public wxDialog, public magic_ptr_base {
 	uint64_t userid;
-	std::shared_ptr<userdatacontainer> u;
+	udc_ptr u;
 	std::weak_ptr<taccount> acc_hint;
 
 	wxFlexGridSizer *if_grid;

@@ -209,10 +209,10 @@ struct tweetdispscr : public dispscr_base {
 };
 
 struct userdispscr : public dispscr_base {
-	std::shared_ptr<userdatacontainer> u;
+	udc_ptr u;
 	profimg_staticbitmap *bm;
 
-	userdispscr(const std::shared_ptr<userdatacontainer> &u_, tpanelscrollwin *parent, tpanelparentwin_user *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
+	userdispscr(udc_ptr_p u_, tpanelscrollwin *parent, tpanelparentwin_user *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
 	~userdispscr();
 	void Display(bool redrawimg=false);
 
@@ -221,7 +221,7 @@ struct userdispscr : public dispscr_base {
 	DECLARE_EVENT_TABLE()
 };
 
-void AppendUserMenuItems(wxMenu &menu, tweetactmenudata &map, int &nextid, std::shared_ptr<userdatacontainer> user, std::shared_ptr<tweet> tw);
+void AppendUserMenuItems(wxMenu &menu, tweetactmenudata &map, int &nextid, udc_ptr user, std::shared_ptr<tweet> tw);
 void TweetReplaceStringSeq(std::function<void(const char *, size_t)> func, const std::string &str, int start, int end, int &track_byte, int &track_index);
 std::string TweetReplaceAllStringSeqs(const std::string &str);
 

@@ -131,7 +131,7 @@ struct tweetpostwin : public wxPanel {
 	wxStaticText *replydesc;
 	wxBitmapButton *replydesclosebtn;
 	std::shared_ptr<tweet> tweet_reply_targ;
-	std::shared_ptr<userdatacontainer> dm_targ;
+	udc_ptr dm_targ;
 
 	tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *parentauim = 0);
 	~tweetpostwin();
@@ -146,7 +146,7 @@ struct tweetpostwin : public wxPanel {
 	void NotifyPostResult(bool success);
 	void UpdateReplyDesc();
 	void SetReplyTarget(const std::shared_ptr<tweet> &targ);
-	void SetDMTarget(const std::shared_ptr<userdatacontainer> &targ);
+	void SetDMTarget(udc_ptr_p targ);
 	void DoCheckFocusDisplay(bool force = false);
 	void OnCloseReplyDescBtn(wxCommandEvent &event);
 	void AUIMNoLongerValid();

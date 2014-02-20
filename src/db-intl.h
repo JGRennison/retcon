@@ -139,7 +139,7 @@ struct dbconn : public wxEvtHandler {
 
 	void InsertNewTweet(const std::shared_ptr<tweet> &tobj, std::string statjson, dbsendmsg_list *msglist = 0);
 	void UpdateTweetDyn(const std::shared_ptr<tweet> &tobj, dbsendmsg_list *msglist = 0);
-	void InsertUser(const std::shared_ptr<userdatacontainer> &u, dbsendmsg_list *msglist = 0);
+	void InsertUser(udc_ptr_p u, dbsendmsg_list *msglist = 0);
 	void InsertMedia(media_entity &me, dbsendmsg_list *msglist = 0);
 	void UpdateMedia(media_entity &me, DBUMMT update_type, dbsendmsg_list *msglist = 0);
 	void AccountSync(sqlite3 *adb);

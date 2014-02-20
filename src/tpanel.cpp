@@ -1657,7 +1657,7 @@ void tpanelparentwin_user_impl::PageUpHandler() {
 		for(unsigned int i=0; i<pagemove; i++) {
 			it--;
 			displayoffset--;
-			const std::shared_ptr<userdatacontainer> &u=*it;
+			udc_ptr_p u = *it;
 			if(u->IsReady(UPDCF::DOWNLOADIMG)) UpdateUser(u, displayoffset);
 		}
 		CheckClearNoUpdateFlag();
@@ -1692,7 +1692,7 @@ void tpanelparentwin_user_impl::PageTopHandler() {
 		displayoffset=0;
 		size_t i=0;
 		for(auto it=userlist.begin(); it!=userlist.end() && pushcount; ++it, --pushcount, i++) {
-			const std::shared_ptr<userdatacontainer> &u=*it;
+			udc_ptr_p u = *it;
 			if(u->IsReady(UPDCF::DOWNLOADIMG)) UpdateUser(u, i);
 		}
 		CheckClearNoUpdateFlag();
@@ -1700,11 +1700,11 @@ void tpanelparentwin_user_impl::PageTopHandler() {
 	scrollwin->Scroll(-1, 0);
 }
 
-bool tpanelparentwin_user::PushBackUser(const std::shared_ptr<userdatacontainer> &u) {
+bool tpanelparentwin_user::PushBackUser(udc_ptr_p u) {
 	return pimpl()->PushBackUser(u);
 }
 
-bool tpanelparentwin_user_impl::PushBackUser(const std::shared_ptr<userdatacontainer> &u) {
+bool tpanelparentwin_user_impl::PushBackUser(udc_ptr_p u) {
 	bool havealready=false;
 	size_t offset;
 	for(auto it=userlist.begin(); it!=userlist.end(); ++it) {
@@ -1722,7 +1722,7 @@ bool tpanelparentwin_user_impl::PushBackUser(const std::shared_ptr<userdataconta
 }
 
 //! returns true if marked pending
-bool tpanelparentwin_user_impl::UpdateUser(const std::shared_ptr<userdatacontainer> &u, size_t offset) {
+bool tpanelparentwin_user_impl::UpdateUser(udc_ptr_p u, size_t offset) {
 	size_t index=0;
 	auto jt=userlist.begin();
 	size_t i=0;
@@ -1777,7 +1777,7 @@ void tpanelparentwin_user::LoadMoreToBack(unsigned int n) {
 	pimpl()->LoadMoreToBack(n);
 }
 
-void tpanelparentwin_user::CheckPendingUser(const std::shared_ptr<userdatacontainer> &u) {
+void tpanelparentwin_user::CheckPendingUser(udc_ptr_p u) {
 	auto pit = tpanelparentwin_user_impl::pendingmap.equal_range(u->id);
 	for(auto it = pit.first; it != pit.second; ++it) {
 		it->second->PushBackUser(u);
@@ -1790,7 +1790,7 @@ tpanelparentwin_usertweets_impl *tpanelparentwin_usertweets::pimpl() {
 	return static_cast<tpanelparentwin_usertweets_impl *>(pimpl_ptr.get());
 }
 
-tpanelparentwin_usertweets::tpanelparentwin_usertweets(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent,
+tpanelparentwin_usertweets::tpanelparentwin_usertweets(udc_ptr &user_, wxWindow *parent,
 		std::function<std::shared_ptr<taccount>(tpanelparentwin_usertweets &)> getacc_,
 		RBFS_TYPE type_, wxString thisname_, tpanelparentwin_usertweets_impl *privimpl)
 : tpanelparentwin_nt(MkUserTweetTPanel(user_, type_), parent,
@@ -1808,7 +1808,7 @@ tpanelparentwin_usertweets::~tpanelparentwin_usertweets() {
 	pimpl()->usertpanelmap.erase(std::make_pair(pimpl()->user->id, pimpl()->type));
 }
 
-std::shared_ptr<tpanel> tpanelparentwin_usertweets::MkUserTweetTPanel(const std::shared_ptr<userdatacontainer> &user, RBFS_TYPE type_) {
+std::shared_ptr<tpanel> tpanelparentwin_usertweets::MkUserTweetTPanel(udc_ptr_p user, RBFS_TYPE type_) {
 	std::shared_ptr<tpanel> &tp = tpanelparentwin_usertweets_impl::usertpanelmap[std::make_pair(user->id, type_)];
 	if(!tp) {
 		tp = tpanel::MkTPanel("___UTL_" + std::to_string(user->id) + "_" + std::to_string((size_t) type_), "User Timeline: @" + user->GetUser().screen_name, TPF::DELETEONWINCLOSE|TPF::USER_TIMELINE);
@@ -1917,7 +1917,7 @@ tpanelparentwin_userproplisting_impl *tpanelparentwin_userproplisting::pimpl() {
 	return static_cast<tpanelparentwin_userproplisting_impl *>(pimpl_ptr.get());
 }
 
-tpanelparentwin_userproplisting::tpanelparentwin_userproplisting(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent,
+tpanelparentwin_userproplisting::tpanelparentwin_userproplisting(udc_ptr_p user_, wxWindow *parent,
 		std::function<std::shared_ptr<taccount>(tpanelparentwin_userproplisting &)> getacc_, CS_ENUMTYPE type_, wxString thisname_,
 		tpanelparentwin_userproplisting_impl *privimpl)
 		: tpanelparentwin_user(parent, thisname_.empty() ? wxString::Format(wxT("tpanelparentwin_userproplisting for: %" wxLongLongFmtSpec "d"), user_->id) : thisname_,
@@ -1972,7 +1972,7 @@ void tpanelparentwin_userproplisting_impl::LoadMoreToBack(unsigned int n) {
 	bool querypendings=false;
 	size_t index=userlist.size();
 	for(size_t i=0; i<n && index<useridlist.size(); i++, index++) {
-		std::shared_ptr<userdatacontainer> u=ad.GetUserContainerById(useridlist[index]);
+		udc_ptr u = ad.GetUserContainerById(useridlist[index]);
 		if(PushBackUser(u)) {
 			u->udc_flags|=UDC::CHECK_USERLISTWIN;
 			tac->pendingusers[u->id]=u;

@@ -104,7 +104,7 @@ enum class UDC {
 };
 template<> struct enum_traits<UDC> { static constexpr bool flags = true; };
 
-struct userdatacontainer : std::enable_shared_from_this<userdatacontainer> {
+struct userdatacontainer {
 	uint64_t id;
 	userdata user;
 	uint64_t lastupdate;
@@ -246,8 +246,8 @@ struct tweet {
 	std::string source;
 	std::string text;
 	time_t createtime;
-	std::shared_ptr<userdatacontainer> user;		//for DMs this is the sender
-	std::shared_ptr<userdatacontainer> user_recipient;	//for DMs this is the recipient, for tweets, unset
+	udc_ptr user;		//for DMs this is the sender
+	udc_ptr user_recipient;	//for DMs this is the recipient, for tweets, unset
 	std::vector<entity> entlist;
 	tweet_perspective first_tp;
 	std::vector<tweet_perspective> tp_extra_list;
@@ -328,7 +328,7 @@ struct entity {
 	int end;
 	std::string text;
 	std::string fullurl;
-	std::shared_ptr<userdatacontainer> user;
+	udc_ptr user;
 	media_id_type media_id;
 
 	entity(ENT_ENUMTYPE t) : type(t) {}
@@ -387,10 +387,10 @@ struct media_entity {
 };
 
 struct userlookup {
-	std::forward_list<std::shared_ptr<userdatacontainer> > users_queried;
+	std::forward_list<udc_ptr> users_queried;
 	~userlookup();
 	void UnMarkAll();
-	void Mark(std::shared_ptr<userdatacontainer> udc);
+	void Mark(udc_ptr udc);
 	void GetIdList(std::string &idlist) const;
 };
 
@@ -415,8 +415,8 @@ inline unsigned int TwitterCharCount(const std::string &str) {
 	return TwitterCharCount(str.c_str(), str.size());
 }
 
-bool IsUserMentioned(const char *in, size_t inlen, const std::shared_ptr<userdatacontainer> &u);
-inline bool IsUserMentioned(const std::string &str, const std::shared_ptr<userdatacontainer> &u) {
+bool IsUserMentioned(const char *in, size_t inlen, udc_ptr_p u);
+inline bool IsUserMentioned(const std::string &str, udc_ptr_p u) {
 	return IsUserMentioned(str.c_str(), str.size(), u);
 }
 

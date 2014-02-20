@@ -222,24 +222,25 @@ alldata::alldata()
 
 alldata::~alldata() { }
 
-std::shared_ptr<userdatacontainer> &alldata::GetUserContainerById(uint64_t id) {
-	std::shared_ptr<userdatacontainer> &usercont=userconts[id];
-	if(!usercont) {
-		usercont=std::make_shared<userdatacontainer>();
+udc_ptr alldata::GetUserContainerById(uint64_t id) {
+	auto it = userconts.insert(std::make_pair(id, userdatacontainer()));
+	udc_ptr usercont = &(it.first->second);
+	if(it.second) {
+		//new user
 		usercont->id=id;
 		usercont->lastupdate=0;
 		usercont->udc_flags=0;
 	}
-	return usercont;
+	return std::move(usercont);
 }
 
-std::shared_ptr<userdatacontainer> *alldata::GetExistingUserContainerById(uint64_t id) {
-	auto it=userconts.find(id);
-	if(it!=userconts.end()) {
+udc_ptr alldata::GetExistingUserContainerById(uint64_t id) {
+	auto it = userconts.find(id);
+	if(it != userconts.end()) {
 		return &(it->second);
 	}
 	else {
-		return 0;
+		return nullptr;
 	}
 }
 

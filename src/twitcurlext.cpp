@@ -430,7 +430,7 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
 			if(httpcode==404) {	//we have at least one dead user
 				if(fl->ids.size()==1) {
 					//this is the one
-					std::shared_ptr<userdatacontainer> u=ad.GetUserContainerById(*(fl->ids.begin()));
+					udc_ptr u=ad.GetUserContainerById(*(fl->ids.begin()));
 					u->GetUser().u_flags|=userdata::UF::ISDEAD;
 					LogMsgFormat(LOGT::SOCKERR, wxT("Friend lookup failed, bad account: user id: %" wxLongLongFmtSpec "d (%s), (%s)"), u->id, wxstrstd(u->GetUser().screen_name).c_str(), acc->dispname.c_str());
 				}

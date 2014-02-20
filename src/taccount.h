@@ -88,14 +88,14 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	time_t last_stream_end_time;
 	unsigned int dbindex;
 	connpool<twitcurlext> cp;
-	std::shared_ptr<userdatacontainer> usercont;
+	udc_ptr usercont;
 	std::unordered_map<uint64_t,user_relationship> user_relations;
 
 	//any tweet or DM in this list *must* be either in ad.tweetobjs, or in the database
 	tweetidset tweet_ids;
 	tweetidset dm_ids;
 
-	std::unordered_map<uint64_t,std::shared_ptr<userdatacontainer> > pendingusers;
+	std::unordered_map<uint64_t,udc_ptr> pendingusers;
 	std::forward_list<restbackfillstate> pending_rbfs_list;
 
 	std::deque<twitcurlext *> failed_pending_conns;	//strict subset of cp.activeset
@@ -132,7 +132,7 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	void GetRestBackfill();
 	void LookupFriendships(uint64_t userid);
 
-	void MarkUserPending(const std::shared_ptr<userdatacontainer> &user);
+	void MarkUserPending(udc_ptr_p user);
 	bool MarkPendingOrHandle(const std::shared_ptr<tweet> &t, flagwrapper<ARRIVAL> arr);
 	bool CheckMarkPending(const std::shared_ptr<tweet> &t);
 	void FastMarkPending(const std::shared_ptr<tweet> &t, flagwrapper<PENDING>);

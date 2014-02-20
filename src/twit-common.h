@@ -22,6 +22,7 @@
 #include "univdefs.h"
 #include "flags.h"
 #include "tweetidset.h"
+#include "ptr_types.h"
 #include <bitset>
 
 struct userdatacontainer;

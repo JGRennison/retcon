@@ -192,7 +192,7 @@ struct tpanelparentwin_usertweets_impl : public tpanelparentwin_nt_impl {
 	tpanelparentwin_usertweets_impl(tpanelparentwin_usertweets *base_)
 			: tpanelparentwin_nt_impl(base_) { }
 
-	std::shared_ptr<userdatacontainer> user;
+	udc_ptr user;
 	std::function<std::shared_ptr<taccount>(tpanelparentwin_usertweets &)> getacc;
 	static std::map<std::pair<uint64_t, RBFS_TYPE>, std::shared_ptr<tpanel> > usertpanelmap;	//use map rather than unordered_map due to the hassle associated with specialising std::hash
 	bool havestarted;
@@ -211,15 +211,15 @@ struct tpanelparentwin_user_impl : public panelparentwin_base_impl {
 	tpanelparentwin_user_impl(tpanelparentwin_user *base_)
 			: panelparentwin_base_impl(base_) { }
 
-	std::deque< std::shared_ptr<userdatacontainer> > userlist;
+	std::deque< udc_ptr> userlist;
 	static std::multimap<uint64_t, tpanelparentwin_user*> pendingmap;
 
 	virtual void PageUpHandler() override;
 	virtual void PageDownHandler() override;
 	virtual void PageTopHandler() override;
 	virtual size_t ItemCount() { return userlist.size(); }
-	bool PushBackUser(const std::shared_ptr<userdatacontainer> &u);
-	bool UpdateUser(const std::shared_ptr<userdatacontainer> &u, size_t offset);
+	bool PushBackUser(udc_ptr_p u);
+	bool UpdateUser(udc_ptr_p u, size_t offset);
 	virtual void LoadMoreToBack(unsigned int n) { }
 };
 
@@ -232,7 +232,7 @@ struct tpanelparentwin_userproplisting_impl : public tpanelparentwin_user_impl {
 			: tpanelparentwin_user_impl(base_) { }
 
 	std::deque<uint64_t> useridlist;
-	std::shared_ptr<userdatacontainer> user;
+	udc_ptr user;
 	std::function<std::shared_ptr<taccount>(tpanelparentwin_userproplisting &)> getacc;
 	bool havestarted;
 	bool failed = false;

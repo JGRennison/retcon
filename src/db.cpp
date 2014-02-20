@@ -1156,7 +1156,7 @@ void dbconn::UpdateTweetDyn(const std::shared_ptr<tweet> &tobj, dbsendmsg_list *
 	SendMessageOrAddToList(msg, msglist);
 }
 
-void dbconn::InsertUser(const std::shared_ptr<userdatacontainer> &u, dbsendmsg_list *msglist) {
+void dbconn::InsertUser(udc_ptr_p u, dbsendmsg_list *msglist) {
 	dbinsertusermsg *msg = new dbinsertusermsg();
 	msg->id = u->id;
 	msg->json=u->mkjson();
@@ -1340,7 +1340,7 @@ void dbconn::SyncWriteBackAllUsers(sqlite3 *adb) {
 	sqlite3_stmt *stmt = cache.GetStmt(adb, DBPSC_INSUSER);
 	size_t user_count = 0;
 	for(auto &it : ad.userconts) {
-		userdatacontainer *u = it.second.get();
+		userdatacontainer *u = &(it.second);
 		if(u->lastupdate == u->lastupdate_wrotetodb) continue;    //this user is already in the database and does not need updating
 		if(u->user.screen_name.empty()) continue;               //don't bother saving empty user stubs
 		user_count++;
@@ -1380,7 +1380,7 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 		if(res == SQLITE_ROW) {
 			user_read_count++;
 			uint64_t id = (uint64_t) sqlite3_column_int64(stmt, 0);
-			std::shared_ptr<userdatacontainer> &ref = ad.GetUserContainerById(id);
+			udc_ptr ref = ad.GetUserContainerById(id);
 			userdatacontainer &u = *ref.get();
 			rapidjson::Document dc;
 			char *json = column_get_compressed_and_parse(stmt, 1, dc);
@@ -1909,7 +1909,7 @@ void DBC_UpdateTweetDyn(const std::shared_ptr<tweet> &tobj, dbsendmsg_list *msgl
 	dbc.UpdateTweetDyn(tobj, msglist);
 }
 
-void DBC_InsertUser(const std::shared_ptr<userdatacontainer> &u, dbsendmsg_list *msglist) {
+void DBC_InsertUser(udc_ptr_p u, dbsendmsg_list *msglist) {
 	dbc.InsertUser(u, msglist);
 }
 

@@ -125,11 +125,11 @@ struct tpanelparentwin_usertweets_impl;
 struct tpanelparentwin_usertweets : public tpanelparentwin_nt {
 	tpanelparentwin_usertweets_impl *pimpl();
 
-	tpanelparentwin_usertweets(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent,
+	tpanelparentwin_usertweets(udc_ptr &user_, wxWindow *parent,
 			std::function<std::shared_ptr<taccount>(tpanelparentwin_usertweets &)> getacc,
 			RBFS_TYPE type_ = RBFS_USER_TIMELINE, wxString thisname_ = wxT(""), tpanelparentwin_usertweets_impl *privimpl = 0);
 	~tpanelparentwin_usertweets();
-	static std::shared_ptr<tpanel> MkUserTweetTPanel(const std::shared_ptr<userdatacontainer> &user, RBFS_TYPE type_ = RBFS_USER_TIMELINE);
+	static std::shared_ptr<tpanel> MkUserTweetTPanel(udc_ptr_p user, RBFS_TYPE type_ = RBFS_USER_TIMELINE);
 	static std::shared_ptr<tpanel> GetUserTweetTPanel(uint64_t userid, RBFS_TYPE type_ = RBFS_USER_TIMELINE);
 	virtual bool IsSingleAccountWin() const override { return true; }
 	virtual void NotifyRequestFailed() override;
@@ -142,16 +142,16 @@ struct tpanelparentwin_user : public panelparentwin_base {
 
 	tpanelparentwin_user(wxWindow *parent, wxString thisname_ = wxT(""), tpanelparentwin_user_impl *privimpl = 0);
 	~tpanelparentwin_user();
-	bool PushBackUser(const std::shared_ptr<userdatacontainer> &u);
+	bool PushBackUser(udc_ptr_p u);
 	void LoadMoreToBack(unsigned int n);
-	static void CheckPendingUser(const std::shared_ptr<userdatacontainer> &u);
+	static void CheckPendingUser(udc_ptr_p u);
 };
 
 struct tpanelparentwin_userproplisting_impl;
 struct tpanelparentwin_userproplisting : public tpanelparentwin_user {
 	tpanelparentwin_userproplisting_impl *pimpl();
 
-	tpanelparentwin_userproplisting(std::shared_ptr<userdatacontainer> &user_, wxWindow *parent,
+	tpanelparentwin_userproplisting(udc_ptr_p user_, wxWindow *parent,
 			std::function<std::shared_ptr<taccount>(tpanelparentwin_userproplisting &)> getacc,
 			CS_ENUMTYPE type_, wxString thisname_ = wxT(""), tpanelparentwin_userproplisting_impl *privimpl = 0);
 	~tpanelparentwin_userproplisting();

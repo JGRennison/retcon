@@ -520,7 +520,7 @@ void tweetpostwin::OnCloseReplyDescBtn(wxCommandEvent &event) {
 	UpdateReplyDesc();
 }
 
-void CheckUserMentioned(bool &changed, const std::shared_ptr<userdatacontainer> &user, tweetposttextbox *textctrl) {
+void CheckUserMentioned(bool &changed, udc_ptr_p user, tweetposttextbox *textctrl) {
 	if(user && !IsUserMentioned(stdstrwx(textctrl->GetValue()), user)) {
 		textctrl->WriteText(wxT("@") + wxstrstd(user->GetUser().screen_name) + wxT(" "));
 		changed=true;
@@ -568,7 +568,7 @@ void tweetpostwin::SetReplyTarget(const std::shared_ptr<tweet> &targ) {
 	UpdateReplyDesc();
 	textctrl->SetCursorToEnd();
 }
-void tweetpostwin::SetDMTarget(const std::shared_ptr<userdatacontainer> &targ) {
+void tweetpostwin::SetDMTarget(udc_ptr_p targ) {
 	tweet_reply_targ.reset();
 	dm_targ=targ;
 	UpdateReplyDesc();

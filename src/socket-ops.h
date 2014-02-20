@@ -23,6 +23,7 @@
 #include "socket.h"
 #include "media_id_type.h"
 #include "flags.h"
+#include "ptr_types.h"
 
 struct dlconn : public mcurlconn {
 	CURL* curlHandle;
@@ -37,16 +38,16 @@ struct dlconn : public mcurlconn {
 };
 
 struct profileimgdlconn : public dlconn {
-	std::shared_ptr<userdatacontainer> user;
+	udc_ptr user;
 	static connpool<profileimgdlconn> cp;
 
-	void Init(const std::string &imgurl_, const std::shared_ptr<userdatacontainer> &user_);
+	void Init(const std::string &imgurl_, udc_ptr_p user_);
 
 	void NotifyDoneSuccess(CURL *easy, CURLcode res);
 	void Reset();
 	void DoRetry();
 	void HandleFailure(long httpcode, CURLcode res);
-	static profileimgdlconn *GetConn(const std::string &imgurl_, const std::shared_ptr<userdatacontainer> &user_);
+	static profileimgdlconn *GetConn(const std::string &imgurl_, udc_ptr_p user_);
 	virtual wxString GetConnTypeName();
 };
 

@@ -131,8 +131,8 @@ void taccount::LookupFriendships(uint64_t userid) {
 		for(auto it=user_relations.begin(); it!=user_relations.end() && fl->ids.size()<100; ++it) {
 			if(it->second.ur_flags & URF::QUERY_PENDING) continue;
 			if(!(it->second.ur_flags & URF::FOLLOWSME_KNOWN) || !(it->second.ur_flags & URF::FOLLOWSME_KNOWN)) {
-				std::shared_ptr<userdatacontainer> *usp = ad.GetExistingUserContainerById(it->first);
-				if(!(usp && (*usp)->GetUser().u_flags & userdata::UF::ISDEAD)) {
+				udc_ptr usp = ad.GetExistingUserContainerById(it->first);
+				if(!(usp && usp->GetUser().u_flags & userdata::UF::ISDEAD)) {
 					fl->ids.insert(it->first);
 					it->second.ur_flags |= URF::QUERY_PENDING;
 				}
@@ -141,7 +141,7 @@ void taccount::LookupFriendships(uint64_t userid) {
 
 		//fill up the rest of the query with users who we don't know if we have a relationship with
 		for(auto it = ad.userconts.begin(); it != ad.userconts.end() && fl->ids.size() < 100; ++it) {
-			if(it->second->GetUser().u_flags & userdata::UF::ISDEAD) continue;
+			if(it->second.GetUser().u_flags & userdata::UF::ISDEAD) continue;
 			if(user_relations.find(it->first) == user_relations.end()) fl->ids.insert(it->first);
 			user_relations[it->first].ur_flags |= URF::QUERY_PENDING;
 		}
@@ -257,7 +257,7 @@ void taccount::StartRestQueryPendings() {
 		unsigned int numusers=0;
 		while(it!=pendingusers.end() && numusers<100) {
 			auto curit=it;
-			std::shared_ptr<userdatacontainer> curobj=curit->second;
+			udc_ptr curobj=curit->second;
 			it++;
 			if(curobj->udc_flags & UDC::LOOKUP_IN_PROGRESS) ;	//do nothing
 			else if(curobj->NeedsUpdating(UPDCF::USEREXPIRE) || curobj->udc_flags & UDC::FORCE_REFRESH) {
@@ -505,7 +505,7 @@ void taccount::CalcEnabled() {
 	}
 }
 
-void taccount::MarkUserPending(const std::shared_ptr<userdatacontainer> &user) {
+void taccount::MarkUserPending(udc_ptr_p user) {
 	auto retval=pendingusers.insert(std::make_pair(user->id, user));
 	if(retval.second) {
 		LogMsgFormat(LOGT::PENDTRACE, wxT("Mark Pending: User: %" wxLongLongFmtSpec "d (@%s) for account: %s (%s)"), user->id, wxstrstd(user->GetUser().screen_name).c_str(), name.c_str(), dispname.c_str());
@@ -588,7 +588,7 @@ void taccount::NoAccPendingContentEvent() {
 	LogMsgFormat(LOGT::PENDTRACE, wxT("taccount::NoAccPendingContentEvent: account: %s, About to process %d tweets and %d users"), dispname.c_str(), ad.noacc_pending_tweetobjs.size(), ad.noacc_pending_userconts.size());
 
 	std::map<uint64_t,std::shared_ptr<tweet> > unhandled_tweets;
-	std::map<uint64_t,std::shared_ptr<userdatacontainer> > unhandled_users;
+	std::map<uint64_t,udc_ptr> unhandled_users;
 
 	for(auto &it : ad.noacc_pending_tweetobjs) {
 		std::shared_ptr<tweet> &t = it.second;
@@ -609,7 +609,7 @@ void taccount::NoAccPendingContentEvent() {
 	std::map<unsigned int, taccount*> queried_accs;
 
 	for(auto &it : ad.noacc_pending_userconts) {
-		std::shared_ptr<userdatacontainer> &u = it.second;
+		udc_ptr &u = it.second;
 		std::shared_ptr<taccount> curacc;
 		if(u->GetUsableAccount(curacc, true)) {
 			curacc->MarkUserPending(u);
