@@ -83,6 +83,8 @@ struct mcurlconn : public wxEvtHandler {
 	virtual void DoRetry() = 0;
 	virtual void HandleFailure(long httpcode, CURLcode res) = 0;    //may cause object death
 	virtual void KillConn();
+	virtual void AddToRetryQueueNotify() { }
+	virtual void RemoveFromRetryQueueNotify() { }
 	virtual MCC_HTTPERRTYPE CheckHTTPErrType(long httpcode);
 	virtual CURL *GenGetCurlHandle() = 0;
 	virtual wxString GetConnTypeName() { return wxT(""); }

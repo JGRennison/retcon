@@ -507,6 +507,22 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
 	else acc->cp.Standby(this);
 }
 
+void twitcurlext::AddToRetryQueueNotify() {
+	auto acc = tacc.lock();
+	if(scto) {
+		LogMsgFormat(LOGT::SOCKTRACE, wxT("twitcurlext::AddToRetryQueueNotify: Stopping stream connection timer: %s, conn: %p"), acc?acc->dispname.c_str():wxT(""), this);
+		scto->Stop();
+	}
+}
+
+void twitcurlext::RemoveFromRetryQueueNotify() {
+	auto acc = tacc.lock();
+	if(scto) {
+		LogMsgFormat(LOGT::SOCKTRACE, wxT("twitcurlext::RemoveFromRetryQueueNotify: Re-arming stream connection timer: %s, conn: %p"), acc?acc->dispname.c_str():wxT(""), this);
+		scto->Arm();
+	}
+}
+
 void StreamCallback( std::string &data, twitCurl* pTwitCurlObj, void *userdata ) {
 	twitcurlext *obj=(twitcurlext*) pTwitCurlObj;
 	std::shared_ptr<taccount> acc=obj->tacc.lock();

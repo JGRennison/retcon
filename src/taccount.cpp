@@ -443,6 +443,7 @@ void taccount::Exec() {
 			if(!target_streaming) {
 				for(auto it=cp.activeset.begin(); it!=cp.activeset.end(); ++it) {
 					if((*it)->tc_flags & twitcurlext::TCF::ISSTREAM) {
+						LogMsgFormat(LOGT::SOCKTRACE, wxT("taccount::Exec(): Closing stream connection: type: %s, conn: %p, url: %s"), (*it)->GetConnTypeName().c_str(), (*it), wxstrstd((*it)->url).c_str());
 						(*it)->KillConn();
 						cp.Standby(*it);	//kill stream, note this also modifies cp.activeset
 						break;

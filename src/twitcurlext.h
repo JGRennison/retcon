@@ -71,6 +71,8 @@ struct twitcurlext: public twitCurl, public mcurlconn {
 	void QueueAsyncExec();
 	void ExecRestGetTweetBackfill();
 	virtual wxString GetConnTypeName();
+	virtual void AddToRetryQueueNotify() override;
+	virtual void RemoveFromRetryQueueNotify() override;
 
 	DECLARE_EVENT_TABLE()
 };

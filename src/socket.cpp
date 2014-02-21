@@ -450,17 +450,27 @@ void socketmanager::DeInitMultiIOHandlerCommon() {
 }
 
 void socketmanager::RetryConn(mcurlconn *cs) {
+	if(cs->mcflags & mcurlconn::MCF::IN_RETRY_QUEUE) {
+		LogMsgFormat(LOGT::SOCKERR, wxT("socketmanager::RetryConn: Attempt to add mcurlconn to retry queue which is marked as already in queue, this is a bug: type: %s, conn: %p, url: %s"), cs->GetConnTypeName().c_str(), cs, wxstrstd(cs->url).c_str());
+		return;
+	}
+
 	retry_conns.push_back(cs);
 	cs->mcflags |= mcurlconn::MCF::IN_RETRY_QUEUE;
+	cs->AddToRetryQueueNotify();
 	RetryConnLater();
 }
 
 void socketmanager::UnregisterRetryConn(mcurlconn *cs) {
 	if(!(cs->mcflags & mcurlconn::MCF::IN_RETRY_QUEUE)) return;
 	for(auto it=retry_conns.begin(); it!=retry_conns.end(); ++it) {
-		if(*it==cs) *it=0;
+		if(*it == cs) {
+			LogMsgFormat(LOGT::SOCKTRACE, wxT("socketmanager::UnregisterRetryConn: Unregistered from retry queue: type: %s, conn: %p, url: %s"), cs->GetConnTypeName().c_str(), cs, wxstrstd(cs->url).c_str());
+			*it = 0;
+		}
 	}
 	cs->mcflags &= ~mcurlconn::MCF::IN_RETRY_QUEUE;
+	cs->RemoveFromRetryQueueNotify();
 }
 
 void socketmanager::RetryConnNow() {
@@ -474,6 +484,7 @@ void socketmanager::RetryConnNow() {
 	cs->mcflags &= ~mcurlconn::MCF::IN_RETRY_QUEUE;
 	cs->mcflags |= mcurlconn::MCF::RETRY_NOW_ON_SUCCESS;
 	LogMsgFormat(LOGT::SOCKTRACE, wxT("Dequeueing request from retry queue: type: %s, conn: %p, url: %s"), cs->GetConnTypeName().c_str(), cs, wxstrstd(cs->url).c_str());
+	cs->RemoveFromRetryQueueNotify();
 	cs->DoRetry();
 }
 
