@@ -105,10 +105,10 @@ enum class UDC {
 template<> struct enum_traits<UDC> { static constexpr bool flags = true; };
 
 struct userdatacontainer {
-	uint64_t id;
+	uint64_t id = 0;
 	userdata user;
-	uint64_t lastupdate;
-	uint64_t lastupdate_wrotetodb;
+	uint64_t lastupdate = 0;
+	uint64_t lastupdate_wrotetodb = 0;
 	flagwrapper<UDC> udc_flags;
 
 	std::string cached_profile_img_url;
@@ -324,8 +324,8 @@ typedef enum {
 
 struct entity {
 	ENT_ENUMTYPE type;
-	int start;
-	int end;
+	int start = 0;
+	int end = 0;
 	std::string text;
 	std::string fullurl;
 	udc_ptr user;
