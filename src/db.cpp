@@ -1094,10 +1094,10 @@ void dbconn::DeInit() {
 	LogMsg(LOGT::DBTRACE | LOGT::THREADTRACE, wxT("dbconn::DeInit(): Database thread terminated"));
 
 	if(!gc.readonlymode) {
+		WriteAllCFGOut(syncdb, gc, alist);
 		SyncWriteBackAllUsers(syncdb);
 		AccountIdListsSync(syncdb);
 		SyncWriteOutRBFSs(syncdb);
-		WriteAllCFGOut(syncdb, gc, alist);
 		SyncWriteBackCIDSLists(syncdb);
 		SyncWriteBackWindowLayout(syncdb);
 		SyncWriteBackTpanels(syncdb);
@@ -1340,6 +1340,10 @@ void dbconn::SyncWriteBackAllUsers(sqlite3 *adb) {
 	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncWriteBackAllUsers start"));
 	cache.BeginTransaction(adb);
 
+	DBWriteConfig dbwc(adb);
+	dbwc.SetDBIndexDB();
+	dbwc.WriteInt64("UserCountHint", ad.userconts.size());
+
 	sqlite3_stmt *stmt = cache.GetStmt(adb, DBPSC_INSUSER);
 	size_t user_count = 0;
 	for(auto &it : ad.userconts) {
@@ -1376,6 +1380,16 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 	const char sql[] = "SELECT id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex FROM users;";
 	sqlite3_stmt *stmt = 0;
 	sqlite3_prepare_v2(adb, sql, sizeof(sql), &stmt, 0);
+
+	uint64_t usercounthint = 0;
+	DBReadConfig dbrc(adb);
+	dbrc.SetDBIndexDB();
+	dbrc.ReadUInt64("UserCountHint", &usercounthint, 0);
+
+	if(usercounthint) {
+		LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncReadInAllUsers: got user count hint: %" wxLongLongFmtSpec "u."), usercounthint);
+		ad.userconts.reserve(usercounthint);
+	}
 
 	size_t user_read_count = 0;
 	do {
