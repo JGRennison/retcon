@@ -16,30 +16,50 @@
 //  2014 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-#ifndef HGUARD_SRC_PCH
-#define HGUARD_SRC_PCH
-
-#ifndef RETCON_NO_PCH
+#ifndef HGUARD_SRC_MAP
+#define HGUARD_SRC_MAP
 
 #include "univdefs.h"
-#include "flags.h"
-#include "set.h"
-#include "map.h"
-#include <list>
-#include <map>
-#include <deque>
-#include <vector>
-#include <set>
-#include <forward_list>
-#include <functional>
-#include <unordered_map>
-#include <string>
 #include <memory>
-#include <algorithm>
-#include <wx/string.h>
-#include <wx/event.h>
-#include <wx/app.h>
+#include <functional>
+#include <utility>
+
+#ifdef RETCON_STD_STL
+#include <map>
+#else
+
+#include <wx/version.h>
+#include <wx/defs.h>
+
+#if wxCHECK_GCC_VERSION(4, 6)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#pragma GCC diagnostic ignored "-Wshadow"
+#endif
+
+#include "cpp-btree/btree_map.h"
+
+#if wxCHECK_GCC_VERSION(4, 6)
+#pragma GCC diagnostic pop
+#endif
 
 #endif
+
+namespace container {
+
+template<
+	class Key,
+	class T,
+	class Compare = std::less<Key>,
+	class Allocator = std::allocator<std::pair<const Key, T> >
+> using map =
+
+#ifdef RETCON_STD_STL
+std::map<Key, T, Compare, Allocator>;
+#else
+btree::btree_map<Key, T, Compare, Allocator>;
+#endif
+
+};
 
 #endif

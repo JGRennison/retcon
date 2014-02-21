@@ -16,30 +16,48 @@
 //  2014 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
-#ifndef HGUARD_SRC_PCH
-#define HGUARD_SRC_PCH
-
-#ifndef RETCON_NO_PCH
+#ifndef HGUARD_SRC_SET
+#define HGUARD_SRC_SET
 
 #include "univdefs.h"
-#include "flags.h"
-#include "set.h"
-#include "map.h"
-#include <list>
-#include <map>
-#include <deque>
-#include <vector>
-#include <set>
-#include <forward_list>
-#include <functional>
-#include <unordered_map>
-#include <string>
 #include <memory>
-#include <algorithm>
-#include <wx/string.h>
-#include <wx/event.h>
-#include <wx/app.h>
+#include <functional>
+
+#ifdef RETCON_STD_STL
+#include <set>
+#else
+
+#include <wx/version.h>
+#include <wx/defs.h>
+
+#if wxCHECK_GCC_VERSION(4, 6)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#pragma GCC diagnostic ignored "-Wshadow"
+#endif
+
+#include "cpp-btree/btree_set.h"
+
+#if wxCHECK_GCC_VERSION(4, 6)
+#pragma GCC diagnostic pop
+#endif
 
 #endif
+
+namespace container {
+
+template<
+	class Key,
+	class Compare = std::less<Key>,
+	class Allocator = std::allocator<Key>
+> using set =
+
+#ifdef RETCON_STD_STL
+std::set<Key, Compare, Allocator>;
+#else
+btree::btree_set<Key, Compare, Allocator>;
+#endif
+
+};
 
 #endif
