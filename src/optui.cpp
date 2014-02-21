@@ -410,7 +410,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 		wxToggleButton *btn = new wxToggleButton(panel, 4000 + btnid, btnname);
 		btnbox->Add(btn, 0, wxALL, 2);
 		if(btnid == currentcat) btn->SetValue(true);
-		cat_buttons[id] = btn;
+		cat_buttons[btnid] = btn;
 	};
 	addbtn(OPTWIN_DISPLAY, wxT("Display"));
 	addbtn(OPTWIN_FORMAT, wxT("Format"));
