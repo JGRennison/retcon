@@ -454,7 +454,6 @@ void GenericMarkPending(tweet_ptr_p t, flagwrapper<PENDING> mark, const wxString
 bool MarkPending_TPanelMap(tweet_ptr_p tobj, tpanelparentwin_nt* win_, PUSHFLAGS pushflags = PUSHFLAGS::DEFAULT, std::shared_ptr<tpanel> *pushtpanel_ = 0);
 bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> acc_hint, dbseltweetmsg **existing_dbsel = 0);
 bool CheckLoadSingleTweet(tweet_ptr_p t, std::shared_ptr<taccount> &acc_hint);
-void MarkTweetIDSetAsRead(const tweetidset &ids, const tpanel *exclude);
 void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, tweetidset cached_id_sets::* idsetptr,
 		bool remove, std::function<void(tweet_ptr_p )> existingtweetfunc = std::function<void(tweet_ptr_p )>());
 void SendTweetFlagUpdate(const tweet &tw, unsigned long long mask);

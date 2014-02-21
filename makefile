@@ -179,6 +179,8 @@ endif
 
 -include $(ALL_OBJS:.o=.d) $(OBJDIR)/pch/pch.h.d
 
+MAKEDEPS = -MMD -MP -MT '$@ $(patsubst %.o,%.d,$(patsubst %.gch,%.d,$@))'
+
 ifndef nopch
 MPCFLAGS:=-I $(OBJDIR)/pch -include pch.h -Winvalid-pch
 $(OBJDIR)/pch/pch.h.gch: src/pch.h | $(DIRS)
@@ -187,8 +189,6 @@ $(OBJDIR)/pch/pch.h.gch: src/pch.h | $(DIRS)
 
 $(OBJS): $(OBJDIR)/pch/pch.h.gch
 endif
-
-MAKEDEPS = -MMD -MP -MT '$@ $(@:.o=.d)'
 
 #This is to avoid unpleasant side-effects of over-writing executable in-place if it is currently running
 $(TARGS): $(ALL_OBJS)
