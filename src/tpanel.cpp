@@ -1004,6 +1004,7 @@ void tpanelparentwin_nt_impl::markallreadevthandler(wxCommandEvent &event) {
 
 void tpanelparentwin_nt_impl::MarkSetRead() {
 	MarkSetRead(std::move(tp->cids.unreadids));
+	tp->cids.unreadids.clear(); //do not rely on presence of move semantics
 }
 
 void tpanelparentwin_nt::MarkSetRead(tweetidset &&subset) {
@@ -1036,6 +1037,7 @@ void tpanelparentwin_nt_impl::markremoveallhighlightshandler(wxCommandEvent &eve
 
 void tpanelparentwin_nt_impl::MarkSetUnhighlighted() {
 	MarkSetUnhighlighted(std::move(tp->cids.highlightids));
+	tp->cids.highlightids.clear(); //do not rely on presence of move semantics
 }
 
 void tpanelparentwin_nt::MarkSetUnhighlighted(tweetidset &&subset) {
