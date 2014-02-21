@@ -76,6 +76,20 @@ template <typename C, typename D> static bool CheckTransJsonValueDefFlag(C &var,
 	return res;
 }
 
+template <typename C, typename D> static bool CheckTransJsonValueDefTrackChanges(bool &changeflag, C &var, const rapidjson::Value& val, const char *prop, const D def, Handler *handler=0) {
+	C oldvar = var;
+	bool result = CheckTransJsonValueDef(var, val, prop, def, handler);
+	if(var != oldvar) changeflag = true;
+	return result;
+}
+
+template <typename C, typename D> static bool CheckTransJsonValueDefFlagTrackChanges(bool &changeflag, C &var, D flagmask, const rapidjson::Value& val, const char *prop, bool def, Handler *handler=0) {
+	C oldvar = var;
+	bool result = CheckTransJsonValueDefFlag(var, flagmask, val, prop, def, handler);
+	if((var & flagmask) != (oldvar & flagmask)) changeflag = true;
+	return result;
+}
+
 template <typename C, typename D> static C CheckGetJsonValueDef(const rapidjson::Value& val, const char *prop, const D def, Handler *handler=0, bool *hadval=0) {
 	const rapidjson::Value &subval=val[prop];
 	bool res=IsType<C>(subval);
@@ -383,27 +397,29 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, tweet_ptr_p t, 
 }
 
 void genjsonparser::ParseUserContents(const rapidjson::Value& val, userdata &userobj, bool is_ssl) {
-	CheckTransJsonValueDef(userobj.name, val, "name", "");
-	CheckTransJsonValueDef(userobj.screen_name, val, "screen_name", "");
-	CheckTransJsonValueDef(userobj.description, val, "description", "");
-	CheckTransJsonValueDef(userobj.location, val, "location", "");
-	CheckTransJsonValueDef(userobj.userurl, val, "url", "");
+	bool changed = false;
+	CheckTransJsonValueDefTrackChanges(changed, userobj.name, val, "name", "");
+	CheckTransJsonValueDefTrackChanges(changed, userobj.screen_name, val, "screen_name", "");
+	CheckTransJsonValueDefTrackChanges(changed, userobj.description, val, "description", "");
+	CheckTransJsonValueDefTrackChanges(changed, userobj.location, val, "location", "");
+	CheckTransJsonValueDefTrackChanges(changed, userobj.userurl, val, "url", "");
 	if(is_ssl) {
-		if(!CheckTransJsonValueDef(userobj.profile_img_url, val, "profile_image_url_https", "")) {
-			CheckTransJsonValueDef(userobj.profile_img_url, val, "profile_img_url", "");
+		if(!CheckTransJsonValueDefTrackChanges(changed, userobj.profile_img_url, val, "profile_image_url_https", "")) {
+			CheckTransJsonValueDefTrackChanges(changed, userobj.profile_img_url, val, "profile_img_url", "");
 		}
 	}
 	else {
-		if(!CheckTransJsonValueDef(userobj.profile_img_url, val, "profile_img_url", "")) {
-			CheckTransJsonValueDef(userobj.profile_img_url, val, "profile_image_url_https", "");
+		if(!CheckTransJsonValueDefTrackChanges(changed, userobj.profile_img_url, val, "profile_img_url", "")) {
+			CheckTransJsonValueDefTrackChanges(changed, userobj.profile_img_url, val, "profile_image_url_https", "");
 		}
 	}
-	CheckTransJsonValueDefFlag(userobj.u_flags, userdata::UF::ISPROTECTED, val, "protected", false);
-	CheckTransJsonValueDefFlag(userobj.u_flags, userdata::UF::ISVERIFIED, val, "verified", false);
-	CheckTransJsonValueDef(userobj.followers_count, val, "followers_count", userobj.followers_count);
-	CheckTransJsonValueDef(userobj.statuses_count, val, "statuses_count", userobj.statuses_count);
-	CheckTransJsonValueDef(userobj.friends_count, val, "friends_count", userobj.friends_count);
-	CheckTransJsonValueDef(userobj.favourites_count, val, "favourites_count", userobj.favourites_count);
+	CheckTransJsonValueDefFlagTrackChanges(changed, userobj.u_flags, userdata::UF::ISPROTECTED, val, "protected", false);
+	CheckTransJsonValueDefFlagTrackChanges(changed, userobj.u_flags, userdata::UF::ISVERIFIED, val, "verified", false);
+	CheckTransJsonValueDefTrackChanges(changed, userobj.followers_count, val, "followers_count", userobj.followers_count);
+	CheckTransJsonValueDefTrackChanges(changed, userobj.statuses_count, val, "statuses_count", userobj.statuses_count);
+	CheckTransJsonValueDefTrackChanges(changed, userobj.friends_count, val, "friends_count", userobj.friends_count);
+	CheckTransJsonValueDefTrackChanges(changed, userobj.favourites_count, val, "favourites_count", userobj.favourites_count);
+	if(changed) userobj.revision_number++;
 }
 
 void jsonparser::RestTweetUpdateParams(const tweet &t) {

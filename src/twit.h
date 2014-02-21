@@ -87,6 +87,9 @@ struct userdata {
 	unsigned int favourites_count;   //tweets this account has faved
 	std::string userurl;
 
+	//Any change to any other member of this struct, should increment this value
+	unsigned int revision_number = 0;
+
 	userdata() : u_flags(0), createtime(0), statuses_count(0), followers_count(0), friends_count(0), favourites_count(0) { }
 };
 template<> struct enum_traits<userdata::UF> { static constexpr bool flags = true; };
