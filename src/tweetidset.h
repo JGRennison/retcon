@@ -21,8 +21,9 @@
 
 #include "univdefs.h"
 #include <functional>
-#include <set>
+#include "set.h"
 
-typedef std::set<uint64_t, std::greater<uint64_t> > tweetidset;		//std::set, sorted in opposite order
+//note sorted in opposite order
+typedef container::set<uint64_t, std::greater<uint64_t> > tweetidset;
 
 #endif

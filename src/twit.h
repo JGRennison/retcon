@@ -27,6 +27,7 @@
 #include "flags.h"
 #include "hash.h"
 #include "media_id_type.h"
+#include "set.h"
 #include <memory>
 #include <functional>
 #include <wx/bitmap.h>
@@ -405,7 +406,7 @@ struct streamconntimeout : public wxTimer {
 struct friendlookup {
 	std::string GetTwitterURL() const;
 
-	std::set<uint64_t> ids;
+	container::set<uint64_t> ids;
 };
 
 void ParseTwitterDate(struct tm *createtm, time_t *createtm_t, const std::string &created_at);

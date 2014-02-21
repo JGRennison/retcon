@@ -25,6 +25,7 @@
 #include "hash.h"
 #include "media_id_type.h"
 #include "ptr_types.h"
+#include "set.h"
 #include <string>
 #include <memory>
 #include <deque>
@@ -140,7 +141,7 @@ struct dbseltweetmsg : public dbsendmsg_callback {
 	dbseltweetmsg() : dbsendmsg_callback(DBSM::SELTWEET), flags(0) { }
 
 	flagwrapper<DBSTMF> flags;
-	std::set<uint64_t> id_set;                      //ids to select
+	container::set<uint64_t> id_set;                //ids to select
 	std::forward_list<dbrettweetdata> data;         //return data
 	std::forward_list<dbretmediadata> media_data;   //return data
 };

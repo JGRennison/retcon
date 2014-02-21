@@ -28,6 +28,7 @@
 #include <string>
 #include <memory>
 #include <map>
+#include "map.h"
 
 struct tweet;
 struct media_entity;
@@ -38,8 +39,8 @@ struct alldata {
 	std::map<std::string,std::shared_ptr<tpanel> > tpanels;
 	std::unordered_map<media_id_type,std::unique_ptr<media_entity> > media_list;
 	std::unordered_map<std::string,media_id_type> img_media_map;
-	std::map<uint64_t,tweet_ptr> noacc_pending_tweetobjs;
-	std::map<uint64_t,udc_ptr> noacc_pending_userconts;
+	container::map<uint64_t, tweet_ptr> noacc_pending_tweetobjs;
+	container::map<uint64_t, udc_ptr> noacc_pending_userconts;
 	tweetidset unloaded_db_tweet_ids;
 	unsigned int next_media_id;
 	cached_id_sets cids;

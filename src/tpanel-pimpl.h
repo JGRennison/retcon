@@ -23,6 +23,7 @@
 #include "tpanel.h"
 #include "bind_wxevt.h"
 #include "twit.h"
+#include "map.h"
 #include <list>
 #include <map>
 #include <deque>
@@ -120,12 +121,12 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 	tweetdispscr_mouseoverwin *mouseoverwin = 0;
 	std::deque<std::pair<tweet_ptr, flagwrapper<PUSHFLAGS> > > pushtweetbatchqueue;
 	std::deque<std::pair<uint64_t, flagwrapper<PUSHFLAGS> > > removetweetbatchqueue;
-	std::map<uint64_t, bool> updatetweetbatchqueue;
+	container::map<uint64_t, bool> updatetweetbatchqueue;
 	std::deque<std::function<void(tpanelparentwin_nt *)> > batchedgenericactions;
 
 	//These hold tweet IDs and retweet source IDs
-	std::map<uint64_t, unsigned int> tweetid_count_map;
-	static std::map<uint64_t, unsigned int> all_tweetid_count_map;
+	container::map<uint64_t, unsigned int> tweetid_count_map;
+	static container::map<uint64_t, unsigned int> all_tweetid_count_map;
 
 	void PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
 	void RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);

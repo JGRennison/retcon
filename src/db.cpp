@@ -30,6 +30,7 @@
 #include "parse.h"
 #include "tpanel.h"
 #include "tpanel-data.h"
+#include "set.h"
 #ifdef __WINDOWS__
 #include <windows.h>
 #endif
@@ -800,7 +801,7 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags) {
 		if(fmsg) {
 			GetAccByDBIndex(fmsg->dbindex, acc);
 		}
-		std::set<uint64_t> missing_id_set = msg->id_set;
+		container::set<uint64_t> missing_id_set = msg->id_set;
 		for(auto &it : msg->data) {
 			missing_id_set.erase(it.id);
 		}

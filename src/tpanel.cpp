@@ -40,6 +40,7 @@
 #include "bind_wxevt.h"
 #include "filter/filter-dlg.h"
 #include "tpanel-wid.h"
+#include "map.h"
 #include <wx/choicdlg.h>
 #include <wx/textdlg.h>
 #include <wx/msgdlg.h>
@@ -617,7 +618,7 @@ EVT_BUTTON(TPPWID_MOREBTN, tpanelparentwin_nt_impl::morebtnhandler)
 EVT_TIMER(TPPWID_TIMER_BATCHMODE, tpanelparentwin_nt_impl::OnBatchTimerModeTimer)
 END_EVENT_TABLE()
 
-std::map<uint64_t, unsigned int> tpanelparentwin_nt_impl::all_tweetid_count_map;
+container::map<uint64_t, unsigned int> tpanelparentwin_nt_impl::all_tweetid_count_map;
 
 const tpanelparentwin_nt_impl *tpanelparentwin_nt::pimpl() const {
 	return static_cast<const tpanelparentwin_nt_impl *>(pimpl_ptr.get());
@@ -1474,7 +1475,7 @@ void tpanelparentwin_nt::IncTweetIDRefCounts(uint64_t tid, uint64_t rtid) {
 }
 
 void tpanelparentwin_nt::DecTweetIDRefCounts(uint64_t tid, uint64_t rtid) {
-	auto dec_tcm = [&](std::map<uint64_t, unsigned int> &tcm, uint64_t id) {
+	auto dec_tcm = [&](container::map<uint64_t, unsigned int> &tcm, uint64_t id) {
 		auto it = tcm.find(id);
 		if(it != tcm.end()) {
 			it->second--;
