@@ -109,6 +109,9 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"UPDATE OR IGNORE mediacache SET flags = ? WHERE (mid == ? AND tid == ?);",
 	"DELETE FROM acc WHERE id == ?;",
 	"UPDATE tweets SET flags = ? | (flags & ?) WHERE id == ?;",
+	"INSERT OR REPLACE INTO settings(accid, name, value) VALUES (?, ?, ?);",
+	"DELETE FROM settings WHERE (accid IS ?) AND (name IS ?)",
+	"SELECT value FROM settings WHERE (accid IS ?) AND (name IS ?);",
 };
 
 #define DBLogMsgFormat TSLogMsgFormat
@@ -1749,51 +1752,59 @@ void dbsendmsg_callback::SendReply(void *data, dbiothread *th) {
 }
 
 static const std::string globstr = "G";
+static const std::string globdbstr = "D";
 
 void DBGenConfig::SetDBIndexGlobal() {
-	dbindex_global=true;
+	dbindextype = DBI_TYPE::GLOBAL;
+}
+
+void DBGenConfig::SetDBIndexDB() {
+	dbindextype = DBI_TYPE::DB;
 }
 
 void DBGenConfig::SetDBIndex(unsigned int id) {
-	dbindex_global=false;
-	dbindex=id;
+	dbindextype = DBI_TYPE::ACC;
+	dbindex = id;
 }
 void DBGenConfig::bind_accid_name(sqlite3_stmt *stmt, const char *name) {
-	if(dbindex_global) sqlite3_bind_text(stmt, 1, globstr.c_str(), globstr.size(), SQLITE_STATIC);
-	else sqlite3_bind_int(stmt, 1, dbindex);
+	switch(dbindextype) {
+		case DBI_TYPE::GLOBAL:
+			sqlite3_bind_text(stmt, 1, globstr.c_str(), globstr.size(), SQLITE_STATIC);
+			break;
+		case DBI_TYPE::DB:
+			sqlite3_bind_text(stmt, 1, globdbstr.c_str(), globdbstr.size(), SQLITE_STATIC);
+			break;
+		case DBI_TYPE::ACC:
+			sqlite3_bind_int(stmt, 1, dbindex);
+			break;
+	}
 	sqlite3_bind_text(stmt, 2, name, -1, SQLITE_TRANSIENT);
 }
 
-DBGenConfig::DBGenConfig(sqlite3 *db_) : dbindex(0), dbindex_global(true), db(db_) { }
+DBGenConfig::DBGenConfig(sqlite3 *db_)
+		: dbindextype(DBI_TYPE::GLOBAL), dbindex(0), db(db_) { }
 
-DBWriteConfig::DBWriteConfig(sqlite3 *db_) : DBGenConfig(db_), stmt(0) {
-	sqlite3_prepare_v2(db, "INSERT OR REPLACE INTO settings(accid, name, value) VALUES (?, ?, ?);", -1, &stmt, 0);
-	sqlite3_prepare_v2(db, "DELETE FROM settings WHERE (accid IS ?) AND (name IS ?)", -1, &delstmt, 0);
-	sqlite3_stmt *exst = 0;
-	sqlite3_prepare_v2(db, "BEGIN;", -1, &exst, 0);
-	exec(exst);
-	sqlite3_finalize(exst);
+DBWriteConfig::DBWriteConfig(sqlite3 *db_) : DBGenConfig(db_) {
+	dbc.cache.BeginTransaction(db);
 }
 
 DBWriteConfig::~DBWriteConfig() {
-	sqlite3_stmt *exst = 0;
-	sqlite3_prepare_v2(db, "COMMIT;", -1, &exst, 0);
-	exec(exst);
-	sqlite3_finalize(exst);
-	sqlite3_finalize(stmt);
-	sqlite3_finalize(delstmt);
+	dbc.cache.EndTransaction(db);
 }
 void DBWriteConfig::WriteUTF8(const char *name, const char *strval) {
+	sqlite3_stmt *stmt = dbc.cache.GetStmt(db, DBPSC_INSSETTING);
 	bind_accid_name(stmt, name);
 	sqlite3_bind_text(stmt, 3, strval, -1, SQLITE_TRANSIENT);
 	exec(stmt);
 }
 void DBWriteConfig::WriteInt64(const char *name, int64_t val) {
+	sqlite3_stmt *stmt = dbc.cache.GetStmt(db, DBPSC_INSSETTING);
 	bind_accid_name(stmt, name);
 	sqlite3_bind_int64(stmt, 3, val);
 	exec(stmt);
 }
 void DBWriteConfig::Delete(const char *name) {
+	sqlite3_stmt *delstmt = dbc.cache.GetStmt(db, DBPSC_DELSETTING);
 	bind_accid_name(delstmt, name);
 	exec(delstmt);
 }
@@ -1809,20 +1820,10 @@ void DBWriteConfig::exec(sqlite3_stmt *wstmt) {
 	sqlite3_reset(wstmt);
 }
 
-DBReadConfig::DBReadConfig(sqlite3 *db_) : DBGenConfig(db_), stmt(0) {
-	sqlite3_prepare_v2(db, "SELECT value FROM settings WHERE (accid IS ?) AND (name IS ?);", -1, &stmt, 0);
-	sqlite3_stmt *exst = 0;
-	sqlite3_prepare_v2(db, "BEGIN;", -1, &exst, 0);
-	exec(exst);
-	sqlite3_finalize(exst);
+DBReadConfig::DBReadConfig(sqlite3 *db_) : DBGenConfig(db_) {
 }
 
 DBReadConfig::~DBReadConfig() {
-	sqlite3_stmt *exst = 0;
-	sqlite3_prepare_v2(db, "COMMIT;", -1, &exst, 0);
-	exec(exst);
-	sqlite3_finalize(exst);
-	sqlite3_finalize(stmt);
 }
 
 bool DBReadConfig::exec(sqlite3_stmt *rstmt) {
@@ -1836,6 +1837,7 @@ bool DBReadConfig::exec(sqlite3_stmt *rstmt) {
 }
 
 bool DBReadConfig::Read(const char *name, wxString *strval, const wxString &defval) {
+	sqlite3_stmt *stmt = dbc.cache.GetStmt(db, DBPSC_SELSETTING);
 	bind_accid_name(stmt, name);
 	bool ok = exec(stmt);
 	if(ok) {
@@ -1859,6 +1861,7 @@ bool DBReadConfig::ReadUInt64(const char *name, uint64_t *strval, uint64_t defva
 }
 
 bool DBReadConfig::ReadInt64(const char *name, int64_t *strval, int64_t defval) {
+	sqlite3_stmt *stmt = dbc.cache.GetStmt(db, DBPSC_SELSETTING);
 	bind_accid_name(stmt, name);
 	bool ok = exec(stmt);
 	if(ok) {

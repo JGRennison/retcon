@@ -20,6 +20,7 @@
 #define HGUARD_SRC_DB_CFG
 
 #include "univdefs.h"
+#include "flags.h"
 #include <wx/string.h>
 
 struct sqlite3;
@@ -27,12 +28,20 @@ struct sqlite3_stmt;
 
 struct DBGenConfig {
 	void SetDBIndexGlobal();
+	void SetDBIndexDB();
 	void SetDBIndex(unsigned int id);
 	DBGenConfig(sqlite3 *db_);
 
 	protected:
+	enum class DBI_TYPE {
+		ACC,
+		GLOBAL,
+		DB,
+	};
+	DBI_TYPE dbindextype;
 	unsigned int dbindex;
 	bool dbindex_global;
+	bool dbindex_db;
 	sqlite3 *db;
 	void bind_accid_name(sqlite3_stmt *stmt, const char *name);
 };
@@ -47,8 +56,6 @@ struct DBWriteConfig : public DBGenConfig {
 	~DBWriteConfig();
 
 	protected:
-	sqlite3_stmt *stmt;
-	sqlite3_stmt *delstmt;
 	void exec(sqlite3_stmt *stmt);
 };
 
@@ -61,7 +68,6 @@ struct DBReadConfig : public DBGenConfig {
 	~DBReadConfig();
 
 	protected:
-	sqlite3_stmt *stmt;
 	bool exec(sqlite3_stmt *stmt);
 };
 
