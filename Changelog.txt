@@ -1,3 +1,39 @@
+retcon 0.0.6
+------------------------------------------------------
+
+Add highlighted and unread tweet panels.
+Add custom manual tweet panels. Tweets can be added/removed individually or with filters.
+Add tweet flag n: do not automatically load image thumbnails over net.
+Add menu command to purge individual tweet's cached image data.
+Add menu command to toggle no auto-load image previews.
+Add filter variable anyuser, test multiple users in a tweet in one go.
+Add second tweet filter which processes all incoming tweets, not just timeline ones.
+Add support for applying a filter to existing tweets in a panel.
+Fix duplicated tweets in panels in some edge cases.
+Fix duplicated tweet entities being displayed in some edge cases.
+Fix issues with the media cache, when the persistent media cache setting was changed at run-time.
+Fix infinite loop in user window following/followers edge case.
+Fix various issues with inline tweet replies.
+Fix scrolling and loading behaviour for user timelines.
+Fix tweet panel label not being updated when newly pushed items were not displayed.
+Fix undefined behaviour when a stream failed and subsequently timed out.
+Various GUI changes to reduce update flicker and scroll noise.
+Various minor fixes to database handling code.
+Improved performance in a number of areas.
+Slightly reduce memory usage and start-up times.
+Don't display mark older/newer unread/highlighted in menu for inline tweet replies.
+Change default tweet display formats to include retweet/fav counts, and the source client.
+Use threads for file IO and processing of images.
+Use PCRE's JIT engine if it's available.
+Disabling SSL for Twitter API connections is now a "very advanced" option.
+Fix omission and add examples to filter documentation.
+Add readme and command line documentation.
+Fix map generation in makefile, various minor changes to makefile.
+Add test/debug switch: -r/--read-only, to do no disk writes except for user requests (save image/logs/etc.).
+Add a notice to the title-bar in debug builds.
+Switch from Mercurial to Git. Main repository moved to Github.
+
+
 retcon 0.0.5
 ------------------------------------------------------
 
