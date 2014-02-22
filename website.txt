@@ -1,8 +1,0 @@
-The project is currently hosted at:
-https://github.com/JGRennison/retcon
-
-The project was previously hosted at:
-https://bitbucket.org/JGRennison/retcon
-
-Windows binaries are available at:
-https://sourceforge.net/projects/retcon/
