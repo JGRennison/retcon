@@ -183,6 +183,11 @@ MAKEDEPS = -MMD -MP -MT '$@ $(patsubst %.o,%.d,$(patsubst %.gch,%.d,$@))'
 
 ifndef nopch
 MPCFLAGS:=-I $(OBJDIR)/pch -include pch.h -Winvalid-pch
+
+#These cannot be reliably suppressed locally when using PCHs
+MPCFLAGS += -Wno-strict-aliasing
+COMMONCFLAGS:=$(filter-out -Wshadow,$(COMMONCFLAGS))
+
 $(OBJDIR)/pch/pch.h.gch: src/pch.h | $(DIRS)
 	@echo '    g++ PCH $<'
 	$(call EXEC,$(GCC) -c src/pch.h -o $(OBJDIR)/pch/pch.h.gch $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS) $(MAKEDEPS))
