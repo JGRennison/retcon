@@ -358,9 +358,9 @@ wxStaticBoxSizer *settings_window::AddGenoptconfSettingBlock(wxWindow* parent, w
 		vbox->Show(lb, show);
 	});
 
-	AddSettingRow_Bool(OPTWIN_TWITTER, parent, fgs,  wxT("Use SSL (recommended)"), flags, goc.ssl, parentgoc.ssl);
 	AddSettingRow_Bool(OPTWIN_TWITTER, parent, fgs,  wxT("Use User Streams (recommended)"), flags, goc.userstreams, parentgoc.userstreams);
 	AddSettingRow_String(OPTWIN_TWITTER, parent, fgs, wxT("REST API Polling Interval / seconds"), flags|DBCV::ADVOPTION, goc.restinterval, parentgoc.restinterval, wxFILTER_NUMERIC);
+	AddSettingRow_Bool(OPTWIN_TWITTER, parent, fgs,  wxT("Use SSL\n(Very strongly recommended)"), flags|DBCV::VERYADVOPTION, goc.ssl, parentgoc.ssl);
 	AddSettingRow_String(OPTWIN_TWITTER, parent, fgs, wxT("Twitter API Consumer Key Override"), flags|DBCV::HIDDENDEFAULT|DBCV::VERYADVOPTION, goc.tokenk, parentgoc.tokenk);
 	AddSettingRow_String(OPTWIN_TWITTER, parent, fgs, wxT("Twitter API Consumer Secret Override"), flags|DBCV::HIDDENDEFAULT|DBCV::VERYADVOPTION, goc.tokens, parentgoc.tokens);
 	return sbox;
