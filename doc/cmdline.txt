@@ -1,0 +1,44 @@
+All command line switches are optional.
+Most users will not need to use these.
+
+-r, --read-only
+	Do not write to the database or cache files.
+	Do no disk writes except for user requests (saving images/logging/etc.).
+	Note that any data acquired in this mode is lost on exit.
+
+-d, --data-dir <dir>
+	Use <dir> as the root directory for all local configuration/saved data.
+	The default is platform specific, but generally: ~/.retcon (except for on Windows).
+
+-w, --log-window <log categories>
+	Open the log window on initialisation.
+
+-s, --log-stderr <log categories>
+	Additionally log to STDERR
+
+-f, --log-file <log categories> <file name>
+	Additionally log to a file
+
+-a, --log-file-auto <log categories>
+	Additionally log to a file in the current directory with an automatic name
+	This is currently formatted as retcon-log-%Y%m%dT%H%M%SZ.log
+
+-F, --log-fflush
+	Flush log files to disk after each line
+
+
+Log categories:
+This is a string formed of zero or more items from the lists below, seperated by whitespace or commas.
+These correspond with the categories in the log window.
+
+Metacategories:
+* all
+	All logging categories
+* err
+	All errors
+* def default
+	The default log window categories (currently: err, userreq)
+
+Categories (see code for details).
+curlverb, parsetrace, parseerr, socktrace, sockerr, tpanel, netaction, dbtrace, dberr, ztrace, zerr,
+othertrace, othererr, userreq, pendingtrace, wxlog, wxverbose, filtererr, filtertrace, threadtrace, fileiotrace, fileioerr
