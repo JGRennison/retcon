@@ -309,6 +309,7 @@ struct tweet {
 
 	//! Use with caution
 	//! Intended for bulk CIDS operations which do their own state tracking
+	//! This is also used when loading tweets out of the DB to set flags_at_prev_update to flags
 	void IgnoreChangeToFlagsByMask(unsigned long long mask) {
 		tweet_flags tmask(mask);
 		flags_at_prev_update &= ~tmask;

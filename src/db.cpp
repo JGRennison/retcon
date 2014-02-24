@@ -867,7 +867,13 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags) {
 		t->user = ad.GetUserContainerById(dt.user1);
 		if(dt.user2) t->user_recipient=ad.GetUserContainerById(dt.user2);
 		t->createtime = (time_t) dt.timestamp;
+
 		new (&t->flags) tweet_flags(dt.flags);
+
+		//This sets flags_at_prev_update to the new value of flags
+		//This prevents subsequent flag changes being missed without needing to do an update
+		t->IgnoreChangeToFlagsByMask(~static_cast<unsigned long long>(0));
+
 		if(dt.rtid) {
 			t->rtsrc = ad.GetTweetById(dt.rtid);
 		}
