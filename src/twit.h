@@ -314,6 +314,8 @@ struct tweet {
 		flags_at_prev_update &= ~tmask;
 		flags_at_prev_update |= flags & tmask;
 	}
+
+	tweet_flags GetFlagsAtPrevUpdate() const { return flags_at_prev_update; }
 };
 template<> struct enum_traits<tweet::GUAF> { static constexpr bool flags = true; };
 template<> struct enum_traits<tweet::CFUF> { static constexpr bool flags = true; };

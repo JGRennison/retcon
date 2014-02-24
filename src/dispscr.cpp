@@ -889,6 +889,16 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 				} while(next);
 				break;
 			}
+			case 'y': { //debug codes
+				i++;
+				if(i >= format.size()) break;
+				switch((wxChar) format[i]) {
+					case 'F':
+						str += wxstrstd(tw.GetFlagsAtPrevUpdate().GetString());
+						break;
+				}
+				break;
+			}
 			default: {
 				GenFmtCodeProc(obj, i, format, str);
 				break;
