@@ -30,9 +30,93 @@
 #include "dispscr.h"
 #include "res.h"
 #include "cfg.h"
+#include "uiutil.h"
+#include <wx/dcmirror.h>
 
 enum {
 	NOTEBOOK_ID=42,
+};
+
+struct TabArtReverseVideoDC : public wxMirrorDC {
+	wxDC &targdc;
+	wxColour pivot;
+
+	TabArtReverseVideoDC(wxDC& dc, wxColour pivot_)
+		: wxMirrorDC(dc, false), targdc(dc), pivot(pivot_) { }
+
+	wxColour PivotColour(const wxColour &in) {
+		double br = in.Red();
+		double bg = in.Green();
+		double bb = in.Blue();
+		double pr = pivot.Red();
+		double pg = pivot.Green();
+		double pb = pivot.Blue();
+
+		double factor = 0.35;
+		auto trans = [&](double &b, double p) {
+			double delta = b - p;
+			if(b > p) delta *= p / (255 - p);
+			else delta *= (255 - p) / p;
+			delta *= factor;
+			b = p - delta;
+		};
+		trans(br, pr);
+		trans(bg, pg);
+		trans(bb, pb);
+
+		return NormaliseColour(br, bg, bb);
+	}
+
+	virtual void SetBrush(const wxBrush& brush) override {
+		wxBrush newbrush = brush;
+		newbrush.SetColour(PivotColour(brush.GetColour()));
+		wxMirrorDC::SetBrush(newbrush);
+	}
+	virtual void SetPen(const wxPen& pen) override {
+		wxPen newpen = pen;
+		newpen.SetColour(PivotColour(pen.GetColour()));
+		wxMirrorDC::SetPen(newpen);
+	}
+	virtual void DoGradientFillLinear(const wxRect& rect, const wxColour& initialColour, const wxColour& destColour, wxDirection nDirection) override {
+		targdc.GradientFillLinear(rect, PivotColour(initialColour), PivotColour(destColour), nDirection);
+	}
+
+#ifdef __WXGTK__
+	virtual GdkWindow* GetGDKWindow() const { return targdc.GetGDKWindow(); }
+#endif
+};
+
+struct customTabArt : public wxAuiDefaultTabArt {
+	wxColour textcolour;
+	wxColour background;
+	bool reverse_video;
+
+	customTabArt(wxColour textcolour_, wxColour background_, bool reverse_video_)
+			: textcolour(textcolour_), background(background_), reverse_video(reverse_video_) {
+
+	}
+
+	virtual customTabArt* Clone() override {
+		return new customTabArt(textcolour, background,reverse_video);
+	}
+
+	virtual void DrawTab(wxDC& dc,
+                         wxWindow* wnd,
+                         const wxAuiNotebookPage& pane,
+                         const wxRect& in_rect,
+                         int close_button_state,
+                         wxRect* out_tab_rect,
+                         wxRect* out_button_rect,
+                         int* x_extent) override {
+		dc.SetTextForeground(textcolour);
+		if(reverse_video) {
+			TabArtReverseVideoDC revdc(dc, background);
+			wxAuiDefaultTabArt::DrawTab(revdc, wnd, pane, in_rect, close_button_state, out_tab_rect, out_button_rect, x_extent);
+		}
+		else {
+			wxAuiDefaultTabArt::DrawTab(dc, wnd, pane, in_rect, close_button_state, out_tab_rect, out_button_rect, x_extent);
+		}
+	}
 };
 
 BEGIN_EVENT_TABLE(tpanelnotebook, wxAuiNotebook)
@@ -47,7 +131,15 @@ tpanelnotebook::tpanelnotebook(mainframe *owner_, wxWindow *parent) :
 wxAuiNotebook(parent, NOTEBOOK_ID, wxDefaultPosition, wxDefaultSize, wxAUI_NB_TOP | wxAUI_NB_TAB_SPLIT | wxAUI_NB_TAB_MOVE | wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_TAB_EXTERNAL_MOVE | wxAUI_NB_CLOSE_ON_ALL_TABS | wxAUI_NB_WINDOWLIST_BUTTON),
 owner(owner_)
 {
+	wxColour foreground = GetForegroundColour();
+	wxColour background = GetBackgroundColour();
 
+	unsigned int forecount = foreground.Red() + foreground.Blue() + foreground.Green();
+	unsigned int backcount = background.Red() + background.Blue() + background.Green();
+
+	bool isreverse = forecount > backcount;
+
+	SetArtProvider(new customTabArt(foreground, background, isreverse));
 }
 
 void tpanelnotebook::dragdrophandler(wxAuiNotebookEvent& event) {

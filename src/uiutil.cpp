@@ -483,6 +483,10 @@ wxColour ColourOp(const wxColour &in, const wxColour &delta, COLOUR_OP co) {
 		bb = delta.Blue() - bb;
 	}
 
+	return NormaliseColour(br, bg, bb);
+}
+
+wxColour NormaliseColour(double br, double bg, double bb) {
 	double min = std::min({br, bg, bb});
 	if(min < 0) {
 		br -= min;

@@ -119,5 +119,6 @@ typedef enum {
 } COLOUR_OP;
 wxColour ColourOp(const wxColour &in, const wxColour &delta, COLOUR_OP co);
 wxColour ColourOp(const wxColour &in, const wxString &co_str);
+wxColour NormaliseColour(double br, double bg, double bb);
 
 #endif
