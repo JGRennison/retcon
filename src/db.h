@@ -141,9 +141,9 @@ struct dbseltweetmsg : public dbsendmsg_callback {
 	dbseltweetmsg() : dbsendmsg_callback(DBSM::SELTWEET), flags(0) { }
 
 	flagwrapper<DBSTMF> flags;
-	container::set<uint64_t> id_set;                //ids to select
-	std::forward_list<dbrettweetdata> data;         //return data
-	std::forward_list<dbretmediadata> media_data;   //return data
+	container::set<uint64_t> id_set;         // ids to select
+	std::deque<dbrettweetdata> data;         // return data
+	std::deque<dbretmediadata> media_data;   // return data
 };
 
 struct dbseltweetmsg_netfallback : public dbseltweetmsg {

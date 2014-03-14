@@ -429,7 +429,9 @@ template <typename C> void setfromcompressedblob(C func, sqlite3_stmt *stmt, int
 	free(blarray);
 }
 
-static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetmsg *m, std::forward_list<dbrettweetdata> &recv_data, std::forward_list<media_id_type> &media_ids, uint64_t id) {
+//! This calls itself for retweet sources, *unless* the retweet source ID is in idset
+//! This expects to be called in *ascending* ID order
+static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetmsg *m, std::deque<dbrettweetdata> &recv_data, std::deque<media_id_type> &media_ids, uint64_t id, const container::set<uint64_t> &idset, bool front_insert = false) {
 	sqlite3_bind_int64(stmt, 1, (sqlite3_int64) id);
 	int res = sqlite3_step(stmt);
 	uint64_t rtid = 0;
@@ -437,8 +439,14 @@ static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetm
 		#if DB_COPIOUS_LOGGING
 			DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM::SELTWEET got id:%" wxLongLongFmtSpec "d"), (sqlite3_int64) id);
 		#endif
-		recv_data.emplace_front();
-		dbrettweetdata &rd = recv_data.front();
+
+		// emplacing at the *back* in the normal case is to ensure that the resulting deque is (mostly) in *ascending* order of ID
+		// This ensures that tweets come before any retweets which use them as a source
+		// *front* emplacing is used to ensure that any missing retweet sources come before any tweets which use them
+		if(front_insert) recv_data.emplace_front();
+		else recv_data.emplace_back();
+		dbrettweetdata &rd = front_insert ? recv_data.front() : recv_data.back();
+
 		size_t outsize;
 		rd.id = (id);
 		rd.statjson = column_get_compressed(stmt, 0, outsize);
@@ -449,13 +457,13 @@ static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetm
 		rd.timestamp = (uint64_t) sqlite3_column_int64(stmt, 5);
 		rd.rtid = rtid = (uint64_t) sqlite3_column_int64(stmt, 7);
 
-		if(m->flags&DBSTMF::PULLMEDIA) {
+		if(m->flags & DBSTMF::PULLMEDIA) {
 			size_t mediaidarraysize;
 			unsigned char *mediaidarray = (unsigned char*) column_get_compressed(stmt, 6, mediaidarraysize);
 			mediaidarraysize &= ~15;
 			for(unsigned int i = 0; i < mediaidarraysize; i += 16) {    //stored in big endian format
-				media_ids.emplace_front();
-				media_id_type &md = media_ids.front();
+				media_ids.emplace_back();
+				media_id_type &md = media_ids.back();
 				for(unsigned int j = 0; j < 8; j++) md.m_id <<= 8, md.m_id |= mediaidarray[i + j];
 				for(unsigned int j = 8; j < 15; j++) md.t_id <<= 8, md.t_id |= mediaidarray[i + j];
 			}
@@ -465,8 +473,11 @@ static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetm
 	else { DBLogMsgFormat((m->flags&DBSTMF::NO_ERR) ? LOGT::DBTRACE : LOGT::DBERR, wxT("DBSM::SELTWEET got error: %d (%s) for id: %" wxLongLongFmtSpec "d, net fallback flag: %d"),
 			res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) id, (m->flags & DBSTMF::NET_FALLBACK) ? 1 : 0); }
 	sqlite3_reset(stmt);
-	if(rtid) {
-		ProcessMessage_SelTweet(db, stmt, m, recv_data, media_ids, rtid);
+
+	if(rtid && idset.find(rtid) == idset.end()) {
+		// This is a retweet, if we're not already loading the retweet source, load it here
+		// Note that this is front emplaced in *front* of the retweet which needs it
+		ProcessMessage_SelTweet(db, stmt, m, recv_data, media_ids, rtid, idset, true);
 	}
 }
 
@@ -513,10 +524,12 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 		case DBSM::SELTWEET: {
 			dbseltweetmsg *m = (dbseltweetmsg*) msg;
 			sqlite3_stmt *stmt=cache.GetStmt(db, DBPSC_SELTWEET);
-			std::forward_list<dbrettweetdata> recv_data;
-			std::forward_list<media_id_type> media_ids;
+			std::deque<dbrettweetdata> recv_data;
+			std::deque<media_id_type> media_ids;
+
+			//This is *ascending* ID order
 			for(auto it = m->id_set.cbegin(); it != m->id_set.cend(); ++it) {
-				ProcessMessage_SelTweet(db, stmt, m, recv_data, media_ids, *it);
+				ProcessMessage_SelTweet(db, stmt, m, recv_data, media_ids, *it, m->id_set);
 			}
 			m->media_data.clear();
 			if(!media_ids.empty()) {
