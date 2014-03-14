@@ -864,7 +864,6 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP
 				tobj->user_recipient=CheckParseUserObj(recipientid, val["recipient"], *this);
 			}
 		}
-		tobj->updcf_flags|=UPDCF::USEREXPIRE;
 	}
 	else UpdateTweet(*tobj);
 
@@ -942,7 +941,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP
 	}
 
 	if(!have_checked_pending) is_ready = tac->MarkPendingOrHandle(tobj, arr);
-	if(tobj->lflags & TLF::ISPENDING && is_ready) UnmarkPendingTweet(tobj);
+	if(tobj->lflags & TLF::ISPENDING && is_ready) TryUnmarkPendingTweet(tobj);
 
 	if(tobj->lflags&TLF::SHOULDSAVEINDB || tobj->lflags&TLF::SAVED_IN_DB) {
 		if(!(tobj->lflags&TLF::SAVED_IN_DB)) {

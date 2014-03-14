@@ -260,7 +260,7 @@ void taccount::StartRestQueryPendings() {
 			udc_ptr curobj=curit->second;
 			it++;
 			if(curobj->udc_flags & UDC::LOOKUP_IN_PROGRESS) ;	//do nothing
-			else if(curobj->NeedsUpdating(UPDCF::USEREXPIRE) || curobj->udc_flags & UDC::FORCE_REFRESH) {
+			else if(curobj->NeedsUpdating(PENDING_REQ::USEREXPIRE) || curobj->udc_flags & UDC::FORCE_REFRESH) {
 				if(!ul) ul.reset(new userlookup());
 				ul->Mark(curobj);
 				numusers++;

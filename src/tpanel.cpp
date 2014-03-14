@@ -755,8 +755,8 @@ tweetdispscr *tpanelparentwin_nt_impl::PushTweetIndex(tweet_ptr_p t, size_t inde
 		hbox->Add(td->bm, 0, wxALL, 2);
 	}
 	else if(t->flags.Get('D') && t->user_recipient) {
-			t->user->ImgHalfIsReady(UPDCF::DOWNLOADIMG);
-			t->user_recipient->ImgHalfIsReady(UPDCF::DOWNLOADIMG);
+			t->user->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
+			t->user_recipient->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
 			td->bm = new profimg_staticbitmap(scrollwin, t->user->cached_profile_img_half, t->user->id, t->id, GetMainframe(), profimg_staticbitmap::PISBF::HALF);
 			td->bm2 = new profimg_staticbitmap(scrollwin, t->user_recipient->cached_profile_img_half, t->user_recipient->id, t->id, GetMainframe(), profimg_staticbitmap::PISBF::HALF);
 			int dim=gc.maxpanelprofimgsize/2;
@@ -1541,7 +1541,7 @@ void tpanelparentwin_impl::LoadMore(unsigned int n, uint64_t lessthanid, uint64_
 		if(stit==tp->tweetlist.cend()) break;
 
 		tweet_ptr tobj = ad.GetTweetById(*stit);
-		if(CheckFetchPendingSingleTweet(tobj, std::shared_ptr<taccount>(), &loadmsg)) {
+		if(CheckFetchPendingSingleTweet(tobj, std::shared_ptr<taccount>(), &loadmsg, PENDING_REQ::GUI_DEFAULT, PENDING_RESULT::GUI_DEFAULT)) {
 			PushTweet(tobj, pushflags);
 		}
 		else {
@@ -1661,7 +1661,7 @@ void tpanelparentwin_user_impl::PageUpHandler() {
 			it--;
 			displayoffset--;
 			udc_ptr_p u = *it;
-			if(u->IsReady(UPDCF::DOWNLOADIMG)) UpdateUser(u, displayoffset);
+			if(u->IsReady(PENDING_REQ::PROFIMG_DOWNLOAD)) UpdateUser(u, displayoffset);
 		}
 		CheckClearNoUpdateFlag();
 	}
@@ -1696,7 +1696,7 @@ void tpanelparentwin_user_impl::PageTopHandler() {
 		size_t i=0;
 		for(auto it=userlist.begin(); it!=userlist.end() && pushcount; ++it, --pushcount, i++) {
 			udc_ptr_p u = *it;
-			if(u->IsReady(UPDCF::DOWNLOADIMG)) UpdateUser(u, i);
+			if(u->IsReady(PENDING_REQ::PROFIMG_DOWNLOAD)) UpdateUser(u, i);
 		}
 		CheckClearNoUpdateFlag();
 	}
@@ -1745,7 +1745,7 @@ bool tpanelparentwin_user_impl::UpdateUser(udc_ptr_p u, size_t offset) {
 	}
 	auto pos=currentdisp.begin();
 	std::advance(pos, index);
-	if(u->IsReady(UPDCF::DOWNLOADIMG|UPDCF::USEREXPIRE)) {
+	if(u->IsReady(PENDING_REQ::PROFIMG_DOWNLOAD | PENDING_REQ::USEREXPIRE)) {
 		wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
 		userdispscr *td = new userdispscr(u, scrollwin, base(), hbox);
 

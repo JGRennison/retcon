@@ -339,8 +339,8 @@ LOGT StrToLogFlags(const wxString &str) {
 wxString tweet_log_line(const tweet *t) {
 	wxString sname = wxT("???");
 	if(t->user && !t->user->GetUser().screen_name.empty()) sname = wxstrstd(t->user->GetUser().screen_name);
-	wxString output = wxString::Format(wxT("Tweet: %" wxLongLongFmtSpec "d @%s (%.20s...) tflags: %s, lflags: 0x%X, updcf_flags: 0x%X, ready: %d, pending flags: 0x%X, TPs: "),
-			t->id, sname.c_str(), wxstrstd(t->text).c_str(), wxstrstd(t->flags.GetString()).c_str(), t->lflags, t->updcf_flags, (int) t->IsReadyConst(UPDCF::DEFAULT), CheckTweetPendings(*t));
+	wxString output = wxString::Format(wxT("Tweet: %" wxLongLongFmtSpec "d @%s (%.20s...) tflags: %s, lflags: 0x%X, pending (default): %d, TPs: "),
+			t->id, sname.c_str(), wxstrstd(t->text).c_str(), wxstrstd(t->flags.GetString()).c_str(), t->lflags, (int) t->IsPendingConst().IsReady());
 	bool needcomma = false;
 	t->IterateTP([&](const tweet_perspective &tp) {
 		wxString thistp = wxstrstd(tp.GetFlagStringWithName());
@@ -357,7 +357,7 @@ static void dump_pending_user_line(LOGT logflags, const wxString &indent, userda
 	LogMsgFormat(logflags, wxT("%sUser: %" wxLongLongFmtSpec "d (%s) udc_flags: 0x%X, last update: %" wxLongLongFmtSpec "ds ago"
 			", last DB update: %" wxLongLongFmtSpec "ds ago, image ready: %d, ready (nx): %d, ready (x): %d"),
 			indent.c_str(), u->id, wxstrstd(u->GetUser().screen_name).c_str(), u->udc_flags, (uint64_t) (now-u->lastupdate),
-			(uint64_t) (now-u->lastupdate_wrotetodb), u->ImgIsReady(0), u->IsReady(0), u->IsReady(UPDCF::USEREXPIRE));
+			(uint64_t) (now-u->lastupdate_wrotetodb), u->ImgIsReady(0), u->IsReady(0), u->IsReady(PENDING_REQ::USEREXPIRE));
 }
 
 static void dump_pending_tweet(LOGT logflags, const wxString &indent, const wxString &indentstep, tweet *t, userdatacontainer *exclude_user) {

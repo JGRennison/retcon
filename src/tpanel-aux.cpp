@@ -461,7 +461,8 @@ void tpanel_subtweet_pending_op::CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, 
 			t->GetUsableAccount(pacc, GUAF::NOERR) || t->GetUsableAccount(pacc, GUAF::NOERR | GUAF::USERENABLED);
 			subt->AddNewPendingOp(new tpanel_subtweet_pending_op(v, s, top_tds, tweet_load_count, top_tweet));
 			subt->lflags |= TLF::ISPENDING;
-			if(CheckFetchPendingSingleTweet(subt, pacc)) UnmarkPendingTweet(subt, 0);
+			CheckFetchPendingSingleTweet(subt, pacc);
+			TryUnmarkPendingTweet(subt, 0);
 		};
 
 		if(load_count == 0) {
@@ -508,12 +509,12 @@ void tpanel_subtweet_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF>
 		subtd->parent_tweet.set(tds);
 
 		if(t->rtsrc && gc.rtdisp) {
-			t->rtsrc->user->ImgHalfIsReady(UPDCF::DOWNLOADIMG);
+			t->rtsrc->user->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
 			subtd->bm = new profimg_staticbitmap(window->pimpl()->scrollwin, t->rtsrc->user->cached_profile_img_half, t->rtsrc->user->id, t->id, window->GetMainframe(), profimg_staticbitmap::PISBF::HALF);
 		}
 		else {
-		t->user->ImgHalfIsReady(UPDCF::DOWNLOADIMG);
-		subtd->bm = new profimg_staticbitmap(window->pimpl()->scrollwin, t->user->cached_profile_img_half, t->user->id, t->id, window->GetMainframe(), profimg_staticbitmap::PISBF::HALF);
+			t->user->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
+			subtd->bm = new profimg_staticbitmap(window->pimpl()->scrollwin, t->user->cached_profile_img_half, t->user->id, t->id, window->GetMainframe(), profimg_staticbitmap::PISBF::HALF);
 		}
 		subhbox->Add(subtd->bm, 0, wxALL, 1);
 		subhbox->Add(subtd, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);

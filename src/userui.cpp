@@ -71,7 +71,7 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	userwinmap[userid_] = this;
 	u = ad.GetUserContainerById(userid_);
 	u->udc_flags |= UDC::WINDOWOPEN;
-	u->ImgIsReady(UPDCF::DOWNLOADIMG);
+	u->ImgIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
 	CheckAccHint();
 
 	std::shared_ptr<taccount> acc = acc_hint.lock();

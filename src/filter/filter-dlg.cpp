@@ -196,7 +196,10 @@ struct applyfilter_pending_op : public pending_op {
 	std::shared_ptr<filter_set> apply_filter;
 
 	applyfilter_pending_op(std::shared_ptr<filter_set> apply_filter_)
-			: apply_filter(std::move(apply_filter_)) { }
+			: apply_filter(std::move(apply_filter_)) {
+		preq = PENDING_REQ::USEREXPIRE;
+		presult_required = PENDING_RESULT::CONTENT_READY;
+	}
 
 	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) override {
 		FilterOneTweet(*apply_filter, t);
@@ -214,7 +217,7 @@ void filter_dlg::ExecFilter() {
 
 	for(auto id : fdg->selectedset) {
 		tweet_ptr tobj = ad.GetTweetById(id);
-		if(CheckFetchPendingSingleTweet(tobj, std::shared_ptr<taccount>(), &loadmsg)) {
+		if(CheckFetchPendingSingleTweet(tobj, std::shared_ptr<taccount>(), &loadmsg, PENDING_REQ::USEREXPIRE, PENDING_RESULT::CONTENT_READY)) {
 			FilterOneTweet(*(fdg->apply_filter), tobj);
 		}
 		else {

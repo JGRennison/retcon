@@ -878,14 +878,11 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags) {
 			t->rtsrc = ad.GetTweetById(dt.rtid);
 		}
 
-		t->updcf_flags = UPDCF::DEFAULT;
 
 		if(!(flags & HDBSF::NOPENDINGS)) {
-			if(CheckMarkPending_GetAcc(t)) {
-				t->lflags &= ~TLF::BEINGLOADEDFROMDB;
-				UnmarkPendingTweet(t, UMPTF::TPDB_NOUPDF);
-			}
-			else {
+			flagwrapper<PENDING_BITS> res = TryUnmarkPendingTweet(t, UMPTF::TPDB_NOUPDF);
+			if(res) {
+				GenericMarkPending(t, res, wxT("dbconn::HandleDBSelTweetMsg"));
 				dbc.dbc_flags |= DBCF::REPLY_CHECKPENDINGS;
 			}
 		}

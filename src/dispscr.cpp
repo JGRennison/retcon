@@ -964,7 +964,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 			udc_ptr udcp = ad.GetExistingUserContainerById(b->userid);
 			if(!udcp) return;
 			if(b->pisb_flags & profimg_staticbitmap::PISBF::HALF) {
-				udcp->ImgHalfIsReady(UPDCF::DOWNLOADIMG);
+				udcp->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
 				b->SetBitmap(udcp->cached_profile_img_half);
 			}
 			else {

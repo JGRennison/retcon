@@ -54,18 +54,58 @@ struct dbsendmsg_list;
 
 void HandleNewTweet(tweet_ptr_p t, const std::shared_ptr<taccount> &acc, flagwrapper<ARRIVAL> arr);
 
-enum class UPDCF {
-	DOWNLOADIMG        = 1<<0,
-	USEREXPIRE         = 1<<1,
-	DEFAULT            = DOWNLOADIMG | USEREXPIRE,
-};
-template<> struct enum_traits<UPDCF> { static constexpr bool flags = true; };
+enum class PENDING_BITS : unsigned char;
+template<> struct enum_traits<PENDING_BITS> { static constexpr bool flags = true; };
 
-inline flagwrapper<UPDCF> ConstUPDCF(flagwrapper<UPDCF> updcf) {
-	return updcf & UPDCF::USEREXPIRE;
+enum class PENDING_REQ {
+	PROFIMG_NEED          = 1<<0,
+	PROFIMG_DOWNLOAD_FLAG = 1<<1,
+	USEREXPIRE            = 1<<2,
+	PROFIMG_DOWNLOAD      = PROFIMG_NEED | PROFIMG_DOWNLOAD_FLAG,
+	GUI_DEFAULT           = PROFIMG_NEED | PROFIMG_DOWNLOAD | USEREXPIRE,
+	DEFAULT               = GUI_DEFAULT,
+};
+template<> struct enum_traits<PENDING_REQ> { static constexpr bool flags = true; };
+
+enum class PENDING_RESULT {
+	CONTENT_READY          = 1<<0,
+	PROFIMG_READY          = 1<<1,
+
+	CONTENT_NOT_READY      = 1<<2,
+	PROFIMG_NOT_READY      = 1<<3,
+
+	READY                  = CONTENT_READY | PROFIMG_READY,
+	NOT_READY              = CONTENT_NOT_READY | PROFIMG_NOT_READY,
+	GUI_DEFAULT            = READY,
+	DEFAULT                = GUI_DEFAULT,
+};
+template<> struct enum_traits<PENDING_RESULT> { static constexpr bool flags = true; };
+
+struct PENDING_RESULT_combiner {
+	flagwrapper<PENDING_RESULT> &targ;
+
+	PENDING_RESULT_combiner(flagwrapper<PENDING_RESULT> &targ_) : targ(targ_) { }
+	void Combine(flagwrapper<PENDING_RESULT> other) {
+		targ &= other & PENDING_RESULT::READY;
+		targ |= other & PENDING_RESULT::NOT_READY;
+	}
+};
+
+inline flagwrapper<PENDING_REQ> ConstPendingReq(flagwrapper<PENDING_REQ> preq) {
+	return preq & PENDING_REQ::USEREXPIRE;
 }
 
-void UnmarkPendingTweet(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags = 0);
+enum class PENDING_BITS : unsigned char {
+	T_U                = 1<<0,
+	T_UR               = 1<<1,
+	RT_RTU             = 1<<2,
+	U                  = 1<<3,
+	UR                 = 1<<4,
+	RTU                = 1<<5,
+	RT_MISSING         = 1<<6,
+	ACCMASK            = U | UR | RTU,
+	NONACCMASK         = T_U | T_UR | RT_RTU | RT_MISSING,
+};
 
 struct userdata {
 	enum class UF {
@@ -130,8 +170,8 @@ struct userdatacontainer {
 	std::unique_ptr<mention_set_data> msd;
 
 	public:
-	bool NeedsUpdating(flagwrapper<UPDCF> updcf_flags, time_t timevalue = 0) const;
-	bool IsReady(flagwrapper<UPDCF> updcf_flags, time_t timevalue = 0);
+	bool NeedsUpdating(flagwrapper<PENDING_REQ> preq, time_t timevalue = 0) const;
+	flagwrapper<PENDING_RESULT> IsReady(flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT, time_t timevalue = 0);
 	void CheckPendingTweets(flagwrapper<UMPTF> umpt_flags = 0);
 	void MarkTweetPending(tweet_ptr_p t);
 	std::shared_ptr<taccount> GetAccountOfUser() const;
@@ -143,8 +183,8 @@ struct userdatacontainer {
 	static wxImage ScaleImageToProfileSize(const wxImage &img, double limitscalefactor = 1.0);
 	void SetProfileBitmap(const wxBitmap &bmp);
 	void Dump() const;
-	bool ImgIsReady(flagwrapper<UPDCF> updcf_flags);
-	bool ImgHalfIsReady(flagwrapper<UPDCF> updcf_flags);
+	bool ImgIsReady(flagwrapper<PENDING_REQ> preq);
+	bool ImgHalfIsReady(flagwrapper<PENDING_REQ> preq);
 	bool GetUsableAccount(std::shared_ptr<taccount> &tac, bool enabledonly = true) const;
 	std::string GetPermalink(bool ssl) const;
 	void NotifyProfileImageChange();
@@ -196,6 +236,10 @@ class tweet_perspective {
 };
 
 struct pending_op {
+	//give these sensible defaults
+	flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT;
+	flagwrapper<PENDING_RESULT> presult_required = PENDING_RESULT::DEFAULT;
+
 	virtual ~pending_op() { }
 
 	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) = 0;
@@ -242,6 +286,15 @@ enum class TLF {	//for tweet.lflags
 };
 template<> struct enum_traits<TLF> { static constexpr bool flags = true; };
 
+struct tweet_pending {
+	flagwrapper<PENDING_RESULT> result;
+	flagwrapper<PENDING_BITS> bits;
+
+	bool IsReady(flagwrapper<PENDING_RESULT> required = PENDING_RESULT::DEFAULT) {
+		return (result & required) == required;
+	}
+};
+
 struct tweet {
 	uint64_t id = 0;
 	uint64_t in_reply_to_status_id = 0;
@@ -256,8 +309,7 @@ struct tweet {
 	tweet_perspective first_tp;
 	std::vector<tweet_perspective> tp_extra_list;
 	tweet_ptr rtsrc;				//for retweets, this is the source tweet
-	flagwrapper<UPDCF> updcf_flags = UPDCF::DEFAULT;
-	std::forward_list<std::unique_ptr<pending_op> > pending_ops;
+	std::vector<std::unique_ptr<pending_op> > pending_ops;
 
 	tweet_flags flags;
 	flagwrapper<TLF> lflags = 0;
@@ -279,9 +331,8 @@ struct tweet {
 	};
 	bool GetUsableAccount(std::shared_ptr<taccount> &tac, flagwrapper<GUAF> guaflags = 0) const;
 
-	bool IsReady(flagwrapper<UPDCF> updcf_flags);
-	bool IsReady() { return IsReady(updcf_flags); }
-	bool IsReadyConst(flagwrapper<UPDCF> updcf) const { return const_cast<tweet *>(this)->IsReady(ConstUPDCF(updcf)); }
+	tweet_pending IsPending(flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT);
+	tweet_pending IsPendingConst(flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT) const { return const_cast<tweet *>(this)->IsPending(ConstPendingReq(preq)); }
 	bool IsFavouritable() const;
 	bool IsRetweetable() const;
 	bool IsArrivedHereAnyPerspective() const;
@@ -319,7 +370,7 @@ struct tweet {
 	tweet_flags GetFlagsAtPrevUpdate() const { return flags_at_prev_update; }
 
 	void AddNewPendingOp(pending_op *op) {
-		pending_ops.emplace_front(op);
+		pending_ops.emplace_back(op);
 	}
 };
 template<> struct enum_traits<tweet::GUAF> { static constexpr bool flags = true; };
@@ -437,32 +488,15 @@ inline bool IsUserMentioned(const std::string &str, udc_ptr_p u) {
 #endif
 #endif
 
-enum class PENDING : unsigned int;
-template<> struct enum_traits<PENDING> { static constexpr bool flags = true; };
-
-enum class PENDING : unsigned int {
-	T_U                = 1<<0,
-	T_UR               = 1<<1,
-	RT_RTU             = 1<<2,
-	U                  = 1<<3,
-	UR                 = 1<<4,
-	RTU                = 1<<5,
-	RT_MISSING         = 1<<6,
-	ACCMASK            = U | UR | RTU,
-	NONACCMASK         = T_U | T_UR | RT_RTU | RT_MISSING,
-};
-
-bool CheckMarkPending_GetAcc(tweet_ptr_p t);
-flagwrapper<PENDING> CheckTweetPendings(const tweet &t);
-inline flagwrapper<PENDING> CheckTweetPendings(tweet_ptr_p t) {
-	return CheckTweetPendings(*t);
-}
-void FastMarkPendingNonAcc(tweet_ptr_p t, flagwrapper<PENDING> mark);
-bool FastMarkPendingNoAccFallback(tweet_ptr_p t, flagwrapper<PENDING> mark, const wxString &logprefix);
-void GenericMarkPending(tweet_ptr_p t, flagwrapper<PENDING> mark, const wxString &logprefix, flagwrapper<tweet::GUAF> guaflags = 0);
+bool CheckMarkPending_GetAcc(tweet_ptr_p t, flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT, flagwrapper<PENDING_RESULT> presult = PENDING_RESULT::DEFAULT);
+flagwrapper<PENDING_BITS> TryUnmarkPendingTweet(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags = 0);
+void FastMarkPendingNonAcc(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark);
+bool FastMarkPendingNoAccFallback(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, const wxString &logprefix);
+void GenericMarkPending(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, const wxString &logprefix, flagwrapper<tweet::GUAF> guaflags = 0);
 
 bool MarkPending_TPanelMap(tweet_ptr_p tobj, tpanelparentwin_nt* win_, PUSHFLAGS pushflags = PUSHFLAGS::DEFAULT, std::shared_ptr<tpanel> *pushtpanel_ = 0);
-bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> acc_hint, dbseltweetmsg **existing_dbsel = 0);
+bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> acc_hint, dbseltweetmsg **existing_dbsel = 0,
+		flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT, flagwrapper<PENDING_RESULT> presult = PENDING_RESULT::DEFAULT);
 bool CheckLoadSingleTweet(tweet_ptr_p t, std::shared_ptr<taccount> &acc_hint);
 void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, tweetidset cached_id_sets::* idsetptr,
 		bool remove, std::function<void(tweet_ptr_p )> existingtweetfunc = std::function<void(tweet_ptr_p )>());

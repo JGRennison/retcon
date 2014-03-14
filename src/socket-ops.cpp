@@ -121,7 +121,7 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 					wxstrstd(url).c_str(), user->id, wxstrstd(user->GetUser().screen_name).c_str(), wxstrstd(user->GetUser().profile_img_url).c_str());
 
 			//Try again:
-			user->ImgIsReady(UPDCF::DOWNLOADIMG);
+			user->ImgIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
 		}
 	};
 

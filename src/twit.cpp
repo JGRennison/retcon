@@ -155,22 +155,24 @@ void streamconntimeout::Notify() {
 	tw->HandleError(tw->GetCurlHandle(),0,CURLE_OPERATION_TIMEDOUT);
 }
 
-bool userdatacontainer::NeedsUpdating(flagwrapper<UPDCF> updcf_flags, time_t timevalue) const {
+bool userdatacontainer::NeedsUpdating(flagwrapper<PENDING_REQ> preq, time_t timevalue) const {
 	if(!lastupdate) return true;
+	if(!GetUser().screen_name.size()) return true;
 	if(!timevalue) timevalue = time(0);
-	if(!(updcf_flags&UPDCF::USEREXPIRE) && GetUser().screen_name.size()) return false;
-	else {
+	if(preq & PENDING_REQ::USEREXPIRE) {
 		if((uint64_t) timevalue > (lastupdate + gc.userexpiretime)) return true;
 		else return false;
 	}
+	else return false;
 }
 
-bool userdatacontainer::ImgIsReady(flagwrapper<UPDCF> updcf_flags) {
+bool userdatacontainer::ImgIsReady(flagwrapper<PENDING_REQ> preq) {
 	if(udc_flags & UDC::IMAGE_DL_IN_PROGRESS) return false;
+	if(!(preq & PENDING_REQ::PROFIMG_NEED)) return false;
 	if(user.profile_img_url.size()) {
-		if(cached_profile_img_url!=user.profile_img_url) {
+		if(cached_profile_img_url != user.profile_img_url) {
 			if(udc_flags & UDC::PROFILE_IMAGE_DL_FAILED) return true;
-			if(updcf_flags&UPDCF::DOWNLOADIMG) profileimgdlconn::GetConn(user.profile_img_url, this);
+			if(preq & PENDING_REQ::PROFIMG_DOWNLOAD_FLAG) profileimgdlconn::GetConn(user.profile_img_url, this);
 			return false;
 		}
 		else if(cached_profile_img_url.size() && !(udc_flags & UDC::PROFILE_BITMAP_SET))  {
@@ -197,7 +199,7 @@ bool userdatacontainer::ImgIsReady(flagwrapper<UPDCF> updcf_flags) {
 				data->success = LoadImageFromFileAndCheckHash(data->filename, data->hash, img);
 				if(data->success) data->img = userdatacontainer::ScaleImageToProfileSize(img);
 			},
-			[data, updcf_flags]() {
+			[data, preq]() {
 				udc_ptr &u = data->u;
 
 				u->udc_flags &= ~UDC::IMAGE_DL_IN_PROGRESS;
@@ -206,7 +208,7 @@ bool userdatacontainer::ImgIsReady(flagwrapper<UPDCF> updcf_flags) {
 					LogMsgFormat(LOGT::OTHERERR, wxT("userdatacontainer::ImgIsReady, cached profile image read from file, which did correspond to url: %s for user id %" wxLongLongFmtSpec "d (@%s), does not match current url of: %s. Maybe user updated profile during read?"),
 							wxstrstd(data->url).c_str(), u->id, wxstrstd(u->GetUser().screen_name).c_str(), wxstrstd(u->GetUser().profile_img_url).c_str());
 					//Try again:
-					u->ImgIsReady(updcf_flags);
+					u->ImgIsReady(preq);
 					return;
 				}
 
@@ -218,7 +220,7 @@ bool userdatacontainer::ImgIsReady(flagwrapper<UPDCF> updcf_flags) {
 					LogMsgFormat(LOGT::FILEIOERR, wxT("userdatacontainer::ImgIsReady, cached profile image file for user id: %" wxLongLongFmtSpec "d (%s), file: %s, url: %s, missing, invalid or failed hash check"),
 						u->id, wxstrstd(u->GetUser().screen_name).c_str(), data->filename.c_str(), wxstrstd(u->cached_profile_img_url).c_str());
 					u->cached_profile_img_url.clear();
-					if(updcf_flags & UPDCF::DOWNLOADIMG) {    //the saved image is not loadable, clear cache and re-download
+					if(preq & PENDING_REQ::PROFIMG_DOWNLOAD_FLAG) {    //the saved image is not loadable, clear cache and re-download
 						profileimgdlconn::GetConn(u->GetUser().profile_img_url, u);
 					}
 				}
@@ -232,34 +234,43 @@ bool userdatacontainer::ImgIsReady(flagwrapper<UPDCF> updcf_flags) {
 	else return false;
 }
 
-bool userdatacontainer::ImgHalfIsReady(flagwrapper<UPDCF> updcf_flags) {
-	bool res=ImgIsReady(updcf_flags);
+bool userdatacontainer::ImgHalfIsReady(flagwrapper<PENDING_REQ> preq) {
+	bool res = ImgIsReady(preq);
 	if(res && !(udc_flags & UDC::HALF_PROFILE_BITMAP_SET)) {
 		wxImage img = cached_profile_img.ConvertToImage();
 		cached_profile_img_half = wxBitmap(ScaleImageToProfileSize(img, 0.5));
-		udc_flags|=UDC::HALF_PROFILE_BITMAP_SET;
+		udc_flags |= UDC::HALF_PROFILE_BITMAP_SET;
 	}
 	return res;
 }
 
-bool userdatacontainer::IsReady(flagwrapper<UPDCF> updcf_flags, time_t timevalue) {
-	if(!ImgIsReady(updcf_flags)) return false;
-	if(NeedsUpdating(updcf_flags, timevalue)) return false;
-	else if( !(updcf_flags&UPDCF::USEREXPIRE) ) return true;
-	else if( udc_flags & (UDC::LOOKUP_IN_PROGRESS|UDC::IMAGE_DL_IN_PROGRESS)) return false;
-	else return true;
+flagwrapper<PENDING_RESULT> userdatacontainer::IsReady(flagwrapper<PENDING_REQ> preq, time_t timevalue) {
+	flagwrapper<PENDING_RESULT> result;
+	if(preq & PENDING_REQ::PROFIMG_NEED) {
+		if(ImgIsReady(preq) && !((udc_flags & UDC::IMAGE_DL_IN_PROGRESS) && (preq & PENDING_REQ::USEREXPIRE))) {
+			result |= PENDING_RESULT::PROFIMG_READY;
+		}
+		else {
+			result |= PENDING_RESULT::PROFIMG_NOT_READY;
+		}
+	}
+	if(!NeedsUpdating(preq, timevalue) && !((udc_flags & UDC::LOOKUP_IN_PROGRESS) && (preq & PENDING_REQ::USEREXPIRE))) {
+		result |= PENDING_RESULT::CONTENT_READY;
+	}
+	else {
+		result |= PENDING_RESULT::CONTENT_NOT_READY;
+	}
+	return result;
 }
 
 void userdatacontainer::CheckPendingTweets(flagwrapper<UMPTF> umpt_flags) {
 	FreezeAll();
-	std::forward_list<std::pair<flagwrapper<PENDING>, tweet_ptr> > stillpending;
-	for(auto it=pendingtweets.begin(); it!=pendingtweets.end(); ++it) {
-		flagwrapper<PENDING> res = CheckTweetPendings(*it);
-		if(!res) {
-			UnmarkPendingTweet(*it, umpt_flags);
-		}
-		else {
-			stillpending.push_front(std::make_pair(res, *it));
+	std::vector<std::pair<flagwrapper<PENDING_BITS>, tweet_ptr> > stillpending;
+	stillpending.reserve(pendingtweets.size());
+	for(auto &it : pendingtweets) {
+		flagwrapper<PENDING_BITS> res = TryUnmarkPendingTweet(it, umpt_flags);
+		if(res) {
+			stillpending.push_back(std::make_pair(res, it));
 		}
 	}
 	pendingtweets.clear();
@@ -288,7 +299,7 @@ void userdatacontainer::MarkTweetPending(tweet_ptr_p t) {
 }
 
 void rt_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) {
-	if(target_retweet->IsReady()) UnmarkPendingTweet(target_retweet, umpt_flags);
+	TryUnmarkPendingTweet(target_retweet, umpt_flags);
 }
 
 wxString rt_pending_op::dump() {
@@ -304,15 +315,24 @@ wxString handlenew_pending_op::dump() {
 	return wxString::Format(wxT("Handle arrived on account: %s, 0x%X"), acc ? acc->dispname.c_str() : wxT("N/A"), arr.get());
 }
 
-void UnmarkPendingTweet(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) {
-	LogMsgFormat(LOGT::PENDTRACE, wxT("Unmark Pending: %s"), tweet_log_line(t.get()).c_str());
-	t->lflags &= ~TLF::BEINGLOADEDFROMDB;
-	t->lflags &= ~TLF::ISPENDING;
+flagwrapper<PENDING_BITS> TryUnmarkPendingTweet(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) {
+	LogMsgFormat(LOGT::PENDTRACE, wxT("Try Unmark Pending: %s"), tweet_log_line(t.get()).c_str());
+	flagwrapper<PENDING_BITS> result;
+	std::vector<std::unique_ptr<pending_op> > still_pending;
 	for(auto &it : t->pending_ops) {
-		it->MarkUnpending(t, umpt_flags);
+		tweet_pending tp = t->IsPending(it->preq);
+		if(tp.IsReady(it->presult_required)) it->MarkUnpending(t, umpt_flags);
+		else {
+			still_pending.emplace_back(std::move(it));
+			result |= tp.bits;
+		}
 	}
-	t->pending_ops.clear();
-	t->updcf_flags &= ~UPDCF::USEREXPIRE;
+	t->pending_ops = std::move(still_pending);
+	if(t->pending_ops.empty()) {
+		t->lflags &= ~TLF::BEINGLOADEDFROMDB;
+		t->lflags &= ~TLF::ISPENDING;
+	}
+	return result;
 }
 
 std::shared_ptr<taccount> userdatacontainer::GetAccountOfUser() const {
@@ -326,8 +346,7 @@ void userdatacontainer::GetImageLocalFilename(wxString &filename) const {
 }
 
 void userdatacontainer::MarkUpdated() {
-	lastupdate=time(0);
-	ImgIsReady(UPDCF::DOWNLOADIMG);
+	lastupdate = time(0);
 }
 
 std::string userdatacontainer::mkjson() const {
@@ -605,22 +624,49 @@ void SendTweetFlagUpdate(const tweet &tw, unsigned long long mask) {
 //the following set of procedures should be kept in sync
 
 //returns true is ready, false is pending
-bool taccount::CheckMarkPending(tweet_ptr_p t) {
-	flagwrapper<PENDING> res = CheckTweetPendings(t);
-	if(!res) return true;
+bool taccount::CheckMarkPending(tweet_ptr_p t, flagwrapper<PENDING_REQ> preq, flagwrapper<PENDING_RESULT> presult) {
+	tweet_pending tp = t->IsPending(preq);
+	if(tp.IsReady(presult)) {
+		return true;
+	}
 	else {
-		FastMarkPending(t, res);
+		FastMarkPending(t, tp.bits);
 		return false;
 	}
 }
 
+//returns true is ready, false is pending
+bool CheckMarkPending_GetAcc(tweet_ptr_p t, flagwrapper<PENDING_REQ> preq, flagwrapper<PENDING_RESULT> presult) {
+	tweet_pending tp = t->IsPending(preq);
+	if(tp.IsReady(presult)) {
+		return true;
+	}
+	else {
+		GenericMarkPending(t, tp.bits, wxT("CheckMarkPending_GetAcc"));
+		return false;
+	}
+}
+
+void GenericMarkPending(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, const wxString &logprefix, flagwrapper<tweet::GUAF> guaflags) {
+	if(mark & PENDING_BITS::ACCMASK) {
+		std::shared_ptr<taccount> curacc;
+		if(t->GetUsableAccount(curacc, guaflags)) {
+			curacc->FastMarkPending(t, mark);
+		}
+		else {
+			FastMarkPendingNoAccFallback(t, mark, logprefix);
+		}
+	}
+	else FastMarkPendingNonAcc(t, mark);
+}
+
 //mark *must* be exactly right
-void FastMarkPendingNonAcc(tweet_ptr_p t, flagwrapper<PENDING> mark) {
+void FastMarkPendingNonAcc(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark) {
 	t->lflags |= TLF::ISPENDING;
-	if(mark & PENDING::T_U) t->user->MarkTweetPending(t);
-	if(mark & PENDING::T_UR) t->user_recipient->MarkTweetPending(t);
-	if(mark & PENDING::RT_RTU) t->rtsrc->user->MarkTweetPending(t->rtsrc);
-	if(mark & PENDING::RT_MISSING) {
+	if(mark & PENDING_BITS::T_U) t->user->MarkTweetPending(t);
+	if(mark & PENDING_BITS::T_UR) t->user_recipient->MarkTweetPending(t);
+	if(mark & PENDING_BITS::RT_RTU) t->rtsrc->user->MarkTweetPending(t->rtsrc);
+	if(mark & PENDING_BITS::RT_MISSING) {
 		t->rtsrc->lflags |= TLF::ISPENDING;
 		bool insertnewrtpo=true;
 		for(auto it=t->rtsrc->pending_ops.begin(); it!=t->rtsrc->pending_ops.end(); ++it) {
@@ -635,75 +681,28 @@ void FastMarkPendingNonAcc(tweet_ptr_p t, flagwrapper<PENDING> mark) {
 }
 
 //mark *must* be exactly right
-void taccount::FastMarkPending(tweet_ptr_p t, flagwrapper<PENDING> mark) {
+void taccount::FastMarkPending(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark) {
 	FastMarkPendingNonAcc(t, mark);
 
-	if(mark & PENDING::U) MarkUserPending(t->user);
-	if(mark & PENDING::UR) MarkUserPending(t->user_recipient);
-	if(mark & PENDING::RTU) MarkUserPending(t->rtsrc->user);
+	if(mark & PENDING_BITS::U) MarkUserPending(t->user);
+	if(mark & PENDING_BITS::UR) MarkUserPending(t->user_recipient);
+	if(mark & PENDING_BITS::RTU) MarkUserPending(t->rtsrc->user);
 }
 
 //return true if successfully marked pending
 //mark *must* be exactly right
-bool FastMarkPendingNoAccFallback(tweet_ptr_p t, flagwrapper<PENDING> mark, const wxString &logprefix) {
+bool FastMarkPendingNoAccFallback(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, const wxString &logprefix) {
 	FastMarkPendingNonAcc(t, mark);
 
-	if(mark & PENDING::ACCMASK) {
-		if(mark & PENDING::U) ad.noacc_pending_userconts[t->user->id] = t->user;
-		if(mark & PENDING::UR) ad.noacc_pending_userconts[t->user_recipient->id] = t->user_recipient;
-		if(mark & PENDING::RTU) ad.noacc_pending_userconts[t->rtsrc->user->id] = t->rtsrc->user;
+	if(mark & PENDING_BITS::ACCMASK) {
+		if(mark & PENDING_BITS::U) ad.noacc_pending_userconts[t->user->id] = t->user;
+		if(mark & PENDING_BITS::UR) ad.noacc_pending_userconts[t->user_recipient->id] = t->user_recipient;
+		if(mark & PENDING_BITS::RTU) ad.noacc_pending_userconts[t->rtsrc->user->id] = t->rtsrc->user;
 
 		LogMsgFormat(LOGT::PENDTRACE, wxT("%s: Cannot mark pending as there is no usable account, %s"), logprefix.c_str(), tweet_log_line(t.get()).c_str());
 		return false;
 	}
 	else return true;
-}
-
-//returns non-zero if pending
-flagwrapper<PENDING> CheckTweetPendings(const tweet &t) {
-	flagwrapper<PENDING> retval = 0;
-	if(t.user && !t.user->IsReady(t.updcf_flags, t.createtime)) {
-		if(t.user->NeedsUpdating(t.updcf_flags, t.createtime)) retval |= PENDING::U;
-		retval |= PENDING::T_U;
-	}
-	if(t.flags.Get('D') && t.user_recipient && !(t.user_recipient->IsReady(t.updcf_flags, t.createtime))) {
-		if(t.user_recipient->NeedsUpdating(t.updcf_flags, t.createtime)) retval |= PENDING::UR;
-		retval |= PENDING::T_UR;
-	}
-	if(t.rtsrc) {
-		if(t.rtsrc->createtime == 0 || !t.rtsrc->user) {
-			//Retweet source is not inited at all
-			retval |= PENDING::RT_MISSING;
-		}
-		else if(t.rtsrc->user && !t.rtsrc->user->IsReady(t.rtsrc->updcf_flags, t.rtsrc->createtime)) {
-			if(t.rtsrc->user->NeedsUpdating(t.rtsrc->updcf_flags, t.rtsrc->createtime)) retval |= PENDING::RTU;
-			retval |= PENDING::RT_RTU | PENDING::RT_MISSING;
-		}
-	}
-	return retval;
-}
-
-//returns true is ready, false is pending
-bool CheckMarkPending_GetAcc(tweet_ptr_p t) {
-	flagwrapper<PENDING> res = CheckTweetPendings(t);
-	if(!res) return true;
-	else {
-		GenericMarkPending(t, res, wxT("CheckMarkPending_GetAcc"));
-		return false;
-	}
-}
-
-void GenericMarkPending(tweet_ptr_p t, flagwrapper<PENDING> mark, const wxString &logprefix, flagwrapper<tweet::GUAF> guaflags) {
-	if(mark & PENDING::ACCMASK) {
-		std::shared_ptr<taccount> curacc;
-		if(t->GetUsableAccount(curacc, guaflags)) {
-			curacc->FastMarkPending(t, mark);
-		}
-		else {
-			FastMarkPendingNoAccFallback(t, mark, logprefix);
-		}
-	}
-	else FastMarkPendingNonAcc(t, mark);
 }
 
 //ends
@@ -736,23 +735,26 @@ bool MarkPending_TPanelMap(tweet_ptr_p tobj, tpanelparentwin_nt* win_, PUSHFLAGS
 	return found;
 }
 
-//return true if ready now
+//Returns true if ready now
 //If existing_dbsel is given, any DB lookup message is stored in/added to it
 //Otherwise any individual DB lookup is executed batched
-bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> acc_hint, dbseltweetmsg **existing_dbsel) {
+bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> acc_hint, dbseltweetmsg **existing_dbsel, flagwrapper<PENDING_REQ> preq, flagwrapper<PENDING_RESULT> presult) {
 	using GUAF = tweet::GUAF;
 
+	bool isready = false;
+
 	if(tobj->text.size()) {
-		flagwrapper<PENDING> res = CheckTweetPendings(tobj);
-		if(!res) return true;
+		tweet_pending tp = tobj->IsPending(preq);
+		if(tp.IsReady(presult)) {
+			isready = true;
+		}
 		else {
 			if(tobj->GetUsableAccount(acc_hint, GUAF::CHECKEXISTING | GUAF::NOERR) ||
 					tobj->GetUsableAccount(acc_hint, GUAF::CHECKEXISTING | GUAF::NOERR | GUAF::USERENABLED)) {
-				acc_hint->FastMarkPending(tobj, res);
-				return false;
+				acc_hint->FastMarkPending(tobj, tp.bits);
 			}
 			else {
-				return !FastMarkPendingNoAccFallback(tobj, res, wxT("CheckFetchPendingSingleTweet"));
+				FastMarkPendingNoAccFallback(tobj, tp.bits, wxT("CheckFetchPendingSingleTweet"));
 			}
 		}
 	}
@@ -783,8 +785,8 @@ bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> ac
 				if(!existing_dbsel) DBC_SendMessageBatched(loadmsg);
 			}
 		}
-		return false;
 	}
+	return isready;
 }
 
 //returns true on success, otherwise add tweet to pending list
@@ -805,21 +807,42 @@ bool CheckLoadSingleTweet(tweet_ptr_p t, std::shared_ptr<taccount> &acc_hint) {
 	}
 }
 
-//returns true is ready, false is pending
-bool tweet::IsReady(flagwrapper<UPDCF> updcf) {
-	bool isready=true;
+tweet_pending tweet::IsPending(flagwrapper<PENDING_REQ> preq) {
+	tweet_pending result;
+	PENDING_RESULT_combiner presult(result.result);
+
+	if(user) {
+		result.result = user->IsReady(preq, createtime);
+		if(result.result & PENDING_RESULT::NOT_READY) result.bits |= PENDING_BITS::T_U;
+		if(user->NeedsUpdating(preq, createtime)) result.bits |= PENDING_BITS::U;
+	}
+	else presult.Combine(PENDING_RESULT::CONTENT_NOT_READY);
+
+	if(flags.Get('D')) {
+		if(!user_recipient) presult.Combine(PENDING_RESULT::CONTENT_NOT_READY);
+		else {
+			flagwrapper<PENDING_RESULT> user_result = user_recipient->IsReady(preq, createtime);
+			presult.Combine(user_result);
+			if(user_result & PENDING_RESULT::NOT_READY) result.bits |= PENDING_BITS::T_UR;
+			if(user_recipient->NeedsUpdating(preq, createtime)) result.bits |= PENDING_BITS::UR;
+		}
+	}
 
 	if(rtsrc) {
-		bool rtsrcisready=rtsrc->IsReady();
-		if(!rtsrcisready) isready=false;
+		if(rtsrc->createtime == 0 || !rtsrc->user) {
+			//Retweet source is not inited at all
+			result.bits |= PENDING_BITS::RT_MISSING;
+			presult.Combine(PENDING_RESULT::CONTENT_NOT_READY);
+		}
+		else {
+			tweet_pending rtp = rtsrc->IsPending(preq);
+			presult.Combine(rtp.result);
+			if(rtp.bits & PENDING_BITS::U) result.bits |= PENDING_BITS::RTU;
+			if(rtp.bits & PENDING_BITS::T_U) result.bits |= PENDING_BITS::RT_RTU | PENDING_BITS::RT_MISSING;
+		}
 	}
-	if(!user) isready=false;
-	else if(!user->IsReady(updcf, createtime)) isready=false;
-	if(flags.Get('D')) {
-		if(!user_recipient) isready=false;
-		else if(!(user_recipient->IsReady(updcf, createtime))) isready=false;
-	}
-	return isready;
+
+	return result;
 }
 
 bool taccount::MarkPendingOrHandle(tweet_ptr_p t, flagwrapper<ARRIVAL> arr) {

@@ -27,6 +27,7 @@
 #include "twitcurlext-common.h"
 #include "rbfs.h"
 #include "flags.h"
+#include "twit.h"
 #include <wx/event.h>
 #include <wx/string.h>
 #include <memory>
@@ -45,7 +46,7 @@ class raii_set;
 class wxTimer;
 class wxTimerEvent;
 
-enum class PENDING : unsigned int;
+enum class PENDING_BITS : unsigned char;
 
 typedef enum { ACT_NOTDONE, ACT_INPROGRESS, ACT_FAILED, ACT_DONE } ACT_STATUS;
 
@@ -134,8 +135,8 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 
 	void MarkUserPending(udc_ptr_p user);
 	bool MarkPendingOrHandle(tweet_ptr_p t, flagwrapper<ARRIVAL> arr);
-	bool CheckMarkPending(tweet_ptr_p t);
-	void FastMarkPending(tweet_ptr_p t, flagwrapper<PENDING>);
+	bool CheckMarkPending(tweet_ptr_p t, flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT, flagwrapper<PENDING_RESULT> presult = PENDING_RESULT::DEFAULT);
+	void FastMarkPending(tweet_ptr_p t, flagwrapper<PENDING_BITS>);
 
 	void OnRestTimer(wxTimerEvent& event);
 	void SetupRestBackfillTimer();
