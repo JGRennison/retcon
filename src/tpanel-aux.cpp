@@ -459,7 +459,7 @@ void tpanel_subtweet_pending_op::CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, 
 
 			std::shared_ptr<taccount> pacc;
 			t->GetUsableAccount(pacc, GUAF::NOERR) || t->GetUsableAccount(pacc, GUAF::NOERR | GUAF::USERENABLED);
-			subt->pending_ops.emplace_front(new tpanel_subtweet_pending_op(v, s, top_tds, tweet_load_count, top_tweet));
+			subt->AddNewPendingOp(new tpanel_subtweet_pending_op(v, s, top_tds, tweet_load_count, top_tweet));
 			subt->lflags |= TLF::ISPENDING;
 			if(CheckFetchPendingSingleTweet(subt, pacc)) UnmarkPendingTweet(subt, 0);
 		};

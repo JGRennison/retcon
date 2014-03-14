@@ -630,7 +630,7 @@ void FastMarkPendingNonAcc(tweet_ptr_p t, flagwrapper<PENDING> mark) {
 				break;
 			}
 		}
-		if(insertnewrtpo) t->rtsrc->pending_ops.emplace_front(new rt_pending_op(t));
+		if(insertnewrtpo) t->rtsrc->AddNewPendingOp(new rt_pending_op(t));
 	}
 }
 
@@ -731,7 +731,7 @@ bool MarkPending_TPanelMap(tweet_ptr_p tobj, tpanelparentwin_nt* win_, PUSHFLAGS
 	}
 	if(!found) {
 		tobj->lflags |= TLF::ISPENDING;
-		tobj->pending_ops.emplace_front(new tpanelload_pending_op(win_, pushflags, pushtpanel_));
+		tobj->AddNewPendingOp(new tpanelload_pending_op(win_, pushflags, pushtpanel_));
 	}
 	return found;
 }
@@ -826,7 +826,7 @@ bool taccount::MarkPendingOrHandle(tweet_ptr_p t, flagwrapper<ARRIVAL> arr) {
 	bool isready = CheckMarkPending(t);
 	if(arr) {
 		if(isready) HandleNewTweet(t, shared_from_this(), arr);
-		else t->pending_ops.emplace_front(new handlenew_pending_op(shared_from_this(), arr));
+		else t->AddNewPendingOp(new handlenew_pending_op(shared_from_this(), arr));
 	}
 	return isready;
 }

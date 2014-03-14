@@ -219,7 +219,7 @@ void filter_dlg::ExecFilter() {
 		}
 		else {
 			tobj->lflags |= TLF::ISPENDING;
-			tobj->pending_ops.emplace_front(new applyfilter_pending_op(fdg->apply_filter));
+			tobj->AddNewPendingOp(new applyfilter_pending_op(fdg->apply_filter));
 		}
 	}
 	if(loadmsg) {
