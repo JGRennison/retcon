@@ -26,6 +26,7 @@
 #include "userui.h"
 #include "util.h"
 #include "alldata.h"
+#include "log.h"
 
 std::unordered_map<uint64_t, user_window*> userwinmap;
 
@@ -308,6 +309,9 @@ void user_window::RefreshFollow(bool forcerefresh) {
 }
 
 void user_window::Refresh(bool refreshimg) {
+	LogMsgFormat(LOGT::OTHERTRACE, wxT("user_window::Refresh %" wxLongLongFmtSpec "d, refreshimg: %d"), u->id, refreshimg);
+	u->ImgIsReady(PENDING_REQ::PROFIMG_DOWNLOAD); //This will trigger asynchronous (down)load of the image if it is not already ready
+
 	SetTitle(wxT("@") + wxstrstd(u->GetUser().screen_name) + wxT(" (") + wxstrstd(u->GetUser().name) + wxT(")"));
 	name->SetLabel(wxstrstd(u->GetUser().name));
 	screen_name->SetLabel(wxT("@") + wxstrstd(u->GetUser().screen_name));
@@ -346,6 +350,7 @@ void user_window::Refresh(bool refreshimg) {
 	if(refreshimg) usericon->SetBitmap(u->cached_profile_img);
 
 	RefreshFollow();
+	Layout();
 }
 
 

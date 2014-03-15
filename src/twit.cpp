@@ -941,6 +941,7 @@ std::string userdatacontainer::GetPermalink(bool ssl) const {
 }
 
 void userdatacontainer::NotifyProfileImageChange() {
+	LogMsgFormat(LOGT::OTHERTRACE, wxT("userdatacontainer::NotifyProfileImageChange %" wxLongLongFmtSpec "d"), id);
 	CheckPendingTweets();
 	UpdateUsersTweet(id, true);
 	if(udc_flags & UDC::WINDOWOPEN) user_window::CheckRefresh(id, true);
