@@ -85,11 +85,12 @@ static const char *startup_sql=
 "CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, dispname TEXT, json BLOB, tweetids BLOB, dmids BLOB, userid INTEGER);"
 "CREATE TABLE IF NOT EXISTS settings(accid BLOB, name TEXT, value BLOB, PRIMARY KEY (accid, name));"
 "CREATE TABLE IF NOT EXISTS rbfspending(accid INTEGER, type INTEGER, startid INTEGER, endid INTEGER, maxleft INTEGER);"
-"CREATE TABLE IF NOT EXISTS mediacache(mid INTEGER, tid INTEGER, url BLOB, fullchecksum BLOB, thumbchecksum BLOB, flags INTEGER, PRIMARY KEY (mid, tid));"
+"CREATE TABLE IF NOT EXISTS mediacache(mid INTEGER, tid INTEGER, url BLOB, fullchecksum BLOB, thumbchecksum BLOB, flags INTEGER, lastusedtimestamp INTEGER, PRIMARY KEY (mid, tid));"
 "CREATE TABLE IF NOT EXISTS tpanelwins(mainframeindex INTEGER, splitindex INTEGER, tabindex INTEGER, name TEXT, dispname TEXT, flags INTEGER);"
 "CREATE TABLE IF NOT EXISTS tpanelwinautos(tpw INTEGER, accid INTEGER, autoflags INTEGER);"
 "CREATE TABLE IF NOT EXISTS mainframewins(mainframeindex INTEGER, x INTEGER, y INTEGER, w INTEGER, h INTEGER, maximised INTEGER);"
 "CREATE TABLE IF NOT EXISTS tpanels(name TEXT, dispname TEXT, flags INTEGER, ids BLOB);"
+"CREATE TABLE IF NOT EXISTS staticsettings(name TEXT PRIMARY KEY NOT NULL, value BLOB);"
 "UPDATE OR IGNORE settings SET accid = 'G' WHERE (hex(accid) == '4700');"  //This is because previous versions of retcon accidentally inserted an embedded null when writing out the config
 "INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', 'dirtyflag', strftime('%s','now'));";
 
@@ -114,6 +115,10 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"DELETE FROM settings WHERE (accid IS ?) AND (name IS ?)",
 	"SELECT value FROM settings WHERE (accid IS ?) AND (name IS ?);",
 };
+
+static const char *update_sql[] = {
+};
+static const unsigned int db_version = 0;
 
 #define DBLogMsgFormat TSLogMsgFormat
 #define DBLogMsg TSLogMsg
@@ -1028,6 +1033,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 			syncdb = 0;
 			return false;
 		}
+		SyncDoUpdates(syncdb);
 	}
 
 	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::Init(): About to read in state from database"));
@@ -1123,6 +1129,48 @@ void dbconn::DeInit() {
 	sqlite3_close(syncdb);
 
 	LogMsg(LOGT::DBTRACE | LOGT::THREADTRACE, wxT("dbconn::DeInit(): State write back to database complete, database connection closed."));
+}
+
+void dbconn::SyncDoUpdates(sqlite3 *adb) {
+	LogMsg(LOGT::DBTRACE, wxT("dbconn::DoUpdates start"));
+
+	unsigned int current_db_version = 0;
+
+	const char getdbversion[] = "SELECT value FROM staticsettings WHERE name == 'dbversion';";
+	sqlite3_stmt *getstmt = 0;
+	sqlite3_prepare_v2(adb, getdbversion, sizeof(getdbversion), &getstmt, 0);
+	do {
+		int res = sqlite3_step(getstmt);
+		if(res == SQLITE_ROW) {
+			current_db_version = (unsigned int) sqlite3_column_int64(getstmt, 0);
+		}
+		else if(res != SQLITE_DONE) {
+			LogMsgFormat(LOGT::DBERR, wxT("dbconn::DoUpdates got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str());
+		}
+		else break;
+	} while(true);
+	sqlite3_finalize(getstmt);
+
+	if(current_db_version < db_version) {
+		LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::DoUpdates updating from %u to %u"), current_db_version, db_version);
+		for(unsigned int i = current_db_version; i < db_version; i++) {
+			int res = sqlite3_exec(adb, update_sql[i], 0, 0, 0);
+			if(res != SQLITE_OK) {
+				LogMsgFormat(LOGT::DBERR, wxT("dbconn::DoUpdates %u got error: %d (%s)"), i, res, wxstrstd(sqlite3_errmsg(adb)).c_str());
+			}
+		}
+
+
+		int res = sqlite3_exec(adb, string_format("INSERT OR REPLACE INTO staticsettings(name, value) VALUES ('dbversion', %u);", db_version).c_str(), 0, 0, 0);
+		if(res != SQLITE_OK) {
+			LogMsgFormat(LOGT::DBERR, wxT("dbconn::DoUpdates setting DB version got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str());
+		}
+	}
+	else if(current_db_version > db_version) {
+		LogMsgFormat(LOGT::DBERR, wxT("dbconn::DoUpdates current DB version %u > %u"), current_db_version, db_version);
+	}
+
+	LogMsg(LOGT::DBTRACE, wxT("dbconn::DoUpdates end"));
 }
 
 void dbconn::InsertNewTweet(tweet_ptr_p tobj, std::string statjson, dbsendmsg_list *msglist) {
