@@ -52,6 +52,7 @@
 #include <wx/dcmemory.h>
 #include <wx/filefn.h>
 #include <algorithm>
+#include <unordered_map>
 
 //Do not assume that *acc is non-null
 void HandleNewTweet(tweet_ptr_p t, const std::shared_ptr<taccount> &acc, flagwrapper<ARRIVAL> arr) {
@@ -1187,18 +1188,54 @@ unsigned int TwitterCharCount(const char *in, size_t inlen) {
 	return outsize;
 }
 
-bool IsUserMentioned(const char *in, size_t inlen, udc_ptr_p u) {
-	const char *errptr;
-	int erroffset;
-	std::string pat=IS_USER_MENTIONED_1ST + u->GetUser().screen_name + IS_USER_MENTIONED_2ND;
-	pcre *pattern=pcre_compile(pat.c_str(), PCRE_UCP | PCRE_NO_UTF8_CHECK | PCRE_CASELESS | PCRE_UTF8, &errptr, &erroffset, 0);
-	if(!pattern) {
-		LogMsgFormat(LOGT::OTHERERR, wxT("IsUserMentioned: pcre_compile failed: %s (%d)\n%s"), wxstrstd(errptr).c_str(), erroffset, wxstrstd(pat).c_str());
-		return 0;
+struct is_user_mentioned_cache_real : public is_user_mentioned_cache {
+	std::unordered_map<std::string, pcre *> ptn_cache;
+
+	virtual ~is_user_mentioned_cache_real() {
+		clear();
 	}
+
+	virtual void clear() override {
+		for(auto &it : ptn_cache) {
+			pcre_free(it.second);
+		}
+		ptn_cache.clear();
+	}
+};
+
+bool IsUserMentioned(const char *in, size_t inlen, udc_ptr_p u, std::unique_ptr<is_user_mentioned_cache> *cache) {
+	std::string pat = IS_USER_MENTIONED_1ST + u->GetUser().screen_name + IS_USER_MENTIONED_2ND;
+
+	pcre *pattern = 0;
+	pcre **pattern_store = 0;
+	if(cache) {
+		if(!*cache) cache->reset(new is_user_mentioned_cache_real);
+		is_user_mentioned_cache_real &rcache = *static_cast<is_user_mentioned_cache_real*>(cache->get());
+
+		auto &it = rcache.ptn_cache[pat];
+		pattern_store = &it;
+		pattern = *pattern_store;
+	}
+
+	//no cache, or not in cache
+	if(!pattern) {
+		const char *errptr;
+		int erroffset;
+		pattern = pcre_compile(pat.c_str(), PCRE_UCP | PCRE_NO_UTF8_CHECK | PCRE_CASELESS | PCRE_UTF8, &errptr, &erroffset, 0);
+		if(!pattern) {
+			LogMsgFormat(LOGT::OTHERERR, wxT("IsUserMentioned: pcre_compile failed: %s (%d)\n%s"), wxstrstd(errptr).c_str(), erroffset, wxstrstd(pat).c_str());
+			return 0;
+		}
+	}
+
+	//actually test input
 	int ovector[30];
-	int rc=pcre_exec(pattern, 0, in, inlen, 0, 0, ovector, 30);
-	return (rc>0);
+	int rc = pcre_exec(pattern, 0, in, inlen, 0, 0, ovector, 30);
+
+	if(pattern_store) *pattern_store = pattern;
+	else pcre_free(pattern);
+
+	return (rc > 0);
 }
 
 void SpliceTweetIDSet(tweetidset &set, tweetidset &out, uint64_t highlim_inc, uint64_t lowlim_inc, bool clearspliced) {

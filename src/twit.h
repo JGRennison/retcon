@@ -477,9 +477,18 @@ inline unsigned int TwitterCharCount(const std::string &str) {
 	return TwitterCharCount(str.c_str(), str.size());
 }
 
-bool IsUserMentioned(const char *in, size_t inlen, udc_ptr_p u);
-inline bool IsUserMentioned(const std::string &str, udc_ptr_p u) {
-	return IsUserMentioned(str.c_str(), str.size(), u);
+struct is_user_mentioned_cache {
+	protected:
+	is_user_mentioned_cache() { }
+
+	public:
+	virtual ~is_user_mentioned_cache() { }
+	virtual void clear() = 0;
+};
+
+bool IsUserMentioned(const char *in, size_t inlen, udc_ptr_p u, std::unique_ptr<is_user_mentioned_cache> *cache = 0);
+inline bool IsUserMentioned(const std::string &str, udc_ptr_p u, std::unique_ptr<is_user_mentioned_cache> *cache = 0) {
+	return IsUserMentioned(str.c_str(), str.size(), u, cache);
 }
 
 #ifdef __WINDOWS__
