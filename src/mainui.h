@@ -39,6 +39,7 @@ struct acc_choice;
 struct taccount;
 struct tweet;
 struct userdatacontainer;
+struct is_user_mentioned_cache;
 
 enum
 {
@@ -107,6 +108,8 @@ enum {
 	TPWID_TEXTCTRL = 1,
 	TPWIN_SENDBTN,
 	TPWID_CLOSEREPDESC,
+	TPWID_CLEARTEXT,
+	TPWID_ADDNAMES,
 };
 
 struct tweetpostwin : public wxPanel {
@@ -130,8 +133,11 @@ struct tweetpostwin : public wxPanel {
 	wxColour infost_colout;
 	wxStaticText *replydesc;
 	wxBitmapButton *replydesclosebtn;
+	wxBitmapButton *cleartextbtn;
+	wxButton *addnamesbtn;
 	tweet_ptr tweet_reply_targ;
 	udc_ptr dm_targ;
+	std::unique_ptr<is_user_mentioned_cache> iumc;
 
 	tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *parentauim = 0);
 	~tweetpostwin();
@@ -149,6 +155,9 @@ struct tweetpostwin : public wxPanel {
 	void SetDMTarget(udc_ptr_p targ);
 	void DoCheckFocusDisplay(bool force = false);
 	void OnCloseReplyDescBtn(wxCommandEvent &event);
+	void OnClearTextBtn(wxCommandEvent &event);
+	void OnAddNamesBtn(wxCommandEvent &event);
+	void CheckAddNamesBtn();
 	void AUIMNoLongerValid();
 
 	DECLARE_EVENT_TABLE()

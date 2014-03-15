@@ -313,6 +313,8 @@ void tweetposttextbox::SetCursorToEnd() {
 BEGIN_EVENT_TABLE(tweetpostwin, wxPanel)
 	EVT_BUTTON(TPWIN_SENDBTN, tweetpostwin::OnSendBtn)
 	EVT_BUTTON(TPWID_CLOSEREPDESC, tweetpostwin::OnCloseReplyDescBtn)
+	EVT_BUTTON(TPWID_CLEARTEXT, tweetpostwin::OnClearTextBtn)
+	EVT_BUTTON(TPWID_ADDNAMES, tweetpostwin::OnAddNamesBtn)
 	EVT_COMMAND(wxID_ANY, wxextTPRESIZE_UPDATE_EVENT, tweetpostwin::resizemsghandler)
 END_EVENT_TABLE()
 
@@ -328,23 +330,31 @@ tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *p
 	current_length(0), length_oob(false) {
 
 	vbox = new wxBoxSizer(wxVERTICAL);
-	infost=new wxStaticText(this, wxID_ANY, wxT("0/140"), wxPoint(-1000, -1000), wxDefaultSize);
-	replydesc=new wxStaticText(this, wxID_ANY, wxT(""), wxPoint(-1000, -1000), wxDefaultSize, wxST_NO_AUTORESIZE);
-	replydesclosebtn=new wxBitmapButton(this, TPWID_CLOSEREPDESC, tpanelglobal::Get()->closeicon, wxPoint(-1000, -1000));
+	infost = new wxStaticText(this, wxID_ANY, wxT("0/140"), wxPoint(-1000, -1000), wxDefaultSize);
+	replydesc = new wxStaticText(this, wxID_ANY, wxT(""), wxPoint(-1000, -1000), wxDefaultSize, wxST_NO_AUTORESIZE);
+	replydesclosebtn = new wxBitmapButton(this, TPWID_CLOSEREPDESC, tpanelglobal::Get()->closeicon, wxPoint(-1000, -1000));
+	addnamesbtn = new wxButton(this, TPWID_ADDNAMES, wxT("Add names \x2193"), wxPoint(-1000, -1000), wxDefaultSize, wxBU_EXACTFIT);
+	addnamesbtn->Show(false);
 	wxBoxSizer *replydescbox= new wxBoxSizer(wxHORIZONTAL);
 	replydescbox->Add(replydesc, 1, wxEXPAND | wxALL, 1);
-	replydescbox->Add(replydesclosebtn, 0, wxALL, 1);
-	textctrl=new tweetposttextbox(this, wxT(""), TPWID_TEXTCTRL);
+	replydescbox->Add(addnamesbtn, 0, wxLEFT | wxRIGHT | wxALIGN_CENTRE, 1);
+	replydescbox->Add(replydesclosebtn, 0, wxALL | wxALIGN_CENTRE, 1);
+	textctrl = new tweetposttextbox(this, wxT(""), TPWID_TEXTCTRL);
+	cleartextbtn = new wxBitmapButton(this, TPWID_CLEARTEXT, tpanelglobal::Get()->closeicon, wxPoint(-1000, -1000));
+	cleartextbtn->Show(false);
+	wxBoxSizer *tweetpostbox = new wxBoxSizer(wxHORIZONTAL);
+	tweetpostbox->Add(textctrl, 1, wxEXPAND | wxALL, 1);
+	tweetpostbox->Add(cleartextbtn, 0, wxALL | wxALIGN_CENTRE, 1);
 	vbox->Add(replydescbox, 0, wxEXPAND | wxALL, 2);
-	vbox->Add(textctrl, 0, wxEXPAND | wxALL, 2);
+	vbox->Add(tweetpostbox, 0, wxEXPAND | wxALL, 2);
 	replydesc->Show(false);
 	replydescbox->Show(false);
 
 	hbox = new wxBoxSizer(wxHORIZONTAL);
 	vbox->Add(hbox, 0, wxEXPAND | wxALL, 2);
 
-	sendbtn=new wxButton(this, TPWIN_SENDBTN, wxT("Send"), wxPoint(-1000, -1000));
-	accc=new acc_choice(this, curacc, 0, wxID_ANY, &tpw_acc_callback, this);
+	sendbtn = new wxButton(this, TPWIN_SENDBTN, wxT("Send"), wxPoint(-1000, -1000));
+	accc = new acc_choice(this, curacc, 0, wxID_ANY, &tpw_acc_callback, this);
 	hbox->Add(accc, 0, wxALL, 2);
 	hbox->AddStretchSpacer();
 	hbox->Add(infost, 0, wxALL, 2);
@@ -466,7 +476,9 @@ void tweetpostwin::OnTCChange() {
 	infost->SetLabel(wxString::Format(wxT("%s%d/140"), currently_posting?wxT("Posting - "):wxT(""),current_length));
 	CheckEnableSendBtn();
 	textctrl->Enable(!currently_posting);
-	hbox->Layout();
+	cleartextbtn->Show(!textctrl->IsEmpty());
+	CheckAddNamesBtn();
+	vbox->Layout();
 }
 
 void tweetpostwin::UpdateAccount() {
@@ -494,6 +506,7 @@ void tweetpostwin::NotifyPostResult(bool success) {
 }
 
 void tweetpostwin::UpdateReplyDesc() {
+	iumc->clear();
 	if(tweet_reply_targ) {
 		replydesc->SetLabel(wxT("Reply to: @") + wxstrstd(tweet_reply_targ->user->GetUser().screen_name) + wxT(": ") + wxstrstd(TweetReplaceAllStringSeqs(tweet_reply_targ->text)));
 		replydesc->Show(true);
@@ -511,6 +524,7 @@ void tweetpostwin::UpdateReplyDesc() {
 		replydesclosebtn->Show(false);
 		sendbtn->SetLabel(wxT("Send"));
 	}
+	CheckAddNamesBtn();
 	DoCheckFocusDisplay(true);
 }
 
@@ -520,31 +534,66 @@ void tweetpostwin::OnCloseReplyDescBtn(wxCommandEvent &event) {
 	UpdateReplyDesc();
 }
 
-void CheckUserMentioned(bool &changed, udc_ptr_p user, tweetposttextbox *textctrl) {
-	if(user && !IsUserMentioned(stdstrwx(textctrl->GetValue()), user)) {
+void tweetpostwin::OnClearTextBtn(wxCommandEvent &event) {
+	textctrl->Clear();
+}
+
+void CheckUserMentioned(bool &changed, udc_ptr_p user, tweetposttextbox *textctrl, std::unique_ptr<is_user_mentioned_cache> *cache = 0) {
+	if(user && !IsUserMentioned(stdstrwx(textctrl->GetValue()), user, cache)) {
 		textctrl->WriteText(wxT("@") + wxstrstd(user->GetUser().screen_name) + wxT(" "));
 		changed=true;
 	}
 }
 
-void tweetpostwin::SetReplyTarget(tweet_ptr_p targ) {
-	textctrl->SetInsertionPoint(0);
-	bool changed=false;
-	if(targ) {
-		tweet_ptr checktweet;
-		CheckUserMentioned(changed, targ->user, textctrl);
-		if(targ->rtsrc) {
-			CheckUserMentioned(changed, targ->rtsrc->user, textctrl);
-			checktweet = targ->rtsrc;
-		}
-		else checktweet = targ;
-		for(auto &it : checktweet->entlist) {
-			if(it.type == ENT_MENTION) {
-				if(! (it.user->udc_flags & UDC::THIS_IS_ACC_USER_HINT)) {
-					CheckUserMentioned(changed, it.user, textctrl);
-				}
+template <typename F> void IterateUserNames(tweet_ptr_p targ, F func) {
+	tweet_ptr checktweet = targ;
+	func(targ->user);
+	if(targ->rtsrc) {
+		checktweet = targ->rtsrc;
+		func(targ->rtsrc->user);
+	}
+	for(auto &it : checktweet->entlist) {
+		if(it.type == ENT_MENTION) {
+			if(! (it.user->udc_flags & UDC::THIS_IS_ACC_USER_HINT)) {
+				func(it.user);
 			}
 		}
+	}
+}
+
+void tweetpostwin::CheckAddNamesBtn() {
+	bool missing_name = false;
+	if(tweet_reply_targ) {
+		std::string txt = stdstrwx(textctrl->GetValue());
+		IterateUserNames(tweet_reply_targ, [&](udc_ptr u) {
+			if(u && !IsUserMentioned(txt, u, &iumc)) {
+				missing_name = true;
+			}
+		});
+	}
+	addnamesbtn->Show(missing_name);
+}
+
+void tweetpostwin::OnAddNamesBtn(wxCommandEvent &event) {
+	if(tweet_reply_targ) {
+		textctrl->SetInsertionPoint(0);
+		bool changed = false;
+		IterateUserNames(tweet_reply_targ, [&](udc_ptr u) {
+			CheckUserMentioned(changed, u, textctrl, &iumc);
+		});
+		if(changed) OnTCChange();
+		textctrl->SetCursorToEnd();
+	}
+}
+
+void tweetpostwin::SetReplyTarget(tweet_ptr_p targ) {
+	textctrl->SetInsertionPoint(0);
+	bool changed = false;
+	if(targ) {
+		IterateUserNames(targ, [&](udc_ptr u) {
+			CheckUserMentioned(changed, u, textctrl, &iumc);
+		});
+
 		unsigned int best_score = 0;
 		const taccount *best = 0;
 		targ->IterateTP([&](const tweet_perspective &tp) {
@@ -568,6 +617,7 @@ void tweetpostwin::SetReplyTarget(tweet_ptr_p targ) {
 	UpdateReplyDesc();
 	textctrl->SetCursorToEnd();
 }
+
 void tweetpostwin::SetDMTarget(udc_ptr_p targ) {
 	tweet_reply_targ.reset();
 	dm_targ=targ;
