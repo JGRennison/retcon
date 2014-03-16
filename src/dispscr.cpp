@@ -921,6 +921,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 
 	updatetime=0;
 	std::vector<media_entity*> me_list;
+	media_entity_updaters.clear();
 
 	tweet &tw=*td;
 
@@ -1001,6 +1002,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 			Newline();
 			BeginAlignment(wxTEXT_ALIGNMENT_CENTRE);
 			for(auto &it : me_list) {
+				media_entity_updaters.emplace_back(it);
 				if(have_first) WriteText(wxT(" - "));
 
 				bool hide_thumb = (tw.flags.Get('p') || gc.hideallthumbs) && !hidden_thumbnails_override;

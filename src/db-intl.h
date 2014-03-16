@@ -54,6 +54,7 @@ typedef enum {
 	DBPSC_UPDATEMEDIATHUMBCHKSM,
 	DBPSC_UPDATEMEDIAFULLCHKSM,
 	DBPSC_UPDATEMEDIAFLAGS,
+	DBPSC_UPDATEMEDIALASTUSED,
 	DBPSC_DELACC,
 	DBPSC_UPDATETWEETFLAGSMASKED,
 	DBPSC_INSSETTING,
@@ -139,6 +140,7 @@ struct dbconn : public wxEvtHandler {
 	void SendMessage(dbsendmsg *msg);
 	void SendMessageOrAddToList(dbsendmsg *msg, dbsendmsg_list *msglist);
 	void SendMessageBatched(dbsendmsg *msg);
+	dbsendmsg_list *GetMessageBatchQueue();
 	void SendAccDBUpdate(dbinsertaccmsg *insmsg);
 
 	void InsertNewTweet(tweet_ptr_p tobj, std::string statjson, dbsendmsg_list *msglist = 0);

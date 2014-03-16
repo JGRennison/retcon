@@ -45,6 +45,7 @@ struct profimg_staticbitmap;
 struct tweet;
 struct userdatacontainer;
 struct tweetdispscr;
+struct media_entity_raii_updater;
 
 DECLARE_EVENT_TYPE(wxextGDB_Popup_Evt, -1)
 
@@ -184,6 +185,7 @@ struct tweetdispscr : public dispscr_base {
 	magic_ptr_ts<tweetdispscr> parent_tweet;
 	std::unique_ptr<wxTimer> imghideoverridetimer;
 	std::function<void()> loadmorereplies;
+	std::vector<media_entity_raii_updater> media_entity_updaters;
 
 	tweetdispscr(tweet_ptr_p td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
 	~tweetdispscr();

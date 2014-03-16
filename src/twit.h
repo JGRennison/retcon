@@ -421,6 +421,13 @@ enum class MELF {
 };
 template<> struct enum_traits<MELF> { static constexpr bool flags = true; };
 
+struct media_entity_raii_updater {
+	observer_ptr<media_entity> me;
+
+	media_entity_raii_updater(observer_ptr<media_entity> me_) : me(me_) { }
+	~media_entity_raii_updater();
+};
+
 struct media_entity {
 	media_id_type media_id; //compound type used to prevent id-clashes between media-entity images and non-media-entity images
 	std::string media_url;
@@ -430,6 +437,7 @@ struct media_entity {
 	media_display_win *win = 0;
 	shb_iptr full_img_sha1;
 	shb_iptr thumb_img_sha1;
+	uint64_t lastused = 0;
 
 	flagwrapper<MEF> flags = 0;
 
@@ -448,6 +456,8 @@ struct media_entity {
 	void ClearPurgeFlag(dbsendmsg_list *msglist = 0);
 
 	static observer_ptr<media_entity> MakeNew(media_id_type mid, std::string url);
+
+	void UpdateLastUsed(dbsendmsg_list *msglist = 0);
 };
 
 struct userlookup {

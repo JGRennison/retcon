@@ -104,11 +104,12 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"UPDATE acc SET tweetids = ?, dmids = ?, dispname = ? WHERE id == ?;",
 	"SELECT statjson, dynjson, userid, userrecipid, flags, timestamp, rtid FROM tweets WHERE id == ?;",
 	"INSERT INTO rbfspending(accid, type, startid, endid, maxleft) VALUES (?, ?, ?, ?, ?);",
-	"SELECT url, fullchecksum, thumbchecksum, flags FROM mediacache WHERE (mid == ? AND tid == ?);",
-	"INSERT OR IGNORE INTO mediacache(mid, tid, url) VALUES (?, ?, ?);",
+	"SELECT url, fullchecksum, thumbchecksum, flags, lastusedtimestamp FROM mediacache WHERE (mid == ? AND tid == ?);",
+	"INSERT OR IGNORE INTO mediacache(mid, tid, url, lastusedtimestamp) VALUES (?, ?, ?, ?);",
 	"UPDATE OR IGNORE mediacache SET thumbchecksum = ? WHERE (mid == ? AND tid == ?);",
 	"UPDATE OR IGNORE mediacache SET fullchecksum = ? WHERE (mid == ? AND tid == ?);",
 	"UPDATE OR IGNORE mediacache SET flags = ? WHERE (mid == ? AND tid == ?);",
+	"UPDATE OR IGNORE mediacache SET lastusedtimestamp = ? WHERE (mid == ? AND tid == ?);",
 	"DELETE FROM acc WHERE id == ?;",
 	"UPDATE tweets SET flags = ? | (flags & ?) WHERE id == ?;",
 	"INSERT OR REPLACE INTO settings(accid, name, value) VALUES (?, ?, ?);",
@@ -117,8 +118,11 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 };
 
 static const char *update_sql[] = {
+	"ALTER TABLE mediacache ADD COLUMN lastusedtimestamp INTEGER;"
+	"UPDATE OR IGNORE mediacache SET lastusedtimestamp = strftime('%s','now');"
+	,
 };
-static const unsigned int db_version = 0;
+static const unsigned int db_version = 1;
 
 #define DBLogMsgFormat TSLogMsgFormat
 #define DBLogMsg TSLogMsg
@@ -587,6 +591,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->media_id.m_id);
 			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->media_id.t_id);
 			bind_compressed(stmt, 3, m->url, 'P');
+			sqlite3_bind_int64(stmt, 4, (sqlite3_int64) m->lastused);
 			int res = sqlite3_step(stmt);
 			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBSM::INSERTMEDIA got error: %d (%s) for id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d"),
 					res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id); }
@@ -609,6 +614,9 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 				case DBUMMT::FLAGS:
 					stmt_id = DBPSC_UPDATEMEDIAFLAGS;
 					break;
+				case DBUMMT::LASTUSED:
+					stmt_id = DBPSC_UPDATEMEDIALASTUSED;
+					break;
 			}
 			sqlite3_stmt *stmt = cache.GetStmt(db, stmt_id);
 			switch(m->update_type) {
@@ -619,6 +627,9 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 					break;
 				case DBUMMT::FLAGS:
 					sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->flags.get());
+					break;
+				case DBUMMT::LASTUSED:
+					sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->lastused);
 					break;
 			}
 
@@ -858,15 +869,19 @@ void dbconn::OnDBNewAccountInsert(wxCommandEvent &event) {
 }
 
 void dbconn::SendMessageBatched(dbsendmsg *msg) {
+	GetMessageBatchQueue()->msglist.push(msg);
+}
+
+dbsendmsg_list *dbconn::GetMessageBatchQueue() {
 	if(!batchqueue)
 		batchqueue = new dbsendmsg_list;
 
-	batchqueue->msglist.push(msg);
 	if(!(dbc_flags & DBCF::BATCHEVTPENDING)) {
 		dbc_flags |= DBCF::BATCHEVTPENDING;
 		wxCommandEvent evt(wxextDBCONN_NOTIFY, wxDBCONNEVT_ID_SENDBATCH);
 		AddPendingEvent(evt);
 	}
+	return batchqueue;
 }
 
 void dbconn::OnSendBatchEvt(wxCommandEvent &event) {
@@ -1151,6 +1166,7 @@ void dbconn::InsertMedia(media_entity &me, dbsendmsg_list *msglist) {
 	dbinsertmediamsg *msg = new dbinsertmediamsg();
 	msg->media_id = me.media_id;
 	msg->url = std::string(me.media_url.begin(), me.media_url.end());
+	msg->lastused = me.lastused;
 	SendMessageOrAddToList(msg, msglist);
 	me.flags |= MEF::IN_DB;
 }
@@ -1167,6 +1183,9 @@ void dbconn::UpdateMedia(media_entity &me, DBUMMT update_type, dbsendmsg_list *m
 			break;
 		case DBUMMT::FLAGS:
 			msg->flags = me.flags & MEF::DB_SAVE_MASK;
+			break;
+		case DBUMMT::LASTUSED:
+			msg->lastused = me.lastused;
 			break;
 
 	}
@@ -1468,6 +1487,7 @@ void dbconn::SyncReadInAllMediaEntities(sqlite3 *adb) {
 			me.flags |= MEF::LOAD_THUMB;
 		}
 		me.flags |= static_cast<MEF>(sqlite3_column_int64(stmt, 5));
+		me.lastused = (uint64_t) sqlite3_column_int64(stmt, 6);
 
 		#if DB_COPIOUS_LOGGING
 			LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncReadInAllMediaEntities retrieved media entity %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d"), id.m_id, id.t_id);
@@ -1830,6 +1850,10 @@ void DBC_SendMessageOrAddToList(dbsendmsg *msg, dbsendmsg_list *msglist) {
 
 void DBC_SendMessageBatched(dbsendmsg *msg) {
 	dbc.SendMessageBatched(msg);
+}
+
+dbsendmsg_list *DBC_GetMessageBatchQueue() {
+	return dbc.GetMessageBatchQueue();
 }
 
 void DBC_SendAccDBUpdate(dbinsertaccmsg *insmsg) {

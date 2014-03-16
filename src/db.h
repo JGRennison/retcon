@@ -169,12 +169,14 @@ struct dbinsertmediamsg : public dbsendmsg {
 	dbinsertmediamsg() : dbsendmsg(DBSM::INSERTMEDIA) { }
 	media_id_type media_id;
 	std::string url;
+	uint64_t lastused;
 };
 
 enum class DBUMMT {
 	THUMBCHECKSUM = 1,
 	FULLCHECKSUM,
 	FLAGS,
+	LASTUSED,
 };
 
 struct dbupdatemediamsg : public dbsendmsg {
@@ -182,6 +184,7 @@ struct dbupdatemediamsg : public dbsendmsg {
 	media_id_type media_id;
 	shb_iptr chksm;
 	flagwrapper<MEF> flags;
+	uint64_t lastused;
 	DBUMMT update_type;
 };
 
@@ -203,6 +206,7 @@ void DBC_DeInit();
 void DBC_SendMessage(dbsendmsg *msg);
 void DBC_SendMessageOrAddToList(dbsendmsg *msg, dbsendmsg_list *msglist);
 void DBC_SendMessageBatched(dbsendmsg *msg);
+dbsendmsg_list *DBC_GetMessageBatchQueue();
 void DBC_SendAccDBUpdate(dbinsertaccmsg *insmsg);
 void DBC_InsertMedia(media_entity &me, dbsendmsg_list *msglist = 0);
 void DBC_UpdateMedia(media_entity &me, DBUMMT update_type, dbsendmsg_list *msglist = 0);

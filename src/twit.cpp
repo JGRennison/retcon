@@ -70,6 +70,10 @@ void HandleNewTweet(tweet_ptr_p t, const std::shared_ptr<taccount> &acc, flagwra
 	}
 }
 
+media_entity_raii_updater::~media_entity_raii_updater() {
+	me->UpdateLastUsed();
+}
+
 wxString media_entity::cached_full_filename(media_id_type media_id) {
 	return wxString::Format(wxT("%s%s%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), wxstrstd(wxGetApp().datadir).c_str(), wxT("/media_"), media_id.m_id, media_id.t_id);
 }
@@ -109,7 +113,18 @@ observer_ptr<media_entity> media_entity::MakeNew(media_id_type mid, std::string 
 
 	me->media_id = mid;
 	me->media_url = std::move(url);
+	me->lastused = time(0);
 	return me;
+}
+
+
+void media_entity::UpdateLastUsed(dbsendmsg_list *msglist) {
+	uint64_t now = time(0);
+	if((now - lastused) >= (60 * 60)) {
+		//don't bother sending updates for small timestamp changes
+		lastused = now;
+		DBC_UpdateMedia(*this, DBUMMT::LASTUSED, msglist ? msglist : DBC_GetMessageBatchQueue());
+	}
 }
 
 userlookup::~userlookup() {
