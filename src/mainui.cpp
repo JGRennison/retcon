@@ -506,7 +506,7 @@ void tweetpostwin::NotifyPostResult(bool success) {
 }
 
 void tweetpostwin::UpdateReplyDesc() {
-	iumc->clear();
+	iumc.reset();
 	if(tweet_reply_targ) {
 		replydesc->SetLabel(wxT("Reply to: @") + wxstrstd(tweet_reply_targ->user->GetUser().screen_name) + wxT(": ") + wxstrstd(TweetReplaceAllStringSeqs(tweet_reply_targ->text)));
 		replydesc->Show(true);
