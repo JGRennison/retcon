@@ -975,6 +975,13 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	sqlite3_busy_handler(syncdb, &busy_handler_callback, 0);
 
 	if(!gc.readonlymode) {
+		int table_count = -1;
+		DBRowExec(syncdb, "SELECT COUNT(*) FROM sqlite_master WHERE type == \"table\" AND name NOT LIKE \"sqlite%\";", [&](sqlite3_stmt *getstmt) {
+			table_count = sqlite3_column_int(getstmt, 0);
+		}, "dbconn::Init (table count)");
+
+		LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::Init(): table_count: %d"), table_count);
+
 		res = sqlite3_exec(syncdb, startup_sql, 0, 0, 0);
 		if(res != SQLITE_OK) {
 			wxMessageDialog(0, wxString::Format(wxT("Startup SQL failed, got error: %d (%s)\nDatabase filename: %s\nCheck that the database is not locked by another process, and that the directory is read/writable."),
@@ -984,7 +991,15 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 			syncdb = 0;
 			return false;
 		}
-		SyncDoUpdates(syncdb);
+
+		if(table_count <= 0) {
+			// This is a new DB, no need to do update check, just write version
+			SyncWriteDBVersion(syncdb);
+		}
+		else {
+			// Check whether DB is old and needs to be updated
+			SyncDoUpdates(syncdb);
+		}
 	}
 
 	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::Init(): About to read in state from database"));
@@ -1111,17 +1126,20 @@ void dbconn::SyncDoUpdates(sqlite3 *adb) {
 			}
 		}
 
-
-		int res = sqlite3_exec(adb, string_format("INSERT OR REPLACE INTO staticsettings(name, value) VALUES ('dbversion', %u);", db_version).c_str(), 0, 0, 0);
-		if(res != SQLITE_OK) {
-			LogMsgFormat(LOGT::DBERR, wxT("dbconn::DoUpdates setting DB version got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str());
-		}
+		SyncWriteDBVersion(adb);
 	}
 	else if(current_db_version > db_version) {
 		LogMsgFormat(LOGT::DBERR, wxT("dbconn::DoUpdates current DB version %u > %u"), current_db_version, db_version);
 	}
 
 	LogMsg(LOGT::DBTRACE, wxT("dbconn::DoUpdates end"));
+}
+
+void dbconn::SyncWriteDBVersion(sqlite3 *adb) {
+	int res = sqlite3_exec(adb, string_format("INSERT OR REPLACE INTO staticsettings(name, value) VALUES ('dbversion', %u);", db_version).c_str(), 0, 0, 0);
+	if(res != SQLITE_OK) {
+		LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncWriteDBVersion got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str());
+	}
 }
 
 void dbconn::InsertNewTweet(tweet_ptr_p tobj, std::string statjson, dbsendmsg_list *msglist) {
