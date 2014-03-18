@@ -245,11 +245,11 @@ static unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsi
 		}
 	}
 
-	static size_t cumin = 0;
-	static size_t cumout = 0;
-	cumin += insize;
-	cumout += sz;
-	#if DB_COPIOUS_LOGGING
+#if DB_COPIOUS_LOGGING
+		static size_t cumin = 0;
+		static size_t cumout = 0;
+		cumin += insize;
+		cumout += sz;
 		DBLogMsgFormat(LOGT::ZLIBTRACE, wxT("compress: %d -> %d, cum: %f"), insize, sz, (double) cumout / (double) cumin);
 	#endif
 
