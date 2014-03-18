@@ -1555,7 +1555,6 @@ void tpanelparentwin_impl::LoadMore(unsigned int n, uint64_t lessthanid, uint64_
 		else ++stit;
 	}
 	if(loadmsg) {
-		if(!DBC_AllMediaEntitiesLoaded()) loadmsg->flags |= DBSTMF::PULLMEDIA;
 		loadmsg->flags |= DBSTMF::CLEARNOUPDF;
 		DBC_PrepareStdTweetLoadMsg(loadmsg);
 		DBC_SendMessage(loadmsg);

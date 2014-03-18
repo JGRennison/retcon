@@ -91,8 +91,6 @@ struct dbinserttweetmsg : public dbsendmsg {
 	std::string dynjson;
 	uint64_t id, user1, user2, rtid, timestamp;
 	uint64_t flags;
-	unsigned char *mediaindex;			//already packed and compressed, must be malloced
-	size_t mediaindex_size;
 };
 
 struct dbupdatetweetmsg : public dbsendmsg {
@@ -117,20 +115,7 @@ struct dbrettweetdata {
 	dbrettweetdata(const dbrettweetdata& that) = delete;
 };
 
-struct dbretmediadata {
-	media_id_type media_id;
-	std::string url;
-	shb_iptr full_img_sha1;
-	shb_iptr thumb_img_sha1;
-	flagwrapper<MEF> flags;
-
-	dbretmediadata() { }
-	~dbretmediadata() { }
-	dbretmediadata(const dbretmediadata& that) = delete;
-};
-
 enum class DBSTMF {
-	PULLMEDIA       = 1<<0,
 	NO_ERR          = 1<<1,
 	NET_FALLBACK    = 1<<2,
 	CLEARNOUPDF     = 1<<3,
@@ -143,7 +128,6 @@ struct dbseltweetmsg : public dbsendmsg_callback {
 	flagwrapper<DBSTMF> flags;
 	container::set<uint64_t> id_set;         // ids to select
 	std::deque<dbrettweetdata> data;         // return data
-	std::deque<dbretmediadata> media_data;   // return data
 };
 
 struct dbseltweetmsg_netfallback : public dbseltweetmsg {
@@ -227,7 +211,6 @@ void DBC_UpdateTweetDyn(tweet_ptr_p tobj, dbsendmsg_list *msglist = 0);
 void DBC_InsertUser(udc_ptr_p u, dbsendmsg_list *msglist = 0);
 void DBC_HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags);
 void DBC_SetDBSelTweetMsgHandler(dbseltweetmsg *msg, std::function<void(dbseltweetmsg *, dbconn *)> f);
-bool DBC_AllMediaEntitiesLoaded();
 void DBC_PrepareStdTweetLoadMsg(dbseltweetmsg *loadmsg);
 
 #endif

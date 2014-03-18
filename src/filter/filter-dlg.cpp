@@ -226,7 +226,6 @@ void filter_dlg::ExecFilter() {
 		}
 	}
 	if(loadmsg) {
-		if(!DBC_AllMediaEntitiesLoaded()) loadmsg->flags |= DBSTMF::PULLMEDIA;
 		loadmsg->flags |= DBSTMF::CLEARNOUPDF;
 		DBC_PrepareStdTweetLoadMsg(loadmsg);
 		DBC_SendMessage(loadmsg);

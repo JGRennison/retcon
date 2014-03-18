@@ -786,7 +786,6 @@ bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> ac
 					if(!net_loadmsg) net_loadmsg = dynamic_cast<dbseltweetmsg_netfallback*>(loadmsg);
 					if(net_loadmsg) net_loadmsg->dbindex = acc_hint->dbindex;
 				}
-				if(!DBC_AllMediaEntitiesLoaded()) loadmsg->flags |= DBSTMF::PULLMEDIA;
 				if(!existing_dbsel) DBC_SendMessageBatched(loadmsg);
 			}
 		}
