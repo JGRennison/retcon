@@ -130,7 +130,7 @@ void taccount::LookupFriendships(uint64_t userid) {
 		//find out more if users are followed by us or otherwise have a relationship with us
 		for(auto it=user_relations.begin(); it!=user_relations.end() && fl->ids.size()<100; ++it) {
 			if(it->second.ur_flags & URF::QUERY_PENDING) continue;
-			if(!(it->second.ur_flags & URF::FOLLOWSME_KNOWN) || !(it->second.ur_flags & URF::FOLLOWSME_KNOWN)) {
+			if(!(it->second.ur_flags & URF::FOLLOWSME_KNOWN) || !(it->second.ur_flags & URF::IFOLLOW_KNOWN)) {
 				udc_ptr usp = ad.GetExistingUserContainerById(it->first);
 				if(!(usp && usp->GetUser().u_flags & userdata::UF::ISDEAD)) {
 					fl->ids.insert(it->first);
