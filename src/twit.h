@@ -446,6 +446,8 @@ struct media_entity {
 
 	void PurgeCache(dbsendmsg_list *msglist = 0);
 	void ClearPurgeFlag(dbsendmsg_list *msglist = 0);
+
+	static observer_ptr<media_entity> MakeNew(media_id_type mid, std::string url);
 };
 
 struct userlookup {

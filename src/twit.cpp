@@ -103,6 +103,15 @@ void media_entity::ClearPurgeFlag(dbsendmsg_list *msglist) {
 	}
 }
 
+observer_ptr<media_entity> media_entity::MakeNew(media_id_type mid, std::string url) {
+	observer_ptr<media_entity> me = new media_entity;
+	ad.media_list[mid].reset(me.get());  // ad.media_list now holds ownership
+
+	me->media_id = mid;
+	me->media_url = std::move(url);
+	return me;
+}
+
 userlookup::~userlookup() {
 	UnMarkAll();
 }

@@ -38,7 +38,7 @@ struct alldata {
 	std::unordered_map<uint64_t, tweet> tweetobjs;
 	std::map<std::string, std::shared_ptr<tpanel> > tpanels;
 	std::unordered_map<media_id_type, std::unique_ptr<media_entity> > media_list;
-	std::unordered_map<std::string, media_id_type> img_media_map;
+	std::unordered_map<std::string, observer_ptr<media_entity> > img_media_map;
 	container::map<uint64_t, tweet_ptr> noacc_pending_tweetobjs;
 	container::map<uint64_t, udc_ptr> noacc_pending_userconts;
 	tweetidset unloaded_db_tweet_ids;

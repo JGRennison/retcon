@@ -285,22 +285,15 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, tweet_ptr_p t, 
 				en->type = ENT_URL_IMG;
 				t->flags.Set('I');
 
-				media_id_type &media_id=ad.img_media_map[en->fullurl];
+				std::string url = ProcessMediaURL(en->fullurl, wxuri);
 
-				if(!media_id.m_id) {
-					media_id.m_id=ad.next_media_id;
+				observer_ptr<media_entity> me = ad.img_media_map[url];
+				if(!me) {
+					media_id_type media_id;
+					media_id.m_id = ad.next_media_id;
 					ad.next_media_id++;
-					media_id.t_id=t->id;
-				}
-				en->media_id=media_id;
-
-				media_entity *me=0;
-				auto it=ad.media_list.find(media_id);
-				if(it == ad.media_list.end()) {
-					me = new media_entity;
-					ad.media_list[media_id].reset(me);
-					me->media_id=media_id;
-					me->media_url=ProcessMediaURL(en->fullurl, url);
+					media_id.t_id = t->id;
+					me = media_entity::MakeNew(media_id, url);
 					if(gc.cachethumbs || gc.cachemedia) DBC_InsertMedia(*me, dbmsglist);
 				}
 				auto res = std::find_if(me->tweet_list.begin(), me->tweet_list.end(), [&](tweet_ptr_p tt) {
@@ -365,26 +358,27 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, tweet_ptr_p t, 
 			}
 			en->media_id.t_id = 0;
 
-			media_entity *me=0;
-			auto it=ad.media_list.find(en->media_id);
-			if(it == ad.media_list.end()) {
-				me = new media_entity;
-				ad.media_list[en->media_id].reset(me);
-				me->media_id=en->media_id;
+			observer_ptr<media_entity> me = nullptr;
+			auto it = ad.media_list.find(en->media_id);
+			if(it != ad.media_list.end()) {
+				me = it->second.get();
+			}
+			else {
+				std::string url;
 				if(t->flags.Get('s')) {
-					if(!CheckTransJsonValueDef(me->media_url, media[i], "media_url_https", "")) {
-						CheckTransJsonValueDef(me->media_url, media[i], "media_url", "");
+					if(!CheckTransJsonValueDef(url, media[i], "media_url_https", "")) {
+						CheckTransJsonValueDef(url, media[i], "media_url", "");
 					}
 				}
 				else {
-					if(!CheckTransJsonValueDef(me->media_url, media[i], "media_url", "")) {
-						CheckTransJsonValueDef(me->media_url, media[i], "media_url_https", "");
+					if(!CheckTransJsonValueDef(url, media[i], "media_url", "")) {
+						CheckTransJsonValueDef(url, media[i], "media_url_https", "");
 					}
 				}
-				me->media_url+=":large";
+				url += ":large";
+				me = media_entity::MakeNew(en->media_id, url);
 				if(gc.cachethumbs || gc.cachemedia) DBC_InsertMedia(*me, dbmsglist);
 			}
-			else me = it->second.get();
 
 			auto res = std::find_if(me->tweet_list.begin(), me->tweet_list.end(), [&](tweet_ptr_p tt) {
 				return tt->id == t->id;

@@ -1452,7 +1452,7 @@ void dbconn::SyncReadInAllMediaEntities(sqlite3 *adb) {
 		char *url = column_get_compressed(stmt, 2, outsize);
 		if(url) {
 			me.media_url.assign(url, outsize);
-			ad.img_media_map[me.media_url] = me.media_id;
+			ad.img_media_map[me.media_url] = meptr;
 		}
 		free(url);
 		if(sqlite3_column_bytes(stmt, 3) == sizeof(sha1_hash_block::hash_sha1)) {
