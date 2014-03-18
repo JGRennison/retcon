@@ -91,7 +91,6 @@ static const char *startup_sql=
 "CREATE TABLE IF NOT EXISTS mainframewins(mainframeindex INTEGER, x INTEGER, y INTEGER, w INTEGER, h INTEGER, maximised INTEGER);"
 "CREATE TABLE IF NOT EXISTS tpanels(name TEXT, dispname TEXT, flags INTEGER, ids BLOB);"
 "CREATE TABLE IF NOT EXISTS staticsettings(name TEXT PRIMARY KEY NOT NULL, value BLOB);"
-"UPDATE OR IGNORE settings SET accid = 'G' WHERE (hex(accid) == '4700');"  //This is because previous versions of retcon accidentally inserted an embedded null when writing out the config
 "INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', 'dirtyflag', strftime('%s','now'));";
 
 static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
@@ -120,6 +119,8 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 static const char *update_sql[] = {
 	"ALTER TABLE mediacache ADD COLUMN lastusedtimestamp INTEGER;"
 	"UPDATE OR IGNORE mediacache SET lastusedtimestamp = strftime('%s','now');"
+	"UPDATE OR IGNORE settings SET accid = 'G' WHERE (hex(accid) == '4700');"  //This is because previous versions of retcon accidentally inserted an embedded null when writing out the config
+	"UPDATE OR IGNORE tweets SET medialist = NULL;"
 	,
 };
 static const unsigned int db_version = 1;
@@ -1125,7 +1126,6 @@ void dbconn::SyncDoUpdates(sqlite3 *adb) {
 				LogMsgFormat(LOGT::DBERR, wxT("dbconn::DoUpdates %u got error: %d (%s)"), i, res, wxstrstd(sqlite3_errmsg(adb)).c_str());
 			}
 		}
-
 		SyncWriteDBVersion(adb);
 	}
 	else if(current_db_version > db_version) {
