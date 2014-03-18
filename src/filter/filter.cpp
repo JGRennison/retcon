@@ -414,7 +414,7 @@ void ParseFilter(const std::string &input, filter_set &filter_output, std::strin
 #if PCRE_STUDY_JIT_COMPILE
 						pcre_fullinfo(ritem->ptn, ritem->extra, PCRE_INFO_JIT, &jit);
 #endif
-						LogMsgFormat(LOGT::FILTERTRACE, wxT("ParseFilter: pcre_compile and pcre_study success: JIT: %u\n%s"), jit_count, wxstrstd(userptnstr).c_str());
+						LogMsgFormat(LOGT::FILTERTRACE, wxT("ParseFilter: pcre_compile and pcre_study success: JIT: %u\n%s"), jit, wxstrstd(userptnstr).c_str());
 					}
 				}
 				ritem->regexstr = std::move(userptnstr);
