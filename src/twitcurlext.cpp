@@ -524,7 +524,7 @@ void twitcurlext::RemoveFromRetryQueueNotify() {
 }
 
 void StreamCallback( std::string &data, twitCurl* pTwitCurlObj, void *userdata ) {
-	twitcurlext *obj=(twitcurlext*) pTwitCurlObj;
+	twitcurlext *obj = static_cast<twitcurlext*>(pTwitCurlObj);
 	std::shared_ptr<taccount> acc=obj->tacc.lock();
 	if(!acc) return;
 
@@ -542,7 +542,7 @@ void StreamCallback( std::string &data, twitCurl* pTwitCurlObj, void *userdata )
 }
 
 void StreamActivityCallback( twitCurl* pTwitCurlObj, void *userdata ) {
-	twitcurlext *obj=(twitcurlext*) pTwitCurlObj;
+	twitcurlext *obj = static_cast<twitcurlext*>(pTwitCurlObj);
 	obj->scto->Arm();
 	LogMsgFormat(LOGT::SOCKTRACE, wxT("Reset timeout on stream connection %p"), obj);
 	std::shared_ptr<taccount> acc=obj->tacc.lock();

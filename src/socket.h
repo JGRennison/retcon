@@ -171,14 +171,14 @@ struct socketmanager : public wxEvtHandler {
 	void UnregisterRetryConn(mcurlconn *cs);
 
 	bool MultiIOHandlerInited;
-	CURLM *curlmulti;
+	CURLM *curlmulti = nullptr;
 	sockettimeout *st;
 	int curnumsocks;
 	#ifdef RCS_WSAASYNCSELMODE
 	HWND wind;
 	#endif
 	#ifdef RCS_POLLTHREADMODE
-	int pipefd;
+	int pipefd = -1;
 	#endif
 	#ifdef RCS_GTKSOCKMODE
 	GSource *gs;

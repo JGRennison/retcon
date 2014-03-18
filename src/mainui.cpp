@@ -254,11 +254,11 @@ void ThawAll() {
 
 mainframe *GetMainframeAncestor(wxWindow *in, bool passtoplevels) {
 	while(in) {
-		if(std::count(mainframelist.begin(), mainframelist.end(), in)) return (mainframe *) in;
-		if((passtoplevels==false) && in->IsTopLevel()) return 0;
-		in=in->GetParent();
+		if(std::count(mainframelist.begin(), mainframelist.end(), in)) return static_cast<mainframe *>(in);
+		if((passtoplevels == false) && in->IsTopLevel()) return 0;
+		in = in->GetParent();
 	}
-	return 0;
+	return nullptr;
 }
 
 DECLARE_EVENT_TYPE(wxextTPRESIZE_UPDATE_EVENT, -1)

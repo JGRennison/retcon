@@ -124,7 +124,7 @@ struct dbretmediadata {
 	shb_iptr thumb_img_sha1;
 	flagwrapper<MEF> flags;
 
-	dbretmediadata() : url(0) { }
+	dbretmediadata() { }
 	~dbretmediadata() { }
 	dbretmediadata(const dbretmediadata& that) = delete;
 };

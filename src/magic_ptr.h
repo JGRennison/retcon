@@ -47,13 +47,13 @@ struct magic_ptr /*final*/ {
 	magic_ptr_base *ptr;
 
 	public:
-	magic_ptr() : ptr(0) { }
+	magic_ptr() : ptr(nullptr) { }
 	~magic_ptr() {
 		if(ptr) ptr->Unmark(this);
 	}
 	void set(magic_ptr_base *t) {
 		if(ptr) ptr->Unmark(this);
-		ptr=t;
+		ptr = t;
 		if(t) t->Mark(this);
 	}
 	magic_ptr_base *get() const {
@@ -66,11 +66,11 @@ struct magic_ptr /*final*/ {
 		return *ptr;
 	}
 	magic_ptr(const magic_ptr &p) {
-		ptr=p.get();
+		ptr = p.get();
 		if(ptr) ptr->Mark(this);
 	}
 	magic_ptr(magic_ptr_base *t) {
-		ptr=t;
+		ptr = t;
 		if(ptr) ptr->Mark(this);
 	}
 	magic_ptr & operator=(const magic_ptr &p) {
@@ -88,7 +88,7 @@ struct magic_ptr /*final*/ {
 
 inline unsigned int magic_ptr_base::ResetAllMagicPtrs() {
 	for(auto &it : list) {
-		it->ptr=0;
+		it->ptr = nullptr;
 	}
 	unsigned int count = list.size();
 	list.clear();
@@ -100,17 +100,17 @@ inline magic_ptr_base::~magic_ptr_base() {
 }
 
 inline void magic_ptr_base::Mark(magic_ptr* t) {
-	for(size_t i=0; i<list.size(); i++) {
-		if(list[i]==t) return;
+	for(size_t i = 0; i < list.size(); i++) {
+		if(list[i] == t) return;
 	}
 	list.push_back(t);
 }
 
 inline void magic_ptr_base::Unmark(magic_ptr* t) {
-	for(size_t i=0; i<list.size(); i++) {
-		if(list[i]==t) {
-			if(i+1<list.size()) {
-				list[i]=list[list.size()-1];
+	for(size_t i = 0; i < list.size(); i++) {
+		if(list[i] == t) {
+			if(i + 1 < list.size()) {
+				list[i] = list[list.size() - 1];
 			}
 			list.pop_back();
 			break;
@@ -132,7 +132,7 @@ template <typename C> struct magic_ptr_ts {
 		ptr.set(t);
 	}
 	C *get() const {
-		return (C*) ptr.get();
+		return static_cast<C*>(ptr.get());
 	}
 	C *operator->() const {
 		return get();

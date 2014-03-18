@@ -145,7 +145,7 @@ owner(owner_)
 void tpanelnotebook::dragdrophandler(wxAuiNotebookEvent& event) {
 	wxAuiNotebook* note= (wxAuiNotebook *) event.GetEventObject();
 	if(note) {
-		tpanelparentwin *tppw = (tpanelparentwin *) note->GetPage(event.GetSelection());
+		tpanelparentwin *tppw = static_cast<tpanelparentwin *>(note->GetPage(event.GetSelection()));
 		if(tppw) tppw->pimpl()->owner = owner;
 	}
 	event.Allow();
@@ -165,7 +165,7 @@ void tpanelnotebook::tabnumcheck() {
 }
 
 void tpanelnotebook::tabrightclickhandler(wxAuiNotebookEvent& event) {
-	tpanelparentwin *tppw = (tpanelparentwin *) GetPage(event.GetSelection());
+	tpanelparentwin *tppw = static_cast<tpanelparentwin *>(GetPage(event.GetSelection()));
 	if(tppw) {
 		wxMenu menu;
 		menu.SetTitle(wxstrstd(tppw->pimpl()->tp->dispname));

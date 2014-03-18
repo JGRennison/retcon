@@ -188,7 +188,7 @@ socketmanager::~socketmanager() {
 }
 
 curl_socket_t pre_connect_func(void *clientp, curl_socket_t curlfd, curlsocktype purpose) {
-	mcurlconn *cs = (mcurlconn *) clientp;
+	mcurlconn *cs = static_cast<mcurlconn *>(clientp);
 	double lookuptime;
 	curl_easy_getinfo(cs->GenGetCurlHandle(), CURLINFO_NAMELOOKUP_TIME, &lookuptime);
 	LogMsgFormat(LOGT::SOCKTRACE, wxT("DNS lookup took: %fs. Request: type: %s, conn: %p, url: %s"), lookuptime, cs->GetConnTypeName().c_str(), cs, wxstrstd(cs->url).c_str());
@@ -200,7 +200,7 @@ bool socketmanager::AddConn(CURL* ch, mcurlconn *cs) {
 		if(asyncdns->CheckAsync(ch, cs)) return true;
 	}
 	connlist.push_front(std::make_pair(ch, cs));
-	SetCurlHandleVerboseState(ch, currentlogflags&LOGT::CURLVERB);
+	SetCurlHandleVerboseState(ch, currentlogflags & LOGT::CURLVERB);
 	curl_easy_setopt(ch, CURLOPT_TIMEOUT, (cs->mcflags & mcurlconn::MCF::NOTIMEOUT) ? 0 : 180);
 	curl_easy_setopt(ch, CURLOPT_PRIVATE, cs);
 	if(currentlogflags&LOGT::SOCKTRACE) {
@@ -274,12 +274,12 @@ void adns::Unlock(CURL *handle, curl_lock_data data) {
 }
 
 void adns_lock_function(CURL *handle, curl_lock_data data, curl_lock_access access, void *userptr) {
-	adns *a = (adns*) userptr;
+	adns *a = static_cast<adns*>(userptr);
 	a->Lock(handle, data, access);
 }
 
 void adns_unlock_function(CURL *handle, curl_lock_data data, void *userptr) {
-	adns *a = (adns*) userptr;
+	adns *a = static_cast<adns*>(userptr);
 	a->Unlock(handle, data);
 }
 
@@ -342,7 +342,7 @@ bool adns::CheckAsync(CURL* ch, mcurlconn *cs) {
 }
 
 void adns::DNSResolutionEvent(wxCommandEvent &event) {
-	adns_thread *at = (adns_thread*) event.GetClientData();
+	adns_thread *at = static_cast<adns_thread*>(event.GetClientData());
 	if(!at) return;
 
 	at->Wait();

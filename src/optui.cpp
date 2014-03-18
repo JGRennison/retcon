@@ -32,7 +32,7 @@
 #include <wx/stattext.h>
 
 enum {
-	ACCWID_ENDISABLE=1,
+	ACCWID_ENDISABLE = 1,
 	ACCWID_REAUTH,
 
 };
@@ -59,14 +59,14 @@ acc_window::acc_window(wxWindow* parent, wxWindowID id, const wxString& title, c
 	wxBoxSizer *hbox2 = new wxBoxSizer(wxHORIZONTAL);
 	wxBoxSizer *vboxr = new wxBoxSizer(wxVERTICAL);
 
-	lb=new wxListBox(panel, wxID_FILE1, wxDefaultPosition, wxDefaultSize, 0, 0, wxLB_SINGLE | wxLB_SORT | wxLB_NEEDED_SB);
+	lb = new wxListBox(panel, wxID_FILE1, wxDefaultPosition, wxDefaultSize, 0, 0, wxLB_SINGLE | wxLB_SORT | wxLB_NEEDED_SB);
 	UpdateLB();
-	editbtn=new wxButton(panel, wxID_PROPERTIES, wxT("Settings"));
-	endisbtn=new wxButton(panel, ACCWID_ENDISABLE, wxT("Disable"));
-	reauthbtn=new wxButton(panel, ACCWID_REAUTH, wxT("Re-Authenticate"));
-	delbtn=new wxButton(panel, wxID_DELETE, wxT("Delete"));
-	wxButton *newbtn=new wxButton(panel, wxID_NEW, wxT("Add account"));
-	wxButton *clsbtn=new wxButton(panel, wxID_CLOSE, wxT("Close"));
+	editbtn = new wxButton(panel, wxID_PROPERTIES, wxT("Settings"));
+	endisbtn = new wxButton(panel, ACCWID_ENDISABLE, wxT("Disable"));
+	reauthbtn = new wxButton(panel, ACCWID_REAUTH, wxT("Re-Authenticate"));
+	delbtn = new wxButton(panel, wxID_DELETE, wxT("Delete"));
+	wxButton *newbtn = new wxButton(panel, wxID_NEW, wxT("Add account"));
+	wxButton *clsbtn = new wxButton(panel, wxID_CLOSE, wxT("Close"));
 
 	vbox->Add(hbox1, 1, wxALL | wxEXPAND , 4);
 	vbox->Add(hbox2, 0, wxALL | wxEXPAND , 4);
@@ -101,53 +101,54 @@ void acc_window::OnSelChange(wxCommandEvent &event) {
 }
 
 void acc_window::UpdateButtons() {
-	int selection=lb->GetSelection();
+	int selection = lb->GetSelection();
 	editbtn->Enable(selection!=wxNOT_FOUND);
 	endisbtn->Enable(selection!=wxNOT_FOUND);
 	reauthbtn->Enable(selection!=wxNOT_FOUND);
 	delbtn->Enable(selection!=wxNOT_FOUND);
-	if(selection!=wxNOT_FOUND) {
-		taccount *acc=(taccount *) lb->GetClientData(selection);
-		endisbtn->SetLabel(acc->userenabled?wxT("Disable"):wxT("Enable"));
+	if(selection != wxNOT_FOUND) {
+		taccount *acc = static_cast<taccount *>(lb->GetClientData(selection));
+		endisbtn->SetLabel(acc->userenabled ? wxT("Disable") : wxT("Enable"));
 	}
 	else endisbtn->SetLabel(wxT("Disable"));
 }
 
 void acc_window::UpdateLB() {
-	int selection=lb->GetSelection();
-	taccount *acc;
-	if(selection!=wxNOT_FOUND) acc=(taccount *) lb->GetClientData(selection);
-	else acc=0;
+	int selection = lb->GetSelection();
+	taccount *acc = nullptr;
+	if(selection != wxNOT_FOUND) acc = static_cast<taccount *>(lb->GetClientData(selection));
 	lb->Clear();
-	for(auto it=alist.begin(); it != alist.end(); it++ ) {
-		wxString accname=(*it)->dispname + wxT(" [") + (*it)->GetStatusString(false) + wxT("]");;
-		int index=lb->Append(accname,(*it).get());
-		if((*it).get()==acc) lb->SetSelection(index);
+	for(auto &it : alist) {
+		wxString accname = it->dispname + wxT(" [") + it->GetStatusString(false) + wxT("]");;
+		int index = lb->Append(accname, it.get());
+		if(it.get() == acc) lb->SetSelection(index);
 	}
 }
 
 void acc_window::AccEdit(wxCommandEvent &event) {
-	int sel=lb->GetSelection();
-	if(sel==wxNOT_FOUND) return;
-	taccount *acc=(taccount *) lb->GetClientData(sel);
-	settings_window *sw=new settings_window(this, -1, wxT("Settings"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER, wxT("dialogBox"), acc);
+	int sel = lb->GetSelection();
+	if(sel == wxNOT_FOUND) return;
+	taccount *acc = static_cast<taccount *>(lb->GetClientData(sel));
+	settings_window *sw = new settings_window(this, -1, wxT("Settings"), wxDefaultPosition, wxDefaultSize,
+			wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER, wxT("dialogBox"), acc);
 	sw->ShowModal();
 	sw->Destroy();
 }
 
 void acc_window::AccDel(wxCommandEvent &event) {
-	int sel=lb->GetSelection();
-	if(sel==wxNOT_FOUND) return;
-	taccount *acc=(taccount *) lb->GetClientData(sel);
+	int sel = lb->GetSelection();
+	if(sel == wxNOT_FOUND) return;
+	taccount *acc = static_cast<taccount *>(lb->GetClientData(sel));
 	if(!acc->dbindex) return;
-	int answer=wxMessageBox(wxT("Are you sure that you want to delete account: ") + acc->dispname + wxT(".\nThis cannot be undone."), wxT("Confirm Account Deletion"), wxYES_NO | wxICON_EXCLAMATION, this);
-	if(answer==wxYES) {
+	int answer = wxMessageBox(wxT("Are you sure that you want to delete account: ") + acc->dispname + wxT(".\nThis cannot be undone."),
+			wxT("Confirm Account Deletion"), wxYES_NO | wxICON_EXCLAMATION, this);
+	if(answer == wxYES) {
 		acc->enabled=acc->userenabled=0;
 		acc->Exec();
-		dbdelaccmsg *delmsg=new dbdelaccmsg;
-		delmsg->dbindex=acc->dbindex;
+		dbdelaccmsg *delmsg = new dbdelaccmsg;
+		delmsg->dbindex = acc->dbindex;
 		DBC_SendMessage(delmsg);
-		alist.remove_if([&](const std::shared_ptr<taccount> &a) { return a.get()==acc; });
+		alist.remove_if([&](const std::shared_ptr<taccount> &a) { return a.get() == acc; });
 		lb->SetSelection(wxNOT_FOUND);
 		UpdateLB();
 	}
@@ -155,30 +156,32 @@ void acc_window::AccDel(wxCommandEvent &event) {
 
 void acc_window::AccNew(wxCommandEvent &event) {
 	std::shared_ptr<taccount> ta(new taccount(&gc.cfg));
-	ta->enabled=false;
-	ta->dispname=wxT("<new account>");
+	ta->enabled = false;
+	ta->dispname = wxT("<new account>");
 
-	int answer=wxMessageBox(wxT("Would you like to review the account settings before authenticating?"), wxT("Account Creation"), wxYES_NO | wxCANCEL | wxICON_QUESTION | wxNO_DEFAULT, this);
+	int answer = wxMessageBox(wxT("Would you like to review the account settings before authenticating?"), wxT("Account Creation"),
+			wxYES_NO | wxCANCEL | wxICON_QUESTION | wxNO_DEFAULT, this);
 
-	if(answer==wxYES) {
-		settings_window *sw=new settings_window(this, -1, wxT("New Account Settings"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER, wxT("dialogBox"), ta.get());
+	if(answer == wxYES) {
+		settings_window *sw=new settings_window(this, -1, wxT("New Account Settings"), wxDefaultPosition, wxDefaultSize,
+				wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER, wxT("dialogBox"), ta.get());
 		sw->ShowModal();
 		sw->Destroy();
 	}
-	else if(answer==wxCANCEL) return;
+	else if(answer == wxCANCEL) return;
 
-	twitcurlext *twit=ta->GetTwitCurlExt();
+	twitcurlext *twit = ta->GetTwitCurlExt();
 	if(ta->TwDoOAuth(this, *twit)) {
 		if(twit->TwSyncStartupAccVerify()) {
-			ta->userenabled=true;
-			ta->beinginsertedintodb=true;
-			ta->name=wxString::Format(wxT("%" wxLongLongFmtSpec "d-%d"),ta->usercont->id,time(0));
+			ta->userenabled = true;
+			ta->beinginsertedintodb = true;
+			ta->name = wxString::Format(wxT("%" wxLongLongFmtSpec "d-%d"),ta->usercont->id,time(0));
 			alist.push_back(ta);
 			UpdateLB();
-			dbinsertaccmsg *insmsg=new dbinsertaccmsg;
-			insmsg->name=ta->name.ToUTF8();
-			insmsg->dispname=ta->dispname.ToUTF8();
-			insmsg->userid=ta->usercont->id;
+			dbinsertaccmsg *insmsg = new dbinsertaccmsg;
+			insmsg->name = ta->name.ToUTF8();
+			insmsg->dispname = ta->dispname.ToUTF8();
+			insmsg->userid = ta->usercont->id;
 			DBC_SendAccDBUpdate(insmsg);
 		}
 	}
@@ -191,9 +194,9 @@ void acc_window::AccClose(wxCommandEvent &event) {
 }
 
 void acc_window::EnDisable(wxCommandEvent &event) {
-	int sel=lb->GetSelection();
-	if(sel==wxNOT_FOUND) return;
-	taccount *acc=(taccount *) lb->GetClientData(sel);
+	int sel = lb->GetSelection();
+	if(sel == wxNOT_FOUND) return;
+	taccount *acc = static_cast<taccount *>(lb->GetClientData(sel));
 	acc->userenabled=!acc->userenabled;
 	acc->CalcEnabled();
 	acc->Exec();
@@ -202,12 +205,12 @@ void acc_window::EnDisable(wxCommandEvent &event) {
 }
 
 void acc_window::ReAuth(wxCommandEvent &event) {
-	int sel=lb->GetSelection();
-	if(sel==wxNOT_FOUND) return;
-	taccount *acc=(taccount *) lb->GetClientData(sel);
-	acc->enabled=0;
+	int sel = lb->GetSelection();
+	if(sel == wxNOT_FOUND) return;
+	taccount *acc = static_cast<taccount *>(lb->GetClientData(sel));
+	acc->enabled = 0;
 	acc->Exec();
-	twitcurlext *twit=acc->GetTwitCurlExt();
+	twitcurlext *twit = acc->GetTwitCurlExt();
 	twit->getOAuth().setOAuthTokenKey("");		//remove existing oauth tokens
 	twit->getOAuth().setOAuthTokenSecret("");
 	if(acc->TwDoOAuth(this, *twit)) {
@@ -310,13 +313,15 @@ enum {
 	OPTWIN_LAST,
 };
 
-void settings_window::AddSettingRow_String(unsigned int win, wxWindow* parent, wxSizer *sizer, const wxString &name, flagwrapper<DBCV> flags, genopt &val, genopt &parentval, long style, wxValidator *textctrlvalidator) {
+void settings_window::AddSettingRow_String(unsigned int win, wxWindow* parent, wxSizer *sizer, const wxString &name,
+		flagwrapper<DBCV> flags, genopt &val, genopt &parentval, long style, wxValidator *textctrlvalidator) {
 	wxTextValidator deftv(style, &val.val);
 	if(!textctrlvalidator) textctrlvalidator=&deftv;
-	wxStaticText *stat=new wxStaticText(parent, wxID_ANY, name);
-	wxTextCtrl *tc=new wxTextCtrl(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, (flags & DBCV::MULTILINE) ? wxTE_MULTILINE : 0, *textctrlvalidator);
+	wxStaticText *stat = new wxStaticText(parent, wxID_ANY, name);
+	wxTextCtrl *tc = new wxTextCtrl(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize,
+			(flags & DBCV::MULTILINE) ? wxTE_MULTILINE : 0, *textctrlvalidator);
 	DefaultChkBoxValidator dcbv(val, parentval, flags, tc);
-	wxCheckBox *chk=new wxCheckBox(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, 0, dcbv);
+	wxCheckBox *chk = new wxCheckBox(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, 0, dcbv);
 
 	sizer->Add(stat, 0, wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL, 4);
 	wxSize statsz=stat->GetSize();
@@ -328,12 +333,13 @@ void settings_window::AddSettingRow_String(unsigned int win, wxWindow* parent, w
 	opts.emplace_front(option_item {sizer, chk, win, flags});
 }
 
-void settings_window::AddSettingRow_Bool(unsigned int win, wxWindow* parent, wxSizer *sizer, const wxString &name, flagwrapper<DBCV> flags, genopt &val, genopt &parentval) {
+void settings_window::AddSettingRow_Bool(unsigned int win, wxWindow* parent, wxSizer *sizer, const wxString &name,
+		flagwrapper<DBCV> flags, genopt &val, genopt &parentval) {
 	ValueChkBoxValidator boolvalidator(val);
-	wxStaticText *stat=new wxStaticText(parent, wxID_ANY, name);
-	wxCheckBox *chkval=new wxCheckBox(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, 0, boolvalidator);
+	wxStaticText *stat = new wxStaticText(parent, wxID_ANY, name);
+	wxCheckBox *chkval = new wxCheckBox(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, 0, boolvalidator);
 	DefaultChkBoxValidator dcbv(val, parentval, flags, 0, chkval);
-	wxCheckBox *chk=new wxCheckBox(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, 0, dcbv);
+	wxCheckBox *chk = new wxCheckBox(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, 0, dcbv);
 
 	sizer->Add(stat, 0, wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL, 4);
 	wxSize statsz=stat->GetSize();
@@ -345,7 +351,8 @@ void settings_window::AddSettingRow_Bool(unsigned int win, wxWindow* parent, wxS
 	opts.emplace_front(option_item {sizer, chk, win, flags});
 }
 
-wxStaticBoxSizer *settings_window::AddGenoptconfSettingBlock(wxWindow* parent, wxSizer *sizer, const wxString &name, genoptconf &goc, genoptconf &parentgoc, flagwrapper<DBCV> flags) {
+wxStaticBoxSizer *settings_window::AddGenoptconfSettingBlock(wxWindow* parent, wxSizer *sizer, const wxString &name,
+		genoptconf &goc, genoptconf &parentgoc, flagwrapper<DBCV> flags) {
 	wxStaticBoxSizer *sbox = new wxStaticBoxSizer(wxVERTICAL, parent, wxT("Account Settings - ") + name);
 	wxFlexGridSizer *fgs = new wxFlexGridSizer(3, 2, 5);
 	fgs->SetFlexibleDirection(wxHORIZONTAL);
@@ -377,8 +384,8 @@ END_EVENT_TABLE()
 settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name, taccount *defshow)
 	: wxDialog(parent, id, title, pos, size, style, name) {
 
-	wxWindow *panel=this;
-	current=0;
+	wxWindow *panel = this;
+	current = 0;
 
 	hbox = new wxBoxSizer(wxHORIZONTAL);
 	vbox = new wxBoxSizer(wxVERTICAL);
@@ -423,10 +430,10 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	addbtn(OPTWIN_MISC, wxT("Misc"));
 
 	wxBoxSizer *hboxfooter = new wxBoxSizer(wxHORIZONTAL);
-	wxButton *okbtn=new wxButton(panel, wxID_OK, wxT("OK"));
-	wxButton *cancelbtn=new wxButton(panel, wxID_CANCEL, wxT("Cancel"));
-	advoptchkbox=new wxCheckBox(panel, wxID_FILE2, wxT("Show Advanced Options"));
-	veryadvoptchkbox=new wxCheckBox(panel, wxID_FILE3, wxT("Show Very Advanced Options"));
+	wxButton *okbtn = new wxButton(panel, wxID_OK, wxT("OK"));
+	wxButton *cancelbtn = new wxButton(panel, wxID_CANCEL, wxT("Cancel"));
+	advoptchkbox = new wxCheckBox(panel, wxID_FILE2, wxT("Show Advanced Options"));
+	veryadvoptchkbox = new wxCheckBox(panel, wxID_FILE3, wxT("Show Very Advanced Options"));
 	wxBoxSizer *advoptbox = new wxBoxSizer(wxVERTICAL);
 	advoptbox->Add(advoptchkbox, 0, wxALL | wxALIGN_CENTRE_VERTICAL, 2);
 	advoptbox->Add(veryadvoptchkbox, 0, wxALL | wxALIGN_CENTRE_VERTICAL, 2);
@@ -518,29 +525,29 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 
 	vbox->Add(lb, 0, wxALL, 4);
 
-	wxStaticBoxSizer *defsbox=AddGenoptconfSettingBlock(panel, vbox, wxT("[Defaults for All Accounts]"), gc.cfg, gcdefaults, DBCV::ISGLOBALCFG);
-	accmap[0]=defsbox;
+	wxStaticBoxSizer *defsbox = AddGenoptconfSettingBlock(panel, vbox, wxT("[Defaults for All Accounts]"), gc.cfg, gcdefaults, DBCV::ISGLOBALCFG);
+	accmap[0] = defsbox;
 	lb->Append(wxT("[Defaults for All Accounts]"), (void *) 0);
 	lb->SetSelection(0);
 
-	for(auto it=alist.begin() ; it != alist.end(); it++ ) {
-		wxStaticBoxSizer *sbox=AddGenoptconfSettingBlock(panel, vbox, (*it)->dispname, (*it)->cfg, gc.cfg, 0);
-		accmap[(*it).get()]=sbox;
-		lb->Append((*it)->dispname, (*it).get());
-		if((*it).get()==defshow) {
-			current=defshow;
-			lb->SetSelection(lb->GetCount()-1);
+	for(auto &it : alist) {
+		wxStaticBoxSizer *sbox=AddGenoptconfSettingBlock(panel, vbox, it->dispname, it->cfg, gc.cfg, 0);
+		accmap[it.get()]=sbox;
+		lb->Append(it->dispname, it.get());
+		if(it.get() == defshow) {
+			current = defshow;
+			lb->SetSelection(lb->GetCount() - 1);
 		}
 		else {
 			vbox->Hide(sbox);
 		}
 	}
-	if(defshow && current!=defshow) {	//for (new) accounts not (yet) in alist
-		wxStaticBoxSizer *sbox=AddGenoptconfSettingBlock(panel, vbox, defshow->dispname, defshow->cfg, gc.cfg, 0);
-		accmap[defshow]=sbox;
+	if(defshow && current != defshow) {	//for (new) accounts not (yet) in alist
+		wxStaticBoxSizer *sbox = AddGenoptconfSettingBlock(panel, vbox, defshow->dispname, defshow->cfg, gc.cfg, 0);
+		accmap[defshow] = sbox;
 		lb->Append(defshow->dispname, defshow);
-		lb->SetSelection(lb->GetCount()-1);
-		current=defshow;
+		lb->SetSelection(lb->GetCount() - 1);
+		current = defshow;
 	}
 
 	if(current) vbox->Hide(defsbox);
@@ -552,7 +559,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	panel->SetSizer(hbox);
 	hbox->Fit(panel);
 
-	initsize=GetSize();
+	initsize = GetSize();
 	SetSizeHints(initsize.GetWidth(), initsize.GetHeight(), 9000, initsize.GetHeight());
 
 	currentcat = 1;
@@ -564,9 +571,9 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 
 settings_window::~settings_window() {
 	UpdateAllTweets(false, true);
-	for(auto it=alist.begin(); it!=alist.end(); ++it) {
-		(*it)->Exec();
-		(*it)->SetupRestBackfillTimer();
+	for(auto &it : alist) {
+		it->Exec();
+		it->SetupRestBackfillTimer();
 	}
 	AccountChangeTrigger();
 }
@@ -574,7 +581,7 @@ settings_window::~settings_window() {
 void settings_window::ChoiceCtrlChange(wxCommandEvent &event) {
 	Freeze();
 	SetSizeHints(GetSize().GetWidth(), 1);
-	current=(taccount*) event.GetClientData();
+	current = static_cast<taccount*>(event.GetClientData());
 	vbox->Show(accmap[current]);
 	OptShowHide((advoptchkbox->IsChecked() ? DBCV::ADVOPTION : static_cast<DBCV>(0)) | (veryadvoptchkbox->IsChecked() ? DBCV::VERYADVOPTION : static_cast<DBCV>(0)));
 	PostOptShowHide();

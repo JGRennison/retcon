@@ -195,7 +195,7 @@ void user_window::OnSelChange(wxCommandEvent &event) {
 	int selection = accchoice->GetSelection();
 	acc_hint.reset();
 	if(selection != wxNOT_FOUND) {
-		taccount *acc = (taccount *) accchoice->GetClientData(selection);
+		taccount *acc = static_cast<taccount *>(accchoice->GetClientData(selection));
 		for(auto it = alist.begin(); it != alist.end(); it++) {
 			if((*it).get() == acc) {
 				acc_hint = *it;
@@ -236,9 +236,9 @@ void user_window::RefreshFollow(bool forcerefresh) {
 	FOLLOWBTNMODE fbm = FOLLOWBTNMODE::FBM_NONE;
 
 	auto fill_follow_field = [&](wxStaticText *st, bool ifollow) {
-		bool known = false;
 		wxString value;
 		if(acc) {
+			bool known = false;
 			auto it = acc->user_relations.find(userid);
 			if(it != acc->user_relations.end()) {
 				user_relationship &ur = it->second;
@@ -533,7 +533,7 @@ void acc_choice::UpdateSel() {
 	bool haveanyacc = false;
 	int selection = GetSelection();
 	if(selection != wxNOT_FOUND) {
-		taccount *accptr = (taccount *) GetClientData(selection);
+		taccount *accptr = static_cast<taccount *>(GetClientData(selection));
 		for(auto it = alist.begin(); it != alist.end(); ++it) {
 			if((*it).get() == accptr) {
 				haveanyacc = true;

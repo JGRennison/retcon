@@ -1236,17 +1236,17 @@ void tpanelparentwin_nt::EnumDisplayedTweets(std::function<bool (tweetdispscr *)
 
 void tpanelparentwin_nt_impl::EnumDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush) {
 	base()->Freeze();
-	bool checkupdateflag=false;
+	bool checkupdateflag = false;
 	if(setnoupdateonpush) {
-		checkupdateflag=!(tppw_flags&TPPWF::NOUPDATEONPUSH);
+		checkupdateflag = !(tppw_flags&TPPWF::NOUPDATEONPUSH);
 		SetNoUpdateFlag();
 	}
-	for(auto jt=currentdisp.begin(); jt!=currentdisp.end(); ++jt) {
-		tweetdispscr *tds=(tweetdispscr *) jt->second;
-		bool continueflag=func(tds);
-		for(auto kt=tds->subtweets.begin(); kt!=tds->subtweets.end(); ++kt) {
-			if(kt->get()) {
-				func(kt->get());
+	for(auto &jt : currentdisp) {
+		tweetdispscr *tds = static_cast<tweetdispscr *>(jt.second);
+		bool continueflag = func(tds);
+		for(auto &kt : tds->subtweets) {
+			if(kt.get()) {
+				func(kt.get());
 			}
 		}
 		if(!continueflag) break;
@@ -1733,7 +1733,7 @@ bool tpanelparentwin_user_impl::UpdateUser(udc_ptr_p u, size_t offset) {
 		for(;jt!=userlist.end(); ++jt) {
 			if(it->first==(*jt)->id) {
 				if(it->first==u->id) {
-					((userdispscr *) it->second)->Display();
+					static_cast<userdispscr *>(it->second)->Display();
 					return false;
 				}
 				else if(offset> (size_t) std::distance(userlist.begin(), jt)) {
@@ -1802,7 +1802,6 @@ tpanelparentwin_usertweets::tpanelparentwin_usertweets(udc_ptr &user_, wxWindow 
 
 	pimpl()->user = user_;
 	pimpl()->getacc = getacc_;
-	pimpl()->havestarted = false;
 	pimpl()->type = type_;
 	pimpl()->tppw_flags |= TPPWF::CANALWAYSSCROLLDOWN;
 }
@@ -2014,7 +2013,7 @@ bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid) {
 	wxWindow *wind = wxFindWindowAtPoint(wxGetMousePosition() /*event.GetPosition()*/);
 	while(wind) {
 		if(wind != avoid && std::count(tpanelparentwinlist.begin(), tpanelparentwinlist.end(), wind)) {
-			tpanelparentwin *tppw=(tpanelparentwin*) wind;
+			tpanelparentwin *tppw = static_cast<tpanelparentwin*>(wind);
 			#if TPANEL_COPIOUS_LOGGING
 				LogMsgFormat(LOGT::TPANEL, wxT("TCL: RedirectMouseWheelEvent: Dispatching to %s"), wxstrstd(tppw->tp->name).c_str());
 			#endif

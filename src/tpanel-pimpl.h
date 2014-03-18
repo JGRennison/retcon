@@ -196,9 +196,9 @@ struct tpanelparentwin_usertweets_impl : public tpanelparentwin_nt_impl {
 	udc_ptr user;
 	std::function<std::shared_ptr<taccount>(tpanelparentwin_usertweets &)> getacc;
 	static std::map<std::pair<uint64_t, RBFS_TYPE>, std::shared_ptr<tpanel> > usertpanelmap;	//use map rather than unordered_map due to the hassle associated with specialising std::hash
-	bool havestarted;
+	bool havestarted = false;
 	bool failed = false;
-	RBFS_TYPE type;
+	RBFS_TYPE type = RBFS_NULL;
 
 	virtual void LoadMore(unsigned int n, uint64_t lessthanid = 0, uint64_t greaterthanid = 0, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT) override;
 	virtual void UpdateCLabel() override;
@@ -212,7 +212,7 @@ struct tpanelparentwin_user_impl : public panelparentwin_base_impl {
 	tpanelparentwin_user_impl(tpanelparentwin_user *base_)
 			: panelparentwin_base_impl(base_) { }
 
-	std::deque< udc_ptr> userlist;
+	std::deque<udc_ptr> userlist;
 	static std::multimap<uint64_t, tpanelparentwin_user*> pendingmap;
 
 	virtual void PageUpHandler() override;

@@ -41,6 +41,7 @@ template <typename C> class flagwrapper {
 	flagwrapper(C f) : flags(f) { }
 	flagwrapper(std::nullptr_t n) : flags(static_cast<C>(0)) { }
 	operator bool() { return flags != static_cast<C>(0); }
+	operator bool() const { return flags != static_cast<C>(0); }
 	operator C&() { return flags; }
 	operator C() const { return flags; }
 	template <typename D> operator D() = delete;
@@ -52,8 +53,8 @@ template <typename C> class flagwrapper {
 	flagwrapper &operator|=(const flagwrapper<C> &r) { flags |= r; return *this; }
 	flagwrapper &operator=(C r) { flags = r; return *this; }
 	flagwrapper &operator=(std::nullptr_t n) { flags = static_cast<C>(0); return *this; }
-	bool operator!=(C r) { return flags != r; }
-	bool operator==(C r) { return flags == r; }
+	bool operator!=(C r) const { return flags != r; }
+	bool operator==(C r) const { return flags == r; }
 	C &getref() { return flags; }
 	C get() const { return flags; }
 };
