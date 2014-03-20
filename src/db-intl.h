@@ -178,16 +178,20 @@ struct dbconn : public wxEvtHandler {
 };
 template<> struct enum_traits<dbconn::DBCF> { static constexpr bool flags = true; };
 
-template <typename E> void DBRowExecDoErr(E errspec, sqlite3 *adb, sqlite3_stmt *stmt, int res) {
+template <typename E> void DBDoErr(E errspec, sqlite3 *adb, sqlite3_stmt *stmt, int res) {
 	errspec(stmt, res);
 }
 
-template <> void DBRowExecDoErr<std::string>(std::string errspec, sqlite3 *adb, sqlite3_stmt *stmt, int res) {
+template <> void DBDoErr<std::string>(std::string errspec, sqlite3 *adb, sqlite3_stmt *stmt, int res) {
 	LogMsgFormat(LOGT::DBERR, wxT("%s got error: %d (%s)"), errspec.c_str(), res, wxstrstd(sqlite3_errmsg(adb)).c_str());
 }
 
-template <> void DBRowExecDoErr<const char *>(const char *errspec, sqlite3 *adb, sqlite3_stmt *stmt, int res) {
-	DBRowExecDoErr<std::string>(errspec, adb, stmt, res);
+template <> void DBDoErr<const char *>(const char *errspec, sqlite3 *adb, sqlite3_stmt *stmt, int res) {
+	DBDoErr<std::string>(errspec, adb, stmt, res);
+}
+
+template <> void DBDoErr<std::nullptr_t>(std::nullptr_t p, sqlite3 *adb, sqlite3_stmt *stmt, int res) {
+	//do nothing
 }
 
 template <typename F, typename E> void DBRowExecStmt(sqlite3 *adb, sqlite3_stmt *stmt, F func, E errspec) {
@@ -197,7 +201,7 @@ template <typename F, typename E> void DBRowExecStmt(sqlite3 *adb, sqlite3_stmt 
 			func(stmt);
 		}
 		else if(res != SQLITE_DONE) {
-			DBRowExecDoErr(errspec, adb, stmt, res);
+			DBDoErr(errspec, adb, stmt, res);
 		}
 		else break;
 	} while(true);
@@ -207,24 +211,64 @@ template <typename F> void DBRowExecStmtNoError(sqlite3 *adb, sqlite3_stmt *stmt
 	DBRowExecStmt(adb, stmt, func, [](sqlite3_stmt *stmt, int res) { });
 };
 
+template <typename B, typename F, typename E> void DBBindRowExec(sqlite3 *adb, sqlite3_stmt *stmt, B bindfunc, F func, E errspec) {
+	bindfunc(stmt);
+	DBRowExecStmt(adb, stmt, func, errspec);
+};
+
 template <typename B, typename F, typename E> void DBBindRowExec(sqlite3 *adb, std::string sql, B bindfunc, F func, E errspec) {
 	sqlite3_stmt *stmt = 0;
 	sqlite3_prepare_v2(adb, sql.c_str(), sql.size(), &stmt, 0);
-	bindfunc(stmt);
-	DBRowExecStmt(adb, stmt, func, errspec);
+	DBBindRowExec<B, F, E>(adb, stmt, bindfunc, func, errspec);
 	sqlite3_finalize(stmt);
 };
 
-template <typename F, typename E> void DBRowExec(sqlite3 *adb, std::string sql, F func, E errfunc) {
-	DBBindRowExec(adb, sql, [](sqlite3_stmt *stmt) { }, func, errfunc);
+
+template <typename F, typename E, typename S> void DBRowExec(sqlite3 *adb, S sql, F func, E errspec) {
+	DBBindRowExec(adb, sql, [](sqlite3_stmt *stmt) { }, func, errspec);
 }
 
-template <typename B, typename F> void DBBindRowExecNoError(sqlite3 *adb, std::string sql, B bindfunc, F func) {
-	DBBindRowExec(adb, sql, bindfunc, func, [](sqlite3_stmt *stmt, int res) { });
+template <typename B, typename F, typename S> void DBBindRowExecNoError(sqlite3 *adb, S sql, B bindfunc, F func) {
+	DBBindRowExec(adb, sql, bindfunc, func, nullptr);
 };
 
-template <typename F> void DBRowExecNoError(sqlite3 *adb, std::string sql, F func) {
-	DBRowExec(adb, sql, func, [](sqlite3_stmt *stmt, int res) { });
+template <typename F, typename S> void DBRowExecNoError(sqlite3 *adb, S sql, F func) {
+	DBRowExec(adb, sql, func, nullptr);
+};
+
+
+
+template <typename E> void DBExecStmt(sqlite3 *adb, sqlite3_stmt *stmt, E errspec) {
+	int res = sqlite3_step(stmt);
+	if(res != SQLITE_DONE) {
+		DBDoErr(errspec, adb, stmt, res);
+	}
+}
+
+template <typename S> void DBExecStmtNoError(sqlite3 *adb, S sql) {
+	DBRowExecStmt(adb, sql, nullptr);
+};
+
+
+template <typename B, typename E> void DBBindExec(sqlite3 *adb, sqlite3_stmt *stmt, B bindfunc, E errspec) {
+	bindfunc(stmt);
+	DBExecStmt(adb, stmt, errspec);
+};
+
+template <typename B, typename E> void DBBindExec(sqlite3 *adb, std::string sql, B bindfunc, E errspec) {
+	sqlite3_stmt *stmt = 0;
+	sqlite3_prepare_v2(adb, sql.c_str(), sql.size(), &stmt, 0);
+	DBBindExec<B, E>(adb, stmt, bindfunc, errspec);
+	sqlite3_finalize(stmt);
+};
+
+
+template <typename E, typename S> void DBExec(sqlite3 *adb, S sql, E errspec) {
+	DBBindExec(adb, sql, [](sqlite3_stmt *stmt) { }, errspec);
+}
+
+template <typename B, typename S> void DBBindExecNoError(sqlite3 *adb, S sql, B bindfunc) {
+	DBBindExec(adb, sql, bindfunc, nullptr);
 };
 
 #endif
