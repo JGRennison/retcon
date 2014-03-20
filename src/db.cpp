@@ -114,6 +114,9 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"INSERT OR REPLACE INTO settings(accid, name, value) VALUES (?, ?, ?);",
 	"DELETE FROM settings WHERE (accid IS ?) AND (name IS ?)",
 	"SELECT value FROM settings WHERE (accid IS ?) AND (name IS ?);",
+	"INSERT OR REPLACE INTO staticsettings(name, value) VALUES (?, ?);",
+	"DELETE FROM staticsettings WHERE (name IS ?)",
+	"SELECT value FROM staticsettings WHERE (name IS ?);",
 };
 
 static const char *update_sql[] = {
@@ -1103,20 +1106,11 @@ void dbconn::SyncDoUpdates(sqlite3 *adb) {
 
 	unsigned int current_db_version = 0;
 
-	const char getdbversion[] = "SELECT value FROM staticsettings WHERE name == 'dbversion';";
-	sqlite3_stmt *getstmt = 0;
-	sqlite3_prepare_v2(adb, getdbversion, sizeof(getdbversion), &getstmt, 0);
-	do {
-		int res = sqlite3_step(getstmt);
-		if(res == SQLITE_ROW) {
-			current_db_version = (unsigned int) sqlite3_column_int64(getstmt, 0);
-		}
-		else if(res != SQLITE_DONE) {
-			LogMsgFormat(LOGT::DBERR, wxT("dbconn::DoUpdates got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str());
-		}
-		else break;
-	} while(true);
-	sqlite3_finalize(getstmt);
+	sqlite3_stmt *getstmt = cache.GetStmt(adb, DBPSC_SELSTATICSETTING);
+	sqlite3_bind_text(getstmt, 1, "dbversion", -1, SQLITE_STATIC);
+	DBRowExec(adb, getstmt, [&](sqlite3_stmt *stmt) {
+		current_db_version = (unsigned int) sqlite3_column_int64(stmt, 0);
+	}, "dbconn::DoUpdates (get DB version)");
 
 	if(current_db_version < db_version) {
 		LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::DoUpdates updating from %u to %u"), current_db_version, db_version);
@@ -1136,10 +1130,10 @@ void dbconn::SyncDoUpdates(sqlite3 *adb) {
 }
 
 void dbconn::SyncWriteDBVersion(sqlite3 *adb) {
-	int res = sqlite3_exec(adb, string_format("INSERT OR REPLACE INTO staticsettings(name, value) VALUES ('dbversion', %u);", db_version).c_str(), 0, 0, 0);
-	if(res != SQLITE_OK) {
-		LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncWriteDBVersion got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str());
-	}
+	sqlite3_stmt *stmt = cache.GetStmt(adb, DBPSC_INSSTATICSETTING);
+	sqlite3_bind_text(stmt, 1, "dbversion", -1, SQLITE_STATIC);
+	sqlite3_bind_int64(stmt, 2, db_version);
+	DBExec(adb, stmt, "dbconn::SyncWriteDBVersion");
 }
 
 void dbconn::InsertNewTweet(tweet_ptr_p tobj, std::string statjson, dbsendmsg_list *msglist) {
