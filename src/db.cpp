@@ -1207,10 +1207,11 @@ void dbconn::UpdateMedia(media_entity &me, DBUMMT update_type, dbsendmsg_list *m
 //tweetids, dmids are big endian in database
 void dbconn::AccountSync(sqlite3 *adb) {
 	LogMsg(LOGT::DBTRACE, wxT("dbconn::AccountSync start"));
+
+	unsigned int total = 0;
 	DBRowExecNoError(adb, "SELECT id, name, tweetids, dmids, userid, dispname FROM acc;", [&](sqlite3_stmt *getstmt) {
 		unsigned int id = (unsigned int) sqlite3_column_int(getstmt, 0);
 		wxString name = wxString::FromUTF8((const char*) sqlite3_column_text(getstmt, 1));
-		LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::AccountSync: Found %d, %s"), id, name.c_str());
 
 		std::shared_ptr<taccount> ta(new(taccount));
 		ta->name = name;
@@ -1219,11 +1220,17 @@ void dbconn::AccountSync(sqlite3 *adb) {
 
 		setfromcompressedblob([&](uint64_t &tid) { ta->tweet_ids.insert(tid); }, getstmt, 2);
 		setfromcompressedblob([&](uint64_t &tid) { ta->dm_ids.insert(tid); }, getstmt, 3);
+		total += ta->tweet_ids.size();
+		total += ta->dm_ids.size();
+
 		uint64_t userid = (uint64_t) sqlite3_column_int64(getstmt, 4);
 		ta->usercont = ad.GetUserContainerById(userid);
 		ta->dispname = wxString::FromUTF8((const char*) sqlite3_column_text(getstmt, 5));
+
+		LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::AccountSync: Found account: dbindex: %d, name: %s, tweet IDs: %u, DM IDs: %u"),
+				id, name.c_str(), ta->tweet_ids.size(), ta->dm_ids.size());
 	});
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::AccountSync end"));
+	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::AccountSync end, total: %u IDs"), total);
 }
 
 void dbconn::SyncReadInAllTweetIDs(sqlite3 *adb) {
@@ -1232,7 +1239,7 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *adb) {
 		uint64_t id = (uint64_t) sqlite3_column_int64(getstmt, 0);
 		ad.unloaded_db_tweet_ids.insert(id);
 	}, "dbconn::SyncReadInAllTweetIDs");
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncReadInAllTweetIDs end"));
+	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncReadInAllTweetIDs end, read %u"), ad.unloaded_db_tweet_ids.size());
 }
 
 void dbconn::SyncReadInCIDSLists(sqlite3 *adb) {
@@ -1241,10 +1248,12 @@ void dbconn::SyncReadInCIDSLists(sqlite3 *adb) {
 	sqlite3_stmt *getstmt = 0;
 	sqlite3_prepare_v2(adb, getcidslist, sizeof(getcidslist), &getstmt, 0);
 
+	unsigned int total = 0;
 	auto doonelist = [&](std::string name, tweetidset &tlist) {
 		sqlite3_bind_text(getstmt, 1, name.c_str(), name.size(), SQLITE_STATIC);
 		DBRowExecStmt(adb, getstmt, [&](sqlite3_stmt *stmt) {
 			setfromcompressedblob([&](uint64_t &id) { tlist.insert(id); }, getstmt, 0);
+			total += tlist.size();
 		}, "dbconn::SyncReadInCIDSLists");
 		sqlite3_reset(getstmt);
 	};
@@ -1254,7 +1263,7 @@ void dbconn::SyncReadInCIDSLists(sqlite3 *adb) {
 	});
 
 	sqlite3_finalize(getstmt);
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncReadInCIDSLists end"));
+	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncReadInCIDSLists end, total: %u IDs"), total);
 }
 
 void dbconn::SyncWriteBackCIDSLists(sqlite3 *adb) {
@@ -1265,6 +1274,7 @@ void dbconn::SyncWriteBackCIDSLists(sqlite3 *adb) {
 	sqlite3_stmt *setstmt = 0;
 	sqlite3_prepare_v2(adb, setunreadlist, sizeof(setunreadlist), &setstmt, 0);
 
+	unsigned int total = 0;
 	auto doonelist = [&](std::string name, tweetidset &tlist) {
 		size_t index_size;
 		unsigned char *index = settocompressedblob(tlist, index_size);
@@ -1274,6 +1284,7 @@ void dbconn::SyncWriteBackCIDSLists(sqlite3 *adb) {
 		if(res != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncWriteBackCIDSLists got error: %d (%s), for set: %s"),
 				res, wxstrstd(sqlite3_errmsg(adb)).c_str(), wxstrstd(name).c_str()); }
 		sqlite3_reset(setstmt);
+		total += tlist.size();
 	};
 
 	cached_id_sets::IterateLists([&](const char *name, tweetidset cached_id_sets::*ptr, unsigned long long tweetflag) {
@@ -1282,7 +1293,7 @@ void dbconn::SyncWriteBackCIDSLists(sqlite3 *adb) {
 
 	sqlite3_finalize(setstmt);
 	cache.EndTransaction(adb);
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncWriteBackCIDSLists end"));
+	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncWriteBackCIDSLists end, total: %u IDs"), total);
 }
 
 //tweetids, dmids are big endian in database
@@ -1290,14 +1301,18 @@ void dbconn::AccountIdListsSync(sqlite3 *adb) {
 	LogMsg(LOGT::DBTRACE, wxT("dbconn::AccountIdListsSync start"));
 	cache.BeginTransaction(adb);
 	sqlite3_stmt *setstmt = cache.GetStmt(adb, DBPSC_UPDATEACCIDLISTS);
+
+	unsigned int total = 0;
 	for(auto &it : alist) {
 		size_t size;
 		unsigned char *data;
 
-		data=settocompressedblob(it->tweet_ids, size);
+		total += it->tweet_ids.size();
+		data = settocompressedblob(it->tweet_ids, size);
 		sqlite3_bind_blob(setstmt, 1, data, size, &free);
 
-		data=settocompressedblob(it->dm_ids, size);
+		total += it->dm_ids.size();
+		data = settocompressedblob(it->dm_ids, size);
 		sqlite3_bind_blob(setstmt, 2, data, size, &free);
 
 		sqlite3_bind_text(setstmt, 3, it->dispname.ToUTF8(), -1, SQLITE_TRANSIENT);
@@ -1305,14 +1320,18 @@ void dbconn::AccountIdListsSync(sqlite3 *adb) {
 		sqlite3_bind_int(setstmt, 4, it->dbindex);
 
 		int res = sqlite3_step(setstmt);
-		if(res != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, wxT("dbconn::AccountIdListsSync got error: %d (%s) for user dbindex: %d, name: %s"),
-				res, wxstrstd(sqlite3_errmsg(adb)).c_str(), it->dbindex, it->dispname.c_str()); }
-		else { LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::AccountIdListsSync inserted user dbindex: %d, name: %s"),
-				it->dbindex, it->dispname.c_str()); }
+		if(res != SQLITE_DONE) {
+			LogMsgFormat(LOGT::DBERR, wxT("dbconn::AccountIdListsSync got error: %d (%s) for user dbindex: %d, name: %s"),
+					res, wxstrstd(sqlite3_errmsg(adb)).c_str(), it->dbindex, it->dispname.c_str());
+		}
+		else {
+			LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::AccountIdListsSync inserted account: dbindex: %d, name: %s, tweet IDs: %u, DM IDs: %u"),
+					it->dbindex, it->dispname.c_str(), it->tweet_ids.size(), it->dm_ids.size());
+		}
 		sqlite3_reset(setstmt);
 	}
 	cache.EndTransaction(adb);
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::AccountIdListsSync end"));
+	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::AccountIdListsSync end, total: %u IDs"), total);
 }
 
 void dbconn::SyncWriteBackAllUsers(sqlite3 *adb) {
@@ -1345,9 +1364,13 @@ void dbconn::SyncWriteBackAllUsers(sqlite3 *adb) {
 		unsigned char *mentionindex = settocompressedblob(u->mention_index, mentionindex_size);
 		sqlite3_bind_blob(stmt, 7, mentionindex, mentionindex_size, &free);
 		int res = sqlite3_step(stmt);
-		if(res != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncWriteBackAllUsers got error: %d (%s) for user id: %" wxLongLongFmtSpec "d"),
-				res, wxstrstd(sqlite3_errmsg(adb)).c_str(), it.first); }
-		else { LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncWriteBackAllUsers inserted user id:%" wxLongLongFmtSpec "d"), it.first); }
+		if(res != SQLITE_DONE) {
+			LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncWriteBackAllUsers got error: %d (%s) for user id: %" wxLongLongFmtSpec "d"),
+					res, wxstrstd(sqlite3_errmsg(adb)).c_str(), it.first);
+		}
+		else {
+			LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncWriteBackAllUsers inserted user id: %" wxLongLongFmtSpec "d"), it.first);
+		}
 		sqlite3_reset(stmt);
 	}
 	cache.EndTransaction(adb);
@@ -1418,6 +1441,8 @@ void dbconn::SyncWriteOutRBFSs(sqlite3 *adb) {
 	cache.BeginTransaction(adb);
 	sqlite3_exec(adb, "DELETE FROM rbfspending", 0, 0, 0);
 	sqlite3_stmt *stmt = cache.GetStmt(adb, DBPSC_INSERTRBFSP);
+
+	unsigned int write_count = 0;
 	for(auto &it : alist) {
 		taccount &acc = *it;
 		for(restbackfillstate &rbfs : acc.pending_rbfs_list) {
@@ -1435,14 +1460,17 @@ void dbconn::SyncWriteOutRBFSs(sqlite3 *adb) {
 			if(res != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncWriteOutRBFSs got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
 			else { LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncWriteOutRBFSs inserted pending RBFS")); }
 			sqlite3_reset(stmt);
+			write_count++;
 		}
 	}
 	cache.EndTransaction(adb);
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncWriteOutRBFSs end"));
+	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncWriteOutRBFSs end, wrote %u"), write_count);
 }
 
 void dbconn::SyncReadInRBFSs(sqlite3 *adb) {
 	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncReadInRBFSs start"));
+
+	unsigned int read_count = 0;
 	DBRowExec(adb, "SELECT accid, type, startid, endid, maxleft FROM rbfspending;", [&](sqlite3_stmt *stmt) {
 		unsigned int dbindex = (unsigned int) sqlite3_column_int64(stmt, 0);
 		bool found = false;
@@ -1460,17 +1488,22 @@ void dbconn::SyncReadInRBFSs(sqlite3 *adb) {
 				rbfs.read_again = true;
 				rbfs.started = false;
 				found = true;
+				read_count++;
 				break;
 			}
 		}
 		if(found) { LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncReadInRBFSs retrieved RBFS")); }
 		else { LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncReadInRBFSs retrieved RBFS with no associated account or bad type, ignoring")); }
 	}, "dbconn::SyncReadInRBFSs");
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncReadInRBFSs end"));
+	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncReadInRBFSs end, read in %u"), read_count);
 }
 
 void dbconn::SyncReadInAllMediaEntities(sqlite3 *adb) {
 	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncReadInAllMediaEntities start"));
+
+	unsigned int read_count = 0;
+	unsigned int thumb_count = 0;
+	unsigned int full_count = 0;
 	DBRowExec(adb, "SELECT mid, tid, url, fullchecksum, thumbchecksum, flags, lastusedtimestamp FROM mediacache;", [&](sqlite3_stmt *stmt) {
 		media_id_type id;
 		id.m_id = (uint64_t) sqlite3_column_int64(stmt, 0);
@@ -1491,22 +1524,25 @@ void dbconn::SyncReadInAllMediaEntities(sqlite3 *adb) {
 			memcpy(hash->hash_sha1, sqlite3_column_blob(stmt, 3), sizeof(hash->hash_sha1));
 			me.full_img_sha1 = std::move(hash);
 			me.flags |= MEF::LOAD_FULL;
+			full_count++;
 		}
 		if(sqlite3_column_bytes(stmt, 4) == sizeof(sha1_hash_block::hash_sha1)) {
 			std::shared_ptr<sha1_hash_block> hash = std::make_shared<sha1_hash_block>();
 			memcpy(hash->hash_sha1, sqlite3_column_blob(stmt, 4), sizeof(hash->hash_sha1));
 			me.thumb_img_sha1 = std::move(hash);
 			me.flags |= MEF::LOAD_THUMB;
+			thumb_count++;
 		}
 		me.flags |= static_cast<MEF>(sqlite3_column_int64(stmt, 5));
 		me.lastused = (uint64_t) sqlite3_column_int64(stmt, 6);
+		read_count++;
 
 		#if DB_COPIOUS_LOGGING
 			LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncReadInAllMediaEntities retrieved media entity %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d"), id.m_id, id.t_id);
 		#endif
 	}, "dbconn::SyncReadInAllMediaEntities");
 
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncReadInAllMediaEntities end"));
+	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncReadInAllMediaEntities end, read in %u, cached: thumb: %u, full: %u"), read_count, thumb_count, full_count);
 }
 
 void dbconn::SyncReadInWindowLayout(sqlite3 *adb) {
@@ -1671,6 +1707,8 @@ void dbconn::SyncReadInTpanels(sqlite3 *adb) {
 		return;
 	}
 
+	unsigned int read_count = 0;
+	unsigned int id_count = 0;
 	do {
 		int res2 = sqlite3_step(stmt);
 		if(res2 == SQLITE_ROW) {
@@ -1679,13 +1717,15 @@ void dbconn::SyncReadInTpanels(sqlite3 *adb) {
 			flagwrapper<TPF> flags = static_cast<TPF>(sqlite3_column_int(stmt, 2));
 			std::shared_ptr<tpanel> tp = tpanel::MkTPanel(name, dispname, flags);
 			setfromcompressedblob([&](uint64_t &id) { tp->tweetlist.insert(id); }, stmt, 3);
+			id_count += tp->tweetlist.size();
 			tp->RecalculateCIDS();
+			read_count++;
 		}
 		else if(res2 != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncReadInTpanels got error: %d (%s)"), res2, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
 		else break;
 	} while(true);
 	sqlite3_finalize(stmt);
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncReadInTpanels end"));
+	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncReadInTpanels end, read in %u, IDs: %u"), read_count, id_count);
 }
 
 void dbconn::SyncWriteBackTpanels(sqlite3 *adb) {
@@ -1699,6 +1739,8 @@ void dbconn::SyncWriteBackTpanels(sqlite3 *adb) {
 		return;
 	}
 
+	unsigned int write_count = 0;
+	unsigned int id_count = 0;
 	for(auto &it : ad.tpanels) {
 		tpanel &tp = *(it.second);
 		if(tp.flags & TPF::SAVETODB) {
@@ -1708,13 +1750,15 @@ void dbconn::SyncWriteBackTpanels(sqlite3 *adb) {
 			size_t ids_size;
 			unsigned char *ids = settocompressedblob(tp.tweetlist, ids_size);
 			sqlite3_bind_blob(stmt, 4, ids, ids_size, &free);
+			write_count++;
+			id_count += tp.tweetlist.size();
 
 			int res2 = sqlite3_step(stmt);
 			if(res2 != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncWriteBackTpanels got error: %d (%s)"), res2, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
 			sqlite3_reset(stmt);
 		}
 	}
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncWriteBackTpanels end"));
+	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncWriteBackTpanels end, wrote %u, IDs: %u"), write_count, id_count);
 }
 
 void dbsendmsg_callback::SendReply(void *data, dbiothread *th) {
