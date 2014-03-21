@@ -92,6 +92,7 @@ struct genoptconf {
 	CFGTEMPL_BOOL(hideallthumbs) \
 	CFGTEMPL_BOOL(loadhiddenthumbs) \
 	CFGTEMPL_UL(threadpoollimit) \
+	CFGTEMPL_UL(mediacachesavedays) \
 
 struct genoptglobconf {
 #define CFGTEMPL(x) genopt x;

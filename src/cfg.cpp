@@ -76,6 +76,7 @@ genoptconf gcdefaults {
 #define CFGDEFAULT_hideallthumbs                            wxT("0")
 #define CFGDEFAULT_loadhiddenthumbs                         wxT("0")
 #define CFGDEFAULT_threadpoollimit                          wxT("8")
+#define CFGDEFAULT_mediacachesavedays                       wxT("7")
 
 genoptglobconf gcglobdefaults {
 #define CFGTEMPL(x) { CFGDEFAULT_##x, 1},

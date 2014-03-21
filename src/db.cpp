@@ -39,6 +39,7 @@
 #endif
 #include <zlib.h>
 #include <wx/msgdlg.h>
+#include <wx/filefn.h>
 
 #ifndef DB_COPIOUS_LOGGING
 #define DB_COPIOUS_LOGGING 0
@@ -1095,6 +1096,7 @@ void dbconn::DeInit() {
 		SyncWriteBackWindowLayout(syncdb);
 		SyncWriteBackTpanels(syncdb);
 	}
+	SyncPurgeMediaEntities(syncdb); //this does a dry-run in read-only mode
 
 	sqlite3_close(syncdb);
 
@@ -1759,6 +1761,73 @@ void dbconn::SyncWriteBackTpanels(sqlite3 *adb) {
 		}
 	}
 	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncWriteBackTpanels end, wrote %u, IDs: %u"), write_count, id_count);
+}
+
+void dbconn::SyncPurgeMediaEntities(sqlite3 *adb) {
+	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncPurgeMediaEntities start"));
+
+	time_t last_purge = 0;
+	sqlite3_stmt *getstmt = cache.GetStmt(adb, DBPSC_SELSTATICSETTING);
+	sqlite3_bind_text(getstmt, 1, "lastmediacachepurge", -1, SQLITE_STATIC);
+	DBRowExec(adb, getstmt, [&](sqlite3_stmt *stmt) {
+		last_purge = (time_t) sqlite3_column_int64(stmt, 0);
+	}, "dbconn::SyncPurgeMediaEntities (get last purged)");
+
+	time_t now = time(nullptr);
+	time_t delta = now - last_purge;
+
+	const unsigned int day = 60 * 60 * 24;
+
+	if(delta < day) {
+		LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncPurgeMediaEntities end, last purged %" wxLongLongFmtSpec "ds ago, not checking"), (int64_t) delta);
+	}
+	else {
+		unsigned int thumb_count = 0;
+		unsigned int full_count = 0;
+
+		std::deque<media_id_type> purge_list;
+
+		DBBindRowExec(adb,
+				"SELECT mid, tid, thumbchecksum, fullchecksum FROM mediacache WHERE ((flags == 0 OR flags IS NULL) AND lastusedtimestamp < ?);",
+				[&](sqlite3_stmt *stmt) {
+					sqlite3_bind_int64(stmt, 1, now - (day * gc.mediacachesavedays));
+				},
+				[&](sqlite3_stmt *stmt) {
+					media_id_type mid;
+					mid.m_id = (uint64_t) sqlite3_column_int64(stmt, 0);
+					mid.t_id = (uint64_t) sqlite3_column_int64(stmt, 1);
+					if(sqlite3_column_bytes(stmt, 2) > 0) {
+						thumb_count++;
+						if(!gc.readonlymode) wxRemoveFile(media_entity::cached_thumb_filename(mid));
+					}
+					if(sqlite3_column_bytes(stmt, 3) > 0) {
+						full_count++;
+						if(!gc.readonlymode) wxRemoveFile(media_entity::cached_full_filename(mid));
+					}
+					purge_list.push_back(mid);
+				}, "dbconn::SyncPurgeMediaEntities (get purge list)");
+
+		if(!gc.readonlymode) {
+			cache.BeginTransaction(adb);
+
+			DBRangeBindExec(adb, "DELETE FROM mediacache WHERE (mid == ? && tid == ?);",
+					purge_list.begin(), purge_list.end(),
+					[&](sqlite3_stmt *stmt, media_id_type mid) {
+						sqlite3_bind_int64(stmt, 1, mid.m_id);
+						sqlite3_bind_int64(stmt, 2, mid.t_id);
+					}, "dbconn::SyncPurgeMediaEntities (purge row)");
+
+			sqlite3_stmt *stmt = cache.GetStmt(adb, DBPSC_INSSTATICSETTING);
+			sqlite3_bind_text(stmt, 1, "lastmediacachepurge", -1, SQLITE_STATIC);
+			sqlite3_bind_int64(stmt, 2, now);
+			DBExec(adb, stmt, "dbconn::SyncPurgeMediaEntities (write last purged)");
+
+			cache.EndTransaction(adb);
+		}
+
+		LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncPurgeMediaEntities end, last purged %" wxLongLongFmtSpec "ds ago, purged %u, (thumb: %u, full: %u)"),
+				(int64_t) delta, purge_list.size(), thumb_count, full_count);
+	}
 }
 
 void dbsendmsg_callback::SendReply(void *data, dbiothread *th) {

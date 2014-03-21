@@ -172,6 +172,7 @@ struct dbconn : public wxEvtHandler {
 	void SyncWriteBackTpanels(sqlite3 *adb);
 	void SyncDoUpdates(sqlite3 *adb);
 	void SyncWriteDBVersion(sqlite3 *adb);
+	void SyncPurgeMediaEntities(sqlite3 *adb);
 
 	void HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags);
 	void GenericDBSelTweetMsgHandler(wxCommandEvent &event);
