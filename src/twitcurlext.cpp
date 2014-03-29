@@ -351,8 +351,8 @@ wxString twitcurlext::GetConnTypeName() {
 		case CS_FAV: action=wxT("Favouriting tweet"); break;
 		case CS_DELETETWEET: action=wxT("Deleting tweet"); break;
 		case CS_DELETEDM: action=wxT("Deleting DM"); break;
-		case CS_USERFOLLOWING: action=wxT("Retrieving follower list"); break;
-		case CS_USERFOLLOWERS: action=wxT("Retrieving friends list"); break;
+		case CS_USERFOLLOWING: action=wxT("Retrieving following list"); break;
+		case CS_USERFOLLOWERS: action=wxT("Retrieving followers list"); break;
 		case CS_SINGLETWEET: action=wxT("Retrieving single tweet"); break;
 		default: action=wxT("Generic twitter API call"); break;
 	}
