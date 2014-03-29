@@ -1764,6 +1764,13 @@ bool tpanelparentwin_user_impl::UpdateUser(udc_ptr_p u, size_t offset) {
 	}
 	else {
 		u->udc_flags |= UDC::CHECK_USERLISTWIN;
+		if(u->NeedsUpdating(PENDING_REQ::USEREXPIRE)) {
+			std::shared_ptr<taccount> acc;
+			u->GetUsableAccount(acc, true);
+			if(acc) {
+				acc->MarkUserPending(u);
+			}
+		}
 		auto pit = pendingmap.equal_range(u->id);
 		for(auto it = pit.first; it != pit.second; ++it) {
 			if((*it).second == base()) {

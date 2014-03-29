@@ -270,7 +270,7 @@ bool userdatacontainer::ImgHalfIsReady(flagwrapper<PENDING_REQ> preq) {
 	return res;
 }
 
-flagwrapper<PENDING_RESULT> userdatacontainer::IsReady(flagwrapper<PENDING_REQ> preq, time_t timevalue) {
+flagwrapper<PENDING_RESULT> userdatacontainer::GetPending(flagwrapper<PENDING_REQ> preq, time_t timevalue) {
 	flagwrapper<PENDING_RESULT> result;
 	if(preq & PENDING_REQ::PROFIMG_NEED) {
 		if(ImgIsReady(preq) && !((udc_flags & UDC::IMAGE_DL_IN_PROGRESS) && (preq & PENDING_REQ::USEREXPIRE))) {
@@ -840,7 +840,7 @@ tweet_pending tweet::IsPending(flagwrapper<PENDING_REQ> preq) {
 	PENDING_RESULT_combiner presult(result.result);
 
 	if(user) {
-		result.result = user->IsReady(preq, createtime);
+		result.result = user->GetPending(preq, createtime);
 		if(result.result & PENDING_RESULT::NOT_READY) result.bits |= PENDING_BITS::T_U;
 		if(user->NeedsUpdating(preq, createtime)) result.bits |= PENDING_BITS::U;
 	}
@@ -849,7 +849,7 @@ tweet_pending tweet::IsPending(flagwrapper<PENDING_REQ> preq) {
 	if(flags.Get('D')) {
 		if(!user_recipient) presult.Combine(PENDING_RESULT::CONTENT_NOT_READY);
 		else {
-			flagwrapper<PENDING_RESULT> user_result = user_recipient->IsReady(preq, createtime);
+			flagwrapper<PENDING_RESULT> user_result = user_recipient->GetPending(preq, createtime);
 			presult.Combine(user_result);
 			if(user_result & PENDING_RESULT::NOT_READY) result.bits |= PENDING_BITS::T_UR;
 			if(user_recipient->NeedsUpdating(preq, createtime)) result.bits |= PENDING_BITS::UR;

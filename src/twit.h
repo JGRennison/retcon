@@ -171,7 +171,10 @@ struct userdatacontainer {
 
 	public:
 	bool NeedsUpdating(flagwrapper<PENDING_REQ> preq, time_t timevalue = 0) const;
-	flagwrapper<PENDING_RESULT> IsReady(flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT, time_t timevalue = 0);
+	flagwrapper<PENDING_RESULT> GetPending(flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT, time_t timevalue = 0);
+	bool IsReady(flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT, time_t timevalue = 0) {
+		return !(GetPending(preq, timevalue) & PENDING_RESULT::NOT_READY);
+	}
 	void CheckPendingTweets(flagwrapper<UMPTF> umpt_flags = 0);
 	void MarkTweetPending(tweet_ptr_p t);
 	std::shared_ptr<taccount> GetAccountOfUser() const;
