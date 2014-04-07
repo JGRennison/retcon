@@ -304,7 +304,7 @@ panelparentwin_base::panelparentwin_base(wxWindow *parent, bool fitnow, wxString
 	addbtn(TPPWID_MARKALLREADBTN, wxT("Mark All Read"), "unread", pimpl()->MarkReadBtn);
 	addbtn(TPPWID_NEWESTUNREADBTN, wxT("Newest Unread \x2191"), "unread", pimpl()->NewestUnreadBtn);
 	addbtn(TPPWID_OLDESTUNREADBTN, wxT("Oldest Unread \x2193"), "unread", pimpl()->OldestUnreadBtn);
-	addbtn(TPPWID_UNHIGHLIGHTALLBTN, wxT("Unhighlight All"), "highlight", pimpl()->UnHighlightBtn);
+	addbtn(TPPWID_UNHIGHLIGHTALLBTN, wxT("Unhighlight All"), "unhighlightall", pimpl()->UnHighlightBtn);
 	pimpl()->headersizer->Add(new wxButton(this, TPPWID_TOPBTN, wxT("Top \x2191"), wxPoint(-1000, -1000), wxDefaultSize, wxBU_EXACTFIT), 0, wxALL, 2);
 	outersizer->Add(pimpl()->scrollwin, 1, wxALL | wxEXPAND, 2);
 	outersizer->Add(new wxStaticText(this, wxID_ANY, wxT(""), wxPoint(-1000, -1000)), 0, wxALL, 2);
@@ -389,6 +389,10 @@ void panelparentwin_base_impl::pagedownevthandler(wxCommandEvent &event) {
 }
 void panelparentwin_base_impl::pagetopevthandler(wxCommandEvent &event) {
 	PageTopHandler();
+}
+
+void panelparentwin_base::UpdateCLabel() {
+	pimpl()->UpdateCLabel();
 }
 
 void panelparentwin_base::UpdateCLabelLater() {
@@ -991,6 +995,7 @@ void tpanelparentwin_nt_impl::UpdateCLabel() {
 	else clabel->SetLabel(wxT("No Tweets"));
 	ShowHideButtons("unread", !tp->cids.unreadids.empty());
 	ShowHideButtons("highlight", !tp->cids.highlightids.empty());
+	ShowHideButtons("unhighlightall", gc.showunhighlightallbtn && !tp->cids.highlightids.empty());
 	ShowHideButtons("more", true);
 	headersizer->Layout();
 	#if TPANEL_COPIOUS_LOGGING
@@ -1493,6 +1498,12 @@ void tpanelparentwin_nt::DecTweetIDRefCounts(uint64_t tid, uint64_t rtid) {
 	if(rtid) {
 		dec_tcm(pimpl()->tweetid_count_map, rtid);
 		dec_tcm(pimpl()->all_tweetid_count_map, rtid);
+	}
+}
+
+void tpanelparentwin_nt::UpdateAllCLabels() {
+	for(auto &it : tpanelparentwinlist) {
+		it->UpdateCLabel();
 	}
 }
 

@@ -24,6 +24,7 @@
 #include "twit.h"
 #include "twitcurlext.h"
 #include "alldata.h"
+#include "tpanel.h"
 #include "filter/filter-ops.h"
 #include "filter/filter-vldtr.h"
 #include "util.h"
@@ -448,6 +449,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs,  wxT("Display Native Re-Tweets"), DBCV::ISGLOBALCFG, gc.gcfg.rtdisp, gcglobdefaults.rtdisp);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("No. of inline tweet replies"), DBCV::ISGLOBALCFG, gc.gcfg.inlinereplyloadcount, gcglobdefaults.inlinereplyloadcount, wxFILTER_NUMERIC);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("No. of inline tweet replies to load on request"), DBCV::ISGLOBALCFG, gc.gcfg.inlinereplyloadmorecount, gcglobdefaults.inlinereplyloadmorecount, wxFILTER_NUMERIC);
+	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs, wxT("Show panel Unhighlight All button"), DBCV::ISGLOBALCFG, gc.gcfg.showunhighlightallbtn, gcglobdefaults.showunhighlightallbtn);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Highlight Colour"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.highlight_colourdelta, gcglobdefaults.highlight_colourdelta);
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs, wxT("Show deleted tweets by default"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.showdeletedtweetsbydefault, gcglobdefaults.showdeletedtweetsbydefault);
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs, wxT("Mark deleted tweets and DMs as read"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.markdeletedtweetsasread, gcglobdefaults.markdeletedtweetsasread);
@@ -571,6 +573,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 
 settings_window::~settings_window() {
 	UpdateAllTweets(false, true);
+	tpanelparentwin_nt::UpdateAllCLabels();
 	for(auto &it : alist) {
 		it->Exec();
 		it->SetupRestBackfillTimer();

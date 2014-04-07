@@ -93,6 +93,7 @@ struct genoptconf {
 	CFGTEMPL_BOOL(loadhiddenthumbs) \
 	CFGTEMPL_UL(threadpoollimit) \
 	CFGTEMPL_UL(mediacachesavedays) \
+	CFGTEMPL_BOOL(showunhighlightallbtn) \
 
 struct genoptglobconf {
 #define CFGTEMPL(x) genopt x;

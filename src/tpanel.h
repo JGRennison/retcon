@@ -111,6 +111,9 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	//These are primarily for for tweetdispscr PanelInsertEvt/PanelRemoveEvt
 	void IncTweetIDRefCounts(uint64_t tid, uint64_t rtid);
 	void DecTweetIDRefCounts(uint64_t tid, uint64_t rtid);
+
+	//Calls UpdateCLabel for all tpanelparentwin_nt
+	static void UpdateAllCLabels();
 };
 
 struct tpanelparentwin_impl;
