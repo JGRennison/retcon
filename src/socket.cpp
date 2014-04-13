@@ -203,6 +203,7 @@ bool socketmanager::AddConn(CURL* ch, mcurlconn *cs) {
 	SetCurlHandleVerboseState(ch, currentlogflags & LOGT::CURLVERB);
 	curl_easy_setopt(ch, CURLOPT_TIMEOUT, (cs->mcflags & mcurlconn::MCF::NOTIMEOUT) ? 0 : 180);
 	curl_easy_setopt(ch, CURLOPT_PRIVATE, cs);
+	curl_easy_setopt(ch, CURLOPT_ACCEPT_ENCODING, ""); //accept all enabled encodings
 	if(currentlogflags&LOGT::SOCKTRACE) {
 		curl_easy_setopt(ch, CURLOPT_SOCKOPTFUNCTION, &pre_connect_func);
 		curl_easy_setopt(ch, CURLOPT_SOCKOPTDATA, cs);
