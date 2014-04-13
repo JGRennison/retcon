@@ -249,6 +249,7 @@ template <typename B, typename F, typename E, typename S> void DBBindRowExec(sql
 	sqlite3_stmt *stmt = DBInitialiseSql<S>(adb, sql);
 	bindfunc(stmt);
 	DBRowExecStmt(adb, stmt, func, errspec);
+	sqlite3_reset(stmt);
 	DBUnInitialiseSql<S>(stmt);
 };
 
@@ -282,6 +283,7 @@ template <typename B, typename E, typename S> void DBBindExec(sqlite3 *adb, S sq
 	sqlite3_stmt *stmt = DBInitialiseSql<S>(adb, sql);
 	bindfunc(stmt);
 	DBExecStmt(adb, stmt, errspec);
+	sqlite3_reset(stmt);
 	DBUnInitialiseSql<S>(stmt);
 };
 
@@ -297,9 +299,10 @@ template <typename B, typename S> void DBBindExecNoError(sqlite3 *adb, S sql, B 
 
 template <typename B, typename E, typename S, typename I, typename J> void DBRangeBindExec(sqlite3 *adb, S sql, I rangebegin, J rangeend, B bindfunc, E errspec) {
 	sqlite3_stmt *stmt = DBInitialiseSql<S>(adb, sql);
-	for(auto it = rangebegin; it != rangeend; it++) {
+	for(auto it = rangebegin; it != rangeend; ++it) {
 		bindfunc(stmt, *it);
 		DBExecStmt(adb, stmt, errspec);
+		sqlite3_reset(stmt);
 	}
 	DBUnInitialiseSql<S>(stmt);
 };
