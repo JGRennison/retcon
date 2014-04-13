@@ -113,10 +113,10 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"DELETE FROM acc WHERE id == ?;",
 	"UPDATE tweets SET flags = ? | (flags & ?) WHERE id == ?;",
 	"INSERT OR REPLACE INTO settings(accid, name, value) VALUES (?, ?, ?);",
-	"DELETE FROM settings WHERE (accid IS ?) AND (name IS ?)",
+	"DELETE FROM settings WHERE (accid IS ?) AND (name IS ?);",
 	"SELECT value FROM settings WHERE (accid IS ?) AND (name IS ?);",
 	"INSERT OR REPLACE INTO staticsettings(name, value) VALUES (?, ?);",
-	"DELETE FROM staticsettings WHERE (name IS ?)",
+	"DELETE FROM staticsettings WHERE (name IS ?);",
 	"SELECT value FROM staticsettings WHERE (name IS ?);",
 };
 
@@ -1810,7 +1810,7 @@ void dbconn::SyncPurgeMediaEntities(sqlite3 *adb) {
 		if(!gc.readonlymode) {
 			cache.BeginTransaction(adb);
 
-			DBRangeBindExec(adb, "DELETE FROM mediacache WHERE (mid == ? && tid == ?);",
+			DBRangeBindExec(adb, "DELETE FROM mediacache WHERE (mid == ? AND tid == ?);",
 					purge_list.begin(), purge_list.end(),
 					[&](sqlite3_stmt *stmt, media_id_type mid) {
 						sqlite3_bind_int64(stmt, 1, mid.m_id);
