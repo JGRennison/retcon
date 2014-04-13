@@ -472,11 +472,16 @@ struct userlookup {
 };
 
 struct streamconntimeout : public wxTimer {
+	time_t last_activity = 0;
+	unsigned int triggercount = 0;
 	twitcurlext *tw;
 	streamconntimeout(twitcurlext *tw_) : tw(tw_) { Arm(); };
 	void Notify();
 	void Arm();
 	~streamconntimeout() { Stop(); }
+
+	private:
+	void ArmTimer();
 };
 
 struct friendlookup {

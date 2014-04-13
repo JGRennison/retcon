@@ -167,18 +167,46 @@ std::string friendlookup::GetTwitterURL() const {
 	return idlist;
 }
 
-
-
+//Trigger after 45 seconds, time-out stream if no activity after 90s (ie. 2 time periods).
+//After each 45-second time period, check for odd clock activity, which would indicate suspend/other power-management activity, and if found, retry immediately
 void streamconntimeout::Arm() {
-	Start(90000, wxTIMER_ONE_SHOT);
+	last_activity = time(nullptr);
+	triggercount = 0;
+	ArmTimer();
+}
+
+void streamconntimeout::ArmTimer() {
+	Start(45000, wxTIMER_ONE_SHOT);
 }
 
 void streamconntimeout::Notify() {
 	auto acc = tw->tacc.lock();
-	LogMsgFormat(LOGT::SOCKERR, wxT("Stream connection timed out: %s, conn: %p"),
-			acc ? acc->dispname.c_str() : wxT(""), tw);
-	tw->KillConn();
-	tw->HandleError(tw->GetCurlHandle(),0,CURLE_OPERATION_TIMEDOUT);
+
+	//Check for clock weirdness
+	time_t now = time(nullptr);
+	time_t delta = now - last_activity;
+	time_t expected = 45 * (triggercount + 1);
+	if(delta - expected > 30) {
+		//clock has jumped > 30 seconds into the future, this indicates weirdness
+		LogMsgFormat(LOGT::SOCKERR, wxT("Clock jump detected: Last activity %ds ago, expected ~%ds. Forcibly re-trying stream connection: %s, conn: %p"),
+				(int) delta, (int) expected, acc ? acc->dispname.c_str() : wxT(""), tw);
+		tw->KillConn();
+		tw->DoRetry();
+		return;
+	}
+
+	if(triggercount < 1) {
+		//45s in
+		triggercount++;
+		ArmTimer();
+	}
+	else {
+		//90s in, timed-out
+		LogMsgFormat(LOGT::SOCKERR, wxT("Stream connection timed out: %s, conn: %p"),
+				acc ? acc->dispname.c_str() : wxT(""), tw);
+		tw->KillConn();
+		tw->HandleError(tw->GetCurlHandle(),0,CURLE_OPERATION_TIMEDOUT);
+	}
 }
 
 bool userdatacontainer::NeedsUpdating(flagwrapper<PENDING_REQ> preq, time_t timevalue) const {
