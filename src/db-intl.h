@@ -187,7 +187,7 @@ template <typename E> void DBDoErr(E errspec, sqlite3 *adb, sqlite3_stmt *stmt, 
 }
 
 template <> void DBDoErr<std::string>(std::string errspec, sqlite3 *adb, sqlite3_stmt *stmt, int res) {
-	LogMsgFormat(LOGT::DBERR, wxT("%s got error: %d (%s)"), errspec.c_str(), res, wxstrstd(sqlite3_errmsg(adb)).c_str());
+	LogMsgFormat(LOGT::DBERR, wxT("%s got error: %d (%s)"), wxstrstd(errspec).c_str(), res, wxstrstd(sqlite3_errmsg(adb)).c_str());
 }
 
 template <> void DBDoErr<const char *>(const char *errspec, sqlite3 *adb, sqlite3_stmt *stmt, int res) {
