@@ -1503,6 +1503,9 @@ void dbconn::SyncReadInRBFSs(sqlite3 *adb) {
 void dbconn::SyncReadInAllMediaEntities(sqlite3 *adb) {
 	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncReadInAllMediaEntities start"));
 
+	//This is to placate flaky mingw builds which get upset if this is put in the lambda
+	const size_t hash_size = sizeof(sha1_hash_block::hash_sha1);
+
 	unsigned int read_count = 0;
 	unsigned int thumb_count = 0;
 	unsigned int full_count = 0;
@@ -1521,16 +1524,16 @@ void dbconn::SyncReadInAllMediaEntities(sqlite3 *adb) {
 			ad.img_media_map[me.media_url] = meptr;
 		}
 		free(url);
-		if(sqlite3_column_bytes(stmt, 3) == sizeof(sha1_hash_block::hash_sha1)) {
+		if(sqlite3_column_bytes(stmt, 3) == hash_size) {
 			std::shared_ptr<sha1_hash_block> hash = std::make_shared<sha1_hash_block>();
-			memcpy(hash->hash_sha1, sqlite3_column_blob(stmt, 3), sizeof(hash->hash_sha1));
+			memcpy(hash->hash_sha1, sqlite3_column_blob(stmt, 3), hash_size);
 			me.full_img_sha1 = std::move(hash);
 			me.flags |= MEF::LOAD_FULL;
 			full_count++;
 		}
-		if(sqlite3_column_bytes(stmt, 4) == sizeof(sha1_hash_block::hash_sha1)) {
+		if(sqlite3_column_bytes(stmt, 4) == hash_size) {
 			std::shared_ptr<sha1_hash_block> hash = std::make_shared<sha1_hash_block>();
-			memcpy(hash->hash_sha1, sqlite3_column_blob(stmt, 4), sizeof(hash->hash_sha1));
+			memcpy(hash->hash_sha1, sqlite3_column_blob(stmt, 4), hash_size);
 			me.thumb_img_sha1 = std::move(hash);
 			me.flags |= MEF::LOAD_THUMB;
 			thumb_count++;
