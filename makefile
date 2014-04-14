@@ -31,7 +31,7 @@ COBJS_CFLAGS=-Wno-missing-field-initializers -Wno-sign-compare
 CFLAGS=-g -O3 $(COMMONCFLAGS)
 AFLAGS=-g
 CXXFLAGS=-std=gnu++0x -fno-exceptions
-TCFLAGS=-DSHA1_NO_UTILITY_FUNCTIONS
+TCFLAGS=-DSHA1_NO_UTILITY_FUNCTIONS -DSHA1_NO_STL_FUNCTIONS
 GCC:=g++
 LD:=ld
 OBJDIR:=objs
@@ -99,7 +99,7 @@ endif
 else
 #UNIX
 PLATFORM:=UNIX
-LIBS:=-lpcre -lrt `wx-config --libs $(WXCFGFLAGS)` -lcurl -lsqlite3 -lz -lcrypto
+LIBS:=-lpcre -lrt `wx-config --libs $(WXCFGFLAGS)` -lcurl -lsqlite3 -lz
 MCFLAGS:=$(patsubst -I/%,-isystem /%,$(shell wx-config --cxxflags $(WXCFGFLAGS)))
 PACKER:=upx -9
 GCC_MAJOR:=$(shell $(GCC) -dumpversion | cut -d'.' -f1)

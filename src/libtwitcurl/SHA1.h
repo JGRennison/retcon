@@ -277,6 +277,10 @@ private:
 
 	UINT_8 m_workspace[64];
 	SHA1_WORKSPACE_BLOCK* m_block; // SHA1 pointer to the byte array above
+
+public:
+	const UINT_8* GetHashPtr() const {
+		return m_digest;
 	}
 };
 

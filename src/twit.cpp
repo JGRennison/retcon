@@ -41,7 +41,6 @@
 #include "strptime.cpp"
 #pragma GCC diagnostic pop
 #endif
-#include <openssl/sha.h>
 #include "utf8proc/utf8proc.h"
 #include "utf8.h"
 #include "retcon.h"

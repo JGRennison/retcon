@@ -33,7 +33,6 @@
 #include "hash.h"
 #include <wx/file.h>
 #include <wx/mstream.h>
-#include <openssl/sha.h>
 #include <algorithm>
 
 bool socketmanager::AddConn(twitcurlext &cs) {
@@ -168,9 +167,7 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 		}
 		else {
 			job_data->img = userdatacontainer::ScaleImageToProfileSize(img);
-			std::shared_ptr<sha1_hash_block> hash = std::make_shared<sha1_hash_block>();
-			SHA1((const unsigned char *) job_data->data.data(), (unsigned long) job_data->data.size(), hash->hash_sha1);
-			job_data->hash = std::move(hash);
+			job_data->hash = hash_block(job_data->data.data(), job_data->data.size());
 		}
 	},
 	[job_data]() {
@@ -297,9 +294,7 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 					wxFile file(media_entity::cached_thumb_filename(job_data->media_id), wxFile::write);
 					file.Write(data, size);
 
-					std::shared_ptr<sha1_hash_block> hash = std::make_shared<sha1_hash_block>();
-					SHA1(data, size, hash->hash_sha1);
-					job_data->thumb_hash = std::move(hash);
+					job_data->thumb_hash = hash_block(data, size);
 				}
 			}
 		}
@@ -308,9 +303,7 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 			if(gc.cachemedia && !gc.readonlymode) {
 				wxFile file(media_entity::cached_full_filename(job_data->media_id), wxFile::write);
 				file.Write(job_data->fulldata.data(), job_data->fulldata.size());
-				std::shared_ptr<sha1_hash_block> hash = std::make_shared<sha1_hash_block>();
-				SHA1((const unsigned char *) job_data->fulldata.data(), (unsigned long) job_data->fulldata.size(), hash->hash_sha1);
-				job_data->full_hash = std::move(hash);
+				job_data->full_hash = hash_block(job_data->fulldata.data(), job_data->fulldata.size());
 			}
 		}
 	},

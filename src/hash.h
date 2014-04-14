@@ -29,4 +29,6 @@ struct sha1_hash_block {
 //This is deliberately a pointer to immutable data, such that it can be freely passed around to other threads
 typedef std::shared_ptr<const sha1_hash_block> shb_iptr;
 
+shb_iptr hash_block(const void *data, size_t length);
+
 #endif

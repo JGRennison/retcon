@@ -44,8 +44,7 @@ This includes documentation for:
 * PCRE  
 * wxWidgets  
 * zlib  
-* OpenSSL  
-* libcurl  
+* libcurl with SSL  
 
 ### Building
 Should build out of the box with `make` and `make install`.  

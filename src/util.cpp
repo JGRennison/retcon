@@ -18,11 +18,11 @@
 
 #include "univdefs.h"
 #include "util.h"
+#include "hash.h"
 #include <wx/file.h>
 #include <wx/mstream.h>
 #include <wx/image.h>
-#include <openssl/sha.h>
-
+#include "libtwitcurl/SHA1.h"
 
 std::string hexify(const std::string &in) {
 	const char hex[]="0123456789ABCDEF";
@@ -50,6 +50,15 @@ wxString hexify_wx(const std::string &in) {
 	return out;
 }
 
+shb_iptr hash_block(const void *data, size_t length) {
+	std::shared_ptr<sha1_hash_block> hash = std::make_shared<sha1_hash_block>();
+	CSHA1 hashblk;
+	hashblk.Update(static_cast<const unsigned char*>(data), length);
+	hashblk.Final();
+	hashblk.GetHash(static_cast<unsigned char*>(hash->hash_sha1));
+	return std::move(hash);
+}
+
 bool LoadFromFileAndCheckHash(const wxString &filename, shb_iptr hash, char *&data, size_t &size) {
 	if(!hash) return false;
 	wxFile file;
@@ -60,9 +69,10 @@ bool LoadFromFileAndCheckHash(const wxString &filename, shb_iptr hash, char *&da
 			data = (char*) malloc(len);
 			size = file.Read(data, len);
 			if(size == (size_t) len) {
-				unsigned char curhash[20];
-				SHA1((const unsigned char *) data, (unsigned long) len, curhash);
-				if(memcmp(curhash, hash->hash_sha1, 20) == 0) {
+				CSHA1 hashblk;
+				hashblk.Update(reinterpret_cast<unsigned char*>(data), len);
+				hashblk.Final();
+				if(memcmp(hashblk.GetHashPtr(), hash->hash_sha1, 20) == 0) {
 					return true;
 				}
 			}
