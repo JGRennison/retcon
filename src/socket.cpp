@@ -26,9 +26,6 @@
 #ifdef RCS_WSAASYNCSELMODE
 	#include <windows.h>
 #endif
-#ifdef RCS_SIGNALMODE
-	#include <signal.h>
-#endif
 #ifdef RCS_POLLTHREADMODE
 	#include <poll.h>
 #endif
@@ -412,7 +409,7 @@ wxThread::ExitCode adns_thread::Entry() {
 
 BEGIN_EVENT_TABLE(socketmanager, wxEvtHandler)
 	EVT_TIMER(MCCT_RETRY, socketmanager::RetryNotify)
-#if defined(RCS_POLLTHREADMODE) || defined(RCS_SIGNALMODE)
+#ifdef RCS_POLLTHREADMODE
 	EVT_EXTSOCKETNOTIFY(wxID_ANY, socketmanager::NotifySockEventCmd)
 #endif
 	EVT_COMMAND(wxID_ANY, wxextDNS_RESOLUTION_EVENT, socketmanager::DNSResolutionEvent)
@@ -688,7 +685,7 @@ void socketmanager::RegisterSockInterest(CURL *e, curl_socket_t s, int what) {
 
 #endif
 
-#if defined(RCS_POLLTHREADMODE) || defined(RCS_SIGNALMODE)
+#ifdef RCS_POLLTHREADMODE
 
 DEFINE_EVENT_TYPE(wxextSOCK_NOTIFY)
 
@@ -733,62 +730,6 @@ static void AddPendingEventForSocketPollEvent(int fd, short revents, bool reenab
 
 	sm.AddPendingEvent(event);
 }
-
-#endif
-
-#ifdef RCS_SIGNALMODE
-
-void socketsighandler(int signum, siginfo_t *info, void *ucontext) {
-	AddPendingEventForSocketPollEvent(info->si_fd, info->si_band);
-}
-
-void socketmanager::InitMultiIOHandler() {
-	if(MultiIOHandlerInited) return;
-	InitMultiIOHandlerCommon();
-
-	struct sigaction sa;
-	memset(&sa, 0, sizeof(sa));
-	sa.sa_sigaction=&socketsighandler;
-	sa.sa_flags=SA_SIGINFO|SA_RESTART;
-	sigfillset(&sa.sa_mask);
-	sigaction(SIGRTMIN, &sa, 0);
-
-	MultiIOHandlerInited=true;
-}
-
-void socketmanager::DeInitMultiIOHandler() {
-	if(!MultiIOHandlerInited) return;
-
-	struct sigaction sa;
-	memset(&sa, 0, sizeof(sa));
-	sa.sa_handler=SIG_IGN;
-	sigaction(SIGRTMIN, &sa, 0);
-
-	DeInitMultiIOHandlerCommon();
-	MultiIOHandlerInited=false;
-}
-
-void socketmanager::RegisterSockInterest(CURL *e, curl_socket_t s, int what) {
-	if(what) {
-		fcntl(s, F_SETOWN, (int) getpid());	//at present, wxWidgets doesn't mask signals around the event critical section
-		fcntl(s, F_SETSIG, SIGRTMIN);
-		int flags=fcntl(s, F_GETFL);
-		if(!(flags&O_ASYNC)) {
-			fcntl(s, F_SETFL, flags|O_ASYNC);
-			//check to see if IO is already waiting
-			NotifySockEvent(s, 0);
-		}
-	}
-	else {
-		int flags=fcntl(s, F_GETFL);
-		fcntl(s, F_SETFL, flags&~O_ASYNC);
-		fcntl(s, F_SETSIG, 0);
-	}
-}
-
-#endif
-
-#ifdef RCS_POLLTHREADMODE
 
 void socketmanager::InitMultiIOHandler() {
 	if(MultiIOHandlerInited) return;
