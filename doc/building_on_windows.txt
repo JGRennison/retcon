@@ -1,0 +1,88 @@
+******************************************************************************************************
+*  Unless you are a developer or absolutely must have the bleeding-edge latest version of retcon,    *
+*  you should stop reading this and download a pre-built Windows binary from the URL in README.md    *
+******************************************************************************************************
+
+
+Continue reading if you really want to build a Windows binary yourself
+
+
+Do not expect to be done in 5 minutes.
+
+
+Toolchain:
+You will need a version of MinGW which supports C++11, including std::thread.
+
+The easiest way to satisfy this is to download a suitable build from one of:
+ * http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/rubenvb/gcc-4.8-experimental-stdthread/ for 32-bit builds
+ * http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Personal%20Builds/rubenvb/gcc-4.8-experimental-stdthread/ for 64-bit builds
+
+It is possible to compile a more recent MinGW build which will work, how to do so is left as an exercise for the reader.
+(Your author checked part of the build instructions, and decided against it).
+
+Note that attempting a 64-bit build will make finding suitable pre-compiled libraries more difficult.
+Your author has not yet built for 64-bit Windows in part because of this.
+Do not be fooled by the presence of a makefile section dedicated to 64-bit Windows builds.
+
+
+Note:
+All paths labelled as expected by the makefile, are relative to the repository root.
+
+
+wxWidgets:
+You will need to compile wxWidgets 2.8.12 using the MinGW installed above.
+ * At present USE_EXCEPTIONS and USE_RTTI in build/msw/config.gcc should be set to 0 to match the retcon makefile
+ * Exactly how you do this step depends on your platform/setup, read the wxWidgets documentation
+You will then need to copy/symlink/etc. the resulting static libraries and the wxWidgets includes, or edit the makefile, so that gcc can find them.
+Currently the makefile expects:
+ * wxWidgets includes in wxinclude/
+ * static libs in wxlib/
+
+
+zlib, libcurl:
+You will need to compile zlib and libcurl, or find usable pre-compiled versions.
+libcurl will need to be compiled with some form of SSL support, the retcon makefile currently assumes that this is OpenSSL.
+The makefile currently expects:
+ * curl includes in curl/
+ * zlib includes in zlib/
+ * zlib/libcurl/ssl/etc. static libs in lib/
+
+Fortunately, usable pre-compiled versions of libcurl with all the dependency libs (zlib and OpenSSL/its dependencies) included exist already.
+Places to start looking include:
+ * http://curl.haxx.se/download.html
+ * http://curl.haxx.se/gknw.net/
+ * Your favourite search engine
+
+*** YOU MUST ENSURE THAT THE ANY PRE-COMPILED SSL YOU USE IS FREE OF NASTY BUGS ***
+In particular, do not use compiled versions of OpenSSL with the Heartbleed bug, which also have TLS heart-beats enabled.
+In practice this means using an old version of OpenSSL, which is OK as many of the pre-compiled versions floating around are of suitable vintage.
+
+Those with sufficiently fortified constitutions can try compiling OpenSSL, some other SSL, zlib and/or libcurl themselves.
+(Your author has so far successfully refrained from doing this).
+
+You will also need to make a cacert.pem, or find an existing one from somewhere.
+
+Your attention is also drawn to the existance of as of yet unresolved issues associated with linking OpenSSL with GPL code.
+
+
+PCRE:
+You will need to compile libpcre, or find a usable pre-compiled version.
+The makefile currently expects:
+ * pcre.h in /
+ * static lib in lib/
+
+
+sqlite:
+The Windows section of the retcon makefile includes rules to compile sqlite3.
+The all-in-one-file sqlite3.c blob and the sqlite3.h header should be placed in sqlite/
+
+
+Unfortunately, my Windows MinGW/cross build environment is sufficiently old and crufty that I do not remember or have recorded all of the details of how I put it together in the first place.
+Consequently a large number of details are omitted.
+Everything not specified is left as an exercise for the reader.
+Good luck.
+
+
+You are again reminded that pre-built Windows binaries are available at the URL in the readme.
+Ordinary users do not have to do any of the stuff listed above.
+Ordinary developers will probably find it easier to just develop on *nix platforms.

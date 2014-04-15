@@ -49,7 +49,7 @@ This includes documentation for:
 ### Building
 Should build out of the box with `make` and `make install`.  
 Requires a relatively recent gcc (4.7.1 or later).  
-Building for Windows involves a lot of hoop-jumping.  
+Building for Windows involves a lot of hoop-jumping. See doc/building_on_windows.txt for details.  
 Windows users are encouraged to download pre-built binaries from Sourceforge (see above).  
 
 ### Credits
