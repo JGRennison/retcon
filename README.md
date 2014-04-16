@@ -40,11 +40,11 @@ This includes documentation for:
 * Command line switches  
 
 ### Build dependencies
-* sqlite  
+* SQLite v3.6 or later  
 * PCRE  
-* wxWidgets  
+* wxWidgets v2.8 series  
 * zlib  
-* libcurl with SSL  
+* libcurl v7.21.6 or later with SSL  
 
 ### Building
 Should build out of the box with `make` and `make install`.  
