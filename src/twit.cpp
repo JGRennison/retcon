@@ -1078,6 +1078,8 @@ void ParseTwitterDate(struct tm *createtm, time_t *createtm_t, const std::string
 #define TCO_LINK_LENGTH_HTTPS 23
 
 //adapted from twitter code: https://github.com/twitter/twitter-text-java/blob/master/src/com/twitter/Regex.java
+//last updated: commit d1acbbe4ee7d2ec2529e665456a141fccebf5ecb
+
 #define URL_VALID_PRECEEDING_CHARS "(?:[^A-Z0-9@\\x{FF20}$#\\x{FF03}\\x{202A}-\\x{202E}]|^)"
 #define LATIN_ACCENTS_CHARS \
 	"\\x{00c0}-\\x{00d6}\\x{00d8}-\\x{00f6}\\x{00f8}-\\x{00ff}" \
@@ -1091,7 +1093,23 @@ void ParseTwitterDate(struct tm *createtm, time_t *createtm_t, const std::string
 #define URL_VALID_SUBDOMAIN "(?:(?:" URL_VALID_CHARS "[\\-" URL_VALID_CHARS_NC "_]*)?" URL_VALID_CHARS "\\.)"
 #define URL_VALID_DOMAIN_NAME "(?:(?:" URL_VALID_CHARS "[\\-" URL_VALID_CHARS_NC "]*)?" URL_VALID_CHARS "\\.)"
 #define URL_VALID_GTLD \
-      "(?:(?:aero|asia|biz|cat|com|coop|edu|gov|info|int|jobs|mil|mobi|museum|name|net|org|pro|tel|travel|xxx)(?!\\p{Xan}))"
+      "(?:(?:academy|actor|aero|agency|arpa|asia|bar|bargains|berlin|best|bid|bike|biz|blue|boutique|build|builders|" \
+      "buzz|cab|camera|camp|cards|careers|cat|catering|center|ceo|cheap|christmas|cleaning|clothing|club|codes|" \
+      "coffee|com|community|company|computer|construction|contractors|cool|coop|cruises|dance|dating|democrat|" \
+      "diamonds|directory|domains|edu|education|email|enterprises|equipment|estate|events|expert|exposed|farm|fish|" \
+      "flights|florist|foundation|futbol|gallery|gift|glass|gov|graphics|guitars|guru|holdings|holiday|house|" \
+      "immobilien|industries|info|institute|int|international|jobs|kaufen|kim|kitchen|kiwi|koeln|kred|land|lighting|" \
+      "limo|link|luxury|management|mango|marketing|menu|mil|mobi|moda|monash|museum|nagoya|name|net|neustar|ninja|" \
+      "okinawa|onl|org|partners|parts|photo|photography|photos|pics|pink|plumbing|post|pro|productions|properties|" \
+      "pub|qpon|recipes|red|rentals|repair|report|reviews|rich|ruhr|sexy|shiksha|shoes|singles|social|solar|" \
+      "solutions|supplies|supply|support|systems|tattoo|technology|tel|tienda|tips|today|tokyo|tools|training|" \
+      "travel|uno|vacations|ventures|viajes|villas|vision|vote|voting|voto|voyage|wang|watch|wed|wien|wiki|works|" \
+      "xxx|xyz|zone|\\x{0434}\\x{0435}\\x{0442}\\x{0438}|\\x{043E}\\x{043D}\\x{043B}\\x{0430}\\x{0439}\\x{043D}|\\x{043E}\\x{0440}" \
+	  "\\x{0433}|\\x{0441}\\x{0430}\\x{0439}\\x{0442}|\\x{0628}\\x{0627}\\x{0632}\\x{0627}\\x{0631}|\\x{0634}\\x{0628}\\x{0643}\\x{0629}" \
+	  "|\\x{307F}\\x{3093}\\x{306A}|\\x{4E2D}\\x{4FE1}|\\x{4E2D}\\x{6587}\\x{7F51}|\\x{516C}\\x{53F8}|\\x{516C}\\x{76CA}|\\x{5728}\\x{7EBF}" \
+	  "|\\x{6211}\\x{7231}\\x{4F60}|\\x{653F}\\x{52A1}|\\x{6E38}\\x{620F}|\\x{79FB}\\x{52A8}|\\x{7F51}\\x{7EDC}|\\x{96C6}\\x{56E2}|\\x{C0BC}\\x{C131}" \
+      ")(?![\\p{Xan}@]))"
+
 #define  URL_VALID_CCTLD \
       "(?:(?:ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|" \
       "bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|" \
@@ -1099,8 +1117,22 @@ void ParseTwitterDate(struct tm *createtm, time_t *createtm_t, const std::string
       "hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|" \
       "lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|" \
       "nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|sk|" \
-      "sl|sm|sn|so|sr|ss|st|su|sv|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|" \
-      "va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|za|zm|zw)(?!\\p{Xan}))"
+      "sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|" \
+      "va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|za|zm|zw|" \
+	  "\\x{043C}\\x{043E}\\x{043D}|\\x{0440}\\x{0444}|\\x{0441}\\x{0440}\\x{0431}|\\x{0443}\\x{043A}\\x{0440}|\\x{049B}\\x{0430}\\x{0437}|" \
+	  "\\x{0627}\\x{0644}\\x{0627}\\x{0631}\\x{062F}\\x{0646}|\\x{0627}\\x{0644}\\x{062C}\\x{0632}\\x{0627}\\x{0626}\\x{0631}|\\x{0627}\\x{0644}" \
+	  "\\x{0633}\\x{0639}\\x{0648}\\x{062F}\\x{064A}\\x{0629}|\\x{0627}\\x{0644}\\x{0645}\\x{063A}\\x{0631}\\x{0628}|\\x{0627}\\x{0645}\\x{0627}" \
+	  "\\x{0631}\\x{0627}\\x{062A}|\\x{0627}\\x{06CC}\\x{0631}\\x{0627}\\x{0646}|\\x{0628}\\x{06BE}\\x{0627}\\x{0631}\\x{062A}|\\x{062A}\\x{0648}" \
+	  "\\x{0646}\\x{0633}|\\x{0633}\\x{0648}\\x{062F}\\x{0627}\\x{0646}|\\x{0633}\\x{0648}\\x{0631}\\x{064A}\\x{0629}|\\x{0639}\\x{0645}\\x{0627}" \
+	  "\\x{0646}|\\x{0641}\\x{0644}\\x{0633}\\x{0637}\\x{064A}\\x{0646}|\\x{0642}\\x{0637}\\x{0631}|\\x{0645}\\x{0635}\\x{0631}|\\x{0645}\\x{0644}" \
+	  "\\x{064A}\\x{0633}\\x{064A}\\x{0627}|\\x{067E}\\x{0627}\\x{06A9}\\x{0633}\\x{062A}\\x{0627}\\x{0646}|" \
+	  "\\x{092D}\\x{093E}\\x{0930}\\x{0924}|\\x{09AC}\\x{09BE}\\x{0982}\\x{09B2}\\x{09BE}|\\x{09AD}\\x{09BE}\\x{09B0}\\x{09A4}|\\x{0A2D}\\x{0A3E}" \
+	  "\\x{0A30}\\x{0A24}|\\x{0AAD}\\x{0ABE}\\x{0AB0}\\x{0AA4}|\\x{0B87}\\x{0BA8}\\x{0BCD}\\x{0BA4}\\x{0BBF}\\x{0BAF}\\x{0BBE}|\\x{0B87}\\x{0BB2}" \
+	  "\\x{0B99}\\x{0BCD}\\x{0B95}\\x{0BC8}|\\x{0B9A}\\x{0BBF}\\x{0B99}\\x{0BCD}\\x{0B95}\\x{0BAA}\\x{0BCD}\\x{0BAA}\\x{0BC2}\\x{0BB0}\\x{0BCD}" \
+	  "|\\x{0C2D}\\x{0C3E}\\x{0C30}\\x{0C24}\\x{0C4D}|\\x{0DBD}\\x{0D82}\\x{0D9A}\\x{0DCF}|\\x{0E44}\\x{0E17}\\x{0E22}|\\x{10D2}\\x{10D4}|\\x{4E2D}" \
+	  "\\x{56FD}|\\x{4E2D}\\x{570B}|\\x{53F0}\\x{6E7E}|\\x{53F0}\\x{7063}|\\x{65B0}\\x{52A0}\\x{5761}|\\x{9999}\\x{6E2F}|\\x{D55C}\\x{AD6D}" \
+	  ")(?![\\p{Xan}@]))"
+
 #define URL_PUNYCODE "(?:xn--[0-9a-z]+)"
 #define URL_VALID_UNICODE_CHARS "(?:\\.|[^\\s\\p{Z}\\p{P}])"
 // \\p{Punct}\\p{InGeneralPunctuation}
@@ -1136,8 +1168,22 @@ void ParseTwitterDate(struct tm *createtm, time_t *createtm_t, const std::string
     ")"
 
 #define URL_VALID_PORT_NUMBER "[0-9]++"
-#define URL_VALID_GENERAL_PATH_CHARS "[a-z0-9!\\*';:=\\+,.\\$/%#\\x{5B}\\x{5D}\\-_~\\|&" LATIN_ACCENTS_CHARS "]"
-#define URL_BALANCED_PARENS "\\(" URL_VALID_GENERAL_PATH_CHARS "+\\)"
+#define URL_VALID_GENERAL_PATH_CHARS "[a-z0-9!\\*';:=\\+,.\\$/%#\\x{5B}\\x{5D}\\-_~\\|&@" LATIN_ACCENTS_CHARS "]"
+
+#define URL_BALANCED_PARENS "\\(" \
+    "(?:" \
+      URL_VALID_GENERAL_PATH_CHARS "+" \
+      "|" \
+      "(?:" \
+        URL_VALID_GENERAL_PATH_CHARS "*" \
+        "\\(" \
+          URL_VALID_GENERAL_PATH_CHARS "+" \
+        "\\)" \
+        URL_VALID_GENERAL_PATH_CHARS "*" \
+      ")" \
+    ")" \
+  "\\)"
+
 #define URL_VALID_PATH_ENDING_CHARS "[a-z0-9=_#/\\-\\+" LATIN_ACCENTS_CHARS "]|(?:" URL_BALANCED_PARENS ")"
 #define URL_VALID_PATH "(?:" \
     "(?:" \
@@ -1146,7 +1192,7 @@ void ParseTwitterDate(struct tm *createtm, time_t *createtm_t, const std::string
       URL_VALID_PATH_ENDING_CHARS \
     ")|(?:@" URL_VALID_GENERAL_PATH_CHARS "+/)" \
   ")"
-#define URL_VALID_URL_QUERY_CHARS "[a-z0-9!?\\*'\\(\\);:&=\\+\\$/%#\\x{5B}\\x{5D}\\-_\\.,~\\|]"
+#define URL_VALID_URL_QUERY_CHARS "[a-z0-9!?\\*'\\(\\);:&=\\+\\$/%#\\x{5B}\\x{5D}\\-_\\.,~\\|@]"
 #define URL_VALID_URL_QUERY_ENDING_CHARS "[a-z0-9_&=#/]"
 #define VALID_URL_PATTERN_STRING \
   "(?:" \
