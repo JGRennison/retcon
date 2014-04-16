@@ -30,6 +30,6 @@ void OpenAboutWindow() {
 	info.SetDescription(wxT("A Twitter client."));
 	info.AddDeveloper(wxT("Jonathan Rennison <j.g.rennison@gmail.com>"));
 	info.SetLicence(wxT("GNU General Public Licence version 2"));
-	info.SetWebSite(wxT("http://sourceforge.net/projects/retcon/"));
+	info.SetWebSite(wxT("https://github.com/JGRennison/retcon"));
 	wxAboutBox(info);
 }
