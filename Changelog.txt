@@ -1,3 +1,28 @@
+retcon 0.0.7
+------------------------------------------------------
+
+Add buttons to tweet post box to: clear text, and add reply names to text.
+Remove setting persistentmediacache (Check incoming media against cache), it is now always enabled.
+Purge media cache images/records after not being used for (by default 7) days.
+Add option for whether to show panel unhighlight all button.
+Restart stream connections more quickly after resuming from suspend/etc.
+Display panel tab art in reverse video when using a dark theme. This mostly fixes contrast issues with inactive tabs.
+Fix user window followers/following panels.
+Fix profile images not always being loaded/displayed in profile dialog.
+Fix changes to tweet flags in a bulk filter operation being overriden when a retweet of the tweet was also filtered.
+Fix highlighted/unread panels being considered as single-account panels.
+Fix highlighted/unread tweets loaded from DB not being removed from highlighted/unread panels when unmarked highlighted/unread.
+Fix logging names of user following/followers lookups.
+Update URL matching regexs to match Twitter, add new TLDs.
+Show ID/row totals in DB trace logs for bulk Init/DeInit operations.
+Bulk loading tweets for a filtering operation no longer loads user profile images as well.
+Enable gzip/deflate over HTTP when supported for all connections.
+Remove dependency on OpenSSL's libcrypto.
+Add documentation for building on Windows.
+Add version requirements to the build dependencies in the readme.
+Update URL in about box.
+
+
 retcon 0.0.6
 ------------------------------------------------------
 
