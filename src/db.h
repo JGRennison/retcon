@@ -26,6 +26,7 @@
 #include "media_id_type.h"
 #include "ptr_types.h"
 #include "set.h"
+#include "observer_ptr.h"
 #include <string>
 #include <memory>
 #include <deque>
@@ -69,7 +70,7 @@ struct dbsendmsg {
 struct dbsendmsg_list : public dbsendmsg {
 	dbsendmsg_list() : dbsendmsg(DBSM::MSGLIST) { }
 
-	std::queue<dbsendmsg *> msglist;
+	std::vector<std::unique_ptr<dbsendmsg> > msglist;
 };
 
 struct dbsendmsg_callback : public dbsendmsg {
@@ -81,7 +82,7 @@ struct dbsendmsg_callback : public dbsendmsg {
 	WXTYPE cmdevtype;
 	int winid;
 
-	void SendReply(void *data, dbiothread *th);
+	void SendReply(std::unique_ptr<dbsendmsg> data, dbiothread *th);
 };
 
 struct dbinserttweetmsg : public dbsendmsg {
@@ -203,18 +204,18 @@ template<> struct enum_traits<HDBSF> { static constexpr bool flags = true; };
 
 bool DBC_Init(const std::string &filename);
 void DBC_DeInit();
-void DBC_SendMessage(dbsendmsg *msg);
-void DBC_SendMessageOrAddToList(dbsendmsg *msg, dbsendmsg_list *msglist);
-void DBC_SendMessageBatched(dbsendmsg *msg);
-dbsendmsg_list *DBC_GetMessageBatchQueue();
-void DBC_SendAccDBUpdate(dbinsertaccmsg *insmsg);
-void DBC_InsertMedia(media_entity &me, dbsendmsg_list *msglist = 0);
-void DBC_UpdateMedia(media_entity &me, DBUMMT update_type, dbsendmsg_list *msglist = 0);
-void DBC_InsertNewTweet(tweet_ptr_p tobj, std::string statjson, dbsendmsg_list *msglist = 0);
-void DBC_UpdateTweetDyn(tweet_ptr_p tobj, dbsendmsg_list *msglist = 0);
-void DBC_InsertUser(udc_ptr_p u, dbsendmsg_list *msglist = 0);
-void DBC_HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags);
-void DBC_SetDBSelTweetMsgHandler(dbseltweetmsg *msg, std::function<void(dbseltweetmsg *, dbconn *)> f);
-void DBC_PrepareStdTweetLoadMsg(dbseltweetmsg *loadmsg);
+void DBC_SendMessage(std::unique_ptr<dbsendmsg> msg);
+void DBC_SendMessageOrAddToList(std::unique_ptr<dbsendmsg> msg, optional_observer_ptr<dbsendmsg_list> msglist);
+void DBC_SendMessageBatched(std::unique_ptr<dbsendmsg> msg);
+observer_ptr<dbsendmsg_list> DBC_GetMessageBatchQueue();
+void DBC_SendAccDBUpdate(std::unique_ptr<dbinsertaccmsg> insmsg);
+void DBC_InsertMedia(media_entity &me, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
+void DBC_UpdateMedia(media_entity &me, DBUMMT update_type, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
+void DBC_InsertNewTweet(tweet_ptr_p tobj, std::string statjson, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
+void DBC_UpdateTweetDyn(tweet_ptr_p tobj, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
+void DBC_InsertUser(udc_ptr_p u, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
+void DBC_HandleDBSelTweetMsg(dbseltweetmsg &msg, flagwrapper<HDBSF> flags);
+void DBC_SetDBSelTweetMsgHandler(dbseltweetmsg &msg, std::function<void(dbseltweetmsg &, dbconn *)> f);
+void DBC_PrepareStdTweetLoadMsg(dbseltweetmsg &loadmsg);
 
 #endif

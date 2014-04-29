@@ -146,9 +146,9 @@ void acc_window::AccDel(wxCommandEvent &event) {
 	if(answer == wxYES) {
 		acc->enabled=acc->userenabled=0;
 		acc->Exec();
-		dbdelaccmsg *delmsg = new dbdelaccmsg;
+		std::unique_ptr<dbdelaccmsg> delmsg(new dbdelaccmsg);
 		delmsg->dbindex = acc->dbindex;
-		DBC_SendMessage(delmsg);
+		DBC_SendMessage(std::move(delmsg));
 		alist.remove_if([&](const std::shared_ptr<taccount> &a) { return a.get() == acc; });
 		lb->SetSelection(wxNOT_FOUND);
 		UpdateLB();
@@ -179,11 +179,11 @@ void acc_window::AccNew(wxCommandEvent &event) {
 			ta->name = wxString::Format(wxT("%" wxLongLongFmtSpec "d-%d"),ta->usercont->id,time(0));
 			alist.push_back(ta);
 			UpdateLB();
-			dbinsertaccmsg *insmsg = new dbinsertaccmsg;
+			std::unique_ptr<dbinsertaccmsg> insmsg(new dbinsertaccmsg);
 			insmsg->name = ta->name.ToUTF8();
 			insmsg->dispname = ta->dispname.ToUTF8();
 			insmsg->userid = ta->usercont->id;
-			DBC_SendAccDBUpdate(insmsg);
+			DBC_SendAccDBUpdate(std::move(insmsg));
 		}
 	}
 	twit->TwDeInit();

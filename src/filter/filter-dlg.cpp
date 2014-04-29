@@ -211,7 +211,7 @@ struct applyfilter_pending_op : public pending_op {
 };
 
 void filter_dlg::ExecFilter() {
-	dbseltweetmsg *loadmsg = 0;
+	std::unique_ptr<dbseltweetmsg> loadmsg;
 
 	SetNoUpdateFlag_All();
 
@@ -227,8 +227,8 @@ void filter_dlg::ExecFilter() {
 	}
 	if(loadmsg) {
 		loadmsg->flags |= DBSTMF::CLEARNOUPDF;
-		DBC_PrepareStdTweetLoadMsg(loadmsg);
-		DBC_SendMessage(loadmsg);
+		DBC_PrepareStdTweetLoadMsg(*loadmsg);
+		DBC_SendMessage(std::move(loadmsg));
 	}
 	else CheckClearNoUpdateFlag_All();
 }

@@ -119,12 +119,12 @@ struct dbconn : public wxEvtHandler {
 	int pipefd;
 	#endif
 	sqlite3 *syncdb;
-	dbiothread *th = 0;
+	dbiothread *th = nullptr;
 	dbpscache cache;
-	dbsendmsg_list *batchqueue = 0;
+	std::unique_ptr<dbsendmsg_list> batchqueue;
 
 	private:
-	std::map<intptr_t, std::function<void(dbseltweetmsg *, dbconn *)> > generic_sel_funcs;
+	std::map<intptr_t, std::function<void(dbseltweetmsg &, dbconn *)> > generic_sel_funcs;
 
 	public:
 	enum class DBCF {
@@ -140,17 +140,17 @@ struct dbconn : public wxEvtHandler {
 	~dbconn() { DeInit(); }
 	bool Init(const std::string &filename);
 	void DeInit();
-	void SendMessage(dbsendmsg *msg);
-	void SendMessageOrAddToList(dbsendmsg *msg, dbsendmsg_list *msglist);
-	void SendMessageBatched(dbsendmsg *msg);
-	dbsendmsg_list *GetMessageBatchQueue();
-	void SendAccDBUpdate(dbinsertaccmsg *insmsg);
+	void SendMessage(std::unique_ptr<dbsendmsg> msg);
+	void SendMessageOrAddToList(std::unique_ptr<dbsendmsg> msg, optional_observer_ptr<dbsendmsg_list> msglist);
+	void SendMessageBatched(std::unique_ptr<dbsendmsg> msg);
+	observer_ptr<dbsendmsg_list> GetMessageBatchQueue();
+	void SendAccDBUpdate(std::unique_ptr<dbinsertaccmsg> insmsg);
 
-	void InsertNewTweet(tweet_ptr_p tobj, std::string statjson, dbsendmsg_list *msglist = 0);
-	void UpdateTweetDyn(tweet_ptr_p tobj, dbsendmsg_list *msglist = 0);
-	void InsertUser(udc_ptr_p u, dbsendmsg_list *msglist = 0);
-	void InsertMedia(media_entity &me, dbsendmsg_list *msglist = 0);
-	void UpdateMedia(media_entity &me, DBUMMT update_type, dbsendmsg_list *msglist = 0);
+	void InsertNewTweet(tweet_ptr_p tobj, std::string statjson, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
+	void UpdateTweetDyn(tweet_ptr_p tobj, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
+	void InsertUser(udc_ptr_p u, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
+	void InsertMedia(media_entity &me, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
+	void UpdateMedia(media_entity &me, DBUMMT update_type, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
 	void AccountSync(sqlite3 *adb);
 	void SyncWriteBackAllUsers(sqlite3 *adb);
 	void SyncReadInAllUsers(sqlite3 *adb);
@@ -159,7 +159,7 @@ struct dbconn : public wxEvtHandler {
 	void SyncReadInRBFSs(sqlite3 *adb);
 	void SyncReadInAllMediaEntities(sqlite3 *adb);
 	void OnStdTweetLoadFromDB(wxCommandEvent &event);
-	void PrepareStdTweetLoadMsg(dbseltweetmsg *insmsg);
+	void PrepareStdTweetLoadMsg(dbseltweetmsg &insmsg);
 	void OnDBNewAccountInsert(wxCommandEvent &event);
 	void OnSendBatchEvt(wxCommandEvent &event);
 	void OnDBReplyEvt(wxCommandEvent &event);
@@ -174,9 +174,9 @@ struct dbconn : public wxEvtHandler {
 	void SyncWriteDBVersion(sqlite3 *adb);
 	void SyncPurgeMediaEntities(sqlite3 *adb);
 
-	void HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags);
+	void HandleDBSelTweetMsg(dbseltweetmsg &msg, flagwrapper<HDBSF> flags);
 	void GenericDBSelTweetMsgHandler(wxCommandEvent &event);
-	void SetDBSelTweetMsgHandler(dbseltweetmsg *msg, std::function<void(dbseltweetmsg *, dbconn *)> f);
+	void SetDBSelTweetMsgHandler(dbseltweetmsg &msg, std::function<void(dbseltweetmsg &, dbconn *)> f);
 
 	DECLARE_EVENT_TABLE()
 };

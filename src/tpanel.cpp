@@ -1029,8 +1029,8 @@ void tpanelparentwin_nt_impl::MarkSetRead(tweetidset &&subset) {
 		},
 		cached_ids
 	);
-	dbupdatetweetsetflagsmsg *msg = new dbupdatetweetsetflagsmsg(std::move(cached_ids), tweet_flags::GetFlagValue('r'), tweet_flags::GetFlagValue('u'));
-	DBC_SendMessage(msg);
+	std::unique_ptr<dbupdatetweetsetflagsmsg> msg(new dbupdatetweetsetflagsmsg(std::move(cached_ids), tweet_flags::GetFlagValue('r'), tweet_flags::GetFlagValue('u')));
+	DBC_SendMessage(std::move(msg));
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt_impl::MarkSetRead %s END"), GetThisName().c_str());
 	#endif
@@ -1062,8 +1062,8 @@ void tpanelparentwin_nt_impl::MarkSetUnhighlighted(tweetidset &&subset) {
 		},
 		cached_ids
 	);
-	dbupdatetweetsetflagsmsg *msg = new dbupdatetweetsetflagsmsg(std::move(cached_ids), 0, tweet_flags::GetFlagValue('H'));
-	DBC_SendMessage(msg);
+	std::unique_ptr<dbupdatetweetsetflagsmsg> msg(new dbupdatetweetsetflagsmsg(std::move(cached_ids), 0, tweet_flags::GetFlagValue('H')));
+	DBC_SendMessage(std::move(msg));
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt_impl::MarkSetUnhighlighted %s END"), GetThisName().c_str());
 	#endif
@@ -1531,7 +1531,7 @@ tpanelparentwin::tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *
 //cannot set both
 //if neither set: start at highest in set and iterate down
 void tpanelparentwin_impl::LoadMore(unsigned int n, uint64_t lessthanid, uint64_t greaterthanid, flagwrapper<PUSHFLAGS> pushflags) {
-	dbseltweetmsg *loadmsg=0;
+	std::unique_ptr<dbseltweetmsg> loadmsg;
 
 	LogMsgFormat(LOGT::TPANEL, "tpanelparentwin_impl::LoadMore %s called with n: %d, lessthanid: %" wxLongLongFmtSpec "d, greaterthanid: %" wxLongLongFmtSpec "d, pushflags: 0x%X",
 			GetThisName().c_str(), n, lessthanid, greaterthanid, pushflags);
@@ -1567,8 +1567,8 @@ void tpanelparentwin_impl::LoadMore(unsigned int n, uint64_t lessthanid, uint64_
 	}
 	if(loadmsg) {
 		loadmsg->flags |= DBSTMF::CLEARNOUPDF;
-		DBC_PrepareStdTweetLoadMsg(loadmsg);
-		DBC_SendMessage(loadmsg);
+		DBC_PrepareStdTweetLoadMsg(*loadmsg);
+		DBC_SendMessage(std::move(loadmsg));
 	}
 	if(currentlogflags & LOGT::PENDTRACE) dump_tweet_pendings(LOGT::PENDTRACE, wxT(""), wxT("\t"));
 

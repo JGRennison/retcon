@@ -64,9 +64,9 @@ struct Handler : public rapidjson::Writer<writestream> {
 
 struct genjsonparser {
 	static void ParseTweetStatics(const rapidjson::Value& val, tweet_ptr_p tobj,
-			Handler *jw = 0, bool isnew = false, dbsendmsg_list *dbmsglist = 0, bool parse_entities = true);
+			Handler *jw = 0, bool isnew = false, optional_observer_ptr<dbsendmsg_list> dbmsglist = nullptr, bool parse_entities = true);
 	static void DoEntitiesParse(const rapidjson::Value& val, tweet_ptr_p t,
-			bool isnew = false, dbsendmsg_list *dbmsglist = 0);
+			bool isnew = false, optional_observer_ptr<dbsendmsg_list> dbmsglist = nullptr);
 	static void ParseUserContents(const rapidjson::Value& val, userdata &userobj, bool is_ssl = 0);
 	static void ParseTweetDyn(const rapidjson::Value& val, tweet_ptr_p tobj);
 };
@@ -89,7 +89,7 @@ struct jsonparser : public genjsonparser {
 
 	//This will not be saved for deferred parses
 	//This is saved for use of RestTweetUpdateParams et al.
-	twitcurlext *twit;
+	optional_observer_ptr<twitcurlext> twit;
 
 	struct parse_data {
 		std::vector<char> json;
@@ -98,7 +98,7 @@ struct jsonparser : public genjsonparser {
 		RBFS_TYPE rbfs_type = RBFS_NULL;
 	};
 	std::shared_ptr<parse_data> data;
-	dbsendmsg_list *dbmsglist = 0;
+	std::unique_ptr<dbsendmsg_list> dbmsglist;
 
 	udc_ptr DoUserParse(const rapidjson::Value& val, flagwrapper<UMPTF> umpt_flags = 0);
 	void DoEventParse(const rapidjson::Value& val);
@@ -107,8 +107,8 @@ struct jsonparser : public genjsonparser {
 	void RestTweetUpdateParams(const tweet &t);
 	void RestTweetPreParseUpdateParams();
 
-	jsonparser(CS_ENUMTYPE t, std::shared_ptr<taccount> a, twitcurlext *tw = 0 /*optional*/)
-		: tac(a), type(t), twit(tw) { }
+	jsonparser(CS_ENUMTYPE t, std::shared_ptr<taccount> a, optional_observer_ptr<twitcurlext> tw = nullptr);
+	~jsonparser();
 	bool ParseString(const char *str, size_t len);
 	bool ParseString(const std::string &str) {
 		return ParseString(str.c_str(), str.size());

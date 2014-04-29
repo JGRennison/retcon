@@ -112,7 +112,7 @@ void DisplayParseErrorMsg(rapidjson::Document &dc, const wxString &name, const c
 }
 
 //if jw, caller should already have called jw->StartObject(), etc
-void genjsonparser::ParseTweetStatics(const rapidjson::Value& val, tweet_ptr_p tobj, Handler *jw, bool isnew, dbsendmsg_list *dbmsglist, bool parse_entities) {
+void genjsonparser::ParseTweetStatics(const rapidjson::Value& val, tweet_ptr_p tobj, Handler *jw, bool isnew, optional_observer_ptr<dbsendmsg_list> dbmsglist, bool parse_entities) {
 	CheckTransJsonValueDef(tobj->in_reply_to_status_id, val, "in_reply_to_status_id", 0, jw);
 	CheckTransJsonValueDef(tobj->retweet_count, val, "retweet_count", 0);
 	CheckTransJsonValueDef(tobj->favourite_count, val, "favorite_count", 0);
@@ -180,7 +180,7 @@ static std::string ProcessMediaURL(std::string url, const wxURI &wxuri) {
 	return url;
 }
 
-void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, tweet_ptr_p t, bool isnew, dbsendmsg_list *dbmsglist) {
+void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, tweet_ptr_p t, bool isnew, optional_observer_ptr<dbsendmsg_list> dbmsglist) {
 	LogMsg(LOGT::PARSE, wxT("jsonparser::DoEntitiesParse"));
 
 	auto &hashtags = val["hashtags"];
@@ -432,6 +432,11 @@ void genjsonparser::ParseUserContents(const rapidjson::Value& val, userdata &use
 	if(changed) userobj.revision_number++;
 }
 
+jsonparser::jsonparser(CS_ENUMTYPE t, std::shared_ptr<taccount> a, optional_observer_ptr<twitcurlext> tw)
+		: tac(a), type(t), twit(tw) { }
+
+jsonparser::~jsonparser() { }
+
 void jsonparser::RestTweetUpdateParams(const tweet &t) {
 	if(twit && twit->rbfs) {
 		if(twit->rbfs->max_tweets_left) twit->rbfs->max_tweets_left--;
@@ -528,7 +533,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 		}
 		case CS_USERLIST:
 			if(dc.IsArray()) {
-				dbmsglist = new dbsendmsg_list();
+				dbmsglist.reset(new dbsendmsg_list());
 				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) DoUserParse(dc[i], UMPTF::TPDB_NOUPDF | UMPTF::RMV_LKPINPRGFLG);
 				CheckClearNoUpdateFlag_All();
 			}
@@ -537,7 +542,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 		case CS_TIMELINE:
 			RestTweetPreParseUpdateParams();
 			if(dc.IsArray()) {
-				dbmsglist = new dbsendmsg_list();
+				dbmsglist.reset(new dbsendmsg_list());
 				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) RestTweetUpdateParams(*DoTweetParse(dc[i]));
 			}
 			else RestTweetUpdateParams(*DoTweetParse(dc));
@@ -545,7 +550,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 		case CS_DMTIMELINE:
 			RestTweetPreParseUpdateParams();
 			if(dc.IsArray()) {
-				dbmsglist = new dbsendmsg_list();
+				dbmsglist.reset(new dbsendmsg_list());
 				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) RestTweetUpdateParams(*DoTweetParse(dc[i], JDTP::ISDM));
 			}
 			else RestTweetUpdateParams(*DoTweetParse(dc, JDTP::ISDM));
@@ -665,9 +670,8 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			break;
 	}
 	if(dbmsglist) {
-		if(!dbmsglist->msglist.empty()) DBC_SendMessage(dbmsglist);
-		else delete dbmsglist;
-		dbmsglist=0;
+		if(!dbmsglist->msglist.empty()) DBC_SendMessage(std::move(dbmsglist));
+		else dbmsglist.reset();
 	}
 	return true;
 }
@@ -684,7 +688,7 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value& val, flagwrapper<UMPTF> 
 		std::string created_at;
 		CheckTransJsonValueDef(created_at, val, "created_at", "");
 		ParseTwitterDate(0, &userobj.createtime, created_at);
-		DBC_InsertUser(userdatacont, dbmsglist);
+		DBC_InsertUser(userdatacont, make_observer(dbmsglist));
 	}
 
 	userdatacont->MarkUpdated();
@@ -734,7 +738,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP
 
 		tobj->lflags |= TLF::BEINGLOADEDFROMDB;
 
-		dbseltweetmsg *msg = new dbseltweetmsg();
+		std::unique_ptr<dbseltweetmsg> msg(new dbseltweetmsg());
 		msg->id_set.insert(tweetid);
 
 		struct funcdata {
@@ -753,7 +757,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP
 		pdata->sflags = sflags;
 		pdata->tweetid = tweetid;
 
-		DBC_SetDBSelTweetMsgHandler(msg, [pdata](dbseltweetmsg *pmsg, dbconn *dbc) {
+		DBC_SetDBSelTweetMsgHandler(*msg, [pdata](dbseltweetmsg &pmsg, dbconn *dbc) {
 			//Do not use *this, it will have long since gone out of scope
 
 			LogMsgFormat(LOGT::PARSE | LOGT::DBTRACE, wxT("jsonparser::DoTweetParse: Tweet id: %" wxLongLongFmtSpec "d, now doing deferred parse."), pdata->tweetid);
@@ -770,7 +774,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP
 				LogMsgFormat(LOGT::PARSEERR | LOGT::DBERR, wxT("jsonparser::DoTweetParse: Tweet id: %" wxLongLongFmtSpec "d, deferred parse failed as account no longer exists."), pdata->tweetid);
 			}
 		});
-		DBC_SendMessageBatched(msg);
+		DBC_SendMessageBatched(std::move(msg));
 		return tobj;
 	}
 
@@ -824,7 +828,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP
 		writestream wr(json);
 		Handler jw(wr);
 		jw.StartObject();
-		ParseTweetStatics(val, tobj, &jw, true, dbmsglist);
+		ParseTweetStatics(val, tobj, &jw, true, make_observer(dbmsglist));
 		jw.EndObject();
 		std::string created_at;
 		if(CheckTransJsonValueDef(created_at, val, "created_at", "", 0)) {
@@ -966,10 +970,10 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP
 				ParseTweetStatics(val, tobj, &jw, false, 0, false);
 				jw.EndObject();
 			}
-			DBC_InsertNewTweet(tobj, std::move(json), dbmsglist);
+			DBC_InsertNewTweet(tobj, std::move(json), make_observer(dbmsglist));
 			tobj->lflags |= TLF::SAVED_IN_DB;
 		}
-		else DBC_UpdateTweetDyn(tobj, dbmsglist);
+		else DBC_UpdateTweetDyn(tobj, make_observer(dbmsglist));
 	}
 
 	return tobj;

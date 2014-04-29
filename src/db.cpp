@@ -445,7 +445,7 @@ template <typename C> void setfromcompressedblob(C func, sqlite3_stmt *stmt, int
 
 //! This calls itself for retweet sources, *unless* the retweet source ID is in idset
 //! This expects to be called in *ascending* ID order
-static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetmsg *m, std::deque<dbrettweetdata> &recv_data, uint64_t id,
+static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetmsg &m, std::deque<dbrettweetdata> &recv_data, uint64_t id,
 		const container::set<uint64_t> &idset, bool front_insert = false) {
 	sqlite3_bind_int64(stmt, 1, (sqlite3_int64) id);
 	int res = sqlite3_step(stmt);
@@ -472,8 +472,9 @@ static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetm
 		rd.timestamp = (uint64_t) sqlite3_column_int64(stmt, 5);
 		rd.rtid = rtid = (uint64_t) sqlite3_column_int64(stmt, 6);
 	}
-	else { DBLogMsgFormat((m->flags&DBSTMF::NO_ERR) ? LOGT::DBTRACE : LOGT::DBERR, wxT("DBSM::SELTWEET got error: %d (%s) for id: %" wxLongLongFmtSpec "d, net fallback flag: %d"),
-			res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) id, (m->flags & DBSTMF::NET_FALLBACK) ? 1 : 0); }
+	else { DBLogMsgFormat((m.flags & DBSTMF::NO_ERR) ? LOGT::DBTRACE : LOGT::DBERR,
+			wxT("DBSM::SELTWEET got error: %d (%s) for id: %" wxLongLongFmtSpec "d, net fallback flag: %d"),
+			res, wxstrstd(sqlite3_errmsg(db)).c_str(), (sqlite3_int64) id, (m.flags & DBSTMF::NET_FALLBACK) ? 1 : 0); }
 	sqlite3_reset(stmt);
 
 	if(rtid && idset.find(rtid) == idset.end()) {
@@ -483,7 +484,10 @@ static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetm
 	}
 }
 
-static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cache, dbiothread *th) {
+//Note that the contents of themsg may be stolen if the lifetime of the message needs to be extended
+//This is generally the case for messages which also act as replies
+static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool &ok, dbpscache &cache, dbiothread *th) {
+	dbsendmsg *msg = themsg.get();
 	switch(msg->type) {
 		case DBSM::QUIT:
 			ok = false;
@@ -524,16 +528,16 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 		}
 		case DBSM::SELTWEET: {
 			dbseltweetmsg *m = static_cast<dbseltweetmsg*>(msg);
-			sqlite3_stmt *stmt=cache.GetStmt(db, DBPSC_SELTWEET);
+			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_SELTWEET);
 			std::deque<dbrettweetdata> recv_data;
 
 			//This is *ascending* ID order
 			for(auto it = m->id_set.cbegin(); it != m->id_set.cend(); ++it) {
-				ProcessMessage_SelTweet(db, stmt, m, recv_data, *it, m->id_set);
+				ProcessMessage_SelTweet(db, stmt, *m, recv_data, *it, m->id_set);
 			}
-			if(!recv_data.empty() || m->flags&DBSTMF::NET_FALLBACK) {
+			if(!recv_data.empty() || m->flags & DBSTMF::NET_FALLBACK) {
 				m->data = std::move(recv_data);
-				m->SendReply(m, th);
+				m->SendReply(std::move(themsg), th);
 				return;
 			}
 			break;
@@ -574,7 +578,7 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 					res, wxstrstd(sqlite3_errmsg(db)).c_str(), wxstrstd(m->dispname).c_str()); }
 			else { DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM::INSERTACC inserted account dbindex: %d, name: %s"), m->dbindex, wxstrstd(m->dispname).c_str()); }
 			sqlite3_reset(stmt);
-			m->SendReply(m, th);
+			m->SendReply(std::move(themsg), th);
 			return;
 		}
 		case DBSM::DELACC: {
@@ -669,15 +673,14 @@ static void ProcessMessage(sqlite3 *db, dbsendmsg *msg, bool &ok, dbpscache &cac
 			cache.BeginTransaction(db);
 			dbsendmsg_list *m = static_cast<dbsendmsg_list*>(msg);
 			DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM::MSGLIST: queue size: %d"), m->msglist.size());
-			while(!m->msglist.empty()) {
-				ProcessMessage(db, m->msglist.front(), ok, cache, th);
-				m->msglist.pop();
+			for(auto &onemsg : m->msglist) {
+				ProcessMessage(db, onemsg, ok, cache, th);
 			}
 			cache.EndTransaction(db);
+			break;
 		}
 		default: break;
 	}
-	delete msg;
 }
 
 wxThread::ExitCode dbiothread::Entry() {
@@ -714,7 +717,8 @@ void dbiothread::MsgLoop() {
 			}
 		}
 		#endif
-		ProcessMessage(db, msg, ok, cache, this);
+		std::unique_ptr<dbsendmsg> msgcont(msg);
+		ProcessMessage(db, msgcont, ok, cache, this);
 		if(!reply_list.empty()) {
 			dbreplyevtstruct *rs = new dbreplyevtstruct;
 			rs->reply_list = std::move(reply_list);
@@ -739,55 +743,53 @@ EVT_COMMAND(wxDBCONNEVT_ID_GENERICSELTWEET, wxextDBCONN_NOTIFY, dbconn::GenericD
 END_EVENT_TABLE()
 
 void dbconn::OnStdTweetLoadFromDB(wxCommandEvent &event) {
-	dbseltweetmsg *msg = static_cast<dbseltweetmsg*>(event.GetClientData());
+	std::unique_ptr<dbseltweetmsg> msg(static_cast<dbseltweetmsg *>(event.GetClientData()));
 	event.SetClientData(0);
-	HandleDBSelTweetMsg(msg, 0);
-	delete msg;
+	HandleDBSelTweetMsg(*msg, 0);
 }
 
-void dbconn::PrepareStdTweetLoadMsg(dbseltweetmsg *loadmsg) {
-	loadmsg->targ = this;
-	loadmsg->cmdevtype = wxextDBCONN_NOTIFY;
-	loadmsg->winid = wxDBCONNEVT_ID_STDTWEETLOAD;
+void dbconn::PrepareStdTweetLoadMsg(dbseltweetmsg &loadmsg) {
+	loadmsg.targ = this;
+	loadmsg.cmdevtype = wxextDBCONN_NOTIFY;
+	loadmsg.winid = wxDBCONNEVT_ID_STDTWEETLOAD;
 }
 
 void dbconn::GenericDBSelTweetMsgHandler(wxCommandEvent &event) {
-	dbseltweetmsg *msg = static_cast<dbseltweetmsg *>(event.GetClientData());
+	std::unique_ptr<dbseltweetmsg> msg(static_cast<dbseltweetmsg *>(event.GetClientData()));
 	event.SetClientData(0);
 
-	const auto &it = generic_sel_funcs.find(reinterpret_cast<intptr_t>(msg));
+	const auto &it = generic_sel_funcs.find(reinterpret_cast<intptr_t>(msg.get()));
 	if(it != generic_sel_funcs.end()) {
-		it->second(msg, this);
+		it->second(*msg, this);
 		generic_sel_funcs.erase(it);
 	}
 	else {
-		DBLogMsgFormat(LOGT::DBERR, wxT("dbconn::GenericDBSelTweetMsgHandler could not find handler for %p."), msg);
+		DBLogMsgFormat(LOGT::DBERR, wxT("dbconn::GenericDBSelTweetMsgHandler could not find handler for %p."), msg.get());
 	}
 
-	delete msg;
 	dbc_flags |= DBCF::REPLY_CLEARNOUPDF;
 }
 
-void dbconn::SetDBSelTweetMsgHandler(dbseltweetmsg *msg, std::function<void(dbseltweetmsg *, dbconn *)> f) {
-	msg->targ = this;
-	msg->cmdevtype = wxextDBCONN_NOTIFY;
-	msg->winid = wxDBCONNEVT_ID_GENERICSELTWEET;
-	generic_sel_funcs[reinterpret_cast<intptr_t>(msg)] = std::move(f);
+void dbconn::SetDBSelTweetMsgHandler(dbseltweetmsg &msg, std::function<void(dbseltweetmsg &, dbconn *)> f) {
+	msg.targ = this;
+	msg.cmdevtype = wxextDBCONN_NOTIFY;
+	msg.winid = wxDBCONNEVT_ID_GENERICSELTWEET;
+	generic_sel_funcs[reinterpret_cast<intptr_t>(&msg)] = std::move(f);
 }
 
-void dbconn::HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags) {
+void dbconn::HandleDBSelTweetMsg(dbseltweetmsg &msg, flagwrapper<HDBSF> flags) {
 	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::HandleDBSelTweetMsg start"));
 
-	if(msg->flags & DBSTMF::CLEARNOUPDF) dbc_flags |= DBCF::REPLY_CLEARNOUPDF;
+	if(msg.flags & DBSTMF::CLEARNOUPDF) dbc_flags |= DBCF::REPLY_CLEARNOUPDF;
 
-	if(msg->flags & DBSTMF::NET_FALLBACK) {
-		dbseltweetmsg_netfallback *fmsg = dynamic_cast<dbseltweetmsg_netfallback *>(msg);
+	if(msg.flags & DBSTMF::NET_FALLBACK) {
+		dbseltweetmsg_netfallback *fmsg = dynamic_cast<dbseltweetmsg_netfallback *>(&msg);
 		std::shared_ptr<taccount> acc;
 		if(fmsg) {
 			GetAccByDBIndex(fmsg->dbindex, acc);
 		}
-		container::set<uint64_t> missing_id_set = msg->id_set;
-		for(auto &it : msg->data) {
+		container::set<uint64_t> missing_id_set = msg.id_set;
+		for(auto &it : msg.data) {
 			missing_id_set.erase(it.id);
 		}
 		for(auto &it : missing_id_set) {
@@ -810,7 +812,7 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags) {
 		}
 	}
 
-	for(dbrettweetdata &dt : msg->data) {
+	for(dbrettweetdata &dt : msg.data) {
 		#if DB_COPIOUS_LOGGING
 			DBLogMsgFormat(LOGT::DBTRACE, wxT("dbconn::HandleDBSelTweetMsg got tweet: id:%" wxLongLongFmtSpec "d, statjson: %s, dynjson: %s"), dt.id, wxstrstd(dt.statjson).c_str(), wxstrstd(dt.dynjson).c_str());
 		#endif
@@ -861,7 +863,8 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags) {
 }
 
 void dbconn::OnDBNewAccountInsert(wxCommandEvent &event) {
-	dbinsertaccmsg *msg = static_cast<dbinsertaccmsg *>(event.GetClientData());
+	std::unique_ptr<dbinsertaccmsg> msg(static_cast<dbinsertaccmsg *>(event.GetClientData()));
+	event.SetClientData(0);
 	wxString accname = wxstrstd(msg->name);
 	for(auto &it : alist) {
 		if(it->name == accname) {
@@ -873,20 +876,20 @@ void dbconn::OnDBNewAccountInsert(wxCommandEvent &event) {
 	}
 }
 
-void dbconn::SendMessageBatched(dbsendmsg *msg) {
-	GetMessageBatchQueue()->msglist.push(msg);
+void dbconn::SendMessageBatched(std::unique_ptr<dbsendmsg> msg) {
+	GetMessageBatchQueue()->msglist.emplace_back(std::move(msg));
 }
 
-dbsendmsg_list *dbconn::GetMessageBatchQueue() {
+observer_ptr<dbsendmsg_list> dbconn::GetMessageBatchQueue() {
 	if(!batchqueue)
-		batchqueue = new dbsendmsg_list;
+		batchqueue.reset(new dbsendmsg_list);
 
 	if(!(dbc_flags & DBCF::BATCHEVTPENDING)) {
 		dbc_flags |= DBCF::BATCHEVTPENDING;
 		wxCommandEvent evt(wxextDBCONN_NOTIFY, wxDBCONNEVT_ID_SENDBATCH);
 		AddPendingEvent(evt);
 	}
-	return batchqueue;
+	return make_observer(batchqueue);
 }
 
 void dbconn::OnSendBatchEvt(wxCommandEvent &event) {
@@ -894,13 +897,13 @@ void dbconn::OnSendBatchEvt(wxCommandEvent &event) {
 
 	dbc_flags &= ~DBCF::BATCHEVTPENDING;
 	if(batchqueue) {
-		SendMessage(batchqueue);
-		batchqueue = 0;
+		SendMessage(std::move(batchqueue));
 	}
 }
 
 void dbconn::OnDBReplyEvt(wxCommandEvent &event) {
 	dbreplyevtstruct *msg = static_cast<dbreplyevtstruct *>(event.GetClientData());
+	std::unique_ptr<dbreplyevtstruct> msgcont(msg);
 	event.SetClientData(0);
 
 	if(dbc_flags & DBCF::INITED) {
@@ -908,7 +911,6 @@ void dbconn::OnDBReplyEvt(wxCommandEvent &event) {
 			it.first->ProcessEvent(*it.second);
 		}
 	}
-	delete msg;
 
 	if(dbc_flags & DBCF::REPLY_CLEARNOUPDF) {
 		dbc_flags &= ~DBCF::REPLY_CLEARNOUPDF;
@@ -923,12 +925,13 @@ void dbconn::OnDBReplyEvt(wxCommandEvent &event) {
 	}
 }
 
-void dbconn::SendMessageOrAddToList(dbsendmsg *msg, dbsendmsg_list *msglist) {
-	if(msglist) msglist->msglist.push(msg);
-	else SendMessage(msg);
+void dbconn::SendMessageOrAddToList(std::unique_ptr<dbsendmsg> msg, optional_observer_ptr<dbsendmsg_list> msglist) {
+	if(msglist) msglist->msglist.emplace_back(std::move(msg));
+	else SendMessage(std::move(msg));
 }
 
-void dbconn::SendMessage(dbsendmsg *msg) {
+void dbconn::SendMessage(std::unique_ptr<dbsendmsg> msgp) {
+	dbsendmsg *msg = msgp.release();
 	#ifdef __WINDOWS__
 	bool result = PostQueuedCompletionStatus(iocp, 0, (ULONG_PTR) msg, 0);
 	if(!result) {
@@ -954,11 +957,11 @@ void dbconn::SendMessage(dbsendmsg *msg) {
 	#endif
 }
 
-void dbconn::SendAccDBUpdate(dbinsertaccmsg *insmsg) {
+void dbconn::SendAccDBUpdate(std::unique_ptr<dbinsertaccmsg> insmsg) {
 	insmsg->targ = this;
 	insmsg->cmdevtype = wxextDBCONN_NOTIFY;
 	insmsg->winid = wxDBCONNEVT_ID_INSERTNEWACC;
-	dbc.SendMessage(insmsg);
+	dbc.SendMessage(std::move(insmsg));
 }
 
 bool dbconn::Init(const std::string &filename /*UTF-8*/) {
@@ -1065,15 +1068,14 @@ void dbconn::DeInit() {
 	if(!(dbc_flags & DBCF::INITED)) return;
 
 	if(batchqueue) {
-		SendMessage(batchqueue);
-		batchqueue = 0;
+		SendMessage(std::move(batchqueue));
 	}
 
 	dbc_flags &= ~DBCF::INITED;
 
 	LogMsg(LOGT::DBTRACE | LOGT::THREADTRACE, wxT("dbconn::DeInit: About to terminate database thread and write back state"));
 
-	SendMessage(new dbsendmsg(DBSM::QUIT));
+	SendMessage(std::unique_ptr<dbsendmsg>(new dbsendmsg(DBSM::QUIT)));
 
 	#ifdef __WINDOWS__
 	CloseHandle(iocp);
@@ -1142,8 +1144,8 @@ void dbconn::SyncWriteDBVersion(sqlite3 *adb) {
 	DBExec(adb, stmt, "dbconn::SyncWriteDBVersion");
 }
 
-void dbconn::InsertNewTweet(tweet_ptr_p tobj, std::string statjson, dbsendmsg_list *msglist) {
-	dbinserttweetmsg *msg = new dbinserttweetmsg();
+void dbconn::InsertNewTweet(tweet_ptr_p tobj, std::string statjson, optional_observer_ptr<dbsendmsg_list> msglist) {
+	std::unique_ptr<dbinserttweetmsg> msg(new dbinserttweetmsg());
 	msg->statjson = std::move(statjson);
 	msg->statjson.push_back((char) 42);	//modify the string to prevent any possible COW semantics
 	msg->statjson.resize(msg->statjson.size() - 1);
@@ -1156,19 +1158,19 @@ void dbconn::InsertNewTweet(tweet_ptr_p tobj, std::string statjson, dbsendmsg_li
 	if(tobj->rtsrc) msg->rtid = tobj->rtsrc->id;
 	else msg->rtid = 0;
 
-	SendMessageOrAddToList(msg, msglist);
+	SendMessageOrAddToList(std::move(msg), msglist);
 }
 
-void dbconn::UpdateTweetDyn(tweet_ptr_p tobj, dbsendmsg_list *msglist) {
-	dbupdatetweetmsg *msg = new dbupdatetweetmsg();
+void dbconn::UpdateTweetDyn(tweet_ptr_p tobj, optional_observer_ptr<dbsendmsg_list> msglist) {
+	std::unique_ptr<dbupdatetweetmsg> msg(new dbupdatetweetmsg());
 	msg->dynjson = tobj->mkdynjson();
 	msg->id = tobj->id;
 	msg->flags = tobj->flags.Save();
-	SendMessageOrAddToList(msg, msglist);
+	SendMessageOrAddToList(std::move(msg), msglist);
 }
 
-void dbconn::InsertUser(udc_ptr_p u, dbsendmsg_list *msglist) {
-	dbinsertusermsg *msg = new dbinsertusermsg();
+void dbconn::InsertUser(udc_ptr_p u, optional_observer_ptr<dbsendmsg_list> msglist) {
+	std::unique_ptr<dbinsertusermsg> msg(new dbinsertusermsg());
 	msg->id = u->id;
 	msg->json = u->mkjson();
 	msg->cached_profile_img_url = std::string(u->cached_profile_img_url.begin(), u->cached_profile_img_url.end());	//prevent any COW semantics
@@ -1177,20 +1179,20 @@ void dbconn::InsertUser(udc_ptr_p u, dbsendmsg_list *msglist) {
 	msg->cached_profile_img_hash = u->cached_profile_img_sha1;
 	msg->mentionindex = settocompressedblob(u->mention_index, msg->mentionindex_size);
 	u->lastupdate_wrotetodb = u->lastupdate;
-	SendMessageOrAddToList(msg, msglist);
+	SendMessageOrAddToList(std::move(msg), msglist);
 }
 
-void dbconn::InsertMedia(media_entity &me, dbsendmsg_list *msglist) {
-	dbinsertmediamsg *msg = new dbinsertmediamsg();
+void dbconn::InsertMedia(media_entity &me, optional_observer_ptr<dbsendmsg_list> msglist) {
+	std::unique_ptr<dbinsertmediamsg> msg(new dbinsertmediamsg());
 	msg->media_id = me.media_id;
 	msg->url = std::string(me.media_url.begin(), me.media_url.end());
 	msg->lastused = me.lastused;
-	SendMessageOrAddToList(msg, msglist);
+	SendMessageOrAddToList(std::move(msg), msglist);
 	me.flags |= MEF::IN_DB;
 }
 
-void dbconn::UpdateMedia(media_entity &me, DBUMMT update_type, dbsendmsg_list *msglist) {
-	dbupdatemediamsg *msg = new dbupdatemediamsg(update_type);
+void dbconn::UpdateMedia(media_entity &me, DBUMMT update_type, optional_observer_ptr<dbsendmsg_list> msglist) {
+	std::unique_ptr<dbupdatemediamsg> msg(new dbupdatemediamsg(update_type));
 	msg->media_id = me.media_id;
 	switch(update_type) {
 		case DBUMMT::THUMBCHECKSUM:
@@ -1207,7 +1209,7 @@ void dbconn::UpdateMedia(media_entity &me, DBUMMT update_type, dbsendmsg_list *m
 			break;
 
 	}
-	SendMessageOrAddToList(msg, msglist);
+	SendMessageOrAddToList(std::move(msg), msglist);
 }
 
 //tweetids, dmids are big endian in database
@@ -1837,9 +1839,11 @@ void dbconn::SyncPurgeMediaEntities(sqlite3 *adb) {
 	}
 }
 
-void dbsendmsg_callback::SendReply(void *data, dbiothread *th) {
+//The contents of data will be released and stashed in the event sent to the main thread
+//The main thread will then unstash it from the event and stick it back in a unique_ptr
+void dbsendmsg_callback::SendReply(std::unique_ptr<dbsendmsg> data, dbiothread *th) {
 	wxCommandEvent *evt = new wxCommandEvent(cmdevtype, winid);
-	evt->SetClientData(data);
+	evt->SetClientData(data.release());
 	th->reply_list.emplace_back(targ, std::unique_ptr<wxEvent>(evt));
 }
 
@@ -1972,54 +1976,54 @@ void DBC_DeInit() {
 	dbc.DeInit();
 }
 
-void DBC_SendMessage(dbsendmsg *msg) {
-	dbc.SendMessage(msg);
+void DBC_SendMessage(std::unique_ptr<dbsendmsg> msg) {
+	dbc.SendMessage(std::move(msg));
 }
 
-void DBC_SendMessageOrAddToList(dbsendmsg *msg, dbsendmsg_list *msglist) {
-	dbc.SendMessageOrAddToList(msg, msglist);
+void DBC_SendMessageOrAddToList(std::unique_ptr<dbsendmsg> msg, dbsendmsg_list *msglist) {
+	dbc.SendMessageOrAddToList(std::move(msg), msglist);
 }
 
-void DBC_SendMessageBatched(dbsendmsg *msg) {
-	dbc.SendMessageBatched(msg);
+void DBC_SendMessageBatched(std::unique_ptr<dbsendmsg> msg) {
+	dbc.SendMessageBatched(std::move(msg));
 }
 
-dbsendmsg_list *DBC_GetMessageBatchQueue() {
+observer_ptr<dbsendmsg_list> DBC_GetMessageBatchQueue() {
 	return dbc.GetMessageBatchQueue();
 }
 
-void DBC_SendAccDBUpdate(dbinsertaccmsg *insmsg) {
-	dbc.SendAccDBUpdate(insmsg);
+void DBC_SendAccDBUpdate(std::unique_ptr<dbinsertaccmsg> insmsg) {
+	dbc.SendAccDBUpdate(std::move(insmsg));
 }
 
-void DBC_InsertMedia(media_entity &me, dbsendmsg_list *msglist) {
+void DBC_InsertMedia(media_entity &me, optional_observer_ptr<dbsendmsg_list> msglist) {
 	dbc.InsertMedia(me, msglist);
 }
 
-void DBC_UpdateMedia(media_entity &me, DBUMMT update_type, dbsendmsg_list *msglist) {
+void DBC_UpdateMedia(media_entity &me, DBUMMT update_type, optional_observer_ptr<dbsendmsg_list> msglist) {
 	dbc.UpdateMedia(me, update_type, msglist);
 }
 
-void DBC_InsertNewTweet(tweet_ptr_p tobj, std::string statjson, dbsendmsg_list *msglist) {
+void DBC_InsertNewTweet(tweet_ptr_p tobj, std::string statjson, optional_observer_ptr<dbsendmsg_list> msglist) {
 	dbc.InsertNewTweet(tobj, statjson, msglist);
 }
 
-void DBC_UpdateTweetDyn(tweet_ptr_p tobj, dbsendmsg_list *msglist) {
+void DBC_UpdateTweetDyn(tweet_ptr_p tobj, optional_observer_ptr<dbsendmsg_list> msglist) {
 	dbc.UpdateTweetDyn(tobj, msglist);
 }
 
-void DBC_InsertUser(udc_ptr_p u, dbsendmsg_list *msglist) {
+void DBC_InsertUser(udc_ptr_p u, optional_observer_ptr<dbsendmsg_list> msglist) {
 	dbc.InsertUser(u, msglist);
 }
 
-void DBC_HandleDBSelTweetMsg(dbseltweetmsg *msg, flagwrapper<HDBSF> flags) {
+void DBC_HandleDBSelTweetMsg(dbseltweetmsg &msg, flagwrapper<HDBSF> flags) {
 	dbc.HandleDBSelTweetMsg(msg, flags);
 }
 
-void DBC_SetDBSelTweetMsgHandler(dbseltweetmsg *msg, std::function<void(dbseltweetmsg *, dbconn *)> f) {
+void DBC_SetDBSelTweetMsgHandler(dbseltweetmsg &msg, std::function<void(dbseltweetmsg &, dbconn *)> f) {
 	dbc.SetDBSelTweetMsgHandler(msg, std::move(f));
 }
 
-void DBC_PrepareStdTweetLoadMsg(dbseltweetmsg *loadmsg) {
+void DBC_PrepareStdTweetLoadMsg(dbseltweetmsg &loadmsg) {
 	dbc.PrepareStdTweetLoadMsg(loadmsg);
 }

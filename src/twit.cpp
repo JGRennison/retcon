@@ -80,7 +80,7 @@ wxString media_entity::cached_thumb_filename(media_id_type media_id) {
 	return wxString::Format(wxT("%s%s%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), wxstrstd(wxGetApp().datadir).c_str(), wxT("/mediathumb_"), media_id.m_id, media_id.t_id);
 }
 
-void media_entity::PurgeCache(dbsendmsg_list *msglist) {
+void media_entity::PurgeCache(observer_ptr<dbsendmsg_list> msglist) {
 	if(win) win->Close(true);
 	flags &= ~(MEF::HAVE_THUMB | MEF::HAVE_FULL | MEF::LOAD_THUMB | MEF::LOAD_FULL);
 	flags |= MEF::MANUALLY_PURGED;
@@ -91,15 +91,18 @@ void media_entity::PurgeCache(dbsendmsg_list *msglist) {
 	::wxRemoveFile(cached_full_filename());
 	::wxRemoveFile(cached_thumb_filename());
 
-	dbsendmsg_list *batch = msglist;
-	if(!msglist) batch = new dbsendmsg_list();
-	DBC_UpdateMedia(*this, DBUMMT::THUMBCHECKSUM, batch);
-	DBC_UpdateMedia(*this, DBUMMT::FULLCHECKSUM, batch);
-	DBC_UpdateMedia(*this, DBUMMT::FLAGS, batch);
-	if(!msglist) DBC_SendMessage(batch);
+	std::unique_ptr<dbsendmsg_list> ownbatch;
+	if(!msglist) {
+		ownbatch.reset(new dbsendmsg_list());
+		msglist = make_observer(ownbatch);
+	}
+	DBC_UpdateMedia(*this, DBUMMT::THUMBCHECKSUM, msglist);
+	DBC_UpdateMedia(*this, DBUMMT::FULLCHECKSUM, msglist);
+	DBC_UpdateMedia(*this, DBUMMT::FLAGS, msglist);
+	if(ownbatch) DBC_SendMessage(std::move(ownbatch));
 }
 
-void media_entity::ClearPurgeFlag(dbsendmsg_list *msglist) {
+void media_entity::ClearPurgeFlag(observer_ptr<dbsendmsg_list> msglist) {
 	if(flags & MEF::MANUALLY_PURGED) {
 		flags &= ~MEF::MANUALLY_PURGED;
 		DBC_UpdateMedia(*this, DBUMMT::FLAGS, msglist);
@@ -117,7 +120,7 @@ observer_ptr<media_entity> media_entity::MakeNew(media_id_type mid, std::string 
 }
 
 
-void media_entity::UpdateLastUsed(dbsendmsg_list *msglist) {
+void media_entity::UpdateLastUsed(observer_ptr<dbsendmsg_list> msglist) {
 	uint64_t now = time(0);
 	if((now - lastused) >= (60 * 60)) {
 		//don't bother sending updates for small timestamp changes
@@ -672,8 +675,8 @@ void SendTweetFlagUpdate(const tweet &tw, unsigned long long mask) {
 	ids.insert(tw.id);
 	unsigned long long setmask = mask & tw.flags.Save();
 	unsigned long long unsetmask = mask & (~tw.flags.Save());
-	dbupdatetweetsetflagsmsg *msg = new dbupdatetweetsetflagsmsg(std::move(ids), setmask, unsetmask);
-	DBC_SendMessageBatched(msg);
+	std::unique_ptr<dbupdatetweetsetflagsmsg>msg(new dbupdatetweetsetflagsmsg(std::move(ids), setmask, unsetmask));
+	DBC_SendMessageBatched(std::move(msg));
 }
 
 //the following set of procedures should be kept in sync
@@ -793,7 +796,7 @@ bool MarkPending_TPanelMap(tweet_ptr_p tobj, tpanelparentwin_nt* win_, PUSHFLAGS
 //Returns true if ready now
 //If existing_dbsel is given, any DB lookup message is stored in/added to it
 //Otherwise any individual DB lookup is executed batched
-bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> acc_hint, dbseltweetmsg **existing_dbsel,
+bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> acc_hint, std::unique_ptr<dbseltweetmsg> *existing_dbsel,
 		flagwrapper<PENDING_REQ> preq, flagwrapper<PENDING_RESULT> presult) {
 	using GUAF = tweet::GUAF;
 
@@ -822,22 +825,31 @@ bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> ac
 				CheckLoadSingleTweet(tobj, curacc);
 			}
 			else {
+				std::unique_ptr<dbseltweetmsg_netfallback> own_loadmsg;
 				dbseltweetmsg *loadmsg;
-				dbseltweetmsg_netfallback *net_loadmsg = 0;
-				if(existing_dbsel && *existing_dbsel) loadmsg = *existing_dbsel;
-				else if(existing_dbsel) *existing_dbsel = loadmsg = net_loadmsg = new dbseltweetmsg_netfallback;
-				else loadmsg = net_loadmsg = new dbseltweetmsg_netfallback;
+				dbseltweetmsg_netfallback *net_loadmsg = nullptr;
+				if(existing_dbsel && *existing_dbsel) {
+					loadmsg = existing_dbsel->get();
+				}
+				else if(existing_dbsel) {
+					loadmsg = net_loadmsg = new dbseltweetmsg_netfallback;
+					existing_dbsel->reset(loadmsg);
+				}
+				else {
+					loadmsg = net_loadmsg = new dbseltweetmsg_netfallback;
+					own_loadmsg.reset(net_loadmsg);
+				}
 
 				tobj->lflags |= TLF::BEINGLOADEDFROMDB;
 
 				loadmsg->id_set.insert(tobj->id);
-				DBC_PrepareStdTweetLoadMsg(loadmsg);
+				DBC_PrepareStdTweetLoadMsg(*loadmsg);
 				loadmsg->flags |= DBSTMF::NO_ERR | DBSTMF::CLEARNOUPDF;
 				if(acc_hint) {
 					if(!net_loadmsg) net_loadmsg = dynamic_cast<dbseltweetmsg_netfallback*>(loadmsg);
 					if(net_loadmsg) net_loadmsg->dbindex = acc_hint->dbindex;
 				}
-				if(!existing_dbsel) DBC_SendMessageBatched(loadmsg);
+				if(own_loadmsg) DBC_SendMessageBatched(std::move(own_loadmsg));
 			}
 		}
 	}

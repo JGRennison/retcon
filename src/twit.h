@@ -455,12 +455,12 @@ struct media_entity {
 		if(check_load_thumb_func) check_load_thumb_func(this, melf);
 	}
 
-	void PurgeCache(dbsendmsg_list *msglist = 0);
-	void ClearPurgeFlag(dbsendmsg_list *msglist = 0);
+	void PurgeCache(observer_ptr<dbsendmsg_list> msglist = nullptr);
+	void ClearPurgeFlag(observer_ptr<dbsendmsg_list> msglist = nullptr);
 
 	static observer_ptr<media_entity> MakeNew(media_id_type mid, std::string url);
 
-	void UpdateLastUsed(dbsendmsg_list *msglist = 0);
+	void UpdateLastUsed(observer_ptr<dbsendmsg_list> msglist = nullptr);
 };
 
 struct userlookup {
@@ -524,7 +524,7 @@ bool FastMarkPendingNoAccFallback(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark,
 void GenericMarkPending(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, const wxString &logprefix, flagwrapper<tweet::GUAF> guaflags = 0);
 
 bool MarkPending_TPanelMap(tweet_ptr_p tobj, tpanelparentwin_nt* win_, PUSHFLAGS pushflags = PUSHFLAGS::DEFAULT, std::shared_ptr<tpanel> *pushtpanel_ = 0);
-bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> acc_hint, dbseltweetmsg **existing_dbsel = 0,
+bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> acc_hint, std::unique_ptr<dbseltweetmsg> *existing_dbsel = nullptr,
 		flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT, flagwrapper<PENDING_RESULT> presult = PENDING_RESULT::DEFAULT);
 bool CheckLoadSingleTweet(tweet_ptr_p t, std::shared_ptr<taccount> &acc_hint);
 void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, tweetidset cached_id_sets::* idsetptr,
