@@ -48,6 +48,9 @@ class observer_ptr {
 	observer_ptr &operator=(pointer p) noexcept { ptr = p; return *this; }
 	observer_ptr &operator=(const observer_ptr<T> &o) noexcept { ptr = o.ptr; return *this; }
 
+	explicit constexpr observer_ptr(const std::unique_ptr<T> &p) noexcept : ptr(p.get()) { }
+	explicit constexpr observer_ptr(const std::shared_ptr<T> &p) noexcept : ptr(p.get()) { }
+
 	template<typename C, typename = typename std::enable_if<std::is_convertible<typename std::add_pointer<C>::type, pointer>::value>::type>
 	observer_ptr(C* p) noexcept : ptr(p) { }
 	template<typename C, typename = typename std::enable_if<std::is_convertible<typename std::add_pointer<C>::type, pointer>::value>::type>
@@ -70,6 +73,22 @@ class observer_ptr {
 	void swap(observer_ptr<T> o) noexcept { std::swap(o.ptr, ptr); }
 };
 
+template <typename T> observer_ptr<T> make_observer(T *input) {
+	return observer_ptr<T> {input};
+}
+
+template <typename T> observer_ptr<T> make_observer(const observer_ptr<T> &input) {
+	return observer_ptr<T> {input};
+}
+
+template <typename T> observer_ptr<T> make_observer(const std::unique_ptr<T> &input) {
+	return observer_ptr<T> {input};
+}
+
+template <typename T> observer_ptr<T> make_observer(const std::shared_ptr<T> &input) {
+	return observer_ptr<T> {input};
+}
+
 template <typename A, typename B> bool operator==(observer_ptr<A> l, observer_ptr<B> r) noexcept { return l.get() == r.get(); }
 template <typename A, typename B> bool operator!=(observer_ptr<A> l, observer_ptr<B> r) noexcept { return l.get() != r.get(); }
 template <typename A> bool operator==(observer_ptr<A> l, std::nullptr_t r) noexcept { return l.get() == r; }
@@ -83,5 +102,8 @@ namespace std {
 		l.swap(r);
 	}
 };
+
+//This is the same as observer_ptr, intended as a documentation hint that the value is optional
+template <class T> using optional_observer_ptr = observer_ptr<T>;
 
 #endif
