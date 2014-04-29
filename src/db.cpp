@@ -1088,6 +1088,7 @@ void dbconn::DeInit() {
 	LogMsg(LOGT::DBTRACE | LOGT::THREADTRACE, wxT("dbconn::DeInit(): Database thread terminated"));
 
 	if(!gc.readonlymode) {
+		cache.BeginTransaction(syncdb);
 		WriteAllCFGOut(syncdb, gc, alist);
 		SyncWriteBackAllUsers(syncdb);
 		AccountIdListsSync(syncdb);
@@ -1097,6 +1098,9 @@ void dbconn::DeInit() {
 		SyncWriteBackTpanels(syncdb);
 	}
 	SyncPurgeMediaEntities(syncdb); //this does a dry-run in read-only mode
+	if(!gc.readonlymode) {
+		cache.EndTransaction(syncdb);
+	}
 
 	sqlite3_close(syncdb);
 
