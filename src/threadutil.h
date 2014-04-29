@@ -52,7 +52,7 @@ namespace ThreadPool {
 		~Pool();
 		void enqueue(std::unique_ptr<Job> j, bool queue_jump = false);
 		void enqueue(Job &&j, bool queue_jump = false) {
-			enqueue(std::unique_ptr<Job>(new Job(std::move(j))));
+			enqueue(std::unique_ptr<Job>(new Job(std::move(j))), queue_jump);
 		}
 		size_t GetThreadLimit() const { return max_threads; }
 
