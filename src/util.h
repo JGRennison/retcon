@@ -82,4 +82,8 @@ wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t time
 
 std::string string_format(const std::string &fmt, ...);
 
+inline void UnShare(wxString &str) {
+	str = wxString(str.c_str(), str.size());
+}
+
 #endif
