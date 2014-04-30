@@ -226,7 +226,7 @@ static unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsi
 			strm.zalloc = Z_NULL;
 			strm.zfree = Z_NULL;
 			strm.opaque = Z_NULL;
-			deflateInit(&strm, 9);
+			deflateInit(&strm, 5);
 
 			if(dict) deflateSetDictionary(&strm, dict, dict_size);
 			size_t maxsize = deflateBound(&strm, insize);
