@@ -28,6 +28,7 @@
 #include "tpanel-data.h"
 #include "alldata.h"
 #include "twitcurlext.h"
+#include "db.h"
 #include <wx/tokenzr.h>
 #include <wx/filedlg.h>
 #ifdef __WINDOWS__
@@ -191,6 +192,7 @@ BEGIN_EVENT_TABLE(log_window, wxFrame)
 	EVT_MENU(wxID_CLOSE, log_window::OnClose)
 	EVT_MENU(wxID_FILE1, log_window::OnDumpPending)
 	EVT_MENU(wxID_FILE3, log_window::OnDumpConnInfo)
+	EVT_MENU(wxID_FILE2, log_window::OnFlushState)
 END_EVENT_TABLE()
 
 static void log_window_AddChkBox(log_window *parent, LOGT flags, const wxString &str, wxSizer *sz) {
@@ -225,6 +227,7 @@ log_window::log_window(wxWindow *parent, LOGT flagmask, bool show)
 	wxMenu *menuD = new wxMenu;
 	menuD->Append( wxID_FILE1, wxT("Dump &Pendings"));
 	menuD->Append( wxID_FILE3, wxT("Dump &Socket Data"));
+	menuD->Append( wxID_FILE2, wxT("&Flush State"));
 
 	wxMenuBar *menuBar = new wxMenuBar;
 	menuBar->Append(menuF, wxT("&File"));
@@ -298,6 +301,10 @@ void log_window::OnDumpConnInfo(wxCommandEvent &event) {
 		LogMsgFormat(LOGT::USERREQ, wxT("Account: %s (%s)"), (*it)->name.c_str(), (*it)->dispname.c_str());
 		dump_pending_acc_failed_conns(LOGT::USERREQ, wxT("\t"), wxT("\t"), (*it).get());
 	}
+}
+
+void log_window::OnFlushState(wxCommandEvent &event) {
+	DBC_AsyncWriteBackState();
 }
 
 log_file::log_file(LOGT flagmask, const char *filename) : log_object(flagmask), closefpondel(0) {

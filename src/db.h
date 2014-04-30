@@ -205,6 +205,7 @@ template<> struct enum_traits<HDBSF> { static constexpr bool flags = true; };
 
 bool DBC_Init(const std::string &filename);
 void DBC_DeInit();
+void DBC_AsyncWriteBackState();
 void DBC_SendMessage(std::unique_ptr<dbsendmsg> msg);
 void DBC_SendMessageOrAddToList(std::unique_ptr<dbsendmsg> msg, optional_observer_ptr<dbsendmsg_list> msglist);
 void DBC_SendMessageBatched(std::unique_ptr<dbsendmsg> msg);

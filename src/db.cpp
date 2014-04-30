@@ -2240,6 +2240,10 @@ void DBC_DeInit() {
 	dbc.DeInit();
 }
 
+void DBC_AsyncWriteBackState() {
+	dbc.AsyncWriteBackState();
+}
+
 void DBC_SendMessage(std::unique_ptr<dbsendmsg> msg) {
 	dbc.SendMessage(std::move(msg));
 }
