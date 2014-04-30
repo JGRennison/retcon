@@ -42,10 +42,9 @@ BEGIN_EVENT_TABLE(taccount, wxEvtHandler)
 END_EVENT_TABLE()
 
 taccount::taccount(genoptconf *incfg)
-	: ta_flags(0), max_tweet_id(0), max_mention_id(0), max_recvdm_id(0), max_sentdm_id(0), last_stream_start_time(0), last_stream_end_time(0),
-		pending_failed_conn_retry_timer(0), stream_restart_timer(0), enabled(false), userenabled(false), init(false), active(false),
-		streaming_on(false), stream_fail_count(0), rest_on(false), verifycredstatus(ACT_NOTDONE), beinginsertedintodb(false), last_rest_backfill(0), rest_timer(0),
-		noacc_pending_content_timer(0) {
+	: ta_flags(0), last_stream_start_time(0), last_stream_end_time(0), pending_failed_conn_retry_timer(0), stream_restart_timer(0),
+		enabled(false), init(false), active(false), streaming_on(false), stream_fail_count(0), rest_on(false), verifycredstatus(ACT_NOTDONE),
+		beinginsertedintodb(false), last_rest_backfill(0), rest_timer(0), noacc_pending_content_timer(0) {
 	if(incfg) {
 		cfg.InheritFromParent(*incfg);
 		CFGParamConv();

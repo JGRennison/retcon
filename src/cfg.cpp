@@ -21,6 +21,7 @@
 #include "taccount.h"
 #include "db-cfg.h"
 #include "util.h"
+#include "log.h"
 #include <wx/stdpaths.h>
 #include <wx/tokenzr.h>
 
@@ -78,6 +79,7 @@ genoptconf gcdefaults {
 #define CFGDEFAULT_threadpoollimit                          wxT("8")
 #define CFGDEFAULT_mediacachesavedays                       wxT("7")
 #define CFGDEFAULT_showunhighlightallbtn                    wxT("1")
+#define CFGDEFAULT_asyncstatewritebackintervalmins          wxT("30")
 
 genoptglobconf gcglobdefaults {
 #define CFGTEMPL(x) { CFGDEFAULT_##x, 1},
@@ -89,7 +91,7 @@ genoptglobconf gcglobdefaults {
 #undef CFGTEMPL_BOOL
 };
 
-void taccount::CFGWriteOut(DBWriteConfig &twfc) {
+void taccount_cfg::CFGWriteOut(DBWriteConfig &twfc) const {
 	twfc.SetDBIndex(dbindex);
 	cfg.CFGWriteOutCurDir(twfc);
 	twfc.WriteWX("conk", conk);
@@ -102,7 +104,7 @@ void taccount::CFGWriteOut(DBWriteConfig &twfc) {
 	twfc.WriteWX("dispname", dispname);
 }
 
-void taccount::CFGReadIn(DBReadConfig &twfc) {
+void taccount_cfg::CFGReadInBase(DBReadConfig &twfc) {
 	twfc.SetDBIndex(dbindex);
 	cfg.CFGReadInCurDir(twfc, gc.cfg);
 	twfc.Read("conk", &conk, wxT(""));
@@ -113,24 +115,44 @@ void taccount::CFGReadIn(DBReadConfig &twfc) {
 	twfc.ReadUInt64("max_sentdm_id", &max_sentdm_id, 0);
 	twfc.ReadUInt64("max_mention_id", &max_mention_id, 0);
 	twfc.Read("dispname", &dispname, wxT(""));
+}
+
+void taccount_cfg::UnShareStrings() {
+	UnShare(conk);
+	UnShare(cons);
+	UnShare(dispname);
+	cfg.UnShareStrings();
+}
+
+void taccount::CFGReadIn(DBReadConfig &twfc) {
+	taccount_cfg::CFGReadInBase(twfc);
 	CFGParamConv();
 }
+
 void taccount::CFGParamConv() {
-	ssl=(cfg.ssl.val==wxT("1"));
-	userstreams=(cfg.userstreams.val==wxT("1"));
+	ssl = (cfg.ssl.val == wxT("1"));
+	userstreams = (cfg.userstreams.val == wxT("1"));
 	cfg.restinterval.val.ToULong(&restinterval);
 }
-void globconf::CFGWriteOut(DBWriteConfig &twfc) {
+
+void globconf_base::CFGWriteOut(DBWriteConfig &twfc) {
 	twfc.SetDBIndexGlobal();
 	cfg.CFGWriteOutCurDir(twfc);
 	gcfg.CFGWriteOut(twfc);
 }
+
+void globconf_base::UnShareStrings() {
+	cfg.UnShareStrings();
+	gcfg.UnShareStrings();
+}
+
 void globconf::CFGReadIn(DBReadConfig &twfc) {
 	twfc.SetDBIndexGlobal();
 	cfg.CFGReadInCurDir(twfc, gcdefaults);
 	gcfg.CFGReadIn(twfc, gcglobdefaults);
 	CFGParamConv();
 }
+
 void globconf::CFGParamConv() {
 #define CFGTEMPL(x)
 #define CFGTEMPL_UL(x) gcfg.x.val.ToULong(&x);
@@ -158,7 +180,7 @@ void globconf::CFGParamConv() {
 	netiface = stdstrwx(gc.gcfg.netiface.val);
 }
 
-void genoptconf::CFGWriteOutCurDir(DBWriteConfig &twfc) {
+void genoptconf::CFGWriteOutCurDir(DBWriteConfig &twfc) const {
 	IterateConfs([&](const std::string &name, genopt genoptconf::*ptr) {
 		(this->*ptr).CFGWriteOutCurDir(twfc, name.c_str());
 	});
@@ -182,7 +204,13 @@ void genoptconf::IterateConfs(std::function<void(const std::string &, genopt gen
 	f("restinterval", &genoptconf::restinterval);
 }
 
-void genoptglobconf::CFGWriteOut(DBWriteConfig &twfc) {
+void genoptconf::UnShareStrings() {
+	IterateConfs([this](const std::string &name, genopt genoptconf::* ref) {
+		UnShare((this->*ref).val);
+	});
+}
+
+void genoptglobconf::CFGWriteOut(DBWriteConfig &twfc) const {
 	twfc.SetDBIndexGlobal();
 	IterateConfs([&](const std::string &name, genopt genoptglobconf::*ptr) {
 		(this->*ptr).CFGWriteOutCurDir(twfc, name.c_str());
@@ -205,7 +233,13 @@ void genoptglobconf::IterateConfs(std::function<void(const std::string &, genopt
 #undef CFGTEMPL_BOOL
 }
 
-void genopt::CFGWriteOutCurDir(DBWriteConfig &twfc, const char *name) {
+void genoptglobconf::UnShareStrings() {
+	IterateConfs([this](const std::string &name, genopt genoptglobconf::* ref) {
+		UnShare((this->*ref).val);
+	});
+}
+
+void genopt::CFGWriteOutCurDir(DBWriteConfig &twfc, const char *name) const {
 	if(enable) twfc.WriteWX(name, val);
 	else twfc.Delete(name);
 }
@@ -225,20 +259,51 @@ void genopt::InheritFromParent(genopt &parent, bool ifunset) {
 }
 
 void ReadAllCFGIn(sqlite3 *db, globconf &lgc, std::list<std::shared_ptr<taccount>> &lalist) {
+	LogMsg(LOGT::DBTRACE, wxT("dbconn::ReadAllCFGIn start"));
 	DBReadConfig twfc(db);
 	lgc.CFGReadIn(twfc);
 
 	for(auto &it : lalist) it->CFGReadIn(twfc);
+	LogMsg(LOGT::DBTRACE, wxT("dbconn::ReadAllCFGIn end"));
 }
 
-void WriteAllCFGOut(sqlite3 *db, globconf &lgc, std::list<std::shared_ptr<taccount>> &lalist) {
-	DBWriteConfig twfc(db);
-	twfc.DeleteAll();
-	lgc.CFGWriteOut(twfc);
-	twfc.SetDBIndexGlobal();
-	twfc.WriteInt64("LastUpdate", (int64_t) time(0));
+//This returns a closure that can be executed now or later and is safe to use in a different thread
+//Set unshare_strings if COW semantics need to be worked around
+std::function<void(DBWriteConfig &)> WriteAllCFGOutClosure(const globconf &lgc, const std::list<std::shared_ptr<taccount>> &lalist, bool unshare_strings) {
+	struct cfgdata {
+		int64_t now;
+		std::vector<taccount_cfg> taccs;
+		globconf_base lgc;
+	};
+	auto data = std::make_shared<cfgdata>();
+	for(auto &it : lalist) {
+		data->taccs.emplace_back(*it);
+		if(unshare_strings) {
+			data->taccs.back().UnShareStrings();
+		}
+	}
+	data->now = (int64_t) time(0);
+	data->lgc = lgc;
+	if(unshare_strings) {
+		data->lgc.UnShareStrings();
+	}
 
-	for(auto &it : lalist) it->CFGWriteOut(twfc);
+	return [data](DBWriteConfig &twfc) {
+		twfc.DeleteAll();
+		data->lgc.CFGWriteOut(twfc);
+		twfc.SetDBIndexGlobal();
+		twfc.WriteInt64("LastUpdate", data->now);
+		for(auto &it : data->taccs) {
+			it.CFGWriteOut(twfc);
+		}
+	};
+}
+
+void WriteAllCFGOut(sqlite3 *db, const globconf &lgc, const std::list<std::shared_ptr<taccount>> &lalist) {
+	LogMsg(LOGT::DBTRACE, wxT("dbconn::WriteAllCFGOut start"));
+	DBWriteConfig twfc(db);
+	WriteAllCFGOutClosure(lgc, lalist, false)(twfc);
+	LogMsg(LOGT::DBTRACE, wxT("dbconn::WriteAllCFGOut end"));
 }
 
 void AllUsersInheritFromParentIfUnset() {

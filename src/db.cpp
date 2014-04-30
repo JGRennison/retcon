@@ -118,6 +118,7 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"INSERT OR REPLACE INTO staticsettings(name, value) VALUES (?, ?);",
 	"DELETE FROM staticsettings WHERE (name IS ?);",
 	"SELECT value FROM staticsettings WHERE (name IS ?);",
+	"INSERT INTO tpanels (name, dispname, flags, ids) VALUES (?, ?, ?, ?);",
 };
 
 static const char *update_sql[] = {
@@ -128,6 +129,9 @@ static const char *update_sql[] = {
 	,
 };
 static const unsigned int db_version = 1;
+
+static const std::string globstr = "G";
+static const std::string globdbstr = "D";
 
 #define DBLogMsgFormat TSLogMsgFormat
 #define DBLogMsg TSLogMsg
@@ -679,6 +683,16 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 			cache.EndTransaction(db);
 			break;
 		}
+		case DBSM::FUNCTION: {
+			cache.BeginTransaction(db);
+			dbfunctionmsg *m = static_cast<dbfunctionmsg*>(msg);
+			DBLogMsgFormat(LOGT::DBTRACE, wxT("DBSM::FUNCTION: queue size: %d"), m->funclist.size());
+			for(auto &onemsg : m->funclist) {
+				onemsg(db, ok, cache);
+			}
+			cache.EndTransaction(db);
+			break;
+		}
 		default: break;
 	}
 }
@@ -740,6 +754,7 @@ EVT_COMMAND(wxDBCONNEVT_ID_INSERTNEWACC, wxextDBCONN_NOTIFY, dbconn::OnDBNewAcco
 EVT_COMMAND(wxDBCONNEVT_ID_SENDBATCH, wxextDBCONN_NOTIFY, dbconn::OnSendBatchEvt)
 EVT_COMMAND(wxDBCONNEVT_ID_REPLY, wxextDBCONN_NOTIFY, dbconn::OnDBReplyEvt)
 EVT_COMMAND(wxDBCONNEVT_ID_GENERICSELTWEET, wxextDBCONN_NOTIFY, dbconn::GenericDBSelTweetMsgHandler)
+EVT_TIMER(DBCONNTIMER_ID_ASYNCSTATEWRITE, dbconn::OnAsyncStateWriteTimer)
 END_EVENT_TABLE()
 
 void dbconn::OnStdTweetLoadFromDB(wxCommandEvent &event) {
@@ -1060,12 +1075,17 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	th->Run();
 	LogMsgFormat(LOGT::DBTRACE | LOGT::THREADTRACE, wxT("dbconn::Init(): Created database thread: %d"), th->GetId());
 
+	asyncstateflush_timer.reset(new wxTimer(this, DBCONNTIMER_ID_ASYNCSTATEWRITE));
+	ResetAsyncStateWriteTimer();
+
 	dbc_flags |= DBCF::INITED;
 	return true;
 }
 
 void dbconn::DeInit() {
 	if(!(dbc_flags & DBCF::INITED)) return;
+
+	asyncstateflush_timer.reset();
 
 	if(batchqueue) {
 		SendMessage(std::move(batchqueue));
@@ -1093,7 +1113,7 @@ void dbconn::DeInit() {
 		cache.BeginTransaction(syncdb);
 		WriteAllCFGOut(syncdb, gc, alist);
 		SyncWriteBackAllUsers(syncdb);
-		AccountIdListsSync(syncdb);
+		SyncWriteBackAccountIdLists(syncdb);
 		SyncWriteOutRBFSs(syncdb);
 		SyncWriteBackCIDSLists(syncdb);
 		SyncWriteBackWindowLayout(syncdb);
@@ -1107,6 +1127,26 @@ void dbconn::DeInit() {
 	sqlite3_close(syncdb);
 
 	LogMsg(LOGT::DBTRACE | LOGT::THREADTRACE, wxT("dbconn::DeInit(): State write back to database complete, database connection closed."));
+}
+
+void dbconn::AsyncWriteBackState() {
+	LogMsg(LOGT::DBTRACE, wxT("dbconn::AsyncWriteBackState start"));
+	std::unique_ptr<dbfunctionmsg> msg(new dbfunctionmsg);
+	auto cfg_closure = WriteAllCFGOutClosure(gc, alist, true);
+	msg->funclist.emplace_back([cfg_closure](sqlite3 *db, bool &ok, dbpscache &cache) {
+		DBLogMsg(LOGT::DBTRACE, wxT("dbconn::AsyncWriteBackState: CFG write start"));
+		DBWriteConfig twfc(db);
+		cfg_closure(twfc);
+		DBLogMsg(LOGT::DBTRACE, wxT("dbconn::AsyncWriteBackState: CFG write end"));
+	});
+	AsyncWriteBackAllUsers(*msg);
+	AsyncWriteBackAccountIdLists(*msg);
+	AsyncWriteOutRBFSs(*msg);
+	AsyncWriteBackCIDSLists(*msg);
+	AsyncWriteBackTpanels(*msg);
+
+	SendMessage(std::move(msg));
+	LogMsg(LOGT::DBTRACE, wxT("dbconn::AsyncWriteBackState end, message sent to DB thread"));
 }
 
 void dbconn::SyncDoUpdates(sqlite3 *adb) {
@@ -1274,115 +1314,266 @@ void dbconn::SyncReadInCIDSLists(sqlite3 *adb) {
 	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncReadInCIDSLists end, total: %u IDs"), total);
 }
 
-void dbconn::SyncWriteBackCIDSLists(sqlite3 *adb) {
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncWriteBackCIDSLists start"));
-	cache.BeginTransaction(adb);
-	const char setunreadlist[] = "INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', ?, ?);";
+namespace {
+	template <typename T> struct WriteBackOutputter {
+		std::shared_ptr<T> data;
 
-	sqlite3_stmt *setstmt = 0;
-	sqlite3_prepare_v2(adb, setunreadlist, sizeof(setunreadlist), &setstmt, 0);
-
-	unsigned int total = 0;
-	auto doonelist = [&](std::string name, tweetidset &tlist) {
-		size_t index_size;
-		unsigned char *index = settocompressedblob(tlist, index_size);
-		sqlite3_bind_text(setstmt, 1, name.c_str(), name.size(), SQLITE_STATIC);
-		sqlite3_bind_blob(setstmt, 2, index, index_size, &free);
-		int res = sqlite3_step(setstmt);
-		if(res != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncWriteBackCIDSLists got error: %d (%s), for set: %s"),
-				res, wxstrstd(sqlite3_errmsg(adb)).c_str(), wxstrstd(name).c_str()); }
-		sqlite3_reset(setstmt);
-		total += tlist.size();
+		WriteBackOutputter(std::shared_ptr<T> d) : data(d) { }
+		template <typename F> void operator()(F func) {
+			for(auto& item : *data) {
+				func(item);
+			}
+		}
 	};
 
-	cached_id_sets::IterateLists([&](const char *name, tweetidset cached_id_sets::*ptr, unsigned long long tweetflag) {
-		doonelist(name, ad.cids.*ptr);
-	});
-
-	sqlite3_finalize(setstmt);
-	cache.EndTransaction(adb);
-	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncWriteBackCIDSLists end, total: %u IDs"), total);
-}
-
-//tweetids, dmids are big endian in database
-void dbconn::AccountIdListsSync(sqlite3 *adb) {
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::AccountIdListsSync start"));
-	cache.BeginTransaction(adb);
-	sqlite3_stmt *setstmt = cache.GetStmt(adb, DBPSC_UPDATEACCIDLISTS);
-
-	unsigned int total = 0;
-	for(auto &it : alist) {
-		size_t size;
-		unsigned char *data;
-
-		total += it->tweet_ids.size();
-		data = settocompressedblob(it->tweet_ids, size);
-		sqlite3_bind_blob(setstmt, 1, data, size, &free);
-
-		total += it->dm_ids.size();
-		data = settocompressedblob(it->dm_ids, size);
-		sqlite3_bind_blob(setstmt, 2, data, size, &free);
-
-		sqlite3_bind_text(setstmt, 3, it->dispname.ToUTF8(), -1, SQLITE_TRANSIENT);
-
-		sqlite3_bind_int(setstmt, 4, it->dbindex);
-
-		int res = sqlite3_step(setstmt);
-		if(res != SQLITE_DONE) {
-			LogMsgFormat(LOGT::DBERR, wxT("dbconn::AccountIdListsSync got error: %d (%s) for user dbindex: %d, name: %s"),
-					res, wxstrstd(sqlite3_errmsg(adb)).c_str(), it->dbindex, it->dispname.c_str());
-		}
-		else {
-			LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::AccountIdListsSync inserted account: dbindex: %d, name: %s, tweet IDs: %u, DM IDs: %u"),
-					it->dbindex, it->dispname.c_str(), it->tweet_ids.size(), it->dm_ids.size());
-		}
-		sqlite3_reset(setstmt);
+	template <typename T> WriteBackOutputter<T> MakeWriteBackOutputter(std::shared_ptr<T> d) {
+		return WriteBackOutputter<T>(std::move(d));
 	}
-	cache.EndTransaction(adb);
-	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::AccountIdListsSync end, total: %u IDs"), total);
+
+	//Where T looks like WriteBackCIDSLists et al.
+	template <typename T> void DoGenericSyncWriteBack(sqlite3 *adb, dbpscache &cache, T obj, wxString funcname) {
+		obj.dbexec(adb, cache, funcname, false, obj);
+	};
+
+	//Where T looks like WriteBackCIDSLists et al.
+	template <typename T> void DoGenericAsyncWriteBack(dbfunctionmsg &msg, T obj, wxString funcname) {
+		auto items = std::make_shared<std::vector<typename T::itemdata> >();
+		obj([&](typename T::itemdata data) {
+			items->emplace_back(std::move(data));
+		});
+		msg.funclist.emplace_back([obj, items, funcname](sqlite3 *db, bool &ok, dbpscache &cache) {
+			obj.dbexec(db, cache, funcname, true, MakeWriteBackOutputter(items));
+		});
+	};
+};
+
+namespace {
+	struct WriteBackCIDSLists {
+		struct itemdata {
+			const char *name;
+			unsigned char *index;
+			size_t index_size;
+			size_t list_size;
+		};
+
+		//Where F is a functor of the form void(const itemdata &)
+		//F must free() itemdata::index
+		template <typename F> void operator()(F func) const {
+			cached_id_sets::IterateLists([&](const char *name, const tweetidset cached_id_sets::*ptr, unsigned long long tweetflag) {
+				const tweetidset &tlist = ad.cids.*ptr;
+				size_t index_size;
+				unsigned char *index = settocompressedblob(tlist, index_size);
+				func(itemdata { name, index, index_size, tlist.size() });
+			});
+		};
+
+		//Where F is a functor with an operator() as above
+		template <typename F> void dbexec(sqlite3 *adb, dbpscache &cache, wxString funcname, bool TSLogging, F getfunc) const {
+			SLogMsgFormat(LOGT::DBTRACE, TSLogging, wxT("%s start"), funcname.c_str());
+			cache.BeginTransaction(adb);
+			sqlite3_stmt *setstmt = cache.GetStmt(adb, DBPSC_INSSETTING);
+
+			unsigned int total = 0;
+			getfunc([&](const itemdata &data) {
+				sqlite3_bind_text(setstmt, 1, globstr.c_str(), globstr.size(), SQLITE_STATIC);
+				sqlite3_bind_text(setstmt, 2, data.name, -1, SQLITE_STATIC);
+				sqlite3_bind_blob(setstmt, 3, data.index, data.index_size, &free);
+				int res = sqlite3_step(setstmt);
+				if(res != SQLITE_DONE) {
+					SLogMsgFormat(LOGT::DBERR, TSLogging, wxT("%s got error: %d (%s), for set: %s"),
+						funcname.c_str(), res, wxstrstd(sqlite3_errmsg(adb)).c_str(), wxstrstd(data.name).c_str());
+				}
+				sqlite3_reset(setstmt);
+				total += data.list_size;
+			});
+
+			cache.EndTransaction(adb);
+			SLogMsgFormat(LOGT::DBTRACE, TSLogging, wxT("%s end, total: %u IDs"), funcname.c_str(), total);
+		}
+	};
+};
+
+void dbconn::SyncWriteBackCIDSLists(sqlite3 *adb) {
+	DoGenericSyncWriteBack(adb, cache, WriteBackCIDSLists(), wxT("dbconn::SyncWriteBackCIDSLists"));
 }
+
+void dbconn::AsyncWriteBackCIDSLists(dbfunctionmsg &msg) {
+	DoGenericAsyncWriteBack(msg, WriteBackCIDSLists(), wxT("dbconn::AsyncWriteBackCIDSLists"));
+}
+
+namespace {
+	struct WriteBackAccountIdLists {
+		struct itemdata {
+			std::string dispname;
+			unsigned int dbindex;
+
+			unsigned char *tweet_blob;
+			size_t tweet_blob_size;
+			size_t tweet_count;
+
+			unsigned char *dm_blob;
+			size_t dm_blob_size;
+			size_t dm_count;
+		};
+
+		//Where F is a functor of the form void(const itemdata &)
+		//F must free() itemdata::index
+		template <typename F> void operator()(F func) const {
+			for(auto &it : alist) {
+				itemdata data;
+
+				data.tweet_count = it->tweet_ids.size();
+				data.tweet_blob = settocompressedblob(it->tweet_ids, data.tweet_blob_size);
+
+				data.dm_count = it->dm_ids.size();
+				data.dm_blob = settocompressedblob(it->dm_ids, data.dm_blob_size);
+
+				data.dispname = stdstrwx(it->dispname);
+				data.dbindex = it->dbindex;
+
+				func(std::move(data));
+			}
+		};
+
+		//Where F is a functor with an operator() as above
+		template <typename F> void dbexec(sqlite3 *adb, dbpscache &cache, wxString funcname, bool TSLogging, F getfunc) const {
+			SLogMsgFormat(LOGT::DBTRACE, TSLogging, wxT("%s start"), funcname.c_str());
+			cache.BeginTransaction(adb);
+			sqlite3_stmt *setstmt = cache.GetStmt(adb, DBPSC_UPDATEACCIDLISTS);
+
+			unsigned int total = 0;
+			getfunc([&](const itemdata &data) {
+				sqlite3_bind_blob(setstmt, 1, data.tweet_blob, data.tweet_blob_size, &free);
+				sqlite3_bind_blob(setstmt, 2, data.dm_blob, data.dm_blob_size, &free);
+				sqlite3_bind_text(setstmt, 3, data.dispname.c_str(), data.dispname.size(), SQLITE_TRANSIENT);
+				sqlite3_bind_int(setstmt, 4, data.dbindex);
+
+				total += data.tweet_count + data.dm_count;
+
+				int res = sqlite3_step(setstmt);
+				if(res != SQLITE_DONE) {
+					SLogMsgFormat(LOGT::DBERR, TSLogging, wxT("%s got error: %d (%s) for user dbindex: %d, name: %s"),
+							funcname.c_str(), res, wxstrstd(sqlite3_errmsg(adb)).c_str(), data.dbindex, wxstrstd(data.dispname).c_str());
+				}
+				else {
+					SLogMsgFormat(LOGT::DBTRACE, TSLogging, wxT("%s inserted account: dbindex: %d, name: %s, tweet IDs: %u, DM IDs: %u"),
+							funcname.c_str(), data.dbindex, wxstrstd(data.dispname).c_str(), data.tweet_count, data.dm_count);
+				}
+				sqlite3_reset(setstmt);
+			});
+
+			cache.EndTransaction(adb);
+			SLogMsgFormat(LOGT::DBTRACE, TSLogging, wxT("%s end, total: %u IDs"), funcname.c_str(), total);
+		}
+	};
+};
+
+void dbconn::SyncWriteBackAccountIdLists(sqlite3 *adb) {
+	DoGenericSyncWriteBack(adb, cache, WriteBackAccountIdLists(), wxT("dbconn::SyncWriteBackAccountIdLists"));
+}
+
+void dbconn::AsyncWriteBackAccountIdLists(dbfunctionmsg &msg) {
+	DoGenericAsyncWriteBack(msg, WriteBackAccountIdLists(), wxT("dbconn::AsyncWriteBackAccountIdLists"));
+}
+
+namespace {
+	struct WriteBackAllUsers {
+		size_t allusercount;
+
+		WriteBackAllUsers(size_t a) : allusercount(a) { }
+
+		struct itemdata {
+			uint64_t id;
+			unsigned int dbindex;
+
+			unsigned char *json_blob;
+			size_t json_blob_size;
+
+			unsigned char *profimg_blob;
+			size_t profimg_blob_size;
+
+			time_t createtime;
+			uint64_t lastupdate;
+			shb_iptr cached_profile_img_sha1;
+
+			unsigned char *mention_blob;
+			size_t mention_blob_size;
+		};
+
+		//Where F is a functor of the form void(const itemdata &)
+		//F must free() itemdata blobs
+		template <typename F> void operator()(F func) const {
+			for(auto &it : ad.userconts) {
+				userdatacontainer *u = &(it.second);
+				if(u->lastupdate == u->lastupdate_wrotetodb) continue;    //this user is already in the database and does not need updating
+				if(u->user.screen_name.empty()) continue;                 //don't bother saving empty user stubs
+
+				u->lastupdate_wrotetodb = u->lastupdate;
+
+				itemdata data;
+
+				data.id = it.first;
+				data.json_blob = DoCompress(u->mkjson(), data.json_blob_size, 'J');
+				data.profimg_blob = DoCompress(u->cached_profile_img_url, data.profimg_blob_size, 'P');
+
+				data.createtime = u->user.createtime;
+				data.lastupdate = u->lastupdate;
+				data.cached_profile_img_sha1 = u->cached_profile_img_sha1;
+
+				data.mention_blob = settocompressedblob(u->mention_index, data.mention_blob_size);
+
+				func(std::move(data));
+			}
+		};
+
+		//Where F is a functor with an operator() as above
+		template <typename F> void dbexec(sqlite3 *adb, dbpscache &cache, wxString funcname, bool TSLogging, F getfunc) const {
+			SLogMsgFormat(LOGT::DBTRACE, TSLogging, wxT("%s start"), funcname.c_str());
+
+			DBWriteConfig dbwc(adb);
+			dbwc.SetDBIndexDB();
+			dbwc.WriteInt64("UserCountHint", allusercount);
+
+			sqlite3_stmt *stmt = cache.GetStmt(adb, DBPSC_INSUSER);
+			size_t user_count = 0;
+			getfunc([&](const itemdata &data) {
+				user_count++;
+				sqlite3_bind_int64(stmt, 1, (sqlite3_int64) data.id);
+				sqlite3_bind_blob(stmt, 2, data.json_blob, data.json_blob_size, &free);
+				sqlite3_bind_blob(stmt, 3, data.profimg_blob, data.profimg_blob_size, &free);
+				sqlite3_bind_int64(stmt, 4, (sqlite3_int64) data.createtime);
+				sqlite3_bind_int64(stmt, 5, (sqlite3_int64) data.lastupdate);
+				if(data.cached_profile_img_sha1) {
+					sqlite3_bind_blob(stmt, 6, data.cached_profile_img_sha1->hash_sha1, sizeof(data.cached_profile_img_sha1->hash_sha1), SQLITE_TRANSIENT);
+				}
+				else {
+					sqlite3_bind_null(stmt, 6);
+				}
+				sqlite3_bind_blob(stmt, 7, data.mention_blob, data.mention_blob_size, &free);
+
+				int res = sqlite3_step(stmt);
+				if(res != SQLITE_DONE) {
+					SLogMsgFormat(LOGT::DBERR, TSLogging, wxT("%s got error: %d (%s) for user id: %" wxLongLongFmtSpec "u"),
+							funcname.c_str(),res, wxstrstd(sqlite3_errmsg(adb)).c_str(), data.id);
+				}
+				else {
+					SLogMsgFormat(LOGT::DBTRACE, TSLogging, wxT("%s inserted user id: %" wxLongLongFmtSpec "u"), funcname.c_str(), data.id);
+				}
+				sqlite3_reset(stmt);
+			});
+
+			cache.EndTransaction(adb);
+			SLogMsgFormat(LOGT::DBTRACE, TSLogging, wxT("%s end, wrote back %u of %u users"), funcname.c_str(), user_count, allusercount);
+		}
+	};
+};
 
 void dbconn::SyncWriteBackAllUsers(sqlite3 *adb) {
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncWriteBackAllUsers start"));
-	cache.BeginTransaction(adb);
+	DoGenericSyncWriteBack(adb, cache, WriteBackAllUsers(ad.userconts.size()), wxT("dbconn::SyncWriteBackAllUsers"));
+}
 
-	DBWriteConfig dbwc(adb);
-	dbwc.SetDBIndexDB();
-	dbwc.WriteInt64("UserCountHint", ad.userconts.size());
-
-	sqlite3_stmt *stmt = cache.GetStmt(adb, DBPSC_INSUSER);
-	size_t user_count = 0;
-	for(auto &it : ad.userconts) {
-		userdatacontainer *u = &(it.second);
-		if(u->lastupdate == u->lastupdate_wrotetodb) continue;    //this user is already in the database and does not need updating
-		if(u->user.screen_name.empty()) continue;               //don't bother saving empty user stubs
-		user_count++;
-		sqlite3_bind_int64(stmt, 1, (sqlite3_int64) it.first);
-		bind_compressed(stmt, 2, u->mkjson(), 'J');
-		bind_compressed(stmt, 3, u->cached_profile_img_url, 'P');
-		sqlite3_bind_int64(stmt, 4, (sqlite3_int64) u->user.createtime);
-		sqlite3_bind_int64(stmt, 5, (sqlite3_int64) u->lastupdate);
-		if(u->cached_profile_img_sha1) {
-			sqlite3_bind_blob(stmt, 6, u->cached_profile_img_sha1->hash_sha1, sizeof(u->cached_profile_img_sha1->hash_sha1), SQLITE_TRANSIENT);
-		}
-		else {
-			sqlite3_bind_null(stmt, 6);
-		}
-		size_t mentionindex_size;
-		unsigned char *mentionindex = settocompressedblob(u->mention_index, mentionindex_size);
-		sqlite3_bind_blob(stmt, 7, mentionindex, mentionindex_size, &free);
-		int res = sqlite3_step(stmt);
-		if(res != SQLITE_DONE) {
-			LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncWriteBackAllUsers got error: %d (%s) for user id: %" wxLongLongFmtSpec "d"),
-					res, wxstrstd(sqlite3_errmsg(adb)).c_str(), it.first);
-		}
-		else {
-			LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncWriteBackAllUsers inserted user id: %" wxLongLongFmtSpec "d"), it.first);
-		}
-		sqlite3_reset(stmt);
-	}
-	cache.EndTransaction(adb);
-	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncWriteBackAllUsers end, wrote back %u of %u users"), user_count, ad.userconts.size());
+void dbconn::AsyncWriteBackAllUsers(dbfunctionmsg &msg) {
+	DoGenericAsyncWriteBack(msg, WriteBackAllUsers(ad.userconts.size()), wxT("dbconn::AsyncWriteBackAllUsers"));
 }
 
 void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
@@ -1444,35 +1635,66 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncReadInAllUsers end, read in %u users (%u total)"), user_read_count, ad.userconts.size());
 }
 
-void dbconn::SyncWriteOutRBFSs(sqlite3 *adb) {
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncWriteOutRBFSs start"));
-	cache.BeginTransaction(adb);
-	sqlite3_exec(adb, "DELETE FROM rbfspending", 0, 0, 0);
-	sqlite3_stmt *stmt = cache.GetStmt(adb, DBPSC_INSERTRBFSP);
+namespace {
+	struct WriteBackRBFSs {
+		struct itemdata {
+			restbackfillstate rbfs;
+			unsigned int dbindex;
+		};
 
-	unsigned int write_count = 0;
-	for(auto &it : alist) {
-		taccount &acc = *it;
-		for(restbackfillstate &rbfs : acc.pending_rbfs_list) {
-			if(rbfs.start_tweet_id >= acc.GetMaxId(rbfs.type)) continue;    //rbfs would be read next time anyway
-			if(!rbfs.end_tweet_id || rbfs.end_tweet_id >= acc.GetMaxId(rbfs.type)) {
-				rbfs.end_tweet_id = acc.GetMaxId(rbfs.type);    //remove overlap
-				if(rbfs.end_tweet_id) rbfs.end_tweet_id--;
+		//Where F is a functor of the form void(const itemdata &)
+		template <typename F> void operator()(F func) const {
+			for(auto &it : alist) {
+				taccount &acc = *it;
+				for(restbackfillstate &rbfs : acc.pending_rbfs_list) {
+					if(rbfs.start_tweet_id >= acc.GetMaxId(rbfs.type)) continue;    //rbfs would be read next time anyway
+					if(!rbfs.end_tweet_id || rbfs.end_tweet_id >= acc.GetMaxId(rbfs.type)) {
+						rbfs.end_tweet_id = acc.GetMaxId(rbfs.type);    //remove overlap
+						if(rbfs.end_tweet_id) rbfs.end_tweet_id--;
+					}
+					func(itemdata { rbfs, acc.dbindex });
+				}
 			}
-			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) acc.dbindex);
-			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) rbfs.type);
-			sqlite3_bind_int64(stmt, 3, (sqlite3_int64) rbfs.start_tweet_id);
-			sqlite3_bind_int64(stmt, 4, (sqlite3_int64) rbfs.end_tweet_id);
-			sqlite3_bind_int64(stmt, 5, (sqlite3_int64) rbfs.max_tweets_left);
-			int res = sqlite3_step(stmt);
-			if(res != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncWriteOutRBFSs got error: %d (%s)"), res, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
-			else { LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncWriteOutRBFSs inserted pending RBFS")); }
-			sqlite3_reset(stmt);
-			write_count++;
+		};
+
+		//Where F is a functor with an operator() as above
+		template <typename F> void dbexec(sqlite3 *adb, dbpscache &cache, wxString funcname, bool TSLogging, F getfunc) const {
+			SLogMsgFormat(LOGT::DBTRACE, TSLogging, wxT("%s start"), funcname.c_str());
+
+			cache.BeginTransaction(adb);
+			sqlite3_exec(adb, "DELETE FROM rbfspending", 0, 0, 0);
+			sqlite3_stmt *stmt = cache.GetStmt(adb, DBPSC_INSERTRBFSP);
+
+			unsigned int write_count = 0;
+			getfunc([&](const itemdata &data) {
+				sqlite3_bind_int64(stmt, 1, (sqlite3_int64) data.dbindex);
+				sqlite3_bind_int64(stmt, 2, (sqlite3_int64) data.rbfs.type);
+				sqlite3_bind_int64(stmt, 3, (sqlite3_int64) data.rbfs.start_tweet_id);
+				sqlite3_bind_int64(stmt, 4, (sqlite3_int64) data.rbfs.end_tweet_id);
+				sqlite3_bind_int64(stmt, 5, (sqlite3_int64) data.rbfs.max_tweets_left);
+				int res = sqlite3_step(stmt);
+				if(res != SQLITE_DONE) {
+					SLogMsgFormat(LOGT::DBERR, TSLogging, wxT("%s got error: %d (%s)"), funcname.c_str(), res, wxstrstd(sqlite3_errmsg(adb)).c_str());
+				}
+				else {
+					SLogMsgFormat(LOGT::DBTRACE, TSLogging, wxT("%s inserted pending RBFS"), funcname.c_str());
+				}
+				sqlite3_reset(stmt);
+				write_count++;
+			});
+
+			cache.EndTransaction(adb);
+			SLogMsgFormat(LOGT::DBTRACE, TSLogging, wxT("%s end, wrote %u"), funcname.c_str(), write_count);
 		}
-	}
-	cache.EndTransaction(adb);
-	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncWriteOutRBFSs end, wrote %u"), write_count);
+	};
+};
+
+void dbconn::SyncWriteOutRBFSs(sqlite3 *adb) {
+	DoGenericSyncWriteBack(adb, cache, WriteBackRBFSs(), wxT("dbconn::SyncWriteOutRBFSs"));
+}
+
+void dbconn::AsyncWriteOutRBFSs(dbfunctionmsg &msg) {
+	DoGenericAsyncWriteBack(msg, WriteBackRBFSs(), wxT("dbconn::AsyncWriteOutRBFSs"));
 }
 
 void dbconn::SyncReadInRBFSs(sqlite3 *adb) {
@@ -1739,37 +1961,71 @@ void dbconn::SyncReadInTpanels(sqlite3 *adb) {
 	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncReadInTpanels end, read in %u, IDs: %u"), read_count, id_count);
 }
 
-void dbconn::SyncWriteBackTpanels(sqlite3 *adb) {
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncWriteBackTpanels start"));
-	sqlite3_exec(adb, "DELETE FROM tpanels", 0, 0, 0);
-	const char sql[] = "INSERT INTO tpanels (name, dispname, flags, ids) VALUES (?, ?, ?, ?);";
-	sqlite3_stmt *stmt = 0;
-	int res = sqlite3_prepare_v2(adb, sql, sizeof(sql), &stmt, 0);
-	if(res != SQLITE_OK) {
-		LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncWriteBackTpanels sqlite3_prepare_v2 failed"));
-		return;
-	}
+namespace {
+	struct WriteBackTpanels {
+		struct itemdata {
+			std::string name;
+			std::string dispname;
+			flagwrapper<TPF> flags;
 
-	unsigned int write_count = 0;
-	unsigned int id_count = 0;
-	for(auto &it : ad.tpanels) {
-		tpanel &tp = *(it.second);
-		if(tp.flags & TPF::SAVETODB) {
-			sqlite3_bind_text(stmt, 1, tp.name.c_str(), tp.name.size(), SQLITE_STATIC);
-			sqlite3_bind_text(stmt, 2, tp.dispname.c_str(), tp.dispname.size(), SQLITE_STATIC);
-			sqlite3_bind_int(stmt, 3, flag_unwrap<TPF>(tp.flags));
-			size_t ids_size;
-			unsigned char *ids = settocompressedblob(tp.tweetlist, ids_size);
-			sqlite3_bind_blob(stmt, 4, ids, ids_size, &free);
-			write_count++;
-			id_count += tp.tweetlist.size();
+			unsigned char *tweetlist_blob;
+			size_t tweetlist_blob_size;
+			size_t tweetlist_count;
+		};
 
-			int res2 = sqlite3_step(stmt);
-			if(res2 != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, wxT("dbconn::SyncWriteBackTpanels got error: %d (%s)"), res2, wxstrstd(sqlite3_errmsg(adb)).c_str()); }
-			sqlite3_reset(stmt);
+		//Where F is a functor of the form void(const itemdata &)
+		//F must free() itemdata::tweetlist_blob
+		template <typename F> void operator()(F func) const {
+			for(auto &it : ad.tpanels) {
+				tpanel &tp = *(it.second);
+				if(tp.flags & TPF::SAVETODB) {
+					itemdata data;
+					data.name = tp.name;
+					data.dispname = tp.dispname;
+					data.flags = tp.flags;
+					data.tweetlist_blob = settocompressedblob(tp.tweetlist, data.tweetlist_blob_size);
+					data.tweetlist_count = tp.tweetlist.size();
+					func(std::move(data));
+				}
+			}
+		};
+
+		//Where F is a functor with an operator() as above
+		template <typename F> void dbexec(sqlite3 *adb, dbpscache &cache, wxString funcname, bool TSLogging, F getfunc) const {
+			SLogMsgFormat(LOGT::DBTRACE, TSLogging, wxT("%s start"), funcname.c_str());
+
+			cache.BeginTransaction(adb);
+			sqlite3_exec(adb, "DELETE FROM tpanels", 0, 0, 0);
+			sqlite3_stmt *stmt = cache.GetStmt(adb, DBPSC_INSTPANEL);
+
+			unsigned int write_count = 0;
+			unsigned int id_count = 0;
+			getfunc([&](const itemdata &data) {
+				sqlite3_bind_text(stmt, 1, data.name.c_str(), data.name.size(), SQLITE_TRANSIENT);
+				sqlite3_bind_text(stmt, 2, data.dispname.c_str(), data.dispname.size(), SQLITE_TRANSIENT);
+				sqlite3_bind_int(stmt, 3, flag_unwrap<TPF>(data.flags));
+				sqlite3_bind_blob(stmt, 4, data.tweetlist_blob, data.tweetlist_blob_size, &free);
+				int res = sqlite3_step(stmt);
+				if(res != SQLITE_DONE) {
+					SLogMsgFormat(LOGT::DBERR, TSLogging, wxT("%s got error: %d (%s)"), funcname.c_str(), res, wxstrstd(sqlite3_errmsg(adb)).c_str());
+				}
+				sqlite3_reset(stmt);
+				write_count++;
+				id_count += data.tweetlist_count;
+			});
+
+			cache.EndTransaction(adb);
+			SLogMsgFormat(LOGT::DBTRACE, TSLogging, wxT("%s end, wrote %u, IDs: %u"), funcname.c_str(), write_count, id_count);
 		}
-	}
-	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncWriteBackTpanels end, wrote %u, IDs: %u"), write_count, id_count);
+	};
+};
+
+void dbconn::SyncWriteBackTpanels(sqlite3 *adb) {
+	DoGenericSyncWriteBack(adb, cache, WriteBackTpanels(), wxT("dbconn::SyncWriteBackTpanels"));
+}
+
+void dbconn::AsyncWriteBackTpanels(dbfunctionmsg &msg) {
+	DoGenericAsyncWriteBack(msg, WriteBackTpanels(), wxT("dbconn::AsyncWriteBackTpanels"));
 }
 
 void dbconn::SyncPurgeMediaEntities(sqlite3 *adb) {
@@ -1839,6 +2095,17 @@ void dbconn::SyncPurgeMediaEntities(sqlite3 *adb) {
 	}
 }
 
+void dbconn::OnAsyncStateWriteTimer(wxTimerEvent& event) {
+	AsyncWriteBackState();
+	ResetAsyncStateWriteTimer();
+}
+
+void dbconn::ResetAsyncStateWriteTimer() {
+	if(gc.asyncstatewritebackintervalmins > 0) {
+		asyncstateflush_timer->Start(gc.asyncstatewritebackintervalmins * 1000 * 60, wxTIMER_ONE_SHOT);
+	}
+}
+
 //The contents of data will be released and stashed in the event sent to the main thread
 //The main thread will then unstash it from the event and stick it back in a unique_ptr
 void dbsendmsg_callback::SendReply(std::unique_ptr<dbsendmsg> data, dbiothread *th) {
@@ -1846,9 +2113,6 @@ void dbsendmsg_callback::SendReply(std::unique_ptr<dbsendmsg> data, dbiothread *
 	evt->SetClientData(data.release());
 	th->reply_list.emplace_back(targ, std::unique_ptr<wxEvent>(evt));
 }
-
-static const std::string globstr = "G";
-static const std::string globdbstr = "D";
 
 void DBGenConfig::SetDBIndexGlobal() {
 	dbindextype = DBI_TYPE::GLOBAL;

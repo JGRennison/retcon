@@ -73,4 +73,12 @@ void ThreadSafeLogMsg(LOGT logflags, const wxString &str);
 #define TSLogMsgFormat(l, ...) if( currentlogflags & (l) ) ThreadSafeLogMsg(l, wxString::Format(__VA_ARGS__))
 #define TSLogMsg(l, s) if( currentlogflags & (l) ) ThreadSafeLogMsg(l, s)
 
+inline void SwitchableLogMsg(LOGT logflags, bool threadsafe, const wxString &str) {
+	if(threadsafe) ThreadSafeLogMsg(logflags, str);
+	else LogMsgProcess(logflags, str);
+}
+
+#define SLogMsgFormat(l, ts, ...) if( currentlogflags & (l) ) SwitchableLogMsg(l, ts, wxString::Format(__VA_ARGS__))
+#define SLogMsg(l, ts, s) if( currentlogflags & (l) ) SwitchableLogMsg(l, ts, s)
+
 #endif

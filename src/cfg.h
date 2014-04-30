@@ -23,6 +23,7 @@
 #include <wx/string.h>
 #include <memory>
 #include <list>
+#include <functional>
 
 struct DBWriteConfig;
 struct DBReadConfig;
@@ -32,7 +33,7 @@ struct sqlite3;
 struct genopt {
 	wxString val;
 	bool enable;
-	void CFGWriteOutCurDir(DBWriteConfig &twfc, const char *name);
+	void CFGWriteOutCurDir(DBWriteConfig &twfc, const char *name) const;
 	void CFGReadInCurDir(DBReadConfig &twfc, const char *name, const wxString &parent);
 	void InheritFromParent(genopt &parent, bool ifunset=false);
 };
@@ -43,11 +44,12 @@ struct genoptconf {
 	genopt ssl;
 	genopt userstreams;
 	genopt restinterval;
-	void CFGWriteOutCurDir(DBWriteConfig &twfc);
+	void CFGWriteOutCurDir(DBWriteConfig &twfc) const;
 	void CFGReadInCurDir(DBReadConfig &twfc, const genoptconf &parent);
 	void InheritFromParent(genoptconf &parent, bool ifunset = false);
 
 	static void IterateConfs(std::function<void(const std::string &, genopt genoptconf::*)> f);
+	void UnShareStrings();
 };
 
 #define CFGTEMPL_EXPAND \
@@ -94,6 +96,7 @@ struct genoptconf {
 	CFGTEMPL_UL(threadpoollimit) \
 	CFGTEMPL_UL(mediacachesavedays) \
 	CFGTEMPL_BOOL(showunhighlightallbtn) \
+	CFGTEMPL_UL(asyncstatewritebackintervalmins) \
 
 struct genoptglobconf {
 #define CFGTEMPL(x) genopt x;
@@ -104,15 +107,22 @@ struct genoptglobconf {
 #undef CFGTEMPL_UL
 #undef CFGTEMPL_BOOL
 
-	void CFGWriteOut(DBWriteConfig &twfc);
+	void CFGWriteOut(DBWriteConfig &twfc) const;
 	void CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent);
 
 	static void IterateConfs(std::function<void(const std::string &, genopt genoptglobconf::*)> f);
+	void UnShareStrings();
 };
 
-struct globconf {
+struct globconf_base {
 	genoptconf cfg;
 	genoptglobconf gcfg;
+
+	void CFGWriteOut(DBWriteConfig &twfc);
+	void UnShareStrings();
+};
+
+struct globconf : public globconf_base {
 
 #define CFGTEMPL(x)
 #define CFGTEMPL_UL(x) unsigned long x;
@@ -127,7 +137,6 @@ struct globconf {
 	std::string noproxylist;
 	std::string netiface;
 
-	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc);
 	void CFGParamConv();
 
@@ -136,7 +145,8 @@ struct globconf {
 };
 
 void ReadAllCFGIn(sqlite3 *db, globconf &gc, std::list<std::shared_ptr<taccount>> &lalist);
-void WriteAllCFGOut(sqlite3 *db, globconf &gc, std::list<std::shared_ptr<taccount>> &lalist);
+void WriteAllCFGOut(sqlite3 *db, const globconf &gc, const std::list<std::shared_ptr<taccount>> &lalist);
+std::function<void(DBWriteConfig &)> WriteAllCFGOutClosure(const globconf &lgc, const std::list<std::shared_ptr<taccount>> &lalist, bool unshare_strings);
 void AllUsersInheritFromParentIfUnset();
 void InitCFGDefaults();
 

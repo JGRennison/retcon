@@ -57,12 +57,26 @@ enum {
 	TAF_NOACC_PENDING_CONTENT_TIMER,
 };
 
-struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
-	wxString name;
-	wxString dispname;
+struct taccount_cfg {
+	unsigned int dbindex = 0;
 	genoptconf cfg;
 	wxString conk;
 	wxString cons;
+	bool userenabled = false;
+	uint64_t max_tweet_id = 0;
+	uint64_t max_mention_id = 0;
+	uint64_t max_recvdm_id = 0;
+	uint64_t max_sentdm_id = 0;
+	wxString dispname;
+
+	void CFGWriteOut(DBWriteConfig &twfc) const;
+	void CFGReadInBase(DBReadConfig &twfc);
+	void UnShareStrings();
+};
+
+struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_from_this<taccount> {
+	wxString name;
+
 	bool ssl;
 	bool userstreams;
 	enum class TAF {
@@ -70,10 +84,6 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	};
 	flagwrapper<TAF> ta_flags;
 	unsigned long restinterval;	//seconds
-	uint64_t max_tweet_id;
-	uint64_t max_mention_id;
-	uint64_t max_recvdm_id;
-	uint64_t max_sentdm_id;
 
 	uint64_t &GetMaxId(RBFS_TYPE type) {
 		switch(type) {
@@ -87,7 +97,6 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 
 	time_t last_stream_start_time;
 	time_t last_stream_end_time;
-	unsigned int dbindex;
 	connpool<twitcurlext> cp;
 	udc_ptr usercont;
 	std::unordered_map<uint64_t,user_relationship> user_relations;
@@ -108,7 +117,6 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	void OnStreamRestartTimer(wxTimerEvent& event);
 
 	bool enabled;
-	bool userenabled;
 	bool init;
 	bool active;
 	bool streaming_on;
@@ -142,7 +150,6 @@ struct taccount : public wxEvtHandler, std::enable_shared_from_this<taccount> {
 	void SetupRestBackfillTimer();
 	void DeleteRestBackfillTimer();
 
-	void CFGWriteOut(DBWriteConfig &twfc);
 	void CFGReadIn(DBReadConfig &twfc);
 	void CFGParamConv();
 	bool TwDoOAuth(wxWindow *pf, twitcurlext &twit);

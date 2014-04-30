@@ -32,6 +32,7 @@
 #include <forward_list>
 #include <wx/string.h>
 #include <wx/event.h>
+#include <wx/timer.h>
 #include <sqlite3.h>
 #ifdef __WINDOWS__
 #include <windows.h>
@@ -63,6 +64,7 @@ typedef enum {
 	DBPSC_INSSTATICSETTING,
 	DBPSC_DELSTATICSETTING,
 	DBPSC_SELSTATICSETTING,
+	DBPSC_INSTPANEL,
 
 	DBPSC_NUM_STATEMENTS,
 } DBPSC_TYPE;
@@ -102,6 +104,11 @@ struct dbiothread : public wxThread {
 	void MsgLoop();
 };
 
+struct dbfunctionmsg : public dbsendmsg {
+	dbfunctionmsg() : dbsendmsg(DBSM::FUNCTION) { }
+	std::vector<std::function<void(sqlite3 *, bool &, dbpscache &)> > funclist;
+};
+
 DECLARE_EVENT_TYPE(wxextDBCONN_NOTIFY, -1)
 
 enum {
@@ -110,6 +117,10 @@ enum {
 	wxDBCONNEVT_ID_SENDBATCH,
 	wxDBCONNEVT_ID_REPLY,
 	wxDBCONNEVT_ID_GENERICSELTWEET,
+};
+
+enum {
+	DBCONNTIMER_ID_ASYNCSTATEWRITE = 1,
 };
 
 struct dbconn : public wxEvtHandler {
@@ -122,6 +133,7 @@ struct dbconn : public wxEvtHandler {
 	dbiothread *th = nullptr;
 	dbpscache cache;
 	std::unique_ptr<dbsendmsg_list> batchqueue;
+	std::unique_ptr<wxTimer> asyncstateflush_timer;
 
 	private:
 	std::map<intptr_t, std::function<void(dbseltweetmsg &, dbconn *)> > generic_sel_funcs;
@@ -140,6 +152,7 @@ struct dbconn : public wxEvtHandler {
 	~dbconn() { DeInit(); }
 	bool Init(const std::string &filename);
 	void DeInit();
+	void AsyncWriteBackState();
 	void SendMessage(std::unique_ptr<dbsendmsg> msg);
 	void SendMessageOrAddToList(std::unique_ptr<dbsendmsg> msg, optional_observer_ptr<dbsendmsg_list> msglist);
 	void SendMessageBatched(std::unique_ptr<dbsendmsg> msg);
@@ -153,9 +166,12 @@ struct dbconn : public wxEvtHandler {
 	void UpdateMedia(media_entity &me, DBUMMT update_type, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
 	void AccountSync(sqlite3 *adb);
 	void SyncWriteBackAllUsers(sqlite3 *adb);
+	void AsyncWriteBackAllUsers(dbfunctionmsg &msg);
 	void SyncReadInAllUsers(sqlite3 *adb);
-	void AccountIdListsSync(sqlite3 *adb);
+	void SyncWriteBackAccountIdLists(sqlite3 *adb);
+	void AsyncWriteBackAccountIdLists(dbfunctionmsg &msg);
 	void SyncWriteOutRBFSs(sqlite3 *adb);
+	void AsyncWriteOutRBFSs(dbfunctionmsg &msg);
 	void SyncReadInRBFSs(sqlite3 *adb);
 	void SyncReadInAllMediaEntities(sqlite3 *adb);
 	void OnStdTweetLoadFromDB(wxCommandEvent &event);
@@ -165,11 +181,13 @@ struct dbconn : public wxEvtHandler {
 	void OnDBReplyEvt(wxCommandEvent &event);
 	void SyncReadInCIDSLists(sqlite3 *adb);
 	void SyncWriteBackCIDSLists(sqlite3 *adb);
+	void AsyncWriteBackCIDSLists(dbfunctionmsg &msg);
 	void SyncReadInWindowLayout(sqlite3 *adb);
 	void SyncWriteBackWindowLayout(sqlite3 *adb);
 	void SyncReadInAllTweetIDs(sqlite3 *adb);
 	void SyncReadInTpanels(sqlite3 *adb);
 	void SyncWriteBackTpanels(sqlite3 *adb);
+	void AsyncWriteBackTpanels(dbfunctionmsg &msg);
 	void SyncDoUpdates(sqlite3 *adb);
 	void SyncWriteDBVersion(sqlite3 *adb);
 	void SyncPurgeMediaEntities(sqlite3 *adb);
@@ -177,6 +195,9 @@ struct dbconn : public wxEvtHandler {
 	void HandleDBSelTweetMsg(dbseltweetmsg &msg, flagwrapper<HDBSF> flags);
 	void GenericDBSelTweetMsgHandler(wxCommandEvent &event);
 	void SetDBSelTweetMsgHandler(dbseltweetmsg &msg, std::function<void(dbseltweetmsg &, dbconn *)> f);
+
+	void OnAsyncStateWriteTimer(wxTimerEvent& event);
+	void ResetAsyncStateWriteTimer();
 
 	DECLARE_EVENT_TABLE()
 };

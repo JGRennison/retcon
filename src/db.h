@@ -54,6 +54,7 @@ enum class DBSM {
 	UPDATEMEDIAMSG,
 	DELACC,
 	UPDATETWEETSETFLAGS,
+	FUNCTION,
 };
 
 struct dbreplyevtstruct {
