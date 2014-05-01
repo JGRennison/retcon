@@ -10,6 +10,7 @@
 #cross: set to true if building on Unix, but build target is Windows
 #V: set to true to show full command lines
 #nopch: disable use of pre-compiled header
+#noflto: disable use of link-time optimisation
 
 #On Unixy platforms only
 #WXCFGFLAGS: additional arguments for wx-config
@@ -28,8 +29,9 @@ COBJS_SRC:=utf8proc/utf8proc.c
 OUTNAME:=retcon
 COMMONCFLAGS=-Wall -Wextra -Wshadow -Wno-unused-parameter -Ideps
 COBJS_CFLAGS=-Wno-missing-field-initializers -Wno-sign-compare
-CFLAGS=-g -O3 $(COMMONCFLAGS)
-AFLAGS=-g
+OPTIMISE_FLAGS = -O3
+CFLAGS = $(OPTIMISE_FLAGS) $(COMMONCFLAGS)
+AFLAGS =
 CXXFLAGS=-std=gnu++0x -fno-exceptions
 TCFLAGS=-DSHA1_NO_UTILITY_FUNCTIONS -DSHA1_NO_STL_FUNCTIONS
 GCC:=g++
@@ -42,12 +44,25 @@ PATHSEP:=/
 MKDIR:=mkdir -p
 
 ifdef debug
-CFLAGS=-g $(COMMONCFLAGS)
-AFLAGS=-g
+
+OPTIMISE_FLAGS =
+CFLAGS += -g
+AFLAGS += -g
 #AFLAGS:=-Wl,-d,--export-all-symbols
 DEBUGPOSTFIX:=_debug
 OBJDIR:=$(OBJDIR)$(DEBUGPOSTFIX)
 WXCFGFLAGS:=--debug=yes
+
+else ifndef noflto
+
+CFLAGS += -flto
+AFLAGS += -flto=jobserver $(OPTIMISE_FLAGS)
+
+#Don't use flto jobserver in dry-run mode
+ifneq (n, $(findstring n,$(filter-out --%,$(MFLAGS))))
+LINK_PREFIX := +
+endif
+
 endif
 
 ifdef gprof
@@ -145,7 +160,7 @@ endif
 
 ifdef debug
 ifeq (, $(filter 4.7.%, $(GCCVER)))
-CFLAGS+=-Og
+OPTIMISE_FLAGS += -Og
 endif
 endif
 
@@ -199,9 +214,9 @@ endif
 $(TARGS): $(ALL_OBJS)
 	@echo '    Link    $(OUTNAME)$(SUFFIX)'
 ifeq "$(HOST)" "WIN"
-	$(call EXEC,$(GCC) $(ALL_OBJS) -o $(OUTNAME)$(SUFFIX) $(LIBS) $(AFLAGS) $(GFLAGS))
+	$(call EXEC,$(LINK_PREFIX)$(GCC) $(ALL_OBJS) -o $(OUTNAME)$(SUFFIX) $(LIBS) $(AFLAGS) $(GFLAGS))
 else
-	$(call EXEC,$(GCC) $(ALL_OBJS) -o $(OUTNAME)$(SUFFIX).tmp $(LIBS) $(AFLAGS) $(GFLAGS))
+	$(call EXEC,$(LINK_PREFIX)$(GCC) $(ALL_OBJS) -o $(OUTNAME)$(SUFFIX).tmp $(LIBS) $(AFLAGS) $(GFLAGS))
 	$(call EXEC,rm -f $(OUTNAME)$(SUFFIX))
 	$(call EXEC,mv $(OUTNAME)$(SUFFIX).tmp $(OUTNAME)$(SUFFIX))
 endif
