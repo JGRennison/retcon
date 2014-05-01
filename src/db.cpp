@@ -1363,7 +1363,7 @@ namespace {
 			cached_id_sets::IterateLists([&](const char *name, const tweetidset cached_id_sets::*ptr, unsigned long long tweetflag) {
 				const tweetidset &tlist = ad.cids.*ptr;
 				size_t index_size;
-				unsigned char *index = settocompressedblob(tlist, index_size);
+				unsigned char *index = settoblob(tlist, index_size);
 				func(itemdata { name, index, index_size, tlist.size() });
 			});
 		};
@@ -1378,7 +1378,8 @@ namespace {
 			getfunc([&](const itemdata &data) {
 				sqlite3_bind_text(setstmt, 1, globstr.c_str(), globstr.size(), SQLITE_STATIC);
 				sqlite3_bind_text(setstmt, 2, data.name, -1, SQLITE_STATIC);
-				sqlite3_bind_blob(setstmt, 3, data.index, data.index_size, &free);
+				bind_compressed(setstmt, 3, data.index, data.index_size, 'Z');
+				free(data.index);
 				int res = sqlite3_step(setstmt);
 				if(res != SQLITE_DONE) {
 					SLogMsgFormat(LOGT::DBERR, TSLogging, wxT("%s got error: %d (%s), for set: %s"),
@@ -1424,10 +1425,10 @@ namespace {
 				itemdata data;
 
 				data.tweet_count = it->tweet_ids.size();
-				data.tweet_blob = settocompressedblob(it->tweet_ids, data.tweet_blob_size);
+				data.tweet_blob = settoblob(it->tweet_ids, data.tweet_blob_size);
 
 				data.dm_count = it->dm_ids.size();
-				data.dm_blob = settocompressedblob(it->dm_ids, data.dm_blob_size);
+				data.dm_blob = settoblob(it->dm_ids, data.dm_blob_size);
 
 				data.dispname = stdstrwx(it->dispname);
 				data.dbindex = it->dbindex;
@@ -1444,8 +1445,10 @@ namespace {
 
 			unsigned int total = 0;
 			getfunc([&](const itemdata &data) {
-				sqlite3_bind_blob(setstmt, 1, data.tweet_blob, data.tweet_blob_size, &free);
-				sqlite3_bind_blob(setstmt, 2, data.dm_blob, data.dm_blob_size, &free);
+				bind_compressed(setstmt, 1, data.tweet_blob, data.tweet_blob_size, 'Z');
+				free(data.tweet_blob);
+				bind_compressed(setstmt, 2, data.dm_blob, data.dm_blob_size, 'Z');
+				free(data.dm_blob);
 				sqlite3_bind_text(setstmt, 3, data.dispname.c_str(), data.dispname.size(), SQLITE_TRANSIENT);
 				sqlite3_bind_int(setstmt, 4, data.dbindex);
 
@@ -1521,7 +1524,7 @@ namespace {
 				data.lastupdate = u->lastupdate;
 				data.cached_profile_img_sha1 = u->cached_profile_img_sha1;
 
-				data.mention_blob = settocompressedblob(u->mention_index, data.mention_blob_size);
+				data.mention_blob = settoblob(u->mention_index, data.mention_blob_size);
 
 				func(std::move(data));
 			}
@@ -1550,7 +1553,8 @@ namespace {
 				else {
 					sqlite3_bind_null(stmt, 6);
 				}
-				sqlite3_bind_blob(stmt, 7, data.mention_blob, data.mention_blob_size, &free);
+				bind_compressed(stmt, 7, data.mention_blob, data.mention_blob_size, 'Z');
+				free(data.mention_blob);
 
 				int res = sqlite3_step(stmt);
 				if(res != SQLITE_DONE) {
@@ -1984,7 +1988,7 @@ namespace {
 					data.name = tp.name;
 					data.dispname = tp.dispname;
 					data.flags = tp.flags;
-					data.tweetlist_blob = settocompressedblob(tp.tweetlist, data.tweetlist_blob_size);
+					data.tweetlist_blob = settoblob(tp.tweetlist, data.tweetlist_blob_size);
 					data.tweetlist_count = tp.tweetlist.size();
 					func(std::move(data));
 				}
@@ -2005,7 +2009,8 @@ namespace {
 				sqlite3_bind_text(stmt, 1, data.name.c_str(), data.name.size(), SQLITE_TRANSIENT);
 				sqlite3_bind_text(stmt, 2, data.dispname.c_str(), data.dispname.size(), SQLITE_TRANSIENT);
 				sqlite3_bind_int(stmt, 3, flag_unwrap<TPF>(data.flags));
-				sqlite3_bind_blob(stmt, 4, data.tweetlist_blob, data.tweetlist_blob_size, &free);
+				bind_compressed(stmt, 4, data.tweetlist_blob, data.tweetlist_blob_size, 'Z');
+				free(data.tweetlist_blob);
 				int res = sqlite3_step(stmt);
 				if(res != SQLITE_DONE) {
 					SLogMsgFormat(LOGT::DBERR, TSLogging, wxT("%s got error: %d (%s)"), funcname.c_str(), res, wxstrstd(sqlite3_errmsg(adb)).c_str());
