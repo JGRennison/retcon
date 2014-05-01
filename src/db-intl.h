@@ -257,6 +257,7 @@ template <typename F, typename E> void DBRowExecStmt(sqlite3 *adb, sqlite3_stmt 
 		}
 		else if(res != SQLITE_DONE) {
 			DBDoErr(errspec, adb, stmt, res);
+			break;
 		}
 		else break;
 	} while(true);
