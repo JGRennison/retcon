@@ -273,17 +273,18 @@ static unsigned char *DoCompress(const std::string &in, size_t &sz, unsigned cha
 	return DoCompress(in.data(), in.size(), sz, tag, iscompressed, et);
 }
 
-enum class BINDCF {
-	NONTEXT		= 1<<0,
-};
-template<> struct enum_traits<BINDCF> { static constexpr bool flags = true; };
-
-static void bind_compressed(sqlite3_stmt* stmt, int num, const std::string &in, unsigned char tag = 'Z', flagwrapper<BINDCF> flags = 0, const esctable *et = 0) {
+static void bind_compressed(sqlite3_stmt* stmt, int num, const char *in, size_t insize, unsigned char tag = 'Z', const esctable *et = nullptr) {
 	size_t comsize;
-	bool iscompressed;
-	unsigned char *com = DoCompress(in, comsize, tag, &iscompressed, et);
-	if(iscompressed || flags & BINDCF::NONTEXT) sqlite3_bind_blob(stmt, num, com, comsize, &free);
-	else sqlite3_bind_text(stmt, num, (const char *) com, comsize, &free);
+	unsigned char *com = DoCompress(in, insize, comsize, tag, nullptr, et);
+	sqlite3_bind_blob(stmt, num, com, comsize, &free);
+}
+
+static void bind_compressed(sqlite3_stmt* stmt, int num, const unsigned char *in, size_t insize, unsigned char tag = 'Z', const esctable *et = nullptr) {
+	bind_compressed(stmt, num, reinterpret_cast<const char *>(in), insize, tag, et);
+}
+
+static void bind_compressed(sqlite3_stmt* stmt, int num, const std::string &in, unsigned char tag = 'Z', const esctable *et = nullptr) {
+	bind_compressed(stmt, num, in.data(), in.size(), tag, et);
 }
 
 static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsize) {
@@ -503,7 +504,7 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_INSTWEET);
 			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->id);
 			bind_compressed(stmt, 2, m->statjson, 'J');
-			bind_compressed(stmt, 3, m->dynjson, 'J', 0, dynjsontable);
+			bind_compressed(stmt, 3, m->dynjson, 'J', dynjsontable);
 			sqlite3_bind_int64(stmt, 4, (sqlite3_int64) m->user1);
 			sqlite3_bind_int64(stmt, 5, (sqlite3_int64) m->user2);
 			sqlite3_bind_int64(stmt, 6, (sqlite3_int64) m->flags);
@@ -520,7 +521,7 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 			if(gc.readonlymode) break;
 			dbupdatetweetmsg *m = static_cast<dbupdatetweetmsg*>(msg);
 			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_UPDTWEET);
-			bind_compressed(stmt, 1, m->dynjson, 'J', 0, dynjsontable);
+			bind_compressed(stmt, 1, m->dynjson, 'J', dynjsontable);
 			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->flags);
 			sqlite3_bind_int64(stmt, 3, (sqlite3_int64) m->id);
 			int res = sqlite3_step(stmt);
