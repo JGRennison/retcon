@@ -1,3 +1,13 @@
+retcon 0.0.8
+------------------------------------------------------
+
+Fix major bug in error handling for some database operations, including when attempting to run a second instance on the same database.
+Speed up database state write back at termination.
+Add option to asynchronously flush state to database at a set interval, this defaults to 30 mins. This is to minimise data loss in the event of abnormal termination.
+Add flush state to log window debug menu.
+Changes to build system: use LTO for non-debug builds, no longer include debug info in non-debug builds.
+
+
 retcon 0.0.7
 ------------------------------------------------------
 
