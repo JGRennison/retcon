@@ -2047,7 +2047,7 @@ void dbconn::SyncPurgeMediaEntities(sqlite3 *adb) {
 	time_t now = time(nullptr);
 	time_t delta = now - last_purge;
 
-	const unsigned int day = 60 * 60 * 24;
+	const time_t day = 60 * 60 * 24;
 
 	if(delta < day) {
 		LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncPurgeMediaEntities end, last purged %" wxLongLongFmtSpec "ds ago, not checking"), (int64_t) delta);
