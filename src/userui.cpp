@@ -223,7 +223,7 @@ void user_window::fill_accchoice() {
 static void set_uw_time_val(wxStaticText *st, const time_t &input) {
 	if(input) {
 		time_t updatetime;	//not used
-		wxString val = wxString::Format(wxT("%s (%s)"), getreltimestr(input, updatetime).c_str(), rc_wx_strftime(gc.gcfg.datetimeformat.val, localtime(&input), input, true).c_str());
+		wxString val = wxString::Format(wxT("%s (%s)"), getreltimestr(input, updatetime).c_str(), cfg_strftime(input).c_str());
 		st->SetLabel(val);
 	}
 	else st->SetLabel(wxT(""));
@@ -260,7 +260,7 @@ void user_window::RefreshFollow(bool forcerefresh) {
 					time_t updtime = ifollow ? ur.ifollow_updtime : ur.followsme_updtime;
 					if(updtime && (time(0) - updtime) > 180) {
 						time_t updatetime;	//not used
-						value = wxString::Format(wxT("%s as of %s (%s)"), value.c_str(), getreltimestr(updtime, updatetime).c_str(), rc_wx_strftime(gc.gcfg.datetimeformat.val, localtime(&updtime), updtime, true).c_str());
+						value = wxString::Format(wxT("%s as of %s (%s)"), value.c_str(), getreltimestr(updtime, updatetime).c_str(), cfg_strftime(updtime).c_str());
 					}
 					if(updtime && forcerefresh) needupdate=true;
 					st->SetLabel(value);

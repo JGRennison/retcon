@@ -55,6 +55,7 @@ struct genoptconf {
 #define CFGTEMPL_EXPAND \
 	CFGTEMPL(userexpiretimemins) \
 	CFGTEMPL(datetimeformat) \
+	CFGTEMPL_BOOL(datetimeisutc) \
 	CFGTEMPL_UL(maxpanelprofimgsize) \
 	CFGTEMPL_UL(maxtweetsdisplayinpanel) \
 	CFGTEMPL(tweetdispformat) \
@@ -149,6 +150,8 @@ void WriteAllCFGOut(sqlite3 *db, const globconf &gc, const std::list<std::shared
 std::function<void(DBWriteConfig &)> WriteAllCFGOutClosure(const globconf &lgc, const std::list<std::shared_ptr<taccount>> &lalist, bool unshare_strings);
 void AllUsersInheritFromParentIfUnset();
 void InitCFGDefaults();
+
+wxString cfg_strftime(time_t timestamp);
 
 extern globconf gc;
 extern genoptconf gcdefaults;

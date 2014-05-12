@@ -38,6 +38,7 @@ genoptconf gcdefaults {
 
 #define CFGDEFAULT_userexpiretimemins                       wxT("90")
 #define CFGDEFAULT_datetimeformat                           wxT("%Y-%m-%d %H:%M:%S")
+#define CFGDEFAULT_datetimeisutc                            wxT("0")
 #define CFGDEFAULT_maxpanelprofimgsize                      wxT("48")
 #define CFGDEFAULT_maxtweetsdisplayinpanel                  wxT("40")
 #define CFGDEFAULT_tweetdispformat                          wxT("uZB@unbzuvup - T - t - FRfp( -Rp( 'R'Rn)fp( 'F'fn))m( - An)Swp( - Sl)QF+u(' - 'BK(+#000080)'Unread'kb)NC")
@@ -314,4 +315,8 @@ void AllUsersInheritFromParentIfUnset() {
 void InitCFGDefaults() {
 	//this is done because wxStandardPaths needs wxApp to be initialised first
 	gcglobdefaults.mediasave_directorylist.val = wxStandardPaths::Get().GetDocumentsDir();
+}
+
+wxString cfg_strftime(time_t timestamp) {
+	return rc_wx_strftime(gc.gcfg.datetimeformat.val, gc.datetimeisutc ? gmtime(&timestamp) : localtime(&timestamp), timestamp, !gc.datetimeisutc);
 }

@@ -445,7 +445,8 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	opts.emplace_front(option_item {advoptbox, veryadvoptchkbox, 0, DBCV::ADVOPTION});
 
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Max No. of Items to Display in Panel"), DBCV::ISGLOBALCFG, gc.gcfg.maxtweetsdisplayinpanel, gcglobdefaults.maxtweetsdisplayinpanel, wxFILTER_NUMERIC);
-	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Date-Time Format (strftime)"), DBCV::ISGLOBALCFG, gc.gcfg.datetimeformat, gcglobdefaults.datetimeformat);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Date/time format (strftime)"), DBCV::ISGLOBALCFG, gc.gcfg.datetimeformat, gcglobdefaults.datetimeformat);
+	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs, wxT("Display date/times as UTC instead of local"), DBCV::ISGLOBALCFG, gc.gcfg.datetimeisutc, gcglobdefaults.datetimeisutc);
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs,  wxT("Display Native Re-Tweets"), DBCV::ISGLOBALCFG, gc.gcfg.rtdisp, gcglobdefaults.rtdisp);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("No. of inline tweet replies"), DBCV::ISGLOBALCFG, gc.gcfg.inlinereplyloadcount, gcglobdefaults.inlinereplyloadcount, wxFILTER_NUMERIC);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("No. of inline tweet replies to load on request"), DBCV::ISGLOBALCFG, gc.gcfg.inlinereplyloadmorecount, gcglobdefaults.inlinereplyloadmorecount, wxFILTER_NUMERIC);

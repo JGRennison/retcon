@@ -645,7 +645,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 				}
 				break;
 			case 'T':
-				str+=rc_wx_strftime(gc.gcfg.datetimeformat.val, localtime(&tw.createtime), tw.createtime, true);
+				str += cfg_strftime(tw.createtime);
 				break;
 
 			case 'C':
