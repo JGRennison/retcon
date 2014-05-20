@@ -13,7 +13,7 @@
 #noflto: disable use of link-time optimisation
 
 #On Unixy platforms only
-#WXCFGFLAGS: additional arguments for wx-config
+#WXCFGFLAGS: arguments for wx-config
 
 #On windows only:
 #x64: set to true to compile for x86_64/win64
@@ -34,6 +34,7 @@ CFLAGS = $(OPTIMISE_FLAGS) $(COMMONCFLAGS)
 AFLAGS =
 CXXFLAGS=-std=gnu++0x -fno-exceptions
 TCFLAGS=-DSHA1_NO_UTILITY_FUNCTIONS -DSHA1_NO_STL_FUNCTIONS
+WXCFGFLAGS:=--version=2.8
 GCC:=g++
 LD:=ld
 OBJDIR:=objs
@@ -51,7 +52,7 @@ AFLAGS += -g
 #AFLAGS:=-Wl,-d,--export-all-symbols
 DEBUGPOSTFIX:=_debug
 OBJDIR:=$(OBJDIR)$(DEBUGPOSTFIX)
-WXCFGFLAGS:=--debug=yes
+WXCFGFLAGS+=--debug=yes
 
 else ifndef noflto
 
