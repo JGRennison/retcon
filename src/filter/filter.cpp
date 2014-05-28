@@ -265,7 +265,7 @@ const char endifsyntax[] = R"(^\s*(?:end\s*if|fi)\s*$)";
 const char flagsetsyntax[] = R"(^\s*set\s+tweet\.flags\s+([a-zA-Z0-9+\-]+)\s*$)";
 const char panelsyntax[] = R"(^\s*panel\s+(add|remove)\s+(\S.*\S)\s*$)";
 
-const char blanklinesyntax[] = R"(^(?:\s+#)?\s*$)"; //this also filters comments
+const char blanklinesyntax[] = R"(^(?:\s*#.*)?\s*$)"; //this also filters comments
 
 
 void ParseFilter(const std::string &input, filter_set &filter_output, std::string &errmsgs) {

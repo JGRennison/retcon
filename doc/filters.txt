@@ -80,6 +80,10 @@ panel add <PANEL>             Add tweet to manual panel: PANEL
 panel remove <PANEL>          Remove tweet from manual panel: PANEL
                               If the panel does not exist this has no effect
 
+Comments:
+
+Lines which begins with a '#' character are ignored.
+
 
 Example Filters:
 
