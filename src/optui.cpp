@@ -35,7 +35,7 @@
 enum {
 	ACCWID_ENDISABLE = 1,
 	ACCWID_REAUTH,
-
+	ACCWID_REENABLEALL,
 };
 
 BEGIN_EVENT_TABLE(acc_window, wxDialog)
@@ -45,6 +45,7 @@ BEGIN_EVENT_TABLE(acc_window, wxDialog)
 	EVT_BUTTON(wxID_CLOSE, acc_window::AccClose)
 	EVT_BUTTON(ACCWID_ENDISABLE, acc_window::EnDisable)
 	EVT_BUTTON(ACCWID_REAUTH, acc_window::ReAuth)
+	EVT_BUTTON(ACCWID_REENABLEALL, acc_window::ReEnableAll)
 	EVT_LISTBOX(wxID_FILE1, acc_window::OnSelChange)
 END_EVENT_TABLE()
 
@@ -78,6 +79,12 @@ acc_window::acc_window(wxWindow* parent, wxWindowID id, const wxString& title, c
 	vboxr->Add(endisbtn, 0, wxALIGN_TOP | wxEXPAND, 0);
 	vboxr->Add(reauthbtn, 0, wxALIGN_TOP | wxEXPAND, 0);
 	hbox2->Add(newbtn, 0, wxALIGN_LEFT, 0);
+
+	if(gc.allaccsdisabled) {
+		reenableallbtns = new wxButton(panel, ACCWID_REENABLEALL, wxT("*Enable All*"));
+		hbox2->Add(reenableallbtns, 0, wxALIGN_LEFT, 0);
+	}
+
 	hbox2->AddStretchSpacer(1);
 	hbox2->Add(clsbtn, 0, wxALIGN_RIGHT, 0);
 
@@ -221,6 +228,19 @@ void acc_window::ReAuth(wxCommandEvent &event) {
 	UpdateButtons();
 	acc->CalcEnabled();
 	acc->Exec();
+}
+
+void acc_window::ReEnableAll(wxCommandEvent &event) {
+	gc.allaccsdisabled = false;
+	for(auto &it : alist) {
+		it->CalcEnabled();
+		it->Exec();
+	}
+	mainframe::ResetAllTitles();
+	if(reenableallbtns) {
+		// Hide the button, it's single-use not a toggle
+		reenableallbtns->Show(false);
+	}
 }
 
 struct DefaultChkBoxValidator : public wxValidator {

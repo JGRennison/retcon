@@ -65,6 +65,7 @@ public:
 	wxAuiManager *auim;
 	wxPoint nominal_pos;
 	wxSize nominal_size;
+	wxString origtitle;
 
 	mainframe(const wxString& title, const wxPoint& pos, const wxSize& size, bool maximise = false);
 	~mainframe();
@@ -83,6 +84,8 @@ public:
 	void OnMove(wxMoveEvent &event);
 	void OnOwnProfileMenuCmd(wxCommandEvent &event);
 	static wxString DecorateTitle(wxString basetitle);
+	void ResetTitle();
+	static void ResetAllTitles();
 
 	DECLARE_EVENT_TABLE()
 };

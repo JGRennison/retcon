@@ -143,6 +143,7 @@ struct globconf : public globconf_base {
 
 	//Set by cmdline
 	bool readonlymode = false;
+	bool allaccsdisabled = false;
 };
 
 void ReadAllCFGIn(sqlite3 *db, globconf &gc, std::list<std::shared_ptr<taccount>> &lalist);

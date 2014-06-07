@@ -21,6 +21,7 @@
 
 #include "univdefs.h"
 #include "flags.h"
+#include "mainui.h"
 #include <wx/tglbtn.h>
 #include <wx/listbox.h>
 #include <wx/dialog.h>
@@ -63,6 +64,7 @@ struct acc_window: public wxDialog {
 	void AccClose(wxCommandEvent &event);
 	void EnDisable(wxCommandEvent &event);
 	void ReAuth(wxCommandEvent &event);
+	void ReEnableAll(wxCommandEvent &event);
 	void OnSelChange(wxCommandEvent &event) ;
 	void UpdateLB();
 	void UpdateButtons() ;
@@ -71,6 +73,7 @@ struct acc_window: public wxDialog {
 	wxButton *endisbtn;
 	wxButton *reauthbtn;
 	wxButton *delbtn;
+	wxButton *reenableallbtns = nullptr;
 
 	static std::set<acc_window *> currentset;
 

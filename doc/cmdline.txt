@@ -6,6 +6,11 @@ Most users will not need to use these.
 	Do no disk writes except for user requests (saving images/logging/etc.).
 	Note that any data acquired in this mode is lost on exit.
 
+-b, --accs-disabled
+	Start with all accounts disabled, retcon will not connect to Twitter.
+	To re-enable all accounts go to Menu Bar->Options->Accounts.
+	This is to allow offline use and for testing.
+
 -d, --data-dir <dir>
 	Use <dir> as the root directory for all local configuration/saved data.
 	The default is platform specific, but generally: ~/.retcon (except for on Windows).

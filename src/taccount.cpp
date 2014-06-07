@@ -491,7 +491,7 @@ void taccount::CalcEnabled() {
 
 	bool oldenabled=enabled;
 	bool oldinit=init;
-	if(userenabled && !beinginsertedintodb) {
+	if(userenabled && !beinginsertedintodb && !gc.allaccsdisabled) {
 		enabled=(verifycredstatus==ACT_DONE);
 		init=!enabled;
 	}

@@ -59,7 +59,7 @@ BEGIN_EVENT_TABLE(mainframe, wxFrame)
 END_EVENT_TABLE()
 
 mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& size, bool maximise)
-       : wxFrame(NULL, -1, DecorateTitle(title), pos, size)
+       : wxFrame(NULL, -1, DecorateTitle(title), pos, size), origtitle(title)
 {
 	nominal_pos = pos;
 	nominal_size = size;
@@ -236,7 +236,18 @@ wxString mainframe::DecorateTitle(wxString basetitle) {
 	basetitle += wxT("  (debug build)");
 #endif
 	if(gc.readonlymode) basetitle += wxT("  -*- READ-ONLY MODE -*-");
+	if(gc.allaccsdisabled) basetitle += wxT("  =#= All Accounts Disabled =#=");
 	return std::move(basetitle);
+}
+
+void mainframe::ResetTitle() {
+	SetTitle(DecorateTitle(origtitle));
+}
+
+void mainframe::ResetAllTitles() {
+	for(auto &it : mainframelist) {
+		it->ResetTitle();
+	}
 }
 
 void AccountUpdateAllMainframes() {
