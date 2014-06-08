@@ -136,20 +136,23 @@ void dispscr_mouseoverwin::OnMagicPairedPtrChange(dispscr_base *targ, dispscr_ba
 	if(prevtarg && !targdestructing) {
 		prevtarg->Disconnect(wxEVT_MOVE, wxMoveEventHandler(dispscr_mouseoverwin::targmovehandler), 0, this);
 		prevtarg->Disconnect(wxEVT_SIZE, wxSizeEventHandler(dispscr_mouseoverwin::targsizehandler), 0, this);
+		prevtarg->tpi->Disconnect(wxEVT_MOVE, wxMoveEventHandler(dispscr_mouseoverwin::targitemmovehandler), 0, this);
 	}
 	if(targ) {
 		Show(false);
 		targ->Connect(wxEVT_MOVE, wxMoveEventHandler(dispscr_mouseoverwin::targmovehandler), 0, this);
 		targ->Connect(wxEVT_SIZE, wxSizeEventHandler(dispscr_mouseoverwin::targsizehandler), 0, this);
+		targ->tpi->Connect(wxEVT_MOVE, wxMoveEventHandler(dispscr_mouseoverwin::targitemmovehandler), 0, this);
 		SetSize(targ->GetSize());
-		Position(targ->GetSize(), targ->GetPosition());
+		Position(targ->GetSize(), targ->GetPosition() + targ->tpi->GetPosition());
 
 		Freeze();
 		BeginSuppressUndo();
 		bool show = RefreshContent();
 		if(show) {
-			SetSize(GetBuffer().GetCachedSize().x + GetBuffer().GetTopMargin() + GetBuffer().GetBottomMargin(), GetBuffer().GetCachedSize().y + GetBuffer().GetLeftMargin() + GetBuffer().GetRightMargin());
-			Position(targ->GetSize(), targ->GetPosition());
+			SetSize(GetBuffer().GetCachedSize().x + GetBuffer().GetTopMargin() + GetBuffer().GetBottomMargin(),
+					GetBuffer().GetCachedSize().y + GetBuffer().GetLeftMargin() + GetBuffer().GetRightMargin());
+			Position(targ->GetSize(), targ->GetPosition() + targ->tpi->GetPosition());
 			Raise();
 		}
 		Show(show);
@@ -161,12 +164,26 @@ void dispscr_mouseoverwin::OnMagicPairedPtrChange(dispscr_base *targ, dispscr_ba
 	}
 }
 
+// Add the item position to the dispscr position to get the cumulative position
+// When an event is triggered, use the new value encoded in the event
+// Get the other two values manually
+
+void dispscr_mouseoverwin::targitemmovehandler(wxMoveEvent &event) {
+	if(get()) {
+		Position(get()->GetSize(), get()->GetPosition() + event.GetPosition());
+	}
+}
+
 void dispscr_mouseoverwin::targmovehandler(wxMoveEvent &event) {
-	 Position(static_cast<wxWindow*>(event.GetEventObject())->GetSize(), event.GetPosition());
+	if(get() && get()->tpi) {
+		Position(get()->GetSize(), event.GetPosition() + get()->tpi->GetPosition());
+	}
 }
 
 void dispscr_mouseoverwin::targsizehandler(wxSizeEvent &event) {
-	 Position(event.GetSize(), static_cast<wxWindow*>(event.GetEventObject())->GetPosition());
+	if(get() && get()->tpi) {
+		Position(event.GetSize(), get()->GetPosition() + get()->tpi->GetPosition());
+	}
 }
 
 void dispscr_mouseoverwin::Position(const wxSize &targ_size, const wxPoint &targ_position) {
@@ -224,8 +241,8 @@ BEGIN_EVENT_TABLE(dispscr_base, generic_disp_base)
 	EVT_LEAVE_WINDOW(dispscr_base::mouseleavehandler)
 END_EVENT_TABLE()
 
-dispscr_base::dispscr_base(tpanelscrollwin *parent, panelparentwin_base *tppw_, wxBoxSizer *hbox_, wxString thisname_)
-: generic_disp_base(parent, tppw_, 0, thisname_), tpsw(parent), hbox(hbox_) {
+dispscr_base::dispscr_base(tpanel_item *parent, panelparentwin_base *tppw_, wxBoxSizer *hbox_, wxString thisname_)
+: generic_disp_base(parent, tppw_, 0, thisname_), tpi(parent), hbox(hbox_) {
 	GetCaret()->Hide();
 	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANEL, wxT("DCL: dispscr_base::dispscr_base constructor %s END"), GetThisName().c_str());
@@ -240,16 +257,10 @@ void dispscr_base::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 		LogMsgFormat(LOGT::TPANEL, wxT("DCL: dispscr_base::SetScrollbars %s"), GetThisName().c_str());
 	#endif
 	wxRichTextCtrl::SetScrollbars(0, 0, 0, 0, 0, 0, noRefresh);
-	int newheight=(pixelsPerUnitY*noUnitsY)+4;
+	int newheight = (pixelsPerUnitY * noUnitsY) + 4;
 	hbox->SetItemMinSize(this, 10, newheight);
 
-	if(!tpsw->fit_inside_blocked) tpsw->FitInside();
-	if(!tpsw->resize_update_pending) {
-		tpsw->resize_update_pending=true;
-		tpsw->Freeze();
-		wxCommandEvent event(wxextRESIZE_UPDATE_EVENT, GetId());
-		tpsw->GetEventHandler()->AddPendingEvent(event);
-	}
+	tpi->NotifySizeChange();
 }
 
 void dispscr_base::mouseenterhandler(wxMouseEvent &event) {
@@ -275,7 +286,7 @@ BEGIN_EVENT_TABLE(tweetdispscr, dispscr_base)
 	EVT_TIMER(TDS_WID_UNHIDEIMGOVERRIDETIMER, tweetdispscr::unhideimageoverridetimeouthandler)
 END_EVENT_TABLE()
 
-tweetdispscr::tweetdispscr(tweet_ptr_p td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_)
+tweetdispscr::tweetdispscr(tweet_ptr_p td_, tpanel_item *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_)
 : dispscr_base(parent, tppw_, hbox_, thisname_.empty() ? wxString::Format(wxT("tweetdispscr: %" wxLongLongFmtSpec "d for %s"), td_->id, tppw_->GetThisName().c_str()) : thisname_), td(td_), bm(0), bm2(0) {
 	if(td_->rtsrc) rtid=td_->rtsrc->id;
 	else rtid=0;
@@ -945,8 +956,8 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 		if(bm2) bm2->Show(show);
 	};
 
-	bool hidden = (tw.flags.Get('h') && !(tpsw->parent->GetTPPWFlags() & TPPWF::SHOWHIDDEN))
-		|| (tw.flags.Get('X') && !(tpsw->parent->GetTPPWFlags() & TPPWF::SHOWDELETED));
+	bool hidden = (tw.flags.Get('h') && !(tppw->GetTPPWFlags() & TPPWF::SHOWHIDDEN))
+		|| (tw.flags.Get('X') && !(tppw->GetTPPWFlags() & TPPWF::SHOWDELETED));
 	if(hidden && !(tds_flags&TDSF::HIDDEN)) {
 		hideactions(false);
 		tds_flags |= TDSF::HIDDEN;
@@ -1094,9 +1105,9 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 
 	if(!(tppw->GetTPPWFlags() & TPPWF::NOUPDATEONPUSH)) {
 		#if DISPSCR_COPIOUS_LOGGING
-			LogMsgFormat(LOGT::TPANEL, wxT("DCL: tweetdispscr::DisplayTweet 4 About to call tpsw->FitInside()"));
+			LogMsgFormat(LOGT::TPANEL, wxT("DCL: tweetdispscr::DisplayTweet 4 About to call tpi->NotifyLayoutNeeded()"));
 		#endif
-		tpsw->FitInside();
+		tpi->NotifyLayoutNeeded();
 	}
 	else {
 		#if DISPSCR_COPIOUS_LOGGING
@@ -1642,7 +1653,7 @@ BEGIN_EVENT_TABLE(userdispscr, dispscr_base)
 	EVT_TEXT_URL(wxID_ANY, userdispscr::urleventhandler)
 END_EVENT_TABLE()
 
-userdispscr::userdispscr(udc_ptr_p u_, tpanelscrollwin *parent, tpanelparentwin_user *tppw_, wxBoxSizer *hbox_, wxString thisname_)
+userdispscr::userdispscr(udc_ptr_p u_, tpanel_item *parent, tpanelparentwin_user *tppw_, wxBoxSizer *hbox_, wxString thisname_)
 : dispscr_base(parent, tppw_, hbox_, thisname_.empty() ? wxString::Format(wxT("userdispscr: %" wxLongLongFmtSpec "d for %s"), u_->id, tppw_->GetThisName().c_str()) : thisname_), u(u_), bm(0) {
 }
 
@@ -1678,7 +1689,7 @@ void userdispscr::Display(bool redrawimg) {
 
 	LayoutContent();
 	if(!(tppw->GetTPPWFlags() & TPPWF::NOUPDATEONPUSH)) {
-		tpsw->FitInside();
+		tpi->NotifyLayoutNeeded();
 	}
 
 	EndAllStyles();

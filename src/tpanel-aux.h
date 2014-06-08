@@ -31,6 +31,7 @@
 
 struct mainframe;
 struct panelparentwin_base;
+struct tpanelscrollwin;
 
 struct profimg_staticbitmap : public wxStaticBitmap {
 	uint64_t userid;
@@ -70,17 +71,51 @@ struct tpanelnotebook : public wxAuiNotebook {
 	DECLARE_EVENT_TABLE()
 };
 
-struct tpanelscrollwin : public wxScrolledWindow {
+struct tpanel_item : public wxPanel {
+	// Outermost: horizontal box sizer
+	// Contains: Image on left, vbox on right
+	wxBoxSizer *hbox;
+
+	// One level in: vertical box sizer
+	// This contains the tweet/user
+	// Sizers containing subtweets may be placed underneath
+	wxBoxSizer *vbox;
+
+
+	tpanelscrollwin *parent;
+	wxString thisname;
+
+	tpanel_item(tpanelscrollwin *parent_);
+	inline wxString GetThisName() const { return thisname; }
+
+	void NotifySizeChange();
+	void NotifyLayoutNeeded();
+	void mousewheelhandler(wxMouseEvent &event);
+
+	DECLARE_EVENT_TABLE()
+};
+
+struct tpanelscrollwin : public wxPanel {
 	panelparentwin_base *parent;
 	bool resize_update_pending;
 	bool page_scroll_blocked;
-	bool fit_inside_blocked;
 	wxString thisname;
+
+	bool scroll_always_freeze = false;
+	int scroll_virtual_size = 0;
+	int scroll_client_size = 0;
 
 	tpanelscrollwin(panelparentwin_base *parent_);
 	void OnScrollHandler(wxScrollWinEvent &event);
+	void OnScrollTrack(wxScrollWinEvent &event);
+	void OnScrollHandlerCommon(bool upok, bool downok);
 	void resizehandler(wxSizeEvent &event);
 	void resizemsghandler(wxCommandEvent &event);
+	void mousewheelhandler(wxMouseEvent &event);
+	void RepositionItems();
+	void ScrollItems();
+	void ScrollToIndex(unsigned int index, int offset);
+	bool ScrollToId(uint64_t id, int offset);
 	inline wxString GetThisName() const { return thisname; }
 
 	DECLARE_EVENT_TABLE()

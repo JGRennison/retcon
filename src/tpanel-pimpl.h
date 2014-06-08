@@ -70,11 +70,10 @@ struct panelparentwin_base_impl : public bindwxevt {
 	void CLabelNeedsUpdating(flagwrapper<PUSHFLAGS> pushflags);
 	uint64_t GetCurrentViewTopID() const;
 	virtual void IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const;
-	void StartScrollFreeze(tppw_scrollfreeze &s);
-	void EndScrollFreeze(tppw_scrollfreeze &s);
-	void SetScrollFreeze(tppw_scrollfreeze &s, dispscr_base *scr);
+	int IDToCurrentDispIndex(uint64_t id) const;
 	wxString GetThisName() const;
 	virtual mainframe *GetMainframe();
+	tpanel_disp_item *CreateItemAtIndex(size_t index, uint64_t id);
 
 	void ResetBatchTimer();
 
@@ -88,7 +87,6 @@ struct panelparentwin_base_impl : public bindwxevt {
 	public:
 	std::shared_ptr<tpanelglobal> tpg;
 	flagwrapper<TPPWF> tppw_flags = 0;
-	wxBoxSizer *sizer = 0;
 	size_t displayoffset = 0;
 	wxWindow *parent_win = 0;
 	tpanelscrollwin *scrollwin = 0;
@@ -102,7 +100,7 @@ struct panelparentwin_base_impl : public bindwxevt {
 	uint64_t scrolltoid = 0;
 	uint64_t scrolltoid_onupdate = 0;
 	std::multimap<std::string, wxButton *> showhidemap;
-	std::list<std::pair<uint64_t, dispscr_base *> > currentdisp;
+	tpanel_disp_item_list currentdisp;
 	wxString thisname;
 	wxTimer batchtimer;
 
@@ -130,7 +128,7 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 
 	void PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
 	void RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
-	tweetdispscr *PushTweetIndex(tweet_ptr_p t, size_t index);
+	tweetdispscr *CreateTweetInItem(tweet_ptr_p t, tpanel_disp_item &tpdi);
 	void JumpToTweetID(uint64_t id);
 	virtual void LoadMore(unsigned int n, uint64_t lessthanid = 0, uint64_t greaterthanid = 0, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT) { }
 	virtual void PageUpHandler() override;

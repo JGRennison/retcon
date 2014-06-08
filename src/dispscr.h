@@ -46,6 +46,7 @@ struct tweet;
 struct userdatacontainer;
 struct tweetdispscr;
 struct media_entity_raii_updater;
+struct tpanel_item;
 
 DECLARE_EVENT_TYPE(wxextGDB_Popup_Evt, -1)
 
@@ -119,6 +120,7 @@ struct dispscr_mouseoverwin : generic_disp_base, public magic_paired_ptr_ts<disp
 	void Position(const wxSize &targ_size, const wxPoint &targ_position);
 	void targmovehandler(wxMoveEvent &event);
 	void targsizehandler(wxSizeEvent &event);
+	void targitemmovehandler(wxMoveEvent &event);
 	virtual bool RefreshContent() { return false; }
 	virtual void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
                                int noUnitsX, int noUnitsY,
@@ -133,10 +135,10 @@ struct dispscr_mouseoverwin : generic_disp_base, public magic_paired_ptr_ts<disp
 };
 
 struct dispscr_base : public generic_disp_base, public magic_paired_ptr_ts<dispscr_mouseoverwin, dispscr_base> {
-	tpanelscrollwin *tpsw;
+	tpanel_item *tpi;
 	wxBoxSizer *hbox;
 
-	dispscr_base(tpanelscrollwin *parent, panelparentwin_base *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
+	dispscr_base(tpanel_item *parent, panelparentwin_base *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
 	virtual void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
                                int noUnitsX, int noUnitsY,
                                int xPos = 0, int yPos = 0,
@@ -187,7 +189,7 @@ struct tweetdispscr : public dispscr_base {
 	std::function<void()> loadmorereplies;
 	std::vector<media_entity_raii_updater> media_entity_updaters;
 
-	tweetdispscr(tweet_ptr_p td_, tpanelscrollwin *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
+	tweetdispscr(tweet_ptr_p td_, tpanel_item *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
 	~tweetdispscr();
 	void DisplayTweet(bool redrawimg = false);
 	void OnTweetActMenuCmd(wxCommandEvent &event);
@@ -214,7 +216,7 @@ struct userdispscr : public dispscr_base {
 	udc_ptr u;
 	profimg_staticbitmap *bm;
 
-	userdispscr(udc_ptr_p u_, tpanelscrollwin *parent, tpanelparentwin_user *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
+	userdispscr(udc_ptr_p u_, tpanel_item *parent, tpanelparentwin_user *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
 	~userdispscr();
 	void Display(bool redrawimg=false);
 

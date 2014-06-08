@@ -40,6 +40,7 @@ struct tweetdispscr;
 struct tpanel;
 struct tweetdispscr;
 struct bindwxevt_win;
+struct tpanel_item;
 
 DECLARE_EVENT_TYPE(wxextRESIZE_UPDATE_EVENT, -1)
 DECLARE_EVENT_TYPE(wxextTP_PAGEUP_EVENT, -1)
@@ -47,16 +48,13 @@ DECLARE_EVENT_TYPE(wxextTP_PAGEDOWN_EVENT, -1)
 
 struct tweetdispscr_mouseoverwin;
 
-struct tppw_scrollfreeze {
-	enum class SF {
-		ALWAYSFREEZE	= 1<<0,
-	};
-
-	dispscr_base *scr = 0;
-	int extrapixels = 0;
-	flagwrapper<SF> flags = 0;
+struct tpanel_disp_item {
+	uint64_t id;
+	dispscr_base *disp;
+	tpanel_item *item;
 };
-template<> struct enum_traits<tppw_scrollfreeze::SF> { static constexpr bool flags = true; };
+
+typedef std::list<tpanel_disp_item> tpanel_disp_item_list;
 
 struct panelparentwin_base_impl;
 
@@ -75,14 +73,13 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	void SetNoUpdateFlag();
 	void SetClabelUpdatePendingFlag();
 	void CheckClearNoUpdateFlag();
-	void StartScrollFreeze(tppw_scrollfreeze &s);
-	void EndScrollFreeze(tppw_scrollfreeze &s);
-	void SetScrollFreeze(tppw_scrollfreeze &s, dispscr_base *scr);
 	virtual bool IsSingleAccountWin() const;
 	virtual void NotifyRequestFailed() { }
 	wxString GetThisName() const;
 	uint64_t GetCurrentViewTopID() const;
 	void IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const;
+	int IDToCurrentDispIndex(uint64_t id) const;
+	const tpanel_disp_item_list &GetCurrentDisp() const;
 	flagwrapper<TPPWF> GetTPPWFlags() const;
 };
 

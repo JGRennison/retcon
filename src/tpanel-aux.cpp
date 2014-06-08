@@ -33,6 +33,10 @@
 #include "uiutil.h"
 #include <wx/dcmirror.h>
 
+#ifndef TPANEL_COPIOUS_LOGGING
+#define TPANEL_COPIOUS_LOGGING 0
+#endif
+
 enum {
 	NOTEBOOK_ID=42,
 };
@@ -345,8 +349,47 @@ tpanelglobal::tpanelglobal() : arrow_dim(0) {
 	GetMultiUnreadIcon(&multiunreadicon, 0);
 }
 
+BEGIN_EVENT_TABLE(tpanel_item, wxPanel)
+	EVT_MOUSEWHEEL(tpanel_item::mousewheelhandler)
+END_EVENT_TABLE()
 
-BEGIN_EVENT_TABLE(tpanelscrollwin, wxScrolledWindow)
+tpanel_item::tpanel_item(tpanelscrollwin *parent_)
+: wxPanel(parent_, wxID_ANY, wxPoint(-1000, -1000)), parent(parent_) {
+
+	thisname = wxT("tpanel_item for ") + parent_->GetThisName();
+
+	hbox = new wxBoxSizer(wxHORIZONTAL);
+	vbox = new wxBoxSizer(wxVERTICAL);
+	hbox->Add(vbox, 1, wxALL | wxEXPAND, 1);
+	SetSizer(hbox);
+}
+
+void tpanel_item::NotifySizeChange() {
+	wxSize clientsize = parent->GetClientSize();
+	SetMinSize(wxSize(clientsize.x, 1));
+	SetMaxSize(wxSize(clientsize.x, 100000));
+	Fit();
+	if(!parent->resize_update_pending) {
+		parent->resize_update_pending = true;
+		parent->Freeze();
+		wxCommandEvent event(wxextRESIZE_UPDATE_EVENT, GetId());
+		parent->GetEventHandler()->AddPendingEvent(event);
+	}
+}
+
+void tpanel_item::NotifyLayoutNeeded() {
+	Layout();
+}
+
+void tpanel_item::mousewheelhandler(wxMouseEvent &event) {
+	#if TPANEL_COPIOUS_LOGGING
+		LogMsg(LOGT::TPANEL, wxT("TCL: Item MouseWheel"));
+	#endif
+	event.SetEventObject(GetParent());
+	GetParent()->GetEventHandler()->ProcessEvent(event);
+}
+
+BEGIN_EVENT_TABLE(tpanelscrollwin, wxPanel)
 	EVT_SIZE(tpanelscrollwin::resizehandler)
 	EVT_COMMAND(wxID_ANY, wxextRESIZE_UPDATE_EVENT, tpanelscrollwin::resizemsghandler)
 	EVT_SCROLLWIN_TOP(tpanelscrollwin::OnScrollHandler)
@@ -356,10 +399,12 @@ BEGIN_EVENT_TABLE(tpanelscrollwin, wxScrolledWindow)
 	EVT_SCROLLWIN_PAGEUP(tpanelscrollwin::OnScrollHandler)
 	EVT_SCROLLWIN_PAGEDOWN(tpanelscrollwin::OnScrollHandler)
 	EVT_SCROLLWIN_THUMBRELEASE(tpanelscrollwin::OnScrollHandler)
+	EVT_SCROLLWIN_THUMBTRACK(tpanelscrollwin::OnScrollTrack)
+	EVT_MOUSEWHEEL(tpanelscrollwin::mousewheelhandler)
 END_EVENT_TABLE()
 
 tpanelscrollwin::tpanelscrollwin(panelparentwin_base *parent_)
-: wxScrolledWindow(parent_, wxID_ANY, wxPoint(-1000, -1000)), parent(parent_), resize_update_pending(false), page_scroll_blocked(false), fit_inside_blocked(false) {
+		: wxPanel(parent_, wxID_ANY, wxPoint(-1000, -1000)), parent(parent_), resize_update_pending(false), page_scroll_blocked(false) {
 
 	thisname = wxT("tpanelscrollwin for ") + parent_->GetThisName();
 }
@@ -368,60 +413,164 @@ void tpanelscrollwin::resizehandler(wxSizeEvent &event) {
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelscrollwin::resizehandler: %s, %d, %d"), GetThisName().c_str(), event.GetSize().GetWidth(), event.GetSize().GetHeight());
 	#endif
+
+	wxWindowList &children = GetChildren();
+	for(wxWindow *win : children) {
+		tpanel_item *tpi = dynamic_cast<tpanel_item *>(win);
+		if(tpi) {
+			tpi->NotifySizeChange();
+		}
+	}
 }
 
 void tpanelscrollwin::resizemsghandler(wxCommandEvent &event) {
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelscrollwin::resizemsghandler %s"), GetThisName().c_str());
 	#endif
-	tppw_scrollfreeze sf;
-	parent->StartScrollFreeze(sf);
-	FitInside();
-	resize_update_pending=false;
-	parent->EndScrollFreeze(sf);
+	RepositionItems();
+	resize_update_pending = false;
 	Thaw();
 	Update();
 }
 
-void tpanelscrollwin::OnScrollHandler(wxScrollWinEvent &event) {
-	if(event.GetOrientation()!=wxVERTICAL) {
-		event.Skip();
-		return;
-	}
-	wxEventType type=event.GetEventType();
-	bool upok=(type==wxEVT_SCROLLWIN_TOP || type==wxEVT_SCROLLWIN_LINEUP || type==wxEVT_SCROLLWIN_PAGEUP || type==wxEVT_SCROLLWIN_THUMBRELEASE);
-	bool downok=(type==wxEVT_SCROLLWIN_BOTTOM || type==wxEVT_SCROLLWIN_LINEDOWN || type==wxEVT_SCROLLWIN_PAGEDOWN || type==wxEVT_SCROLLWIN_THUMBRELEASE);
+void tpanelscrollwin::mousewheelhandler(wxMouseEvent &event) {
+	int pxdelta = -event.GetWheelRotation() * 50 / event.GetWheelDelta();
+	OnScrollHandlerCommon(pxdelta < 0, pxdelta > 0);
 
-	int y, sy, wy, cy;
-	GetViewStart(0, &y);
-	GetScrollPixelsPerUnit(0, &sy);
-	GetVirtualSize(0, &wy);
-	GetClientSize(0, &cy);
-	int endpos=(y*sy)+cy;
+	int y = GetScrollPos(wxVERTICAL);
+	SetScrollPos(wxVERTICAL, std::max(0, y + pxdelta));
+	ScrollItems();
+}
+
+void tpanelscrollwin::OnScrollTrack(wxScrollWinEvent &event) {
+	ScrollItems();
+}
+
+void tpanelscrollwin::OnScrollHandlerCommon(bool upok, bool downok) {
+	int y = GetScrollPos(wxVERTICAL);
+	int endpos = y + scroll_client_size;
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelscrollwin::OnScrollHandler %s, %d %d %d %d %d"), GetThisName().c_str(), y, sy, wy, cy, endpos);
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelscrollwin::OnScrollHandler %s, %d %d %d %d"), GetThisName().c_str(), y, scroll_virtual_size, scroll_client_size, endpos);
 	#endif
-	bool scrollup=(y==0 && upok);
-	bool scrolldown=(endpos>=wy && downok);
+	bool scrollup = (y == 0 && upok);
+	bool scrolldown = (endpos >= scroll_virtual_size && downok);
 	if(scrollup && !scrolldown && !page_scroll_blocked) {
 		wxCommandEvent evt(wxextTP_PAGEUP_EVENT);
 		parent->GetEventHandler()->AddPendingEvent(evt);
-		page_scroll_blocked=true;
+		page_scroll_blocked = true;
 	}
 	if(!scrollup && scrolldown && !page_scroll_blocked) {
 		wxCommandEvent evt(wxextTP_PAGEDOWN_EVENT);
 		parent->GetEventHandler()->AddPendingEvent(evt);
-		page_scroll_blocked=true;
+		page_scroll_blocked = true;
 	}
+}
 
-	if(type==wxEVT_SCROLLWIN_LINEUP || type==wxEVT_SCROLLWIN_LINEDOWN) {
-		if(type==wxEVT_SCROLLWIN_LINEUP) y-=15;
-		else y+=15;
-		Scroll(-1, std::max(0, y));
+void tpanelscrollwin::OnScrollHandler(wxScrollWinEvent &event) {
+	if(event.GetOrientation() != wxVERTICAL) {
+		event.Skip();
 		return;
 	}
+	wxEventType type = event.GetEventType();
+	bool upok = (type == wxEVT_SCROLLWIN_TOP || type == wxEVT_SCROLLWIN_LINEUP || type == wxEVT_SCROLLWIN_PAGEUP || type == wxEVT_SCROLLWIN_THUMBRELEASE);
+	bool downok = (type == wxEVT_SCROLLWIN_BOTTOM || type == wxEVT_SCROLLWIN_LINEDOWN || type == wxEVT_SCROLLWIN_PAGEDOWN || type == wxEVT_SCROLLWIN_THUMBRELEASE);
 
-	event.Skip();
+	OnScrollHandlerCommon(upok, downok);
+	int y = GetScrollPos(wxVERTICAL);
+
+	if(type == wxEVT_SCROLLWIN_LINEUP || type == wxEVT_SCROLLWIN_LINEDOWN) {
+		if(type == wxEVT_SCROLLWIN_LINEUP) y -= 15;
+		else y += 15;
+		SetScrollPos(wxVERTICAL, std::max(0, y));
+		ScrollItems();
+	}
+	else {
+		ScrollItems();
+		event.Skip();
+	}
+}
+
+// This determines the scrollbar size and position such that, where possible
+// the item at the top of the visible screen is unmoved
+void tpanelscrollwin::RepositionItems() {
+	scroll_virtual_size = 0;
+	int cumul_size = 0;
+	bool have_scroll_offset = false;
+	int scroll_offset = 0;
+
+	for(auto &disp : parent->GetCurrentDisp()) {
+		wxPoint p = disp.item->GetPosition();
+		wxSize s = disp.item->GetSize();
+
+		scroll_virtual_size += s.y;
+
+		if(p.x == 0 && p.y + s.y > 0 && p.y <= 0) {
+			// This is an the first item which is visible at the top of the list
+			// We should use the *last* matching item, this is as earlier items may grow in size to overlap the top of the screen
+
+			// p.y is non-positive
+			// The scroll offset should be increased as p.y increases in magnitude below 0
+			scroll_offset = cumul_size - p.y;
+			have_scroll_offset = true;
+		}
+		cumul_size += s.y;
+	}
+
+	if(parent->pimpl()->displayoffset == 0 && GetScrollPos(wxVERTICAL) == 0 &&
+			have_scroll_offset && !scroll_always_freeze) {
+		// We were at the very top, we would normally be scrolling down as something has been inserted above
+		// Scroll back to the top instead
+		// Don't do this if scroll_always_freeze is true
+		scroll_offset = 0;
+	}
+	scroll_always_freeze = false;
+
+	if(!have_scroll_offset) {
+		scroll_offset = GetScrollPos(wxVERTICAL);
+	}
+
+	scroll_client_size = GetClientSize().y;
+	SetScrollbar(wxVERTICAL, scroll_offset, scroll_client_size, scroll_virtual_size);
+
+	ScrollItems();
+}
+
+// Move all child windows to their correct positions
+void tpanelscrollwin::ScrollItems() {
+	int y = -GetScrollPos(wxVERTICAL);
+
+	for(auto &disp : parent->GetCurrentDisp()) {
+		disp.item->Move(0, y);
+		y += disp.item->GetSize().GetHeight();
+	}
+}
+
+void tpanelscrollwin::ScrollToIndex(unsigned int index, int offset) {
+	int scroll_offset = 0;
+
+	for(auto &disp : parent->GetCurrentDisp()) {
+		if(index == 0) {
+			SetScrollPos(wxVERTICAL, scroll_offset - offset);
+			ScrollItems();
+			return;
+		}
+		else index--;
+
+		wxSize s = disp.item->GetSize();
+		scroll_offset += s.y;
+	}
+}
+
+// Returns true if successful (id is present)
+bool tpanelscrollwin::ScrollToId(uint64_t id, int offset) {
+	int index = parent->IDToCurrentDispIndex(id);
+	if(index >= 0) {
+		ScrollToIndex(index, offset);
+		return true;
+	}
+	else {
+		return false;
+	}
 }
 
 tpanelload_pending_op::tpanelload_pending_op(tpanelparentwin_nt* win_, flagwrapper<PUSHFLAGS> pushflags_, std::shared_ptr<tpanel> *pushtpanel_)
@@ -502,7 +651,7 @@ void tpanel_subtweet_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF>
 		wxBoxSizer *subhbox = new wxBoxSizer(wxHORIZONTAL);
 		data->vbox->Add(subhbox, 0, wxALL | wxEXPAND, 1);
 
-		tweetdispscr *subtd = new tweetdispscr(t, window->pimpl()->scrollwin, window, subhbox);
+		tweetdispscr *subtd = new tweetdispscr(t, tds->tpi, window, subhbox);
 		subtd->tds_flags |= TDSF::SUBTWEET;
 
 		tds->subtweets.emplace_front(subtd);
@@ -510,11 +659,11 @@ void tpanel_subtweet_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF>
 
 		if(t->rtsrc && gc.rtdisp) {
 			t->rtsrc->user->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
-			subtd->bm = new profimg_staticbitmap(window->pimpl()->scrollwin, t->rtsrc->user->cached_profile_img_half, t->rtsrc->user->id, t->id, window->GetMainframe(), profimg_staticbitmap::PISBF::HALF);
+			subtd->bm = new profimg_staticbitmap(tds->tpi, t->rtsrc->user->cached_profile_img_half, t->rtsrc->user->id, t->id, window->GetMainframe(), profimg_staticbitmap::PISBF::HALF);
 		}
 		else {
 			t->user->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
-			subtd->bm = new profimg_staticbitmap(window->pimpl()->scrollwin, t->user->cached_profile_img_half, t->user->id, t->id, window->GetMainframe(), profimg_staticbitmap::PISBF::HALF);
+			subtd->bm = new profimg_staticbitmap(tds->tpi, t->user->cached_profile_img_half, t->user->id, t->id, window->GetMainframe(), profimg_staticbitmap::PISBF::HALF);
 		}
 		subhbox->Add(subtd->bm, 0, wxALL, 1);
 		subhbox->Add(subtd, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
