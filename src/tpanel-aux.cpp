@@ -434,7 +434,7 @@ void tpanelscrollwin::resizemsghandler(wxCommandEvent &event) {
 }
 
 void tpanelscrollwin::mousewheelhandler(wxMouseEvent &event) {
-	int pxdelta = -event.GetWheelRotation() * 50 / event.GetWheelDelta();
+	int pxdelta = -event.GetWheelRotation() * gc.mousewheelscrollspeed / event.GetWheelDelta();
 	OnScrollHandlerCommon(pxdelta < 0, pxdelta > 0);
 
 	int y = GetScrollPos(wxVERTICAL);
@@ -479,8 +479,8 @@ void tpanelscrollwin::OnScrollHandler(wxScrollWinEvent &event) {
 	int y = GetScrollPos(wxVERTICAL);
 
 	if(type == wxEVT_SCROLLWIN_LINEUP || type == wxEVT_SCROLLWIN_LINEDOWN) {
-		if(type == wxEVT_SCROLLWIN_LINEUP) y -= 15;
-		else y += 15;
+		if(type == wxEVT_SCROLLWIN_LINEUP) y -= gc.linescrollspeed;
+		else y += gc.linescrollspeed;
 		SetScrollPos(wxVERTICAL, std::max(0, y));
 		ScrollItems();
 	}

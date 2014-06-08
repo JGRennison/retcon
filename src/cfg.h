@@ -98,14 +98,18 @@ struct genoptconf {
 	CFGTEMPL_UL(mediacachesavedays) \
 	CFGTEMPL_BOOL(showunhighlightallbtn) \
 	CFGTEMPL_UL(asyncstatewritebackintervalmins) \
+	CFGTEMPL_L(mousewheelscrollspeed) \
+	CFGTEMPL_L(linescrollspeed) \
 
 struct genoptglobconf {
 #define CFGTEMPL(x) genopt x;
 #define CFGTEMPL_UL(x) CFGTEMPL(x)
+#define CFGTEMPL_L(x) CFGTEMPL(x)
 #define CFGTEMPL_BOOL(x) CFGTEMPL(x)
 	CFGTEMPL_EXPAND
 #undef CFGTEMPL
 #undef CFGTEMPL_UL
+#undef CFGTEMPL_L
 #undef CFGTEMPL_BOOL
 
 	void CFGWriteOut(DBWriteConfig &twfc) const;
@@ -127,10 +131,12 @@ struct globconf : public globconf_base {
 
 #define CFGTEMPL(x)
 #define CFGTEMPL_UL(x) unsigned long x;
+#define CFGTEMPL_L(x) long x;
 #define CFGTEMPL_BOOL(x) bool x;
 	CFGTEMPL_EXPAND
 #undef CFGTEMPL
 #undef CFGTEMPL_UL
+#undef CFGTEMPL_L
 #undef CFGTEMPL_BOOL
 
 	unsigned long userexpiretime;

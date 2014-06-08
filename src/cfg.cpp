@@ -81,14 +81,18 @@ genoptconf gcdefaults {
 #define CFGDEFAULT_mediacachesavedays                       wxT("7")
 #define CFGDEFAULT_showunhighlightallbtn                    wxT("1")
 #define CFGDEFAULT_asyncstatewritebackintervalmins          wxT("30")
+#define CFGDEFAULT_mousewheelscrollspeed                    wxT("50")
+#define CFGDEFAULT_linescrollspeed                          wxT("20")
 
 genoptglobconf gcglobdefaults {
 #define CFGTEMPL(x) { CFGDEFAULT_##x, 1},
 #define CFGTEMPL_UL(x) CFGTEMPL(x)
+#define CFGTEMPL_L(x) CFGTEMPL(x)
 #define CFGTEMPL_BOOL(x) CFGTEMPL(x)
 	CFGTEMPL_EXPAND
 #undef CFGTEMPL
 #undef CFGTEMPL_UL
+#undef CFGTEMPL_L
 #undef CFGTEMPL_BOOL
 };
 
@@ -157,10 +161,12 @@ void globconf::CFGReadIn(DBReadConfig &twfc) {
 void globconf::CFGParamConv() {
 #define CFGTEMPL(x)
 #define CFGTEMPL_UL(x) gcfg.x.val.ToULong(&x);
+#define CFGTEMPL_L(x) gcfg.x.val.ToLong(&x);
 #define CFGTEMPL_BOOL(x) x = (gcfg.x.val == wxT("1"));
 	CFGTEMPL_EXPAND
 #undef CFGTEMPL
 #undef CFGTEMPL_UL
+#undef CFGTEMPL_L
 #undef CFGTEMPL_BOOL
 
 	gcfg.userexpiretimemins.val.ToULong(&userexpiretime);
@@ -227,10 +233,12 @@ void genoptglobconf::CFGReadIn(DBReadConfig &twfc, const genoptglobconf &parent)
 void genoptglobconf::IterateConfs(std::function<void(const std::string &, genopt genoptglobconf::*)> f) {
 #define CFGTEMPL(x) f(#x, &genoptglobconf::x);
 #define CFGTEMPL_UL(x) CFGTEMPL(x)
+#define CFGTEMPL_L(x) CFGTEMPL(x)
 #define CFGTEMPL_BOOL(x) CFGTEMPL(x)
 	CFGTEMPL_EXPAND
 #undef CFGTEMPL
 #undef CFGTEMPL_UL
+#undef CFGTEMPL_L
 #undef CFGTEMPL_BOOL
 }
 

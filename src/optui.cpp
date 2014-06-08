@@ -476,6 +476,11 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs, wxT("Mark deleted tweets and DMs as read"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.markdeletedtweetsasread, gcglobdefaults.markdeletedtweetsasread);
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs, wxT("Mark own tweets and DMs as read"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.markowntweetsasread, gcglobdefaults.markowntweetsasread);
 
+	wxFlexGridSizer *scrollparamsfgs = 0;
+	addfgsizerblock(wxT("Scrolling"), scrollparamsfgs);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, scrollparamsfgs, wxT("Mouse wheel scroll speed"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.mousewheelscrollspeed, gcglobdefaults.mousewheelscrollspeed);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, scrollparamsfgs, wxT("Line scroll speed"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.linescrollspeed, gcglobdefaults.linescrollspeed);
+
 	wxFlexGridSizer *mediawinposfgs = 0;
 	addfgsizerblock(wxT("Media Window Positioning"), mediawinposfgs);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, mediawinposfgs, wxT("Screen width reduction"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.mediawinscreensizewidthreduction, gcglobdefaults.mediawinscreensizewidthreduction);
