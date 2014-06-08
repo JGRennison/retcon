@@ -365,11 +365,11 @@ void panelparentwin_base_impl::PopBottom() {
 
 void panelparentwin_base_impl::RemoveIndex(size_t offset) {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base_impl::RemoveIndex(%u) %s START"), offset, GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: panelparentwin_base_impl::RemoveIndex(%u) %s START"), offset, GetThisName().c_str());
 	#endif
 	RemoveIndexIntl(offset);
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: panelparentwin_base_impl::RemoveIndex(%u) %s END"), offset, GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: panelparentwin_base_impl::RemoveIndex(%u) %s END"), offset, GetThisName().c_str());
 	#endif
 }
 
@@ -781,7 +781,7 @@ void tpanelparentwin_nt_impl::RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pu
 		}
 	}
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LFT_TPANEL, wxT("TCL: tpanelparentwin_nt_impl::RemoveTweet %s END, %d, %d"), GetThisName().c_str(), displayoffset, currentdisp.size());
+		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt_impl::RemoveTweet %s END, %d, %d"), GetThisName().c_str(), displayoffset, currentdisp.size());
 	#endif
 }
 
@@ -886,7 +886,7 @@ void tpanelparentwin_nt_impl::JumpToTweetID(uint64_t id) {
 			//if the new top id is also the top of the existing range, start loading from below the bottom of the existing range
 			if(!currentdisp.empty() && top_id == currentdisp.front().id) {
 				#if TPANEL_COPIOUS_LOGGING
-					LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt_impl::JumpToTweetID adjusting load bound: %" wxLongLongFmtSpec "d"), currentdisp.back().first);
+					LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelparentwin_nt_impl::JumpToTweetID adjusting load bound: %" wxLongLongFmtSpec "u"), currentdisp.back().id);
 				#endif
 				LoadMore(loadcount, currentdisp.back().id, 0, PUSHFLAGS::ABOVE | PUSHFLAGS::CHECKSCROLLTOID | PUSHFLAGS::NOINCDISPOFFSET);
 			}
@@ -1959,7 +1959,7 @@ bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid) {
 		if(wind != avoid && std::count(tpanelparentwinlist.begin(), tpanelparentwinlist.end(), wind)) {
 			tpanelparentwin *tppw = static_cast<tpanelparentwin*>(wind);
 			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LOGT::TPANEL, wxT("TCL: RedirectMouseWheelEvent: Dispatching to %s"), wxstrstd(tppw->tp->name).c_str());
+				LogMsgFormat(LOGT::TPANEL, wxT("TCL: RedirectMouseWheelEvent: Dispatching to %s"), tppw->GetThisName().c_str());
 			#endif
 			event.SetEventObject(tppw->pimpl()->scrollwin);
 			tppw->pimpl()->scrollwin->GetEventHandler()->ProcessEvent(event);

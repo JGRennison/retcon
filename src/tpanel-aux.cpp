@@ -31,6 +31,7 @@
 #include "res.h"
 #include "cfg.h"
 #include "uiutil.h"
+#include "log.h"
 #include <wx/dcmirror.h>
 
 #ifndef TPANEL_COPIOUS_LOGGING
