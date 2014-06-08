@@ -981,16 +981,53 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP
 
 void jsonparser::DoEventParse(const rapidjson::Value& val) {
 	using URF = user_relationship::URF;
+
+	auto follow_update = [&](bool nowfollowing) {
+		auto targ = DoUserParse(val["target"]);
+		auto src = DoUserParse(val["source"]);
+		time_t optime = 0;
+		if(src->id == tac->usercont->id) {
+			tac->SetUserRelationship(targ->id, SetOrClearBits(URF::IFOLLOW_KNOWN, URF::IFOLLOW_TRUE, nowfollowing), optime);
+		}
+		if(targ->id == tac->usercont->id) {
+			tac->SetUserRelationship(targ->id, SetOrClearBits(URF::FOLLOWSME_KNOWN, URF::FOLLOWSME_TRUE, nowfollowing), optime);
+			// Someone (un)followed the user
+			// TODO: Notify the user
+		}
+	};
+
+	auto favourite_update = [&](bool nowfavourited) {
+		auto targ = DoUserParse(val["target"]);
+		auto src = DoUserParse(val["source"]);
+
+		flagwrapper<JDTP> sflags = JDTP::CHECKPENDINGONLY;
+		if(src->id == tac->usercont->id) {
+			// This user (un)favourited the tweet
+			sflags |= nowfavourited ? JDTP::FAV : JDTP::UNFAV;
+		}
+		/*auto targ_tweet =*/ DoTweetParse(val["target_object"], sflags);
+
+		if(targ->id == tac->usercont->id) {
+			// Someone (un)favourited one of the user's tweets
+			// TODO: Notify the user
+		}
+	};
+
 	std::string str = val["event"].GetString();
 	if(str == "user_update") {
 		DoUserParse(val["target"]);
 	}
 	else if(str == "follow") {
-		auto targ = DoUserParse(val["target"]);
-		auto src = DoUserParse(val["source"]);
-		time_t optime = 0;
-		if(src->id == tac->usercont->id) tac->SetUserRelationship(targ->id, URF::IFOLLOW_KNOWN | URF::IFOLLOW_TRUE, optime);
-		if(targ->id == tac->usercont->id) tac->SetUserRelationship(targ->id, URF::FOLLOWSME_KNOWN | URF::FOLLOWSME_TRUE, optime);
+		follow_update(true);
+	}
+	else if(str == "unfollow") {
+		follow_update(false);
+	}
+	else if(str == "favorite") {
+		favourite_update(true);
+	}
+	else if(str == "unfavorite") {
+		favourite_update(false);
 	}
 }
 
