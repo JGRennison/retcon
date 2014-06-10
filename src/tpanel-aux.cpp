@@ -34,8 +34,8 @@
 #include "log.h"
 #include <wx/dcmirror.h>
 
-#ifndef TPANEL_COPIOUS_LOGGING
-#define TPANEL_COPIOUS_LOGGING 0
+#ifndef TPANEL_SCROLLING_COPIOUS_LOGGING
+#define TPANEL_SCROLLING_COPIOUS_LOGGING 0
 #endif
 
 enum {
@@ -383,8 +383,8 @@ void tpanel_item::NotifyLayoutNeeded() {
 }
 
 void tpanel_item::mousewheelhandler(wxMouseEvent &event) {
-	#if TPANEL_COPIOUS_LOGGING
-		LogMsg(LOGT::TPANEL, wxT("TCL: Item MouseWheel"));
+	#if TPANEL_SCROLLING_COPIOUS_LOGGING
+		LogMsg(LOGT::TPANEL, wxT("TSCL: Item MouseWheel"));
 	#endif
 	event.SetEventObject(GetParent());
 	GetParent()->GetEventHandler()->ProcessEvent(event);
@@ -411,8 +411,8 @@ tpanelscrollwin::tpanelscrollwin(panelparentwin_base *parent_)
 }
 
 void tpanelscrollwin::resizehandler(wxSizeEvent &event) {
-	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelscrollwin::resizehandler: %s, %d, %d"), GetThisName().c_str(), event.GetSize().GetWidth(), event.GetSize().GetHeight());
+	#if TPANEL_SCROLLING_COPIOUS_LOGGING
+		LogMsgFormat(LOGT::TPANEL, wxT("TSCL: tpanelscrollwin::resizehandler: %s, %d, %d"), GetThisName().c_str(), event.GetSize().GetWidth(), event.GetSize().GetHeight());
 	#endif
 
 	wxWindowList &children = GetChildren();
@@ -425,8 +425,8 @@ void tpanelscrollwin::resizehandler(wxSizeEvent &event) {
 }
 
 void tpanelscrollwin::resizemsghandler(wxCommandEvent &event) {
-	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelscrollwin::resizemsghandler %s"), GetThisName().c_str());
+	#if TPANEL_SCROLLING_COPIOUS_LOGGING
+		LogMsgFormat(LOGT::TPANEL, wxT("TSCL: tpanelscrollwin::resizemsghandler %s"), GetThisName().c_str());
 	#endif
 	RepositionItems();
 	resize_update_pending = false;
@@ -436,6 +436,12 @@ void tpanelscrollwin::resizemsghandler(wxCommandEvent &event) {
 
 void tpanelscrollwin::mousewheelhandler(wxMouseEvent &event) {
 	int pxdelta = -event.GetWheelRotation() * gc.mousewheelscrollspeed / event.GetWheelDelta();
+
+	#if TPANEL_SCROLLING_COPIOUS_LOGGING
+		LogMsgFormat(LOGT::TPANEL, wxT("TSCL: tpanelscrollwin::mousewheelhandler %s, %d %d %d"), GetThisName().c_str(),
+				GetScrollPos(wxVERTICAL), event.GetWheelRotation(), pxdelta);
+	#endif
+
 	OnScrollHandlerCommon(pxdelta < 0, pxdelta > 0);
 
 	int y = GetScrollPos(wxVERTICAL);
@@ -444,14 +450,17 @@ void tpanelscrollwin::mousewheelhandler(wxMouseEvent &event) {
 }
 
 void tpanelscrollwin::OnScrollTrack(wxScrollWinEvent &event) {
+	#if TPANEL_SCROLLING_COPIOUS_LOGGING
+		LogMsgFormat(LOGT::TPANEL, wxT("TSCL: tpanelscrollwin::OnScrollTrack %s"), GetThisName().c_str());
+	#endif
 	ScrollItems();
 }
 
 void tpanelscrollwin::OnScrollHandlerCommon(bool upok, bool downok) {
 	int y = GetScrollPos(wxVERTICAL);
 	int endpos = y + scroll_client_size;
-	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelscrollwin::OnScrollHandler %s, %d %d %d %d"), GetThisName().c_str(), y, scroll_virtual_size, scroll_client_size, endpos);
+	#if TPANEL_SCROLLING_COPIOUS_LOGGING
+		LogMsgFormat(LOGT::TPANEL, wxT("TSCL: tpanelscrollwin::OnScrollHandlerCommon %s, %d %d %d %d"), GetThisName().c_str(), y, scroll_virtual_size, scroll_client_size, endpos);
 	#endif
 	bool scrollup = (y == 0 && upok);
 	bool scrolldown = (endpos >= scroll_virtual_size && downok);
@@ -494,6 +503,10 @@ void tpanelscrollwin::OnScrollHandler(wxScrollWinEvent &event) {
 // This determines the scrollbar size and position such that, where possible
 // the item at the top of the visible screen is unmoved
 void tpanelscrollwin::RepositionItems() {
+	#if TPANEL_SCROLLING_COPIOUS_LOGGING
+		LogMsgFormat(LOGT::TPANEL, wxT("TSCL: tpanelscrollwin::RepositionItems %s, START %d %d"), GetThisName().c_str(),
+				GetScrollPos(wxVERTICAL), parent->GetCurrentDisp().size());
+	#endif
 	scroll_virtual_size = 0;
 	int cumul_size = 0;
 	bool have_scroll_offset = false;
@@ -506,7 +519,7 @@ void tpanelscrollwin::RepositionItems() {
 		scroll_virtual_size += s.y;
 
 		if(p.x == 0 && p.y + s.y > 0 && p.y <= 0) {
-			// This is an the first item which is visible at the top of the list
+			// This is an item which is visible at the top of the list
 			// We should use the *last* matching item, this is as earlier items may grow in size to overlap the top of the screen
 
 			// p.y is non-positive
@@ -534,10 +547,17 @@ void tpanelscrollwin::RepositionItems() {
 	SetScrollbar(wxVERTICAL, scroll_offset, scroll_client_size, scroll_virtual_size);
 
 	ScrollItems();
+	#if TPANEL_SCROLLING_COPIOUS_LOGGING
+		LogMsgFormat(LOGT::TPANEL, wxT("TSCL: tpanelscrollwin::RepositionItems %s, END %d %d %d %d %d"), GetThisName().c_str(),
+				GetScrollPos(wxVERTICAL), scroll_offset, have_scroll_offset, scroll_always_freeze, cumul_size);
+	#endif
 }
 
 // Move all child windows to their correct positions
 void tpanelscrollwin::ScrollItems() {
+	#if TPANEL_SCROLLING_COPIOUS_LOGGING
+		LogMsgFormat(LOGT::TPANEL, wxT("TSCL: tpanelscrollwin::ScrollItems %s, %d, %d"), GetThisName().c_str(), GetScrollPos(wxVERTICAL), parent->GetCurrentDisp().size());
+	#endif
 	int y = -GetScrollPos(wxVERTICAL);
 
 	for(auto &disp : parent->GetCurrentDisp()) {
