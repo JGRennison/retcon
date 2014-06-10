@@ -415,12 +415,8 @@ void tpanelscrollwin::resizehandler(wxSizeEvent &event) {
 		LogMsgFormat(LOGT::TPANEL, wxT("TSCL: tpanelscrollwin::resizehandler: %s, %d, %d"), GetThisName().c_str(), event.GetSize().GetWidth(), event.GetSize().GetHeight());
 	#endif
 
-	wxWindowList &children = GetChildren();
-	for(wxWindow *win : children) {
-		tpanel_item *tpi = dynamic_cast<tpanel_item *>(win);
-		if(tpi) {
-			tpi->NotifySizeChange();
-		}
+	for(auto &disp : parent->GetCurrentDisp()) {
+		disp.item->NotifySizeChange();
 	}
 }
 
