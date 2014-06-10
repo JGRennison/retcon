@@ -541,8 +541,12 @@ void tpanelscrollwin::ScrollItems() {
 	int y = -GetScrollPos(wxVERTICAL);
 
 	for(auto &disp : parent->GetCurrentDisp()) {
-		disp.item->Move(0, y);
-		y += disp.item->GetSize().GetHeight();
+		wxSize s = disp.item->GetSize();
+
+		// Note that Move() cannot be used as it special-cases the value of -1, which randomly breaks scrolling >:(
+		disp.item->SetSize(0, y, s.x, s.y, wxSIZE_ALLOW_MINUS_ONE);
+
+		y += s.y;
 	}
 }
 
