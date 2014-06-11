@@ -33,6 +33,7 @@
 #include "uiutil.h"
 #include "log.h"
 #include <wx/dcmirror.h>
+#include <cstdlib>
 
 #ifndef TPANEL_SCROLLING_COPIOUS_LOGGING
 #define TPANEL_SCROLLING_COPIOUS_LOGGING 0
@@ -438,11 +439,12 @@ void tpanelscrollwin::mousewheelhandler(wxMouseEvent &event) {
 				GetScrollPos(wxVERTICAL), event.GetWheelRotation(), pxdelta);
 	#endif
 
-	OnScrollHandlerCommon(pxdelta < 0, pxdelta > 0);
-
 	int y = GetScrollPos(wxVERTICAL);
 	SetScrollPos(wxVERTICAL, std::max(0, y + pxdelta));
 	ScrollItems();
+
+	// Use gc.mousewheelscrollspeed as the threshold, this is to try and make mousewheel scrolling smooth across pages
+	OnScrollHandlerCommon(pxdelta < 0, pxdelta > 0, std::abs(gc.mousewheelscrollspeed));
 }
 
 void tpanelscrollwin::OnScrollTrack(wxScrollWinEvent &event) {
@@ -452,14 +454,14 @@ void tpanelscrollwin::OnScrollTrack(wxScrollWinEvent &event) {
 	ScrollItems();
 }
 
-void tpanelscrollwin::OnScrollHandlerCommon(bool upok, bool downok) {
+void tpanelscrollwin::OnScrollHandlerCommon(bool upok, bool downok, int threshold) {
 	int y = GetScrollPos(wxVERTICAL);
 	int endpos = y + scroll_client_size;
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANEL, wxT("TSCL: tpanelscrollwin::OnScrollHandlerCommon %s, %d %d %d %d"), GetThisName().c_str(), y, scroll_virtual_size, scroll_client_size, endpos);
 	#endif
-	bool scrollup = (y == 0 && upok);
-	bool scrolldown = (endpos >= scroll_virtual_size && downok);
+	bool scrollup = (y <= threshold && upok);
+	bool scrolldown = (endpos >= (scroll_virtual_size - threshold) && downok);
 	if(scrollup && !scrolldown && !page_scroll_blocked) {
 		wxCommandEvent evt(wxextTP_PAGEUP_EVENT);
 		parent->GetEventHandler()->AddPendingEvent(evt);
@@ -481,10 +483,8 @@ void tpanelscrollwin::OnScrollHandler(wxScrollWinEvent &event) {
 	bool upok = (type == wxEVT_SCROLLWIN_TOP || type == wxEVT_SCROLLWIN_LINEUP || type == wxEVT_SCROLLWIN_PAGEUP || type == wxEVT_SCROLLWIN_THUMBRELEASE);
 	bool downok = (type == wxEVT_SCROLLWIN_BOTTOM || type == wxEVT_SCROLLWIN_LINEDOWN || type == wxEVT_SCROLLWIN_PAGEDOWN || type == wxEVT_SCROLLWIN_THUMBRELEASE);
 
-	OnScrollHandlerCommon(upok, downok);
-	int y = GetScrollPos(wxVERTICAL);
-
 	if(type == wxEVT_SCROLLWIN_LINEUP || type == wxEVT_SCROLLWIN_LINEDOWN) {
+		int y = GetScrollPos(wxVERTICAL);
 		if(type == wxEVT_SCROLLWIN_LINEUP) y -= gc.linescrollspeed;
 		else y += gc.linescrollspeed;
 		SetScrollPos(wxVERTICAL, std::max(0, y));
@@ -494,6 +494,8 @@ void tpanelscrollwin::OnScrollHandler(wxScrollWinEvent &event) {
 		ScrollItems();
 		event.Skip();
 	}
+
+	OnScrollHandlerCommon(upok, downok);
 }
 
 // This determines the scrollbar size and position such that, where possible

@@ -108,7 +108,7 @@ struct tpanelscrollwin : public wxPanel {
 	tpanelscrollwin(panelparentwin_base *parent_);
 	void OnScrollHandler(wxScrollWinEvent &event);
 	void OnScrollTrack(wxScrollWinEvent &event);
-	void OnScrollHandlerCommon(bool upok, bool downok);
+	void OnScrollHandlerCommon(bool upok, bool downok, int threshold = 0);
 	void resizehandler(wxSizeEvent &event);
 	void resizemsghandler(wxCommandEvent &event);
 	void mousewheelhandler(wxMouseEvent &event);
