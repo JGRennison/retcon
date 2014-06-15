@@ -147,6 +147,14 @@ static int busy_handler_callback(void *ptr, int count) {
 	else return 0;
 }
 
+dbpscache::dbpscache() {
+	memset(stmts, 0, sizeof(stmts));
+}
+
+dbpscache::~dbpscache() {
+	DeAllocAll();
+}
+
 sqlite3_stmt *dbpscache::GetStmt(sqlite3 *adb, DBPSC_TYPE type) {
 	if(!stmts[type]) {
 		sqlite3_prepare_v2(adb, std_sql_stmts[type], -1, &stmts[type], 0);
@@ -178,6 +186,16 @@ void dbpscache::BeginTransaction(sqlite3 *adb) {
 void dbpscache::EndTransaction(sqlite3 *adb) {
 	transaction_refcount--;
 	if(transaction_refcount == 0) ExecStmt(adb, DBPSC_COMMIT);
+	else if(transaction_refcount < 0) transaction_refcount_went_negative = true;
+}
+
+void dbpscache::CheckTransactionRefcountState() {
+	if(transaction_refcount_went_negative) {
+		LogMsgFormat(LOGT::DBERR, wxT("dbpscache::CheckTransactionRefcountState transaction_refcount went negative"));
+	}
+	if(transaction_refcount != 0) {
+		LogMsgFormat(LOGT::DBERR, wxT("dbpscache::CheckTransactionRefcountState transaction_refcount is %d"), transaction_refcount);
+	}
 }
 
 static bool TagToDict(unsigned char tag, const unsigned char *&dict, size_t &dict_size) {
@@ -1127,6 +1145,8 @@ void dbconn::DeInit() {
 
 	sqlite3_close(syncdb);
 
+	cache.CheckTransactionRefcountState();
+
 	LogMsg(LOGT::DBTRACE | LOGT::THREADTRACE, wxT("dbconn::DeInit(): State write back to database complete, database connection closed."));
 }
 
@@ -1533,6 +1553,7 @@ namespace {
 		//Where F is a functor with an operator() as above
 		template <typename F> void dbexec(sqlite3 *adb, dbpscache &cache, wxString funcname, bool TSLogging, F getfunc) const {
 			SLogMsgFormat(LOGT::DBTRACE, TSLogging, wxT("%s start"), funcname.c_str());
+			cache.BeginTransaction(adb);
 
 			DBWriteConfig dbwc(adb);
 			dbwc.SetDBIndexDB();

@@ -75,15 +75,15 @@ struct dbpscache {
 	sqlite3_stmt *GetStmt(sqlite3 *adb, DBPSC_TYPE type);
 	int ExecStmt(sqlite3 *adb, DBPSC_TYPE type);
 	void DeAllocAll();
-	dbpscache() {
-		memset(stmts, 0, sizeof(stmts));
-	}
-	~dbpscache() { DeAllocAll(); }
+	dbpscache();
+	~dbpscache();
 	void BeginTransaction(sqlite3 *adb);
 	void EndTransaction(sqlite3 *adb);
+	void CheckTransactionRefcountState();
 
 	private:
-	unsigned int transaction_refcount = 0;
+	int transaction_refcount = 0;
+	bool transaction_refcount_went_negative = false;
 };
 
 struct dbiothread : public wxThread {
