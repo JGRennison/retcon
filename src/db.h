@@ -150,6 +150,7 @@ struct dbinsertusermsg : public dbsendmsg {
 	shb_iptr cached_profile_img_hash;
 	unsigned char *mentionindex;			//already packed and compressed, must be malloced
 	size_t mentionindex_size;
+	uint64_t profile_img_last_used;
 };
 
 struct dbinsertaccmsg : public dbsendmsg_callback {

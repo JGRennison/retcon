@@ -45,6 +45,7 @@ struct profimg_staticbitmap : public wxStaticBitmap {
 	flagwrapper<PISBF> pisb_flags;
 
 	profimg_staticbitmap(wxWindow* parent, const wxBitmap& label, udc_ptr udc_, tweet_ptr t_, mainframe *owner_ = nullptr, flagwrapper<PISBF> flags = 0);
+	~profimg_staticbitmap();
 	void ClickHandler(wxMouseEvent &event);
 	void RightClickHandler(wxMouseEvent &event);
 	void OnTweetActMenuCmd(wxCommandEvent &event);

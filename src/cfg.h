@@ -96,6 +96,7 @@ struct genoptconf {
 	CFGTEMPL_BOOL(loadhiddenthumbs) \
 	CFGTEMPL_UL(threadpoollimit) \
 	CFGTEMPL_UL(mediacachesavedays) \
+	CFGTEMPL_UL(profimgcachesavedays) \
 	CFGTEMPL_BOOL(showunhighlightallbtn) \
 	CFGTEMPL_UL(asyncstatewritebackintervalmins) \
 	CFGTEMPL_L(mousewheelscrollspeed) \

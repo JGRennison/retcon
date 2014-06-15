@@ -306,6 +306,11 @@ END_EVENT_TABLE()
 
 profimg_staticbitmap::profimg_staticbitmap(wxWindow* parent, const wxBitmap& label, udc_ptr udc_, tweet_ptr t_, mainframe *owner_, flagwrapper<PISBF> flags)
 		: wxStaticBitmap(parent, wxID_ANY, label, wxPoint(-1000, -1000)), udc(std::move(udc_)), t(std::move(t_)), owner(owner_), pisb_flags(flags) {
+	udc->profile_img_last_used = time(0);
+}
+
+profimg_staticbitmap::~profimg_staticbitmap() {
+	udc->profile_img_last_used = time(0);
 }
 
 void profimg_staticbitmap::ClickHandler(wxMouseEvent &event) {

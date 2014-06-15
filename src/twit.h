@@ -162,6 +162,9 @@ struct userdatacontainer {
 	std::deque<tweet_ptr> pendingtweets;
 	std::deque<uint64_t> mention_index;    //append only
 
+	uint64_t profile_img_last_used = 0;
+	uint64_t profile_img_last_used_db = 0;
+
 	private:
 	struct mention_set_data {
 		tweetidset mention_set;

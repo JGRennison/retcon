@@ -514,6 +514,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_Bool(OPTWIN_CACHING, panel, fgs,  wxT("Cache media image thumbnails"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.cachethumbs, gcglobdefaults.cachethumbs);
 	AddSettingRow_Bool(OPTWIN_CACHING, panel, fgs,  wxT("Cache full-size media images"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.cachemedia, gcglobdefaults.cachemedia);
 	AddSettingRow_String(OPTWIN_CACHING, panel, fgs,  wxT("Delete cached media images after\nnot being used for this many days"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.mediacachesavedays, gcglobdefaults.mediacachesavedays, wxFILTER_NUMERIC);
+	AddSettingRow_String(OPTWIN_CACHING, panel, fgs,  wxT("Delete cached user profile images after\nnot being used for this many days"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.profimgcachesavedays, gcglobdefaults.profimgcachesavedays, wxFILTER_NUMERIC);
 
 	AddSettingRow_Bool(OPTWIN_TWITTER, panel, fgs,  wxT("Assume that mentions are a subset of the home timeline"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.assumementionistweet, gcglobdefaults.assumementionistweet);
 

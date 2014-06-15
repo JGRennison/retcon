@@ -79,6 +79,7 @@ genoptconf gcdefaults {
 #define CFGDEFAULT_loadhiddenthumbs                         wxT("0")
 #define CFGDEFAULT_threadpoollimit                          wxT("8")
 #define CFGDEFAULT_mediacachesavedays                       wxT("7")
+#define CFGDEFAULT_profimgcachesavedays                     wxT("14")
 #define CFGDEFAULT_showunhighlightallbtn                    wxT("1")
 #define CFGDEFAULT_asyncstatewritebackintervalmins          wxT("30")
 #define CFGDEFAULT_mousewheelscrollspeed                    wxT("50")

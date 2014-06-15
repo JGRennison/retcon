@@ -82,7 +82,7 @@ static const esctable *dynjsontable = &allesctables[0];
 static const char *startup_sql=
 "PRAGMA locking_mode = EXCLUSIVE;"
 "CREATE TABLE IF NOT EXISTS tweets(id INTEGER PRIMARY KEY NOT NULL, statjson BLOB, dynjson BLOB, userid INTEGER, userrecipid INTEGER, flags INTEGER, timestamp INTEGER, rtid INTEGER);"
-"CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY NOT NULL, json BLOB, cachedprofimgurl BLOB, createtimestamp INTEGER, lastupdatetimestamp INTEGER, cachedprofileimgchecksum BLOB, mentionindex BLOB);"
+"CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY NOT NULL, json BLOB, cachedprofimgurl BLOB, createtimestamp INTEGER, lastupdatetimestamp INTEGER, cachedprofileimgchecksum BLOB, mentionindex BLOB, profimglastusedtimestamp INTEGER);"
 "CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, dispname TEXT, json BLOB, tweetids BLOB, dmids BLOB, userid INTEGER);"
 "CREATE TABLE IF NOT EXISTS settings(accid BLOB, name TEXT, value BLOB, PRIMARY KEY (accid, name));"
 "CREATE TABLE IF NOT EXISTS rbfspending(accid INTEGER, type INTEGER, startid INTEGER, endid INTEGER, maxleft INTEGER);"
@@ -99,7 +99,7 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"UPDATE tweets SET dynjson = ?, flags = ? WHERE id == ?;",
 	"BEGIN;",
 	"COMMIT;",
-	"INSERT OR REPLACE INTO users(id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex) VALUES (?, ?, ?, ?, ?, ?, ?);",
+	"INSERT OR REPLACE INTO users(id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex, profimglastusedtimestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
 	"INSERT INTO acc(name, dispname, userid) VALUES (?, ?, ?);",
 	"UPDATE acc SET tweetids = ?, dmids = ?, dispname = ? WHERE id == ?;",
 	"SELECT statjson, dynjson, userid, userrecipid, flags, timestamp, rtid FROM tweets WHERE id == ?;",
@@ -127,8 +127,11 @@ static const char *update_sql[] = {
 	"UPDATE OR IGNORE settings SET accid = 'G' WHERE (hex(accid) == '4700');"  //This is because previous versions of retcon accidentally inserted an embedded null when writing out the config
 	"UPDATE OR IGNORE tweets SET medialist = NULL;"
 	,
+	"ALTER TABLE users ADD COLUMN profimglastusedtimestamp INTEGER;"
+	"UPDATE OR IGNORE users SET profimglastusedtimestamp = strftime('%s','now');"
+	,
 };
-static const unsigned int db_version = 1;
+static const unsigned int db_version = 2;
 
 static const std::string globstr = "G";
 static const std::string globdbstr = "D";
@@ -581,6 +584,7 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 				sqlite3_bind_null(stmt, 6);
 			}
 			sqlite3_bind_blob(stmt, 7, m->mentionindex, m->mentionindex_size, &free);
+			sqlite3_bind_int64(stmt, 8, (sqlite3_int64) m->profile_img_last_used);
 			int res = sqlite3_step(stmt);
 			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, wxT("DBSM::INSERTUSER got error: %d (%s) for id: %" wxLongLongFmtSpec "d"),
 					res, wxstrstd(sqlite3_errmsg(db)).c_str(), m->id); }
@@ -1139,6 +1143,7 @@ void dbconn::DeInit() {
 		SyncWriteBackTpanels(syncdb);
 	}
 	SyncPurgeMediaEntities(syncdb); //this does a dry-run in read-only mode
+	SyncPurgeProfileImages(syncdb); //this does a dry-run in read-only mode
 	if(!gc.readonlymode) {
 		cache.EndTransaction(syncdb);
 	}
@@ -1240,6 +1245,8 @@ void dbconn::InsertUser(udc_ptr_p u, optional_observer_ptr<dbsendmsg_list> msgli
 	msg->cached_profile_img_hash = u->cached_profile_img_sha1;
 	msg->mentionindex = settocompressedblob(u->mention_index, msg->mentionindex_size);
 	u->lastupdate_wrotetodb = u->lastupdate;
+	msg->profile_img_last_used = u->profile_img_last_used;
+	u->profile_img_last_used_db = u->profile_img_last_used;
 	SendMessageOrAddToList(std::move(msg), msglist);
 }
 
@@ -1502,9 +1509,9 @@ void dbconn::AsyncWriteBackAccountIdLists(dbfunctionmsg &msg) {
 
 namespace {
 	struct WriteBackAllUsers {
-		size_t allusercount;
+		unsigned int allusercount;
 
-		WriteBackAllUsers(size_t a) : allusercount(a) { }
+		WriteBackAllUsers() : allusercount(ad.userconts.size()) { }
 
 		struct itemdata {
 			uint64_t id;
@@ -1522,6 +1529,11 @@ namespace {
 
 			unsigned char *mention_blob;
 			size_t mention_blob_size;
+
+			uint64_t profile_img_last_used;
+
+			bool user_needs_updating;
+			bool profimgtime_needs_updating;
 		};
 
 		//Where F is a functor of the form void(const itemdata &)
@@ -1529,10 +1541,21 @@ namespace {
 		template <typename F> void operator()(F func) const {
 			for(auto &it : ad.userconts) {
 				userdatacontainer *u = &(it.second);
-				if(u->lastupdate == u->lastupdate_wrotetodb) continue;    //this user is already in the database and does not need updating
+
 				if(u->user.screen_name.empty()) continue;                 //don't bother saving empty user stubs
 
+				// User needs updating
+				bool user_needs_updating = u->lastupdate != u->lastupdate_wrotetodb;
+
+				// Profile image last used time needs updating (is more than 8 hours out)
+				bool profimgtime_needs_updating = u->profile_img_last_used > u->profile_img_last_used_db + (8 * 60 * 60);
+
+				if(!user_needs_updating && !profimgtime_needs_updating) {
+					continue;    //this user does not need updating
+				}
+
 				u->lastupdate_wrotetodb = u->lastupdate;
+				u->profile_img_last_used_db = u->profile_img_last_used;
 
 				itemdata data;
 
@@ -1545,6 +1568,11 @@ namespace {
 				data.cached_profile_img_sha1 = u->cached_profile_img_sha1;
 
 				data.mention_blob = settoblob(u->mention_index, data.mention_blob_size);
+
+				data.profile_img_last_used = u->profile_img_last_used;
+
+				data.user_needs_updating = user_needs_updating;
+				data.profimgtime_needs_updating = profimgtime_needs_updating;
 
 				func(std::move(data));
 			}
@@ -1560,7 +1588,9 @@ namespace {
 			dbwc.WriteInt64("UserCountHint", allusercount);
 
 			sqlite3_stmt *stmt = cache.GetStmt(adb, DBPSC_INSUSER);
-			size_t user_count = 0;
+			unsigned int user_count = 0;
+			unsigned int lastupdate_count = 0;
+			unsigned int profimgtime_count = 0;
 			getfunc([&](const itemdata &data) {
 				user_count++;
 				sqlite3_bind_int64(stmt, 1, (sqlite3_int64) data.id);
@@ -1576,6 +1606,10 @@ namespace {
 				}
 				bind_compressed(stmt, 7, data.mention_blob, data.mention_blob_size, 'Z');
 				free(data.mention_blob);
+				sqlite3_bind_int64(stmt, 8, (sqlite3_int64) data.profile_img_last_used);
+
+				if(data.user_needs_updating) lastupdate_count++;
+				if(data.profimgtime_needs_updating) profimgtime_count++;
 
 				int res = sqlite3_step(stmt);
 				if(res != SQLITE_DONE) {
@@ -1589,22 +1623,23 @@ namespace {
 			});
 
 			cache.EndTransaction(adb);
-			SLogMsgFormat(LOGT::DBTRACE, TSLogging, wxT("%s end, wrote back %u of %u users"), funcname.c_str(), user_count, allusercount);
+			SLogMsgFormat(LOGT::DBTRACE, TSLogging, wxT("%s end, wrote back %u of %u users (update: %u, prof img: %u)"),
+					funcname.c_str(), user_count, allusercount, lastupdate_count, profimgtime_count);
 		}
 	};
 };
 
 void dbconn::SyncWriteBackAllUsers(sqlite3 *adb) {
-	DoGenericSyncWriteBack(adb, cache, WriteBackAllUsers(ad.userconts.size()), wxT("dbconn::SyncWriteBackAllUsers"));
+	DoGenericSyncWriteBack(adb, cache, WriteBackAllUsers(), wxT("dbconn::SyncWriteBackAllUsers"));
 }
 
 void dbconn::AsyncWriteBackAllUsers(dbfunctionmsg &msg) {
-	DoGenericAsyncWriteBack(msg, WriteBackAllUsers(ad.userconts.size()), wxT("dbconn::AsyncWriteBackAllUsers"));
+	DoGenericAsyncWriteBack(msg, WriteBackAllUsers(), wxT("dbconn::AsyncWriteBackAllUsers"));
 }
 
 void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncReadInAllUsers start"));
-	const char sql[] = "SELECT id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex FROM users;";
+	const char sql[] = "SELECT id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex, profimglastusedtimestamp FROM users;";
 	sqlite3_stmt *stmt = 0;
 	sqlite3_prepare_v2(adb, sql, sizeof(sql), &stmt, 0);
 
@@ -1618,7 +1653,7 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 		ad.userconts.reserve(usercounthint);
 	}
 
-	size_t user_read_count = 0;
+	unsigned int user_read_count = 0;
 	do {
 		int res = sqlite3_step(stmt);
 		if(res == SQLITE_ROW) {
@@ -1650,6 +1685,8 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 			if(json) free(json);
 			if(profimg) free(profimg);
 			setfromcompressedblob([&](uint64_t &tid) { u.mention_index.push_back(tid); }, stmt, 6);
+			u.profile_img_last_used = (uint64_t) sqlite3_column_int64(stmt, 7);
+			u.profile_img_last_used_db = u.profile_img_last_used;
 			#if DB_COPIOUS_LOGGING
 				LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncReadInAllUsers retrieved user id: %" wxLongLongFmtSpec "d"), (sqlite3_int64) id);
 			#endif
@@ -1658,7 +1695,7 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 		else break;
 	} while(true);
 	sqlite3_finalize(stmt);
-	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncReadInAllUsers end, read in %u users (%u total)"), user_read_count, ad.userconts.size());
+	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncReadInAllUsers end, read in %u users (%u total)"), user_read_count, (unsigned int) ad.userconts.size());
 }
 
 namespace {
@@ -2118,8 +2155,43 @@ void dbconn::SyncPurgeMediaEntities(sqlite3 *adb) {
 		}
 
 		LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncPurgeMediaEntities end, last purged %" wxLongLongFmtSpec "ds ago, purged %u, (thumb: %u, full: %u)"),
-				(int64_t) delta, purge_list.size(), thumb_count, full_count);
+				(int64_t) delta, (unsigned int) purge_list.size(), thumb_count, full_count);
 	}
+}
+
+void dbconn::SyncPurgeProfileImages(sqlite3 *adb) {
+	LogMsg(LOGT::DBTRACE, wxT("dbconn::SyncPurgeProfileImages start"));
+	std::deque<uint64_t> expire_list;
+
+	const time_t threshold = time(0) - (60 * 60 * 24 * gc.profimgcachesavedays);
+
+	for(auto &it : ad.userconts) {
+		uint64_t id = it.first;
+		userdatacontainer *u = &(it.second);
+		if(u->cached_profile_img_sha1 && (time_t) u->profile_img_last_used < threshold) {
+			// User has a profile image which can now be evicted from the disk cache
+			expire_list.push_back(id);
+			u->cached_profile_img_url = "";
+			u->cached_profile_img_sha1 = nullptr;
+			wxString filename;
+			u->GetImageLocalFilename(filename);
+			if(!gc.readonlymode) wxRemoveFile(filename);
+		}
+	}
+
+	if(!gc.readonlymode && expire_list.size()) {
+		cache.BeginTransaction(adb);
+
+		DBRangeBindExec(adb, "UPDATE users SET cachedprofimgurl = 'T', cachedprofileimgchecksum = NULL WHERE id == ?;",
+				expire_list.begin(), expire_list.end(),
+				[&](sqlite3_stmt *stmt, uint64_t id) {
+					sqlite3_bind_int64(stmt, 1, id);
+				}, "dbconn::SyncPurgeProfileImages (purge cache checksum)");
+
+		cache.EndTransaction(adb);
+	}
+
+	LogMsgFormat(LOGT::DBTRACE, wxT("dbconn::SyncPurgeProfileImages end, purged %u"), (unsigned int) expire_list.size());
 }
 
 void dbconn::OnAsyncStateWriteTimer(wxTimerEvent& event) {

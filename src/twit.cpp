@@ -228,7 +228,12 @@ bool userdatacontainer::ImgIsReady(flagwrapper<PENDING_REQ> preq) {
 	if(user.profile_img_url.size()) {
 		if(cached_profile_img_url != user.profile_img_url) {
 			if(udc_flags & UDC::PROFILE_IMAGE_DL_FAILED) return true;
-			if(preq & PENDING_REQ::PROFIMG_DOWNLOAD_FLAG) profileimgdlconn::GetConn(user.profile_img_url, this);
+			if(preq & PENDING_REQ::PROFIMG_DOWNLOAD_FLAG) {
+				profileimgdlconn::GetConn(user.profile_img_url, this);
+
+				// New image, bump last used timestamp to prevent it being evicted prior to display
+				profile_img_last_used = time(0);
+			}
 			return false;
 		}
 		else if(cached_profile_img_url.size() && !(udc_flags & UDC::PROFILE_BITMAP_SET))  {
