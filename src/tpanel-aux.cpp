@@ -304,10 +304,14 @@ BEGIN_EVENT_TABLE(profimg_staticbitmap, wxStaticBitmap)
 	EVT_MENU_RANGE(tweetactmenustartid, tweetactmenuendid, profimg_staticbitmap::OnTweetActMenuCmd)
 END_EVENT_TABLE()
 
+profimg_staticbitmap::profimg_staticbitmap(wxWindow* parent, const wxBitmap& label, udc_ptr udc_, tweet_ptr t_, mainframe *owner_, flagwrapper<PISBF> flags)
+		: wxStaticBitmap(parent, wxID_ANY, label, wxPoint(-1000, -1000)), udc(std::move(udc_)), t(std::move(t_)), owner(owner_), pisb_flags(flags) {
+}
+
 void profimg_staticbitmap::ClickHandler(wxMouseEvent &event) {
 	std::shared_ptr<taccount> acc_hint;
-	ad.GetTweetById(tweetid)->GetUsableAccount(acc_hint);
-	user_window::MkWin(userid, acc_hint);
+	if(t) t->GetUsableAccount(acc_hint);
+	user_window::MkWin(udc->id, acc_hint);
 }
 
 void profimg_staticbitmap::RightClickHandler(wxMouseEvent &event) {
@@ -315,7 +319,7 @@ void profimg_staticbitmap::RightClickHandler(wxMouseEvent &event) {
 		wxMenu menu;
 		int nextid=tweetactmenustartid;
 		tamd.clear();
-		AppendUserMenuItems(menu, tamd, nextid, ad.GetUserContainerById(userid), ad.GetTweetById(tweetid));
+		AppendUserMenuItems(menu, tamd, nextid, udc, t);
 		GenericPopupWrapper(this, &menu);
 	}
 }
@@ -682,11 +686,11 @@ void tpanel_subtweet_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF>
 
 		if(t->rtsrc && gc.rtdisp) {
 			t->rtsrc->user->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
-			subtd->bm = new profimg_staticbitmap(tds->tpi, t->rtsrc->user->cached_profile_img_half, t->rtsrc->user->id, t->id, window->GetMainframe(), profimg_staticbitmap::PISBF::HALF);
+			subtd->bm = new profimg_staticbitmap(tds->tpi, t->rtsrc->user->cached_profile_img_half, t->rtsrc->user, t, window->GetMainframe(), profimg_staticbitmap::PISBF::HALF);
 		}
 		else {
 			t->user->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
-			subtd->bm = new profimg_staticbitmap(tds->tpi, t->user->cached_profile_img_half, t->user->id, t->id, window->GetMainframe(), profimg_staticbitmap::PISBF::HALF);
+			subtd->bm = new profimg_staticbitmap(tds->tpi, t->user->cached_profile_img_half, t->user, t, window->GetMainframe(), profimg_staticbitmap::PISBF::HALF);
 		}
 		subhbox->Add(subtd->bm, 0, wxALL, 1);
 		subhbox->Add(subtd, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);

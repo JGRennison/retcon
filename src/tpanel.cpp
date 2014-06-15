@@ -690,18 +690,18 @@ tweetdispscr *tpanelparentwin_nt_impl::CreateTweetInItem(tweet_ptr_p t, tpanel_d
 
 	if(t->flags.Get('T')) {
 		if(t->rtsrc && gc.rtdisp) {
-			td->bm = new profimg_staticbitmap(item, t->rtsrc->user->cached_profile_img, t->rtsrc->user->id, t->id, GetMainframe());
+			td->bm = new profimg_staticbitmap(item, t->rtsrc->user->cached_profile_img, t->rtsrc->user, t, GetMainframe());
 		}
 		else {
-			td->bm = new profimg_staticbitmap(item, t->user->cached_profile_img, t->user->id, t->id, GetMainframe());
+			td->bm = new profimg_staticbitmap(item, t->user->cached_profile_img, t->user, t, GetMainframe());
 		}
 		item->hbox->Prepend(td->bm, 0, wxALL, 2);
 	}
 	else if(t->flags.Get('D') && t->user_recipient) {
 			t->user->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
 			t->user_recipient->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
-			td->bm = new profimg_staticbitmap(item, t->user->cached_profile_img_half, t->user->id, t->id, GetMainframe(), profimg_staticbitmap::PISBF::HALF);
-			td->bm2 = new profimg_staticbitmap(item, t->user_recipient->cached_profile_img_half, t->user_recipient->id, t->id, GetMainframe(), profimg_staticbitmap::PISBF::HALF);
+			td->bm = new profimg_staticbitmap(item, t->user->cached_profile_img_half, t->user, t, GetMainframe(), profimg_staticbitmap::PISBF::HALF);
+			td->bm2 = new profimg_staticbitmap(item, t->user_recipient->cached_profile_img_half, t->user_recipient, t, GetMainframe(), profimg_staticbitmap::PISBF::HALF);
 			int dim=gc.maxpanelprofimgsize/2;
 			if(tpg->arrow_dim!=dim) {
 				tpg->arrow=GetArrowIconDim(dim);
@@ -1686,7 +1686,7 @@ bool tpanelparentwin_user_impl::UpdateUser(udc_ptr_p u, size_t offset) {
 		userdispscr *td = new userdispscr(u, item, base(), item->hbox);
 		tpdi->disp = td;
 
-		td->bm = new profimg_staticbitmap(item, u->cached_profile_img, u->id, 0, GetMainframe());
+		td->bm = new profimg_staticbitmap(item, u->cached_profile_img, u, nullptr, GetMainframe());
 		item->hbox->Prepend(td->bm, 0, wxALL, 2);
 
 		item->vbox->Add(td, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);

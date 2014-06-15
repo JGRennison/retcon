@@ -973,7 +973,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 		#endif
 		auto updateprofimg = [this](profimg_staticbitmap *b) {
 			if(!b) return;
-			udc_ptr udcp = ad.GetExistingUserContainerById(b->userid);
+			udc_ptr udcp = b->udc;
 			if(!udcp) return;
 			if(b->pisb_flags & profimg_staticbitmap::PISBF::HALF) {
 				udcp->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
@@ -1475,7 +1475,10 @@ void AppendUserMenuItems(wxMenu &menu, tweetactmenudata &map, int &nextid, udc_p
 	AppendToTAMIMenuMap(map, nextid, TAMI_USERWINDOW, tw, 0, user);
 
 	menu.Append(nextid, wxT("Open Twitter Profile in Browser"));
-	AppendToTAMIMenuMap(map, nextid, TAMI_BROWSEREXTRA, tw, 0, user, 0, wxstrstd(user->GetPermalink(tw->flags.Get('s'))));
+	bool https_link;
+	if(tw) https_link = tw->flags.Get('s');
+	else https_link = gc.cfg.ssl.val == wxT("1");
+	AppendToTAMIMenuMap(map, nextid, TAMI_BROWSEREXTRA, tw, 0, user, 0, wxstrstd(user->GetPermalink(https_link)));
 
 	menu.Append(nextid, wxT("Send DM"));
 	AppendToTAMIMenuMap(map, nextid, TAMI_DM, tw, 0, user);

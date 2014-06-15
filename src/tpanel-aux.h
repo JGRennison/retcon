@@ -34,8 +34,8 @@ struct panelparentwin_base;
 struct tpanelscrollwin;
 
 struct profimg_staticbitmap : public wxStaticBitmap {
-	uint64_t userid;
-	uint64_t tweetid;
+	udc_ptr udc;
+	tweet_ptr t; // This may be nullptr
 	mainframe *owner;
 
 	enum class PISBF {
@@ -44,8 +44,7 @@ struct profimg_staticbitmap : public wxStaticBitmap {
 	};
 	flagwrapper<PISBF> pisb_flags;
 
-	inline profimg_staticbitmap(wxWindow* parent, const wxBitmap& label, uint64_t userid_, uint64_t tweetid_, mainframe *owner_ = 0, flagwrapper<PISBF> flags = 0)
-		: wxStaticBitmap(parent, wxID_ANY, label, wxPoint(-1000, -1000)), userid(userid_), tweetid(tweetid_), owner(owner_), pisb_flags(flags) { }
+	profimg_staticbitmap(wxWindow* parent, const wxBitmap& label, udc_ptr udc_, tweet_ptr t_, mainframe *owner_ = nullptr, flagwrapper<PISBF> flags = 0);
 	void ClickHandler(wxMouseEvent &event);
 	void RightClickHandler(wxMouseEvent &event);
 	void OnTweetActMenuCmd(wxCommandEvent &event);
