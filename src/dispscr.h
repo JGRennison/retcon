@@ -23,6 +23,7 @@
 #include "magic_ptr.h"
 #include "uiutil.h"
 #include "flags.h"
+#include "primaryclipboard.h"
 #include <wx/colour.h>
 #include <wx/string.h>
 #include <wx/richtext/richtextctrl.h>
@@ -98,6 +99,10 @@ struct generic_disp_base : public wxRichTextCtrl, public magic_ptr_base {
 	void StartActionBatch();
 	void StopActionBatch();
 	void DoAction(std::function<void()> &&f);
+
+#if HANDLE_PRIMARY_CLIPBOARD
+	void OnLeftUp(wxMouseEvent& event);
+#endif
 
 	DECLARE_EVENT_TABLE()
 };

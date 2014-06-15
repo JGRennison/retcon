@@ -36,6 +36,9 @@
 #include "retcon.h"
 #include <wx/msgdlg.h>
 #include <wx/app.h>
+#if HANDLE_PRIMARY_CLIPBOARD
+#include <wx/clipbrd.h>
+#endif
 #include <forward_list>
 #include <algorithm>
 
@@ -277,6 +280,10 @@ DEFINE_EVENT_TYPE(wxextTPRESIZE_UPDATE_EVENT)
 
 BEGIN_EVENT_TABLE(tweetposttextbox, wxRichTextCtrl)
 	EVT_TEXT(wxID_ANY, tweetposttextbox::OnTCUpdate)
+#if HANDLE_PRIMARY_CLIPBOARD
+	EVT_LEFT_UP(tweetposttextbox::OnLeftUp)
+	EVT_MIDDLE_DOWN(tweetposttextbox::OnMiddleClick)
+#endif
 END_EVENT_TABLE()
 
 tweetposttextbox::tweetposttextbox(tweetpostwin *parent_, const wxString &deftext, wxWindowID id)
@@ -320,6 +327,26 @@ void tweetposttextbox::SetCursorToEnd() {
 	SetFocus();
 	if(parent && parent->mparentwin) parent->mparentwin->Raise();
 }
+
+#if HANDLE_PRIMARY_CLIPBOARD
+// This is effectively a backport of http://trac.wxwidgets.org/changeset/70011
+
+void tweetposttextbox::OnLeftUp(wxMouseEvent& event) {
+	wxTheClipboard->UsePrimarySelection(true);
+	Copy();
+	wxTheClipboard->UsePrimarySelection(false);
+
+	// Propagate
+	event.Skip(true);
+}
+
+void tweetposttextbox::OnMiddleClick(wxMouseEvent& event) {
+	wxTheClipboard->UsePrimarySelection(true);
+	Paste();
+	wxTheClipboard->UsePrimarySelection(false);
+}
+
+#endif
 
 BEGIN_EVENT_TABLE(tweetpostwin, wxPanel)
 	EVT_BUTTON(TPWIN_SENDBTN, tweetpostwin::OnSendBtn)
