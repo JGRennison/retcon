@@ -29,6 +29,7 @@
 #include <wx/panel.h>
 #include <forward_list>
 #include <functional>
+#include <list>
 
 #define BATCH_TIMER_DELAY 100
 

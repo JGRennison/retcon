@@ -26,6 +26,7 @@
 #include  <cstddef>
 #include  <utility>
 #include  <type_traits>
+#include  <memory>
 
 template <typename T>
 class observer_ptr {
