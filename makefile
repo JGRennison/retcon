@@ -23,9 +23,10 @@
 
 
 OBJS_SRC := retcon.cpp cfg.cpp optui.cpp parse.cpp socket.cpp socket-ops.cpp tpanel.cpp tpanel-data.cpp tpanel-aux.cpp twit.cpp db.cpp log.cpp cmdline.cpp userui.cpp mainui.cpp signal.cpp threadutil.cpp
-OBJS_SRC += dispscr.cpp uiutil.cpp mediawin.cpp taccount.cpp util.cpp res.cpp version.cpp aboutwin.cpp twitcurlext.cpp filter/filter.cpp filter/filter-dlg.cpp bind_wxevt.cpp
+OBJS_SRC += dispscr.cpp uiutil.cpp mediawin.cpp taccount.cpp util.cpp res.cpp aboutwin.cpp twitcurlext.cpp filter/filter.cpp filter/filter-dlg.cpp bind_wxevt.cpp
 TCOBJS_SRC:=libtwitcurl/base64.cpp libtwitcurl/HMAC_SHA1.cpp libtwitcurl/oauthlib.cpp libtwitcurl/SHA1.cpp libtwitcurl/twitcurl.cpp libtwitcurl/urlencode.cpp
 COBJS_SRC:=utf8proc/utf8proc.c
+OTHER_SRC:=version.cpp
 OUTNAME:=retcon
 COMMONCFLAGS=-Wall -Wextra -Wshadow -Wno-unused-parameter -Ideps
 COBJS_CFLAGS=-Wno-missing-field-initializers -Wno-sign-compare
@@ -43,6 +44,11 @@ DIRS=$(OBJDIR) $(OBJDIR)$(PATHSEP)libtwitcurl $(OBJDIR)$(PATHSEP)res $(OBJDIR)$(
 EXECPREFIX:=./
 PATHSEP:=/
 MKDIR:=mkdir -p
+
+VERSION_STRING := $(shell git describe --tags --always --dirty=-m 2>/dev/null)
+ifdef VERSION_STRING
+BVCFLAGS += -DRETCON_BUILD_VERSION='"${VERSION_STRING}"'
+endif
 
 ifdef debug
 
@@ -212,12 +218,14 @@ $(OBJS): $(OBJDIR)/pch/pch.h.gch
 endif
 
 #This is to avoid unpleasant side-effects of over-writing executable in-place if it is currently running
-$(TARGS): $(ALL_OBJS)
+$(TARGS): $(ALL_OBJS) src/version.cpp
+	@echo '    g++     src/version.cpp'
+	$(call EXEC,$(GCC) -c src/version.cpp -o $(OBJDIR)/version.o $(CFLAGS) $(MCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(BVCFLAGS) $(GFLAGS) $(MAKEDEPS))
 	@echo '    Link    $(OUTNAME)$(SUFFIX)'
 ifeq "$(HOST)" "WIN"
-	$(call EXEC,$(LINK_PREFIX)$(GCC) $(ALL_OBJS) -o $(OUTNAME)$(SUFFIX) $(LIBS) $(AFLAGS) $(GFLAGS))
+	$(call EXEC,$(LINK_PREFIX)$(GCC) $(ALL_OBJS) $(OBJDIR)/version.o -o $(OUTNAME)$(SUFFIX) $(LIBS) $(AFLAGS) $(GFLAGS))
 else
-	$(call EXEC,$(LINK_PREFIX)$(GCC) $(ALL_OBJS) -o $(OUTNAME)$(SUFFIX).tmp $(LIBS) $(AFLAGS) $(GFLAGS))
+	$(call EXEC,$(LINK_PREFIX)$(GCC) $(ALL_OBJS) $(OBJDIR)/version.o -o $(OUTNAME)$(SUFFIX).tmp $(LIBS) $(AFLAGS) $(GFLAGS))
 	$(call EXEC,rm -f $(OUTNAME)$(SUFFIX))
 	$(call EXEC,mv $(OUTNAME)$(SUFFIX).tmp $(OUTNAME)$(SUFFIX))
 endif

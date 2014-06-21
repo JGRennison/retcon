@@ -19,5 +19,10 @@
 #include "univdefs.h"
 #include "version.h"
 
+#ifndef RETCON_BUILD_VERSION
+#define RETCON_BUILD_VERSION RETCON_VERSION_STR __DATE__ " " __TIME__
+#endif
+
 const wxString appname(wxT("retcon"));
 const wxString appversionname(wxT("Retcon v") RETCON_VERSION_STR);
+const wxString appbuildversion(wxT(RETCON_BUILD_VERSION));

@@ -13,7 +13,7 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program. If not, see <http://www.gnu.org/licenses/>.
 //
-//  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
+//  2014 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
 #include "univdefs.h"
@@ -26,7 +26,9 @@
 void OpenAboutWindow() {
 	wxAboutDialogInfo info;
 	info.SetName(appname);
-	info.SetVersion(wxT(RETCON_VERSION_STR));
+	wxString version = wxString(wxT("v")) + wxString(wxT(RETCON_VERSION_STR));
+	if(appbuildversion != version) version += wxString::Format(wxT(" (%s)"), appbuildversion.c_str());
+	info.SetVersion(version);
 	info.SetDescription(wxT("A Twitter client."));
 	info.AddDeveloper(wxT("Jonathan Rennison <j.g.rennison@gmail.com>"));
 	info.SetLicence(wxT("GNU General Public Licence version 2"));

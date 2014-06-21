@@ -24,11 +24,12 @@
 #include "util.h"
 #include "SimpleOpt.h"
 #include "retcon.h"
+#include "version.h"
 #include <wx/frame.h>
 
 typedef CSimpleOptTempl<wxChar> CSO;
 
-enum { OPT_LOGWIN, OPT_FILE, OPT_STDERR, OPT_FILEAUTO, OPT_DATADIR, OPT_FFLUSH, OPT_READONLY, OPT_ACCSDSBD };
+enum { OPT_LOGWIN, OPT_FILE, OPT_STDERR, OPT_FILEAUTO, OPT_DATADIR, OPT_FFLUSH, OPT_READONLY, OPT_ACCSDSBD, OPT_VERSION };
 
 CSO::SOption g_rgOptions[] =
 {
@@ -48,6 +49,8 @@ CSO::SOption g_rgOptions[] =
 	{ OPT_READONLY,wxT("--read-only"),    SO_NONE      },
 	{ OPT_ACCSDSBD,wxT("-b"),             SO_NONE      },
 	{ OPT_ACCSDSBD,wxT("--accs-disabled"),SO_NONE      },
+	{ OPT_VERSION, wxT("-V"),             SO_NONE      },
+	{ OPT_VERSION, wxT("--version"),      SO_NONE      },
 
 	SO_END_OF_OPTIONS
 };
@@ -125,6 +128,10 @@ int cmdlineproc(wxChar ** argv, int argc) {
 			case OPT_ACCSDSBD: {
 				gc.allaccsdisabled = true;
 				break;
+			}
+			case OPT_VERSION: {
+				wxSafeShowMessage(wxT("Version"), wxString::Format(wxT("%s (%s)"), appversionname.c_str(), appbuildversion.c_str()));
+				wxGetApp().terms_requested++;
 			}
 		}
 	}

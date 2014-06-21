@@ -64,6 +64,7 @@ bool retcon::OnInit() {
 	srand((unsigned int) time(0));
 	datadir = stdstrwx(wxStandardPaths::Get().GetUserDataDir());
 	cmdlineproc(argv, argc);
+	if(terms_requested) return false;
 	if(!globallogwindow) new log_window(0, LOGT::GROUP_LOGWINDEF, false);
 	if(!datadir.empty() && datadir.back() == '/') datadir.pop_back();
 	wxString wxdatadir = wxstrstd(datadir);

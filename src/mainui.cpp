@@ -34,6 +34,7 @@
 #include "util.h"
 #include "twitcurlext.h"
 #include "retcon.h"
+#include "version.h"
 #include <wx/msgdlg.h>
 #include <wx/app.h>
 #if HANDLE_PRIMARY_CLIPBOARD
@@ -236,6 +237,7 @@ void mainframe::OnMove(wxMoveEvent &event) {
 
 wxString mainframe::DecorateTitle(wxString basetitle) {
 #ifdef __WXDEBUG__
+	if(basetitle == appversionname) basetitle = wxT("Retcon ") + appbuildversion;
 	basetitle += wxT("  (debug build)");
 #endif
 	if(gc.readonlymode) basetitle += wxT("  -*- READ-ONLY MODE -*-");

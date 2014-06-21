@@ -25,5 +25,6 @@
 
 extern const wxString appname;
 extern const wxString appversionname;
+extern const wxString appbuildversion;
 
 #endif

@@ -31,6 +31,9 @@ Most users will not need to use these.
 -F, --log-fflush
 	Flush log files to disk after each line
 
+-V, --version
+	Display the version and exit
+
 
 Log categories:
 This is a string formed of zero or more items from the lists below, seperated by whitespace or commas.
