@@ -1,3 +1,19 @@
+retcon 0.0.9
+------------------------------------------------------
+
+Fix filter syntax parsing of comment lines.
+Change panel scrolling and layout mechanism to avoid flicker/jerkiness.
+Add X11 primary selection support to tweet post window and tweets/user listings.
+Make mousewheel and line scroll speeds configurable.
+Handle twitter stream unfollow and (un)favourite messages.
+Add documentation of comment lines to filter readme.
+Add option to display times as UTC instead of local.
+Add command line switch: -b, --accs-disabled: start with all accounts disabled.
+Purge cached user profile images after not being used for (by default) 14 days.
+Add command line switch: -V/--version, add automatic version string.
+Various minor makefile and options text changes.
+
+
 retcon 0.0.8
 ------------------------------------------------------
 
