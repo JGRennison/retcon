@@ -205,8 +205,8 @@ struct applyfilter_pending_op : public pending_op {
 		FilterOneTweet(*apply_filter, t);
 	}
 
-	virtual wxString dump() override {
-		return wxT("Apply filter to tweet");
+	virtual std::string dump() override {
+		return "Apply filter to tweet";
 	}
 };
 

@@ -99,66 +99,67 @@ bool LoadImageFromFileAndCheckHash(const wxString &filename, shb_iptr hash, wxIm
 	return success;
 }
 
-wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t timestamp, bool localtime) {
-	#ifdef __WINDOWS__	//%z is broken in MSVCRT, use a replacement
+std::string rc_strftime(const std::string &format, const struct tm *tm, time_t timestamp, bool localtime) {
+	#ifdef __WINDOWS__
+				//%z is broken in MSVCRT, use a replacement
 				//also add %F, %R, %T, %s
 				//this is adapted from npipe var.cpp
-	wxString newfmt;
-	newfmt.Alloc(format.length());
-	wxString &real_format=newfmt;
-	const wxChar *ch=format.c_str();
-	const wxChar *cur=ch;
+	std::string newfmt;
+	newfmt.reserve(format.size());
+	std::string &real_format = newfmt;
+	const char *ch = format.c_str();
+	const char *cur = ch;
 	while(*ch) {
-		if(ch[0]=='%') {
-			wxString insert;
-			if(ch[1]=='z') {
+		if(ch[0] == '%') {
+			std::string insert;
+			if(ch[1] == 'z') {
 				int hh;
 				int mm;
 				if(localtime) {
 					TIME_ZONE_INFORMATION info;
 					DWORD res = GetTimeZoneInformation(&info);
 					int bias = - info.Bias;
-					if(res==TIME_ZONE_ID_DAYLIGHT) bias-=info.DaylightBias;
+					if(res == TIME_ZONE_ID_DAYLIGHT) bias -= info.DaylightBias;
 					hh = bias / 60;
-					if(bias<0) bias=-bias;
+					if(bias < 0) bias =- bias;
 					mm = bias % 60;
 				}
 				else {
-					hh=mm=0;
+					hh = mm = 0;
 				}
-				insert.Printf(wxT("%+03d%02d"), hh, mm);
+				insert = string_format("%+03d%02d", hh, mm);
 			}
-			else if(ch[1]=='F') {
-				insert=wxT("%Y-%m-%d");
+			else if(ch[1] == 'F') {
+				insert = "%Y-%m-%d";
 			}
-			else if(ch[1]=='R') {
-				insert=wxT("%H:%M");
+			else if(ch[1] == 'R') {
+				insert = "%H:%M";
 			}
-			else if(ch[1]=='T') {
-				insert=wxT("%H:%M:%S");
+			else if(ch[1] == 'T') {
+				insert = "%H:%M:%S";
 			}
-			else if(ch[1]=='s') {
-				insert.Printf(wxT("%" wxLongLongFmtSpec "d"), (long long int) timestamp);
+			else if(ch[1] == 's') {
+				insert.Printf("%" llFmtSpec "d", (long long int) timestamp);
 			}
 			else if(ch[1]) {
 				ch++;
 			}
 			if(insert.length()) {
-				real_format.Append(wxString(cur, ch-cur));
-				real_format.Append(insert);
-				cur=ch+2;
+				real_format.insert(real_format.end(), cur, ch); // Add up to current point
+				real_format += insert;
+				cur = ch + 2; // Update point where next add will start from
 			}
 		}
 		ch++;
 	}
-	real_format.Append(cur);
+	real_format += cur; // Add remainder of string
 	#else
-	const wxString &real_format=format;
+	const std::string &real_format = format;
 	#endif
 
 	char timestr[256];
-	strftime(timestr, sizeof(timestr), real_format.ToUTF8(), tm);
-	return wxstrstd(timestr);
+	strftime(timestr, sizeof(timestr), cstr(real_format), tm);
+	return std::string(timestr);
 }
 
 //from http://stackoverflow.com/questions/2342162/stdstring-formatting-like-sprintf#2342176

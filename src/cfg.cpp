@@ -269,12 +269,12 @@ void genopt::InheritFromParent(genopt &parent, bool ifunset) {
 }
 
 void ReadAllCFGIn(sqlite3 *db, globconf &lgc, std::list<std::shared_ptr<taccount>> &lalist) {
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::ReadAllCFGIn start"));
+	LogMsg(LOGT::DBTRACE, "dbconn::ReadAllCFGIn start");
 	DBReadConfig twfc(db);
 	lgc.CFGReadIn(twfc);
 
 	for(auto &it : lalist) it->CFGReadIn(twfc);
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::ReadAllCFGIn end"));
+	LogMsg(LOGT::DBTRACE, "dbconn::ReadAllCFGIn end");
 }
 
 //This returns a closure that can be executed now or later and is safe to use in a different thread
@@ -310,10 +310,10 @@ std::function<void(DBWriteConfig &)> WriteAllCFGOutClosure(const globconf &lgc, 
 }
 
 void WriteAllCFGOut(sqlite3 *db, const globconf &lgc, const std::list<std::shared_ptr<taccount>> &lalist) {
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::WriteAllCFGOut start"));
+	LogMsg(LOGT::DBTRACE, "dbconn::WriteAllCFGOut start");
 	DBWriteConfig twfc(db);
 	WriteAllCFGOutClosure(lgc, lalist, false)(twfc);
-	LogMsg(LOGT::DBTRACE, wxT("dbconn::WriteAllCFGOut end"));
+	LogMsg(LOGT::DBTRACE, "dbconn::WriteAllCFGOut end");
 }
 
 void AllUsersInheritFromParentIfUnset() {

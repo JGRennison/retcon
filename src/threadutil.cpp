@@ -51,14 +51,14 @@ namespace ThreadPool {
 			threadcount++;
 			lock.unlock();
 			workers.emplace_back(new Worker(this, new_thread_id));
-			LogMsgFormat(LOGT::THREADTRACE, wxT("ThreadPool::Pool::enqueue Created thread pool worker: %d"), new_thread_id);
+			LogMsgFormat(LOGT::THREADTRACE, "ThreadPool::Pool::enqueue Created thread pool worker: %d", new_thread_id);
 		}
 		else lock.unlock();
 	}
 
 	Pool::~Pool() {
 		std::unique_lock<std::mutex> lock(lifeguard);
-		LogMsgFormat(LOGT::THREADTRACE, wxT("ThreadPool::Pool::~Pool: Waiting for %d threads to terminate"), threadcount);
+		LogMsgFormat(LOGT::THREADTRACE, "ThreadPool::Pool::~Pool: Waiting for %d threads to terminate", threadcount);
 		for(size_t i = 0; i < threadcount; i++) {
 			job_queue.emplace_back(std::unique_ptr<Job>(new Job([](Worker &w) {
 				w.alive = false;
@@ -71,7 +71,7 @@ namespace ThreadPool {
 			it->thread.join();
 		}
 		workers.clear();
-		LogMsg(LOGT::THREADTRACE, wxT("ThreadPool::Pool::~Pool: Threads terminated"));
+		LogMsg(LOGT::THREADTRACE, "ThreadPool::Pool::~Pool: Threads terminated");
 	}
 
 	Worker::Worker(Pool *parent_, unsigned int id_) : parent(parent_), id(id_) {

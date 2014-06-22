@@ -343,7 +343,7 @@ void media_display_win::GetImage(wxString &message) {
 				wxMemoryInputStream memstream(me->fulldata.data(), me->fulldata.size());
 				if(anim.Load(memstream, wxANIMATION_TYPE_ANY)) {
 					if(anim.GetFrameCount() > 1) {
-						LogMsgFormat(LOGT::OTHERTRACE, wxT("media_display_win::GetImage found animation: %d frames"), anim.GetFrameCount());
+						LogMsgFormat(LOGT::OTHERTRACE, "media_display_win::GetImage found animation: %d frames", anim.GetFrameCount());
 						is_animated = true;
 						current_img = anim.GetFrame(0);
 						current_frame_index = 0;
@@ -360,7 +360,7 @@ void media_display_win::GetImage(wxString &message) {
 				}
 			}
 			else {
-				LogMsgFormat(LOGT::OTHERERR, wxT("media_display_win::GetImage: Image is not OK, corrupted or partial download?"));
+				LogMsgFormat(LOGT::OTHERERR, "media_display_win::GetImage: Image is not OK, corrupted or partial download?");
 			}
 			return;
 		}

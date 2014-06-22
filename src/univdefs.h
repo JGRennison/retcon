@@ -26,4 +26,17 @@
 #include <cstddef>
 #include <cstdint>
 
+// This is based on <wx/defs.h> but without the wxT()s, and with legacy stuff removed
+#if (defined(__VISUALC__) && defined(__WIN32__)) || defined(__MINGW32__)
+    #define llFmtSpec "I64"
+#elif (defined(SIZEOF_LONG_LONG) && SIZEOF_LONG_LONG >= 8)  || \
+        defined(__GNUC__) || \
+        defined(__CYGWIN__) || \
+        defined(__WXMICROWIN__) || \
+        (defined(__DJGPP__) && __DJGPP__ >= 2)
+    #define llFmtSpec "ll"
+#elif defined(SIZEOF_LONG) && (SIZEOF_LONG == 8)
+    #define llFmtSpec "l"
+#endif
+
 #endif

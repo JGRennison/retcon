@@ -101,14 +101,14 @@ template <typename C, typename D> static C CheckGetJsonValueDef(const rapidjson:
 	return res?GetType<C>(subval):def;
 }
 
-void DisplayParseErrorMsg(rapidjson::Document &dc, const wxString &name, const char *data) {
+void DisplayParseErrorMsg(rapidjson::Document &dc, const std::string &name, const char *data) {
 	std::string errjson;
 	writestream wr(errjson);
 	Handler jw(wr);
 	jw.StartArray();
 	jw.String(data);
 	jw.EndArray();
-	LogMsgFormat(LOGT::PARSEERR, wxT("JSON parse error: %s, message: %s, offset: %d, data:\n%s"), name.c_str(), wxstrstd(dc.GetParseError()).c_str(), dc.GetErrorOffset(), wxstrstd(errjson).c_str());
+	LogMsgFormat(LOGT::PARSEERR, "JSON parse error: %s, message: %s, offset: %d, data:\n%s", name.c_str(), dc.GetParseError(), dc.GetErrorOffset(), cstr(errjson));
 }
 
 //if jw, caller should already have called jw->StartObject(), etc
@@ -181,7 +181,7 @@ static std::string ProcessMediaURL(std::string url, const wxURI &wxuri) {
 }
 
 void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, tweet_ptr_p t, bool isnew, optional_observer_ptr<dbsendmsg_list> dbmsglist) {
-	LogMsg(LOGT::PARSE, wxT("jsonparser::DoEntitiesParse"));
+	LogMsg(LOGT::PARSE, "jsonparser::DoEntitiesParse");
 
 	auto &hashtags = val["hashtags"];
 	auto &urls = val["urls"];
@@ -235,8 +235,8 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, tweet_ptr_p t, 
 				job_data->hash = me->thumb_img_sha1;
 				job_data->media_id = me->media_id;
 
-				LogMsgFormat(LOGT::FILEIOTRACE, wxT("genjsonparser::DoEntitiesParse::mk_media_thumb_load_func, about to load cached media thumbnail from file: %s, url: %s"),
-						media_entity::cached_thumb_filename(job_data->media_id).c_str(), wxstrstd(url).c_str());
+				LogMsgFormat(LOGT::FILEIOTRACE, "genjsonparser::DoEntitiesParse::mk_media_thumb_load_func, about to load cached media thumbnail from file: %s, url: %s",
+						cstr(media_entity::cached_thumb_filename(job_data->media_id)), cstr(url));
 				wxGetApp().EnqueueThreadJob([job_data]() {
 					job_data->ok = LoadImageFromFileAndCheckHash(media_entity::cached_thumb_filename(job_data->media_id), job_data->hash, job_data->img);
 				},
@@ -247,8 +247,8 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, tweet_ptr_p t, 
 
 						m.flags &= ~MEF::THUMB_NET_INPROGRESS;
 						if(job_data->ok) {
-							LogMsgFormat(LOGT::FILEIOTRACE, wxT("genjsonparser::DoEntitiesParse::mk_media_thumb_load_func, successfully loaded cached media thumbnail file: %s, url: %s"),
-									media_entity::cached_thumb_filename(job_data->media_id).c_str(), wxstrstd(url).c_str());
+							LogMsgFormat(LOGT::FILEIOTRACE, "genjsonparser::DoEntitiesParse::mk_media_thumb_load_func, successfully loaded cached media thumbnail file: %s, url: %s",
+									cstr(media_entity::cached_thumb_filename(job_data->media_id)), cstr(url));
 							m.thumbimg = job_data->img;
 							m.flags |= MEF::HAVE_THUMB;
 							for(auto &jt : m.tweet_list) {
@@ -256,8 +256,8 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, tweet_ptr_p t, 
 							}
 						}
 						else {
-							LogMsgFormat(LOGT::FILEIOERR, wxT("genjsonparser::DoEntitiesParse::mk_media_thumb_load_func, cached media thumbnail file: %s, url: %s, missing, invalid or failed hash check"),
-									media_entity::cached_thumb_filename(job_data->media_id).c_str(), wxstrstd(url).c_str());
+							LogMsgFormat(LOGT::FILEIOERR, "genjsonparser::DoEntitiesParse::mk_media_thumb_load_func, cached media thumbnail file: %s, url: %s, missing, invalid or failed hash check",
+									cstr(media_entity::cached_thumb_filename(job_data->media_id)), cstr(url));
 							m.flags &= ~MEF::LOAD_THUMB;
 							local::try_net_dl(&m, url, net_flags, netloadmask, mel_flags);
 						}
@@ -401,8 +401,8 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, tweet_ptr_p t, 
 
 	std::sort(t->entlist.begin(), t->entlist.end(), [](const entity &a, const entity &b) { return a.start < b.start; });
 	for(auto &src_it : t->entlist) {
-		LogMsgFormat(LOGT::PARSE, wxT("Tweet %" wxLongLongFmtSpec "d, have entity from %d to %d: %s"), t->id, src_it.start,
-			src_it.end, wxstrstd(src_it.text).c_str());
+		LogMsgFormat(LOGT::PARSE, "Tweet %" llFmtSpec "d, have entity from %d to %d: %s", t->id, src_it.start,
+			src_it.end, cstr(src_it.text));
 	}
 }
 
@@ -491,7 +491,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 	}
 
 	if(dc.ParseInsitu<0>(data->json.data()).HasParseError()) {
-		DisplayParseErrorMsg(dc, wxT("jsonparser::ParseString"), data->json.data());
+		DisplayParseErrorMsg(dc, "jsonparser::ParseString", data->json.data());
 		return false;
 	}
 
@@ -506,7 +506,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 					wxString message = wxString::Format(wxT("Error, attempted to assign more than one account to the same twitter account: %s, @%s, id: %" wxLongLongFmtSpec "d.\n"
 							"This account will be disabled, or not created. Re-authenticate or delete the offending account(s)."),
 						wxstrstd(auser->GetUser().name).c_str(), wxstrstd(auser->GetUser().screen_name).c_str(), auser->id);
-					LogMsg(LOGT::OTHERERR, message);
+					LogMsg(LOGT::OTHERERR, stdstrwx(message));
 					wxMessageBox(message, wxT("Authentication Error"), wxOK | wxICON_ERROR);
 					tac->userenabled = false;
 					return false;
@@ -519,7 +519,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 						"This account will be disabled. Re-authenticate the account to the correct twitter account."),
 					wxstrstd(auser->GetUser().name).c_str(), wxstrstd(auser->GetUser().screen_name).c_str(), auser->id,
 					wxstrstd(tac->usercont->GetUser().name).c_str(), wxstrstd(tac->usercont->GetUser().screen_name).c_str(), tac->usercont->id);
-				LogMsg(LOGT::OTHERERR, message);
+				LogMsg(LOGT::OTHERERR, stdstrwx(message));
 				wxMessageBox(message, wxT("Authentication Error"), wxOK | wxICON_ERROR);
 				tac->userenabled = false;
 				return false;
@@ -590,7 +590,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 				DoTweetParse(dc);
 			}
 			else {
-				LogMsgFormat(LOGT::PARSEERR, wxT("Stream Event Parser: Can't identify event: %s"), wxstrstd(str, len).c_str());
+				LogMsgFormat(LOGT::PARSEERR, "Stream Event Parser: Can't identify event: %s", cstr(std::string(str, len)));
 			}
 			break;
 		}
@@ -717,7 +717,7 @@ inline udc_ptr CheckParseUserObj(uint64_t id, const rapidjson::Value& val, jsonp
 tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP> sflags) {
 	uint64_t tweetid;
 	if(!CheckTransJsonValueDef(tweetid, val, "id", 0, 0)) {
-		LogMsgFormat(LOGT::PARSEERR, wxT("jsonparser::DoTweetParse: No ID present in document."));
+		LogMsgFormat(LOGT::PARSEERR, "jsonparser::DoTweetParse: No ID present in document.");
 		return tweet_ptr();
 	}
 
@@ -734,7 +734,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP
 		 * Note that twit is not usable in a deferred parse as it'll be out of scope, use values stored in data.
 		 */
 
-		LogMsgFormat(LOGT::PARSE | LOGT::DBTRACE, wxT("jsonparser::DoTweetParse: Tweet id: %" wxLongLongFmtSpec "d, is in DB but not loaded. Loading and deferring parse."), tobj->id);
+		LogMsgFormat(LOGT::PARSE | LOGT::DBTRACE, "jsonparser::DoTweetParse: Tweet id: %" llFmtSpec "d, is in DB but not loaded. Loading and deferring parse.", tobj->id);
 
 		tobj->lflags |= TLF::BEINGLOADEDFROMDB;
 
@@ -760,7 +760,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP
 		DBC_SetDBSelTweetMsgHandler(*msg, [pdata](dbseltweetmsg &pmsg, dbconn *dbc) {
 			//Do not use *this, it will have long since gone out of scope
 
-			LogMsgFormat(LOGT::PARSE | LOGT::DBTRACE, wxT("jsonparser::DoTweetParse: Tweet id: %" wxLongLongFmtSpec "d, now doing deferred parse."), pdata->tweetid);
+			LogMsgFormat(LOGT::PARSE | LOGT::DBTRACE, "jsonparser::DoTweetParse: Tweet id: %" llFmtSpec "d, now doing deferred parse.", pdata->tweetid);
 
 			DBC_HandleDBSelTweetMsg(pmsg, HDBSF::NOPENDINGS);
 
@@ -771,7 +771,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP
 				jp.DoTweetParse(*(pdata->val), pdata->sflags | JDTP::POSTDBLOAD);
 			}
 			else {
-				LogMsgFormat(LOGT::PARSEERR | LOGT::DBERR, wxT("jsonparser::DoTweetParse: Tweet id: %" wxLongLongFmtSpec "d, deferred parse failed as account no longer exists."), pdata->tweetid);
+				LogMsgFormat(LOGT::PARSEERR | LOGT::DBERR, "jsonparser::DoTweetParse: Tweet id: %" llFmtSpec "d, deferred parse failed as account no longer exists.", pdata->tweetid);
 			}
 		});
 		DBC_SendMessageBatched(std::move(msg));
@@ -857,7 +857,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP
 		tobj->flags.Set('P');
 	}
 
-	LogMsgFormat(LOGT::PARSE, wxT("id: %" wxLongLongFmtSpec "d, is_new_tweet_perspective: %d, has_just_arrived: %d, isdm: %d, sflags: 0x%X"),
+	LogMsgFormat(LOGT::PARSE, "id: %" llFmtSpec "d, is_new_tweet_perspective: %d, has_just_arrived: %d, isdm: %d, sflags: 0x%X",
 			tobj->id, is_new_tweet_perspective, has_just_arrived, !!(sflags & JDTP::ISDM), sflags);
 
 	if(is_new_tweet_perspective) {	//this filters out duplicate tweets from the same account
@@ -1033,20 +1033,20 @@ void jsonparser::DoEventParse(const rapidjson::Value& val) {
 
 void userdatacontainer::Dump() const {
 	time_t now = time(0);
-	LogMsgFormat(LOGT::PARSE, wxT("id: %" wxLongLongFmtSpec "d, name: %s, screen_name: %s\nprofile image url: %s, cached url: %s\n")
-			wxT("protected: %d, verified: %d, udc_flags: 0x%X, last update: %" wxLongLongFmtSpec "ds ago, last DB update %" wxLongLongFmtSpec "ds ago"),
-			id, wxstrstd(GetUser().name).c_str(), wxstrstd(GetUser().screen_name).c_str(), wxstrstd(GetUser().profile_img_url).c_str(), wxstrstd(cached_profile_img_url).c_str(),
+	LogMsgFormat(LOGT::PARSE, "id: %" llFmtSpec "d, name: %s, screen_name: %s\nprofile image url: %s, cached url: %s\n"
+			"protected: %d, verified: %d, udc_flags: 0x%X, last update: %" llFmtSpec "ds ago, last DB update %" llFmtSpec "ds ago",
+			id, cstr(GetUser().name), cstr(GetUser().screen_name), cstr(GetUser().profile_img_url), cstr(cached_profile_img_url),
 			(bool) (GetUser().u_flags & userdata::userdata::UF::ISPROTECTED), (bool) (GetUser().u_flags & userdata::userdata::UF::ISVERIFIED), udc_flags,
 			(int64_t) (now - lastupdate), (int64_t) (now - lastupdate_wrotetodb));
 }
 
 void tweet::Dump() const {
-	LogMsgFormat(LOGT::PARSE, wxT("id: %" wxLongLongFmtSpec "d\nreply_id: %" wxLongLongFmtSpec "d\nretweet_count: %d\nfavourite_count: %d\n"
-			"source: %s\ntext: %s\ncreated_at: %s"),
-			id, in_reply_to_status_id, retweet_count, favourite_count, wxstrstd(source).c_str(),
-			wxstrstd(text).c_str(), wxstrstd(ctime(&createtime)).c_str());
+	LogMsgFormat(LOGT::PARSE, "id: %" llFmtSpec "d\nreply_id: %" llFmtSpec "d\nretweet_count: %d\nfavourite_count: %d\n"
+			"source: %s\ntext: %s\ncreated_at: %s",
+			id, in_reply_to_status_id, retweet_count, favourite_count, cstr(source),
+			cstr(text), cstr(ctime(&createtime)));
 	IterateTP([&](const tweet_perspective &tp) {
-		LogMsgFormat(LOGT::PARSE, wxT("Perspectival attributes: %s\nretweeted: %d\nfavourited: %d\nFlags: %s"),
-				tp.acc->dispname.c_str(), tp.IsRetweeted(), tp.IsFavourited(), wxstrstd(tp.GetFlagString()).c_str());
+		LogMsgFormat(LOGT::PARSE, "Perspectival attributes: %s\nretweeted: %d\nfavourited: %d\nFlags: %s",
+				cstr(tp.acc->dispname), tp.IsRetweeted(), tp.IsFavourited(), cstr(tp.GetFlagString()));
 	});
 }

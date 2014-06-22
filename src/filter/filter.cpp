@@ -176,8 +176,8 @@ struct filter_item_cond_regex : public filter_item_cond {
 		const int ovecsize = 30;
 		int ovector[30];
 		bool result = (pcre_exec(ptn, extra,  str.c_str(), str.size(), 0, 0, ovector, ovecsize) >= 1);
-		LogMsgFormat(LOGT::FILTERTRACE, wxT("String Regular Expression Test for Tweet: %" wxLongLongFmtSpec "d, String: '%s', Regex: '%s', Result: %smatch"),
-				tw.id, wxstrstd(str).c_str(), wxstrstd(regexstr).c_str(), result ? wxT("") : wxT("no "));
+		LogMsgFormat(LOGT::FILTERTRACE, "String Regular Expression Test for Tweet: %" llFmtSpec "d, String: '%s', Regex: '%s', Result: %smatch",
+				tw.id, cstr(str), cstr(regexstr), result ? "" : "no ");
 		return result;
 	}
 
@@ -206,8 +206,8 @@ struct filter_item_cond_flags : public filter_item_cond {
 		if(all && (curflags&all)!=all) result = false;
 		if(none && (curflags&none)) result = false;
 		if(missing && (curflags|missing)==curflags) result = false;
-		LogMsgFormat(LOGT::FILTERTRACE, wxT("Tweet Flag Test for Tweet: %" wxLongLongFmtSpec "d, Flags: %s, Criteria: %s, Result: %smatch"),
-				tw.id, wxstrstd(tw.flags.GetString()).c_str(), wxstrstd(teststr).c_str(), result ? wxT("") : wxT("no "));
+		LogMsgFormat(LOGT::FILTERTRACE, "Tweet Flag Test for Tweet: %" llFmtSpec "d, Flags: %s, Criteria: %s, Result: %smatch",
+				tw.id, cstr(tw.flags.GetString()), cstr(teststr), result ? "" : "no ");
 		return result;
 	}
 };
@@ -230,8 +230,8 @@ struct filter_item_action_setflag : public filter_item_action {
 		unsigned long long oldflags = tw.flags.Save();
 		unsigned long long newflags = (oldflags | setflags) & ~unsetflags;
 		tw.flags = tweet_flags(newflags);
-		LogMsgFormat(LOGT::FILTERTRACE, wxT("Setting Tweet Flags for Tweet: %" wxLongLongFmtSpec "d, Flags: Before %s, Action: %s, Result: %s"),
-				tw.id, wxstrstd(tweet_flags::GetValueString(oldflags)).c_str(), wxstrstd(setstr).c_str(), wxstrstd(tweet_flags::GetValueString(newflags)).c_str());
+		LogMsgFormat(LOGT::FILTERTRACE, "Setting Tweet Flags for Tweet: %" llFmtSpec "d, Flags: Before %s, Action: %s, Result: %s",
+				tw.id, cstr(tweet_flags::GetValueString(oldflags)), cstr(setstr), cstr(tweet_flags::GetValueString(newflags)));
 	}
 };
 
@@ -244,13 +244,13 @@ struct filter_item_action_panel : public filter_item_action {
 			std::shared_ptr<tpanel> tp = ad.tpanels[tpanel::ManualName(panel_name)];
 			if(tp) {
 				tp->RemoveTweet(tw.id);
-				LogMsgFormat(LOGT::FILTERTRACE, wxT("Removing Tweet: %" wxLongLongFmtSpec "d from Panel: %s"), tw.id, wxstrstd(panel_name).c_str());
+				LogMsgFormat(LOGT::FILTERTRACE, "Removing Tweet: %" llFmtSpec "d from Panel: %s", tw.id, cstr(panel_name));
 			}
 		}
 		else {
 			std::shared_ptr<tpanel> tp = tpanel::MkTPanel(tpanel::ManualName(panel_name), panel_name, TPF::MANUAL | TPF::SAVETODB);
 			tp->PushTweet(ad.GetTweetById(tw.id));
-			LogMsgFormat(LOGT::FILTERTRACE, wxT("Adding Tweet: %" wxLongLongFmtSpec "d to Panel: %s"), tw.id, wxstrstd(panel_name).c_str());
+			LogMsgFormat(LOGT::FILTERTRACE, "Adding Tweet: %" llFmtSpec "d to Panel: %s", tw.id, cstr(panel_name));
 		}
 	}
 };
@@ -309,7 +309,7 @@ void ParseFilter(const std::string &input, filter_set &filter_output, std::strin
 
 		*ptn = pcre_compile(str, PCRE_NO_UTF8_CHECK | PCRE_CASELESS | PCRE_UTF8, &errptr, &erroffset, 0);
 		if(!*ptn) {
-			LogMsgFormat(LOGT::FILTERERR, wxT("pcre_compile failed: %s (%d)\n%s"), wxstrstd(errptr).c_str(), erroffset, wxstrstd(str).c_str());
+			LogMsgFormat(LOGT::FILTERERR, "pcre_compile failed: %s (%d)\n%s", cstr(errptr), erroffset, cstr(str));
 			ok = false;
 			return;
 		}
@@ -334,7 +334,7 @@ void ParseFilter(const std::string &input, filter_set &filter_output, std::strin
 
 	if(!ok) return;
 
-	LogMsgFormat(LOGT::FILTERTRACE, wxT("ParseFilter: %u JITed"), jit_count);
+	LogMsgFormat(LOGT::FILTERTRACE, "ParseFilter: %u JITed", jit_count);
 
 	const int ovecsize = 60;
 	int ovector[60];
@@ -404,7 +404,7 @@ void ParseFilter(const std::string &input, filter_set &filter_output, std::strin
 				std::string userptnstr(pos + nextsectionoffset + ovector[6], ovector[7] - ovector[6]);
 				ritem->ptn = pcre_compile(userptnstr.c_str(), PCRE_NO_UTF8_CHECK | PCRE_UTF8, &errptr, &erroffset, 0);
 				if(!ritem->ptn) {
-					LogMsgFormat(LOGT::FILTERERR, wxT("pcre_compile failed: %s (%d)\n%s"), wxstrstd(errptr).c_str(), erroffset, wxstrstd(userptnstr).c_str());
+					LogMsgFormat(LOGT::FILTERERR, "pcre_compile failed: %s (%d)\n%s", cstr(errptr), erroffset, cstr(userptnstr));
 					ok = false;
 				}
 				else {
@@ -414,7 +414,7 @@ void ParseFilter(const std::string &input, filter_set &filter_output, std::strin
 #if PCRE_STUDY_JIT_COMPILE
 						pcre_fullinfo(ritem->ptn, ritem->extra, PCRE_INFO_JIT, &jit);
 #endif
-						LogMsgFormat(LOGT::FILTERTRACE, wxT("ParseFilter: pcre_compile and pcre_study success: JIT: %u\n%s"), jit, wxstrstd(userptnstr).c_str());
+						LogMsgFormat(LOGT::FILTERTRACE, "ParseFilter: pcre_compile and pcre_study success: JIT: %u\n%s", jit, cstr(userptnstr));
 					}
 				}
 				ritem->regexstr = std::move(userptnstr);
@@ -602,7 +602,7 @@ bool LoadFilter(const std::string &input, filter_set &out) {
 	std::string errmsgs;
 	ParseFilter(input, out, errmsgs);
 	if(!errmsgs.empty()) {
-		LogMsgFormat(LOGT::FILTERERR, wxT("Could not parse filter: Error: %s"), wxstrstd(errmsgs).c_str());
+		LogMsgFormat(LOGT::FILTERERR, "Could not parse filter: Error: %s", cstr(errmsgs));
 		return false;
 	}
 	return true;

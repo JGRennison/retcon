@@ -105,7 +105,7 @@ mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& si
 
 	SetMenuBar( menuBar );
 
-	LogMsgFormat(LOGT::OTHERTRACE, wxT("Creating new mainframe: %p, %d mainframes"), this, mainframelist.size());
+	LogMsgFormat(LOGT::OTHERTRACE, "Creating new mainframe: %p, %d mainframes", this, mainframelist.size());
 
 	return;
 }
@@ -113,7 +113,7 @@ void mainframe::OnCloseWindow(wxCommandEvent &event) {
 	Close(true);
 }
 void mainframe::OnQuit(wxCommandEvent &event) {
-	LogMsgFormat(LOGT::OTHERTRACE, wxT("mainframe::OnQuit: %p, %d mainframes"), this, mainframelist.size());
+	LogMsgFormat(LOGT::OTHERTRACE, "mainframe::OnQuit: %p, %d mainframes", this, mainframelist.size());
 	SaveWindowLayout();
 	ad.twinlayout_final = true;
 	std::vector<mainframe *> tempmf = mainframelist;
@@ -138,7 +138,7 @@ void mainframe::OnViewlog(wxCommandEvent &event) {
 	if(globallogwindow) globallogwindow->LWShow(true);
 }
 void mainframe::OnClose(wxCloseEvent &event) {
-	LogMsgFormat(LOGT::OTHERTRACE, wxT("mainframe::OnClose: %p, %d mainframes"), this, mainframelist.size());
+	LogMsgFormat(LOGT::OTHERTRACE, "mainframe::OnClose: %p, %d mainframes", this, mainframelist.size());
 	SaveWindowLayout();
 	mainframelist.erase(std::remove(mainframelist.begin(), mainframelist.end(), this), mainframelist.end());
 	if(mainframelist.empty()) {
@@ -160,7 +160,7 @@ mainframe::~mainframe() {
 	auim->UnInit();
 	delete auim;
 
-	LogMsgFormat(LOGT::OTHERTRACE, wxT("Deleting mainframe: %p, %d mainframes, top win: %p, popup recursion: %d"), this, mainframelist.size(), wxGetApp().GetTopWindow(), wxGetApp().popuprecursion);
+	LogMsgFormat(LOGT::OTHERTRACE, "Deleting mainframe: %p, %d mainframes, top win: %p, popup recursion: %d", this, mainframelist.size(), wxGetApp().GetTopWindow(), wxGetApp().popuprecursion);
 
 	if(mainframelist.empty()) {
 		if(globallogwindow) globallogwindow->Destroy();

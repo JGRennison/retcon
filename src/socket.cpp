@@ -40,7 +40,7 @@ END_EVENT_TABLE()
 
 int curl_debug_func(CURL *cl, curl_infotype ci, char *txt, size_t len, void *extra) {
 	if(ci==CURLINFO_TEXT) {
-		LogMsgProcess(LOGT::CURLVERB, wxString::FromUTF8(txt, len));
+		LogMsgProcess(LOGT::CURLVERB, std::string(txt, len));
 	}
 	return 0;
 }
@@ -55,7 +55,7 @@ mcurlconn::~mcurlconn() {
 }
 
 void mcurlconn::KillConn() {
-	LogMsgFormat(LOGT::SOCKTRACE, wxT("KillConn: conn: %p"), this);
+	LogMsgFormat(LOGT::SOCKTRACE, "KillConn: conn: %p", this);
 	sm.RemoveConn(GenGetCurlHandle());
 }
 
@@ -70,10 +70,10 @@ void mcurlconn::NotifyDone(CURL *easy, CURLcode res) {
 		if(res==CURLE_OK) {
 			char *req_url;
 			curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &req_url);
-			LogMsgFormat(LOGT::SOCKERR, wxT("Request failed: type: %s, conn: %p, code: %d, url: %s"), GetConnTypeName().c_str(), this, httpcode, wxstrstd(req_url).c_str());
+			LogMsgFormat(LOGT::SOCKERR, "Request failed: type: %s, conn: %p, code: %d, url: %s", cstr(GetConnTypeName()), this, httpcode, cstr(req_url));
 		}
 		else {
-			LogMsgFormat(LOGT::SOCKERR, wxT("Socket error: type: %s, conn: %p, code: %d, message: %s"), GetConnTypeName().c_str(), this, res, wxstrstd(curl_easy_strerror(res)).c_str());
+			LogMsgFormat(LOGT::SOCKERR, "Socket error: type: %s, conn: %p, code: %d, message: %s", cstr(GetConnTypeName()), this, res, cstr(curl_easy_strerror(res)));
 		}
 		HandleError(easy, httpcode, res);    //this may re-add the connection, or cause object death
 	}
@@ -98,11 +98,11 @@ void mcurlconn::HandleError(CURL *easy, long httpcode, CURLcode res) {
 	}
 	switch(err) {
 		case MCC_RETRY:
-			LogMsgFormat(LOGT::SOCKERR, wxT("Adding request to retry queue: type: %s, conn: %p, url: %s"), GetConnTypeName().c_str(), this, wxstrstd(url).c_str());
+			LogMsgFormat(LOGT::SOCKERR, "Adding request to retry queue: type: %s, conn: %p, url: %s", cstr(GetConnTypeName()), this, cstr(url));
 			sm.RetryConn(this);
 			break;
 		case MCC_FAILED:
-			LogMsgFormat(LOGT::SOCKERR, wxT("Calling failure handler: type: %s, conn: %p, url: %s"), GetConnTypeName().c_str(), this, wxstrstd(url).c_str());
+			LogMsgFormat(LOGT::SOCKERR, "Calling failure handler: type: %s, conn: %p, url: %s", cstr(GetConnTypeName()), this, cstr(url));
 			HandleFailure(httpcode, res);    //may cause object death
 			sm.RetryConnLater();
 			break;
@@ -134,18 +134,18 @@ static void check_multi_info(socketmanager *smp) {
 			long httpcode;
 			curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &httpcode);
 			curl_easy_getinfo(easy, CURLINFO_PRIVATE, &conn);
-			LogMsgFormat(LOGT::SOCKTRACE, wxT("Socket Done, conn: %p, res: %d, http: %d"), conn, res, httpcode);
+			LogMsgFormat(LOGT::SOCKTRACE, "Socket Done, conn: %p, res: %d, http: %d", conn, res, httpcode);
 			conn->NotifyDone(easy, res);
 		}
 	}
 	if(sm.curnumsocks==0) {
-		LogMsgFormat(LOGT::SOCKTRACE, wxT("No Sockets Left, Stopping Timer"));
+		LogMsgFormat(LOGT::SOCKTRACE, "No Sockets Left, Stopping Timer");
 		smp->st->Stop();
 	}
 }
 
 static int sock_cb(CURL *e, curl_socket_t s, int what, socketmanager *smp, mcurlconn *cs) {
-	LogMsgFormat(LOGT::SOCKTRACE, wxT("Socket Interest Change Callback: %d, %d, conn: %p"), s, what, cs);
+	LogMsgFormat(LOGT::SOCKTRACE, "Socket Interest Change Callback: %d, %d, conn: %p", s, what, cs);
 	if(what!=CURL_POLL_REMOVE) {
 		if(!cs) {
 			curl_easy_getinfo(e, CURLINFO_PRIVATE, &cs);
@@ -157,7 +157,7 @@ static int sock_cb(CURL *e, curl_socket_t s, int what, socketmanager *smp, mcurl
 }
 
 static int multi_timer_cb(CURLM *multi, long timeout_ms, socketmanager *smp) {
-	LogMsgFormat(LOGT::SOCKTRACE, wxT("Socket Timer Callback: %d ms"), timeout_ms);
+	LogMsgFormat(LOGT::SOCKTRACE, "Socket Timer Callback: %d ms", timeout_ms);
 
 	if(timeout_ms>0) smp->st->Start(timeout_ms,wxTIMER_ONE_SHOT);
 	else smp->st->Stop();
@@ -171,7 +171,7 @@ socketmanager::socketmanager() : st(0), curnumsocks(0), retry(0) {
 }
 
 socketmanager::~socketmanager() {
-	LogMsgFormat(LOGT::SOCKERR, wxT("socketmanager::~socketmanager()"));
+	LogMsgFormat(LOGT::SOCKERR, "socketmanager::~socketmanager()");
 	if(retry) {
 		delete retry;
 		retry=0;
@@ -188,7 +188,7 @@ curl_socket_t pre_connect_func(void *clientp, curl_socket_t curlfd, curlsocktype
 	mcurlconn *cs = static_cast<mcurlconn *>(clientp);
 	double lookuptime;
 	curl_easy_getinfo(cs->GenGetCurlHandle(), CURLINFO_NAMELOOKUP_TIME, &lookuptime);
-	LogMsgFormat(LOGT::SOCKTRACE, wxT("DNS lookup took: %fs. Request: type: %s, conn: %p, url: %s"), lookuptime, cs->GetConnTypeName().c_str(), cs, wxstrstd(cs->url).c_str());
+	LogMsgFormat(LOGT::SOCKTRACE, "DNS lookup took: %fs. Request: type: %s, conn: %p, url: %s", lookuptime, cstr(cs->GetConnTypeName()), cs, cstr(cs->url));
 	return 0;
 }
 
@@ -234,13 +234,13 @@ void socketmanager::RemoveConn(CURL* ch) {
 }
 
 void sockettimeout::Notify() {
-	LogMsgFormat(LOGT::SOCKTRACE, wxT("Socket Timer Event"));
+	LogMsgFormat(LOGT::SOCKTRACE, "Socket Timer Event");
 	curl_multi_socket_action(sm.curlmulti, CURL_SOCKET_TIMEOUT, 0, &sm.curnumsocks);
 	check_multi_info(&sm);
 }
 
 void socketmanager::NotifySockEvent(curl_socket_t sockfd, int ev_bitmask) {
-	LogMsgFormat(LOGT::SOCKTRACE, wxT("Socket Notify (%d)"), sockfd);
+	LogMsgFormat(LOGT::SOCKTRACE, "Socket Notify (%d)", sockfd);
 	curl_multi_socket_action(curlmulti, sockfd, ev_bitmask, &curnumsocks);
 	check_multi_info(this);
 }
@@ -254,11 +254,11 @@ adns::~adns() {
 	if(n) {
 		size_t i = 0;
 		for(auto &it : dns_threads) {
-			LogMsgFormat(LOGT::SOCKTRACE, wxT("Waiting for all DNS threads to terminate: %d of %d"), i, n);
+			LogMsgFormat(LOGT::SOCKTRACE, "Waiting for all DNS threads to terminate: %d of %d", i, n);
 			it.second.Wait();
 			i++;
 		}
-		LogMsg(LOGT::SOCKTRACE, wxT("All DNS threads terminated"));
+		LogMsg(LOGT::SOCKTRACE, "All DNS threads terminated");
 	}
 	RemoveShareHndl();
 }
@@ -320,12 +320,12 @@ bool adns::CheckAsync(CURL* ch, mcurlconn *cs) {
 
 	for(auto &it : dns_threads) {
 		if(it.first == name) {
-			LogMsgFormat(LOGT::SOCKTRACE, wxT("DNS lookup thread already exists: %s, %s"), wxstrstd(url).c_str(), wxstrstd(name).c_str());
+			LogMsgFormat(LOGT::SOCKTRACE, "DNS lookup thread already exists: %s, %s", cstr(url), cstr(name));
 			return true;
 		}
 	}
 
-	LogMsgFormat(LOGT::SOCKTRACE, wxT("Creating DNS lookup thread: %s, %s"), wxstrstd(url).c_str(), wxstrstd(name).c_str());
+	LogMsgFormat(LOGT::SOCKTRACE, "Creating DNS lookup thread: %s, %s", cstr(url), cstr(name));
 	dns_threads.emplace_front(std::piecewise_construct, std::forward_as_tuple(name), std::forward_as_tuple(url, name, sm, GetHndl()));
 	adns_thread &ad = dns_threads.front().second;
 	ad.Create();
@@ -346,11 +346,11 @@ void adns::DNSResolutionEvent(wxCommandEvent &event) {
 	at->Wait();
 
 	if(at->success) {
-		LogMsgFormat(LOGT::SOCKTRACE, wxT("Asynchronous DNS lookup succeeded: %s, %s, time: %fs"), wxstrstd(at->hostname).c_str(), wxstrstd(at->url).c_str(), at->lookuptime);
+		LogMsgFormat(LOGT::SOCKTRACE, "Asynchronous DNS lookup succeeded: %s, %s, time: %fs", cstr(at->hostname), cstr(at->url), at->lookuptime);
 		cached_names.insert(at->hostname);
 	}
 	else {
-		LogMsgFormat(LOGT::SOCKERR, wxT("Asynchronous DNS lookup failed: %s, (%s), error: %s (%d), time: %fs"), wxstrstd(at->hostname).c_str(), wxstrstd(at->url).c_str(), wxstrstd(curl_easy_strerror(at->result)).c_str(), at->result, at->lookuptime);
+		LogMsgFormat(LOGT::SOCKERR, "Asynchronous DNS lookup failed: %s, (%s), error: %s (%d), time: %fs", cstr(at->hostname), cstr(at->url), cstr(curl_easy_strerror(at->result)), at->result, at->lookuptime);
 	}
 
 	std::vector<std::tuple<std::string, CURL *, mcurlconn *> > current_dns_pending_conns;
@@ -370,11 +370,11 @@ void adns::DNSResolutionEvent(wxCommandEvent &event) {
 		CURL *ch = std::get<1>(it);
 		mcurlconn *mc = std::get<2>(it);
 		if(at->success) {
-			LogMsgFormat(LOGT::SOCKTRACE, wxT("Launching request as DNS lookup succeeded: type: %s, conn: %p, url: %s"), mc->GetConnTypeName().c_str(), mc, wxstrstd(mc->url).c_str());
+			LogMsgFormat(LOGT::SOCKTRACE, "Launching request as DNS lookup succeeded: type: %s, conn: %p, url: %s", cstr(mc->GetConnTypeName()), mc, cstr(mc->url));
 			sm->AddConn(ch, mc);
 		}
 		else {
-			LogMsgFormat(LOGT::SOCKERR, wxT("Request failed due to asynchronous DNS lookup failure: type: %s, conn: %p, url: %s"), mc->GetConnTypeName().c_str(), mc, wxstrstd(mc->url).c_str());
+			LogMsgFormat(LOGT::SOCKERR, "Request failed due to asynchronous DNS lookup failure: type: %s, conn: %p, url: %s", cstr(mc->GetConnTypeName()), mc, cstr(mc->url));
 			mc->HandleError(ch, 0, CURLE_COULDNT_RESOLVE_HOST);
 		}
 	}
@@ -418,7 +418,7 @@ END_EVENT_TABLE()
 DEFINE_EVENT_TYPE(wxextDNS_RESOLUTION_EVENT)
 
 void socketmanager::InitMultiIOHandlerCommon() {
-	LogMsg(LOGT::SOCKTRACE, wxT("socketmanager::InitMultiIOHandlerCommon"));
+	LogMsg(LOGT::SOCKTRACE, "socketmanager::InitMultiIOHandlerCommon");
 	st=new sockettimeout(*this);
 	curlmulti=curl_multi_init();
 	curl_multi_setopt(curlmulti, CURLMOPT_SOCKETFUNCTION, sock_cb);
@@ -428,13 +428,13 @@ void socketmanager::InitMultiIOHandlerCommon() {
 
 	curl_version_info_data *data = curl_version_info(CURLVERSION_NOW);
 	if(!(data->features & CURL_VERSION_ASYNCHDNS)) {
-		LogMsg(LOGT::SOCKTRACE, wxT("This version of libcurl does not support asynchronous DNS resolution, using a workaround."));
+		LogMsg(LOGT::SOCKTRACE, "This version of libcurl does not support asynchronous DNS resolution, using a workaround.");
 		asyncdns.reset(new adns(this));
 	}
 }
 
 void socketmanager::DeInitMultiIOHandlerCommon() {
-	LogMsg(LOGT::SOCKTRACE, wxT("socketmanager::DeInitMultiIOHandlerCommon"));
+	LogMsg(LOGT::SOCKTRACE, "socketmanager::DeInitMultiIOHandlerCommon");
 	if(asyncdns) asyncdns.reset();
 	curl_multi_cleanup(curlmulti);
 	if(st) {
@@ -449,7 +449,7 @@ void socketmanager::DeInitMultiIOHandlerCommon() {
 
 void socketmanager::RetryConn(mcurlconn *cs) {
 	if(cs->mcflags & mcurlconn::MCF::IN_RETRY_QUEUE) {
-		LogMsgFormat(LOGT::SOCKERR, wxT("socketmanager::RetryConn: Attempt to add mcurlconn to retry queue which is marked as already in queue, this is a bug: type: %s, conn: %p, url: %s"), cs->GetConnTypeName().c_str(), cs, wxstrstd(cs->url).c_str());
+		LogMsgFormat(LOGT::SOCKERR, "socketmanager::RetryConn: Attempt to add mcurlconn to retry queue which is marked as already in queue, this is a bug: type: %s, conn: %p, url: %s", cstr(cs->GetConnTypeName()), cs, cstr(cs->url));
 		return;
 	}
 
@@ -463,7 +463,7 @@ void socketmanager::UnregisterRetryConn(mcurlconn *cs) {
 	if(!(cs->mcflags & mcurlconn::MCF::IN_RETRY_QUEUE)) return;
 	for(auto it=retry_conns.begin(); it!=retry_conns.end(); ++it) {
 		if(*it == cs) {
-			LogMsgFormat(LOGT::SOCKTRACE, wxT("socketmanager::UnregisterRetryConn: Unregistered from retry queue: type: %s, conn: %p, url: %s"), cs->GetConnTypeName().c_str(), cs, wxstrstd(cs->url).c_str());
+			LogMsgFormat(LOGT::SOCKTRACE, "socketmanager::UnregisterRetryConn: Unregistered from retry queue: type: %s, conn: %p, url: %s", cstr(cs->GetConnTypeName()), cs, cstr(cs->url));
 			*it = 0;
 		}
 	}
@@ -481,7 +481,7 @@ void socketmanager::RetryConnNow() {
 	}
 	cs->mcflags &= ~mcurlconn::MCF::IN_RETRY_QUEUE;
 	cs->mcflags |= mcurlconn::MCF::RETRY_NOW_ON_SUCCESS;
-	LogMsgFormat(LOGT::SOCKTRACE, wxT("Dequeueing request from retry queue: type: %s, conn: %p, url: %s"), cs->GetConnTypeName().c_str(), cs, wxstrstd(cs->url).c_str());
+	LogMsgFormat(LOGT::SOCKTRACE, "Dequeueing request from retry queue: type: %s, conn: %p, url: %s", cstr(cs->GetConnTypeName()), cs, cstr(cs->url));
 	cs->RemoveFromRetryQueueNotify();
 	cs->DoRetry();
 }
@@ -742,7 +742,7 @@ void socketmanager::InitMultiIOHandler() {
 	this->pipefd=pipefd[1];
 	th->Create();
 	th->Run();
-	LogMsgFormat(LOGT::SOCKTRACE, wxT("socketmanager::InitMultiIOHandler(): Created socket poll() thread: %d"), th->GetId());
+	LogMsgFormat(LOGT::SOCKTRACE, "socketmanager::InitMultiIOHandler(): Created socket poll() thread: %d", th->GetId());
 
 	MultiIOHandlerInited=true;
 }

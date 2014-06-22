@@ -38,17 +38,17 @@ extern flagwrapper<LOGIMPLF> logimpl_flags;
 
 struct log_object {
 	LOGT lo_flags;
-	virtual void log_str(LOGT logflags, const wxString &str) = 0;
+	virtual void log_str(LOGT logflags, const std::string &str) = 0;
 	log_object(LOGT flagmask);
 	virtual ~log_object();
 };
 
 struct log_window : public log_object, public wxFrame {
-	std::queue<wxString> pending;
+	std::queue<std::string> pending;
 	bool isshown;
 	wxTextCtrl *txtct;
 
-	void log_str(LOGT logflags, const wxString &str);
+	void log_str(LOGT logflags, const std::string &str);
 	log_window(wxWindow *parent, LOGT flagmask, bool show = true);
 	~log_window();
 	void LWShow(bool shown=true);
@@ -70,7 +70,7 @@ struct log_file : public log_object {
 	log_file(LOGT flagmask, const char *filename);
 	log_file(LOGT flagmask, FILE *fp_, bool closefpondel_ = false);
 	~log_file();
-	void log_str(LOGT logflags, const wxString &str);
+	void log_str(LOGT logflags, const std::string &str);
 };
 
 struct Redirector_wxLog : public wxLog {
@@ -79,7 +79,7 @@ struct Redirector_wxLog : public wxLog {
 	virtual void DoLogString(const wxChar *msg, time_t timestamp) override;
 };
 
-LOGT StrToLogFlags(const wxString &str);
+LOGT StrToLogFlags(const std::string &str);
 
 extern log_window *globallogwindow;
 

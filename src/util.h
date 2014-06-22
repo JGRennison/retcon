@@ -41,6 +41,19 @@ inline std::string stdstrwx(const wxString &st) {
 std::string hexify(const std::string &in);
 wxString hexify_wx(const std::string &in);
 
+// This is intended to be used instead of std::string().c_str()
+// as it is too easy to accidentally do a wxString().c_str() and get silently broken results
+#define cstr(str) static_cast<const char *>(cstr_wrap(str))
+inline const char *cstr_wrap(const char *in) {
+	return in;
+}
+inline const char *cstr_wrap(const std::string &in) {
+	return in.c_str();
+}
+inline decltype(wxString().ToUTF8()) cstr_wrap(const wxString &in) {
+	return in.ToUTF8();
+}
+
 bool LoadImageFromFileAndCheckHash(const wxString &filename, shb_iptr hash, wxImage &img);
 bool LoadFromFileAndCheckHash(const wxString &filename, shb_iptr hash, char *&data, size_t &size);
 
@@ -78,7 +91,10 @@ template <typename C, typename D> inline void ownstrtonum(C &val, D *str, ssize_
 	}
 }
 
-wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t timestamp = 0, bool localtime = true);
+std::string rc_strftime(const std::string &format, const struct tm *tm, time_t timestamp = 0, bool localtime = true);
+inline wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time_t timestamp = 0, bool localtime = true) {
+	return wxstrstd(rc_strftime(stdstrwx(format), tm, timestamp, localtime));
+}
 
 std::string string_format(const std::string &fmt, ...);
 

@@ -48,7 +48,7 @@ struct profileimgdlconn : public dlconn {
 	void DoRetry();
 	void HandleFailure(long httpcode, CURLcode res);
 	static profileimgdlconn *GetConn(const std::string &imgurl_, udc_ptr_p user_);
-	virtual wxString GetConnTypeName();
+	virtual std::string GetConnTypeName();
 };
 
 enum class MIDC {
@@ -71,7 +71,7 @@ struct mediaimgdlconn : public dlconn {
 	void Reset();
 	void DoRetry();
 	void HandleFailure(long httpcode, CURLcode res);
-	virtual wxString GetConnTypeName();
+	virtual std::string GetConnTypeName();
 };
 
 #endif

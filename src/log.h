@@ -61,24 +61,24 @@ enum class LOGT : unsigned int {
 
 extern LOGT currentlogflags;
 
-void LogMsgRaw(LOGT logflags, const wxString &str);
-void LogMsgProcess(LOGT logflags, const wxString &str);
+void LogMsgRaw(LOGT logflags, const std::string &str);
+void LogMsgProcess(LOGT logflags, const std::string &str);
 void Update_currentlogflags();
 
 #define LogMsg(l, s) if( currentlogflags & (l) ) LogMsgProcess(l, s)
-#define LogMsgFormat(l, ...) if( currentlogflags & (l) ) LogMsgProcess(l, wxString::Format(__VA_ARGS__))
+#define LogMsgFormat(l, ...) if( currentlogflags & (l) ) LogMsgProcess(l, string_format(__VA_ARGS__))
 
-void ThreadSafeLogMsg(LOGT logflags, const wxString &str);
+void ThreadSafeLogMsg(LOGT logflags, const std::string &str);
 
-#define TSLogMsgFormat(l, ...) if( currentlogflags & (l) ) ThreadSafeLogMsg(l, wxString::Format(__VA_ARGS__))
+#define TSLogMsgFormat(l, ...) if( currentlogflags & (l) ) ThreadSafeLogMsg(l, string_format(__VA_ARGS__))
 #define TSLogMsg(l, s) if( currentlogflags & (l) ) ThreadSafeLogMsg(l, s)
 
-inline void SwitchableLogMsg(LOGT logflags, bool threadsafe, const wxString &str) {
+inline void SwitchableLogMsg(LOGT logflags, bool threadsafe, const std::string &str) {
 	if(threadsafe) ThreadSafeLogMsg(logflags, str);
 	else LogMsgProcess(logflags, str);
 }
 
-#define SLogMsgFormat(l, ts, ...) if( currentlogflags & (l) ) SwitchableLogMsg(l, ts, wxString::Format(__VA_ARGS__))
+#define SLogMsgFormat(l, ts, ...) if( currentlogflags & (l) ) SwitchableLogMsg(l, ts, string_format(__VA_ARGS__))
 #define SLogMsg(l, ts, s) if( currentlogflags & (l) ) SwitchableLogMsg(l, ts, s)
 
 #endif

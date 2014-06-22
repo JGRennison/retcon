@@ -60,13 +60,13 @@ generic_disp_base::generic_disp_base(wxWindow *parent, panelparentwin_base *tppw
 	default_background_colour = GetBackgroundColour();
 	default_foreground_colour = GetForegroundColour();
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("DCL: generic_disp_base::generic_disp_base constructor %s END"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, "DCL: generic_disp_base::generic_disp_base constructor %s END", cstr(GetThisName()));
 	#endif
 }
 
 void generic_disp_base::mousewheelhandler(wxMouseEvent &event) {
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsg(LOGT::TPANEL, wxT("DCL: MouseWheel"));
+		LogMsg(LOGT::TPANEL, "DCL: MouseWheel");
 	#endif
 	event.SetEventObject(GetParent());
 	GetParent()->GetEventHandler()->ProcessEvent(event);
@@ -77,7 +77,7 @@ void generic_disp_base::urleventhandler(wxTextUrlEvent &event) {
 	wxRichTextAttr textattr;
 	GetStyle(start, textattr);
 	wxString url=textattr.GetURL();
-	LogMsgFormat(LOGT::TPANEL, wxT("generic_disp_base::urleventhandler: %s, URL clicked, id: %s"), GetThisName().c_str(), url.c_str());
+	LogMsgFormat(LOGT::TPANEL, "generic_disp_base::urleventhandler: %s, URL clicked, id: %s", cstr(GetThisName()), cstr(url));
 	urlhandler(url);
 }
 
@@ -211,7 +211,7 @@ void dispscr_mouseoverwin::Position(const wxSize &targ_size, const wxPoint &targ
 	wxPoint this_position(targ_position.x + targ_size.x - this_size.x, targ_position.y);
 	if(this_position != GetPosition()) {
 		#if DISPSCR_COPIOUS_LOGGING
-			LogMsgFormat(LOGT::TPANEL, wxT("DCL: dispscr_mouseoverwin::Position: %s, moving to: %d, %d, size: %d, %d"), GetThisName().c_str(), this_position.x, this_position.y, this_size.x, this_size.y);
+			LogMsgFormat(LOGT::TPANEL, "DCL: dispscr_mouseoverwin::Position: %s, moving to: %d, %d, size: %d, %d", cstr(GetThisName()), this_position.x, this_position.y, this_size.x, this_size.y);
 		#endif
 		Move(this_position);
 	}
@@ -222,21 +222,21 @@ void dispscr_mouseoverwin::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 		       int xPos, int yPos,
 		       bool noRefresh ) {
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("DCL: dispscr_mouseoverwin::SetScrollbars %s, %d, %d, %d, %d, %d, %d, %d"), GetThisName().c_str(), pixelsPerUnitX, pixelsPerUnitY, noUnitsX, noUnitsY, xPos, yPos, noRefresh);
+		LogMsgFormat(LOGT::TPANEL, "DCL: dispscr_mouseoverwin::SetScrollbars %s, %d, %d, %d, %d, %d, %d, %d", cstr(GetThisName()), pixelsPerUnitX, pixelsPerUnitY, noUnitsX, noUnitsY, xPos, yPos, noRefresh);
 	#endif
 	wxRichTextCtrl::SetScrollbars(0, 0, 0, 0, 0, 0, noRefresh);
 }
 
 void dispscr_mouseoverwin::mouseenterhandler(wxMouseEvent &event) {
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("DCL: dispscr_mouseoverwin::mouseenterhandler: %s"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, "DCL: dispscr_mouseoverwin::mouseenterhandler: %s", cstr(GetThisName()));
 	#endif
 	MouseEnterLeaveEvent(true);
 }
 
 void dispscr_mouseoverwin::mouseleavehandler(wxMouseEvent &event) {
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("DCL: dispscr_mouseoverwin::mouseleavehandler: %s"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, "DCL: dispscr_mouseoverwin::mouseleavehandler: %s", cstr(GetThisName()));
 	#endif
 	MouseEnterLeaveEvent(false);
 }
@@ -265,7 +265,7 @@ dispscr_base::dispscr_base(tpanel_item *parent, panelparentwin_base *tppw_, wxBo
 : generic_disp_base(parent, tppw_, 0, thisname_), tpi(parent), hbox(hbox_) {
 	GetCaret()->Hide();
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("DCL: dispscr_base::dispscr_base constructor %s END"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, "DCL: dispscr_base::dispscr_base constructor %s END", cstr(GetThisName()));
 	#endif
 }
 
@@ -274,7 +274,7 @@ void dispscr_base::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 		       int xPos, int yPos,
 		       bool noRefresh ) {
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("DCL: dispscr_base::SetScrollbars %s"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, "DCL: dispscr_base::SetScrollbars %s", cstr(GetThisName()));
 	#endif
 	wxRichTextCtrl::SetScrollbars(0, 0, 0, 0, 0, 0, noRefresh);
 	int newheight = (pixelsPerUnitY * noUnitsY) + 4;
@@ -285,7 +285,7 @@ void dispscr_base::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 
 void dispscr_base::mouseenterhandler(wxMouseEvent &event) {
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("DCL: dispscr_base::mouseenterhandler: %s"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, "DCL: dispscr_base::mouseenterhandler: %s", cstr(GetThisName()));
 	#endif
 	if(!get()) {
 		set(MakeMouseOverWin());
@@ -295,7 +295,7 @@ void dispscr_base::mouseenterhandler(wxMouseEvent &event) {
 
 void dispscr_base::mouseleavehandler(wxMouseEvent &event) {
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("DCL: dispscr_base::mouseleavehandler: %s"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, "DCL: dispscr_base::mouseleavehandler: %s", cstr(GetThisName()));
 	#endif
 	if(get()) get()->MouseEnterLeaveEvent(false);
 }
@@ -311,7 +311,7 @@ tweetdispscr::tweetdispscr(tweet_ptr_p td_, tpanel_item *parent, tpanelparentwin
 	if(td_->rtsrc) rtid=td_->rtsrc->id;
 	else rtid=0;
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("DCL: tweetdispscr::tweetdispscr constructor %s END"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, "DCL: tweetdispscr::tweetdispscr constructor %s END", cstr(GetThisName()));
 	#endif
 }
 
@@ -405,7 +405,7 @@ void GenUserFmt(generic_disp_base *obj, userdatacontainer *u, size_t &i, const w
 	if(i>=format.size()) return;
 	#if DISPSCR_COPIOUS_LOGGING
 		wxChar log_formatchar = format[i];
-		LogMsgFormat(LOGT::TPANEL, wxT("TCL: GenUserFmt Start Format char: %c"), log_formatchar);
+		LogMsgFormat(LOGT::TPANEL, "TCL: GenUserFmt Start Format char: %c", log_formatchar);
 	#endif
 	switch((wxChar) format[i]) {
 		case 'n':
@@ -469,7 +469,7 @@ void GenUserFmt(generic_disp_base *obj, userdatacontainer *u, size_t &i, const w
 			break;
 	}
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("DCL: GenUserFmt End Format char: %c"), log_formatchar);
+		LogMsgFormat(LOGT::TPANEL, "DCL: GenUserFmt End Format char: %c", log_formatchar);
 	#endif
 }
 
@@ -576,7 +576,7 @@ void ColourCodeProc(generic_disp_base *obj, size_t &i, const wxString &format, w
 void GenFmtCodeProc(generic_disp_base *obj, size_t &i, const wxString &format, wxString &str) {
 	#if DISPSCR_COPIOUS_LOGGING
 		wxChar log_formatchar = format[i];
-		LogMsgFormat(LOGT::TPANEL, wxT("DCL: GenFmtCodeProc Start Format char: %c"), log_formatchar);
+		LogMsgFormat(LOGT::TPANEL, "DCL: GenFmtCodeProc Start Format char: %c", log_formatchar);
 	#endif
 	switch((wxChar) format[i]) {
 		case 'B': GenFlush(obj, str); obj->BeginBold(); break;
@@ -627,7 +627,7 @@ void GenFmtCodeProc(generic_disp_base *obj, size_t &i, const wxString &format, w
 			break;
 	}
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("DCL: GenFmtCodeProc End Format char: %c"), log_formatchar);
+		LogMsgFormat(LOGT::TPANEL, "DCL: GenFmtCodeProc End Format char: %c", log_formatchar);
 	#endif
 }
 
@@ -648,7 +648,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 	for(size_t i=0; i<format.size(); i++) {
 		#if DISPSCR_COPIOUS_LOGGING
 			wxChar log_formatchar = format[i];
-			LogMsgFormat(LOGT::TPANEL, wxT("DCL: TweetFormatProc Start Format char: %c"), log_formatchar);
+			LogMsgFormat(LOGT::TPANEL, "DCL: TweetFormatProc Start Format char: %c", log_formatchar);
 		#endif
 		switch((wxChar) format[i]) {
 			case 'u':
@@ -821,7 +821,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 						int erroffset;
 						pattern = pcre_compile(patsyntax, PCRE_NO_UTF8_CHECK | PCRE_CASELESS | PCRE_UTF8, &errptr, &erroffset, 0);
 						if(!pattern) {
-							LogMsgFormat(LOGT::OTHERERR, wxT("TweetFormatProc: case S: parse: pcre_compile failed: %s (%d)\n%s"), wxstrstd(errptr).c_str(), erroffset, wxstrstd(patsyntax).c_str());
+							LogMsgFormat(LOGT::OTHERERR, "TweetFormatProc: case S: parse: pcre_compile failed: %s (%d)\n%s", cstr(errptr), erroffset, cstr(patsyntax));
 							return;
 						}
 						patextra = pcre_study(pattern, 0, &errptr);
@@ -936,7 +936,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 			}
 		}
 		#if DISPSCR_COPIOUS_LOGGING
-			LogMsgFormat(LOGT::TPANEL, wxT("DCL: TweetFormatProc End Format char: %c"), log_formatchar);
+			LogMsgFormat(LOGT::TPANEL, "DCL: TweetFormatProc End Format char: %c", log_formatchar);
 		#endif
 	}
 	flush();
@@ -944,7 +944,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 
 void tweetdispscr::DisplayTweet(bool redrawimg) {
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("DCL: tweetdispscr::DisplayTweet %s, START %" wxLongLongFmtSpec "d, redrawimg: %d"), GetThisName().c_str(), td->id, redrawimg);
+		LogMsgFormat(LOGT::TPANEL, "DCL: tweetdispscr::DisplayTweet %s, START %" llFmtSpec "d, redrawimg: %d", cstr(GetThisName()), td->id, redrawimg);
 	#endif
 
 	Freeze();
@@ -989,7 +989,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 
 	if(redrawimg) {
 		#if DISPSCR_COPIOUS_LOGGING
-			LogMsgFormat(LOGT::TPANEL, wxT("DCL: tweetdispscr::DisplayTweet About to redraw images"));
+			LogMsgFormat(LOGT::TPANEL, "DCL: tweetdispscr::DisplayTweet About to redraw images");
 		#endif
 		auto updateprofimg = [this](profimg_staticbitmap *b) {
 			if(!b) return;
@@ -1008,7 +1008,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 	}
 
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("DCL: tweetdispscr::DisplayTweet 1"));
+		LogMsgFormat(LOGT::TPANEL, "DCL: tweetdispscr::DisplayTweet 1");
 	#endif
 
 	Clear();
@@ -1022,7 +1022,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 		TweetFormatProc(this, format, tw, tppw, tds_flags, &me_list);
 
 		#if DISPSCR_COPIOUS_LOGGING
-			LogMsgFormat(LOGT::TPANEL, wxT("DCL: tweetdispscr::DisplayTweet 2"));
+			LogMsgFormat(LOGT::TPANEL, "DCL: tweetdispscr::DisplayTweet 2");
 		#endif
 
 		if(!me_list.empty()) {
@@ -1118,20 +1118,20 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 	}
 
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("DCL: tweetdispscr::DisplayTweet 3"));
+		LogMsgFormat(LOGT::TPANEL, "DCL: tweetdispscr::DisplayTweet 3");
 	#endif
 
 	if(!(tppw->GetTPPWFlags() & TPPWF::NOUPDATEONPUSH)) LayoutContent();
 
 	if(!(tppw->GetTPPWFlags() & TPPWF::NOUPDATEONPUSH)) {
 		#if DISPSCR_COPIOUS_LOGGING
-			LogMsgFormat(LOGT::TPANEL, wxT("DCL: tweetdispscr::DisplayTweet 4 About to call tpi->NotifyLayoutNeeded()"));
+			LogMsgFormat(LOGT::TPANEL, "DCL: tweetdispscr::DisplayTweet 4 About to call tpi->NotifyLayoutNeeded()");
 		#endif
 		tpi->NotifyLayoutNeeded();
 	}
 	else {
 		#if DISPSCR_COPIOUS_LOGGING
-			LogMsgFormat(LOGT::TPANEL, wxT("DCL: tweetdispscr::DisplayTweet 4"));
+			LogMsgFormat(LOGT::TPANEL, "DCL: tweetdispscr::DisplayTweet 4");
 		#endif
 	}
 
@@ -1140,7 +1140,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 	Thaw();
 
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("DCL: tweetdispscr::DisplayTweet %s, END %" wxLongLongFmtSpec "d, redrawimg: %d"), GetThisName().c_str(), td->id, redrawimg);
+		LogMsgFormat(LOGT::TPANEL, "DCL: tweetdispscr::DisplayTweet %s, END %" llFmtSpec "d, redrawimg: %d", cstr(GetThisName()), td->id, redrawimg);
 	#endif
 }
 
@@ -1200,8 +1200,8 @@ void TweetURLHandler(wxWindow *win, wxString url, tweet_ptr_p td, panelparentwin
 			generic_disp_base *popwin = gdb;
 			tweetdispscr *tds = gdb->GetTDS();
 			if(tds) popwin = tds;
-			LogMsgFormat(LOGT::TPANEL, wxT("Sending popup menu message: %p, to window: %s (%p), win: %s (%p), tppw: %p"),
-					menu.get(), popwin->thisname.c_str(), popwin, gdb->thisname.c_str(), gdb, tppw);
+			LogMsgFormat(LOGT::TPANEL, "Sending popup menu message: %p, to window: %s (%p), win: %s (%p), tppw: %p",
+					menu.get(), cstr(popwin->thisname), popwin, cstr(gdb->thisname), gdb, tppw);
 			popwin->menuptr = menu;
 			wxCommandEvent event(wxextGDB_Popup_Evt, win->GetId());
 			popwin->GetEventHandler()->AddPendingEvent(event);
@@ -1212,7 +1212,7 @@ void TweetURLHandler(wxWindow *win, wxString url, tweet_ptr_p td, panelparentwin
 	if(url[0]=='M') {
 		media_id_type media_id=ParseMediaID(url);
 
-		LogMsgFormat(LOGT::TPANEL, wxT("Media image clicked, str: %s, id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d"), url.Mid(1).c_str(), media_id.m_id, media_id.t_id);
+		LogMsgFormat(LOGT::TPANEL, "Media image clicked, str: %s, id: %" llFmtSpec "d/%" llFmtSpec "d", cstr(url.Mid(1)), media_id.m_id, media_id.t_id);
 		if(ad.media_list[media_id]->win) {
 			ad.media_list[media_id]->win->Raise();
 		}
@@ -1726,7 +1726,7 @@ void userdispscr::urleventhandler(wxTextUrlEvent &event) {
 	wxRichTextAttr textattr;
 	GetStyle(start, textattr);
 	wxString url=textattr.GetURL();
-	LogMsgFormat(LOGT::TPANEL, wxT("URL clicked, id: %s"), url.c_str());
+	LogMsgFormat(LOGT::TPANEL, "URL clicked, id: %s", cstr(url));
 	if(url[0]=='U') {
 		uint64_t userid=0;
 		for(unsigned int i=1; i<url.Len(); i++) {

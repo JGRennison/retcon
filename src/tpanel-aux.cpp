@@ -240,7 +240,7 @@ void tpanelnotebook::PostSplitSizeCorrect() {
 	for(size_t i = 0; i < pane_count; ++i) {
 		if(all_panes.Item(i).name != wxT("dummy")) {
 			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LOGT::TPANEL, wxT("TCL: PostSplitSizeCorrect2 %d %d %d %d"), all_panes.Item(i).dock_direction, all_panes.Item(i).dock_layer, all_panes.Item(i).dock_row, all_panes.Item(i).dock_pos);
+				LogMsgFormat(LOGT::TPANEL, "TCL: PostSplitSizeCorrect2 %d %d %d %d", all_panes.Item(i).dock_direction, all_panes.Item(i).dock_layer, all_panes.Item(i).dock_row, all_panes.Item(i).dock_pos);
 			#endif
 		}
 	}
@@ -248,7 +248,7 @@ void tpanelnotebook::PostSplitSizeCorrect() {
 	DoSizing();
 	owner->Refresh();
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelnotebook::PostSplitSizeCorrect(): END"));
+		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelnotebook::PostSplitSizeCorrect(): END");
 	#endif
 }
 
@@ -394,7 +394,7 @@ void tpanel_item::NotifyLayoutNeeded() {
 
 void tpanel_item::mousewheelhandler(wxMouseEvent &event) {
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsg(LOGT::TPANEL, wxT("TSCL: Item MouseWheel"));
+		LogMsg(LOGT::TPANEL, "TSCL: Item MouseWheel");
 	#endif
 	event.SetEventObject(GetParent());
 	GetParent()->GetEventHandler()->ProcessEvent(event);
@@ -422,7 +422,7 @@ tpanelscrollwin::tpanelscrollwin(panelparentwin_base *parent_)
 
 void tpanelscrollwin::resizehandler(wxSizeEvent &event) {
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("TSCL: tpanelscrollwin::resizehandler: %s, %d, %d"), GetThisName().c_str(), event.GetSize().GetWidth(), event.GetSize().GetHeight());
+		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollwin::resizehandler: %s, %d, %d", cstr(GetThisName()), event.GetSize().GetWidth(), event.GetSize().GetHeight());
 	#endif
 
 	for(auto &disp : parent->GetCurrentDisp()) {
@@ -432,7 +432,7 @@ void tpanelscrollwin::resizehandler(wxSizeEvent &event) {
 
 void tpanelscrollwin::resizemsghandler(wxCommandEvent &event) {
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("TSCL: tpanelscrollwin::resizemsghandler %s"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollwin::resizemsghandler %s", cstr(GetThisName()));
 	#endif
 	RepositionItems();
 	resize_update_pending = false;
@@ -444,7 +444,7 @@ void tpanelscrollwin::mousewheelhandler(wxMouseEvent &event) {
 	int pxdelta = -event.GetWheelRotation() * gc.mousewheelscrollspeed / event.GetWheelDelta();
 
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("TSCL: tpanelscrollwin::mousewheelhandler %s, %d %d %d"), GetThisName().c_str(),
+		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollwin::mousewheelhandler %s, %d %d %d", cstr(GetThisName()),
 				GetScrollPos(wxVERTICAL), event.GetWheelRotation(), pxdelta);
 	#endif
 
@@ -458,7 +458,7 @@ void tpanelscrollwin::mousewheelhandler(wxMouseEvent &event) {
 
 void tpanelscrollwin::OnScrollTrack(wxScrollWinEvent &event) {
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("TSCL: tpanelscrollwin::OnScrollTrack %s"), GetThisName().c_str());
+		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollwin::OnScrollTrack %s", cstr(GetThisName()));
 	#endif
 	ScrollItems();
 }
@@ -467,7 +467,7 @@ void tpanelscrollwin::OnScrollHandlerCommon(bool upok, bool downok, int threshol
 	int y = GetScrollPos(wxVERTICAL);
 	int endpos = y + scroll_client_size;
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("TSCL: tpanelscrollwin::OnScrollHandlerCommon %s, %d %d %d %d"), GetThisName().c_str(), y, scroll_virtual_size, scroll_client_size, endpos);
+		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollwin::OnScrollHandlerCommon %s, %d %d %d %d", cstr(GetThisName()), y, scroll_virtual_size, scroll_client_size, endpos);
 	#endif
 	bool scrollup = (y <= threshold && upok);
 	bool scrolldown = (endpos >= (scroll_virtual_size - threshold) && downok);
@@ -511,7 +511,7 @@ void tpanelscrollwin::OnScrollHandler(wxScrollWinEvent &event) {
 // the item at the top of the visible screen is unmoved
 void tpanelscrollwin::RepositionItems() {
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("TSCL: tpanelscrollwin::RepositionItems %s, START %d %d"), GetThisName().c_str(),
+		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollwin::RepositionItems %s, START %d %d", cstr(GetThisName()),
 				GetScrollPos(wxVERTICAL), parent->GetCurrentDisp().size());
 	#endif
 	scroll_virtual_size = 0;
@@ -555,7 +555,7 @@ void tpanelscrollwin::RepositionItems() {
 
 	ScrollItems();
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("TSCL: tpanelscrollwin::RepositionItems %s, END %d %d %d %d %d"), GetThisName().c_str(),
+		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollwin::RepositionItems %s, END %d %d %d %d %d", cstr(GetThisName()),
 				GetScrollPos(wxVERTICAL), scroll_offset, have_scroll_offset, scroll_always_freeze, cumul_size);
 	#endif
 }
@@ -563,7 +563,7 @@ void tpanelscrollwin::RepositionItems() {
 // Move all child windows to their correct positions
 void tpanelscrollwin::ScrollItems() {
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("TSCL: tpanelscrollwin::ScrollItems %s, %d, %d"), GetThisName().c_str(), GetScrollPos(wxVERTICAL), parent->GetCurrentDisp().size());
+		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollwin::ScrollItems %s, %d, %d", cstr(GetThisName()), GetScrollPos(wxVERTICAL), parent->GetCurrentDisp().size());
 	#endif
 	int y = -GetScrollPos(wxVERTICAL);
 
@@ -620,10 +620,10 @@ void tpanelload_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt
 	}
 }
 
-wxString tpanelload_pending_op::dump() {
+std::string tpanelload_pending_op::dump() {
 	std::shared_ptr<tpanel> tp=pushtpanel.lock();
 	tpanelparentwin_nt *window=win.get();
-	return wxString::Format(wxT("Push tweet to tpanel: %s, window: %p, pushflags: 0x%X"), (tp)?wxstrstd(tp->dispname).c_str():wxT("N/A"), window, pushflags);
+	return string_format("Push tweet to tpanel: %s, window: %p, pushflags: 0x%X", (tp) ? cstr(wxstrstd(tp->dispname)) : "N/A", window, pushflags);
 }
 
 void tpanel_subtweet_pending_op::CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, tpanelparentwin_nt *s,
@@ -728,6 +728,6 @@ void tpanel_subtweet_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF>
 	});
 }
 
-wxString tpanel_subtweet_pending_op::dump() {
-	return wxString::Format(wxT("Push inline tweet reply to tpanel: %p, %p, %p"), action_data->vbox, action_data->win.get(), action_data->top_tds.get());
+std::string tpanel_subtweet_pending_op::dump() {
+	return string_format("Push inline tweet reply to tpanel: %p, %p, %p", action_data->vbox, action_data->win.get(), action_data->top_tds.get());
 }

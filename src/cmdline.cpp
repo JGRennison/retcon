@@ -83,7 +83,7 @@ int cmdlineproc(wxChar ** argv, int argc) {
 		}
 		switch(args.OptionId()) {
 			case OPT_LOGWIN: {
-				LOGT flagmask=StrToLogFlags(args.OptionArg());
+				LOGT flagmask=StrToLogFlags(stdstrwx(args.OptionArg()));
 				if(!globallogwindow) new log_window(0, flagmask, true);
 				else {
 					globallogwindow->lo_flags=flagmask;
@@ -96,7 +96,7 @@ int cmdlineproc(wxChar ** argv, int argc) {
 					wxLogError(wxT("Command line processing error: -f/--log-file requires filename argument, arg: %s"), args.OptionText());
 					return 1;
 				}
-				LOGT flagmask=StrToLogFlags(args.OptionArg());
+				LOGT flagmask=StrToLogFlags(stdstrwx(args.OptionArg()));
 				wxString filename=args.m_argv[args.m_nNextOption++];
 				new log_file(flagmask, filename.char_str());
 				break;
@@ -104,12 +104,12 @@ int cmdlineproc(wxChar ** argv, int argc) {
 			case OPT_FILEAUTO: {
 				time_t now=time(0);
 				wxString filename=wxT("retcon-log-")+rc_wx_strftime(wxT("%Y%m%dT%H%M%SZ.log"), gmtime(&now), now, false);
-				LOGT flagmask=StrToLogFlags(args.OptionArg());
+				LOGT flagmask=StrToLogFlags(stdstrwx(args.OptionArg()));
 				new log_file(flagmask, filename.char_str());
 				break;
 			}
 			case OPT_STDERR: {
-				LOGT flagmask=StrToLogFlags(args.OptionArg());
+				LOGT flagmask=StrToLogFlags(stdstrwx(args.OptionArg()));
 				new log_file(flagmask, stderr);
 				break;
 			}

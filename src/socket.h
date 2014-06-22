@@ -87,7 +87,7 @@ struct mcurlconn : public wxEvtHandler {
 	virtual void RemoveFromRetryQueueNotify() { }
 	virtual MCC_HTTPERRTYPE CheckHTTPErrType(long httpcode);
 	virtual CURL *GenGetCurlHandle() = 0;
-	virtual wxString GetConnTypeName() { return wxT(""); }
+	virtual std::string GetConnTypeName() { return ""; }
 
 	DECLARE_EVENT_TABLE()
 };

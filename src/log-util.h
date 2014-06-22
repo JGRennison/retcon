@@ -25,12 +25,12 @@
 struct tweet;
 struct taccount;
 
-wxString tweet_log_line(const tweet *t);
-void dump_pending_acc(LOGT logflags, const wxString &indent, const wxString &indentstep, taccount *acc);
-void dump_tweet_pendings(LOGT logflags, const wxString &indent, const wxString &indentstep);
-void dump_pending_acc_failed_conns(LOGT logflags, const wxString &indent, const wxString &indentstep, taccount *acc);
-void dump_pending_retry_conn(LOGT logflags, const wxString &indent, const wxString &indentstep);
-void dump_pending_active_conn(LOGT logflags, const wxString &indent, const wxString &indentstep);
-void dump_acc_socket_flags(LOGT logflags, const wxString &indent, taccount *acc);
+std::string tweet_log_line(const tweet *t);
+void dump_pending_acc(LOGT logflags, const std::string &indent, const std::string &indentstep, taccount *acc);
+void dump_tweet_pendings(LOGT logflags, const std::string &indent, const std::string &indentstep);
+void dump_pending_acc_failed_conns(LOGT logflags, const std::string &indent, const std::string &indentstep, taccount *acc);
+void dump_pending_retry_conn(LOGT logflags, const std::string &indent, const std::string &indentstep);
+void dump_pending_active_conn(LOGT logflags, const std::string &indent, const std::string &indentstep);
+void dump_acc_socket_flags(LOGT logflags, const std::string &indent, taccount *acc);
 
 #endif

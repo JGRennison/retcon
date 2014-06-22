@@ -51,31 +51,31 @@ LOGT currentlogflags = LOGT::ZERO;
 flagwrapper<LOGIMPLF> logimpl_flags = 0;
 std::forward_list<log_object*> logfunclist;
 
-static void dump_non_acc_user_pendings(LOGT logflags, const wxString &indent, const wxString &indentstep);
+static void dump_non_acc_user_pendings(LOGT logflags, const std::string &indent, const std::string &indentstep);
 
-const wxChar *logflagsstrings[]={
-	wxT("curlverb"),
-	wxT("parsetrace"),
-	wxT("parseerr"),
-	wxT("socktrace"),
-	wxT("sockerr"),
-	wxT("tpanel"),
-	wxT("netaction"),
-	wxT("dbtrace"),
-	wxT("dberr"),
-	wxT("ztrace"),
-	wxT("zerr"),
-	wxT("othertrace"),
-	wxT("othererr"),
-	wxT("userreq"),
-	wxT("pendingtrace"),
-	wxT("wxlog"),
-	wxT("wxverbose"),
-	wxT("filtererr"),
-	wxT("filtertrace"),
-	wxT("threadtrace"),
-	wxT("fileiotrace"),
-	wxT("fileioerr"),
+const std::string logflagsstrings[] = {
+	"curlverb",
+	"parsetrace",
+	"parseerr",
+	"socktrace",
+	"sockerr",
+	"tpanel",
+	"netaction",
+	"dbtrace",
+	"dberr",
+	"ztrace",
+	"zerr",
+	"othertrace",
+	"othererr",
+	"userreq",
+	"pendingtrace",
+	"wxlog",
+	"wxverbose",
+	"filtererr",
+	"filtertrace",
+	"threadtrace",
+	"fileiotrace",
+	"fileioerr",
 };
 
 void Update_currentlogflags() {
@@ -93,26 +93,26 @@ void Update_currentlogflags() {
 	else wxLog::SetLogLevel(wxLOG_FatalError);
 }
 
-void LogMsgRaw(LOGT logflags, const wxString &str) {
+void LogMsgRaw(LOGT logflags, const std::string &str) {
 	for(auto it=logfunclist.begin(); it!=logfunclist.end(); ++it) {
 		log_object *lo=*it;
 		if(logflags&lo->lo_flags) lo->log_str(logflags, str);
 	}
 }
 
-wxString LogMsgFlagString(LOGT logflags) {
-	wxString out;
+std::string LogMsgFlagString(LOGT logflags) {
+	std::string out;
 	auto bitint = flag_unwrap<LOGT>(logflags & LOGT::GROUP_STR);
 	while(bitint) {
 		int offset = __builtin_ctzl(bitint);
 		bitint &= ~(static_cast<decltype(bitint)>(1) << offset);
-		if(out.Len()) out += wxT(",");
+		if(out.size()) out += ",";
 		out += logflagsstrings[offset];
 	}
 	return out;
 }
 
-void LogMsgProcess(LOGT logflags, const wxString &str) {
+void LogMsgProcess(LOGT logflags, const std::string &str) {
 	time_t now=time(0);
 	unsigned int ms;
 	#ifdef __WINDOWS__
@@ -124,11 +124,11 @@ void LogMsgProcess(LOGT logflags, const wxString &str) {
 	gettimeofday(&time, NULL);
 	ms=(time.tv_usec / 1000);
 	#endif
-	wxString time_str=rc_wx_strftime(wxString::Format(wxT("%%F %%T.%03d %%z"), ms), localtime(&now), now, true);
-	wxString flag_str=LogMsgFlagString(logflags)+wxT(":");
-	wxString in=str;
-	in.Trim();
-	LogMsgRaw(logflags, wxString::Format(wxT("%s %-20s %s\n"), time_str.c_str(), flag_str.c_str(), in.c_str()).c_str());
+	std::string time_str = rc_strftime(string_format("%%F %%T.%03d %%z", ms), localtime(&now), now, true);
+	std::string flag_str = LogMsgFlagString(logflags) + ":";
+	std::string in = str;
+	in.erase(std::find_if(in.rbegin(), in.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), in.end());
+	LogMsgRaw(logflags, string_format("%s %-20s %s\n", cstr(time_str), cstr(flag_str), cstr(in)));
 }
 
 log_object::log_object(LOGT flagmask) : lo_flags(flagmask) {
@@ -142,8 +142,8 @@ log_object::~log_object() {
 	Update_currentlogflags();
 }
 
-void log_window::log_str(LOGT logflags, const wxString &str) {
-	if(isshown) txtct->AppendText(str);
+void log_window::log_str(LOGT logflags, const std::string &str) {
+	if(isshown) txtct->AppendText(wxstrstd(str));
 	else pending.push(str);
 }
 
@@ -214,7 +214,7 @@ log_window::log_window(wxWindow *parent, LOGT flagmask, bool show)
 	for(size_t i = hs->GetChildren().GetCount(); (i % hs->GetCols()) != 0; i++) hs->AddStretchSpacer();
 	for(unsigned int i = 0; i < (sizeof(LOGT) * 8); i++) {
 		if(flag_wrap<LOGT>(1 << i) & LOGT::GROUP_STR) {
-			log_window_AddChkBox(this, flag_wrap<LOGT>(1 << i), logflagsstrings[i], hs);
+			log_window_AddChkBox(this, flag_wrap<LOGT>(1 << i), wxstrstd(logflagsstrings[i]), hs);
 		}
 	}
 	bs->Add(hs, 0, wxALL, 2);
@@ -241,7 +241,7 @@ log_window::log_window(wxWindow *parent, LOGT flagmask, bool show)
 
 log_window::~log_window() {
 	logfunclist.remove(this);
-	LogMsgFormat(LOGT::OTHERTRACE, wxT("log_window::~log_window"));
+	LogMsgFormat(LOGT::OTHERTRACE, "log_window::~log_window");
 	globallogwindow = 0;
 }
 
@@ -249,7 +249,7 @@ void log_window::LWShow(bool shown) {
 	isshown=shown;
 	if(shown) {
 		while(!pending.empty()) {
-			txtct->AppendText(pending.front());
+			txtct->AppendText(wxstrstd(pending.front()));
 			pending.pop();
 		}
 	}
@@ -282,24 +282,24 @@ void log_window::OnClear(wxCommandEvent &event) {
 
 void log_window::OnClose(wxCommandEvent &event) {
 	logfunclist.remove(this);
-	LogMsgFormat(LOGT::OTHERTRACE, wxT("log_window::OnClose"));
+	LogMsgFormat(LOGT::OTHERTRACE, "log_window::OnClose");
 	LWShow(false);
 }
 
 void log_window::OnDumpPending(wxCommandEvent &event) {
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
-		dump_pending_acc(LOGT::USERREQ, wxT(""), wxT("\t"), (*it).get());
+		dump_pending_acc(LOGT::USERREQ, "", "\t", (*it).get());
 	}
-	dump_non_acc_user_pendings(LOGT::USERREQ, wxT(""), wxT("\t"));
-	dump_tweet_pendings(LOGT::USERREQ, wxT(""), wxT("\t"));
+	dump_non_acc_user_pendings(LOGT::USERREQ, "", "\t");
+	dump_tweet_pendings(LOGT::USERREQ, "", "\t");
 }
 
 void log_window::OnDumpConnInfo(wxCommandEvent &event) {
-	dump_pending_active_conn(LOGT::USERREQ, wxT(""), wxT("\t"));
-	dump_pending_retry_conn(LOGT::USERREQ, wxT(""), wxT("\t"));
+	dump_pending_active_conn(LOGT::USERREQ, "", "\t");
+	dump_pending_retry_conn(LOGT::USERREQ, "", "\t");
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
-		LogMsgFormat(LOGT::USERREQ, wxT("Account: %s (%s)"), (*it)->name.c_str(), (*it)->dispname.c_str());
-		dump_pending_acc_failed_conns(LOGT::USERREQ, wxT("\t"), wxT("\t"), (*it).get());
+		LogMsgFormat(LOGT::USERREQ, "Account: %s (%s)", cstr((*it)->name), cstr((*it)->dispname));
+		dump_pending_acc_failed_conns(LOGT::USERREQ, "\t", "\t", (*it).get());
 	}
 }
 
@@ -316,14 +316,15 @@ log_file::~log_file() {
 	if(closefpondel) fclose(fp);
 }
 
-void log_file::log_str(LOGT logflags, const wxString &str) {
-	fprintf(fp, "%s", (const char *) str.ToUTF8());
+void log_file::log_str(LOGT logflags, const std::string &str) {
+	fputs(cstr(str), fp);
 	if(logimpl_flags & LOGIMPLF::FFLUSH) fflush(fp);
 }
 
-LOGT StrToLogFlags(const wxString &str) {
+LOGT StrToLogFlags(const std::string &str) {
 	LOGT out = LOGT::ZERO;
-	wxStringTokenizer tkz(str, wxT(",\t\r\n "), wxTOKEN_STRTOK);
+	wxString wstr = wxstrstd(str);
+	wxStringTokenizer tkz(wstr, wxT(",\t\r\n "), wxTOKEN_STRTOK);
 	while (tkz.HasMoreTokens()) {
 		wxString token = tkz.GetNextToken();
 		if(token == wxT("all")) out |= LOGT::GROUP_ALL;
@@ -332,8 +333,9 @@ LOGT StrToLogFlags(const wxString &str) {
 		else if(token == wxT("def")) out |= LOGT::GROUP_LOGWINDEF;
 		else if(token == wxT("default")) out |= LOGT::GROUP_LOGWINDEF;
 		else {
-			for(unsigned int i = 0; i < sizeof(logflagsstrings) / sizeof(const wxChar *); i++) {
-				if(token == logflagsstrings[i]) {
+			std::string stdtoken = stdstrwx(token);
+			for(unsigned int i = 0; i < sizeof(logflagsstrings) / sizeof(logflagsstrings[0]); i++) {
+				if(stdtoken == logflagsstrings[i]) {
 					out |= flag_wrap<LOGT>(1 << i);
 					break;
 				}
@@ -343,85 +345,85 @@ LOGT StrToLogFlags(const wxString &str) {
 	return out;
 }
 
-wxString tweet_log_line(const tweet *t) {
-	wxString sname = wxT("???");
-	if(t->user && !t->user->GetUser().screen_name.empty()) sname = wxstrstd(t->user->GetUser().screen_name);
-	wxString output = wxString::Format(wxT("Tweet: %" wxLongLongFmtSpec "d @%s (%.20s...) tflags: %s, lflags: 0x%X, pending (default): %d, TPs: "),
-			t->id, sname.c_str(), wxstrstd(t->text).c_str(), wxstrstd(t->flags.GetString()).c_str(), t->lflags, (int) t->IsPendingConst().IsReady());
+std::string tweet_log_line(const tweet *t) {
+	std::string sname = "???";
+	if(t->user && !t->user->GetUser().screen_name.empty()) sname = t->user->GetUser().screen_name;
+	std::string output = string_format("Tweet: %" llFmtSpec "d @%s (%.20s...) tflags: %s, lflags: 0x%X, pending (default): %d, TPs: ",
+			t->id, cstr(sname), cstr(t->text), cstr(t->flags.GetString()), t->lflags, (int) t->IsPendingConst().IsReady());
 	bool needcomma = false;
 	t->IterateTP([&](const tweet_perspective &tp) {
-		wxString thistp = wxstrstd(tp.GetFlagStringWithName());
-		if(thistp.IsEmpty()) return;
-		if(needcomma) output += wxT(", ");
+		std::string thistp = tp.GetFlagStringWithName();
+		if(thistp.empty()) return;
+		if(needcomma) output += ", ";
 		else needcomma = true;
 		output += thistp;
 	});
 	return std::move(output);
 }
 
-static void dump_pending_user_line(LOGT logflags, const wxString &indent, userdatacontainer *u) {
+static void dump_pending_user_line(LOGT logflags, const std::string &indent, userdatacontainer *u) {
 	time_t now=time(0);
-	LogMsgFormat(logflags, wxT("%sUser: %" wxLongLongFmtSpec "d (%s) udc_flags: 0x%X, last update: %" wxLongLongFmtSpec "ds ago"
-			", last DB update: %" wxLongLongFmtSpec "ds ago, image ready: %d, ready (nx): %d, ready (x): %d"),
-			indent.c_str(), u->id, wxstrstd(u->GetUser().screen_name).c_str(), u->udc_flags, (uint64_t) (now-u->lastupdate),
+	LogMsgFormat(logflags, "%sUser: %" llFmtSpec "d (%s) udc_flags: 0x%X, last update: %" llFmtSpec "ds ago"
+			", last DB update: %" llFmtSpec "ds ago, image ready: %d, ready (nx): %d, ready (x): %d",
+			cstr(indent), u->id, cstr(u->GetUser().screen_name), u->udc_flags, (uint64_t) (now-u->lastupdate),
 			(uint64_t) (now-u->lastupdate_wrotetodb), u->ImgIsReady(0), u->IsReady(0), u->IsReady(PENDING_REQ::USEREXPIRE));
 }
 
-static void dump_pending_tweet(LOGT logflags, const wxString &indent, const wxString &indentstep, tweet *t, userdatacontainer *exclude_user) {
-	LogMsgFormat(logflags, wxT("%sTweet: %s"), indent.c_str(), tweet_log_line(t).c_str());
+static void dump_pending_tweet(LOGT logflags, const std::string &indent, const std::string &indentstep, tweet *t, userdatacontainer *exclude_user) {
+	LogMsgFormat(logflags, "%sTweet: %s", cstr(indent), cstr(tweet_log_line(t)));
 	if(t->user && t->user.get()!=exclude_user) dump_pending_user_line(logflags, indent+indentstep, t->user.get());
 	if(t->user_recipient && t->user_recipient.get()!=exclude_user) dump_pending_user_line(logflags, indent+indentstep, t->user_recipient.get());
 }
 
-static void dump_pending_user(LOGT logflags, const wxString &indent, const wxString &indentstep, userdatacontainer *u) {
+static void dump_pending_user(LOGT logflags, const std::string &indent, const std::string &indentstep, userdatacontainer *u) {
 	dump_pending_user_line(logflags, indent, u);
 	for(auto it=u->pendingtweets.begin(); it!=u->pendingtweets.end(); ++it) {
 		dump_pending_tweet(logflags, indent+indentstep, indentstep, (*it).get(), u);
 	}
 }
 
-void dump_pending_acc(LOGT logflags, const wxString &indent, const wxString &indentstep, taccount *acc) {
-	LogMsgFormat(logflags, wxT("%sAccount: %s (%s)"), indent.c_str(), acc->name.c_str(), acc->dispname.c_str());
+void dump_pending_acc(LOGT logflags, const std::string &indent, const std::string &indentstep, taccount *acc) {
+	LogMsgFormat(logflags, "%sAccount: %s (%s)", cstr(indent), cstr(acc->name), cstr(acc->dispname));
 	for(auto it=acc->pendingusers.begin(); it!=acc->pendingusers.end(); ++it) {
 		dump_pending_user(logflags, indent+indentstep, indentstep, (*it).second.get());
 	}
 }
 
-static void dump_tweet_line(LOGT logflags, const wxString &indent, const wxString &indentstep, const tweet *t) {
-	LogMsgFormat(logflags, wxT("%sTweet with operations pending ready state: %s"), indent.c_str(), tweet_log_line(t).c_str());
+static void dump_tweet_line(LOGT logflags, const std::string &indent, const std::string &indentstep, const tweet *t) {
+	LogMsgFormat(logflags, "%sTweet with operations pending ready state: %s", cstr(indent), cstr(tweet_log_line(t)));
 	for(auto jt=t->pending_ops.begin(); jt!=t->pending_ops.end(); ++jt) {
-		LogMsgFormat(logflags, wxT("%s%s%s"), indent.c_str(), indentstep.c_str(), (*jt)->dump().c_str());
+		LogMsgFormat(logflags, "%s%s%s", cstr(indent), cstr(indentstep), cstr((*jt)->dump()));
 	}
 }
 
-void dump_tweet_pendings(LOGT logflags, const wxString &indent, const wxString &indentstep) {
+void dump_tweet_pendings(LOGT logflags, const std::string &indent, const std::string &indentstep) {
 	bool done_header = false;
 	for(auto it=ad.tweetobjs.begin(); it!=ad.tweetobjs.end(); ++it) {
 		const tweet *t = &(it->second);
 		if(t && !(t->pending_ops.empty())) {
 			if(!done_header) {
 				done_header = true;
-				LogMsgFormat(logflags, wxT("%sTweets with operations pending ready state:"), indent.c_str());
+				LogMsgFormat(logflags, "%sTweets with operations pending ready state:", cstr(indent));
 			}
 			dump_tweet_line(logflags, indent + indentstep, indentstep, t);
 		}
 	}
 	if(!ad.noacc_pending_tweetobjs.empty()) {
-		LogMsgFormat(logflags, wxT("%sTweets pending usable account:"), indent.c_str());
+		LogMsgFormat(logflags, "%sTweets pending usable account:", cstr(indent));
 		for(auto &it : ad.noacc_pending_tweetobjs) {
 			dump_tweet_line(logflags, indent + indentstep, indentstep, it.second.get());
 		}
 	}
 }
 
-static void dump_non_acc_user_pendings(LOGT logflags, const wxString &indent, const wxString &indentstep) {
+static void dump_non_acc_user_pendings(LOGT logflags, const std::string &indent, const std::string &indentstep) {
 	std::set<uint64_t> acc_pending_users;
 	for(auto it=alist.begin(); it!=alist.end(); ++it) {
 		for(auto jt=(*it)->pendingusers.begin(); jt!=(*it)->pendingusers.end(); ++jt) {
 			acc_pending_users.insert(jt->second->id);
 		}
 	}
-	LogMsgFormat(logflags, wxT("%sOther pending users:"), indent.c_str());
+	LogMsgFormat(logflags, "%sOther pending users:", cstr(indent));
 	for(auto it=ad.userconts.begin(); it!=ad.userconts.begin(); ++it) {
 		if(!(it->second.pendingtweets.empty())) {
 			if(acc_pending_users.find(it->first)==acc_pending_users.end()) {
@@ -430,42 +432,46 @@ static void dump_non_acc_user_pendings(LOGT logflags, const wxString &indent, co
 		}
 	}
 	if(!ad.noacc_pending_userconts.empty()) {
-		LogMsgFormat(logflags, wxT("%sUsers pending usable account:"), indent.c_str());
+		LogMsgFormat(logflags, "%sUsers pending usable account:", cstr(indent));
 		for(auto &it : ad.noacc_pending_userconts) {
 			dump_pending_user(logflags, indent + indentstep, indentstep, it.second.get());
 		}
 	}
 }
 
-void dump_pending_acc_failed_conns(LOGT logflags, const wxString &indent, const wxString &indentstep, taccount *acc) {
+void dump_pending_acc_failed_conns(LOGT logflags, const std::string &indent, const std::string &indentstep, taccount *acc) {
 	dump_acc_socket_flags(logflags, indent, acc);
-	LogMsgFormat(logflags, wxT("%sRestartable Failed Connections: %d"), indent.c_str(), acc->failed_pending_conns.size());
+	LogMsgFormat(logflags, "%sRestartable Failed Connections: %d", cstr(indent), acc->failed_pending_conns.size());
 	for(auto it=acc->failed_pending_conns.begin(); it!=acc->failed_pending_conns.end(); ++it) {
-		LogMsgFormat(logflags, wxT("%s%sSocket: %s, %p, Error Count: %d, mcflags: 0x%X"), indent.c_str(), indentstep.c_str(), (*it)->GetConnTypeName().c_str(), (*it), (*it)->errorcount, (*it)->mcflags);
+		LogMsgFormat(logflags, "%s%sSocket: %s, %p, Error Count: %d, mcflags: 0x%X",
+				cstr(indent), cstr(indentstep), cstr((*it)->GetConnTypeName()), (*it), (*it)->errorcount, (*it)->mcflags);
 	}
 }
 
-void dump_pending_active_conn(LOGT logflags, const wxString &indent, const wxString &indentstep) {
-	LogMsgFormat(logflags, wxT("%sActive connections: %d"), indent.c_str(), std::distance(sm.connlist.begin(), sm.connlist.end()));
+void dump_pending_active_conn(LOGT logflags, const std::string &indent, const std::string &indentstep) {
+	LogMsgFormat(logflags, "%sActive connections: %d", cstr(indent), std::distance(sm.connlist.begin(), sm.connlist.end()));
 	for(auto it=sm.connlist.begin(); it!=sm.connlist.end(); ++it) {
-		LogMsgFormat(logflags, wxT("%s%sSocket: %s, %p, Error Count: %d, mcflags: 0x%X"), indent.c_str(), indentstep.c_str(), it->second->GetConnTypeName().c_str(), it->second, it->second->errorcount, it->second->mcflags);
+		LogMsgFormat(logflags, "%s%sSocket: %s, %p, Error Count: %d, mcflags: 0x%X",
+				cstr(indent), cstr(indentstep), cstr(it->second->GetConnTypeName()), it->second, it->second->errorcount, it->second->mcflags);
 	}
 }
 
-void dump_pending_retry_conn(LOGT logflags, const wxString &indent, const wxString &indentstep) {
+void dump_pending_retry_conn(LOGT logflags, const std::string &indent, const std::string &indentstep) {
 	size_t count=0;
 	for(auto it=sm.retry_conns.begin(); it!=sm.retry_conns.end(); ++it) {
 		if((*it)) count++;
 	}
-	LogMsgFormat(logflags, wxT("%sConnections pending retry attempts: %d"), indent.c_str(), count);
+	LogMsgFormat(logflags, "%sConnections pending retry attempts: %d", cstr(indent), count);
 	for(auto it=sm.retry_conns.begin(); it!=sm.retry_conns.end(); ++it) {
 		if(!(*it)) continue;
-		LogMsgFormat(logflags, wxT("%s%sSocket: %s, %p, Error Count: %d, mcflags: 0x%X"), indent.c_str(), indentstep.c_str(), (*it)->GetConnTypeName().c_str(), (*it), (*it)->errorcount, (*it)->mcflags);
+		LogMsgFormat(logflags, "%s%sSocket: %s, %p, Error Count: %d, mcflags: 0x%X",
+				cstr(indent), cstr(indentstep), cstr((*it)->GetConnTypeName()), (*it), (*it)->errorcount, (*it)->mcflags);
 	}
 }
 
-void dump_acc_socket_flags(LOGT logflags, const wxString &indent, taccount *acc) {
-	LogMsgFormat(logflags, wxT("%sssl: %d, userstreams: %d, ta_flags: 0x%X, restinterval: %ds, enabled: %d, userenabled: %d, init: %d, active: %d, streaming_on: %d, stream_fail_count: %d, rest_on: %d"), indent.c_str(), acc->ssl, acc->userstreams, acc->ta_flags, acc->restinterval, acc->enabled, acc->userenabled, acc->init, acc->active, acc->streaming_on, acc->stream_fail_count, acc->rest_on);
+void dump_acc_socket_flags(LOGT logflags, const std::string &indent, taccount *acc) {
+	LogMsgFormat(logflags, "%sssl: %d, userstreams: %d, ta_flags: 0x%X, restinterval: %ds, enabled: %d, userenabled: %d, init: %d, active: %d, streaming_on: %d, stream_fail_count: %d, rest_on: %d",
+			cstr(indent), acc->ssl, acc->userstreams, acc->ta_flags, acc->restinterval, acc->enabled, acc->userenabled, acc->init, acc->active, acc->streaming_on, acc->stream_fail_count, acc->rest_on);
 }
 
 void Redirector_wxLog::DoLog(wxLogLevel level, const wxChar *msg, time_t timestamp) {
@@ -474,7 +480,7 @@ void Redirector_wxLog::DoLog(wxLogLevel level, const wxChar *msg, time_t timesta
 }
 
 void Redirector_wxLog::DoLogString(const wxChar *msg, time_t timestamp) {
-	LogMsg(last_loglevel <= wxLOG_Message ? LOGT::WXLOG : LOGT::WXVERBOSE, msg);
+	LogMsg(last_loglevel <= wxLOG_Message ? LOGT::WXLOG : LOGT::WXVERBOSE, stdstrwx(msg));
 }
 
 void InitWxLogger() {
@@ -506,15 +512,18 @@ BEGIN_EVENT_TABLE(logevt_handler, wxEvtHandler)
 EVT_COMMAND(wxextLOGEVT_ID_THREADLOGMSG, wxextLOGEVT, logevt_handler::OnThreadLogMsg)
 END_EVENT_TABLE()
 
+
+//TODO: Fix string being converted twice for wxCommandEvent bundling
+
 void logevt_handler::OnThreadLogMsg(wxCommandEvent &event) {
-	LogMsg(flag_wrap<LOGT>(event.GetExtraLong()), event.GetString());
+	LogMsg(flag_wrap<LOGT>(event.GetExtraLong()), stdstrwx(event.GetString()));
 }
 
 logevt_handler the_logevt_handler;
 
-void ThreadSafeLogMsg(LOGT logflags, const wxString &str) {
+void ThreadSafeLogMsg(LOGT logflags, const std::string &str) {
 	wxCommandEvent evt(wxextLOGEVT, wxextLOGEVT_ID_THREADLOGMSG);
-	evt.SetString(str.c_str());	//prevent any COW semantics
+	evt.SetString(wxstrstd(str));	//prevent any COW semantics
 	evt.SetExtraLong(flag_unwrap<LOGT>(logflags));
 	the_logevt_handler.AddPendingEvent(evt);
 }

@@ -558,9 +558,9 @@ wxColour ColourOp(const wxColour &in, const wxString &co_str) {
 }
 
 void GenericPopupWrapper(wxWindow *win, wxMenu *menu, const wxPoint& pos) {
-	LogMsgFormat(LOGT::TPANEL, wxT("About to popup menu: %p, win: %p, recursion: %d"), menu, win, wxGetApp().popuprecursion);
+	LogMsgFormat(LOGT::TPANEL, "About to popup menu: %p, win: %p, recursion: %d", menu, win, wxGetApp().popuprecursion);
 	wxGetApp().popuprecursion++;
 	bool result = win->PopupMenu(menu, pos);
 	wxGetApp().popuprecursion--;
-	LogMsgFormat(LOGT::TPANEL, wxT("Finished popup menu: %p, win: %p, recursion: %d, result: %d"), menu, win, wxGetApp().popuprecursion, result);
+	LogMsgFormat(LOGT::TPANEL, "Finished popup menu: %p, win: %p, recursion: %d, result: %d", menu, win, wxGetApp().popuprecursion, result);
 }

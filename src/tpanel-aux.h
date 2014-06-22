@@ -138,7 +138,7 @@ struct tpanel_subtweet_pending_op : public pending_op {
 		tweetdispscr *tds, unsigned int load_count, tweet_ptr_p top_tweet, tweetdispscr *top_tds);
 
 	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags);
-	virtual wxString dump();
+	virtual std::string dump();
 };
 
 #endif

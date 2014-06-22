@@ -70,7 +70,7 @@ struct twitcurlext: public twitCurl, public mcurlconn {
 	void HandleFailure(long httpcode, CURLcode res);
 	void QueueAsyncExec();
 	void ExecRestGetTweetBackfill();
-	virtual wxString GetConnTypeName();
+	virtual std::string GetConnTypeName();
 	virtual void AddToRetryQueueNotify() override;
 	virtual void RemoveFromRetryQueueNotify() override;
 

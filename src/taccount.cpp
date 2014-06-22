@@ -70,7 +70,7 @@ taccount::~taccount() {
 void taccount::Setup() {
 	if(dispname.Trim(false).Trim(true).IsEmpty()) {
 		SetName();
-		LogMsgFormat(LOGT::OTHERTRACE, wxT("taccount::Setup: dispname is missing for account: %s, setting to new value: %s"), name.c_str(), dispname.c_str());
+		LogMsgFormat(LOGT::OTHERTRACE, "taccount::Setup: dispname is missing for account: %s, setting to new value: %s", cstr(name), cstr(dispname));
 	}
 }
 
@@ -172,13 +172,13 @@ void taccount::SetupRestBackfillTimer() {
 	else {
 		timeleft=targettime-now;
 	}
-	LogMsgFormat(LOGT::OTHERTRACE, wxT("Setting REST timer for %d seconds (%s)"), timeleft, dispname.c_str());
+	LogMsgFormat(LOGT::OTHERTRACE, "Setting REST timer for %d seconds (%s)", timeleft, cstr(dispname));
 	rest_timer->Start(timeleft*1000, wxTIMER_ONE_SHOT);
 }
 
 void taccount::DeleteRestBackfillTimer() {
 	if(rest_timer) {
-		LogMsgFormat(LOGT::OTHERTRACE, wxT("Deleting REST timer (%s)"), dispname.c_str());
+		LogMsgFormat(LOGT::OTHERTRACE, "Deleting REST timer (%s)", cstr(dispname));
 		delete rest_timer;
 		rest_timer=0;
 	}
@@ -246,7 +246,7 @@ void taccount::ExecRBFS(restbackfillstate *rbfs) {
 }
 
 void taccount::StartRestQueryPendings() {
-	LogMsgFormat(LOGT::PENDTRACE, wxT("taccount::StartRestQueryPendings: pending users: %d, (%s)"), pendingusers.size(), dispname.c_str());
+	LogMsgFormat(LOGT::PENDTRACE, "taccount::StartRestQueryPendings: pending users: %d, (%s)", pendingusers.size(), cstr(dispname));
 	if(pendingusers.empty()) return;
 
 	std::unique_ptr<userlookup> ul;
@@ -368,7 +368,7 @@ bool taccount::TwDoOAuth(wxWindow *pf, twitcurlext &twit) {
 	twit.SetNoPerformFlag(false);
 	twit.oAuthRequestToken(authUrl);
 	wxString authUrlWx=wxString::FromUTF8(authUrl.c_str());
-	LogMsgFormat(LOGT::OTHERTRACE, wxT("taccount::TwDoOAuth: %s, %s, %s"), cfg.tokenk.val.c_str(), cfg.tokens.val.c_str(), authUrlWx.c_str());
+	LogMsgFormat(LOGT::OTHERTRACE, "taccount::TwDoOAuth: %s, %s, %s", cstr(cfg.tokenk.val), cstr(cfg.tokens.val), cstr(authUrlWx));
 	wxLaunchDefaultBrowser(authUrlWx);
 	wxString pin;
 	OAuthPinDialog *ted = new OAuthPinDialog(pf, authUrlWx, pin);
@@ -393,15 +393,15 @@ void taccount::PostAccVerifyInit() {
 	Exec();
 }
 
-wxString taccount::DumpStateString() const {
-	return wxString::Format(wxT("enabled: %d, userenabled: %d, init: %d, active: %d, streaming_on: %d, stream_fail_count: %u, rest_on: %d, ")
-			wxT("verifycredstatus: %d, beinginsertedintodb: %d, last_rest_backfill: %u, ssl: %d, userstreams: %d"),
+std::string taccount::DumpStateString() const {
+	return string_format("enabled: %d, userenabled: %d, init: %d, active: %d, streaming_on: %d, stream_fail_count: %u, rest_on: %d, "
+			"verifycredstatus: %d, beinginsertedintodb: %d, last_rest_backfill: %u, ssl: %d, userstreams: %d",
 			enabled, userenabled, init, active, streaming_on, stream_fail_count, rest_on,
 			verifycredstatus, beinginsertedintodb, last_rest_backfill, ssl, userstreams);
 }
 
-void taccount::LogStateChange(const wxString &tag, raii_set *finaliser) {
-	LogMsgFormat(LOGT::OTHERTRACE, wxT("%s (account: %s). State:            %s"), tag.c_str(), dispname.c_str(), DumpStateString().c_str());
+void taccount::LogStateChange(const std::string &tag, raii_set *finaliser) {
+	LogMsgFormat(LOGT::OTHERTRACE, "%s (account: %s). State:            %s", cstr(tag), cstr(dispname), cstr(DumpStateString()));
 	if((currentlogflags & LOGT::OTHERTRACE) && finaliser) {
 		auto state = [this]() {
 			return std::make_tuple(enabled, userenabled, init, active, streaming_on, stream_fail_count, rest_on,
@@ -410,7 +410,7 @@ void taccount::LogStateChange(const wxString &tag, raii_set *finaliser) {
 		auto oldstate = state();
 		finaliser->add([=]() {
 			if(oldstate != state()) {
-				LogMsgFormat(LOGT::OTHERTRACE, wxT("%s (account: %s). State changed to: %s"), tag.c_str(), dispname.c_str(), DumpStateString().c_str());
+				LogMsgFormat(LOGT::OTHERTRACE, "%s (account: %s). State changed to: %s", cstr(tag), cstr(dispname), cstr(DumpStateString()));
 			}
 		});
 	}
@@ -418,7 +418,7 @@ void taccount::LogStateChange(const wxString &tag, raii_set *finaliser) {
 
 void taccount::Exec() {
 	raii_set finalisers;
-	LogStateChange(wxT("taccount::Exec"), &finalisers);
+	LogStateChange("taccount::Exec", &finalisers);
 
 	if(init) {
 		if(verifycredstatus!=ACT_DONE) {
@@ -442,7 +442,8 @@ void taccount::Exec() {
 			if(!target_streaming) {
 				for(auto it=cp.activeset.begin(); it!=cp.activeset.end(); ++it) {
 					if((*it)->tc_flags & twitcurlext::TCF::ISSTREAM) {
-						LogMsgFormat(LOGT::SOCKTRACE, wxT("taccount::Exec(): Closing stream connection: type: %s, conn: %p, url: %s"), (*it)->GetConnTypeName().c_str(), (*it), wxstrstd((*it)->url).c_str());
+						LogMsgFormat(LOGT::SOCKTRACE, "taccount::Exec(): Closing stream connection: type: %s, conn: %p, url: %s",
+								cstr((*it)->GetConnTypeName()), (*it), cstr((*it)->url));
 						(*it)->KillConn();
 						cp.Standby(*it);	//kill stream, note this also modifies cp.activeset
 						break;
@@ -487,7 +488,7 @@ twitcurlext *taccount::PrepareNewStreamConn() {
 
 void taccount::CalcEnabled() {
 	raii_set finalisers;
-	LogStateChange(wxT("taccount::CalcEnabled"), &finalisers);
+	LogStateChange("taccount::CalcEnabled", &finalisers);
 
 	bool oldenabled=enabled;
 	bool oldinit=init;
@@ -508,7 +509,7 @@ void taccount::CalcEnabled() {
 void taccount::MarkUserPending(udc_ptr_p user) {
 	auto retval=pendingusers.insert(std::make_pair(user->id, user));
 	if(retval.second) {
-		LogMsgFormat(LOGT::PENDTRACE, wxT("Mark Pending: User: %" wxLongLongFmtSpec "d (@%s) for account: %s (%s)"), user->id, wxstrstd(user->GetUser().screen_name).c_str(), name.c_str(), dispname.c_str());
+		LogMsgFormat(LOGT::PENDTRACE, "Mark Pending: User: %" llFmtSpec "d (@%s) for account: %s (%s)", user->id, cstr(user->GetUser().screen_name), cstr(name), cstr(dispname));
 	}
 }
 
@@ -530,7 +531,8 @@ void taccount::CheckFailedPendingConns() {
 		failed_pending_conns.pop_front();
 	}
 	if(pending_failed_conn_retry_timer) pending_failed_conn_retry_timer->Stop();
-	LogMsgFormat(LOGT::SOCKTRACE, wxT("taccount::CheckFailedPendingConns(), stream_fail_count: %d, enabled: %d, userstreams: %d, streaming_on: %d, for account: %s"), stream_fail_count, enabled, userstreams, streaming_on, dispname.c_str());
+	LogMsgFormat(LOGT::SOCKTRACE, "taccount::CheckFailedPendingConns(), stream_fail_count: %d, enabled: %d, userstreams: %d, streaming_on: %d, for account: %s",
+			stream_fail_count, enabled, userstreams, streaming_on, cstr(dispname));
 	if(stream_fail_count && enabled && userstreams && !streaming_on) {
 		if(!stream_restart_timer) stream_restart_timer=new wxTimer(this, TAF_STREAM_RESTART_TIMER);
 		if(!stream_restart_timer->IsRunning()) stream_restart_timer->Start(90*1000, wxTIMER_ONE_SHOT);	//give a little time for any other operations to try to connect first
@@ -538,7 +540,7 @@ void taccount::CheckFailedPendingConns() {
 }
 
 void taccount::AddFailedPendingConn(twitcurlext *conn) {
-	LogMsgFormat(LOGT::SOCKTRACE, wxT("Connection failed (account: %s). Next reconnection attempt in 512 seconds, or upon successful network activity on this account (whichever is first)."), dispname.c_str());
+	LogMsgFormat(LOGT::SOCKTRACE, "Connection failed (account: %s). Next reconnection attempt in 512 seconds, or upon successful network activity on this account (whichever is first).", cstr(dispname));
 	failed_pending_conns.push_back(conn);
 	if(!pending_failed_conn_retry_timer) pending_failed_conn_retry_timer=new wxTimer(this, TAF_FAILED_PENDING_CONN_RETRY_TIMER);
 	if(!pending_failed_conn_retry_timer->IsRunning()) pending_failed_conn_retry_timer->Start(512*1000, wxTIMER_ONE_SHOT);
@@ -549,10 +551,11 @@ void taccount::OnFailedPendingConnRetryTimer(wxTimerEvent& event) {
 }
 
 void taccount::OnStreamRestartTimer(wxTimerEvent& event) {
-	LogMsgFormat(LOGT::SOCKTRACE, wxT("taccount::OnStreamRestartTimer(), stream_fail_count: %d, enabled: %d, userstreams: %d, streaming_on: %d, for account: %s"), stream_fail_count, enabled, userstreams, streaming_on, dispname.c_str());
+	LogMsgFormat(LOGT::SOCKTRACE, "taccount::OnStreamRestartTimer(), stream_fail_count: %d, enabled: %d, userstreams: %d, streaming_on: %d, for account: %s",
+			stream_fail_count, enabled, userstreams, streaming_on, cstr(dispname));
 	for(auto it=cp.activeset.begin(); it!=cp.activeset.end(); ++it) {
 		if((*it)->tc_flags & twitcurlext::TCF::ISSTREAM) {
-			LogMsgFormat(LOGT::SOCKTRACE, wxT("taccount::OnStreamRestartTimer(), stream connection already active, aborting"));
+			LogMsgFormat(LOGT::SOCKTRACE, "taccount::OnStreamRestartTimer(), stream connection already active, aborting");
 			return;				//stream connection already present
 		}
 	}
@@ -585,7 +588,8 @@ void taccount::OnNoAccPendingContentTimer(wxTimerEvent& event) {
 
 void taccount::NoAccPendingContentEvent() {
 	if(ad.noacc_pending_tweetobjs.empty() && ad.noacc_pending_userconts.empty()) return;
-	LogMsgFormat(LOGT::PENDTRACE, wxT("taccount::NoAccPendingContentEvent: account: %s, About to process %d tweets and %d users"), dispname.c_str(), ad.noacc_pending_tweetobjs.size(), ad.noacc_pending_userconts.size());
+	LogMsgFormat(LOGT::PENDTRACE, "taccount::NoAccPendingContentEvent: account: %s, About to process %d tweets and %d users",
+			cstr(dispname), ad.noacc_pending_tweetobjs.size(), ad.noacc_pending_userconts.size());
 
 	container::map<uint64_t,tweet_ptr> unhandled_tweets;
 	container::map<uint64_t,udc_ptr> unhandled_users;
@@ -626,7 +630,8 @@ void taccount::NoAccPendingContentEvent() {
 	}
 
 	if(ad.noacc_pending_tweetobjs.empty() && ad.noacc_pending_userconts.empty()) return;
-	LogMsgFormat(LOGT::PENDTRACE, wxT("taccount::NoAccPendingContentEvent: account: %s, %d tweets and %d users remain unprocessed"), dispname.c_str(), ad.noacc_pending_tweetobjs.size(), ad.noacc_pending_userconts.size());
+	LogMsgFormat(LOGT::PENDTRACE, "taccount::NoAccPendingContentEvent: account: %s, %d tweets and %d users remain unprocessed",
+			cstr(dispname), ad.noacc_pending_tweetobjs.size(), ad.noacc_pending_userconts.size());
 }
 
 void taccount::NoAccPendingContentCheck() {

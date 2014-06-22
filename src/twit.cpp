@@ -190,8 +190,8 @@ void streamconntimeout::Notify() {
 	time_t expected = 45 * (triggercount + 1);
 	if(delta - expected > 30) {
 		//clock has jumped > 30 seconds into the future, this indicates weirdness
-		LogMsgFormat(LOGT::SOCKERR, wxT("Clock jump detected: Last activity %ds ago, expected ~%ds. Forcibly re-trying stream connection: %s, conn: %p"),
-				(int) delta, (int) expected, acc ? acc->dispname.c_str() : wxT(""), tw);
+		LogMsgFormat(LOGT::SOCKERR, "Clock jump detected: Last activity %ds ago, expected ~%ds. Forcibly re-trying stream connection: %s, conn: %p",
+				(int) delta, (int) expected, acc ? cstr(acc->dispname) : "", tw);
 		tw->KillConn();
 		tw->DoRetry();
 		return;
@@ -204,8 +204,8 @@ void streamconntimeout::Notify() {
 	}
 	else {
 		//90s in, timed-out
-		LogMsgFormat(LOGT::SOCKERR, wxT("Stream connection timed out: %s, conn: %p"),
-				acc ? acc->dispname.c_str() : wxT(""), tw);
+		LogMsgFormat(LOGT::SOCKERR, "Stream connection timed out: %s, conn: %p",
+				acc ? cstr(acc->dispname) : "", tw);
 		tw->KillConn();
 		tw->HandleError(tw->GetCurlHandle(),0,CURLE_OPERATION_TIMEDOUT);
 	}
@@ -251,8 +251,8 @@ bool userdatacontainer::ImgIsReady(flagwrapper<PENDING_REQ> preq) {
 			data->u = this;
 			data->hash = cached_profile_img_sha1;
 
-			LogMsgFormat(LOGT::FILEIOTRACE, wxT("userdatacontainer::ImgIsReady, about to load cached profile image for user id: %" wxLongLongFmtSpec "d (%s), file: %s, url: %s"),
-					id, wxstrstd(GetUser().screen_name).c_str(), data->filename.c_str(), wxstrstd(cached_profile_img_url).c_str());
+			LogMsgFormat(LOGT::FILEIOTRACE, "userdatacontainer::ImgIsReady, about to load cached profile image for user id: %" llFmtSpec "d (%s), file: %s, url: %s",
+					id, cstr(GetUser().screen_name), cstr(data->filename), cstr(cached_profile_img_url));
 
 			udc_flags |= UDC::IMAGE_DL_IN_PROGRESS;
 			wxGetApp().EnqueueThreadJob([this, data]() {
@@ -266,8 +266,9 @@ bool userdatacontainer::ImgIsReady(flagwrapper<PENDING_REQ> preq) {
 				u->udc_flags &= ~UDC::IMAGE_DL_IN_PROGRESS;
 
 				if(data->url != u->cached_profile_img_url) {
-					LogMsgFormat(LOGT::OTHERERR, wxT("userdatacontainer::ImgIsReady, cached profile image read from file, which did correspond to url: %s for user id %" wxLongLongFmtSpec "d (@%s), does not match current url of: %s. Maybe user updated profile during read?"),
-							wxstrstd(data->url).c_str(), u->id, wxstrstd(u->GetUser().screen_name).c_str(), wxstrstd(u->GetUser().profile_img_url).c_str());
+					LogMsgFormat(LOGT::OTHERERR, "userdatacontainer::ImgIsReady, cached profile image read from file, which did correspond to url: %s for user id %" llFmtSpec "d (@%s), "
+							"does not match current url of: %s. Maybe user updated profile during read?",
+							cstr(data->url), u->id, cstr(u->GetUser().screen_name), cstr(u->GetUser().profile_img_url));
 					//Try again:
 					u->ImgIsReady(preq);
 					return;
@@ -278,8 +279,8 @@ bool userdatacontainer::ImgIsReady(flagwrapper<PENDING_REQ> preq) {
 					u->NotifyProfileImageChange();
 				}
 				else {
-					LogMsgFormat(LOGT::FILEIOERR, wxT("userdatacontainer::ImgIsReady, cached profile image file for user id: %" wxLongLongFmtSpec "d (%s), file: %s, url: %s, missing, invalid or failed hash check"),
-						u->id, wxstrstd(u->GetUser().screen_name).c_str(), data->filename.c_str(), wxstrstd(u->cached_profile_img_url).c_str());
+					LogMsgFormat(LOGT::FILEIOERR, "userdatacontainer::ImgIsReady, cached profile image file for user id: %" llFmtSpec "d (%s), file: %s, url: %s, missing, invalid or failed hash check",
+						u->id, cstr(u->GetUser().screen_name), cstr(data->filename), cstr(u->cached_profile_img_url));
 					u->cached_profile_img_url.clear();
 					if(preq & PENDING_REQ::PROFIMG_DOWNLOAD_FLAG) {    //the saved image is not loadable, clear cache and re-download
 						profileimgdlconn::GetConn(u->GetUser().profile_img_url, u);
@@ -337,7 +338,7 @@ void userdatacontainer::CheckPendingTweets(flagwrapper<UMPTF> umpt_flags) {
 	pendingtweets.clear();
 
 	for(auto &it : stillpending) {
-		GenericMarkPending(it.second, it.first, wxT("userdatacontainer::CheckPendingTweets"));
+		GenericMarkPending(it.second, it.first, "userdatacontainer::CheckPendingTweets");
 	}
 
 	if(udc_flags & UDC::WINDOWOPEN) {
@@ -356,28 +357,28 @@ void userdatacontainer::MarkTweetPending(tweet_ptr_p t) {
 		return;
 	}
 	pendingtweets.push_back(t);
-	LogMsgFormat(LOGT::PENDTRACE, wxT("Mark Pending: User: %" wxLongLongFmtSpec "d (@%s) --> %s"), id, wxstrstd(GetUser().screen_name).c_str(), tweet_log_line(t.get()).c_str());
+	LogMsgFormat(LOGT::PENDTRACE, "Mark Pending: User: %" llFmtSpec "d (@%s) --> %s", id, cstr(GetUser().screen_name), cstr(tweet_log_line(t.get())));
 }
 
 void rt_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) {
 	TryUnmarkPendingTweet(target_retweet, umpt_flags);
 }
 
-wxString rt_pending_op::dump() {
-	return wxString::Format(wxT("Retweet depends on this: %s"), tweet_log_line(target_retweet.get()).c_str());
+std::string rt_pending_op::dump() {
+	return string_format("Retweet depends on this: %s", cstr(tweet_log_line(target_retweet.get())));
 }
 
 void handlenew_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) {
 	HandleNewTweet(t, tac.lock(), arr);
 }
 
-wxString handlenew_pending_op::dump() {
+std::string handlenew_pending_op::dump() {
 	std::shared_ptr<taccount> acc = tac.lock();
-	return wxString::Format(wxT("Handle arrived on account: %s, 0x%X"), acc ? acc->dispname.c_str() : wxT("N/A"), arr.get());
+	return string_format("Handle arrived on account: %s, 0x%X", acc ? cstr(acc->dispname) : "N/A", arr.get());
 }
 
 flagwrapper<PENDING_BITS> TryUnmarkPendingTweet(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) {
-	LogMsgFormat(LOGT::PENDTRACE, wxT("Try Unmark Pending: %s"), tweet_log_line(t.get()).c_str());
+	LogMsgFormat(LOGT::PENDTRACE, "Try Unmark Pending: %s", cstr(tweet_log_line(t.get())));
 	flagwrapper<PENDING_BITS> result;
 	std::vector<std::unique_ptr<pending_op> > still_pending;
 	for(auto &it : t->pending_ops) {
@@ -570,7 +571,7 @@ bool tweet::GetUsableAccount(std::shared_ptr<taccount> &tac, flagwrapper<GUAF> g
 		}
 	}
 	if(!(guaflags & GUAF::NOERR)) {
-		LogMsgFormat(LOGT::OTHERERR, wxT("Tweet has no usable enabled account, cannot perform network actions on tweet: %s"), tweet_log_line(this).c_str());
+		LogMsgFormat(LOGT::OTHERERR, "Tweet has no usable enabled account, cannot perform network actions on tweet: %s", cstr(tweet_log_line(this)));
 	}
 	return false;
 }
@@ -705,12 +706,12 @@ bool CheckMarkPending_GetAcc(tweet_ptr_p t, flagwrapper<PENDING_REQ> preq, flagw
 		return true;
 	}
 	else {
-		GenericMarkPending(t, tp.bits, wxT("CheckMarkPending_GetAcc"));
+		GenericMarkPending(t, tp.bits, "CheckMarkPending_GetAcc");
 		return false;
 	}
 }
 
-void GenericMarkPending(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, const wxString &logprefix, flagwrapper<tweet::GUAF> guaflags) {
+void GenericMarkPending(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, const std::string &logprefix, flagwrapper<tweet::GUAF> guaflags) {
 	if(mark & PENDING_BITS::ACCMASK) {
 		std::shared_ptr<taccount> curacc;
 		if(t->GetUsableAccount(curacc, guaflags)) {
@@ -754,7 +755,7 @@ void taccount::FastMarkPending(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark) {
 
 //return true if successfully marked pending
 //mark *must* be exactly right
-bool FastMarkPendingNoAccFallback(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, const wxString &logprefix) {
+bool FastMarkPendingNoAccFallback(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, const std::string &logprefix) {
 	FastMarkPendingNonAcc(t, mark);
 
 	if(mark & PENDING_BITS::ACCMASK) {
@@ -762,7 +763,7 @@ bool FastMarkPendingNoAccFallback(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark,
 		if(mark & PENDING_BITS::UR) ad.noacc_pending_userconts[t->user_recipient->id] = t->user_recipient;
 		if(mark & PENDING_BITS::RTU) ad.noacc_pending_userconts[t->rtsrc->user->id] = t->rtsrc->user;
 
-		LogMsgFormat(LOGT::PENDTRACE, wxT("%s: Cannot mark pending as there is no usable account, %s"), logprefix.c_str(), tweet_log_line(t.get()).c_str());
+		LogMsgFormat(LOGT::PENDTRACE, "%s: Cannot mark pending as there is no usable account, %s", cstr(logprefix), cstr(tweet_log_line(t.get())));
 		return false;
 	}
 	else return true;
@@ -818,7 +819,7 @@ bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> ac
 				acc_hint->FastMarkPending(tobj, tp.bits);
 			}
 			else {
-				FastMarkPendingNoAccFallback(tobj, tp.bits, wxT("CheckFetchPendingSingleTweet"));
+				FastMarkPendingNoAccFallback(tobj, tp.bits, "CheckFetchPendingSingleTweet");
 			}
 		}
 	}
@@ -874,7 +875,7 @@ bool CheckLoadSingleTweet(tweet_ptr_p t, std::shared_ptr<taccount> &acc_hint) {
 	}
 	else {
 		ad.noacc_pending_tweetobjs[t->id] = t;
-		LogMsgFormat(LOGT::OTHERERR, wxT("Cannot lookup tweet: id:%" wxLongLongFmtSpec "d, no usable account, marking pending."), t->id);
+		LogMsgFormat(LOGT::OTHERERR, "Cannot lookup tweet: id: %" llFmtSpec "d, no usable account, marking pending.", t->id);
 		return false;
 	}
 }
@@ -1012,7 +1013,7 @@ std::string userdatacontainer::GetPermalink(bool ssl) const {
 }
 
 void userdatacontainer::NotifyProfileImageChange() {
-	LogMsgFormat(LOGT::OTHERTRACE, wxT("userdatacontainer::NotifyProfileImageChange %" wxLongLongFmtSpec "d"), id);
+	LogMsgFormat(LOGT::OTHERTRACE, "userdatacontainer::NotifyProfileImageChange %" llFmtSpec "d", id);
 	CheckPendingTweets();
 	UpdateUsersTweet(id, true);
 	if(udc_flags & UDC::WINDOWOPEN) user_window::CheckRefresh(id, true);
@@ -1253,7 +1254,7 @@ unsigned int TwitterCharCount(const char *in, size_t inlen) {
 		const char *pat = VALID_URL_PATTERN_STRING;
 		pattern = pcre_compile(pat, PCRE_UCP | PCRE_NO_UTF8_CHECK | PCRE_CASELESS | PCRE_UTF8, &errptr, &erroffset, 0);
 		if(!pattern) {
-			LogMsgFormat(LOGT::OTHERERR, wxT("TwitterCharCount: pcre_compile failed: %s (%d)\n%s"), wxstrstd(errptr).c_str(), erroffset, wxstrstd(pat).c_str());
+			LogMsgFormat(LOGT::OTHERERR, "TwitterCharCount: pcre_compile failed: %s (%d)\n%s", cstr(errptr), erroffset, cstr(pat));
 			return 0;
 		}
 		patextra = pcre_study(pattern, 0, &errptr);
@@ -1340,7 +1341,7 @@ bool IsUserMentioned(const char *in, size_t inlen, udc_ptr_p u, std::unique_ptr<
 		int erroffset;
 		pattern = pcre_compile(pat.c_str(), PCRE_UCP | PCRE_NO_UTF8_CHECK | PCRE_CASELESS | PCRE_UTF8, &errptr, &erroffset, 0);
 		if(!pattern) {
-			LogMsgFormat(LOGT::OTHERERR, wxT("IsUserMentioned: pcre_compile failed: %s (%d)\n%s"), wxstrstd(errptr).c_str(), erroffset, wxstrstd(pat).c_str());
+			LogMsgFormat(LOGT::OTHERERR, "IsUserMentioned: pcre_compile failed: %s (%d)\n%s", cstr(errptr), erroffset, cstr(pat));
 			return 0;
 		}
 	}

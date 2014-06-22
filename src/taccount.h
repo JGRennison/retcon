@@ -169,8 +169,8 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 	void NoAccPendingContentCheck();
 	wxTimer *noacc_pending_content_timer;
 
-	wxString DumpStateString() const;
-	void LogStateChange(const wxString &tag, raii_set *finaliser = 0);
+	std::string DumpStateString() const;
+	void LogStateChange(const std::string &tag, raii_set *finaliser = 0);
 
 	//After structure filled in, but before it's actually used for anything
 	//Can check values in here

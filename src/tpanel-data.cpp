@@ -32,11 +32,11 @@
 #endif
 
 void tpanel::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags) {
-	LogMsgFormat(LOGT::TPANEL, wxT("Pushing tweet id %" wxLongLongFmtSpec "d to panel %s (pushflags: 0x%X)"), t->id, wxstrstd(name).c_str(), pushflags);
+	LogMsgFormat(LOGT::TPANEL, "Pushing tweet id %" llFmtSpec "d to panel %s (pushflags: 0x%X)", t->id, cstr(name), pushflags);
 	if(RegisterTweet(t)) {
 		for(auto &i : twin) {
 			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LOGT::TPANEL, wxT("TCL: Pushing tweet id %" wxLongLongFmtSpec "d to tpanel window"), t->id);
+				LogMsgFormat(LOGT::TPANEL, "TCL: Pushing tweet id %" llFmtSpec "d to tpanel window", t->id);
 			#endif
 			i->PushTweet(t, pushflags);
 		}
@@ -44,7 +44,7 @@ void tpanel::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags) {
 	else {	//already have this in tpanel, update it
 		for(auto &i : twin) {
 			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LOGT::TPANEL, wxT("TCL: Updating tpanel window tweet: id %" wxLongLongFmtSpec "d"), t->id);
+				LogMsgFormat(LOGT::TPANEL, "TCL: Updating tpanel window tweet: id %" llFmtSpec "d", t->id);
 			#endif
 			i->UpdateOwnTweet(*(t.get()), false);
 		}
@@ -52,11 +52,11 @@ void tpanel::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags) {
 }
 
 void tpanel::RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags) {
-	LogMsgFormat(LOGT::TPANEL, wxT("Removing tweet id %" wxLongLongFmtSpec "d from panel %s (pushflags: 0x%X)"), id, wxstrstd(name).c_str(), pushflags);
+	LogMsgFormat(LOGT::TPANEL, "Removing tweet id %" llFmtSpec "d from panel %s (pushflags: 0x%X)", id, cstr(name), pushflags);
 	if(UnRegisterTweet(id)) {
 		for(auto &i : twin) {
 			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LOGT::TPANEL, wxT("TCL: Removing tweet id %" wxLongLongFmtSpec "d from tpanel window"), id);
+				LogMsgFormat(LOGT::TPANEL, "TCL: Removing tweet id %" llFmtSpec "d from tpanel window", id);
 			#endif
 			i->RemoveTweet(id, pushflags);
 		}

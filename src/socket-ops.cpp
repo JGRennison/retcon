@@ -80,7 +80,8 @@ int dlconn::curlCallback(char* data, size_t size, size_t nmemb, dlconn *obj) {
 void profileimgdlconn::Init(const std::string &imgurl_, udc_ptr_p user_) {
 	user = user_;
 	user->udc_flags |= UDC::IMAGE_DL_IN_PROGRESS;
-	LogMsgFormat(LOGT::NETACT, wxT("Downloading profile image %s for user id %" wxLongLongFmtSpec "d (@%s), conn: %p"), wxstrstd(imgurl_).c_str(), user_->id, wxstrstd(user_->GetUser().screen_name).c_str(), this);
+	LogMsgFormat(LOGT::NETACT, "Downloading profile image %s for user id %" llFmtSpec "d (@%s), conn: %p",
+			cstr(imgurl_), user_->id, cstr(user_->GetUser().screen_name), this);
 	dlconn::Init(imgurl_);
 }
 
@@ -108,7 +109,7 @@ profileimgdlconn *profileimgdlconn::GetConn(const std::string &imgurl_, udc_ptr_
 }
 
 void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
-	LogMsgFormat(LOGT::NETACT, wxT("Profile image downloaded: %s for user id %" wxLongLongFmtSpec "d (@%s), conn: %p"), wxstrstd(url).c_str(), user->id, wxstrstd(user->GetUser().screen_name).c_str(), this);
+	LogMsgFormat(LOGT::NETACT, "Profile image downloaded: %s for user id %" llFmtSpec "d (@%s), conn: %p", cstr(url), user->id, cstr(user->GetUser().screen_name), this);
 
 	struct local {
 		static void clear_dl_flags(udc_ptr_p user) {
@@ -116,8 +117,8 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 			user->udc_flags &= ~UDC::HALF_PROFILE_BITMAP_SET;
 		};
 		static void bad_url_handler(const std::string &url, udc_ptr_p user) {
-			TSLogMsgFormat(LOGT::OTHERERR, wxT("Profile image downloaded: %s for user id %" wxLongLongFmtSpec "d (@%s), does not match expected url of: %s. Maybe user updated profile during download?"),
-					wxstrstd(url).c_str(), user->id, wxstrstd(user->GetUser().screen_name).c_str(), wxstrstd(user->GetUser().profile_img_url).c_str());
+			TSLogMsgFormat(LOGT::OTHERERR, "Profile image downloaded: %s for user id %" llFmtSpec "d (@%s), does not match expected url of: %s. Maybe user updated profile during download?",
+					cstr(url), user->id, cstr(user->GetUser().screen_name), cstr(user->GetUser().profile_img_url));
 
 			//Try again:
 			user->ImgIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
@@ -161,8 +162,8 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 
 		wxImage img(memstream);
 		if(!img.IsOk()) {
-			TSLogMsgFormat(LOGT::OTHERERR, wxT("Profile image downloaded: %s for user id %" wxLongLongFmtSpec "d (@%s), is not OK, possible partial download?"),
-					wxstrstd(job_data->url).c_str(), user->id, wxstrstd(user->GetUser().screen_name).c_str());
+			TSLogMsgFormat(LOGT::OTHERERR, "Profile image downloaded: %s for user id %" llFmtSpec "d (@%s), is not OK, possible partial download?",
+					cstr(job_data->url), user->id, cstr(user->GetUser().screen_name));
 			job_data->ok = false;
 		}
 		else {
@@ -194,8 +195,8 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 	});
 }
 
-wxString profileimgdlconn::GetConnTypeName() {
-	return wxT("Profile image download");
+std::string profileimgdlconn::GetConnTypeName() {
+	return "Profile image download";
 }
 
 void mediaimgdlconn::Init(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_) {
@@ -211,7 +212,8 @@ void mediaimgdlconn::Init(const std::string &imgurl_, media_id_type media_id_, f
 			me.flags |= MEF::THUMB_NET_INPROGRESS;
 		}
 	}
-	LogMsgFormat(LOGT::NETACT, wxT("Downloading media image %s, id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, flags: %X, conn: %p"), wxstrstd(imgurl_).c_str(), media_id_.m_id, media_id_.t_id, flags_, this);
+	LogMsgFormat(LOGT::NETACT, "Downloading media image %s, id: %" llFmtSpec "d/%" llFmtSpec "d, flags: %X, conn: %p",
+			cstr(imgurl_), media_id_.m_id, media_id_.t_id, flags_, this);
 	dlconn::Init(imgurl_);
 }
 
@@ -246,8 +248,8 @@ void mediaimgdlconn::Reset() {
 }
 
 void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
-	LogMsgFormat(LOGT::NETACT, wxT("Media image downloaded: %s, id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, flags: %X, conn: %p"),
-			wxstrstd(url).c_str(), media_id.m_id, media_id.t_id, flags, this);
+	LogMsgFormat(LOGT::NETACT, "Media image downloaded: %s, id: %" llFmtSpec "d/%" llFmtSpec "d, flags: %X, conn: %p",
+			cstr(url), media_id.m_id, media_id.t_id, flags, this);
 
 	struct midc_job_data {
 		wxImage thumb;
@@ -325,8 +327,8 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 					}
 				}
 				else {
-					LogMsgFormat(LOGT::OTHERERR, wxT("Media image downloaded: %s, id: %" wxLongLongFmtSpec "d/%" wxLongLongFmtSpec "d, flags: %X, is not OK, possible partial download?"),
-							wxstrstd(job_data->url).c_str(), job_data->media_id.m_id, job_data->media_id.t_id, flags);
+					LogMsgFormat(LOGT::OTHERERR, "Media image downloaded: %s, id: %" llFmtSpec "d/%" llFmtSpec "d, flags: %X, is not OK, possible partial download?",
+							cstr(job_data->url), job_data->media_id.m_id, job_data->media_id.t_id, flags);
 					me.flags |= MEF::THUMB_FAILED;
 				}
 				me.flags &= ~MEF::THUMB_NET_INPROGRESS;
@@ -354,8 +356,8 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 	delete this;
 }
 
-wxString mediaimgdlconn::GetConnTypeName() {
-	return wxT("Media image download");
+std::string mediaimgdlconn::GetConnTypeName() {
+	return "Media image download";
 }
 
 template <typename C> connpool<C>::~connpool() {

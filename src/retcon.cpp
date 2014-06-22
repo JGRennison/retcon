@@ -116,7 +116,7 @@ bool retcon::OnInit() {
 }
 
 int retcon::OnExit() {
-	LogMsg(LOGT::OTHERTRACE, wxT("retcon::OnExit"));
+	LogMsg(LOGT::OTHERTRACE, "retcon::OnExit");
 	for(auto it=alist.begin() ; it != alist.end(); it++) {
 		(*it)->cp.ClearAllConns();
 	}
@@ -149,7 +149,7 @@ int retcon::FilterEvent(wxEvent& event) {
 }
 
 void retcon::OnQuitMsg(wxCommandEvent &event) {
-	LogMsgFormat(LOGT::OTHERTRACE, wxT("retcon::OnQuitMsg, about to call wxExit(), %d termination requests, %d mainframes, top win: %p, popup recursion: %d"),
+	LogMsgFormat(LOGT::OTHERTRACE, "retcon::OnQuitMsg, about to call wxExit(), %d termination requests, %d mainframes, top win: %p, popup recursion: %d",
 			terms_requested, mainframelist.size(), GetTopWindow(), popuprecursion);
 	wxExit();
 }

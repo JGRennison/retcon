@@ -115,6 +115,6 @@ struct jsonparser : public genjsonparser {
 	}
 };
 
-void DisplayParseErrorMsg(rapidjson::Document &dc, const wxString &name, const char *data);
+void DisplayParseErrorMsg(rapidjson::Document &dc, const std::string &name, const char *data);
 
 #endif

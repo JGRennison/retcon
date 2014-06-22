@@ -249,7 +249,7 @@ struct pending_op {
 	virtual ~pending_op() { }
 
 	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) = 0;
-	virtual wxString dump()=0;
+	virtual std::string dump()=0;
 };
 
 struct rt_pending_op : public pending_op {
@@ -257,7 +257,7 @@ struct rt_pending_op : public pending_op {
 	rt_pending_op(tweet_ptr_p t) : target_retweet(t) { }
 
 	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags);
-	virtual wxString dump();
+	virtual std::string dump();
 };
 
 struct tpanelload_pending_op : public pending_op {
@@ -268,7 +268,7 @@ struct tpanelload_pending_op : public pending_op {
 	tpanelload_pending_op(tpanelparentwin_nt* win_, flagwrapper<PUSHFLAGS> pushflags_ = PUSHFLAGS::DEFAULT, std::shared_ptr<tpanel> *pushtpanel_ = 0);
 
 	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags);
-	virtual wxString dump();
+	virtual std::string dump();
 };
 
 struct handlenew_pending_op : public pending_op {
@@ -277,7 +277,7 @@ struct handlenew_pending_op : public pending_op {
 	handlenew_pending_op(const std::shared_ptr<taccount> &acc, flagwrapper<ARRIVAL> arr_) : tac(acc), arr(arr_) { }
 
 	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags);
-	virtual wxString dump();
+	virtual std::string dump();
 };
 
 enum class TLF {	//for tweet.lflags
@@ -523,8 +523,8 @@ inline bool IsUserMentioned(const std::string &str, udc_ptr_p u, std::unique_ptr
 bool CheckMarkPending_GetAcc(tweet_ptr_p t, flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT, flagwrapper<PENDING_RESULT> presult = PENDING_RESULT::DEFAULT);
 flagwrapper<PENDING_BITS> TryUnmarkPendingTweet(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags = 0);
 void FastMarkPendingNonAcc(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark);
-bool FastMarkPendingNoAccFallback(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, const wxString &logprefix);
-void GenericMarkPending(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, const wxString &logprefix, flagwrapper<tweet::GUAF> guaflags = 0);
+bool FastMarkPendingNoAccFallback(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, const std::string &logprefix);
+void GenericMarkPending(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, const std::string &logprefix, flagwrapper<tweet::GUAF> guaflags = 0);
 
 bool MarkPending_TPanelMap(tweet_ptr_p tobj, tpanelparentwin_nt* win_, PUSHFLAGS pushflags = PUSHFLAGS::DEFAULT, std::shared_ptr<tpanel> *pushtpanel_ = 0);
 bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> acc_hint, std::unique_ptr<dbseltweetmsg> *existing_dbsel = nullptr,
