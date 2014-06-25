@@ -355,6 +355,7 @@ tpanelglobal::tpanelglobal() : arrow_dim(0) {
 	GetRetweetOnIcon(&retweetonicon, &retweetonicon_img);
 	GetDMreplyIcon(&dmreplyicon, &dmreplyicon_img);
 	GetLockIcon(&proticon, &proticon_img);
+	GetUnlockIcon(&unlockicon, &unlockicon_img);
 	GetVerifiedIcon(&verifiedicon, &verifiedicon_img);
 	GetCloseIcon(&closeicon, 0);
 	GetMultiUnreadIcon(&multiunreadicon, 0);

@@ -355,6 +355,7 @@ BEGIN_EVENT_TABLE(tweetpostwin, wxPanel)
 	EVT_BUTTON(TPWID_CLOSEREPDESC, tweetpostwin::OnCloseReplyDescBtn)
 	EVT_BUTTON(TPWID_CLEARTEXT, tweetpostwin::OnClearTextBtn)
 	EVT_BUTTON(TPWID_ADDNAMES, tweetpostwin::OnAddNamesBtn)
+	EVT_BUTTON(TPWID_TOGGLEREPDESCLOCK, tweetpostwin::OnToggleReplyDescLockBtn)
 	EVT_COMMAND(wxID_ANY, wxextTPRESIZE_UPDATE_EVENT, tweetpostwin::resizemsghandler)
 END_EVENT_TABLE()
 
@@ -369,18 +370,21 @@ tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *p
 	pauim(0), isshown(false), resize_update_pending(true), currently_posting(false), tc_has_focus(false),
 	current_length(0), length_oob(false) {
 
+	tpg = tpanelglobal::Get();
 	vbox = new wxBoxSizer(wxVERTICAL);
 	infost = new wxStaticText(this, wxID_ANY, wxT("0/140"), wxPoint(-1000, -1000), wxDefaultSize);
 	replydesc = new wxStaticText(this, wxID_ANY, wxT(""), wxPoint(-1000, -1000), wxDefaultSize, wxST_NO_AUTORESIZE);
-	replydesclosebtn = new wxBitmapButton(this, TPWID_CLOSEREPDESC, tpanelglobal::Get()->closeicon, wxPoint(-1000, -1000));
+	replydeslockbtn = new wxBitmapButton(this, TPWID_TOGGLEREPDESCLOCK, GetReplyDescLockBtnBitmap(), wxPoint(-1000, -1000));
+	replydesclosebtn = new wxBitmapButton(this, TPWID_CLOSEREPDESC, tpg->closeicon, wxPoint(-1000, -1000));
 	addnamesbtn = new wxButton(this, TPWID_ADDNAMES, wxT("Add names \x2193"), wxPoint(-1000, -1000), wxDefaultSize, wxBU_EXACTFIT);
 	addnamesbtn->Show(false);
 	wxBoxSizer *replydescbox= new wxBoxSizer(wxHORIZONTAL);
 	replydescbox->Add(replydesc, 1, wxEXPAND | wxALL, 1);
 	replydescbox->Add(addnamesbtn, 0, wxLEFT | wxRIGHT | wxALIGN_CENTRE, 1);
+	replydescbox->Add(replydeslockbtn, 0, wxALL | wxALIGN_CENTRE, 1);
 	replydescbox->Add(replydesclosebtn, 0, wxALL | wxALIGN_CENTRE, 1);
 	textctrl = new tweetposttextbox(this, wxT(""), TPWID_TEXTCTRL);
-	cleartextbtn = new wxBitmapButton(this, TPWID_CLEARTEXT, tpanelglobal::Get()->closeicon, wxPoint(-1000, -1000));
+	cleartextbtn = new wxBitmapButton(this, TPWID_CLEARTEXT, tpg->closeicon, wxPoint(-1000, -1000));
 	cleartextbtn->Show(false);
 	wxBoxSizer *tweetpostbox = new wxBoxSizer(wxHORIZONTAL);
 	tweetpostbox->Add(textctrl, 1, wxEXPAND | wxALL, 1);
@@ -537,8 +541,10 @@ void tweetpostwin::resizemsghandler(wxCommandEvent &event) {
 void tweetpostwin::NotifyPostResult(bool success) {
 	if(success) {
 		textctrl->Clear();
-		tweet_reply_targ.reset();
-		dm_targ.reset();
+		if(!replydesc_locked) {
+			tweet_reply_targ.reset();
+			dm_targ.reset();
+		}
 		UpdateReplyDesc();
 	}
 	currently_posting=false;
@@ -551,19 +557,26 @@ void tweetpostwin::UpdateReplyDesc() {
 		replydesc->SetLabel(wxT("Reply to: @") + wxstrstd(tweet_reply_targ->user->GetUser().screen_name) + wxT(": ") + wxstrstd(TweetReplaceAllStringSeqs(tweet_reply_targ->text)));
 		replydesc->Show(true);
 		replydesclosebtn->Show(true);
+		replydeslockbtn->Show(true);
 		sendbtn->SetLabel(wxT("Reply"));
 	}
 	else if(dm_targ) {
 		replydesc->SetLabel(wxT("Direct Message: @") + wxstrstd(dm_targ->GetUser().screen_name));
 		replydesc->Show(true);
 		replydesclosebtn->Show(true);
+		replydeslockbtn->Show(true);
 		sendbtn->SetLabel(wxT("Send DM"));
 	}
 	else {
+		if(replydesc_locked) {
+			replydesc_locked = false;
+		}
 		replydesc->Show(false);
 		replydesclosebtn->Show(false);
+		replydeslockbtn->Show(false);
 		sendbtn->SetLabel(wxT("Send"));
 	}
+	replydeslockbtn->SetBitmapLabel(GetReplyDescLockBtnBitmap());
 	CheckAddNamesBtn();
 	DoCheckFocusDisplay(true);
 }
@@ -576,6 +589,15 @@ void tweetpostwin::OnCloseReplyDescBtn(wxCommandEvent &event) {
 
 void tweetpostwin::OnClearTextBtn(wxCommandEvent &event) {
 	textctrl->Clear();
+}
+
+void tweetpostwin::OnToggleReplyDescLockBtn(wxCommandEvent &event) {
+	replydesc_locked = !replydesc_locked;
+	replydeslockbtn->SetBitmapLabel(GetReplyDescLockBtnBitmap());
+}
+
+wxBitmap &tweetpostwin::GetReplyDescLockBtnBitmap() {
+	return replydesc_locked ? tpg->proticon : tpg->unlockicon;
 }
 
 void CheckUserMentioned(bool &changed, udc_ptr_p user, tweetposttextbox *textctrl, std::unique_ptr<is_user_mentioned_cache> *cache = 0) {
@@ -627,6 +649,7 @@ void tweetpostwin::OnAddNamesBtn(wxCommandEvent &event) {
 }
 
 void tweetpostwin::SetReplyTarget(tweet_ptr_p targ) {
+	if(tweet_reply_targ != targ) replydesc_locked = false;
 	textctrl->SetInsertionPoint(0);
 	bool changed = false;
 	if(targ) {
@@ -659,6 +682,7 @@ void tweetpostwin::SetReplyTarget(tweet_ptr_p targ) {
 }
 
 void tweetpostwin::SetDMTarget(udc_ptr_p targ) {
+	if(dm_targ != targ) replydesc_locked = false;
 	tweet_reply_targ.reset();
 	dm_targ=targ;
 	UpdateReplyDesc();

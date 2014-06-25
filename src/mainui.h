@@ -41,6 +41,7 @@ struct taccount;
 struct tweet;
 struct userdatacontainer;
 struct is_user_mentioned_cache;
+struct tpanelglobal;
 
 enum
 {
@@ -118,6 +119,7 @@ enum {
 	TPWIN_SENDBTN,
 	TPWID_CLOSEREPDESC,
 	TPWID_CLEARTEXT,
+	TPWID_TOGGLEREPDESCLOCK,
 	TPWID_ADDNAMES,
 };
 
@@ -143,10 +145,13 @@ struct tweetpostwin : public wxPanel {
 	wxStaticText *replydesc;
 	wxBitmapButton *replydesclosebtn;
 	wxBitmapButton *cleartextbtn;
+	wxBitmapButton *replydeslockbtn;
 	wxButton *addnamesbtn;
 	tweet_ptr tweet_reply_targ;
 	udc_ptr dm_targ;
 	std::unique_ptr<is_user_mentioned_cache> iumc;
+	bool replydesc_locked = false;
+	std::shared_ptr<tpanelglobal> tpg;
 
 	tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *parentauim = 0);
 	~tweetpostwin();
@@ -166,6 +171,8 @@ struct tweetpostwin : public wxPanel {
 	void OnCloseReplyDescBtn(wxCommandEvent &event);
 	void OnClearTextBtn(wxCommandEvent &event);
 	void OnAddNamesBtn(wxCommandEvent &event);
+	void OnToggleReplyDescLockBtn(wxCommandEvent &event);
+	wxBitmap &GetReplyDescLockBtnBitmap();
 	void CheckAddNamesBtn();
 	void AUIMNoLongerValid();
 

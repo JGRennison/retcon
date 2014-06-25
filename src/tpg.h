@@ -48,6 +48,8 @@ struct tpanelglobal {
 	wxImage dmreplyicon_img;
 	wxBitmap proticon;
 	wxImage proticon_img;
+	wxBitmap unlockicon;
+	wxImage unlockicon_img;
 	wxBitmap verifiedicon;
 	wxImage verifiedicon_img;
 	wxBitmap closeicon;
