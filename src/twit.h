@@ -444,6 +444,7 @@ struct media_entity {
 	shb_iptr full_img_sha1;
 	shb_iptr thumb_img_sha1;
 	uint64_t lastused = 0;
+	std::weak_ptr<taccount> dm_media_acc;
 
 	flagwrapper<MEF> flags = 0;
 

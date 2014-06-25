@@ -700,6 +700,18 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 						obj->EndUnderline();
 						if((et.type==ENT_MEDIA || et.type==ENT_URL_IMG) && et.media_id) {
 							media_entity &me = *(ad.media_list[et.media_id]);
+
+							// Test this here as well as in genjsonparser::DoEntitiesParse as this may be a media entity just loaded from the DB,
+							// and acc <--> media entity links are not (currently) saved in the DB
+							if(et.type == ENT_MEDIA && tw.flags.Get('D')) {
+								// This is a media entity in a DM
+								// This requires an oAuth token to access
+								// Set the media entity dm_media_acc field to something sensible
+								std::shared_ptr<taccount> acc = me.dm_media_acc.lock();
+								tw.GetUsableAccount(acc, tweet::GUAF::CHECKEXISTING | tweet::GUAF::NOERR);
+								me.dm_media_acc = acc;
+							}
+
 							me_list->push_back(&me);
 						}
 					}

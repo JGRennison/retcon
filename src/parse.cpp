@@ -214,7 +214,8 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, tweet_ptr_p t, 
 				static void try_net_dl(media_entity *me, std::string url, flagwrapper<MIDC> net_flags, flagwrapper<MELF> netloadmask, flagwrapper<MELF> mel_flags) {
 					if(mel_flags & MELF::NONETLOAD) return;
 					if(!(me->flags & MEF::HAVE_THUMB) && !(url.empty()) && (netloadmask & mel_flags) && !(me->flags & MEF::THUMB_NET_INPROGRESS) && !(me->flags & MEF::THUMB_FAILED)) {
-						new mediaimgdlconn(url, me->media_id, net_flags);
+						std::shared_ptr<taccount> acc = me->dm_media_acc.lock();
+						mediaimgdlconn::new_with_opt_acc_oauth(url, me->media_id, net_flags, acc.get());
 					}
 				};
 			};
@@ -385,6 +386,16 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, tweet_ptr_p t, 
 			});
 			if(res == me->tweet_list.end()) {
 				me->tweet_list.push_front(t);
+			}
+
+			// Test this here as well as in TweetFormatProc as we may want to load the thumbnail immediately below
+			if(t->flags.Get('D')) {
+				// This is a media entity in a DM
+				// This requires an oAuth token to access
+				// Set the media entity dm_media_acc field to something sensible
+				std::shared_ptr<taccount> acc = me->dm_media_acc.lock();
+				t->GetUsableAccount(acc, tweet::GUAF::CHECKEXISTING | tweet::GUAF::NOERR);
+				me->dm_media_acc = acc;
 			}
 
 			std::string thumburl;
