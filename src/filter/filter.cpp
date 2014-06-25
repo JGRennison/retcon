@@ -47,6 +47,7 @@ struct filter_run_state {
 	std::vector<flagwrapper<FRSF>> recursion;
 	taccount *tac = 0;
 	const std::string empty_str;
+	std::string test_temp;
 };
 
 enum class FIF {
@@ -458,6 +459,12 @@ void ParseFilter(const std::string &input, filter_set &filter_output, std::strin
 					else if(part2 == "loc" || part2 == "location") {
 						return [](userdatacontainer *u, tweet &tw, filter_run_state &frs) -> const std::string &  {
 							return u ? u->user.location : frs.empty_str;
+						};
+					}
+					else if(part2 == "id") {
+						return [](userdatacontainer *u, tweet &tw, filter_run_state &frs) -> const std::string &  {
+							frs.test_temp = string_format("%" llFmtSpec "u", u->id);
+							return frs.test_temp;
 						};
 					}
 					else {
