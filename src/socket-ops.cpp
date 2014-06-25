@@ -31,6 +31,7 @@
 #include "retcon.h"
 #include "raii.h"
 #include "hash.h"
+#include "taccount.h"
 #include <wx/file.h>
 #include <wx/mstream.h>
 #include <algorithm>
@@ -45,14 +46,17 @@ dlconn::dlconn() : curlHandle(0) {
 dlconn::~dlconn() {
 	if(curlHandle) curl_easy_cleanup(curlHandle);
 	curlHandle=0;
+	Reset();
 }
 
 void dlconn::Reset() {
 	url.clear();
 	data.clear();
+	if(extra_headers) curl_slist_free_all(extra_headers);
+	extra_headers = nullptr;
 }
 
-void dlconn::Init(const std::string &url_) {
+void dlconn::Init(const std::string &url_, oAuth *auth_obj) {
 	url=url_;
 	if(!curlHandle) curlHandle = curl_easy_init();
 	else curl_easy_reset(curlHandle);
@@ -65,6 +69,13 @@ void dlconn::Init(const std::string &url_) {
 	curl_easy_setopt(curlHandle, CURLOPT_WRITEDATA, this );
 	curl_easy_setopt(curlHandle, CURLOPT_FOLLOWLOCATION, 1);
 	curl_easy_setopt(curlHandle, CURLOPT_MAXREDIRS, 5);
+	if(auth_obj) {
+		std::string oAuthHttpHeader;
+		std::string dataStrDummy;
+		auth_obj->getOAuthHeader(eOAuthHttpGet, url, dataStrDummy, oAuthHttpHeader);
+		if(!oAuthHttpHeader.empty()) extra_headers = curl_slist_append(extra_headers, oAuthHttpHeader.c_str());
+	}
+	curl_easy_setopt(curlHandle, CURLOPT_HTTPHEADER, extra_headers);
 	sm.AddConn(curlHandle, this);
 }
 
@@ -199,7 +210,7 @@ std::string profileimgdlconn::GetConnTypeName() {
 	return "Profile image download";
 }
 
-void mediaimgdlconn::Init(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_) {
+void mediaimgdlconn::Init(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_, oAuth *auth_obj) {
 	media_id = media_id_;
 	flags = flags_;
 	auto it = ad.media_list.find(media_id);
@@ -214,7 +225,19 @@ void mediaimgdlconn::Init(const std::string &imgurl_, media_id_type media_id_, f
 	}
 	LogMsgFormat(LOGT::NETACT, "Downloading media image %s, id: %" llFmtSpec "d/%" llFmtSpec "d, flags: %X, conn: %p",
 			cstr(imgurl_), media_id_.m_id, media_id_.t_id, flags_, this);
-	dlconn::Init(imgurl_);
+	dlconn::Init(imgurl_, auth_obj);
+}
+
+mediaimgdlconn *mediaimgdlconn::new_with_opt_acc_oauth(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_, const taccount *acc) {
+	if(acc && acc->active) {
+		// Set oAuth parameters for this media download
+		oAuth auth;
+		acc->setOAuthParameters(auth);
+		return new mediaimgdlconn(imgurl_, media_id_, flags_, &auth);
+	}
+	else {
+		return new mediaimgdlconn(imgurl_, media_id_, flags_);
+	}
 }
 
 void mediaimgdlconn::DoRetry() {

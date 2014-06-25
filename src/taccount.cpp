@@ -28,6 +28,7 @@
 #include "log.h"
 #include "optui.h"
 #include "raii.h"
+#include "libtwitcurl/oauthlib.h"
 #include <wx/timer.h>
 #include <wx/dialog.h>
 #include <wx/clipbrd.h>
@@ -653,6 +654,16 @@ void taccount::NoAccPendingContentCheck() {
 		noacc_pending_content_timer->Start(90 * 1000, wxTIMER_ONE_SHOT);
 	}
 	else NoAccPendingContentEvent();
+}
+
+void taccount::setOAuthParameters(oAuth &auth) const {
+	auth.setConsumerKey((const char*) cfg.tokenk.val.utf8_str());
+	auth.setConsumerSecret((const char*) cfg.tokens.val.utf8_str());
+
+	if(conk.size() && cons.size()) {
+		auth.setOAuthTokenKey((const char*) conk.utf8_str());
+		auth.setOAuthTokenSecret((const char*) cons.utf8_str());
+	}
 }
 
 bool GetAccByDBIndex(unsigned int dbindex, std::shared_ptr<taccount> &acc) {

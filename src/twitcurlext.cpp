@@ -157,13 +157,7 @@ void twitcurlext::TwInit(std::shared_ptr<taccount> acc) {
 	setTwitterApiType(twitCurlTypes::eTwitCurlApiFormatJson);
 	setTwitterProcotolType(acc->ssl?twitCurlTypes::eTwitCurlProtocolHttps:twitCurlTypes::eTwitCurlProtocolHttp);
 
-	getOAuth().setConsumerKey((const char*) acc->cfg.tokenk.val.utf8_str());
-	getOAuth().setConsumerSecret((const char*) acc->cfg.tokens.val.utf8_str());
-
-	if(acc->conk.size() && acc->cons.size()) {
-		getOAuth().setOAuthTokenKey((const char*) acc->conk.utf8_str());
-		getOAuth().setOAuthTokenSecret((const char*) acc->cons.utf8_str());
-	}
+	acc->setOAuthParameters(getOAuth());
 	inited=true;
 }
 

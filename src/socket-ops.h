@@ -25,13 +25,17 @@
 #include "flags.h"
 #include "ptr_types.h"
 
+class oAuth;
+struct taccount;
+
 struct dlconn : public mcurlconn {
 	CURL* curlHandle;
 	std::string data;
+	struct curl_slist *extra_headers = nullptr;
 
 	static int curlCallback(char* data, size_t size, size_t nmemb, dlconn *obj);
 	dlconn();
-	void Init(const std::string &url_);
+	void Init(const std::string &url_, oAuth *auth_obj = nullptr);
 	void Reset();
 	~dlconn();
 	CURL *GenGetCurlHandle() { return curlHandle; }
@@ -64,8 +68,10 @@ struct mediaimgdlconn : public dlconn {
 	media_id_type media_id;
 	flagwrapper<MIDC> flags;
 
-	void Init(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_ = 0);
-	mediaimgdlconn(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_ = 0) { Init(imgurl_, media_id_, flags_); }
+	void Init(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_ = 0, oAuth *auth_obj = nullptr);
+	mediaimgdlconn(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_ = 0, oAuth *auth_obj = nullptr) { Init(imgurl_, media_id_, flags_, auth_obj); }
+
+	static mediaimgdlconn *new_with_opt_acc_oauth(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_ = 0, const taccount *acc = nullptr);
 
 	void NotifyDoneSuccess(CURL *easy, CURLcode res);
 	void Reset();

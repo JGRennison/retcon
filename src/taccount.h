@@ -45,6 +45,7 @@ class raii_set;
 
 class wxTimer;
 class wxTimerEvent;
+class oAuth;
 
 enum class PENDING_BITS : unsigned char;
 
@@ -178,6 +179,8 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 
 	//Set dispname from usercont
 	void SetName();
+
+	void setOAuthParameters(oAuth &auth) const;
 
 	DECLARE_EVENT_TABLE()
 };
