@@ -138,7 +138,7 @@ struct tweetpostwin : public wxPanel {
 	wxBoxSizer *hbox;
 	bool resize_update_pending;
 	bool currently_posting;
-	bool tc_has_focus;
+	int tc_has_focus = 0;
 	unsigned int current_length;
 	bool length_oob;
 	wxColour infost_colout;

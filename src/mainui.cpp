@@ -367,7 +367,7 @@ void tpw_acc_callback(void *userdata, acc_choice *src, bool isgoodacc) {
 
 tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *parentauim)
 	: wxPanel(parent, wxID_ANY, wxPoint(-1000, -1000)), parentwin(parent), mparentwin(mparent),
-	pauim(0), isshown(false), resize_update_pending(true), currently_posting(false), tc_has_focus(false),
+	pauim(0), isshown(false), resize_update_pending(true), currently_posting(false),
 	current_length(0), length_oob(false) {
 
 	tpg = tpanelglobal::Get();
@@ -404,12 +404,14 @@ tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *p
 	hbox->Add(infost, 0, wxALL, 2);
 	hbox->Add(sendbtn, 0, wxALL, 2);
 
-	textctrl->Connect(wxEVT_SET_FOCUS, wxFocusEventHandler(tweetpostwin::OnTCFocus), 0, this);
-	textctrl->Connect(wxEVT_KILL_FOCUS, wxFocusEventHandler(tweetpostwin::OnTCUnFocus), 0, this);
-	accc->Connect(wxEVT_SET_FOCUS, wxFocusEventHandler(tweetpostwin::OnTCFocus), 0, this);
-	accc->Connect(wxEVT_KILL_FOCUS, wxFocusEventHandler(tweetpostwin::OnTCUnFocus), 0, this);
-	sendbtn->Connect(wxEVT_SET_FOCUS, wxFocusEventHandler(tweetpostwin::OnTCFocus), 0, this);
-	sendbtn->Connect(wxEVT_KILL_FOCUS, wxFocusEventHandler(tweetpostwin::OnTCUnFocus), 0, this);
+	auto set_focus_handler = [&](wxWindow *win) {
+		win->Connect(wxEVT_SET_FOCUS, wxFocusEventHandler(tweetpostwin::OnTCFocus), 0, this);
+		win->Connect(wxEVT_KILL_FOCUS, wxFocusEventHandler(tweetpostwin::OnTCUnFocus), 0, this);
+	};
+
+	set_focus_handler(textctrl);
+	set_focus_handler(accc);
+	set_focus_handler(sendbtn);
 
 	SetSizer(vbox);
 	DoShowHide(false);
@@ -475,30 +477,30 @@ void tweetpostwin::DoShowHide(bool show) {
 }
 
 void tweetpostwin::OnTCFocus(wxFocusEvent &event) {
-	tc_has_focus=true;
+	tc_has_focus++;
 	DoCheckFocusDisplay();
 	event.Skip();
 }
 
 void tweetpostwin::OnTCUnFocus(wxFocusEvent &event) {
-	wxWindow *checkwin=event.GetWindow();
+	tc_has_focus--;
+	wxWindow *checkwin = event.GetWindow();
 	while(true) {
 		if(!checkwin) {
-			tc_has_focus=false;
 			DoCheckFocusDisplay();
 			break;
 		}
-		else if(checkwin==this) break;
-		checkwin=checkwin->GetParent();
+		else if(checkwin == this) break;
+		checkwin = checkwin->GetParent();
 	}
 	event.Skip();
 }
 
 void tweetpostwin::DoCheckFocusDisplay(bool force) {
-	bool shouldshow=false;
-	if(!textctrl->IsEmpty()) shouldshow=true;
-	if(dm_targ || tweet_reply_targ) shouldshow=true;
-	if(tc_has_focus) shouldshow=true;
+	bool shouldshow = false;
+	if(!textctrl->IsEmpty()) shouldshow = true;
+	if(dm_targ || tweet_reply_targ) shouldshow = true;
+	if(tc_has_focus > 0) shouldshow = true;
 	if(isshown != shouldshow || force) DoShowHide(shouldshow);
 }
 
@@ -577,7 +579,7 @@ void tweetpostwin::UpdateReplyDesc() {
 		sendbtn->SetLabel(wxT("Send"));
 	}
 	replydeslockbtn->SetBitmapLabel(GetReplyDescLockBtnBitmap());
-	CheckAddNamesBtn();
+	OnTCChange();
 	DoCheckFocusDisplay(true);
 }
 
