@@ -689,15 +689,28 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 					unsigned int entnum=0;
 					int track_byte=0;
 					int track_index=0;
+
+					int last_start = -1;
+					int last_end = -1;
 					for(auto it=twgen.entlist.begin(); it!=twgen.entlist.end(); it++, entnum++) {
-						entity &et=*it;
+						entity &et = *it;
 						DoWriteSubstr(*obj, twgen.text, nextoffset, et.start, track_byte, track_index, false);
-						obj->BeginUnderline();
-						obj->BeginURL(urlcodeprefix + wxString::Format(wxT("%d"), entnum));
-						obj->WriteText(wxstrstd(et.text));
-						nextoffset=et.end;
-						obj->EndURL();
-						obj->EndUnderline();
+
+						// This is to de-duplicate entities which have the same start and end points
+						// In particular this is the case for DMs with embedded media, which have
+						// both URL and media entities with the same offsets and URL.
+						// Discard all but the first one.
+						if(last_start != et.start || last_end != et.end) {
+							obj->BeginUnderline();
+							obj->BeginURL(urlcodeprefix + wxString::Format(wxT("%d"), entnum));
+							obj->WriteText(wxstrstd(et.text));
+							obj->EndURL();
+							obj->EndUnderline();
+							last_start = et.start;
+							last_end = et.end;
+						}
+						nextoffset = et.end;
+
 						if((et.type==ENT_MEDIA || et.type==ENT_URL_IMG) && et.media_id) {
 							media_entity &me = *(ad.media_list[et.media_id]);
 
