@@ -4,6 +4,7 @@
 #include <string>
 #include <sstream>
 #include <cstring>
+#include <vector>
 #include "oauthlib.h"
 #include <curl/curl.h>
 
@@ -86,6 +87,7 @@ namespace twitterDefaults
 
     /* Status URLs */
     const std::string TWITCURL_STATUSUPDATE_URL = "api.twitter.com/1.1/statuses/update";
+    const std::string TWITCURL_STATUSUPDATEMEDIA_URL = "api.twitter.com/1.1/statuses/update_with_media";
     const std::string TWITCURL_STATUSRETWEET_URL = "api.twitter.com/1.1/statuses/retweet/";
     const std::string TWITCURL_STATUSSHOW_URL = "api.twitter.com/1.1/statuses/show/";
     const std::string TWITCURL_STATUDESTROY_URL = "api.twitter.com/1.1/statuses/destroy/";
@@ -192,6 +194,7 @@ public:
 
     /* Twitter status APIs */
     bool statusUpdate( const std::string& newStatus, const std::string in_reply_to_status_id = "", signed char includeEntities = 0 ); /* all parameters in */
+    bool statusUpdateWithMedia( const std::string& newStatus, const std::vector<std::string>& media_files, const std::string in_reply_to_status_id = "", signed char includeEntities = 0 ); /* all parameters in */
     bool statusReTweet( const std::string& statusId, signed char includeEntities = 0 ); /* all parameters in */
     bool statusShowById( const std::string& statusId /* in */ );
     bool statusDestroyById( const std::string& statusId /* in */ );
@@ -284,7 +287,10 @@ private:
     CURL* m_curlHandle;
     char m_errorBuffer[twitCurlDefaults::TWITCURL_DEFAULT_BUFFSIZE];
     std::string m_callbackData;
-    struct curl_slist* m_pOAuthHeaderList;	/* This is a member to prevent it going out of scope for multi-IO */
+
+    struct curl_slist* m_pOAuthHeaderList;	/* These are member to prevent them going out of scope for multi-IO */
+    struct curl_httppost* m_post = NULL;
+    struct curl_httppost* m_last = NULL;
 
     /* cURL flags */
     bool m_curlProxyParamsSet;
@@ -329,6 +335,7 @@ private:
     void UtilTimelineProcessParams( const struct timelineparams &tmps, std::string &buildUrl );
     bool PostStreamingApiGeneric( const std::string &streamurl, const std::string &with, const std::string &replies, const std::string &follow , const std::string &track, const std::string &locations, bool accept_encoding, bool stall_warnings );
     void StreamingApiGenericPrepare( bool accept_encoding );
+    void clearHeaders();
 
     /* Internal cURL related methods */
     static int curlCallback( char* data, size_t size, size_t nmemb, twitCurl* pTwitCurlObj );
