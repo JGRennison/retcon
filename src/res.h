@@ -55,5 +55,6 @@ IMG_MACRO(DMreply, dm_reply)
 IMG_MACRO(Verified, verified)
 IMG_MACRO(Close, close)
 IMG_MACRO(MultiUnread, multi_unread)
+IMG_MACRO(Photo, photo)
 
 #endif

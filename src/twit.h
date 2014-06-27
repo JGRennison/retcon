@@ -496,9 +496,9 @@ struct friendlookup {
 
 void ParseTwitterDate(struct tm *createtm, time_t *createtm_t, const std::string &created_at);
 
-unsigned int TwitterCharCount(const char *in, size_t inlen);
-inline unsigned int TwitterCharCount(const std::string &str) {
-	return TwitterCharCount(str.c_str(), str.size());
+unsigned int TwitterCharCount(const char *in, size_t inlen, unsigned int img_uploads = 0);
+inline unsigned int TwitterCharCount(const std::string &str, unsigned int img_uploads = 0) {
+	return TwitterCharCount(str.c_str(), str.size(), img_uploads);
 }
 
 struct is_user_mentioned_cache {

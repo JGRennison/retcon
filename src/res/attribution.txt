@@ -7,6 +7,7 @@ favorite_on.png		Twitter Image Resources
 info.png
 Lock.png
 multi_unread.png	http://www.mricons.com/icon/101207/24/stock_mail-unread-multiple-icon (Creative Commons Attribution-ShareAlike 2.5)
+photo.png		http://www.defaulticon.com/sites/default/files/styles/icon-front-page-32x32-preview/public/field/image/MD-camera-photo_0.png (Creative Commons Attribution-No Derivative Works 3.0)
 reply.png		Twitter Image Resources
 retweet.png		Twitter Image Resources
 retweet_on.png		Twitter Image Resources

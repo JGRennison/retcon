@@ -121,6 +121,8 @@ enum {
 	TPWID_CLEARTEXT,
 	TPWID_TOGGLEREPDESCLOCK,
 	TPWID_ADDNAMES,
+	TPWID_ADDIMG,
+	TPWID_DELIMG,
 };
 
 struct tweetpostwin : public wxPanel {
@@ -175,6 +177,16 @@ struct tweetpostwin : public wxPanel {
 	wxBitmap &GetReplyDescLockBtnBitmap();
 	void CheckAddNamesBtn();
 	void AUIMNoLongerValid();
+	bool okToSend();
+
+	std::string image_upload_filename;
+	wxBitmapButton *addimagebtn;
+	wxBitmapButton *delimagebtn;
+	wxStaticText *imagestattxt;
+	void SetImageUploadFilename(std::string filename);
+	void ShowHideImageUploadBtns(bool alwayshide = false, bool enabled = true);
+	void OnAddImgBtn(wxCommandEvent &event);
+	void OnDelImgBtn(wxCommandEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };

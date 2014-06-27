@@ -37,6 +37,9 @@
 #include "version.h"
 #include <wx/msgdlg.h>
 #include <wx/app.h>
+#include <wx/filedlg.h>
+#include <wx/stdpaths.h>
+#include <wx/filename.h>
 #if HANDLE_PRIMARY_CLIPBOARD
 #include <wx/clipbrd.h>
 #endif
@@ -356,6 +359,8 @@ BEGIN_EVENT_TABLE(tweetpostwin, wxPanel)
 	EVT_BUTTON(TPWID_CLEARTEXT, tweetpostwin::OnClearTextBtn)
 	EVT_BUTTON(TPWID_ADDNAMES, tweetpostwin::OnAddNamesBtn)
 	EVT_BUTTON(TPWID_TOGGLEREPDESCLOCK, tweetpostwin::OnToggleReplyDescLockBtn)
+	EVT_BUTTON(TPWID_ADDIMG, tweetpostwin::OnAddImgBtn)
+	EVT_BUTTON(TPWID_DELIMG, tweetpostwin::OnDelImgBtn)
 	EVT_COMMAND(wxID_ANY, wxextTPRESIZE_UPDATE_EVENT, tweetpostwin::resizemsghandler)
 END_EVENT_TABLE()
 
@@ -397,9 +402,16 @@ tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *p
 	hbox = new wxBoxSizer(wxHORIZONTAL);
 	vbox->Add(hbox, 0, wxEXPAND | wxALL, 2);
 
+	addimagebtn = new wxBitmapButton(this, TPWID_ADDIMG, tpg->photoicon, wxPoint(-1000, -1000));
+	delimagebtn = new wxBitmapButton(this, TPWID_DELIMG, tpg->closeicon, wxPoint(-1000, -1000));
+	imagestattxt = new wxStaticText(this, wxID_ANY, wxT(""), wxPoint(-1000, -1000), wxDefaultSize);
+
 	sendbtn = new wxButton(this, TPWIN_SENDBTN, wxT("Send"), wxPoint(-1000, -1000));
 	accc = new acc_choice(this, curacc, 0, wxID_ANY, &tpw_acc_callback, this);
 	hbox->Add(accc, 0, wxALL, 2);
+	hbox->Add(addimagebtn, 0, wxALL, 2);
+	hbox->Add(imagestattxt, 0, wxALL, 2);
+	hbox->Add(delimagebtn, 0, wxALL, 2);
 	hbox->AddStretchSpacer();
 	hbox->Add(infost, 0, wxALL, 2);
 	hbox->Add(sendbtn, 0, wxALL, 2);
@@ -412,6 +424,8 @@ tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *p
 	set_focus_handler(textctrl);
 	set_focus_handler(accc);
 	set_focus_handler(sendbtn);
+	set_focus_handler(addimagebtn);
+	set_focus_handler(delimagebtn);
 
 	SetSizer(vbox);
 	DoShowHide(false);
@@ -430,9 +444,13 @@ tweetpostwin::~tweetpostwin() {
 	}
 }
 
+bool tweetpostwin::okToSend() {
+	return isgoodacc && !currently_posting && !(textctrl->IsEmpty() && image_upload_filename.empty()) && current_length <= 140;
+}
+
 void tweetpostwin::OnSendBtn(wxCommandEvent &event) {
 	std::string curtext=stdstrwx(textctrl->GetValue());
-	if(isgoodacc && curacc && !currently_posting && !textctrl->IsEmpty() && current_length<=140) {
+	if(okToSend()) {
 		if(tweet_reply_targ && !IsUserMentioned(curtext, tweet_reply_targ->user)) {
 			int res=::wxMessageBox(wxString::Format(wxT("User: @%s is not mentioned in this tweet. Reply anyway?"), wxstrstd(tweet_reply_targ->user->GetUser().screen_name).c_str()), wxT("Confirm"), wxYES_NO | wxICON_QUESTION, this);
 			if(res!=wxYES) return;
@@ -446,8 +464,9 @@ void tweetpostwin::OnSendBtn(wxCommandEvent &event) {
 			twit->extra_id=dm_targ->id;
 		}
 		else {
-			twit->connmode=CS_POSTTWEET;
-			twit->extra_id=(tweet_reply_targ)?tweet_reply_targ->id:0;
+			twit->connmode = CS_POSTTWEET;
+			twit->extra_id = (tweet_reply_targ) ? tweet_reply_targ->id : 0;
+			if(!image_upload_filename.empty()) twit->extra_array.push_back(image_upload_filename);
 		}
 		twit->ownermainframe=mparentwin;
 		twit->QueueAsyncExec();
@@ -459,6 +478,7 @@ void tweetpostwin::DoShowHide(bool show) {
 	accc->Show(show);
 	sendbtn->Show(show);
 	infost->Show(show);
+	ShowHideImageUploadBtns(!show);
 	if(pauim) {
 		wxAuiPaneInfo pi=pauim->GetPane(this);
 		pauim->DetachPane(this);
@@ -499,13 +519,14 @@ void tweetpostwin::OnTCUnFocus(wxFocusEvent &event) {
 void tweetpostwin::DoCheckFocusDisplay(bool force) {
 	bool shouldshow = false;
 	if(!textctrl->IsEmpty()) shouldshow = true;
+	if(!image_upload_filename.empty()) shouldshow = true;
 	if(dm_targ || tweet_reply_targ) shouldshow = true;
 	if(tc_has_focus > 0) shouldshow = true;
 	if(isshown != shouldshow || force) DoShowHide(shouldshow);
 }
 
 void tweetpostwin::OnTCChange() {
-	current_length=TwitterCharCount(std::string(textctrl->GetValue().ToUTF8()));
+	current_length = TwitterCharCount(std::string(textctrl->GetValue().ToUTF8()), image_upload_filename.empty() ? 0 : 1);
 	if(current_length>140) {
 		if(!length_oob) {
 			infost_colout=infost->GetForegroundColour();
@@ -524,6 +545,7 @@ void tweetpostwin::OnTCChange() {
 	textctrl->Enable(!currently_posting);
 	cleartextbtn->Show(!textctrl->IsEmpty());
 	CheckAddNamesBtn();
+	ShowHideImageUploadBtns(!isshown, !currently_posting);
 	vbox->Layout();
 }
 
@@ -532,7 +554,7 @@ void tweetpostwin::UpdateAccount() {
 }
 
 void tweetpostwin::CheckEnableSendBtn() {
-	sendbtn->Enable(isgoodacc && !currently_posting && !(textctrl->IsEmpty()) && current_length<=140);
+	sendbtn->Enable(okToSend());
 }
 
 void tweetpostwin::resizemsghandler(wxCommandEvent &event) {
@@ -543,6 +565,7 @@ void tweetpostwin::resizemsghandler(wxCommandEvent &event) {
 void tweetpostwin::NotifyPostResult(bool success) {
 	if(success) {
 		textctrl->Clear();
+		SetImageUploadFilename("");
 		if(!replydesc_locked) {
 			tweet_reply_targ.reset();
 			dm_targ.reset();
@@ -568,6 +591,7 @@ void tweetpostwin::UpdateReplyDesc() {
 		replydesclosebtn->Show(true);
 		replydeslockbtn->Show(true);
 		sendbtn->SetLabel(wxT("Send DM"));
+		image_upload_filename = ""; // Images can't be uploaded with DMs at present
 	}
 	else {
 		if(replydesc_locked) {
@@ -581,6 +605,55 @@ void tweetpostwin::UpdateReplyDesc() {
 	replydeslockbtn->SetBitmapLabel(GetReplyDescLockBtnBitmap());
 	OnTCChange();
 	DoCheckFocusDisplay(true);
+}
+
+void tweetpostwin::SetImageUploadFilename(std::string filename) {
+	image_upload_filename = std::move(filename);
+	if(image_upload_filename.empty()) {
+		imagestattxt->SetLabel(wxT(""));
+	}
+	else {
+		wxFileName name(wxstrstd(image_upload_filename));
+		imagestattxt->SetLabel(wxT("Upload: ") + name.GetFullName());
+	}
+	OnTCChange();
+	DoCheckFocusDisplay();
+}
+
+void tweetpostwin::ShowHideImageUploadBtns(bool alwayshide, bool enabled) {
+	bool show_add;
+	bool show_existing;
+
+	if(dm_targ || alwayshide) {
+		show_add = false;
+		show_existing = false;
+	}
+	else if(image_upload_filename.empty()) {
+		show_add = true;
+		show_existing = false;
+	}
+	else {
+		show_add = false;
+		show_existing = true;
+	}
+
+	addimagebtn->Show(show_add);
+	delimagebtn->Show(show_existing);
+	imagestattxt->Show(show_existing);
+	addimagebtn->Enable(enabled);
+	delimagebtn->Enable(enabled);
+}
+
+void tweetpostwin::OnAddImgBtn(wxCommandEvent &event) {
+	wxString file = wxFileSelector(wxT("Upload image with tweet"), wxStandardPaths::Get().GetDocumentsDir(), wxT(""), wxT(""),
+			wxT("Image Files (*.jpg *.jpeg *.png *.gif)|*.jpg;*.jpeg;*.png;*.gif"), wxFD_OPEN | wxFD_FILE_MUST_EXIST, this);
+	if(!file.IsEmpty()) {
+		SetImageUploadFilename(stdstrwx(file));
+	}
+}
+
+void tweetpostwin::OnDelImgBtn(wxCommandEvent &event) {
+	SetImageUploadFilename("");
 }
 
 void tweetpostwin::OnCloseReplyDescBtn(wxCommandEvent &event) {

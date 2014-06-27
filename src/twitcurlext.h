@@ -51,6 +51,7 @@ struct twitcurlext: public twitCurl, public mcurlconn {
 	std::unique_ptr<userlookup> ul;
 	std::string genurl;
 	std::string extra1;
+	std::vector<std::string> extra_array;
 	uint64_t extra_id = 0;
 	mainframe *ownermainframe = 0;
 	magic_ptr mp;

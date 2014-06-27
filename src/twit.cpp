@@ -1240,13 +1240,23 @@ void ParseTwitterDate(struct tm *createtm, time_t *createtm_t, const std::string
 #define IS_USER_MENTIONED_1ST "([^a-z0-9_!#$%&*" AT_SIGNS_CHARS "]|^|RT:?)(" AT_SIGNS "+)("
 #define IS_USER_MENTIONED_2ND ")(/[a-z][a-z0-9_\\-]{0,24})?" MENTION_NEG_ASSERT
 
-unsigned int TwitterCharCount(const char *in, size_t inlen) {
+unsigned int TwitterCharCount(const char *in, size_t inlen, unsigned int img_uploads) {
 	static pcre *pattern = 0;
 	static pcre_extra *patextra = 0;
 	static pcre *invprotpattern = 0;
 	static pcre *tcopattern = 0;
 
-	if(!inlen) return 0;
+	unsigned int outsize = 0;
+
+	if(img_uploads) {
+		outsize += img_uploads * (TCO_LINK_LENGTH + 1);
+
+		// Rationale: if there is no text, then there does need to be an initial seperating space, so remove it
+		// This does not handle the case of trailing whitespace in the input text
+		if(!inlen) outsize--;
+	}
+
+	if(!inlen) return outsize;
 
 	if(!pattern) {
 		const char *errptr;
@@ -1264,10 +1274,9 @@ unsigned int TwitterCharCount(const char *in, size_t inlen) {
 	}
 
 	char *comp = 0;
-	unsigned int outsize = 0;
 	ssize_t len = utf8proc_map((const uint8_t *) in, inlen, (uint8_t **) &comp, UTF8PROC_STABLE | UTF8PROC_COMPOSE);
 	if(len > 0) {
-		outsize = strlen_utf8(comp);
+		outsize += strlen_utf8(comp);
 	}
 	if(outsize) {
 		int startoffset = 0;

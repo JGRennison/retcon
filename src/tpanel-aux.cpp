@@ -359,6 +359,7 @@ tpanelglobal::tpanelglobal() : arrow_dim(0) {
 	GetVerifiedIcon(&verifiedicon, &verifiedicon_img);
 	GetCloseIcon(&closeicon, 0);
 	GetMultiUnreadIcon(&multiunreadicon, 0);
+	GetPhotoIcon(&photoicon, &photoicon_img);
 }
 
 BEGIN_EVENT_TABLE(tpanel_item, wxPanel)

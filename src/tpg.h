@@ -54,6 +54,8 @@ struct tpanelglobal {
 	wxImage verifiedicon_img;
 	wxBitmap closeicon;
 	wxBitmap multiunreadicon;
+	wxBitmap photoicon;
+	wxImage photoicon_img;
 
 	static std::shared_ptr<tpanelglobal> Get();
 	static std::weak_ptr<tpanelglobal> tpg_glob;

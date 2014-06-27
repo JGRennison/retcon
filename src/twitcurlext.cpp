@@ -212,10 +212,13 @@ void twitcurlext::Reset() {
 	rbfs = 0;
 	ownermainframe = 0;
 	extra_id = 0;
+	genurl.clear();
+	extra1.clear();
 	ul.reset();
 	fl.reset();
 	post_action_flags = 0;
 	mp = 0;
+	extra_array.clear();
 }
 
 void twitcurlext::DoRetry() {
@@ -283,9 +286,16 @@ void twitcurlext::QueueAsyncExec() {
 		case CS_FRIENDACTION_UNFOLLOW:
 			friendshipDestroy(std::to_string(extra_id), true);
 			break;
-		case CS_POSTTWEET:
-			statusUpdate(extra1, extra_id?std::to_string(extra_id):"", 1);
+		case CS_POSTTWEET: {
+			std::string reply = extra_id ? std::to_string(extra_id) : "";
+			if(extra_array.size()) {
+				statusUpdateWithMedia(extra1, extra_array, reply, 1);
+			}
+			else {
+				statusUpdate(extra1, reply, 1);
+			}
 			break;
+		}
 		case CS_SENDDM:
 			directMessageSend(std::to_string(extra_id), extra1, 1);
 			break;
