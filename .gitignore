@@ -3,7 +3,5 @@ obj*/
 gmon.out
 
 retcon
-retcon_debug
-retcon_gprof
-retcon_debug_gprof
+retcon_*
 *.exe

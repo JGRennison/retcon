@@ -4,6 +4,7 @@
 #GCC: path to g++
 #debug: set to true for a debug build
 #gprof: set to true for a gprof build
+#san: set to address, thread, leak, undefined, etc. for a -fsanitize= enabled build
 #list: set to true to enable listings
 #map: set to true to enable linker map
 #strip: set to true to strip binary (using STRIPFLAGS)
@@ -50,6 +51,8 @@ ifdef VERSION_STRING
 BVCFLAGS += -DRETCON_BUILD_VERSION='"${VERSION_STRING}"'
 endif
 
+OUTNAMEPOSTFIX=
+
 ifdef debug
 
 OPTIMISE_FLAGS =
@@ -58,6 +61,7 @@ AFLAGS += -g
 #AFLAGS:=-Wl,-d,--export-all-symbols
 DEBUGPOSTFIX:=_debug
 OBJDIR:=$(OBJDIR)$(DEBUGPOSTFIX)
+OUTNAMEPOSTFIX:=$(OUTNAMEPOSTFIX)$(DEBUGPOSTFIX)
 WXCFGFLAGS+=--debug=yes
 
 else ifndef noflto
@@ -77,6 +81,19 @@ CFLAGS+=-pg
 AFLAGS+=-pg
 GPROFPOSTFIX:=_gprof
 OBJDIR:=$(OBJDIR)$(GPROFPOSTFIX)
+OUTNAMEPOSTFIX:=$(OUTNAMEPOSTFIX)$(GPROFPOSTFIX)
+endif
+
+ifdef san
+ifeq ($(san), thread)
+CFLAGS+=-fPIE -pie
+AFLAGS+=-fPIE -pie
+endif
+CFLAGS+=-g -fsanitize=$(san) -fno-omit-frame-pointer
+AFLAGS+=-g -fsanitize=$(san)
+SANPOSTFIX:=_san_$(san)
+OBJDIR:=$(OBJDIR)$(SANPOSTFIX)
+OUTNAMEPOSTFIX:=$(OUTNAMEPOSTFIX)$(SANPOSTFIX)
 endif
 
 GCCMACHINE:=$(shell $(GCC) -dumpmachine)
@@ -152,7 +169,7 @@ endef
 endif
 endif
 
-OUTNAME:=$(OUTNAME)$(SIZEPOSTFIX)$(DEBUGPOSTFIX)$(GPROFPOSTFIX)
+OUTNAME:=$(OUTNAME)$(SIZEPOSTFIX)$(OUTNAMEPOSTFIX)
 
 GCCVER:=$(shell $(GCC) -dumpversion)
 
