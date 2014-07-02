@@ -171,7 +171,6 @@ socketmanager::socketmanager() : st(0), curnumsocks(0), retry(0) {
 }
 
 socketmanager::~socketmanager() {
-	LogMsgFormat(LOGT::SOCKERR, "socketmanager::~socketmanager()");
 	if(retry) {
 		delete retry;
 		retry=0;
