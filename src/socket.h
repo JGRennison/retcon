@@ -166,10 +166,10 @@ struct socketmanager : public wxEvtHandler {
 	void RetryNotify(wxTimerEvent& event);
 	void UnregisterRetryConn(mcurlconn *cs);
 
-	bool MultiIOHandlerInited;
+	bool MultiIOHandlerInited = false;
 	CURLM *curlmulti = nullptr;
-	sockettimeout *st;
-	int curnumsocks;
+	std::unique_ptr<sockettimeout> st;
+	int curnumsocks = 0;
 #ifdef RCS_WSAASYNCSELMODE
 	HWND wind;
 #endif
@@ -183,7 +183,7 @@ struct socketmanager : public wxEvtHandler {
 #endif
 	std::forward_list<std::pair<CURL*, mcurlconn *> > connlist;
 	std::deque<mcurlconn *> retry_conns;
-	wxTimer *retry;
+	std::unique_ptr<wxTimer> retry;
 
 	std::unique_ptr<adns> asyncdns;
 	void DNSResolutionEvent(wxCommandEvent &event);

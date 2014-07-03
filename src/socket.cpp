@@ -166,15 +166,9 @@ static int multi_timer_cb(CURLM *multi, long timeout_ms, socketmanager *smp) {
 	return 0;
 }
 
-socketmanager::socketmanager() : st(0), curnumsocks(0), retry(0) {
-	MultiIOHandlerInited=false;
-}
+socketmanager::socketmanager() { }
 
 socketmanager::~socketmanager() {
-	if(retry) {
-		delete retry;
-		retry=0;
-	}
 	while(!retry_conns.empty()) {
 		mcurlconn *cs=retry_conns.front();
 		retry_conns.pop_front();
@@ -418,7 +412,7 @@ DEFINE_EVENT_TYPE(wxextDNS_RESOLUTION_EVENT)
 
 void socketmanager::InitMultiIOHandlerCommon() {
 	LogMsg(LOGT::SOCKTRACE, "socketmanager::InitMultiIOHandlerCommon");
-	st=new sockettimeout(*this);
+	st.reset(new sockettimeout(*this));
 	curlmulti=curl_multi_init();
 	curl_multi_setopt(curlmulti, CURLMOPT_SOCKETFUNCTION, sock_cb);
 	curl_multi_setopt(curlmulti, CURLMOPT_SOCKETDATA, this);
@@ -436,14 +430,6 @@ void socketmanager::DeInitMultiIOHandlerCommon() {
 	LogMsg(LOGT::SOCKTRACE, "socketmanager::DeInitMultiIOHandlerCommon");
 	if(asyncdns) asyncdns.reset();
 	curl_multi_cleanup(curlmulti);
-	if(st) {
-		delete st;
-		st=0;
-	}
-	if(retry) {
-		delete retry;
-		retry=0;
-	}
 }
 
 void socketmanager::RetryConn(mcurlconn *cs) {
@@ -489,14 +475,14 @@ void socketmanager::RetryConnLater() {
 	mcurlconn *cs;
 	while(true) {
 		if(retry_conns.empty()) return;
-		cs=retry_conns.front();
+		cs = retry_conns.front();
 		if(cs) break;
 		else retry_conns.pop_front();
 	}
-	if(!retry) retry=new wxTimer(this, MCCT_RETRY);
+	if(!retry) retry.reset(new wxTimer(this, MCCT_RETRY));
 	if(!retry->IsRunning()) {
-		uint64_t ms=5000 * (1<<cs->errorcount);
-		ms+=(ms*((uint64_t) rand()))/RAND_MAX;
+		uint64_t ms = 5000 * (1 << cs->errorcount);
+		ms += (ms * ((uint64_t) rand())) / RAND_MAX;
 		retry->Start((int) ms, wxTIMER_ONE_SHOT);
 	}
 }
@@ -667,7 +653,7 @@ void socketmanager::RegisterSockInterest(CURL *e, curl_socket_t s, int what) {
 			break;
 	}
 	auto egp=sgs->sm->sockpollmap.find(s);
-	GPollFD *gpfd;
+	GPollFD *gpfd = nullptr;
 	if(egp!=sgs->sm->sockpollmap.end()) {
 		gpfd=&(egp->second);
 		g_source_remove_poll(sgs, gpfd);

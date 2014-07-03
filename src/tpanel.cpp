@@ -1055,7 +1055,7 @@ void tpanelparentwin_nt_impl::setupnavbuttonhandlers() {
 
 	addhandler(TPPWID_JUMPTONUM, [this, getjumpval](wxCommandEvent &event) {
 		if(!tp->tweetlist.empty()) {
-			uint64_t value;
+			uint64_t value = 0;
 			size_t maxval = tp->tweetlist.size();
 			if(getjumpval(value, wxString::Format(wxT("Enter tweet number to jump to. (1 - %d)"), maxval), 1, maxval)) {
 				if(value > tp->tweetlist.size()) value = tp->tweetlist.size(); // this is in case tweetlist somehow shrinks during the call
