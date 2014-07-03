@@ -465,7 +465,19 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
 			}
 			break;
 		}
-		case CS_USERLOOKUPWIN: break;
+		case CS_USERLOOKUPWIN: {
+			if(httpcode == 404) {
+				// No such user
+				wxString type = wxT("screen name");
+				if(genurl.find("?screen_name=") == std::string::npos) type = wxT("ID");
+				::wxMessageBox(wxString::Format(wxT("Couldn't find user with %s: '%s'"), type.c_str(), wxstrstd(extra1).c_str()), wxT("No such user"), wxOK | wxICON_EXCLAMATION);
+			}
+			else {
+				// Otherwise display generic failure message box
+				msgbox = true;
+			}
+			break;
+		}
 		case CS_FRIENDACTION_FOLLOW: msgbox=true; break;
 		case CS_FRIENDACTION_UNFOLLOW: msgbox=true; break;
 		case CS_POSTTWEET: {
