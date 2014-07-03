@@ -86,6 +86,12 @@ inline char *getstrfromstr_offset_utf8(char *str, size_t offset, size_t byteleng
 	return const_cast<char *>(getstrfromstr_offset_utf8(const_cast<const char *>(str), offset, bytelength));
 }
 
+inline size_t get_utf8_truncate_offset(const char *str, size_t max_chars, size_t bytelength) {
+	const char *endptr = getstrfromstr_offset_utf8(str, max_chars, bytelength);
+	if(endptr) return endptr - str;
+	else return bytelength;
+}
+
 inline int utf8firsttonumbytes(char c1) {
 	if(!(c1 & 0x80)) return 1;
 	else if((c1 & 0xE0) == 0xC0) return 2;

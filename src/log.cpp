@@ -29,6 +29,7 @@
 #include "alldata.h"
 #include "twitcurlext.h"
 #include "db.h"
+#include "utf8.h"
 #include <wx/tokenzr.h>
 #include <wx/filedlg.h>
 #ifdef __WINDOWS__
@@ -348,8 +349,16 @@ LOGT StrToLogFlags(const std::string &str) {
 std::string tweet_log_line(const tweet *t) {
 	std::string sname = "???";
 	if(t->user && !t->user->GetUser().screen_name.empty()) sname = t->user->GetUser().screen_name;
-	std::string output = string_format("Tweet: %" llFmtSpec "d @%s (%.20s...) tflags: %s, lflags: 0x%X, pending (default): %d, TPs: ",
-			t->id, cstr(sname), cstr(t->text), cstr(t->flags.GetString()), t->lflags, (int) t->IsPendingConst().IsReady());
+
+	std::string short_text = t->text;
+	size_t newsize = get_utf8_truncate_offset(short_text.data(), 20, short_text.size());
+	if(newsize < short_text.size()) {
+		short_text.resize(newsize);
+		short_text += "...";
+	}
+
+	std::string output = string_format("Tweet: %" llFmtSpec "d @%s (%s) tflags: %s, lflags: 0x%X, pending (default): %d, TPs: ",
+			t->id, cstr(sname), cstr(short_text), cstr(t->flags.GetString()), t->lflags, (int) t->IsPendingConst().IsReady());
 	bool needcomma = false;
 	t->IterateTP([&](const tweet_perspective &tp) {
 		std::string thistp = tp.GetFlagStringWithName();
