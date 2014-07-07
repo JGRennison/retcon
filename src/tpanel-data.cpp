@@ -71,8 +71,8 @@ bool tpanel::RegisterTweet(tweet_ptr_p t) {
 		return false;
 	}
 	else {
-		if(t->id>upperid) upperid=t->id;
-		if(t->id<lowerid || lowerid==0) lowerid=t->id;
+		if(t->id > upperid) upperid = t->id;
+		if(t->id < lowerid || lowerid == 0) lowerid = t->id;
 		tweetlist.insert(t->id);
 		return true;
 	}
@@ -122,9 +122,9 @@ std::shared_ptr<tpanel> tpanel::MkTPanel(const std::string &name_, const std::st
 
 	NameDefaults(name, dispname, tpautos_);
 
-	std::shared_ptr<tpanel> &ref=ad.tpanels[name];
+	std::shared_ptr<tpanel> &ref = ad.tpanels[name];
 	if(!ref) {
-		ref=std::make_shared<tpanel>(name, dispname, flags_, std::move(tpautos_));
+		ref = std::make_shared<tpanel>(name, dispname, flags_, std::move(tpautos_));
 	}
 	return ref;
 }

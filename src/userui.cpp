@@ -77,7 +77,7 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 
 	std::shared_ptr<taccount> acc = acc_hint.lock();
 	if(acc && acc->enabled && u->NeedsUpdating(0) && !(u->udc_flags & UDC::LOOKUP_IN_PROGRESS)) {
-		acc->pendingusers[userid_]=u;
+		acc->pendingusers[userid_] = u;
 		acc->StartRestQueryPendings();
 	}
 
@@ -117,9 +117,9 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	accbuttonbox->Add(dmbtn, 0, wxEXPAND | wxALIGN_TOP, 0);
 	follow_btn_mode = FOLLOWBTNMODE::FBM_NONE;
 
-	nb=new wxNotebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxCLIP_CHILDREN | wxNB_TOP | wxNB_NOPAGETHEME);
+	nb = new wxNotebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxCLIP_CHILDREN | wxNB_TOP | wxNB_NOPAGETHEME);
 
-	wxPanel *infopanel=new wxPanel(nb, wxID_ANY);
+	wxPanel *infopanel = new wxPanel(nb, wxID_ANY);
 	vbox->Add(nb, 0, wxALL | wxEXPAND, 4);
 	if_grid = new wxFlexGridSizer(0, 2, 2, 2);
 	infopanel->SetSizer(if_grid);
@@ -210,11 +210,11 @@ void user_window::OnSelChange(wxCommandEvent &event) {
 
 void user_window::fill_accchoice() {
 	std::shared_ptr<taccount> acc = acc_hint.lock();
-	for(auto it = alist.begin(); it != alist.end(); it++ ) {
-		wxString accname = (*it)->dispname;
-		if(!(*it)->enabled) accname += wxT(" [disabled]");
-		accchoice->Append(accname, (*it).get());
-		if((*it).get() == acc.get()) {
+	for(auto &it : alist) {
+		wxString accname = it->dispname;
+		if(!it->enabled) accname += wxT(" [disabled]");
+		accchoice->Append(accname, it.get());
+		if(it.get() == acc.get()) {
 			accchoice->SetSelection(accchoice->GetCount() - 1);
 		}
 	}
@@ -258,7 +258,7 @@ void user_window::RefreshFollow(bool forcerefresh) {
 					}
 
 					time_t updtime = ifollow ? ur.ifollow_updtime : ur.followsme_updtime;
-					if(updtime && (time(0) - updtime) > 180) {
+					if(updtime && (time(nullptr) - updtime) > 180) {
 						time_t updatetime;	//not used
 						value = wxString::Format(wxT("%s as of %s (%s)"), value.c_str(), getreltimestr(updtime, updatetime).c_str(), cfg_strftime(updtime).c_str());
 					}
@@ -500,9 +500,9 @@ END_EVENT_TABLE()
 acc_choice::acc_choice(wxWindow *parent, std::shared_ptr<taccount> &acc, flagwrapper<ACCCF> flags_, int winid, acc_choice_callback callbck, void *extra)
 	: wxChoice(parent, winid, wxDefaultPosition, wxDefaultSize, 0, 0), curacc(acc), flags(flags_), fnptr(callbck), fnextra(extra) {
 	if(!acc.get()) {
-		for(auto it = alist.begin(); it != alist.end(); ++it) {
-			acc = (*it);
-			if((*it)->enabled) break;
+		for(auto &it : alist) {
+			acc = it;
+			if(it->enabled) break;
 		}
 	}
 	fill_acc();
@@ -510,12 +510,12 @@ acc_choice::acc_choice(wxWindow *parent, std::shared_ptr<taccount> &acc, flagwra
 
 void acc_choice::fill_acc() {
 	Clear();
-	for(auto it = alist.begin(); it != alist.end(); ++it) {
-		wxString accname = (*it)->dispname;
-		wxString status = (*it)->GetStatusString(true);
+	for(auto &it : alist) {
+		wxString accname = it->dispname;
+		wxString status = it->GetStatusString(true);
 		if(status.size()) accname += wxT(" [") + status + wxT("]");
-		int index = Append(accname, (*it).get());
-		if((*it).get() == curacc.get()) SetSelection(index);
+		int index = Append(accname, it.get());
+		if(it.get() == curacc.get()) SetSelection(index);
 	}
 	if((GetCount() == 0) && (flags & ACCCF::NOACCITEM)) {
 		int index = Append(wxT("[No Accounts]"), (void *) 0);
@@ -534,11 +534,11 @@ void acc_choice::UpdateSel() {
 	int selection = GetSelection();
 	if(selection != wxNOT_FOUND) {
 		taccount *accptr = static_cast<taccount *>(GetClientData(selection));
-		for(auto it = alist.begin(); it != alist.end(); ++it) {
-			if((*it).get() == accptr) {
+		for(auto &it : alist) {
+			if(it.get() == accptr) {
 				haveanyacc = true;
-				curacc = (*it);
-				if((*it)->enabled) havegoodacc = true;
+				curacc = it;
+				if(it->enabled) havegoodacc = true;
 				break;
 			}
 		}

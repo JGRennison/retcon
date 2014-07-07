@@ -227,8 +227,8 @@ template <> sqlite3_stmt *DBInitialiseSql<sqlite3_stmt *>(sqlite3 *adb, sqlite3_
 }
 
 template <> sqlite3_stmt *DBInitialiseSql<std::string>(sqlite3 *adb, std::string sql) {
-	sqlite3_stmt *stmt = 0;
-	sqlite3_prepare_v2(adb, sql.c_str(), sql.size(), &stmt, 0);
+	sqlite3_stmt *stmt = nullptr;
+	sqlite3_prepare_v2(adb, sql.c_str(), sql.size(), &stmt, nullptr);
 	return stmt;
 }
 

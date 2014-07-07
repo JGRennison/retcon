@@ -64,9 +64,9 @@ template<> struct enum_traits<MDZF> { static constexpr bool flags = true; };
 struct media_display_win : public wxFrame {
 	media_id_type media_id;
 	std::string media_url;
-	image_panel *sb;
-	wxStaticText *st;
-	wxBoxSizer *sz;
+	image_panel *sb = nullptr;
+	wxStaticText *st = nullptr;
+	wxBoxSizer *sz = nullptr;
 	std::function<void(bool)> setsavemenuenablestate;
 	std::vector<std::function<void(wxMenuEvent &)> > menuopenhandlers;
 	wxAnimation anim;
@@ -81,8 +81,8 @@ struct media_display_win : public wxFrame {
 #endif
 	std::map<int, std::function<void(wxCommandEvent &event)> > dynmenuhandlerlist;
 	int next_dynmenu_id;
-	wxMenu *zoom_menu;
-	wxScrolledWindow *scrollwin = 0;
+	wxMenu *zoom_menu = nullptr;
+	wxScrolledWindow *scrollwin  = nullptr;
 	flagwrapper<MDZF> zoomflags = 0;
 	double zoomvalue = 1.0;
 

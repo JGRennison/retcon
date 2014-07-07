@@ -45,13 +45,11 @@ BEGIN_EVENT_TABLE(image_panel, wxPanel)
 	EVT_SIZE(image_panel::OnResize)
 END_EVENT_TABLE()
 
-image_panel::image_panel(wxWindow *parent, wxSize size) : wxPanel(parent, wxID_ANY, wxDefaultPosition, size) {
-
-}
+image_panel::image_panel(wxWindow *parent, wxSize size) : wxPanel(parent, wxID_ANY, wxDefaultPosition, size) { }
 
 void image_panel::OnPaint(wxPaintEvent &event) {
 	wxPaintDC dc(this);
-	dc.DrawBitmap(bm, (GetSize().GetWidth() - bm.GetWidth())/2, (GetSize().GetHeight() - bm.GetHeight())/2, 0);
+	dc.DrawBitmap(bm, (GetSize().GetWidth() - bm.GetWidth()) / 2, (GetSize().GetHeight() - bm.GetHeight()) / 2, 0);
 }
 
 void image_panel::OnResize(wxSizeEvent &event) {
@@ -60,7 +58,7 @@ void image_panel::OnResize(wxSizeEvent &event) {
 
 void image_panel::UpdateBitmap() {
 	if(GetSize().GetWidth() == img.GetWidth() && GetSize().GetHeight() == img.GetHeight()) {
-		bm=wxBitmap(img);
+		bm = wxBitmap(img);
 	}
 	else {
 		double wratio = ((double) GetSize().GetWidth()) / ((double) img.GetWidth());
@@ -92,15 +90,15 @@ BEGIN_EVENT_TABLE(media_display_win, wxFrame)
 END_EVENT_TABLE()
 
 media_display_win::media_display_win(wxWindow *parent, media_id_type media_id_)
-	: wxFrame(parent, wxID_ANY, wxstrstd(ad.media_list[media_id_]->media_url)), media_id(media_id_),
-		sb(0), st(0), sz(0), next_dynmenu_id(MDID_DYN_START) {
+	: wxFrame(parent, wxID_ANY, wxstrstd(ad.media_list[media_id_]->media_url)), media_id(media_id_), next_dynmenu_id(MDID_DYN_START) {
+
 	Freeze();
-	media_entity *me=ad.media_list[media_id_].get();
-	me->win=this;
+	media_entity *me = ad.media_list[media_id_].get();
+	me->win = this;
 
 	if(me->flags & MEF::LOAD_FULL && !(me->flags & MEF::HAVE_FULL)) {
 		//try to load from file
-		char *data=0;
+		char *data = nullptr;
 		size_t size;
 		if(LoadFromFileAndCheckHash(me->cached_full_filename(), me->full_img_sha1, data, size)) {
 			me->flags |= MEF::HAVE_FULL;
@@ -197,8 +195,8 @@ media_display_win::media_display_win(wxWindow *parent, media_id_type media_id_)
 }
 
 media_display_win::~media_display_win() {
-	media_entity *me=GetMediaEntity();
-	if(me) me->win=0;
+	media_entity *me = GetMediaEntity();
+	if(me) me->win = nullptr;
 }
 
 void media_display_win::dynmenudispatchhandler(wxCommandEvent &event) {
@@ -219,7 +217,7 @@ void media_display_win::UpdateImage() {
 		if(st) {
 			sz->Detach(st);
 			st->Destroy();
-			st=0;
+			st = nullptr;
 		}
 
 		#if defined(__WXGTK__)
@@ -243,10 +241,10 @@ void media_display_win::UpdateImage() {
 		if(sb) {
 			sz->Detach(sb);
 			sb->Destroy();
-			sb=0;
+			sb = nullptr;
 		}
 		if(!st) {
-			st=new wxStaticText(this, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE);
+			st = new wxStaticText(this, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE);
 			sz->Add(st, 0, wxALIGN_CENTRE);
 			sz->SetMinSize(200, 200);
 		}
@@ -292,7 +290,7 @@ void media_display_win::ImgSizerLayout() {
 	CalcSizes(imgsize, winsize, targsize);
 
 	if(!sb) {
-		sb=new image_panel(this, targsize);
+		sb = new image_panel(this, targsize);
 		sb->img = current_img;
 	}
 	else {
@@ -307,7 +305,7 @@ void media_display_win::ImgSizerLayout() {
 			sb->Reparent(scrollwin);
 		}
 		scrollwin->SetVirtualSize(targsize);
-		sb->SetPosition(wxPoint(0,0));
+		sb->SetPosition(wxPoint(0, 0));
 		sb->SetSize(targsize);
 		wxSize winsizeinc(winsize);
 		winsizeinc.IncBy(50);
@@ -320,7 +318,7 @@ void media_display_win::ImgSizerLayout() {
 			sb->Reparent(this);
 			sz->Detach(scrollwin);
 			scrollwin->Destroy();
-			scrollwin = 0;
+			scrollwin = nullptr;
 		}
 		sb->SetSize(targsize);
 		SetSize(winsize);
@@ -332,7 +330,7 @@ void media_display_win::ImgSizerLayout() {
 }
 
 void media_display_win::GetImage(wxString &message) {
-	media_entity *me=GetMediaEntity();
+	media_entity *me = GetMediaEntity();
 	if(me) {
 		if(me->flags & MEF::HAVE_FULL) {
 			is_animated = false;
@@ -367,14 +365,14 @@ void media_display_win::GetImage(wxString &message) {
 			return;
 		}
 		else if(me->flags & MEF::FULL_FAILED) {
-			message=wxT("Failed to Load Image");
+			message = wxT("Failed to Load Image");
 		}
 		else {
-			message=wxT("Loading Image");
+			message = wxT("Loading Image");
 		}
 	}
 	else {
-		message=wxT("No Image");
+		message = wxT("No Image");
 	}
 	img_ok = false;
 	return;
@@ -397,11 +395,11 @@ void media_display_win::OnAnimationTimer(wxTimerEvent& event) {
 }
 
 media_entity *media_display_win::GetMediaEntity() {
-	auto it=ad.media_list.find(media_id);
-	if(it!=ad.media_list.end()) {
+	auto it = ad.media_list.find(media_id);
+	if(it != ad.media_list.end()) {
 		return it->second.get();
 	}
-	else return 0;
+	else return nullptr;
 }
 
 void media_display_win::OnSave(wxCommandEvent &event) {
@@ -409,16 +407,16 @@ void media_display_win::OnSave(wxCommandEvent &event) {
 }
 
 void media_display_win::SaveToDir(const wxString &dir) {
-	media_entity *me=GetMediaEntity();
+	media_entity *me = GetMediaEntity();
 	if(me) {
 		wxString hint;
 		wxString ext;
 		bool hasext;
 		wxFileName::SplitPath(wxstrstd(me->media_url), 0, 0, &hint, &ext, &hasext, wxPATH_UNIX);
-		if(hasext) hint+=wxT(".")+ext;
+		if(hasext) hint += wxT(".")+ext;
 		wxString newhint;
-		if(hint.EndsWith(wxT(":large"), &newhint)) hint=newhint;
-		wxString filename=wxFileSelector(wxT("Save Image"), dir, hint, ext, wxT("*.*"), wxFD_SAVE | wxFD_OVERWRITE_PROMPT, this);
+		if(hint.EndsWith(wxT(":large"), &newhint)) hint = newhint;
+		wxString filename = wxFileSelector(wxT("Save Image"), dir, hint, ext, wxT("*.*"), wxFD_SAVE | wxFD_OVERWRITE_PROMPT, this);
 		if(filename.Len()) {
 			wxFile file(filename, wxFile::write);
 			file.Write(me->fulldata.data(), me->fulldata.size());
@@ -441,7 +439,7 @@ void media_display_win::OnMenuZoomSet(wxCommandEvent &event) {
 	wxString str = ::wxGetTextFromUser(wxT("Enter zoom value in percent (%)"), wxT("Input Number"), wxT(""), this);
 	if(!str.IsEmpty()) {
 		std::string stdstr = stdstrwx(str);
-		char *pos = 0;
+		char *pos = nullptr;
 		double value = strtod(stdstr.c_str(), &pos);
 		if((pos && *pos != 0) || (!std::isnormal(value)) || value <= 0) {
 			::wxMessageBox(wxString::Format(wxT("'%s' does not appear to be a positive finite number"), str.c_str()), wxT("Invalid Input"), wxOK | wxICON_EXCLAMATION, this);

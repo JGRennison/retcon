@@ -61,11 +61,11 @@ bool retcon::OnInit() {
 	InitWxLogger();
 	rs.add([&]() { DeInitWxLogger(); });
 	::wxInitAllImageHandlers();
-	srand((unsigned int) time(0));
+	srand((unsigned int) time(nullptr));
 	datadir = stdstrwx(wxStandardPaths::Get().GetUserDataDir());
 	cmdlineproc(argv, argc);
 	if(terms_requested) return false;
-	if(!globallogwindow) new log_window(0, LOGT::GROUP_LOGWINDEF, false);
+	if(!globallogwindow) new log_window(nullptr, LOGT::GROUP_LOGWINDEF, false);
 	if(!datadir.empty() && datadir.back() == '/') datadir.pop_back();
 	wxString wxdatadir = wxstrstd(datadir);
 	if(!::wxDirExists(wxdatadir)) {
@@ -75,7 +75,7 @@ bool retcon::OnInit() {
 	SetTermSigHandler();
 	sm.InitMultiIOHandler();
 	rs.add([&]() { sm.DeInitMultiIOHandler(); });
-	bool res=DBC_Init(datadir + "/retcondb.sqlite3");
+	bool res = DBC_Init(datadir + "/retcondb.sqlite3");
 	if(!res) return false;
 	rs.add([&]() { DBC_DeInit(); });
 	if(terms_requested) return false;
@@ -125,12 +125,12 @@ int retcon::OnExit() {
 }
 
 int retcon::FilterEvent(wxEvent& event) {
-	static unsigned int antirecursion=0;
+	static unsigned int antirecursion = 0;
 	if(antirecursion) return -1;
 
 	antirecursion++;
 	#ifdef __WINDOWS__
-	if(event.GetEventType()==wxEVT_MOUSEWHEEL) {
+	if(event.GetEventType() == wxEVT_MOUSEWHEEL) {
 		if(GetMainframeAncestor((wxWindow *) event.GetEventObject())) {
 			if(RedirectMouseWheelEvent((wxMouseEvent &) event)) {
 				antirecursion--;
@@ -214,19 +214,14 @@ void retcon::EnqueueThreadJob(std::function<void()> &&worker_thread_job) {
 	});
 }
 
-alldata::alldata()
-	: next_media_id(1) { }
-
-alldata::~alldata() { }
-
 udc_ptr alldata::GetUserContainerById(uint64_t id) {
 	auto it = userconts.insert(std::make_pair(id, userdatacontainer()));
 	udc_ptr usercont = &(it.first->second);
 	if(it.second) {
 		//new user
-		usercont->id=id;
-		usercont->lastupdate=0;
-		usercont->udc_flags=0;
+		usercont->id = id;
+		usercont->lastupdate = 0;
+		usercont->udc_flags = 0;
 	}
 	return std::move(usercont);
 }

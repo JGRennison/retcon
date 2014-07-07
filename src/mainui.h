@@ -57,14 +57,14 @@ enum
 class mainframe: public wxFrame
 {
 	std::map<int, unsigned int> proflookupidmap;
-	wxMenu *tpmenu;
-	wxMenu *lookupmenu;
+	wxMenu *tpmenu = nullptr;
+	wxMenu *lookupmenu = nullptr;
 
 public:
-	tpanelnotebook *auib;
-	tweetpostwin *tpw;
+	tpanelnotebook *auib = nullptr;
+	tweetpostwin *tpw = nullptr;
 	tpanelmenudata tpm;
-	wxAuiManager *auim;
+	wxAuiManager *auim = nullptr;
 	wxPoint nominal_pos;
 	wxSize nominal_size;
 	wxString origtitle;
@@ -93,8 +93,8 @@ public:
 };
 
 struct tweetposttextbox : public wxRichTextCtrl {
-	tweetpostwin *parent;
-	int lastheight;
+	tweetpostwin *parent = nullptr;
+	int lastheight = 0;
 
 	tweetposttextbox(tweetpostwin *parent_, const wxString &deftext, wxWindowID id);
 	~tweetposttextbox();
@@ -126,36 +126,36 @@ enum {
 };
 
 struct tweetpostwin : public wxPanel {
-	tweetposttextbox *textctrl;
-	wxWindow *parentwin;
-	mainframe *mparentwin;
-	acc_choice *accc;
+	tweetposttextbox *textctrl = nullptr;
+	wxWindow *parentwin = nullptr;
+	mainframe *mparentwin = nullptr;
+	acc_choice *accc = nullptr;
 	std::shared_ptr<taccount> curacc;
-	wxButton *sendbtn;
-	wxAuiManager *pauim;
-	wxStaticText *infost;
-	bool isgoodacc;
-	bool isshown;
-	wxBoxSizer *vbox;
-	wxBoxSizer *hbox;
-	bool resize_update_pending;
-	bool currently_posting;
+	wxButton *sendbtn = nullptr;
+	wxAuiManager *pauim = nullptr;
+	wxStaticText *infost = nullptr;
+	bool isgoodacc = false;
+	bool isshown = false;
+	wxBoxSizer *vbox = nullptr;
+	wxBoxSizer *hbox = nullptr;
+	bool resize_update_pending = true;
+	bool currently_posting = false;
 	int tc_has_focus = 0;
-	unsigned int current_length;
-	bool length_oob;
+	unsigned int current_length = 0;
+	bool length_oob = false;
 	wxColour infost_colout;
-	wxStaticText *replydesc;
-	wxBitmapButton *replydesclosebtn;
-	wxBitmapButton *cleartextbtn;
-	wxBitmapButton *replydeslockbtn;
-	wxButton *addnamesbtn;
+	wxStaticText *replydesc = nullptr;
+	wxBitmapButton *replydesclosebtn = nullptr;
+	wxBitmapButton *cleartextbtn = nullptr;
+	wxBitmapButton *replydeslockbtn = nullptr;
+	wxButton *addnamesbtn = nullptr;
 	tweet_ptr tweet_reply_targ;
 	udc_ptr dm_targ;
 	std::unique_ptr<is_user_mentioned_cache> iumc;
 	bool replydesc_locked = false;
 	std::shared_ptr<tpanelglobal> tpg;
 
-	tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *parentauim = 0);
+	tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *parentauim = nullptr);
 	~tweetpostwin();
 	void OnSendBtn(wxCommandEvent &event);
 	void DoShowHide(bool show);

@@ -118,20 +118,18 @@ struct userdata {
 	std::string name;
 	std::string screen_name;
 	std::string profile_img_url;
-	flagwrapper<UF> u_flags;
-	time_t createtime;
+	flagwrapper<UF> u_flags = 0;
+	time_t createtime = 0;
 	std::string description;
 	std::string location;
-	unsigned int statuses_count;
-	unsigned int followers_count;    //users following this account
-	unsigned int friends_count;      //users this account is following
-	unsigned int favourites_count;   //tweets this account has faved
+	unsigned int statuses_count = 0;
+	unsigned int followers_count = 0;    //users following this account
+	unsigned int friends_count = 0;      //users this account is following
+	unsigned int favourites_count = 0;   //tweets this account has faved
 	std::string userurl;
 
 	//Any change to any other member of this struct, should increment this value
 	unsigned int revision_number = 0;
-
-	userdata() : u_flags(0), createtime(0), statuses_count(0), followers_count(0), friends_count(0), favourites_count(0) { }
 };
 template<> struct enum_traits<userdata::UF> { static constexpr bool flags = true; };
 
@@ -215,10 +213,10 @@ class tweet_perspective {
 	public:
 	std::shared_ptr<taccount> acc;
 
-	tweet_perspective(const std::shared_ptr<taccount> &tac) : acc(tac), flags(0) { }
-	tweet_perspective() : flags(0) { }
+	tweet_perspective(const std::shared_ptr<taccount> &tac) : acc(tac) { }
+	tweet_perspective() { }
 	void Reset(const std::shared_ptr<taccount> &tac) { acc = tac; }
-	void Load(unsigned int fl) { flags=fl; }
+	void Load(unsigned int fl) { flags = fl; }
 	unsigned int Save() const { return flags; }
 
 	bool IsArrivedHere() const { return flags & TP_IAH; }
@@ -239,7 +237,7 @@ class tweet_perspective {
 	std::string GetFlagStringWithName(bool always = false) const;
 
 	protected:
-	unsigned int flags;
+	unsigned int flags = 0;
 };
 
 struct pending_op {
@@ -250,7 +248,7 @@ struct pending_op {
 	virtual ~pending_op() { }
 
 	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) = 0;
-	virtual std::string dump()=0;
+	virtual std::string dump() = 0;
 };
 
 struct rt_pending_op : public pending_op {
@@ -266,7 +264,7 @@ struct tpanelload_pending_op : public pending_op {
 	std::weak_ptr<tpanel> pushtpanel;
 	flagwrapper<PUSHFLAGS> pushflags;
 
-	tpanelload_pending_op(tpanelparentwin_nt* win_, flagwrapper<PUSHFLAGS> pushflags_ = PUSHFLAGS::DEFAULT, std::shared_ptr<tpanel> *pushtpanel_ = 0);
+	tpanelload_pending_op(tpanelparentwin_nt* win_, flagwrapper<PUSHFLAGS> pushflags_ = PUSHFLAGS::DEFAULT, std::shared_ptr<tpanel> *pushtpanel_ = nullptr);
 
 	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags);
 	virtual std::string dump();
@@ -281,7 +279,7 @@ struct handlenew_pending_op : public pending_op {
 	virtual std::string dump();
 };
 
-enum class TLF {	//for tweet.lflags
+enum class TLF {    //for tweet.lflags
 	DYNDIRTY             = 1<<0,
 	BEINGLOADEDFROMDB    = 1<<1,
 	SAVED_IN_DB          = 1<<3,
@@ -310,12 +308,12 @@ struct tweet {
 	std::string source;
 	std::string text;
 	time_t createtime = 0;
-	udc_ptr user;		//for DMs this is the sender
-	udc_ptr user_recipient;	//for DMs this is the recipient, for tweets, unset
+	udc_ptr user;                    //for DMs this is the sender
+	udc_ptr user_recipient;          //for DMs this is the recipient, for tweets, unset
 	std::vector<entity> entlist;
 	tweet_perspective first_tp;
 	std::vector<tweet_perspective> tp_extra_list;
-	tweet_ptr rtsrc;				//for retweets, this is the source tweet
+	tweet_ptr rtsrc;                 //for retweets, this is the source tweet
 	std::vector<std::unique_ptr<pending_op> > pending_ops;
 
 	tweet_flags flags;
@@ -441,7 +439,7 @@ struct media_entity {
 	std::string fulldata;	//the full unmodified content of the image data
 	wxImage thumbimg;
 	std::forward_list<tweet_ptr> tweet_list;
-	media_display_win *win = 0;
+	media_display_win *win = nullptr;
 	shb_iptr full_img_sha1;
 	shb_iptr thumb_img_sha1;
 	uint64_t lastused = 0;
@@ -511,8 +509,8 @@ struct is_user_mentioned_cache {
 	virtual void clear() = 0;
 };
 
-bool IsUserMentioned(const char *in, size_t inlen, udc_ptr_p u, std::unique_ptr<is_user_mentioned_cache> *cache = 0);
-inline bool IsUserMentioned(const std::string &str, udc_ptr_p u, std::unique_ptr<is_user_mentioned_cache> *cache = 0) {
+bool IsUserMentioned(const char *in, size_t inlen, udc_ptr_p u, std::unique_ptr<is_user_mentioned_cache> *cache = nullptr);
+inline bool IsUserMentioned(const std::string &str, udc_ptr_p u, std::unique_ptr<is_user_mentioned_cache> *cache = nullptr) {
 	return IsUserMentioned(str.c_str(), str.size(), u, cache);
 }
 
@@ -528,12 +526,12 @@ void FastMarkPendingNonAcc(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark);
 bool FastMarkPendingNoAccFallback(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, const std::string &logprefix);
 void GenericMarkPending(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, const std::string &logprefix, flagwrapper<tweet::GUAF> guaflags = 0);
 
-bool MarkPending_TPanelMap(tweet_ptr_p tobj, tpanelparentwin_nt* win_, PUSHFLAGS pushflags = PUSHFLAGS::DEFAULT, std::shared_ptr<tpanel> *pushtpanel_ = 0);
+bool MarkPending_TPanelMap(tweet_ptr_p tobj, tpanelparentwin_nt *win_, PUSHFLAGS pushflags = PUSHFLAGS::DEFAULT, std::shared_ptr<tpanel> *pushtpanel_ = nullptr);
 bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> acc_hint, std::unique_ptr<dbseltweetmsg> *existing_dbsel = nullptr,
 		flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT, flagwrapper<PENDING_RESULT> presult = PENDING_RESULT::DEFAULT);
 bool CheckLoadSingleTweet(tweet_ptr_p t, std::shared_ptr<taccount> &acc_hint);
 void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, tweetidset cached_id_sets::* idsetptr,
-		bool remove, std::function<void(tweet_ptr_p )> existingtweetfunc = std::function<void(tweet_ptr_p )>());
+		bool remove, std::function<void(tweet_ptr_p )> existingtweetfunc = std::function<void(tweet_ptr_p)>());
 void SendTweetFlagUpdate(const tweet &tw, unsigned long long mask);
 void SpliceTweetIDSet(tweetidset &set, tweetidset &out, uint64_t highlim_inc, uint64_t lowlim_inc, bool clearspliced);
 

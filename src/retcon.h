@@ -39,9 +39,9 @@ namespace ThreadPool {
 }
 
 class retcon: public wxApp {
-    virtual bool OnInit();
-    virtual int OnExit();
-    int FilterEvent(wxEvent& event);
+	virtual bool OnInit();
+	virtual int OnExit();
+	int FilterEvent(wxEvent &event);
 	void OnQuitMsg(wxCommandEvent &event);
 	void OnExecPendingsMsg(wxCommandEvent &event);
 	void OnExecThreadPoolMsg(wxCommandEvent &event);

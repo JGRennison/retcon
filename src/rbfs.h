@@ -21,7 +21,7 @@
 
 #include "univdefs.h"
 
-typedef enum {			//do not change these values, they are saved/loaded to/from the DB
+typedef enum {    //do not change these values, they are saved/loaded to/from the DB
 	RBFS_NULL = 0,
 	RBFS_MIN = 1,
 	RBFS_TWEETS = 1,
@@ -34,8 +34,8 @@ typedef enum {			//do not change these values, they are saved/loaded to/from the
 } RBFS_TYPE;
 
 struct restbackfillstate {
-	uint64_t start_tweet_id;	//exclusive limit
-	uint64_t end_tweet_id;		//inclusive limit
+	uint64_t start_tweet_id;    //exclusive limit
+	uint64_t end_tweet_id;      //inclusive limit
 	uint64_t userid;
 	unsigned int max_tweets_left;
 	unsigned int lastop_recvcount;

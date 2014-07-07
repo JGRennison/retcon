@@ -73,18 +73,18 @@ struct tweet_flags {
 	static std::string GetValueString(unsigned long long val);
 
 	bool Get(char in) const {
-		ssize_t num=GetFlagNum(in);
+		ssize_t num = GetFlagNum(in);
 		if(num >= 0) return bits.test(num);
 		else return 0;
 	}
 
 	void Set(char in, bool value = true) {
-		ssize_t num=GetFlagNum(in);
+		ssize_t num = GetFlagNum(in);
 		if(num >= 0) bits.set(num, value);
 	}
 
 	bool Toggle(char in) {
-		ssize_t num=GetFlagNum(in);
+		ssize_t num = GetFlagNum(in);
 		if(num >= 0) {
 			bits.flip(num);
 			return bits.test(num);

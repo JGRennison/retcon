@@ -67,7 +67,7 @@ namespace ThreadPool {
 	class Worker {
 		friend class Pool;
 		Pool * const parent; //*parent should be locked with its mutex before use
-		const unsigned int id;
+		const unsigned int id = 0;
 		bool alive = true;  //this should only be touched by the spawned thread
 
 		std::thread thread; //this should only be touched by the main thread
@@ -76,7 +76,7 @@ namespace ThreadPool {
 
 		private:
 		//empty Worker
-		Worker(Pool *parent_) : parent(parent_), id(0) { }
+		Worker(Pool *parent_) : parent(parent_) { }
 
 		//un-copyable, un-movable
 		Worker(const Worker &) = delete;

@@ -29,10 +29,10 @@ struct FilterTextValidator : public wxTextValidator {
 	filter_set &fs;
 	wxString *valPtr;
 	std::shared_ptr<filter_set> ownfilter;
-	FilterTextValidator(filter_set &fs_, wxString* valPtr_ = NULL)
+	FilterTextValidator(filter_set &fs_, wxString *valPtr_ = nullptr)
 			: wxTextValidator((long) wxFILTER_NONE, valPtr_), fs(fs_), valPtr(valPtr_) {
 	}
-	virtual wxObject* Clone() const {
+	virtual wxObject *Clone() const {
 		FilterTextValidator *newfv = new FilterTextValidator(fs, valPtr);
 		newfv->ownfilter = ownfilter;
 		return newfv;
@@ -44,7 +44,7 @@ struct FilterTextValidator : public wxTextValidator {
 		}
 		return result;
 	}
-	virtual bool Validate(wxWindow* parent) {
+	virtual bool Validate(wxWindow *parent) {
 		wxTextCtrl *win = (wxTextCtrl *) GetWindow();
 
 		if(!ownfilter) ownfilter = std::make_shared<filter_set>();
@@ -54,7 +54,8 @@ struct FilterTextValidator : public wxTextValidator {
 			return true;
 		}
 		else {
-			::wxMessageBox(wxT("Filter is not valid, please correct errors.\n") + wxstrstd(errmsg), wxT("Filter Validation Failed"), wxOK | wxICON_EXCLAMATION, parent);
+			::wxMessageBox(wxT("Filter is not valid, please correct errors.\n") + wxstrstd(errmsg),
+					wxT("Filter Validation Failed"), wxOK | wxICON_EXCLAMATION, parent);
 			return false;
 		}
 	}

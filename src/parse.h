@@ -67,7 +67,7 @@ struct genjsonparser {
 			Handler *jw = 0, bool isnew = false, optional_observer_ptr<dbsendmsg_list> dbmsglist = nullptr, bool parse_entities = true);
 	static void DoEntitiesParse(const rapidjson::Value& val, tweet_ptr_p t,
 			bool isnew = false, optional_observer_ptr<dbsendmsg_list> dbmsglist = nullptr);
-	static void ParseUserContents(const rapidjson::Value& val, userdata &userobj, bool is_ssl = 0);
+	static void ParseUserContents(const rapidjson::Value& val, userdata &userobj, bool is_ssl = false);
 	static void ParseTweetDyn(const rapidjson::Value& val, tweet_ptr_p tobj);
 };
 

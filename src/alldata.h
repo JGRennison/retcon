@@ -42,7 +42,7 @@ struct alldata {
 	container::map<uint64_t, tweet_ptr> noacc_pending_tweetobjs;
 	container::map<uint64_t, udc_ptr> noacc_pending_userconts;
 	tweetidset unloaded_db_tweet_ids;
-	unsigned int next_media_id;
+	unsigned int next_media_id = 1;
 	cached_id_sets cids;
 	std::vector<twin_layout_desc> twinlayout;
 	std::vector<mf_layout_desc> mflayout;
@@ -50,11 +50,9 @@ struct alldata {
 	filter_set incoming_filter;
 	filter_set alltweet_filter;
 
-	alldata();
-	~alldata();
 	udc_ptr GetUserContainerById(uint64_t id);
 	udc_ptr GetExistingUserContainerById(uint64_t id);
-	tweet_ptr GetTweetById(uint64_t id, bool *isnew = 0);
+	tweet_ptr GetTweetById(uint64_t id, bool *isnew = nullptr);
 	tweet_ptr GetExistingTweetById(uint64_t id);
 	void UnlinkTweetById(uint64_t id);
 };

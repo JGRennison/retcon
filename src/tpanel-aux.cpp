@@ -40,7 +40,7 @@
 #endif
 
 enum {
-	NOTEBOOK_ID=42,
+	NOTEBOOK_ID = 42,
 };
 
 struct TabArtReverseVideoDC : public wxMirrorDC {
@@ -133,10 +133,11 @@ BEGIN_EVENT_TABLE(tpanelnotebook, wxAuiNotebook)
 	EVT_SIZE(tpanelnotebook::onsizeevt)
 END_EVENT_TABLE()
 
-tpanelnotebook::tpanelnotebook(mainframe *owner_, wxWindow *parent) :
-wxAuiNotebook(parent, NOTEBOOK_ID, wxDefaultPosition, wxDefaultSize, wxAUI_NB_TOP | wxAUI_NB_TAB_SPLIT | wxAUI_NB_TAB_MOVE | wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_TAB_EXTERNAL_MOVE | wxAUI_NB_CLOSE_ON_ALL_TABS | wxAUI_NB_WINDOWLIST_BUTTON),
-owner(owner_)
-{
+tpanelnotebook::tpanelnotebook(mainframe *owner_, wxWindow *parent)
+		: wxAuiNotebook(parent, NOTEBOOK_ID, wxDefaultPosition, wxDefaultSize, wxAUI_NB_TOP | wxAUI_NB_TAB_SPLIT |
+			wxAUI_NB_TAB_MOVE | wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_TAB_EXTERNAL_MOVE | wxAUI_NB_CLOSE_ON_ALL_TABS | wxAUI_NB_WINDOWLIST_BUTTON),
+			owner(owner_) {
+
 	wxColour foreground = GetForegroundColour();
 	wxColour background = GetBackgroundColour();
 
@@ -149,7 +150,7 @@ owner(owner_)
 }
 
 void tpanelnotebook::dragdrophandler(wxAuiNotebookEvent& event) {
-	wxAuiNotebook* note= (wxAuiNotebook *) event.GetEventObject();
+	wxAuiNotebook* note = (wxAuiNotebook *) event.GetEventObject();
 	if(note) {
 		tpanelparentwin *tppw = static_cast<tpanelparentwin *>(note->GetPage(event.GetSelection()));
 		if(tppw) tppw->pimpl()->owner = owner;
@@ -165,7 +166,7 @@ void tpanelnotebook::tabclosedhandler(wxAuiNotebookEvent& event) {
 	tabnumcheck();
 }
 void tpanelnotebook::tabnumcheck() {
-	if(GetPageCount()==0 && !(mainframelist.empty() || (++mainframelist.begin())==mainframelist.end())) {
+	if(GetPageCount() == 0 && !(mainframelist.empty() || (++mainframelist.begin()) == mainframelist.end())) {
 		owner->Close();
 	}
 }
@@ -197,50 +198,54 @@ void tpanelnotebook::PostSplitSizeCorrect() {
 
 	wxAuiPaneInfoArray& all_panes = m_mgr.GetAllPanes();
 	size_t pane_count = all_panes.GetCount();
-	size_t tabctrl_count=0;
+	size_t tabctrl_count = 0;
 	std::forward_list<wxAuiPaneInfo *> tabctrlarray;
 	for(size_t i = 0; i < pane_count; ++i) {
 		if(all_panes.Item(i).name != wxT("dummy")) {
 			tabctrl_count++;
 			tabctrlarray.push_front(&(all_panes.Item(i)));
 			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LOGT::TPANEL, wxT("TCL: PostSplitSizeCorrect1 %d %d %d %d"), all_panes.Item(i).dock_direction, all_panes.Item(i).dock_layer, all_panes.Item(i).dock_row, all_panes.Item(i).dock_pos);
+				LogMsgFormat(LOGT::TPANEL, wxT("TCL: PostSplitSizeCorrect1 %d %d %d %d"), all_panes.Item(i).dock_direction, all_panes.Item(i).dock_layer,
+						all_panes.Item(i).dock_row, all_panes.Item(i).dock_pos);
 			#endif
 		}
 	}
-	for(auto it=tabctrlarray.begin(); it!=tabctrlarray.end(); ++it) {
-		wxAuiPaneInfo &pane=**(it);
-		pane.BestSize(totalsize.GetWidth()/tabctrl_count, totalsize.GetHeight());
-		pane.MaxSize(totalsize.GetWidth()/tabctrl_count, totalsize.GetHeight());
+	for(auto &it : tabctrlarray) {
+		wxAuiPaneInfo &pane = *it;
+		pane.BestSize(totalsize.GetWidth() / tabctrl_count, totalsize.GetHeight());
+		pane.MaxSize(totalsize.GetWidth() / tabctrl_count, totalsize.GetHeight());
 		pane.DockFixed();
-		if(pane.dock_direction!=wxAUI_DOCK_LEFT && pane.dock_direction!=wxAUI_DOCK_RIGHT && pane.dock_direction!=wxAUI_DOCK_CENTRE) {
+		if(pane.dock_direction != wxAUI_DOCK_LEFT && pane.dock_direction != wxAUI_DOCK_RIGHT && pane.dock_direction != wxAUI_DOCK_CENTRE) {
 			pane.Right();
-			pane.dock_row=0;
-			pane.dock_pos=1;	//trigger code below
+			pane.dock_row = 0;
+			pane.dock_pos = 1;    //trigger code below
 		}
-		if(pane.dock_pos>0) {	//make a new row, bumping up any others to make room
-			if(pane.dock_direction==wxAUI_DOCK_LEFT) {
-				for(auto jt=tabctrlarray.begin(); jt!=tabctrlarray.end(); ++jt) {
-					if((*jt)->dock_direction==pane.dock_direction && (*jt)->dock_row>pane.dock_row && (*jt)->dock_layer==pane.dock_layer) (*jt)->dock_row++;
+		if(pane.dock_pos > 0) {    //make a new row, bumping up any others to make room
+			if(pane.dock_direction == wxAUI_DOCK_LEFT) {
+				for(auto &jt : tabctrlarray) {
+					if(jt->dock_direction == pane.dock_direction && jt->dock_row > pane.dock_row && jt->dock_layer == pane.dock_layer) jt->dock_row++;
 				}
-				pane.dock_pos=0;
+				pane.dock_pos = 0;
 				pane.dock_row++;
 			}
 			else {
-				for(auto jt=tabctrlarray.begin(); jt!=tabctrlarray.end(); ++jt) {
-					if((*jt)->dock_direction==pane.dock_direction && (*jt)->dock_row>=pane.dock_row && (*jt)->dock_layer==pane.dock_layer && (*jt)->dock_pos==0) (*jt)->dock_row++;
+				for(auto &jt : tabctrlarray) {
+					if(jt->dock_direction == pane.dock_direction && jt->dock_row >= pane.dock_row && jt->dock_layer == pane.dock_layer && jt->dock_pos == 0) jt->dock_row++;
 				}
-				pane.dock_pos=0;
+				pane.dock_pos = 0;
 			}
 		}
 	}
-	for(auto it=tabctrlarray.begin(); it!=tabctrlarray.end(); ++it) m_mgr.InsertPane((*it)->window, (**it), wxAUI_INSERT_ROW);
+	for(auto &it : tabctrlarray) {
+		m_mgr.InsertPane(it->window, *it, wxAUI_INSERT_ROW);
+	}
 	m_mgr.Update();
 
 	for(size_t i = 0; i < pane_count; ++i) {
 		if(all_panes.Item(i).name != wxT("dummy")) {
 			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LOGT::TPANEL, "TCL: PostSplitSizeCorrect2 %d %d %d %d", all_panes.Item(i).dock_direction, all_panes.Item(i).dock_layer, all_panes.Item(i).dock_row, all_panes.Item(i).dock_pos);
+				LogMsgFormat(LOGT::TPANEL, "TCL: PostSplitSizeCorrect2 %d %d %d %d", all_panes.Item(i).dock_direction, all_panes.Item(i).dock_layer,
+						all_panes.Item(i).dock_row, all_panes.Item(i).dock_pos);
 			#endif
 		}
 	}
@@ -258,7 +263,7 @@ void tpanelnotebook::onsizeevt(wxSizeEvent &event) {
 }
 
 void tpanelnotebook::FillWindowLayout(unsigned int mainframeindex) {
-	wxAuiPaneInfoArray& all_panes = m_mgr.GetAllPanes();
+	wxAuiPaneInfoArray &all_panes = m_mgr.GetAllPanes();
 	size_t pane_count = all_panes.GetCount();
 
 	size_t pagecount = GetPageCount();
@@ -292,7 +297,7 @@ void tpanelnotebook::FillWindowLayout(unsigned int mainframeindex) {
 		twld.tabindex = tabindex;
 		auto tp = tppw->pimpl()->tp;
 		twld.tpautos = tp->tpautos;
-		twld.name =tp->name;
+		twld.name = tp->name;
 		twld.dispname = tp->dispname;
 		twld.flags = tp->flags;
 	}
@@ -306,11 +311,11 @@ END_EVENT_TABLE()
 
 profimg_staticbitmap::profimg_staticbitmap(wxWindow* parent, const wxBitmap& label, udc_ptr udc_, tweet_ptr t_, mainframe *owner_, flagwrapper<PISBF> flags)
 		: wxStaticBitmap(parent, wxID_ANY, label, wxPoint(-1000, -1000)), udc(std::move(udc_)), t(std::move(t_)), owner(owner_), pisb_flags(flags) {
-	udc->profile_img_last_used = time(0);
+	udc->profile_img_last_used = time(nullptr);
 }
 
 profimg_staticbitmap::~profimg_staticbitmap() {
-	udc->profile_img_last_used = time(0);
+	udc->profile_img_last_used = time(nullptr);
 }
 
 void profimg_staticbitmap::ClickHandler(wxMouseEvent &event) {
@@ -320,9 +325,9 @@ void profimg_staticbitmap::ClickHandler(wxMouseEvent &event) {
 }
 
 void profimg_staticbitmap::RightClickHandler(wxMouseEvent &event) {
-	if(owner || !(pisb_flags&PISBF::DONTUSEDEFAULTMF)) {
+	if(owner || !(pisb_flags & PISBF::DONTUSEDEFAULTMF)) {
 		wxMenu menu;
-		int nextid=tweetactmenustartid;
+		int nextid = tweetactmenustartid;
 		tamd.clear();
 		AppendUserMenuItems(menu, tamd, nextid, udc, t);
 		GenericPopupWrapper(this, &menu);
@@ -337,8 +342,8 @@ void profimg_staticbitmap::OnTweetActMenuCmd(wxCommandEvent &event) {
 
 std::shared_ptr<tpanelglobal> tpanelglobal::Get() {
 	if(tpg_glob.expired()) {
-		std::shared_ptr<tpanelglobal> tmp=std::make_shared<tpanelglobal>();
-		tpg_glob=tmp;
+		std::shared_ptr<tpanelglobal> tmp = std::make_shared<tpanelglobal>();
+		tpg_glob = tmp;
 		return tmp;
 	}
 	else return tpg_glob.lock();

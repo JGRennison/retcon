@@ -115,13 +115,13 @@ observer_ptr<media_entity> media_entity::MakeNew(media_id_type mid, std::string 
 
 	me->media_id = mid;
 	me->media_url = std::move(url);
-	me->lastused = time(0);
+	me->lastused = time(nullptr);
 	return me;
 }
 
 
 void media_entity::UpdateLastUsed(observer_ptr<dbsendmsg_list> msglist) {
-	uint64_t now = time(0);
+	uint64_t now = time(nullptr);
 	if((now - lastused) >= (60 * 60)) {
 		//don't bother sending updates for small timestamp changes
 		lastused = now;
@@ -214,7 +214,7 @@ void streamconntimeout::Notify() {
 bool userdatacontainer::NeedsUpdating(flagwrapper<PENDING_REQ> preq, time_t timevalue) const {
 	if(!lastupdate) return true;
 	if(!GetUser().screen_name.size()) return true;
-	if(!timevalue) timevalue = time(0);
+	if(!timevalue) timevalue = time(nullptr);
 	if(preq & PENDING_REQ::USEREXPIRE) {
 		if((uint64_t) timevalue > (lastupdate + gc.userexpiretime)) return true;
 		else return false;
@@ -232,7 +232,7 @@ bool userdatacontainer::ImgIsReady(flagwrapper<PENDING_REQ> preq) {
 				profileimgdlconn::NewConn(user.profile_img_url, this);
 
 				// New image, bump last used timestamp to prevent it being evicted prior to display
-				profile_img_last_used = time(0);
+				profile_img_last_used = time(nullptr);
 			}
 			return false;
 		}
@@ -410,7 +410,7 @@ void userdatacontainer::GetImageLocalFilename(wxString &filename) const {
 }
 
 void userdatacontainer::MarkUpdated() {
-	lastupdate = time(0);
+	lastupdate = time(nullptr);
 }
 
 std::string userdatacontainer::mkjson() const {
@@ -732,7 +732,7 @@ void FastMarkPendingNonAcc(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark) {
 	if(mark & PENDING_BITS::RT_RTU) t->rtsrc->user->MarkTweetPending(t->rtsrc);
 	if(mark & PENDING_BITS::RT_MISSING) {
 		t->rtsrc->lflags |= TLF::ISPENDING;
-		bool insertnewrtpo=true;
+		bool insertnewrtpo = true;
 		for(auto &it : t->rtsrc->pending_ops) {
 			rt_pending_op *rtpo = dynamic_cast<rt_pending_op*>(it.get());
 			if(rtpo && rtpo->target_retweet == t) {
@@ -772,13 +772,13 @@ bool FastMarkPendingNoAccFallback(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark,
 //ends
 
 void RemoveUserFromAccPendingLists(uint64_t userid) {
-	for(auto it=alist.begin(); it!=alist.end(); ++it) {
-		(*it)->pendingusers.erase(userid);
+	for(auto &it : alist) {
+		it->pendingusers.erase(userid);
 	}
 }
 
 bool MarkPending_TPanelMap(tweet_ptr_p tobj, tpanelparentwin_nt* win_, PUSHFLAGS pushflags, std::shared_ptr<tpanel> *pushtpanel_) {
-	tpanel *tp = 0;
+	tpanel *tp = nullptr;
 	if(pushtpanel_) tp = (*pushtpanel_).get();
 	bool found = false;
 	for(auto &it : tobj->pending_ops) {
@@ -1051,11 +1051,11 @@ bool tweet::IsArrivedHereAnyPerspective() const {
 
 #ifdef __WINDOWS__
 #ifndef gmtime_r
-struct tm *gmtime_r (const time_t *timer, struct tm *result) {
+struct tm *gmtime_r(const time_t *timer, struct tm *result) {
 	struct tm *local_result;
 	local_result = gmtime(timer);
 
-	if(!local_result || !result) return 0;
+	if(!local_result || !result) return nullptr;
 
 	memcpy (result, local_result, sizeof (struct tm));
 	return result;
@@ -1241,10 +1241,10 @@ void ParseTwitterDate(struct tm *createtm, time_t *createtm_t, const std::string
 #define IS_USER_MENTIONED_2ND ")(/[a-z][a-z0-9_\\-]{0,24})?" MENTION_NEG_ASSERT
 
 unsigned int TwitterCharCount(const char *in, size_t inlen, unsigned int img_uploads) {
-	static pcre *pattern = 0;
-	static pcre_extra *patextra = 0;
-	static pcre *invprotpattern = 0;
-	static pcre *tcopattern = 0;
+	static pcre *pattern = nullptr;
+	static pcre_extra *patextra = nullptr;
+	static pcre *invprotpattern = nullptr;
+	static pcre *tcopattern = nullptr;
 
 	unsigned int outsize = 0;
 
@@ -1273,7 +1273,7 @@ unsigned int TwitterCharCount(const char *in, size_t inlen, unsigned int img_upl
 		if(!invprotpattern || !tcopattern) return 0;
 	}
 
-	char *comp = 0;
+	char *comp = nullptr;
 	ssize_t len = utf8proc_map((const uint8_t *) in, inlen, (uint8_t **) &comp, UTF8PROC_STABLE | UTF8PROC_COMPOSE);
 	if(len > 0) {
 		outsize += strlen_utf8(comp);
@@ -1286,13 +1286,13 @@ unsigned int TwitterCharCount(const char *in, size_t inlen, unsigned int img_upl
 			int rc = pcre_exec(pattern, patextra, comp, len, startoffset, 0, ovector, 30);
 			if(rc <= 0) break;
 			startoffset = ovector[1];
-			if(rc < 4 || ovector[6] == -1 ) {
+			if(rc < 4 || ovector[6] == -1) {
 				int inv_ovector[30];
 				int rc_inv = pcre_exec(invprotpattern, 0, comp+ovector[2], ovector[3] - ovector[2], 0, 0, inv_ovector, 30);
 				if(rc_inv > 0) continue;
 			}
 			else {
-				if(strncasecmp(comp+ovector[6], "https://", ovector[7] - ovector[6]) == 0) https=true;
+				if(strncasecmp(comp+ovector[6], "https://", ovector[7] - ovector[6]) == 0) https = true;
 			}
 			int tc_ovector[30];
 			int tc_inv = pcre_exec(tcopattern, 0, comp+ovector[4], ovector[5] - ovector[4], 0, 0, tc_ovector, 30);
@@ -1333,8 +1333,8 @@ struct is_user_mentioned_cache_real : public is_user_mentioned_cache {
 bool IsUserMentioned(const char *in, size_t inlen, udc_ptr_p u, std::unique_ptr<is_user_mentioned_cache> *cache) {
 	std::string pat = IS_USER_MENTIONED_1ST + u->GetUser().screen_name + IS_USER_MENTIONED_2ND;
 
-	pcre *pattern = 0;
-	pcre **pattern_store = 0;
+	pcre *pattern = nullptr;
+	pcre **pattern_store = nullptr;
 	if(cache) {
 		if(!*cache) cache->reset(new is_user_mentioned_cache_real);
 		is_user_mentioned_cache_real &rcache = *static_cast<is_user_mentioned_cache_real*>(cache->get());
@@ -1366,8 +1366,8 @@ bool IsUserMentioned(const char *in, size_t inlen, udc_ptr_p u, std::unique_ptr<
 }
 
 void SpliceTweetIDSet(tweetidset &set, tweetidset &out, uint64_t highlim_inc, uint64_t lowlim_inc, bool clearspliced) {
-		tweetidset::iterator start = set.lower_bound(highlim_inc);
-		tweetidset::iterator end = set.upper_bound(lowlim_inc);
-		out.insert(start, end);
-		if(clearspliced) set.erase(start, end);
+	tweetidset::iterator start = set.lower_bound(highlim_inc);
+	tweetidset::iterator end = set.upper_bound(lowlim_inc);
+	out.insert(start, end);
+	if(clearspliced) set.erase(start, end);
 }

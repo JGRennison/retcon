@@ -52,7 +52,7 @@ enum class PENDING_BITS : unsigned char;
 typedef enum { ACT_NOTDONE, ACT_INPROGRESS, ACT_FAILED, ACT_DONE } ACT_STATUS;
 
 enum {
-	TAF_WINID_RESTTIMER=1,
+	TAF_WINID_RESTTIMER = 1,
 	TAF_FAILED_PENDING_CONN_RETRY_TIMER,
 	TAF_STREAM_RESTART_TIMER,
 	TAF_NOACC_PENDING_CONTENT_TIMER,
@@ -81,10 +81,10 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 	bool ssl;
 	bool userstreams;
 	enum class TAF {
-		STREAM_UP			= 1<<0,
+		STREAM_UP             = 1<<0,
 	};
 	flagwrapper<TAF> ta_flags = 0;
-	unsigned long restinterval;	//seconds
+	unsigned long restinterval;    //seconds
 
 	uint64_t &GetMaxId(RBFS_TYPE type) {
 		switch(type) {
@@ -99,7 +99,7 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 	time_t last_stream_start_time = 0;
 	time_t last_stream_end_time = 0;
 	udc_ptr usercont;
-	std::unordered_map<uint64_t,user_relationship> user_relations;
+	std::unordered_map<uint64_t, user_relationship> user_relations;
 
 	//any tweet or DM in this list *must* be either in ad.tweetobjs, or in the database
 	tweetidset tweet_ids;

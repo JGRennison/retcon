@@ -39,7 +39,7 @@ BEGIN_EVENT_TABLE( mcurlconn, wxEvtHandler )
 END_EVENT_TABLE()
 
 int curl_debug_func(CURL *cl, curl_infotype ci, char *txt, size_t len, void *extra) {
-	if(ci==CURLINFO_TEXT) {
+	if(ci == CURLINFO_TEXT) {
 		LogMsgProcess(LOGT::CURLVERB, std::string(txt, len));
 	}
 	return 0;
@@ -79,7 +79,7 @@ std::unique_ptr<mcurlconn> mcurlconn::RemoveConnCommon(const char *logprefix) {
 void mcurlconn::NotifyDone(CURL *easy, long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
 	if(httpcode != 200 || res != CURLE_OK) {
 		//failed
-		if(res==CURLE_OK) {
+		if(res == CURLE_OK) {
 			char *req_url;
 			curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &req_url);
 			LogMsgFormat(LOGT::SOCKERR, "Request failed: type: %s, conn ID: %d, code: %d, url: %s", cstr(GetConnTypeName()), id, httpcode, cstr(req_url));
@@ -90,8 +90,8 @@ void mcurlconn::NotifyDone(CURL *easy, long httpcode, CURLcode res, std::unique_
 		HandleError(easy, httpcode, res, std::move(this_owner));    //this may re-add the connection
 	}
 	else {
-		if(mcflags&MCF::RETRY_NOW_ON_SUCCESS) {
-			mcflags&=~MCF::RETRY_NOW_ON_SUCCESS;
+		if(mcflags & MCF::RETRY_NOW_ON_SUCCESS) {
+			mcflags &= ~MCF::RETRY_NOW_ON_SUCCESS;
 			sm.RetryConnNow();
 		}
 		errorcount = 0;
@@ -101,12 +101,12 @@ void mcurlconn::NotifyDone(CURL *easy, long httpcode, CURLcode res, std::unique_
 
 void mcurlconn::HandleError(CURL *easy, long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
 	errorcount++;
-	MCC_HTTPERRTYPE err=MCC_RETRY;
-	if(res==CURLE_OK) {	//http error, not socket error
-		err=CheckHTTPErrType(httpcode);
+	MCC_HTTPERRTYPE err = MCC_RETRY;
+	if(res == CURLE_OK) {	//http error, not socket error
+		err = CheckHTTPErrType(httpcode);
 	}
-	if(errorcount>=3 && err<MCC_FAILED) {
-		err=MCC_FAILED;
+	if(errorcount >= 3 && err < MCC_FAILED) {
+		err = MCC_FAILED;
 	}
 	switch(err) {
 		case MCC_RETRY:
@@ -121,7 +121,7 @@ void mcurlconn::HandleError(CURL *easy, long httpcode, CURLcode res, std::unique
 }
 
 MCC_HTTPERRTYPE mcurlconn::CheckHTTPErrType(long httpcode) {
-	if(httpcode>=400 && httpcode<420) return MCC_FAILED;
+	if(httpcode >= 400 && httpcode < 420) return MCC_FAILED;
 	return MCC_RETRY;
 }
 
@@ -153,7 +153,7 @@ static void check_multi_info(socketmanager *smp) {
 			}
 		}
 	}
-	if(sm.curnumsocks==0) {
+	if(sm.curnumsocks == 0) {
 		LogMsgFormat(LOGT::SOCKTRACE, "No Sockets Left, Stopping Timer");
 		smp->st->Stop();
 	}
@@ -535,23 +535,22 @@ void socketmanager::DNSResolutionEvent(wxCommandEvent &event) {
 const char *tclassname="____retcon_wsaasyncselect_window";
 
 LRESULT CALLBACK wndproc(
-
-    HWND hwnd,	// handle of window
-    UINT uMsg,	// message identifier
-    WPARAM wParam,	// first message parameter
-    LPARAM lParam 	// second message parameter
-   ) {
-	if(uMsg==WM_USER) {
+		HWND hwnd,	// handle of window
+		UINT uMsg,	// message identifier
+		WPARAM wParam,	// first message parameter
+		LPARAM lParam 	// second message parameter
+		) {
+	if(uMsg == WM_USER) {
 		int sendbitmask;
 		switch(lParam) {
 			case FD_READ:
-				sendbitmask=CURL_CSELECT_IN;
+				sendbitmask = CURL_CSELECT_IN;
 				break;
 			case FD_WRITE:
-				sendbitmask=CURL_CSELECT_OUT;
+				sendbitmask = CURL_CSELECT_OUT;
 				break;
 			default:
-				sendbitmask=0;
+				sendbitmask = 0;
 				break;
 		}
 		sm.NotifySockEvent((curl_socket_t) wParam, sendbitmask);
@@ -562,40 +561,42 @@ LRESULT CALLBACK wndproc(
 void socketmanager::InitMultiIOHandler() {
 	if(MultiIOHandlerInited) return;
 	InitMultiIOHandlerCommon();
-	WNDCLASSA wc = { 0, &wndproc, 0, 0,
-			(HINSTANCE) GetModuleHandle(0),
-			0, 0, 0, 0,
-			tclassname };
+	WNDCLASSA wc = {
+		0, &wndproc, 0, 0,
+		(HINSTANCE) GetModuleHandle(0),
+		0, 0, 0, 0,
+		tclassname
+	};
 	RegisterClassA(&wc);
-	wind=CreateWindowA(tclassname, tclassname, 0, 0, 0, 0, 0, 0, 0, (HINSTANCE) GetModuleHandle(0), 0);
+	wind = CreateWindowA(tclassname, tclassname, 0, 0, 0, 0, 0, 0, 0, (HINSTANCE) GetModuleHandle(0), 0);
 	MultiIOHandlerInited=true;
 }
 
 void socketmanager::DeInitMultiIOHandler() {
 	if(!MultiIOHandlerInited) return;
 	DestroyWindow(wind);
-	wind=0;
+	wind = 0;
 	DeInitMultiIOHandlerCommon();
 	MultiIOHandlerInited=false;
 }
 
 void socketmanager::RegisterSockInterest(CURL *e, curl_socket_t s, int what) {
 	long lEvent;
-	const long common=FD_OOB|FD_ACCEPT|FD_CONNECT|FD_CLOSE;
+	const long common = FD_OOB | FD_ACCEPT | FD_CONNECT | FD_CLOSE;
 	switch(what) {
 		case CURL_POLL_NONE:
 		case CURL_POLL_REMOVE:
 		default:
-			lEvent=0;
+			lEvent = 0;
 			break;
 		case CURL_POLL_IN:
-			lEvent=FD_READ|common;
+			lEvent = FD_READ | common;
 			break;
 		case CURL_POLL_OUT:
-			lEvent=FD_WRITE|common;
+			lEvent = FD_WRITE | common;
 			break;
 		case CURL_POLL_INOUT:
-			lEvent=FD_READ|FD_WRITE|common;
+			lEvent = FD_READ | FD_WRITE | common;
 			break;
 	}
 	WSAAsyncSelect(s, wind, WM_USER, lEvent);
@@ -615,27 +616,27 @@ gboolean gs_prepare(GSource *source, gint *timeout) {
 }
 
 gboolean gs_check(GSource *source) {
-	sock_gsource *gs=(sock_gsource*) source;
-	for(auto it=gs->sm->sockpollmap.begin(); it!=gs->sm->sockpollmap.end(); ++it) {
-		if(it->second.revents) return true;
+	sock_gsource *gs = (sock_gsource*) source;
+	for(auto &it : gs->sm->sockpollmap) {
+		if(it.second.revents) return true;
 	}
 	return false;
 }
 
 gboolean gs_dispatch(GSource *source, GSourceFunc callback, gpointer user_data) {
-	sock_gsource *gs=(sock_gsource*) source;
-	std::forward_list<std::pair<curl_socket_t,int> > actlist;
-	for(auto it=gs->sm->sockpollmap.begin(); it!=gs->sm->sockpollmap.end(); ++it) {
-		if(it->second.revents) {
-			int sendbitmask=0;
-			if(it->second.revents&(G_IO_IN|G_IO_PRI)) sendbitmask|=CURL_CSELECT_IN;
-			if(it->second.revents&G_IO_OUT) sendbitmask|=CURL_CSELECT_OUT;
-			if(it->second.revents&(G_IO_ERR|G_IO_HUP)) sendbitmask|=CURL_CSELECT_ERR;
-			actlist.push_front(std::make_pair(it->first, sendbitmask));	//NotifySockEvent is entitled to modify the set of monitored sockets
+	sock_gsource *gs = (sock_gsource*) source;
+	std::forward_list<std::pair<curl_socket_t,int>> actlist;
+	for(auto &it : gs->sm->sockpollmap) {
+		if(it.second.revents) {
+			int sendbitmask = 0;
+			if(it.second.revents&(G_IO_IN|G_IO_PRI)) sendbitmask |= CURL_CSELECT_IN;
+			if(it.second.revents&G_IO_OUT) sendbitmask |= CURL_CSELECT_OUT;
+			if(it.second.revents&(G_IO_ERR|G_IO_HUP)) sendbitmask |= CURL_CSELECT_ERR;
+			actlist.push_front(std::make_pair(it.first, sendbitmask));    //NotifySockEvent is entitled to modify the set of monitored sockets
 		}
 	}
-	for(auto it=actlist.begin(); it!=actlist.end(); ++it) {
-		gs->sm->NotifySockEvent(it->first, it->second);
+	for(auto &it : actlist) {
+		gs->sm->NotifySockEvent(it.first, it.second);
 	}
 	return true;
 }
@@ -647,14 +648,14 @@ void socketmanager::InitMultiIOHandler() {
 	InitMultiIOHandlerCommon();
 
 	memset(&gsf, 0, sizeof(gsf));
-	gsf.prepare=&gs_prepare;
-	gsf.check=&gs_check;
-	gsf.dispatch=&gs_dispatch;
+	gsf.prepare = &gs_prepare;
+	gsf.check = &gs_check;
+	gsf.dispatch = &gs_dispatch;
 
-	sock_gsource *sgs=(sock_gsource *) g_source_new(&gsf, sizeof(sock_gsource));
-	sgs->sm=this;
-	source_id=g_source_attach(sgs, 0);
-	gs=sgs;
+	sock_gsource *sgs = (sock_gsource *) g_source_new(&gsf, sizeof(sock_gsource));
+	sgs->sm = this;
+	source_id = g_source_attach(sgs, 0);
+	gs = sgs;
 
 	MultiIOHandlerInited=true;
 }
@@ -665,40 +666,40 @@ void socketmanager::DeInitMultiIOHandler() {
 	g_source_destroy((sock_gsource*) gs);
 
 	DeInitMultiIOHandlerCommon();
-	MultiIOHandlerInited=false;
+	MultiIOHandlerInited = false;
 }
 
 void socketmanager::RegisterSockInterest(CURL *e, curl_socket_t s, int what) {
-	sock_gsource *sgs=(sock_gsource *) gs;
-	short events=0;
+	sock_gsource *sgs = (sock_gsource *) gs;
+	short events = 0;
 	switch(what) {
 		case CURL_POLL_NONE:
 		case CURL_POLL_REMOVE:
 		default:
-			events=0;
+			events = 0;
 			break;
 		case CURL_POLL_IN:
-			events=G_IO_IN|G_IO_PRI|G_IO_ERR;
+			events = G_IO_IN | G_IO_PRI | G_IO_ERR;
 			break;
 		case CURL_POLL_OUT:
-			events=G_IO_OUT|G_IO_ERR;
+			events = G_IO_OUT | G_IO_ERR;
 			break;
 		case CURL_POLL_INOUT:
-			events=G_IO_IN|G_IO_PRI|G_IO_OUT|G_IO_ERR;
+			events = G_IO_IN | G_IO_PRI | G_IO_OUT | G_IO_ERR;
 			break;
 	}
-	auto egp=sgs->sm->sockpollmap.find(s);
+	auto egp = sgs->sm->sockpollmap.find(s);
 	GPollFD *gpfd = nullptr;
-	if(egp!=sgs->sm->sockpollmap.end()) {
-		gpfd=&(egp->second);
+	if(egp != sgs->sm->sockpollmap.end()) {
+		gpfd = &(egp->second);
 		g_source_remove_poll(sgs, gpfd);
 		if(!events) sgs->sm->sockpollmap.erase(egp);
 	}
-	else if(events) gpfd=&sgs->sm->sockpollmap[s];
+	else if(events) gpfd = &sgs->sm->sockpollmap[s];
 	if(events) {
-		gpfd->fd=s;
-		gpfd->events=events;
-		gpfd->revents=0;
+		gpfd->fd = s;
+		gpfd->events = events;
+		gpfd->revents = 0;
 		g_source_add_poll(sgs, gpfd);
 	}
 }
@@ -709,16 +710,16 @@ void socketmanager::RegisterSockInterest(CURL *e, curl_socket_t s, int what) {
 
 DEFINE_EVENT_TYPE(wxextSOCK_NOTIFY)
 
-wxextSocketNotifyEvent::wxextSocketNotifyEvent( int id )
-: wxEvent(id, wxextSOCK_NOTIFY) {
-	fd=0;
-	reenable=false;
-	curlbitmask=0;
+wxextSocketNotifyEvent::wxextSocketNotifyEvent(int id)
+		: wxEvent(id, wxextSOCK_NOTIFY) {
+	fd = 0;
+	reenable = false;
+	curlbitmask = 0;
 }
-wxextSocketNotifyEvent::wxextSocketNotifyEvent( const wxextSocketNotifyEvent &src ) : wxEvent( src ) {
-	fd=src.fd;
-	reenable=src.reenable;
-	curlbitmask=src.curlbitmask;
+wxextSocketNotifyEvent::wxextSocketNotifyEvent(const wxextSocketNotifyEvent &src) : wxEvent(src) {
+	fd = src.fd;
+	reenable = src.reenable;
+	curlbitmask = src.curlbitmask;
 }
 
 wxEvent *wxextSocketNotifyEvent::Clone() const {
@@ -729,8 +730,8 @@ void socketmanager::NotifySockEventCmd(wxextSocketNotifyEvent &event) {
 	NotifySockEvent((curl_socket_t) event.fd, event.curlbitmask);
 	if(event.reenable) {
 		socketpollmessage spm;
-		spm.type=SPM_ENABLE;
-		spm.fd=event.fd;
+		spm.type = SPM_ENABLE;
+		spm.fd = event.fd;
 		write(pipefd, &spm, sizeof(spm));
 	}
 }
@@ -738,15 +739,15 @@ void socketmanager::NotifySockEventCmd(wxextSocketNotifyEvent &event) {
 static void AddPendingEventForSocketPollEvent(int fd, short revents, bool reenable=false) {
 	if(!sm.MultiIOHandlerInited) return;
 
-	int sendbitmask=0;
-	if(revents&(POLLIN|POLLPRI)) sendbitmask|=CURL_CSELECT_IN;
-	if(revents&POLLOUT) sendbitmask|=CURL_CSELECT_OUT;
-	if(revents&(POLLERR|POLLHUP)) sendbitmask|=CURL_CSELECT_ERR;
+	int sendbitmask = 0;
+	if(revents & (POLLIN | POLLPRI)) sendbitmask |= CURL_CSELECT_IN;
+	if(revents & POLLOUT) sendbitmask |= CURL_CSELECT_OUT;
+	if(revents & (POLLERR|POLLHUP)) sendbitmask |= CURL_CSELECT_ERR;
 
 	wxextSocketNotifyEvent event;
-	event.curlbitmask=sendbitmask;
-	event.fd=fd;
-	event.reenable=reenable;
+	event.curlbitmask = sendbitmask;
+	event.fd = fd;
+	event.reenable = reenable;
 
 	sm.AddPendingEvent(event);
 }
@@ -757,80 +758,80 @@ void socketmanager::InitMultiIOHandler() {
 
 	int pipefd[2];
 	pipe(pipefd);
-	socketpollthread *th=new socketpollthread();
-	th->pipefd=pipefd[0];
-	this->pipefd=pipefd[1];
+	socketpollthread *th = new socketpollthread();
+	th->pipefd = pipefd[0];
+	this->pipefd = pipefd[1];
 	th->Create();
 	th->Run();
 	LogMsgFormat(LOGT::SOCKTRACE, "socketmanager::InitMultiIOHandler(): Created socket poll() thread: %d", th->GetId());
 
-	MultiIOHandlerInited=true;
+	MultiIOHandlerInited = true;
 }
 
 void socketmanager::DeInitMultiIOHandler() {
 	if(!MultiIOHandlerInited) return;
 
 	socketpollmessage spm;
-	spm.type=SPM_QUIT;
+	spm.type = SPM_QUIT;
 	write(pipefd, &spm, sizeof(spm));
 	close(pipefd);
 
 	DeInitMultiIOHandlerCommon();
-	MultiIOHandlerInited=false;
+	MultiIOHandlerInited = false;
 }
 
 void socketmanager::RegisterSockInterest(CURL *e, curl_socket_t s, int what) {
 	socketpollmessage spm;
-	spm.type=SPM_FDCHANGE;
-	spm.fd=s;
-	short events=0;
+	spm.type = SPM_FDCHANGE;
+	spm.fd = s;
+	short events = 0;
 	switch(what) {
 		case CURL_POLL_NONE:
 		case CURL_POLL_REMOVE:
 		default:
-			events=0;
+			events = 0;
 			break;
 		case CURL_POLL_IN:
-			events=POLLIN|POLLPRI;
+			events = POLLIN | POLLPRI;
 			break;
 		case CURL_POLL_OUT:
-			events=POLLOUT;
+			events = POLLOUT;
 			break;
 		case CURL_POLL_INOUT:
-			events=POLLOUT|POLLIN|POLLPRI;
+			events = POLLOUT | POLLIN | POLLPRI;
 			break;
 	}
-	spm.events=events;
+	spm.events = events;
 	write(pipefd, &spm, sizeof(spm));
 }
 
 static struct pollfd *getexistpollsetoffsetfromfd(int fd, std::vector<struct pollfd> &pollset) {
-	for(size_t i=0; i<pollset.size(); i++) {
-		if(pollset[i].fd==fd) return &pollset[i];
+	for(size_t i = 0; i < pollset.size(); i++) {
+		if(pollset[i].fd == fd) return &pollset[i];
 	}
-	return 0;
+	return nullptr;
 }
 
 static size_t insertatendofpollset(int fd, std::vector<struct pollfd> &pollset) {
 	pollset.emplace_back();
-	size_t offset=pollset.size()-1;
+	size_t offset = pollset.size() - 1;
 	memset(&pollset[offset], 0, sizeof(pollset[offset]));
-	pollset[offset].fd=fd;
+	pollset[offset].fd = fd;
 	return offset;
 }
 
 static size_t getpollsetoffsetfromfd(int fd, std::vector<struct pollfd> &pollset) {
-	for(size_t i=0; i<pollset.size(); i++) {
-		if(pollset[i].fd==fd) return i;
+	for(size_t i = 0; i < pollset.size(); i++) {
+		if(pollset[i].fd == fd) return i;
 	}
 	return insertatendofpollset(fd, pollset);
 }
 
 static void removefdfrompollset(int fd, std::vector<struct pollfd> &pollset) {
-	for(size_t i=0; i<pollset.size(); i++) {
-		if(pollset[i].fd==fd) {
-			if(i!=pollset.size()-1) {
-				pollset[i]=pollset[pollset.size()-1];
+	for(size_t i = 0; i < pollset.size(); i++) {
+		if(pollset[i].fd == fd) {
+			if(i != pollset.size() - 1) {
+				pollset[i] = pollset[pollset.size() - 1];
 			}
 			pollset.pop_back();
 			return;
@@ -843,38 +844,38 @@ wxThread::ExitCode socketpollthread::Entry() {
 	std::forward_list<struct pollfd> disabled_pollset;
 	pollset.emplace_back();
 	memset(&pollset[0], 0, sizeof(pollset[0]));
-	pollset[0].fd=pipefd;
-	pollset[0].events=POLLIN;
+	pollset[0].fd = pipefd;
+	pollset[0].events = POLLIN;
 
 	while(true) {
 		poll(pollset.data(), pollset.size(), -1);
 
-		for(size_t i=1; i<pollset.size(); i++) {
+		for(size_t i = 1; i < pollset.size(); i++) {
 			if(pollset[i].revents) {
 				AddPendingEventForSocketPollEvent(pollset[i].fd, pollset[i].revents, true);
 
 				//remove fd from pollset temporarily to stop it repeatedly re-firing
 				disabled_pollset.push_front(pollset[i]);
-				if(i!=pollset.size()-1) {
-					pollset[i]=pollset[pollset.size()-1];
+				if(i != pollset.size() - 1) {
+					pollset[i] = pollset[pollset.size() - 1];
 				}
 				pollset.pop_back();
 				i--;
 			}
 		}
 
-		if(pollset[0].revents&POLLIN) {
+		if(pollset[0].revents & POLLIN) {
 			socketpollmessage spm;
-			size_t bytes_to_read=sizeof(spm);
-			size_t bytes_read=0;
+			size_t bytes_to_read = sizeof(spm);
+			size_t bytes_read = 0;
 			while(bytes_to_read) {
-				ssize_t l_bytes_read=read(pipefd, ((char *) &spm)+bytes_read, bytes_to_read);
-				if(l_bytes_read>=0) {
-					bytes_read+=l_bytes_read;
-					bytes_to_read-=l_bytes_read;
+				ssize_t l_bytes_read = read(pipefd, ((char *) &spm) + bytes_read, bytes_to_read);
+				if(l_bytes_read >= 0) {
+					bytes_read += l_bytes_read;
+					bytes_to_read -= l_bytes_read;
 				}
 				else {
-					if(l_bytes_read==EINTR) continue;
+					if(l_bytes_read == EINTR) continue;
 					else {
 						close(pipefd);
 						return 0;
@@ -886,10 +887,10 @@ wxThread::ExitCode socketpollthread::Entry() {
 					close(pipefd);
 					return 0;
 				case SPM_FDCHANGE:
-					disabled_pollset.remove_if([&](const struct pollfd &pfd) { return pfd.fd==spm.fd; });
+					disabled_pollset.remove_if([&](const struct pollfd &pfd) { return pfd.fd == spm.fd; });
 					if(spm.events) {
-						size_t offset=getpollsetoffsetfromfd(spm.fd, pollset);
-						pollset[offset].events=spm.events;
+						size_t offset = getpollsetoffsetfromfd(spm.fd, pollset);
+						pollset[offset].events = spm.events;
 					}
 					else {
 						removefdfrompollset(spm.fd, pollset);
@@ -897,7 +898,7 @@ wxThread::ExitCode socketpollthread::Entry() {
 					break;
 				case SPM_ENABLE:
 					disabled_pollset.remove_if([&](const struct pollfd &pfd) {
-						if(pfd.fd==spm.fd) {
+						if(pfd.fd == spm.fd) {
 							pollset.push_back(pfd);
 							return true;
 						}

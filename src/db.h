@@ -104,12 +104,12 @@ struct dbupdatetweetmsg : public dbsendmsg {
 };
 
 struct dbrettweetdata {
-	char *statjson;	//free when done
-	char *dynjson;	//free when done
+	char *statjson = nullptr;   //free when done
+	char *dynjson = nullptr;    //free when done
 	uint64_t id, user1, user2, rtid, timestamp;
 	uint64_t flags;
 
-	dbrettweetdata() : statjson(0), dynjson(0) { }
+	dbrettweetdata() { }
 	~dbrettweetdata() {
 		if(statjson) free(statjson);
 		if(dynjson) free(dynjson);
@@ -125,19 +125,19 @@ enum class DBSTMF {
 template<> struct enum_traits<DBSTMF> { static constexpr bool flags = true; };
 
 struct dbseltweetmsg : public dbsendmsg_callback {
-	dbseltweetmsg() : dbsendmsg_callback(DBSM::SELTWEET), flags(0) { }
+	dbseltweetmsg() : dbsendmsg_callback(DBSM::SELTWEET) { }
 
-	flagwrapper<DBSTMF> flags;
+	flagwrapper<DBSTMF> flags = 0;
 	container::set<uint64_t> id_set;         // ids to select
 	std::deque<dbrettweetdata> data;         // return data
 };
 
 struct dbseltweetmsg_netfallback : public dbseltweetmsg {
-	dbseltweetmsg_netfallback() : dbseltweetmsg(), dbindex(0) {
+	dbseltweetmsg_netfallback() : dbseltweetmsg() {
 		flags |= DBSTMF::NET_FALLBACK;
 	}
 
-	unsigned int dbindex;				//for the use of the main thread only
+	unsigned int dbindex = 0;    //for the use of the main thread only
 };
 
 struct dbinsertusermsg : public dbsendmsg {
@@ -148,7 +148,7 @@ struct dbinsertusermsg : public dbsendmsg {
 	time_t createtime;
 	uint64_t lastupdate;
 	shb_iptr cached_profile_img_hash;
-	unsigned char *mentionindex;			//already packed and compressed, must be malloced
+	unsigned char *mentionindex;    //already packed and compressed, must be malloced
 	size_t mentionindex_size;
 	uint64_t profile_img_last_used;
 };
@@ -165,7 +165,7 @@ struct dbinsertaccmsg : public dbsendmsg_callback {
 struct dbdelaccmsg : public dbsendmsg {
 	dbdelaccmsg() : dbsendmsg(DBSM::DELACC) { }
 
-	unsigned int dbindex;
+	unsigned int dbindex = 0;
 };
 
 struct dbinsertmediamsg : public dbsendmsg {

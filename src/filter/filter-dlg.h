@@ -35,7 +35,8 @@ class filter_dlg : public wxDialog {
 	std::map<int, selection_category> checkboxmap;
 
 	public:
-	filter_dlg(wxWindow* parent, wxWindowID id, std::function<const tweetidset *()> getidset_, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxDefaultSize);
+	filter_dlg(wxWindow *parent, wxWindowID id, std::function<const tweetidset *()> getidset_, const wxPoint &pos = wxDefaultPosition,
+			const wxSize &size = wxDefaultSize);
 	~filter_dlg();
 	void CheckBoxUpdate(wxCommandEvent &event);
 	void RefreshSelection();

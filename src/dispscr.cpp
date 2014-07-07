@@ -211,18 +211,21 @@ void dispscr_mouseoverwin::Position(const wxSize &targ_size, const wxPoint &targ
 	wxPoint this_position(targ_position.x + targ_size.x - this_size.x, targ_position.y);
 	if(this_position != GetPosition()) {
 		#if DISPSCR_COPIOUS_LOGGING
-			LogMsgFormat(LOGT::TPANEL, "DCL: dispscr_mouseoverwin::Position: %s, moving to: %d, %d, size: %d, %d", cstr(GetThisName()), this_position.x, this_position.y, this_size.x, this_size.y);
+			LogMsgFormat(LOGT::TPANEL, "DCL: dispscr_mouseoverwin::Position: %s, moving to: %d, %d, size: %d, %d",
+					cstr(GetThisName()), this_position.x, this_position.y, this_size.x, this_size.y);
 		#endif
 		Move(this_position);
 	}
 }
 
 void dispscr_mouseoverwin::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
-		       int noUnitsX, int noUnitsY,
-		       int xPos, int yPos,
-		       bool noRefresh ) {
+		int noUnitsX, int noUnitsY,
+		int xPos, int yPos,
+		bool noRefresh ) {
+
 	#if DISPSCR_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "DCL: dispscr_mouseoverwin::SetScrollbars %s, %d, %d, %d, %d, %d, %d, %d", cstr(GetThisName()), pixelsPerUnitX, pixelsPerUnitY, noUnitsX, noUnitsY, xPos, yPos, noRefresh);
+		LogMsgFormat(LOGT::TPANEL, "DCL: dispscr_mouseoverwin::SetScrollbars %s, %d, %d, %d, %d, %d, %d, %d",
+				cstr(GetThisName()), pixelsPerUnitX, pixelsPerUnitY, noUnitsX, noUnitsY, xPos, yPos, noRefresh);
 	#endif
 	wxRichTextCtrl::SetScrollbars(0, 0, 0, 0, 0, 0, noRefresh);
 }
@@ -307,9 +310,11 @@ BEGIN_EVENT_TABLE(tweetdispscr, dispscr_base)
 END_EVENT_TABLE()
 
 tweetdispscr::tweetdispscr(tweet_ptr_p td_, tpanel_item *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_)
-: dispscr_base(parent, tppw_, hbox_, thisname_.empty() ? wxString::Format(wxT("tweetdispscr: %" wxLongLongFmtSpec "d for %s"), td_->id, tppw_->GetThisName().c_str()) : thisname_), td(td_), bm(0), bm2(0) {
-	if(td_->rtsrc) rtid=td_->rtsrc->id;
-	else rtid=0;
+		: dispscr_base(parent, tppw_, hbox_, thisname_.empty() ? wxString::Format(wxT("tweetdispscr: %" wxLongLongFmtSpec "d for %s"),
+			td_->id, tppw_->GetThisName().c_str()) : thisname_), td(td_), bm(0), bm2(0) {
+
+	if(td_->rtsrc) rtid = td_->rtsrc->id;
+	else rtid = 0;
 	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANEL, "DCL: tweetdispscr::tweetdispscr constructor %s END", cstr(GetThisName()));
 	#endif
@@ -320,53 +325,53 @@ tweetdispscr::~tweetdispscr() {
 
 void TweetReplaceStringSeq(std::function<void(const char *, size_t)> func, const std::string &str, int start, int end, int &track_byte, int &track_index) {
 	while(str[track_byte]) {
-		if(track_index==start) break;
-		register int charsize=utf8firsttonumbytes(str[track_byte]);
-		track_byte+=charsize;
+		if(track_index == start) break;
+		register int charsize = utf8firsttonumbytes(str[track_byte]);
+		track_byte += charsize;
 		track_index++;
 	}
 	int start_offset=track_byte;
 
 	while(str[track_byte]) {
-		if(track_index==end) break;
-		if(str[track_byte]=='&') {
-			char rep=0;
-			int delta=0;
-			if(str[track_byte+1]=='l' && str[track_byte+2]=='t' && str[track_byte+3]==';') {
-				rep='<';
-				delta=4;
+		if(track_index == end) break;
+		if(str[track_byte] == '&') {
+			char rep = 0;
+			int delta = 0;
+			if(str[track_byte+1] == 'l' && str[track_byte+2] == 't' && str[track_byte+3] == ';') {
+				rep = '<';
+				delta = 4;
 			}
-			else if(str[track_byte+1]=='g' && str[track_byte+2]=='t' && str[track_byte+3]==';') {
-				rep='>';
-				delta=4;
+			else if(str[track_byte+1] == 'g' && str[track_byte+2] == 't' && str[track_byte+3] == ';') {
+				rep = '>';
+				delta = 4;
 			}
-			else if(str[track_byte+1]=='q' && str[track_byte+2]=='u' && str[track_byte+3]=='o' && str[track_byte+4]=='t' && str[track_byte+5]==';') {
-				rep='\'';
-				delta=6;
+			else if(str[track_byte+1] == 'q' && str[track_byte+2] == 'u' && str[track_byte+3] == 'o' && str[track_byte+4] == 't' && str[track_byte+5] == ';') {
+				rep = '\'';
+				delta = 6;
 			}
-			else if(str[track_byte+1]=='#' && str[track_byte+2]=='3' && str[track_byte+3]=='9' && str[track_byte+4]==';') {
-				rep='"';
-				delta=5;
+			else if(str[track_byte+1] == '#' && str[track_byte+2] == '3' && str[track_byte+3] == '9' && str[track_byte+4] == ';') {
+				rep = '"';
+				delta = 5;
 			}
-			else if(str[track_byte+1]=='a' && str[track_byte+2]=='m' && str[track_byte+3]=='p' && str[track_byte+4]==';') {
-				rep='&';
-				delta=5;
+			else if(str[track_byte+1] == 'a' && str[track_byte+2] == 'm' && str[track_byte+3] == 'p' && str[track_byte+4] == ';') {
+				rep = '&';
+				delta = 5;
 			}
 			if(rep) {
-				func(&str[start_offset], track_byte-start_offset);
-				track_index+=delta;
-				track_byte+=delta;
+				func(&str[start_offset], track_byte - start_offset);
+				track_index += delta;
+				track_byte += delta;
 				func(&rep, 1);
-				start_offset=track_byte;
+				start_offset = track_byte;
 				continue;
 			}
 		}
-		register int charsize=utf8firsttonumbytes(str[track_byte]);
-		track_byte+=charsize;
+		register int charsize = utf8firsttonumbytes(str[track_byte]);
+		track_byte += charsize;
 		track_index++;
 	}
-	int end_offset=track_byte;
-	func(&str[start_offset], end_offset-start_offset);
+	int end_offset = track_byte;
+	func(&str[start_offset], end_offset - start_offset);
 }
 
 //use -1 for end to run until end of string
@@ -402,7 +407,7 @@ void GenUserFmt_OffsetDryRun(size_t &i, const wxString &format) {
 
 void GenUserFmt(generic_disp_base *obj, userdatacontainer *u, size_t &i, const wxString &format, wxString &str) {
 	i++;
-	if(i>=format.size()) return;
+	if(i >= format.size()) return;
 	#if DISPSCR_COPIOUS_LOGGING
 		wxChar log_formatchar = format[i];
 		LogMsgFormat(LOGT::TPANEL, "TCL: GenUserFmt Start Format char: %c", log_formatchar);
@@ -438,7 +443,7 @@ void GenUserFmt(generic_disp_base *obj, userdatacontainer *u, size_t &i, const w
 			break;
 		case 'd': {
 			GenFlush(obj, str);
-			long curpos=obj->GetInsertionPoint();
+			long curpos = obj->GetInsertionPoint();
 			obj->BeginURL(wxString::Format(wxT("Xd%" wxLongLongFmtSpec "d"), u->id));
 			obj->WriteImage(tpanelglobal::Get()->dmreplyicon_img);
 			obj->EndURL();
@@ -458,11 +463,11 @@ void GenUserFmt(generic_disp_base *obj, userdatacontainer *u, size_t &i, const w
 			break;
 		}
 		case 'D': {
-			str+=wxstrstd(u->GetUser().description);
+			str += wxstrstd(u->GetUser().description);
 			break;
 		}
 		case 'l': {
-			str+=wxstrstd(u->GetUser().location);
+			str += wxstrstd(u->GetUser().location);
 			break;
 		}
 		default:
@@ -474,8 +479,8 @@ void GenUserFmt(generic_disp_base *obj, userdatacontainer *u, size_t &i, const w
 }
 
 void SkipOverFalseCond(size_t &i, const wxString &format) {
-	size_t recursion=1;
-	for(i++; i<format.size(); i++) {
+	size_t recursion = 1;
+	for(i++; i < format.size(); i++) {
 		switch((wxChar) format[i]) {
 			case '(': {
 				recursion++;
@@ -488,9 +493,9 @@ void SkipOverFalseCond(size_t &i, const wxString &format) {
 			}
 			case '\'':
 			case '"': {
-				wxChar quotechar=format[i];
-				while(i<format.size()) {
-					if(format[i]==quotechar) break;
+				wxChar quotechar = format[i];
+				while(i < format.size()) {
+					if(format[i] == quotechar) break;
 					i++;
 				}
 				break;
@@ -501,24 +506,24 @@ void SkipOverFalseCond(size_t &i, const wxString &format) {
 
 bool CondCodeProc(generic_disp_base *obj, size_t &i, const wxString &format, wxString &str) {
 	i++;
-	bool result=false;
+	bool result = false;
 	switch((wxChar) format[i]) {
 		case 'F': {
-			uint64_t any=0;
-			uint64_t all=0;
-			uint64_t none=0;
-			uint64_t missing=0;
+			uint64_t any = 0;
+			uint64_t all = 0;
+			uint64_t none = 0;
+			uint64_t missing = 0;
 
-			uint64_t *current=&any;
+			uint64_t *current = &any;
 
 			for(i++; i<format.size(); i++) {
 				switch((wxChar) format[i]) {
 					case '(': goto loopexit;
-					case '+': current=&any; break;
-					case '=': current=&all; break;
-					case '-': current=&none; break;
-					case '/': current=&missing; break;
-					default: *current|=tweet_flags::GetFlagValue(format[i]);
+					case '+': current = &any; break;
+					case '=': current = &all; break;
+					case '-': current = &none; break;
+					case '/': current = &missing; break;
+					default: *current |= tweet_flags::GetFlagValue(format[i]);
 				}
 			}
 			loopexit:
@@ -526,12 +531,12 @@ bool CondCodeProc(generic_disp_base *obj, size_t &i, const wxString &format, wxS
 			tweet_ptr td = obj->GetTweet();
 			if(!td) break;
 
-			result=true;
-			uint64_t curflags=td->flags.Save();
-			if(any && !(curflags&any)) result=false;
-			if(all && (curflags&all)!=all) result=false;
-			if(none && (curflags&none)) result=false;
-			if(missing && (curflags|missing)==curflags) result=false;
+			result = true;
+			uint64_t curflags = td->flags.Save();
+			if(any && !(curflags & any)) result = false;
+			if(all && (curflags & all) != all) result = false;
+			if(none && (curflags & none)) result = false;
+			if(missing && (curflags | missing) == curflags) result = false;
 
 			break;
 		}
@@ -543,7 +548,7 @@ bool CondCodeProc(generic_disp_base *obj, size_t &i, const wxString &format, wxS
 			break;
 		}
 	}
-	if(format[i]!='(') return false;
+	if(format[i] != '(') return false;
 	return result;
 }
 
@@ -612,18 +617,18 @@ void GenFmtCodeProc(generic_disp_base *obj, size_t &i, const wxString &format, w
 		}
 		case '\'':
 		case '"': {
-			auto quotechar=format[i];
+			auto quotechar = format[i];
 			i++;
 			while(i<format.size()) {
-				if(format[i]==quotechar) break;
-				else str+=format[i];
+				if(format[i] == quotechar) break;
+				else str += format[i];
 				i++;
 			}
 			break;
 		}
 		case ')': break;
 		default:
-			str+=format[i];
+			str += format[i];
 			break;
 	}
 	#if DISPSCR_COPIOUS_LOGGING
@@ -632,20 +637,20 @@ void GenFmtCodeProc(generic_disp_base *obj, size_t &i, const wxString &format, w
 }
 
 void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, panelparentwin_base *tppw, flagwrapper<TDSF> tds_flags, std::vector<media_entity*> *me_list) {
-	userdatacontainer *udc=tw.user.get();
-	userdatacontainer *udc_recip=tw.user_recipient.get();
+	userdatacontainer *udc = tw.user.get();
+	userdatacontainer *udc_recip = tw.user_recipient.get();
 
 	tweetdispscr *td_obj = dynamic_cast<tweetdispscr *>(obj);
 
-	wxString str=wxT("");
-	auto flush=[&]() {
+	wxString str = wxT("");
+	auto flush = [&]() {
 		GenFlush(obj, str);
 	};
-	auto userfmt=[&](userdatacontainer *u, size_t &i) {
+	auto userfmt = [&](userdatacontainer *u, size_t &i) {
 		GenUserFmt(obj, u, i, format, str);
 	};
 
-	for(size_t i=0; i<format.size(); i++) {
+	for(size_t i = 0; i < format.size(); i++) {
 		#if DISPSCR_COPIOUS_LOGGING
 			wxChar log_formatchar = format[i];
 			LogMsgFormat(LOGT::TPANEL, "DCL: TweetFormatProc Start Format char: %c", log_formatchar);
@@ -663,7 +668,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 				else userfmt(udc, i);
 				break;
 			case 'F':
-				str+=wxstrstd(tw.flags.GetString());
+				str += wxstrstd(tw.flags.GetString());
 				break;
 			case 't':
 				flush();
@@ -683,16 +688,16 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 			case 'c': {
 				flush();
 				if(me_list) {
-					tweet &twgen=(format[i]=='c' && tw.rtsrc && gc.rtdisp)?*(tw.rtsrc):tw;
-					wxString urlcodeprefix=(format[i]=='c' && tw.rtsrc && gc.rtdisp)?wxT("R"):wxT("");
-					unsigned int nextoffset=0;
-					unsigned int entnum=0;
-					int track_byte=0;
-					int track_index=0;
+					tweet &twgen = (format[i] == 'c' && tw.rtsrc && gc.rtdisp) ? *(tw.rtsrc) : tw;
+					wxString urlcodeprefix = (format[i] == 'c' && tw.rtsrc && gc.rtdisp) ? wxT("R") : wxT("");
+					unsigned int nextoffset = 0;
+					unsigned int entnum = 0;
+					int track_byte = 0;
+					int track_index = 0;
 
 					int last_start = -1;
 					int last_end = -1;
-					for(auto it=twgen.entlist.begin(); it!=twgen.entlist.end(); it++, entnum++) {
+					for(auto it = twgen.entlist.begin(); it != twgen.entlist.end(); it++, entnum++) {
 						entity &et = *it;
 						DoWriteSubstr(*obj, twgen.text, nextoffset, et.start, track_byte, track_index, false);
 
@@ -711,7 +716,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 						}
 						nextoffset = et.end;
 
-						if((et.type==ENT_MEDIA || et.type==ENT_URL_IMG) && et.media_id) {
+						if((et.type == ENT_MEDIA || et.type == ENT_URL_IMG) && et.media_id) {
 							media_entity &me = *(ad.media_list[et.media_id]);
 
 							// Test this here as well as in genjsonparser::DoEntitiesParse as this may be a media entity just loaded from the DB,
@@ -734,7 +739,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 			}
 			case 'X': {
 				i++;
-				if(i>=format.size()) break;
+				if(i >= format.size()) break;
 				flush();
 				long curpos = obj->GetInsertionPoint();
 				wxString url = wxString::Format(wxT("X%c"), (wxChar) format[i]);
@@ -767,7 +772,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 						obj->EndURL();
 						udc_ptr targ = tw.user_recipient;
 						if(!targ || targ->udc_flags & UDC::THIS_IS_ACC_USER_HINT) targ=tw.user;
-						url=wxString::Format(wxT("Xd%" wxLongLongFmtSpec "d"), targ->id);
+						url = wxString::Format(wxT("Xd%" wxLongLongFmtSpec "d"), targ->id);
 						obj->BeginURL(url);
 						obj->WriteImage(tpg->dmreplyicon_img);
 						imginserted = true;
@@ -782,7 +787,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 								}
 							});
 							obj->WriteImage(*icon);
-							imginserted=true;
+							imginserted = true;
 						}
 						break;
 					}
@@ -805,7 +810,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 			}
 			case 'm': {
 				i++;
-				if(i>=format.size()) break;
+				if(i >= format.size()) break;
 				if(format[i] != '(' || tppw->IsSingleAccountWin() || tds_flags & TDSF::SUBTWEET) {
 					SkipOverFalseCond(i, format);
 				}
@@ -975,21 +980,21 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 	Freeze();
 	BeginSuppressUndo();
 
-	updatetime=0;
+	updatetime = 0;
 	std::vector<media_entity*> me_list;
 	media_entity_updaters.clear();
 
-	tweet &tw=*td;
+	tweet &tw = *td;
 
 	bool highlight = tw.flags.Get('H');
-	if(highlight && !(tds_flags&TDSF::HIGHLIGHT)) {
+	if(highlight && !(tds_flags & TDSF::HIGHLIGHT)) {
 		wxColour newcolour = ColourOp(default_background_colour, gc.gcfg.highlight_colourdelta.val);
 
 		SetBackgroundColour(newcolour);
 		if(get()) get()->SetBackgroundColour(newcolour);
 		tds_flags |= TDSF::HIGHLIGHT;
 	}
-	else if(!highlight && tds_flags&TDSF::HIGHLIGHT) {
+	else if(!highlight && tds_flags & TDSF::HIGHLIGHT) {
 		SetBackgroundColour(default_background_colour);
 		if(get()) get()->SetBackgroundColour(default_background_colour);
 		tds_flags &= ~TDSF::HIGHLIGHT;
@@ -1039,10 +1044,10 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 	Clear();
 	if(!hidden) {
 		SetDefaultStyle(wxRichTextAttr());
-		wxString format=wxT("");
-		if(tw.flags.Get('R') && gc.rtdisp) format=gc.gcfg.rtdispformat.val;
-		else if(tw.flags.Get('T')) format=gc.gcfg.tweetdispformat.val;
-		else if(tw.flags.Get('D')) format=gc.gcfg.dmdispformat.val;
+		wxString format = wxT("");
+		if(tw.flags.Get('R') && gc.rtdisp) format = gc.gcfg.rtdispformat.val;
+		else if(tw.flags.Get('T')) format = gc.gcfg.tweetdispformat.val;
+		else if(tw.flags.Get('D')) format = gc.gcfg.dmdispformat.val;
 
 		TweetFormatProc(this, format, tw, tppw, tds_flags, &me_list);
 
@@ -1234,8 +1239,8 @@ void TweetURLHandler(wxWindow *win, wxString url, tweet_ptr_p td, panelparentwin
 		else GenericPopupWrapper(win, menu.get());
 	};
 
-	if(url[0]=='M') {
-		media_id_type media_id=ParseMediaID(url);
+	if(url[0] == 'M') {
+		media_id_type media_id = ParseMediaID(url);
 
 		LogMsgFormat(LOGT::TPANEL, "Media image clicked, str: %s, id: %" llFmtSpec "d/%" llFmtSpec "d", cstr(url.Mid(1)), media_id.m_id, media_id.t_id);
 		if(ad.media_list[media_id]->win) {
@@ -1247,7 +1252,7 @@ void TweetURLHandler(wxWindow *win, wxString url, tweet_ptr_p td, panelparentwin
 			new media_display_win(win, media_id);
 		}
 	}
-	else if(url[0]=='L') {
+	else if(url[0] == 'L') {
 		media_id_type media_id = ParseMediaID(url);
 
 		ad.media_list[media_id]->CheckLoadThumb(MELF::FORCE);
@@ -1255,18 +1260,18 @@ void TweetURLHandler(wxWindow *win, wxString url, tweet_ptr_p td, panelparentwin
 			UpdateTweet(*it);
 		}
 	}
-	else if(url[0]=='U') {
-		uint64_t userid=ParseUrlID(url);
+	else if(url[0] == 'U') {
+		uint64_t userid = ParseUrlID(url);
 		if(userid) {
 			std::shared_ptr<taccount> acc_hint;
 			td->GetUsableAccount(acc_hint);
 			user_window::MkWin(userid, acc_hint);
 		}
 	}
-	else if(url[0]=='W') {
+	else if(url[0] == 'W') {
 		::wxLaunchDefaultBrowser(url.Mid(1));
 	}
-	else if(url[0]=='X') {
+	else if(url[0] == 'X') {
 		switch((wxChar) url[1]) {
 			case 'd': { //send dm
 				uint64_t userid;
@@ -1289,7 +1294,7 @@ void TweetURLHandler(wxWindow *win, wxString url, tweet_ptr_p td, panelparentwin
 			}
 			case 'f': {//fav
 				tamd.clear();
-				int nextid=tweetactmenustartid;
+				int nextid = tweetactmenustartid;
 				auto menu = std::make_shared<wxMenu>();
 				menu->SetTitle(wxT("Favourite:"));
 				MakeFavMenu(menu.get(), tamd, nextid, td);
@@ -1298,7 +1303,7 @@ void TweetURLHandler(wxWindow *win, wxString url, tweet_ptr_p td, panelparentwin
 			}
 			case 't': {//retweet
 				tamd.clear();
-				int nextid=tweetactmenustartid;
+				int nextid = tweetactmenustartid;
 				auto menu = std::make_shared<wxMenu>();
 				menu->SetTitle(wxT("Retweet:"));
 				MakeRetweetMenu(menu.get(), tamd, nextid, td);
@@ -1307,12 +1312,12 @@ void TweetURLHandler(wxWindow *win, wxString url, tweet_ptr_p td, panelparentwin
 			}
 			case 'i': {//info
 				tamd.clear();
-				int nextid=tweetactmenustartid;
+				int nextid = tweetactmenustartid;
 				auto menuptr = std::make_shared<wxMenu>();
 				wxMenu &menu = *menuptr;
 
 				generic_disp_base *gdb = dynamic_cast<generic_disp_base *>(win);
-				tweetdispscr *tds = 0;
+				tweetdispscr *tds = nullptr;
 				if(gdb) tds = gdb->GetTDS();
 
 				menu.Append(nextid, wxT("Reply"));
@@ -1397,37 +1402,37 @@ void TweetURLHandler(wxWindow *win, wxString url, tweet_ptr_p td, panelparentwin
 					}
 				}
 
-				bool deletable=false;
-				bool deletable2=false;
-				unsigned int delcount=0;
-				unsigned int deldbindex=0;
-				unsigned int deldbindex2=0;
+				bool deletable = false;
+				bool deletable2 = false;
+				unsigned int delcount = 0;
+				unsigned int deldbindex = 0;
+				unsigned int deldbindex2 = 0;
 				std::shared_ptr<taccount> cacc;
 				std::shared_ptr<taccount> cacc2;
 				if(td->flags.Get('D')) {
 					cacc=td->user_recipient->GetAccountOfUser();
 					if(cacc) delcount++;
 					if(cacc && cacc->enabled) {
-						deletable=true;
-						deldbindex=cacc->dbindex;
+						deletable = true;
+						deldbindex = cacc->dbindex;
 					}
 				}
-				cacc2=td->user->GetAccountOfUser();
+				cacc2 = td->user->GetAccountOfUser();
 				if(cacc2) delcount++;
 				if(cacc2 && cacc2->enabled) {
-					deletable2=true;
-					deldbindex2=cacc2->dbindex;
+					deletable2 = true;
+					deldbindex2 = cacc2->dbindex;
 				}
-				if(delcount>1) {	//user has DMd another of their own accounts :/
-					wxMenuItem *delmenuitem=menu.Append(nextid, wxT("Delete: ") + cacc->dispname);
+				if(delcount > 1) {    //user has DMd another of their own accounts :/
+					wxMenuItem *delmenuitem = menu.Append(nextid, wxT("Delete: ") + cacc->dispname);
 					delmenuitem->Enable(deletable);
 					AppendToTAMIMenuMap(tamd, nextid, TAMI_DELETE, td, deldbindex);
-					delmenuitem=menu.Append(nextid, wxT("Delete: ") + cacc2->dispname);
+					delmenuitem = menu.Append(nextid, wxT("Delete: ") + cacc2->dispname);
 					delmenuitem->Enable(deletable2);
 					AppendToTAMIMenuMap(tamd, nextid, TAMI_DELETE, td, deldbindex2);
 				}
 				else {
-					wxMenuItem *delmenuitem=menu.Append(nextid, wxT("Delete"));
+					wxMenuItem *delmenuitem = menu.Append(nextid, wxT("Delete"));
 					delmenuitem->Enable(deletable|deletable2);
 					AppendToTAMIMenuMap(tamd, nextid, TAMI_DELETE, td, deldbindex2?deldbindex2:deldbindex);
 				}
@@ -1451,7 +1456,7 @@ void TweetURLHandler(wxWindow *win, wxString url, tweet_ptr_p td, panelparentwin
 				break;
 			}
 			case 'm': {
-				tweetdispscr *tds = 0;
+				tweetdispscr *tds = nullptr;
 				generic_disp_base *gdb = dynamic_cast<generic_disp_base *>(win);
 				if(gdb) tds = gdb->GetTDS();
 				if(!tds) break;
@@ -1473,19 +1478,19 @@ void TweetURLHandler(wxWindow *win, wxString url, tweet_ptr_p td, panelparentwin
 	else {
 		tweet *targtw;
 		if(url[0] == 'R') {
-			targtw=td->rtsrc.get();
-			url=url.Mid(1);
+			targtw = td->rtsrc.get();
+			url = url.Mid(1);
 		}
 		else {
 			targtw = td.get();
 		}
 		unsigned long counter;
 		url.ToULong(&counter);
-		auto it=targtw->entlist.begin();
-		while(it!=targtw->entlist.end()) {
+		auto it = targtw->entlist.begin();
+		while(it != targtw->entlist.end()) {
 			if(!counter) {
 				//got entity
-				entity &et= *it;
+				entity &et = *it;
 				switch(et.type) {
 					case ENT_HASHTAG:
 						break;
@@ -1528,24 +1533,24 @@ void AppendUserMenuItems(wxMenu &menu, tweetactmenudata &map, int &nextid, udc_p
 	menu.Append(nextid, wxT("Send DM"));
 	AppendToTAMIMenuMap(map, nextid, TAMI_DM, tw, 0, user);
 
-	wxString username=wxstrstd(user->GetUser().screen_name);
+	wxString username = wxstrstd(user->GetUser().screen_name);
 	menu.Append(nextid, wxString::Format(wxT("Copy User Name (%s) to Clipboard"), username.c_str()));
 	AppendToTAMIMenuMap(map, nextid, TAMI_COPYEXTRA, tw, 0, user, 0, username);
 
-	wxString useridstr=wxString::Format(wxT("%" wxLongLongFmtSpec "d"), user->id);
+	wxString useridstr = wxString::Format(wxT("%" wxLongLongFmtSpec "d"), user->id);
 	menu.Append(nextid, wxString::Format(wxT("Copy User ID (%s) to Clipboard"), useridstr.c_str()));
 	AppendToTAMIMenuMap(map, nextid, TAMI_COPYEXTRA, tw, 0, user, 0, useridstr);
 }
 
 void TweetRightClickHandler(generic_disp_base *win, wxMouseEvent &event, tweet_ptr_p td) {
-	wxPoint mousepoint=event.GetPosition();
-	long textpos=0;
+	wxPoint mousepoint = event.GetPosition();
+	long textpos = 0;
 	win->HitTest(mousepoint, &textpos);
 	wxRichTextAttr style;
 	win->GetStyle(textpos, style);
 	if(style.HasURL()) {
-		wxString url=style.GetURL();
-		int nextid=tweetactmenustartid;
+		wxString url = style.GetURL();
+		int nextid = tweetactmenustartid;
 		wxMenu menu;
 
 		auto urlmenupopup = [&](const wxString &urlstr) {
@@ -1558,46 +1563,46 @@ void TweetRightClickHandler(generic_disp_base *win, wxMouseEvent &event, tweet_p
 			menu.AppendSubMenu(submenu, wxT("URL"));
 		};
 
-		if(url[0]=='M') {
+		if(url[0] == 'M') {
 			media_id_type media_id=ParseMediaID(url);
 			menu.Append(nextid, wxT("Open Media in Window"));
 			AppendToTAMIMenuMap(tamd, nextid, TAMI_MEDIAWIN, td, 0, udc_ptr(), 0, url);
 			urlmenupopup(wxstrstd(ad.media_list[media_id]->media_url));
 			GenericPopupWrapper(win, &menu);
 		}
-		else if(url[0]=='U') {
-			uint64_t userid=ParseUrlID(url);
+		else if(url[0] == 'U') {
+			uint64_t userid = ParseUrlID(url);
 			if(userid) {
-				udc_ptr user=ad.GetUserContainerById(userid);
+				udc_ptr user = ad.GetUserContainerById(userid);
 				AppendUserMenuItems(menu, tamd, nextid, user, td);
 				GenericPopupWrapper(win, &menu);
 			}
 		}
-		else if(url[0]=='W') {
+		else if(url[0] == 'W') {
 			menu.Append(nextid, wxT("Open URL in Browser"));
 			AppendToTAMIMenuMap(tamd, nextid, TAMI_BROWSEREXTRA, td, 0, udc_ptr(), 0, url.Mid(1));
 			urlmenupopup(url.Mid(1));
 			GenericPopupWrapper(win, &menu);
 		}
-		else if(url[0]=='X') {
+		else if(url[0] == 'X') {
 			return;
 		}
 		else {
 			tweet *targtw;
 			if(url[0] == 'R') {
-				targtw=td->rtsrc.get();
-				url=url.Mid(1);
+				targtw = td->rtsrc.get();
+				url = url.Mid(1);
 			}
 			else {
 				targtw = td.get();
 			}
 			unsigned long counter;
 			url.ToULong(&counter);
-			auto it=targtw->entlist.begin();
-			while(it!=targtw->entlist.end()) {
+			auto it = targtw->entlist.begin();
+			while(it != targtw->entlist.end()) {
 				if(!counter) {
 					//got entity
-					entity &et= *it;
+					entity &et = *it;
 					switch(et.type) {
 						case ENT_HASHTAG:
 						break;
@@ -1667,9 +1672,9 @@ bool tweetdispscr_mouseoverwin::RefreshContent() {
 	Clear();
 	BeginAlignment(wxTEXT_ALIGNMENT_RIGHT);
 	wxString format;
-	if(td->flags.Get('R') && gc.rtdisp) format=gc.gcfg.mouseover_rtdispformat.val;
-	else if(td->flags.Get('T')) format=gc.gcfg.mouseover_tweetdispformat.val;
-	else if(td->flags.Get('D')) format=gc.gcfg.mouseover_dmdispformat.val;
+	if(td->flags.Get('R') && gc.rtdisp) format = gc.gcfg.mouseover_rtdispformat.val;
+	else if(td->flags.Get('T')) format = gc.gcfg.mouseover_tweetdispformat.val;
+	else if(td->flags.Get('D')) format = gc.gcfg.mouseover_dmdispformat.val;
 
 	if(format.IsEmpty()) return false;
 
@@ -1719,10 +1724,10 @@ void userdispscr::Display(bool redrawimg) {
 
 	Clear();
 	SetDefaultStyle(wxRichTextAttr());
-	wxString format=gc.gcfg.userdispformat.val;
-	wxString str=wxT("");
+	wxString format = gc.gcfg.userdispformat.val;
+	wxString str = wxT("");
 
-	for(size_t i=0; i<format.size(); i++) {
+	for(size_t i = 0; i < format.size(); i++) {
 		switch((wxChar) format[i]) {
 			case 'u':
 				GenUserFmt(this, u.get(), i, format, str);
@@ -1747,17 +1752,17 @@ void userdispscr::Display(bool redrawimg) {
 }
 
 void userdispscr::urleventhandler(wxTextUrlEvent &event) {
-	long start=event.GetURLStart();
+	long start = event.GetURLStart();
 	wxRichTextAttr textattr;
 	GetStyle(start, textattr);
-	wxString url=textattr.GetURL();
+	wxString url = textattr.GetURL();
 	LogMsgFormat(LOGT::TPANEL, "URL clicked, id: %s", cstr(url));
-	if(url[0]=='U') {
-		uint64_t userid=0;
-		for(unsigned int i=1; i<url.Len(); i++) {
-			if(url[i]>='0' && url[i]<='9') {
-				userid*=10;
-				userid+=url[i]-'0';
+	if(url[0] == 'U') {
+		uint64_t userid = 0;
+		for(unsigned int i = 1; i < url.Len(); i++) {
+			if(url[i] >= '0' && url[i] <= '9') {
+				userid *= 10;
+				userid += url[i] - '0';
 			}
 			else break;
 		}
@@ -1767,7 +1772,7 @@ void userdispscr::urleventhandler(wxTextUrlEvent &event) {
 			user_window::MkWin(userid, acc_hint);
 		}
 	}
-	else if(url[0]=='W') {
+	else if(url[0] == 'W') {
 		::wxLaunchDefaultBrowser(url.Mid(1));
 	}
 }

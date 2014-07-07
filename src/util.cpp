@@ -25,27 +25,27 @@
 #include "libtwitcurl/SHA1.h"
 
 std::string hexify(const std::string &in) {
-	const char hex[]="0123456789ABCDEF";
+	const char hex[] = "0123456789ABCDEF";
 	size_t len = in.length();
 	std::string out;
-	out.reserve(2*len);
-	for(size_t i=0; i<len; i++) {
+	out.reserve(2 * len);
+	for(size_t i = 0; i < len; i++) {
 		const unsigned char c = (const unsigned char) in[i];
-		out.push_back(hex[c>>4]);
-		out.push_back(hex[c&15]);
+		out.push_back(hex[c >> 4]);
+		out.push_back(hex[c & 15]);
 	}
 	return out;
 }
 
 wxString hexify_wx(const std::string &in) {
-	const wxChar hex[]=wxT("0123456789ABCDEF");
+	const wxChar hex[] = wxT("0123456789ABCDEF");
 	size_t len = in.length();
 	wxString out;
-	out.Alloc(2*len);
-	for(size_t i=0; i<len; i++) {
+	out.Alloc(2 * len);
+	for(size_t i = 0; i < len; i++) {
 		const unsigned char c = (const unsigned char) in[i];
-		out.Append(hex[c>>4]);
-		out.Append(hex[c&15]);
+		out.Append(hex[c >> 4]);
+		out.Append(hex[c & 15]);
 	}
 	return out;
 }
@@ -65,7 +65,7 @@ bool LoadFromFileAndCheckHash(const wxString &filename, shb_iptr hash, char *&da
 	bool opened = file.Open(filename);
 	if(opened) {
 		wxFileOffset len = file.Length();
-		if(len >= 0 && len < (50<<20)) {    //don't load empty or absurdly large files
+		if(len >= 0 && len < (50 << 20)) {    //don't load empty or absurdly large files
 			data = (char*) malloc(len);
 			size = file.Read(data, len);
 			if(size == (size_t) len) {
@@ -79,14 +79,14 @@ bool LoadFromFileAndCheckHash(const wxString &filename, shb_iptr hash, char *&da
 			free(data);
 		}
 	}
-	data = 0;
+	data = nullptr;
 	size = 0;
 	return false;
 }
 
 bool LoadImageFromFileAndCheckHash(const wxString &filename, shb_iptr hash, wxImage &img) {
 	if(!hash) return false;
-	char *data = 0;
+	char *data = nullptr;
 	size_t size;
 	bool success = false;
 	if(LoadFromFileAndCheckHash(filename, hash, data, size)) {

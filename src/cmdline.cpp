@@ -74,8 +74,8 @@ static const wxChar* cmdlineargerrorstr(ESOError err) {
 	}
 }
 
-int cmdlineproc(wxChar ** argv, int argc) {
-	CSO args(argc, argv, g_rgOptions, SO_O_CLUMP|SO_O_EXACT|SO_O_SHORTARG|SO_O_FILEARG|SO_O_CLUMP_ARGD|SO_O_NOSLASH);
+int cmdlineproc(wxChar **argv, int argc) {
+	CSO args(argc, argv, g_rgOptions, SO_O_CLUMP | SO_O_EXACT | SO_O_SHORTARG | SO_O_FILEARG | SO_O_CLUMP_ARGD | SO_O_NOSLASH);
 	while (args.Next()) {
 		if (args.LastError() != SO_SUCCESS) {
 			wxLogError(wxT("Command line processing error: %s, arg: %s"), cmdlineargerrorstr(args.LastError()), args.OptionText());
@@ -83,33 +83,33 @@ int cmdlineproc(wxChar ** argv, int argc) {
 		}
 		switch(args.OptionId()) {
 			case OPT_LOGWIN: {
-				LOGT flagmask=StrToLogFlags(stdstrwx(args.OptionArg()));
-				if(!globallogwindow) new log_window(0, flagmask, true);
+				LOGT flagmask = StrToLogFlags(stdstrwx(args.OptionArg()));
+				if(!globallogwindow) new log_window(nullptr, flagmask, true);
 				else {
-					globallogwindow->lo_flags=flagmask;
+					globallogwindow->lo_flags = flagmask;
 					Update_currentlogflags();
 				}
 				break;
 			}
 			case OPT_FILE: {
-				if(args.m_nNextOption+1>args.m_nLastArg) {
+				if(args.m_nNextOption + 1 > args.m_nLastArg) {
 					wxLogError(wxT("Command line processing error: -f/--log-file requires filename argument, arg: %s"), args.OptionText());
 					return 1;
 				}
-				LOGT flagmask=StrToLogFlags(stdstrwx(args.OptionArg()));
-				wxString filename=args.m_argv[args.m_nNextOption++];
+				LOGT flagmask = StrToLogFlags(stdstrwx(args.OptionArg()));
+				wxString filename = args.m_argv[args.m_nNextOption++];
 				new log_file(flagmask, filename.char_str());
 				break;
 			}
 			case OPT_FILEAUTO: {
-				time_t now=time(0);
-				wxString filename=wxT("retcon-log-")+rc_wx_strftime(wxT("%Y%m%dT%H%M%SZ.log"), gmtime(&now), now, false);
-				LOGT flagmask=StrToLogFlags(stdstrwx(args.OptionArg()));
+				time_t now = time(nullptr);
+				wxString filename = wxT("retcon-log-")+rc_wx_strftime(wxT("%Y%m%dT%H%M%SZ.log"), gmtime(&now), now, false);
+				LOGT flagmask = StrToLogFlags(stdstrwx(args.OptionArg()));
 				new log_file(flagmask, filename.char_str());
 				break;
 			}
 			case OPT_STDERR: {
-				LOGT flagmask=StrToLogFlags(stdstrwx(args.OptionArg()));
+				LOGT flagmask = StrToLogFlags(stdstrwx(args.OptionArg()));
 				new log_file(flagmask, stderr);
 				break;
 			}

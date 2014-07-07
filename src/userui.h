@@ -110,8 +110,8 @@ struct user_window: public wxDialog, public magic_ptr_base {
 
 	user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_hint_);
 	~user_window();
-	void RefreshFollow(bool forcerefresh=false);
-	void Refresh(bool refreshimg=false);
+	void RefreshFollow(bool forcerefresh = false);
+	void Refresh(bool refreshimg = false);
 	void CheckAccHint();
 	void fill_accchoice();
 	void OnClose(wxCloseEvent &event);
@@ -146,7 +146,7 @@ struct acc_choice: public wxChoice {
 	acc_choice_callback fnptr;
 	void *fnextra;
 
-	acc_choice(wxWindow *parent, std::shared_ptr<taccount> &acc, flagwrapper<ACCCF> flags_, int winid = wxID_ANY, acc_choice_callback callbck = 0, void *extra = 0);
+	acc_choice(wxWindow *parent, std::shared_ptr<taccount> &acc, flagwrapper<ACCCF> flags_, int winid = wxID_ANY, acc_choice_callback callbck = nullptr, void *extra = nullptr);
 	void UpdateSel();
 	void OnSelChange(wxCommandEvent &event);
 	void fill_acc();

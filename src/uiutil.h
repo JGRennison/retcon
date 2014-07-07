@@ -43,7 +43,7 @@ enum { lookupprofilestartid        = wxID_HIGHEST + 16001 };
 enum { lookupprofileendid          = wxID_HIGHEST + 17000 };
 
 typedef enum {
-	TAMI_RETWEET=1,
+	TAMI_RETWEET = 1,
 	TAMI_FAV,
 	TAMI_UNFAV,
 	TAMI_REPLY,
@@ -91,20 +91,20 @@ extern tweetactmenudata tamd;
 
 void AppendToTAMIMenuMap(tweetactmenudata &map, int &nextid, TAMI_TYPE type, tweet_ptr tw,
 		unsigned int dbindex = 0, udc_ptr user = udc_ptr(),
-		flagwrapper<TPF> flags = 0, wxString extra = wxT(""), panelparentwin_base *ppwb = 0);
+		flagwrapper<TPF> flags = 0, wxString extra = wxT(""), panelparentwin_base *ppwb = nullptr);
 void MakeRetweetMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw);
 void MakeFavMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw);
 void MakeCopyMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw);
 void MakeMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw);
 void MakeTPanelMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw, tpanelparentwin_nt *tppw);
 void MakeImageMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw);
-void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin = 0);
+void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin = nullptr);
 uint64_t ParseUrlID(wxString url);
 media_id_type ParseMediaID(wxString url);
 void SaveWindowLayout();
 void RestoreWindowLayout();
 wxString getreltimestr(time_t timestamp, time_t &updatetime);
-void GenericPopupWrapper(wxWindow *win, wxMenu *menu, const wxPoint& pos = wxDefaultPosition);
+void GenericPopupWrapper(wxWindow *win, wxMenu *menu, const wxPoint &pos = wxDefaultPosition);
 inline void GenericPopupWrapper(wxWindow *win, wxMenu *menu, int x, int y) {
 	GenericPopupWrapper(win, menu, wxPoint(x, y));
 }

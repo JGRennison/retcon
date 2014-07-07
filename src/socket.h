@@ -232,8 +232,8 @@ struct adns_thread : public wxThread {
 	std::string hostname;
 	bool success = false;
 	CURLcode result = CURLE_OK;
-	socketmanager *sm = 0;
-	CURL *eh = 0;
+	socketmanager *sm = nullptr;
+	CURL *eh = nullptr;
 	double lookuptime = 0.0;
 
 	adns_thread(std::string url_, std::string hostname_, socketmanager *sm_, CURLSH *sharehndl);
@@ -263,7 +263,7 @@ struct adns {
 	std::forward_list<dns_pending_conn> dns_pending_conns;
 	std::forward_list<std::pair<std::string, adns_thread> > dns_threads;
 
-	CURLSH *sharehndl = 0;
+	CURLSH *sharehndl = nullptr;
 	wxMutex mutex;
 	socketmanager *sm;
 };

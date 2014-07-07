@@ -88,15 +88,15 @@ struct panelparentwin_base_impl : public bindwxevt {
 	std::shared_ptr<tpanelglobal> tpg;
 	flagwrapper<TPPWF> tppw_flags = 0;
 	size_t displayoffset = 0;
-	wxWindow *parent_win = 0;
-	tpanelscrollwin *scrollwin = 0;
-	wxStaticText *clabel = 0;
-	wxButton *MarkReadBtn = 0;
-	wxButton *NewestUnreadBtn = 0;
-	wxButton *OldestUnreadBtn = 0;
-	wxButton *UnHighlightBtn = 0;
-	wxButton *MoreBtn = 0;
-	wxBoxSizer* headersizer = 0;
+	wxWindow *parent_win = nullptr;
+	tpanelscrollwin *scrollwin = nullptr;
+	wxStaticText *clabel = nullptr;
+	wxButton *MarkReadBtn = nullptr;
+	wxButton *NewestUnreadBtn = nullptr;
+	wxButton *OldestUnreadBtn = nullptr;
+	wxButton *UnHighlightBtn = nullptr;
+	wxButton *MoreBtn = nullptr;
+	wxBoxSizer* headersizer = nullptr;
 	uint64_t scrolltoid = 0;
 	uint64_t scrolltoid_onupdate = 0;
 	std::multimap<std::string, wxButton *> showhidemap;
@@ -116,9 +116,9 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 			: panelparentwin_base_impl(base_) { }
 
 	std::shared_ptr<tpanel> tp;
-	tweetdispscr_mouseoverwin *mouseoverwin = 0;
-	std::deque<std::pair<tweet_ptr, flagwrapper<PUSHFLAGS> > > pushtweetbatchqueue;
-	std::deque<std::pair<uint64_t, flagwrapper<PUSHFLAGS> > > removetweetbatchqueue;
+	tweetdispscr_mouseoverwin *mouseoverwin = nullptr;
+	std::deque<std::pair<tweet_ptr, flagwrapper<PUSHFLAGS>>> pushtweetbatchqueue;
+	std::deque<std::pair<uint64_t, flagwrapper<PUSHFLAGS>>> removetweetbatchqueue;
 	container::map<uint64_t, bool> updatetweetbatchqueue;
 	std::deque<std::function<void(tpanelparentwin_nt *)> > batchedgenericactions;
 
@@ -143,7 +143,7 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 	void MarkSetUnhighlighted(tweetidset &&subset);
 	void setupnavbuttonhandlers();
 	void morebtnhandler(wxCommandEvent &event);
-	void MarkClearCIDSSetHandler(tweetidset cached_id_sets::* idsetptr, std::function<void(tweet_ptr_p )> existingtweetfunc, const tweetidset &subset);
+	void MarkClearCIDSSetHandler(tweetidset cached_id_sets::* idsetptr, std::function<void(tweet_ptr_p)> existingtweetfunc, const tweetidset &subset);
 	void OnBatchTimerModeTimer(wxTimerEvent& event);
 	virtual void IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const override;
 	virtual void UpdateCLabel() override;

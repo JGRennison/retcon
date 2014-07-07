@@ -43,10 +43,10 @@ END_EVENT_TABLE()
 
 struct selection_category {
 	std::function<void(const tweetidset &, selection_category &)> func;
-	wxStaticText *stattext = 0;
-	wxCheckBox *chk = 0;
+	wxStaticText *stattext = nullptr;
+	wxCheckBox *chk = nullptr;
 	tweetidset output;
-	const tweetidset *output_other = 0;
+	const tweetidset *output_other = nullptr;
 
 	const tweetidset &GetOutputSet() const {
 		if(output_other) return *output_other;
@@ -55,16 +55,16 @@ struct selection_category {
 };
 
 struct filter_dlg_gui {
-	wxBoxSizer *vbox = 0;
-	wxBoxSizer *hbox = 0;
-	wxStaticText *total = 0;
+	wxBoxSizer *vbox = nullptr;
+	wxBoxSizer *hbox = nullptr;
+	wxStaticText *total = nullptr;
 	tweetidset selectedset;
 	std::shared_ptr<filter_set> apply_filter;
 	wxString apply_filter_txt;
-	wxButton *filterbtn = 0;
+	wxButton *filterbtn = nullptr;
 };
 
-filter_dlg::filter_dlg(wxWindow* parent, wxWindowID id, std::function<const tweetidset *()> getidset_, const wxPoint& pos, const wxSize& size)
+filter_dlg::filter_dlg(wxWindow *parent, wxWindowID id, std::function<const tweetidset *()> getidset_, const wxPoint &pos, const wxSize &size)
 		: wxDialog(parent, id, wxT("Apply Filter to Tweets"), pos, size, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER), getidset(getidset_) {
 	fdg.reset(new filter_dlg_gui);
 	fdg->apply_filter = std::make_shared<filter_set>();

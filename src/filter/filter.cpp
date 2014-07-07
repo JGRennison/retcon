@@ -45,7 +45,7 @@ template<> struct enum_traits<FRSF> { static constexpr bool flags = true; };
 
 struct filter_run_state {
 	std::vector<flagwrapper<FRSF>> recursion;
-	taccount *tac = 0;
+	taccount *tac = nullptr;
 	const std::string empty_str;
 	std::string test_temp;
 };
@@ -142,8 +142,8 @@ using tweetmodefptr = const std::string & (*)(tweet &, filter_run_state &);
 using usrmodefptr = const std::string & (*)(userdatacontainer *u, tweet &, filter_run_state &frs);
 
 struct filter_item_cond_regex : public filter_item_cond {
-	pcre *ptn = 0;
-	pcre_extra *extra = 0;
+	pcre *ptn = nullptr;
+	pcre_extra *extra = nullptr;
 	std::string regexstr;
 	std::function<bool(filter_item_cond_regex &, tweet &, filter_run_state &)> dotests;
 
@@ -270,25 +270,25 @@ const char blanklinesyntax[] = R"(^(?:\s*#.*)?\s*$)"; //this also filters commen
 
 
 void ParseFilter(const std::string &input, filter_set &filter_output, std::string &errmsgs) {
-	static pcre *cond_pattern = 0;
-	static pcre_extra *cond_patextra = 0;
-	static pcre *regex_pattern = 0;
-	static pcre_extra *regex_patextra = 0;
-	static pcre *flagtest_pattern = 0;
-	static pcre_extra *flagtest_patextra = 0;
+	static pcre *cond_pattern = nullptr;
+	static pcre_extra *cond_patextra = nullptr;
+	static pcre *regex_pattern = nullptr;
+	static pcre_extra *regex_patextra = nullptr;
+	static pcre *flagtest_pattern = nullptr;
+	static pcre_extra *flagtest_patextra = nullptr;
 
-	static pcre *else_pattern = 0;
-	static pcre_extra *else_patextra = 0;
-	static pcre *endif_pattern = 0;
-	static pcre_extra *endif_patextra = 0;
+	static pcre *else_pattern = nullptr;
+	static pcre_extra *else_patextra = nullptr;
+	static pcre *endif_pattern = nullptr;
+	static pcre_extra *endif_patextra = nullptr;
 
-	static pcre *flagset_pattern = 0;
-	static pcre_extra *flagset_patextra = 0;
-	static pcre *panel_pattern = 0;
-	static pcre_extra *panel_patextra = 0;
+	static pcre *flagset_pattern = nullptr;
+	static pcre_extra *flagset_patextra = nullptr;
+	static pcre *panel_pattern = nullptr;
+	static pcre_extra *panel_patextra = nullptr;
 
-	static pcre *blankline_pattern = 0;
-	static pcre_extra *blankline_patextra = 0;
+	static pcre *blankline_pattern = nullptr;
+	static pcre_extra *blankline_patextra = nullptr;
 
 	filter_output.filters.clear();
 	errmsgs.clear();
@@ -296,7 +296,7 @@ void ParseFilter(const std::string &input, filter_set &filter_output, std::strin
 	bool ok = true;
 	unsigned int jit_count = 0;
 
-	auto compile = [&](const char *str, pcre ** ptn, pcre_extra ** extra) {
+	auto compile = [&](const char *str, pcre **ptn, pcre_extra **extra) {
 		if(!ptn) {
 			ok = false;
 			return;
@@ -308,7 +308,7 @@ void ParseFilter(const std::string &input, filter_set &filter_output, std::strin
 		const char *errptr;
 		int erroffset;
 
-		*ptn = pcre_compile(str, PCRE_NO_UTF8_CHECK | PCRE_CASELESS | PCRE_UTF8, &errptr, &erroffset, 0);
+		*ptn = pcre_compile(str, PCRE_NO_UTF8_CHECK | PCRE_CASELESS | PCRE_UTF8, &errptr, &erroffset, nullptr);
 		if(!*ptn) {
 			LogMsgFormat(LOGT::FILTERERR, "pcre_compile failed: %s (%d)\n%s", cstr(errptr), erroffset, cstr(str));
 			ok = false;
@@ -358,7 +358,7 @@ void ParseFilter(const std::string &input, filter_set &filter_output, std::strin
 
 		linestart += linelen + lineeol;
 
-		if(pcre_exec(blankline_pattern, 0,  pos, linelen, 0, 0, ovector, ovecsize) >= 1) continue;  //eat blank lines
+		if(pcre_exec(blankline_pattern, nullptr,  pos, linelen, 0, 0, ovector, ovecsize) >= 1) continue;  //eat blank lines
 
 		if(pcre_exec(cond_pattern, cond_patextra,  pos, linelen, 0, 0, ovector, ovecsize) >= 1) {
 			// this is a conditional
@@ -537,12 +537,12 @@ void ParseFilter(const std::string &input, filter_set &filter_output, std::strin
 				ok = false;
 			}
 		}
-		else if(pcre_exec(else_pattern, 0,  pos, linelen, 0, 0, ovector, ovecsize) >= 1) {
+		else if(pcre_exec(else_pattern, nullptr,  pos, linelen, 0, 0, ovector, ovecsize) >= 1) {
 			std::unique_ptr<filter_item_cond> citem(new filter_item_cond);
 			citem->flags = FIF::COND | FIF::ELSE;
 			filter_output.filters.emplace_back(std::move(citem));
 		}
-		else if(pcre_exec(endif_pattern, 0,  pos, linelen, 0, 0, ovector, ovecsize) >= 1) {
+		else if(pcre_exec(endif_pattern, nullptr,  pos, linelen, 0, 0, ovector, ovecsize) >= 1) {
 			std::unique_ptr<filter_item_cond> citem(new filter_item_cond);
 			citem->flags = FIF::COND | FIF::ENDIF;
 			filter_output.filters.emplace_back(std::move(citem));

@@ -224,7 +224,7 @@ static bool TagToDict(unsigned char tag, const unsigned char *&dict, size_t &dic
 
 #define HEADERSIZE 5
 
-static unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsigned char tag = 'Z', bool *iscompressed = 0, const esctable *et = 0) {
+static unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsigned char tag = 'Z', bool *iscompressed = nullptr, const esctable *et = nullptr) {
 	unsigned char *data = 0;
 	if(et) {
 		for(unsigned int i = 0; i < et->count; i++) {
@@ -290,7 +290,7 @@ static unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsi
 	return data;
 }
 
-static unsigned char *DoCompress(const std::string &in, size_t &sz, unsigned char tag = 'Z', bool *iscompressed = 0, const esctable *et = 0) {
+static unsigned char *DoCompress(const std::string &in, size_t &sz, unsigned char tag = 'Z', bool *iscompressed = nullptr, const esctable *et = nullptr) {
 	return DoCompress(in.data(), in.size(), sz, tag, iscompressed, et);
 }
 
@@ -367,7 +367,7 @@ static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsiz
 	#if DB_COPIOUS_LOGGING
 		DBLogMsgFormat(LOGT::ZLIBTRACE, "DoDecompress: insize %d, outsize %d", insize, outsize);
 	#endif
-	unsigned char *data = (unsigned char *) malloc(outsize+1);
+	unsigned char *data = (unsigned char *) malloc(outsize + 1);
 	strm.next_out = data;
 	strm.avail_out = outsize;
 	while(true) {
@@ -378,7 +378,7 @@ static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsiz
 		if(res == Z_NEED_DICT) {
 			if(dict) inflateSetDictionary(&strm, dict, dict_size);
 			else {
-				outsize=0;
+				outsize = 0;
 				inflateEnd(&strm);
 				free(data);
 				DBLogMsgFormat(LOGT::ZLIBTRACE, "DoDecompress: Wants dictionary: %ux", strm.adler);
@@ -681,7 +681,7 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 		}
 		case DBSM::UPDATETWEETSETFLAGS: {
 			if(gc.readonlymode) break;
-			dbupdatetweetsetflagsmsg *m = static_cast<dbupdatetweetsetflagsmsg*>(msg);
+			dbupdatetweetsetflagsmsg *m = static_cast<dbupdatetweetsetflagsmsg *>(msg);
 			cache.BeginTransaction(db);
 			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_UPDATETWEETFLAGSMASKED);
 			for(auto it = m->ids.begin(); it != m->ids.end(); ++it) {
@@ -698,7 +698,7 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 		}
 		case DBSM::MSGLIST: {
 			cache.BeginTransaction(db);
-			dbsendmsg_list *m = static_cast<dbsendmsg_list*>(msg);
+			dbsendmsg_list *m = static_cast<dbsendmsg_list *>(msg);
 			DBLogMsgFormat(LOGT::DBTRACE, "DBSM::MSGLIST: queue size: %d", m->msglist.size());
 			for(auto &onemsg : m->msglist) {
 				ProcessMessage(db, onemsg, ok, cache, th);
@@ -708,7 +708,7 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 		}
 		case DBSM::FUNCTION: {
 			cache.BeginTransaction(db);
-			dbfunctionmsg *m = static_cast<dbfunctionmsg*>(msg);
+			dbfunctionmsg *m = static_cast<dbfunctionmsg *>(msg);
 			DBLogMsgFormat(LOGT::DBTRACE, "DBSM::FUNCTION: queue size: %d", m->funclist.size());
 			for(auto &onemsg : m->funclist) {
 				onemsg(db, ok, cache);
@@ -1321,7 +1321,7 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *adb) {
 void dbconn::SyncReadInCIDSLists(sqlite3 *adb) {
 	LogMsg(LOGT::DBTRACE, "dbconn::SyncReadInCIDSLists start");
 	const char getcidslist[] = "SELECT value FROM settings WHERE name == ?;";
-	sqlite3_stmt *getstmt = 0;
+	sqlite3_stmt *getstmt = nullptr;
 	sqlite3_prepare_v2(adb, getcidslist, sizeof(getcidslist), &getstmt, 0);
 
 	unsigned int total = 0;
@@ -1870,7 +1870,7 @@ void dbconn::SyncReadInWindowLayout(sqlite3 *adb) {
 	int res = sqlite3_prepare_v2(adb, sql, sizeof(sql), &stmt, 0);
 
 	const char sql2[] = "SELECT accid, autoflags FROM tpanelwinautos WHERE tpw == ?;";
-	sqlite3_stmt *stmt2=0;
+	sqlite3_stmt *stmt2 = 0;
 	int res2 = sqlite3_prepare_v2(adb, sql2, sizeof(sql2), &stmt2, 0);
 
 	if(res != SQLITE_OK || res2 != SQLITE_OK) {
@@ -2163,7 +2163,7 @@ void dbconn::SyncPurgeProfileImages(sqlite3 *adb) {
 	LogMsg(LOGT::DBTRACE, "dbconn::SyncPurgeProfileImages start");
 	std::deque<uint64_t> expire_list;
 
-	const time_t threshold = time(0) - (60 * 60 * 24 * gc.profimgcachesavedays);
+	const time_t threshold = time(nullptr) - (60 * 60 * 24 * gc.profimgcachesavedays);
 
 	for(auto &it : ad.userconts) {
 		uint64_t id = it.first;

@@ -66,7 +66,7 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	const panelparentwin_base_impl *pimpl() const;
 	panelparentwin_base_impl *pimpl() { return const_cast<panelparentwin_base_impl *>(const_cast<const panelparentwin_base*>(this)->pimpl()); }
 
-	panelparentwin_base(wxWindow *parent, bool fitnow=true, wxString thisname_ = wxT(""), panelparentwin_base_impl *privimpl = 0);
+	panelparentwin_base(wxWindow *parent, bool fitnow=true, wxString thisname_ = wxT(""), panelparentwin_base_impl *privimpl = nullptr);
 	virtual ~panelparentwin_base();
 	mainframe *GetMainframe();
 	void UpdateCLabel();
@@ -89,7 +89,7 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	const tpanelparentwin_nt_impl *pimpl() const;
 	tpanelparentwin_nt_impl *pimpl() { return const_cast<tpanelparentwin_nt_impl *>(const_cast<const tpanelparentwin_nt*>(this)->pimpl()); }
 
-	tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent, wxString thisname_ = wxT(""), tpanelparentwin_nt_impl *privimpl = 0);
+	tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent, wxString thisname_ = wxT(""), tpanelparentwin_nt_impl *privimpl = nullptr);
 	virtual ~tpanelparentwin_nt();
 	void PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
 	void RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
@@ -119,7 +119,7 @@ struct tpanelparentwin : public tpanelparentwin_nt {
 	const tpanelparentwin_impl *pimpl() const;
 	tpanelparentwin_impl *pimpl() { return const_cast<tpanelparentwin_impl *>(const_cast<const tpanelparentwin*>(this)->pimpl()); }
 
-	tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select = false, wxString thisname_ = wxT(""), tpanelparentwin_impl *privimpl = 0);
+	tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select = false, wxString thisname_ = wxT(""), tpanelparentwin_impl *privimpl = nullptr);
 };
 struct tpanelparentwin_usertweets_impl;
 
@@ -128,7 +128,7 @@ struct tpanelparentwin_usertweets : public tpanelparentwin_nt {
 
 	tpanelparentwin_usertweets(udc_ptr &user_, wxWindow *parent,
 			std::function<std::shared_ptr<taccount>(tpanelparentwin_usertweets &)> getacc,
-			RBFS_TYPE type_ = RBFS_USER_TIMELINE, wxString thisname_ = wxT(""), tpanelparentwin_usertweets_impl *privimpl = 0);
+			RBFS_TYPE type_ = RBFS_USER_TIMELINE, wxString thisname_ = wxT(""), tpanelparentwin_usertweets_impl *privimpl = nullptr);
 	~tpanelparentwin_usertweets();
 	static std::shared_ptr<tpanel> MkUserTweetTPanel(udc_ptr_p user, RBFS_TYPE type_ = RBFS_USER_TIMELINE);
 	static std::shared_ptr<tpanel> GetUserTweetTPanel(uint64_t userid, RBFS_TYPE type_ = RBFS_USER_TIMELINE);
@@ -141,7 +141,7 @@ struct tpanelparentwin_user_impl;
 struct tpanelparentwin_user : public panelparentwin_base {
 	tpanelparentwin_user_impl *pimpl();
 
-	tpanelparentwin_user(wxWindow *parent, wxString thisname_ = wxT(""), tpanelparentwin_user_impl *privimpl = 0);
+	tpanelparentwin_user(wxWindow *parent, wxString thisname_ = wxT(""), tpanelparentwin_user_impl *privimpl = nullptr);
 	~tpanelparentwin_user();
 	bool PushBackUser(udc_ptr_p u);
 	void LoadMoreToBack(unsigned int n);
@@ -154,14 +154,14 @@ struct tpanelparentwin_userproplisting : public tpanelparentwin_user {
 
 	tpanelparentwin_userproplisting(udc_ptr_p user_, wxWindow *parent,
 			std::function<std::shared_ptr<taccount>(tpanelparentwin_userproplisting &)> getacc,
-			CS_ENUMTYPE type_, wxString thisname_ = wxT(""), tpanelparentwin_userproplisting_impl *privimpl = 0);
+			CS_ENUMTYPE type_, wxString thisname_ = wxT(""), tpanelparentwin_userproplisting_impl *privimpl = nullptr);
 	~tpanelparentwin_userproplisting();
 	virtual void NotifyRequestFailed() override;
 	void PushUserIDToBack(uint64_t id);
 	void InitLoading();
 };
 
-bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid=0);
+bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid = nullptr);
 void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map);
 void TPanelMenuAction(tpanelmenudata &map, int curid, mainframe *parent);
 void TPanelMenuActionCustom(mainframe *parent, flagwrapper<TPF> flags);

@@ -66,8 +66,7 @@ BEGIN_EVENT_TABLE(mainframe, wxFrame)
 END_EVENT_TABLE()
 
 mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& size, bool maximise)
-       : wxFrame(NULL, -1, DecorateTitle(title), pos, size), origtitle(title)
-{
+		: wxFrame(nullptr, -1, DecorateTitle(title), pos, size), origtitle(title) {
 	nominal_pos = pos;
 	nominal_size = size;
 	if(maximise) Maximize(true);
@@ -75,14 +74,14 @@ mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& si
 	mainframelist.push_back(this);
 
 	wxMenu *menuH = new wxMenu;
-	menuH->Append( ID_About, wxT("&About"));
+	menuH->Append(ID_About, wxT("&About"));
 	wxMenu *menuF = new wxMenu;
-	menuF->Append( ID_Viewlog, wxT("View &Log"));
-	menuF->Append( ID_Close, wxT("&Close Window"));
-	menuF->Append( ID_Quit, wxT("E&xit"));
+	menuF->Append(ID_Viewlog, wxT("View &Log"));
+	menuF->Append(ID_Close, wxT("&Close Window"));
+	menuF->Append(ID_Quit, wxT("E&xit"));
 	wxMenu *menuO = new wxMenu;
-	menuO->Append( ID_Settings, wxT("&Settings"));
-	menuO->Append( ID_Accounts, wxT("&Accounts"));
+	menuO->Append(ID_Settings, wxT("&Settings"));
+	menuO->Append(ID_Accounts, wxT("&Accounts"));
 
 	tpmenu = new wxMenu;
 	lookupmenu = new wxMenu;
@@ -95,18 +94,18 @@ mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& si
 	menuBar->Append(menuH, wxT("&Help"));
 
 
-	auim=new wxAuiManager(this);
+	auim = new wxAuiManager(this);
 	auim->SetDockSizeConstraint(1.0, 1.0);
 
 	auib = new tpanelnotebook(this, this);
 	auim->AddPane(auib, wxAuiPaneInfo().CentrePane().Resizable());
 
-	tpw=new tweetpostwin(this, this, auim);
+	tpw = new tweetpostwin(this, this, auim);
 	auim->AddPane(tpw, wxAuiPaneInfo().Bottom().Dockable(false).BottomDockable().TopDockable().DockFixed().CloseButton(false).CaptionVisible(false));
 
 	auim->Update();
 
-	SetMenuBar( menuBar );
+	SetMenuBar(menuBar);
 
 	LogMsgFormat(LOGT::OTHERTRACE, "Creating new mainframe: %p, %d mainframes", this, mainframelist.size());
 
@@ -128,12 +127,12 @@ void mainframe::OnAbout(wxCommandEvent &event) {
 	OpenAboutWindow();
 }
 void mainframe::OnSettings(wxCommandEvent &event) {
-	settings_window *sw=new settings_window(this, -1, wxT("Settings"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
+	settings_window *sw = new settings_window(this, -1, wxT("Settings"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
 	sw->ShowModal();
 	sw->Destroy();
 }
 void mainframe::OnAccounts(wxCommandEvent &event) {
-	acc_window *acc=new acc_window(this, -1, wxT("Accounts"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
+	acc_window *acc = new acc_window(this, -1, wxT("Accounts"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
 	acc->ShowModal();
 	acc->Destroy();
 }
@@ -156,7 +155,7 @@ mainframe::~mainframe() {
 	mainframelist.erase(std::remove(mainframelist.begin(), mainframelist.end(), this), mainframelist.end());
 
 	if(tpw) {
-		tpw->mparentwin=0;
+		tpw->mparentwin = nullptr;
 		tpw->AUIMNoLongerValid();
 	}
 
@@ -265,16 +264,16 @@ void AccountUpdateAllMainframes() {
 }
 
 void FreezeAll() {
-	for(auto it=mainframelist.begin(); it!=mainframelist.end(); ++it) (*it)->Freeze();
+	for(auto &it : mainframelist) it->Freeze();
 }
 void ThawAll() {
-	for(auto it=mainframelist.begin(); it!=mainframelist.end(); ++it) (*it)->Thaw();
+	for(auto &it : mainframelist) it->Thaw();
 }
 
 mainframe *GetMainframeAncestor(wxWindow *in, bool passtoplevels) {
 	while(in) {
 		if(std::count(mainframelist.begin(), mainframelist.end(), in)) return static_cast<mainframe *>(in);
-		if((passtoplevels == false) && in->IsTopLevel()) return 0;
+		if((passtoplevels == false) && in->IsTopLevel()) return nullptr;
 		in = in->GetParent();
 	}
 	return nullptr;
@@ -297,30 +296,28 @@ tweetposttextbox::tweetposttextbox(tweetpostwin *parent_, const wxString &deftex
 
 tweetposttextbox::~tweetposttextbox() {
 	if(parent) {
-		parent->textctrl=0;
+		parent->textctrl = nullptr;
 	}
 }
 
-void tweetposttextbox::OnTCChar(wxRichTextEvent &event) {
-
-}
+void tweetposttextbox::OnTCChar(wxRichTextEvent &event) { }
 
 void tweetposttextbox::OnTCUpdate(wxCommandEvent &event) {
 	if(parent) parent->OnTCChange();
 }
 
 void tweetposttextbox::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
-		       int noUnitsX, int noUnitsY,
-		       int xPos, int yPos,
-		       bool noRefresh ) {
+		int noUnitsX, int noUnitsY,
+		int xPos, int yPos,
+		bool noRefresh ) {
 	wxRichTextCtrl::SetScrollbars(0, 0, 0, 0, 0, 0, noRefresh);
-	int newheight=(pixelsPerUnitY*noUnitsY)+4;
+	int newheight = (pixelsPerUnitY * noUnitsY) + 4;
 	int curheight;
 	GetSize(0, &curheight);
 	if(parent && !parent->resize_update_pending && lastheight!=newheight && curheight!=newheight) {
 		parent->vbox->SetItemMinSize(this, 10, newheight);
-		parent->resize_update_pending=true;
-		lastheight=newheight;
+		parent->resize_update_pending = true;
+		lastheight = newheight;
 		wxCommandEvent event(wxextTPRESIZE_UPDATE_EVENT, GetId());
 		parent->GetEventHandler()->AddPendingEvent(event);
 	}
@@ -365,15 +362,13 @@ BEGIN_EVENT_TABLE(tweetpostwin, wxPanel)
 END_EVENT_TABLE()
 
 void tpw_acc_callback(void *userdata, acc_choice *src, bool isgoodacc) {
-	tweetpostwin *win= (tweetpostwin *) userdata;
+	tweetpostwin *win = (tweetpostwin *) userdata;
 	win->isgoodacc=isgoodacc;
 	win->CheckEnableSendBtn();
 }
 
 tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *parentauim)
-	: wxPanel(parent, wxID_ANY, wxPoint(-1000, -1000)), parentwin(parent), mparentwin(mparent),
-	pauim(0), isshown(false), resize_update_pending(true), currently_posting(false),
-	current_length(0), length_oob(false) {
+		: wxPanel(parent, wxID_ANY, wxPoint(-1000, -1000)), parentwin(parent), mparentwin(mparent) {
 
 	tpg = tpanelglobal::Get();
 	vbox = new wxBoxSizer(wxVERTICAL);
@@ -383,7 +378,7 @@ tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *p
 	replydesclosebtn = new wxBitmapButton(this, TPWID_CLOSEREPDESC, tpg->closeicon, wxPoint(-1000, -1000));
 	addnamesbtn = new wxButton(this, TPWID_ADDNAMES, wxT("Add names \x2193"), wxPoint(-1000, -1000), wxDefaultSize, wxBU_EXACTFIT);
 	addnamesbtn->Show(false);
-	wxBoxSizer *replydescbox= new wxBoxSizer(wxHORIZONTAL);
+	wxBoxSizer *replydescbox = new wxBoxSizer(wxHORIZONTAL);
 	replydescbox->Add(replydesc, 1, wxEXPAND | wxALL, 1);
 	replydescbox->Add(addnamesbtn, 0, wxLEFT | wxRIGHT | wxALIGN_CENTRE, 1);
 	replydescbox->Add(replydeslockbtn, 0, wxALL | wxALIGN_CENTRE, 1);
@@ -431,16 +426,16 @@ tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *p
 	DoShowHide(false);
 
 	Fit();
-	pauim=parentauim;
-	resize_update_pending=false;
+	pauim = parentauim;
+	resize_update_pending = false;
 }
 
 tweetpostwin::~tweetpostwin() {
 	if(mparentwin) {
-		mparentwin->tpw=0;
+		mparentwin->tpw = nullptr;
 	}
 	if(textctrl) {
-		textctrl->parent=0;
+		textctrl->parent = nullptr;
 	}
 }
 
@@ -449,18 +444,20 @@ bool tweetpostwin::okToSend() {
 }
 
 void tweetpostwin::OnSendBtn(wxCommandEvent &event) {
-	std::string curtext=stdstrwx(textctrl->GetValue());
+	std::string curtext = stdstrwx(textctrl->GetValue());
 	if(okToSend()) {
 		if(tweet_reply_targ && !IsUserMentioned(curtext, tweet_reply_targ->user)) {
-			int res=::wxMessageBox(wxString::Format(wxT("User: @%s is not mentioned in this tweet. Reply anyway?"), wxstrstd(tweet_reply_targ->user->GetUser().screen_name).c_str()), wxT("Confirm"), wxYES_NO | wxICON_QUESTION, this);
-			if(res!=wxYES) return;
+			int res = ::wxMessageBox(wxString::Format(wxT("User: @%s is not mentioned in this tweet. Reply anyway?"),
+					wxstrstd(tweet_reply_targ->user->GetUser().screen_name).c_str()), wxT("Confirm"), wxYES_NO | wxICON_QUESTION, this);
+			if(res != wxYES) return;
 		}
-		currently_posting=true;
+		currently_posting = true;
 		OnTCChange();
 		std::unique_ptr<twitcurlext> twit = curacc->GetTwitCurlExt();
+		twit->extra1 = curtext;
 		if(dm_targ) {
-			twit->connmode=CS_SENDDM;
-			twit->extra_id=dm_targ->id;
+			twit->connmode = CS_SENDDM;
+			twit->extra_id = dm_targ->id;
 		}
 		else {
 			twit->connmode = CS_POSTTWEET;
@@ -473,13 +470,13 @@ void tweetpostwin::OnSendBtn(wxCommandEvent &event) {
 }
 
 void tweetpostwin::DoShowHide(bool show) {
-	isshown=show;
+	isshown = show;
 	accc->Show(show);
 	sendbtn->Show(show);
 	infost->Show(show);
 	ShowHideImageUploadBtns(!show);
 	if(pauim) {
-		wxAuiPaneInfo pi=pauim->GetPane(this);
+		wxAuiPaneInfo pi = pauim->GetPane(this);
 		pauim->DetachPane(this);
 		pi.floating_size = wxDefaultSize;
 		pi.best_size = wxDefaultSize;
@@ -526,20 +523,20 @@ void tweetpostwin::DoCheckFocusDisplay(bool force) {
 
 void tweetpostwin::OnTCChange() {
 	current_length = TwitterCharCount(std::string(textctrl->GetValue().ToUTF8()), image_upload_filename.empty() ? 0 : 1);
-	if(current_length>140) {
+	if(current_length > 140) {
 		if(!length_oob) {
-			infost_colout=infost->GetForegroundColour();
+			infost_colout = infost->GetForegroundColour();
 			infost->SetOwnForegroundColour(*wxRED);
-			length_oob=true;
+			length_oob = true;
 		}
 	}
 	else {
 		if(length_oob) {
 			infost->SetOwnForegroundColour(infost_colout);
-			length_oob=false;
+			length_oob = false;
 		}
 	}
-	infost->SetLabel(wxString::Format(wxT("%s%d/140"), currently_posting?wxT("Posting - "):wxT(""),current_length));
+	infost->SetLabel(wxString::Format(wxT("%s%d/140"), currently_posting ? wxT("Posting - ") : wxT(""), current_length));
 	CheckEnableSendBtn();
 	textctrl->Enable(!currently_posting);
 	cleartextbtn->Show(!textctrl->IsEmpty());
@@ -558,7 +555,7 @@ void tweetpostwin::CheckEnableSendBtn() {
 
 void tweetpostwin::resizemsghandler(wxCommandEvent &event) {
 	DoShowHide(isshown);
-	resize_update_pending=false;
+	resize_update_pending = false;
 }
 
 void tweetpostwin::NotifyPostResult(bool success) {
@@ -571,7 +568,7 @@ void tweetpostwin::NotifyPostResult(bool success) {
 		}
 		UpdateReplyDesc();
 	}
-	currently_posting=false;
+	currently_posting = false;
 	OnTCChange();
 }
 
@@ -749,7 +746,7 @@ void tweetpostwin::SetReplyTarget(tweet_ptr_p targ) {
 		}
 	}
 	if(changed) OnTCChange();
-	tweet_reply_targ=targ;
+	tweet_reply_targ = targ;
 	dm_targ.reset();
 	UpdateReplyDesc();
 	textctrl->SetCursorToEnd();
@@ -758,11 +755,11 @@ void tweetpostwin::SetReplyTarget(tweet_ptr_p targ) {
 void tweetpostwin::SetDMTarget(udc_ptr_p targ) {
 	if(dm_targ != targ) replydesc_locked = false;
 	tweet_reply_targ.reset();
-	dm_targ=targ;
+	dm_targ = targ;
 	UpdateReplyDesc();
 	textctrl->SetCursorToEnd();
 }
 
 void tweetpostwin::AUIMNoLongerValid() {
-	pauim=0;
+	pauim = nullptr;
 }

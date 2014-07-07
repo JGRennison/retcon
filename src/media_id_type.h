@@ -30,13 +30,13 @@ struct media_id_type {
 };
 
 inline bool operator==(const media_id_type &m1, const media_id_type &m2) {
-	return (m1.m_id==m2.m_id) && (m1.t_id==m2.t_id);
+	return (m1.m_id == m2.m_id) && (m1.t_id == m2.t_id);
 }
 
 namespace std {
 	template <> struct hash<media_id_type> : public unary_function<media_id_type, size_t> {
 		inline size_t operator()(const media_id_type & x) const {
-			return (hash<uint64_t>()(x.m_id)<<1) ^ hash<uint64_t>()(x.t_id);
+			return (hash<uint64_t>()(x.m_id) << 1) ^ hash<uint64_t>()(x.t_id);
 		}
 	};
 }

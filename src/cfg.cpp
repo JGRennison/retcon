@@ -254,17 +254,17 @@ void genopt::CFGWriteOutCurDir(DBWriteConfig &twfc, const char *name) const {
 	else twfc.Delete(name);
 }
 void genopt::CFGReadInCurDir(DBReadConfig &twfc, const char *name, const wxString &parent) {
-	enable=twfc.Read(name, &val, parent);
+	enable = twfc.Read(name, &val, parent);
 	if(val.IsEmpty()) {
-		val=parent;
-		enable=false;
+		val = parent;
+		enable = false;
 	}
 }
 void genopt::InheritFromParent(genopt &parent, bool ifunset) {
 	if(ifunset && enable) return;
 	else {
-		enable=0;
-		val=parent.val;
+		enable = false;
+		val = parent.val;
 	}
 }
 
@@ -292,7 +292,7 @@ std::function<void(DBWriteConfig &)> WriteAllCFGOutClosure(const globconf &lgc, 
 			data->taccs.back().UnShareStrings();
 		}
 	}
-	data->now = (int64_t) time(0);
+	data->now = (int64_t) time(nullptr);
 	data->lgc = lgc;
 	if(unshare_strings) {
 		data->lgc.UnShareStrings();

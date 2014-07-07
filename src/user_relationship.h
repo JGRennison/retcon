@@ -33,10 +33,9 @@ struct user_relationship {
 		QUERY_PENDING        = 1<<6,
 	};
 
-	flagwrapper<URF> ur_flags;
-	time_t followsme_updtime;	//if these are 0 and the corresponding known flag is set, then the value is known to be correct whilst the stream is still up
-	time_t ifollow_updtime;
-	user_relationship() : ur_flags(0), followsme_updtime(0), ifollow_updtime(0) { }
+	flagwrapper<URF> ur_flags = 0;
+	time_t followsme_updtime = 0;    //if these are 0 and the corresponding known flag is set, then the value is known to be correct whilst the stream is still up
+	time_t ifollow_updtime = 0;
 };
 template<> struct enum_traits<user_relationship::URF> { static constexpr bool flags = true; };
 

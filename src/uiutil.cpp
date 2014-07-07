@@ -85,20 +85,20 @@ void RestoreWindowLayout() {
 
 
 media_id_type ParseMediaID(wxString url) {
-	unsigned int i=1;
+	unsigned int i = 1;
 	media_id_type media_id;
-	for(; i<url.Len(); i++) {
-		if(url[i]>='0' && url[i]<='9') {
-			media_id.m_id*=10;
-			media_id.m_id+=url[i]-'0';
+	for(; i < url.Len(); i++) {
+		if(url[i] >= '0' && url[i] <= '9') {
+			media_id.m_id *= 10;
+			media_id.m_id += url[i] - '0';
 		}
 		else break;
 	}
-	if(url[i]!='_') return media_id;
-	for(i++; i<url.Len(); i++) {
-		if(url[i]>='0' && url[i]<='9') {
-			media_id.t_id*=10;
-			media_id.t_id+=url[i]-'0';
+	if(url[i] != '_') return media_id;
+	for(i++; i < url.Len(); i++) {
+		if(url[i] >= '0' && url[i] <= '9') {
+			media_id.t_id *= 10;
+			media_id.t_id += url[i] - '0';
 		}
 		else break;
 	}
@@ -106,11 +106,11 @@ media_id_type ParseMediaID(wxString url) {
 }
 
 uint64_t ParseUrlID(wxString url) {
-	uint64_t id=0;
-	for(unsigned int i=1; i<url.Len(); i++) {
-		if(url[i]>='0' && url[i]<='9') {
-			id*=10;
-			id+=url[i]-'0';
+	uint64_t id = 0;
+	for(unsigned int i = 1; i < url.Len(); i++) {
+		if(url[i] >= '0' && url[i] <= '9') {
+			id *= 10;
+			id += url[i] - '0';
 		}
 		else break;
 	}
@@ -119,36 +119,36 @@ uint64_t ParseUrlID(wxString url) {
 
 void AppendToTAMIMenuMap(tweetactmenudata &map, int &nextid, TAMI_TYPE type, tweet_ptr tw, unsigned int dbindex, udc_ptr user,
 		flagwrapper<TPF> flags, wxString extra, panelparentwin_base *ppwb) {
-	map[nextid]={tw, user, type, dbindex, flags, extra, ppwb};
+	map[nextid] = {tw, user, type, dbindex, flags, extra, ppwb};
 	nextid++;
 }
 
 void MakeRetweetMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw) {
-	for(auto it=alist.begin(); it!=alist.end(); ++it) {
-		wxMenuItem *menuitem=menuP->Append(nextid, (*it)->dispname);
-		menuitem->Enable((*it)->enabled);
-		AppendToTAMIMenuMap(map, nextid, TAMI_RETWEET, tw, (*it)->dbindex);
+	for(auto &it : alist) {
+		wxMenuItem *menuitem = menuP->Append(nextid, it->dispname);
+		menuitem->Enable(it->enabled);
+		AppendToTAMIMenuMap(map, nextid, TAMI_RETWEET, tw, it->dbindex);
 	}
 }
 
 void MakeFavMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw) {
-	for(auto it=alist.begin(); it!=alist.end(); ++it) {
-		tweet_perspective *tp=tw->GetTweetTP(*it);
-		bool known=(tp!=0);
-		bool faved=false;
-		if(tp && tp->IsFavourited()) faved=true;
+	for(auto &it : alist) {
+		tweet_perspective *tp = tw->GetTweetTP(it);
+		bool known = (tp != nullptr);
+		bool faved = false;
+		if(tp && tp->IsFavourited()) faved = true;
 
 		wxMenu *submenu = new wxMenu;
-		menuP->AppendSubMenu(submenu, (known?(faved?wxT("\x2713 "):wxT("\x2715 ")):wxT("? ")) + (*it)->dispname);
-		submenu->SetTitle(known?(faved?wxT("Favourited"):wxT("Not Favourited")):wxT("Unknown"));
+		menuP->AppendSubMenu(submenu, (known ? (faved ? wxT("\x2713 ") : wxT("\x2715 ")) : wxT("? ")) + it->dispname);
+		submenu->SetTitle(known?(faved ? wxT("Favourited") : wxT("Not Favourited")) : wxT("Unknown"));
 
-		wxMenuItem *menuitem=submenu->Append(nextid, wxT("Favourite"));
-		menuitem->Enable((*it)->enabled && (!known || !faved));
-		AppendToTAMIMenuMap(map, nextid, TAMI_FAV, tw, (*it)->dbindex);
+		wxMenuItem *menuitem = submenu->Append(nextid, wxT("Favourite"));
+		menuitem->Enable(it->enabled && (!known || !faved));
+		AppendToTAMIMenuMap(map, nextid, TAMI_FAV, tw, it->dbindex);
 
 		menuitem=submenu->Append(nextid, wxT("Remove Favourite"));
-		menuitem->Enable((*it)->enabled && (!known || faved));
-		AppendToTAMIMenuMap(map, nextid, TAMI_UNFAV, tw, (*it)->dbindex);
+		menuitem->Enable(it->enabled && (!known || faved));
+		AppendToTAMIMenuMap(map, nextid, TAMI_UNFAV, tw, it->dbindex);
 	}
 }
 
@@ -228,31 +228,31 @@ void MakeImageMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_
 }
 
 void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
-	unsigned int dbindex=map[curid].dbindex;
-	std::shared_ptr<taccount> *acc=0;
+	unsigned int dbindex = map[curid].dbindex;
+	std::shared_ptr<taccount> *acc = nullptr;
 	if(dbindex) {
-		for(auto it=alist.begin(); it!=alist.end(); ++it) {
-			if((*it)->dbindex==dbindex) {
-				acc=&(*it);
+		for(auto &it : alist) {
+			if(it->dbindex == dbindex) {
+				acc = &it;
 				break;
 			}
 		}
 	}
 
-	CS_ENUMTYPE type=CS_NULL;
+	CS_ENUMTYPE type = CS_NULL;
 	switch(map[curid].type) {
 		case TAMI_REPLY: if(mainwin) mainwin->tpw->SetReplyTarget(map[curid].tw); break;
 		case TAMI_DM: if(mainwin) mainwin->tpw->SetDMTarget(map[curid].user); break;
-		case TAMI_RETWEET: type=CS_RT; break;
-		case TAMI_FAV: type=CS_FAV; break;
-		case TAMI_UNFAV: type=CS_UNFAV; break;
+		case TAMI_RETWEET: type = CS_RT; break;
+		case TAMI_FAV: type = CS_FAV; break;
+		case TAMI_UNFAV: type = CS_UNFAV; break;
 		case TAMI_DELETE: {
-			if(map[curid].tw->flags.Get('D')) type=CS_DELETEDM;
-			else type=CS_DELETETWEET;
+			if(map[curid].tw->flags.Get('D')) type = CS_DELETEDM;
+			else type = CS_DELETETWEET;
 			break;
 		}
 		case TAMI_COPYLINK: {
-			std::string url=map[curid].tw->GetPermalink();
+			std::string url = map[curid].tw->GetPermalink();
 			if(url.size()) {
 				if(wxTheClipboard->Open()) {
 					wxTheClipboard->SetData(new wxTextDataObject(wxstrstd(url)));
@@ -262,7 +262,7 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 			break;
 		}
 		case TAMI_BROWSER: {
-			std::string url=map[curid].tw->GetPermalink();
+			std::string url = map[curid].tw->GetPermalink();
 			if(url.size()) {
 				::wxLaunchDefaultBrowser(wxstrstd(url));
 			}
@@ -294,7 +294,7 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 			break;
 		}
 		case TAMI_MEDIAWIN: {
-			media_id_type media_id=ParseMediaID(map[curid].extra);
+			media_id_type media_id = ParseMediaID(map[curid].extra);
 			if(ad.media_list[media_id]->win) {
 				ad.media_list[media_id]->win->Raise();
 			}
@@ -417,39 +417,39 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 }
 
 wxString getreltimestr(time_t timestamp, time_t &updatetime) {
-	time_t nowtime=time(0);
-	if(timestamp>nowtime) {
-		updatetime=30+timestamp-nowtime;
+	time_t nowtime = time(nullptr);
+	if(timestamp > nowtime) {
+		updatetime = 30 + timestamp-nowtime;
 		return wxT("In the future");
 	}
-	time_t diff=nowtime-timestamp;
-	if(diff<60) {
-		updatetime=nowtime+60;
+	time_t diff = nowtime-timestamp;
+	if(diff < 60) {
+		updatetime = nowtime + 60;
 		return wxT("< 1 minute ago");
 	}
-	diff/=60;
-	if(diff<120) {
-		updatetime=nowtime+60;
-		return wxString::Format(wxT("%d minute%s ago"), diff, (diff!=1)?wxT("s"):wxT(""));
+	diff /= 60;
+	if(diff < 120) {
+		updatetime = nowtime + 60;
+		return wxString::Format(wxT("%d minute%s ago"), diff, (diff != 1) ? wxT("s") : wxT(""));
 	}
-	diff/=60;
-	if(diff<48) {
-		updatetime=nowtime+60*30;
-		return wxString::Format(wxT("%d hour%s ago"), diff, (diff!=1)?wxT("s"):wxT(""));
+	diff /= 60;
+	if(diff < 48) {
+		updatetime = nowtime + 60 * 30;
+		return wxString::Format(wxT("%d hour%s ago"), diff, (diff != 1) ? wxT("s") : wxT(""));
 	}
-	diff/=24;
-	if(diff<30) {
-		updatetime=nowtime+60*60*2;
-		return wxString::Format(wxT("%d day%s ago"), diff, (diff!=1)?wxT("s"):wxT(""));
+	diff /= 24;
+	if(diff < 30) {
+		updatetime = nowtime + 60 * 60 * 2;
+		return wxString::Format(wxT("%d day%s ago"), diff, (diff != 1) ? wxT("s") : wxT(""));
 	}
-	diff/=30;
-	if(diff<12) {
-		updatetime=nowtime+60*60*24*2;
-		return wxString::Format(wxT("%d month%s ago"), diff, (diff!=1)?wxT("s"):wxT(""));
+	diff /= 30;
+	if(diff < 12) {
+		updatetime = nowtime + 60 * 60 * 24 * 2;
+		return wxString::Format(wxT("%d month%s ago"), diff, (diff != 1) ? wxT("s") : wxT(""));
 	}
-	diff/=12;
-	updatetime=nowtime+60*60*24*2;
-	return wxString::Format(wxT("%d year%s ago"), diff, (diff!=1)?wxT("s"):wxT(""));
+	diff /= 12;
+	updatetime = nowtime + 60 * 60 * 24 * 2;
+	return wxString::Format(wxT("%d year%s ago"), diff, (diff != 1) ? wxT("s") : wxT(""));
 
 }
 
@@ -496,7 +496,7 @@ wxColour NormaliseColour(double br, double bg, double bb) {
 
 	double max = std::max({br, bg, bb});
 	if(max > 255) {
-		double factor = 255.0/max;
+		double factor = 255.0 / max;
 		br *= factor;
 		bg *= factor;
 		bb *= factor;

@@ -44,7 +44,7 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	cached_id_sets cids;
 	std::vector<tpanel_auto> tpautos;
 
-	static std::shared_ptr<tpanel> MkTPanel(const std::string &name_, const std::string &dispname_, flagwrapper<TPF> flags_ = 0, std::shared_ptr<taccount> *acc = 0);
+	static std::shared_ptr<tpanel> MkTPanel(const std::string &name_, const std::string &dispname_, flagwrapper<TPF> flags_ = 0, std::shared_ptr<taccount> *acc = nullptr);
 	static std::shared_ptr<tpanel> MkTPanel(const std::string &name_, const std::string &dispname_, flagwrapper<TPF> flags_, std::vector<tpanel_auto> tpautos_);
 	tpanel(const std::string &name_, const std::string &dispname_, flagwrapper<TPF> flags_, std::vector<tpanel_auto> tpautos_);		//don't use this directly
 	~tpanel();

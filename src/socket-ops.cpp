@@ -80,7 +80,7 @@ void dlconn::Init(std::unique_ptr<mcurlconn> &&this_owner, const std::string &ur
 int dlconn::curlCallback(char* data, size_t size, size_t nmemb, dlconn *obj) {
 	int writtenSize = 0;
 	if( obj && data ) {
-		writtenSize = size*nmemb;
+		writtenSize = size * nmemb;
 		obj->data.append(data, writtenSize);
 	}
 	return writtenSize;

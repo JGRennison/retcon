@@ -52,10 +52,10 @@ END_EVENT_TABLE()
 
 std::set<acc_window *> acc_window::currentset;
 
-acc_window::acc_window(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name)
-	: wxDialog(parent, id, title, pos, size, style, name) {
+acc_window::acc_window(wxWindow* parent, wxWindowID id, const wxString &title, const wxPoint &pos, const wxSize &size, long style, const wxString &name)
+		: wxDialog(parent, id, title, pos, size, style, name) {
 
-	wxWindow *panel=this;
+	wxWindow *panel = this;
 
 	wxBoxSizer *vbox = new wxBoxSizer(wxVERTICAL);
 	wxStaticBoxSizer *hbox1 = new wxStaticBoxSizer(wxHORIZONTAL, panel, wxT("Accounts"));
@@ -184,7 +184,7 @@ void acc_window::AccNew(wxCommandEvent &event) {
 		if(twit->TwSyncStartupAccVerify()) {
 			ta->userenabled = true;
 			ta->beinginsertedintodb = true;
-			ta->name = wxString::Format(wxT("%" wxLongLongFmtSpec "d-%d"),ta->usercont->id,time(0));
+			ta->name = wxString::Format(wxT("%" wxLongLongFmtSpec "d-%d"), ta->usercont->id, time(nullptr));
 			alist.push_back(ta);
 			UpdateLB();
 			std::unique_ptr<dbinsertaccmsg> insmsg(new dbinsertaccmsg);
@@ -249,8 +249,8 @@ struct DefaultChkBoxValidator : public wxValidator {
 	wxCheckBox *chkbox;
 	flagwrapper<DBCV> flags;
 
-	DefaultChkBoxValidator(genopt &val_, genopt &parentval_, flagwrapper<DBCV> flags_ = 0, wxTextCtrl *txtctrl_ = 0, wxCheckBox *chkbox_ = 0)
-		: wxValidator(), val(val_), parentval(parentval_), txtctrl(txtctrl_), chkbox(chkbox_), flags(flags_) { }
+	DefaultChkBoxValidator(genopt &val_, genopt &parentval_, flagwrapper<DBCV> flags_ = 0, wxTextCtrl *txtctrl_ = nullptr, wxCheckBox *chkbox_ = nullptr)
+			: wxValidator(), val(val_), parentval(parentval_), txtctrl(txtctrl_), chkbox(chkbox_), flags(flags_) { }
 	virtual wxObject* Clone() const { return new DefaultChkBoxValidator(val, parentval, flags, txtctrl, chkbox); }
 	virtual bool TransferFromWindow() {
 		wxCheckBox *chk = (wxCheckBox*) GetWindow();
@@ -301,16 +301,16 @@ END_EVENT_TABLE()
 struct ValueChkBoxValidator : public wxValidator {
 	genopt &val;
 	ValueChkBoxValidator(genopt &val_)
-		: wxValidator(), val(val_) { }
+			: wxValidator(), val(val_) { }
 	virtual wxObject* Clone() const { return new ValueChkBoxValidator(val); }
 	virtual bool TransferFromWindow() {
-		wxCheckBox *chk=(wxCheckBox*) GetWindow();
-		val.val=((chk->GetValue())?wxT("1"):wxT("0"));
+		wxCheckBox *chk = (wxCheckBox*) GetWindow();
+		val.val = ((chk->GetValue()) ? wxT("1") : wxT("0"));
 		return true;
 	}
 	virtual bool TransferToWindow() {
-		wxCheckBox *chk=(wxCheckBox*) GetWindow();
-		chk->SetValue((val.val==wxT("1")));
+		wxCheckBox *chk = (wxCheckBox*) GetWindow();
+		chk->SetValue((val.val == wxT("1")));
 		return true;
 	}
 	virtual bool Validate(wxWindow* parent) {
@@ -333,10 +333,10 @@ enum {
 	OPTWIN_LAST,
 };
 
-void settings_window::AddSettingRow_String(unsigned int win, wxWindow* parent, wxSizer *sizer, const wxString &name,
+void settings_window::AddSettingRow_String(unsigned int win, wxWindow *parent, wxSizer *sizer, const wxString &name,
 		flagwrapper<DBCV> flags, genopt &val, genopt &parentval, long style, wxValidator *textctrlvalidator) {
 	wxTextValidator deftv(style, &val.val);
-	if(!textctrlvalidator) textctrlvalidator=&deftv;
+	if(!textctrlvalidator) textctrlvalidator = &deftv;
 	wxStaticText *stat = new wxStaticText(parent, wxID_ANY, name);
 	wxTextCtrl *tc = new wxTextCtrl(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize,
 			(flags & DBCV::MULTILINE) ? wxTE_MULTILINE : 0, *textctrlvalidator);
@@ -344,7 +344,7 @@ void settings_window::AddSettingRow_String(unsigned int win, wxWindow* parent, w
 	wxCheckBox *chk = new wxCheckBox(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, 0, dcbv);
 
 	sizer->Add(stat, 0, wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL, 4);
-	wxSize statsz=stat->GetSize();
+	wxSize statsz = stat->GetSize();
 	sizer->SetItemMinSize(stat, std::max(200,statsz.GetWidth()), statsz.GetHeight());
 	sizer->Add(chk, 0, wxALIGN_CENTRE | wxALIGN_CENTRE_VERTICAL, 4);
 	sizer->Add(tc, 0, wxEXPAND | wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL, 4);
@@ -362,7 +362,7 @@ void settings_window::AddSettingRow_Bool(unsigned int win, wxWindow* parent, wxS
 	wxCheckBox *chk = new wxCheckBox(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, 0, dcbv);
 
 	sizer->Add(stat, 0, wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL, 4);
-	wxSize statsz=stat->GetSize();
+	wxSize statsz = stat->GetSize();
 	sizer->SetItemMinSize(stat, std::max(200,statsz.GetWidth()), statsz.GetHeight());
 	sizer->Add(chk, 0, wxALIGN_CENTRE | wxALIGN_CENTRE_VERTICAL, 4);
 	sizer->Add(chkval, 0, wxEXPAND | wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL, 4);
@@ -402,7 +402,7 @@ EVT_COMMAND_RANGE(4000, 4000 + OPTWIN_LAST - 1, wxEVT_COMMAND_TOGGLEBUTTON_CLICK
 END_EVENT_TABLE()
 
 settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name, taccount *defshow)
-	: wxDialog(parent, id, title, pos, size, style, name) {
+		: wxDialog(parent, id, title, pos, size, style, name) {
 
 	wxWindow *panel = this;
 	current = 0;
@@ -429,7 +429,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 		});
 	};
 
-	wxFlexGridSizer *fgs = 0;
+	wxFlexGridSizer *fgs = nullptr;
 	addfgsizerblock(wxT("General Settings"), fgs);
 
 	cat_buttons.resize(OPTWIN_LAST);
@@ -475,12 +475,12 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs, wxT("Mark deleted tweets and DMs as read"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.markdeletedtweetsasread, gcglobdefaults.markdeletedtweetsasread);
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs, wxT("Mark own tweets and DMs as read"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.markowntweetsasread, gcglobdefaults.markowntweetsasread);
 
-	wxFlexGridSizer *scrollparamsfgs = 0;
+	wxFlexGridSizer *scrollparamsfgs = nullptr;
 	addfgsizerblock(wxT("Scrolling"), scrollparamsfgs);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, scrollparamsfgs, wxT("Mouse wheel scroll speed"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.mousewheelscrollspeed, gcglobdefaults.mousewheelscrollspeed);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, scrollparamsfgs, wxT("Line scroll speed"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.linescrollspeed, gcglobdefaults.linescrollspeed);
 
-	wxFlexGridSizer *mediawinposfgs = 0;
+	wxFlexGridSizer *mediawinposfgs = nullptr;
 	addfgsizerblock(wxT("Media Window Positioning"), mediawinposfgs);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, mediawinposfgs, wxT("Screen width reduction"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.mediawinscreensizewidthreduction, gcglobdefaults.mediawinscreensizewidthreduction);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, mediawinposfgs, wxT("Screen height reduction"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.mediawinscreensizeheightreduction, gcglobdefaults.mediawinscreensizeheightreduction);
@@ -495,15 +495,15 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 
 	AddSettingRow_String(OPTWIN_IMAGE, panel, fgs, wxT("Max profile image size / px"), DBCV::ISGLOBALCFG, gc.gcfg.maxpanelprofimgsize, gcglobdefaults.maxpanelprofimgsize, wxFILTER_NUMERIC);
 	AddSettingRow_Bool(OPTWIN_IMAGE, panel, fgs, wxT("Display image thumbnails"), DBCV::ISGLOBALCFG, gc.gcfg.dispthumbs, gcglobdefaults.dispthumbs);
-	wxFlexGridSizer *loadthumbfgs = 0;
+	wxFlexGridSizer *loadthumbfgs = nullptr;
 	addfgsizerblock(wxT("Load image thumbnails"), loadthumbfgs);
 	AddSettingRow_Bool(OPTWIN_IMAGE, panel, loadthumbfgs, wxT("Twitter image thumbnails"), DBCV::ISGLOBALCFG, gc.gcfg.disploadthumb_thumb, gcglobdefaults.disploadthumb_thumb);
 	AddSettingRow_Bool(OPTWIN_IMAGE, panel, loadthumbfgs, wxT("Full-size images as thumbnails"), DBCV::ISGLOBALCFG, gc.gcfg.disploadthumb_full, gcglobdefaults.disploadthumb_full);
-	wxFlexGridSizer *autoloadthumbfgs = 0;
+	wxFlexGridSizer *autoloadthumbfgs = nullptr;
 	addfgsizerblock(wxT("Pre-load image thumbnails even when not displayed"), autoloadthumbfgs);
 	AddSettingRow_Bool(OPTWIN_IMAGE, panel, autoloadthumbfgs, wxT("Twitter image thumbnails"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.autoloadthumb_thumb, gcglobdefaults.autoloadthumb_thumb);
 	AddSettingRow_Bool(OPTWIN_IMAGE, panel, autoloadthumbfgs, wxT("Full-size images as thumbnails"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.autoloadthumb_full, gcglobdefaults.autoloadthumb_full);
-	wxFlexGridSizer *hiddenthumbfgs = 0;
+	wxFlexGridSizer *hiddenthumbfgs = nullptr;
 	addfgsizerblock(wxT("Hidden image thumbnails"), hiddenthumbfgs);
 	AddSettingRow_Bool(OPTWIN_IMAGE, panel, hiddenthumbfgs, wxT("Hide all image thumbnails"), DBCV::ISGLOBALCFG, gc.gcfg.hideallthumbs, gcglobdefaults.hideallthumbs);
 	AddSettingRow_String(OPTWIN_IMAGE, panel, hiddenthumbfgs,  wxT("Unhide image thumbnail time / seconds"), DBCV::ISGLOBALCFG, gc.gcfg.imgthumbunhidetime, gcglobdefaults.imgthumbunhidetime, wxFILTER_NUMERIC);
@@ -519,7 +519,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 
 	AddSettingRow_String(OPTWIN_SAVING, panel, fgs,  wxT("Media image\nsave directories\n(1 per line)"), DBCV::ISGLOBALCFG | DBCV::MULTILINE, gc.gcfg.mediasave_directorylist, gcglobdefaults.mediasave_directorylist);
 
-	wxFlexGridSizer *tweetfilterfgs = 0;
+	wxFlexGridSizer *tweetfilterfgs = nullptr;
 	addfgsizerblock(wxT("Tweet Filters - Read Documentation Before Use"), tweetfilterfgs);
 	FilterTextValidator filterval(ad.incoming_filter, &gc.gcfg.incoming_filter.val);
 	AddSettingRow_String(OPTWIN_FILTER, panel, tweetfilterfgs,  wxT("Timeline Tweet filter\nHome timeline, mentions, DMs"), DBCV::ISGLOBALCFG | DBCV::MULTILINE | DBCV::ADVOPTION, gc.gcfg.incoming_filter, gcglobdefaults.incoming_filter, 0, &filterval);
@@ -529,7 +529,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_String(OPTWIN_MISC, panel, fgs, wxT("Thread pool limit, 0 to disable\nDo not set this too high\nRestart retcon for this to take effect"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.threadpoollimit, gcglobdefaults.threadpoollimit, wxFILTER_NUMERIC);
 	AddSettingRow_String(OPTWIN_MISC, panel, fgs, wxT("Flush all state to DB interval / mins, 0 to disable\nChanges take effect after the next flush"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.asyncstatewritebackintervalmins, gcglobdefaults.asyncstatewritebackintervalmins, wxFILTER_NUMERIC);
 
-	wxFlexGridSizer *proxyfgs = 0;
+	wxFlexGridSizer *proxyfgs = nullptr;
 	addfgsizerblock(wxT("Proxy Settings"), proxyfgs);
 
 	AddSettingRow_Bool(OPTWIN_NETWORK, panel, proxyfgs, wxT("Use proxy settings (applies to new connections).\n(If not set, use system/environment default)"), DBCV::ISGLOBALCFG, gc.gcfg.setproxy, gcglobdefaults.setproxy);
@@ -550,7 +550,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 #endif
 	AddSettingRow_String(OPTWIN_NETWORK, panel, fgs, netifacelabel, DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.netiface, gcglobdefaults.netiface);
 
-	lb=new wxChoice(panel, wxID_FILE1);
+	lb = new wxChoice(panel, wxID_FILE1);
 
 	vbox->Add(lb, 0, wxALL, 4);
 
@@ -560,8 +560,8 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	lb->SetSelection(0);
 
 	for(auto &it : alist) {
-		wxStaticBoxSizer *sbox=AddGenoptconfSettingBlock(panel, vbox, it->dispname, it->cfg, gc.cfg, 0);
-		accmap[it.get()]=sbox;
+		wxStaticBoxSizer *sbox = AddGenoptconfSettingBlock(panel, vbox, it->dispname, it->cfg, gc.cfg, 0);
+		accmap[it.get()] = sbox;
 		lb->Append(it->dispname, it.get());
 		if(it.get() == defshow) {
 			current = defshow;
@@ -682,21 +682,21 @@ void settings_window::OptShowHide(flagwrapper<DBCV> setmask) {
 }
 
 void settings_window::PostOptShowHide() {
-	for(auto it=accmap.begin(); it!=accmap.end(); it++) {
-		if(it->first!=current) vbox->Hide(it->second);
+	for(auto &it : accmap) {
+		if(it.first != current) vbox->Hide(it.second);
 	}
 	vbox->Layout();
 	GetSizer()->Fit(this);
-	wxSize cursize=GetSize();
+	wxSize cursize = GetSize();
 	SetSizeHints(initsize.GetWidth(), cursize.GetHeight(), 9000, cursize.GetHeight());
 }
 
 bool settings_window::TransferDataFromWindow() {
-	bool retval=wxWindow::TransferDataFromWindow();
+	bool retval = wxWindow::TransferDataFromWindow();
 	if(retval) {
 		AllUsersInheritFromParentIfUnset();
 		gc.CFGParamConv();
-		for(auto it=alist.begin() ; it != alist.end(); it++ ) (*it)->CFGParamConv();
+		for(auto &it : alist) it->CFGParamConv();
 	}
 	return retval;
 }

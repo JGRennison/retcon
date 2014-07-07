@@ -94,7 +94,7 @@ struct twitcurlext: public twitCurl, public mcurlconn {
 };
 template<> struct enum_traits<twitcurlext::TCF> { static constexpr bool flags = true; };
 
-void StreamCallback(std::string &data, twitCurl* pTwitCurlObj, void *userdata);
-void StreamActivityCallback(twitCurl* pTwitCurlObj, void *userdata);
+void StreamCallback(std::string &data, twitCurl *pTwitCurlObj, void *userdata);
+void StreamActivityCallback(twitCurl *pTwitCurlObj, void *userdata);
 
 #endif

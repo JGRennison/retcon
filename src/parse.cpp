@@ -36,26 +36,27 @@
 #include <wx/msgdlg.h>
 #include <algorithm>
 
-template <typename C> bool IsType(const rapidjson::Value& val);
-template <> bool IsType<bool>(const rapidjson::Value& val) { return val.IsBool(); }
-template <> bool IsType<unsigned int>(const rapidjson::Value& val) { return val.IsUint(); }
-template <> bool IsType<int>(const rapidjson::Value& val) { return val.IsInt(); }
-template <> bool IsType<uint64_t>(const rapidjson::Value& val) { return val.IsUint64(); }
-template <> bool IsType<const char*>(const rapidjson::Value& val) { return val.IsString(); }
-template <> bool IsType<std::string>(const rapidjson::Value& val) { return val.IsString(); }
+template <typename C> bool IsType(const rapidjson::Value &val);
+template <> bool IsType<bool>(const rapidjson::Value &val) { return val.IsBool(); }
+template <> bool IsType<unsigned int>(const rapidjson::Value &val) { return val.IsUint(); }
+template <> bool IsType<int>(const rapidjson::Value &val) { return val.IsInt(); }
+template <> bool IsType<uint64_t>(const rapidjson::Value &val) { return val.IsUint64(); }
+template <> bool IsType<const char*>(const rapidjson::Value &val) { return val.IsString(); }
+template <> bool IsType<std::string>(const rapidjson::Value &val) { return val.IsString(); }
 
-template <typename C> C GetType(const rapidjson::Value& val);
-template <> bool GetType<bool>(const rapidjson::Value& val) { return val.GetBool(); }
-template <> unsigned int GetType<unsigned int>(const rapidjson::Value& val) { return val.GetUint(); }
-template <> int GetType<int>(const rapidjson::Value& val) { return val.GetInt(); }
-template <> uint64_t GetType<uint64_t>(const rapidjson::Value& val) { return val.GetUint64(); }
-template <> const char* GetType<const char*>(const rapidjson::Value& val) { return val.GetString(); }
-template <> std::string GetType<std::string>(const rapidjson::Value& val) { return val.GetString(); }
+template <typename C> C GetType(const rapidjson::Value &val);
+template <> bool GetType<bool>(const rapidjson::Value &val) { return val.GetBool(); }
+template <> unsigned int GetType<unsigned int>(const rapidjson::Value &val) { return val.GetUint(); }
+template <> int GetType<int>(const rapidjson::Value &val) { return val.GetInt(); }
+template <> uint64_t GetType<uint64_t>(const rapidjson::Value &val) { return val.GetUint64(); }
+template <> const char* GetType<const char*>(const rapidjson::Value &val) { return val.GetString(); }
+template <> std::string GetType<std::string>(const rapidjson::Value &val) { return val.GetString(); }
 
-template <typename C, typename D> static bool CheckTransJsonValueDef(C &var, const rapidjson::Value& val, const char *prop, const D def, Handler *handler=0) {
-	const rapidjson::Value &subval=val[prop];
-	bool res=IsType<C>(subval);
-	var=res?GetType<C>(subval):def;
+template <typename C, typename D> static bool CheckTransJsonValueDef(C &var, const rapidjson::Value &val,
+		const char *prop, const D def, Handler *handler = nullptr) {
+	const rapidjson::Value &subval = val[prop];
+	bool res = IsType<C>(subval);
+	var = res ? GetType<C>(subval) : def;
 	if(res && handler) {
 		handler->String(prop);
 		subval.Accept(*handler);
@@ -63,12 +64,13 @@ template <typename C, typename D> static bool CheckTransJsonValueDef(C &var, con
 	return res;
 }
 
-template <typename C, typename D> static bool CheckTransJsonValueDefFlag(C &var, D flagmask, const rapidjson::Value& val, const char *prop, bool def, Handler *handler=0) {
-	const rapidjson::Value &subval=val[prop];
-	bool res=IsType<bool>(subval);
-	bool flagval=res?GetType<bool>(subval):def;
-	if(flagval) var|=flagmask;
-	else var&=~flagmask;
+template <typename C, typename D> static bool CheckTransJsonValueDefFlag(C &var, D flagmask, const rapidjson::Value &val,
+		const char *prop, bool def, Handler *handler = nullptr) {
+	const rapidjson::Value &subval = val[prop];
+	bool res = IsType<bool>(subval);
+	bool flagval = res ? GetType<bool>(subval):def;
+	if(flagval) var |= flagmask;
+	else var &= ~flagmask;
 	if(res && handler) {
 		handler->String(prop);
 		subval.Accept(*handler);
@@ -76,28 +78,31 @@ template <typename C, typename D> static bool CheckTransJsonValueDefFlag(C &var,
 	return res;
 }
 
-template <typename C, typename D> static bool CheckTransJsonValueDefTrackChanges(bool &changeflag, C &var, const rapidjson::Value& val, const char *prop, const D def, Handler *handler=0) {
+template <typename C, typename D> static bool CheckTransJsonValueDefTrackChanges(bool &changeflag, C &var, const rapidjson::Value &val,
+		const char *prop, const D def, Handler *handler = nullptr) {
 	C oldvar = var;
 	bool result = CheckTransJsonValueDef(var, val, prop, def, handler);
 	if(var != oldvar) changeflag = true;
 	return result;
 }
 
-template <typename C, typename D> static bool CheckTransJsonValueDefFlagTrackChanges(bool &changeflag, C &var, D flagmask, const rapidjson::Value& val, const char *prop, bool def, Handler *handler=0) {
+template <typename C, typename D> static bool CheckTransJsonValueDefFlagTrackChanges(bool &changeflag, C &var, D flagmask, const rapidjson::Value &val,
+		const char *prop, bool def, Handler *handler = nullptr) {
 	C oldvar = var;
 	bool result = CheckTransJsonValueDefFlag(var, flagmask, val, prop, def, handler);
 	if((var & flagmask) != (oldvar & flagmask)) changeflag = true;
 	return result;
 }
 
-template <typename C, typename D> static C CheckGetJsonValueDef(const rapidjson::Value& val, const char *prop, const D def, Handler *handler=0, bool *hadval=0) {
-	const rapidjson::Value &subval=val[prop];
-	bool res=IsType<C>(subval);
+template <typename C, typename D> static C CheckGetJsonValueDef(const rapidjson::Value &val, const char *prop, const D def,
+		Handler *handler = nullptr, bool *hadval = nullptr) {
+	const rapidjson::Value &subval = val[prop];
+	bool res = IsType<C>(subval);
 	if(res && handler) {
 		handler->String(prop);
 		subval.Accept(*handler);
 	}
-	if(hadval) *hadval=res;
+	if(hadval) *hadval = res;
 	return res?GetType<C>(subval):def;
 }
 
@@ -112,7 +117,7 @@ void DisplayParseErrorMsg(rapidjson::Document &dc, const std::string &name, cons
 }
 
 //if jw, caller should already have called jw->StartObject(), etc
-void genjsonparser::ParseTweetStatics(const rapidjson::Value& val, tweet_ptr_p tobj, Handler *jw, bool isnew, optional_observer_ptr<dbsendmsg_list> dbmsglist, bool parse_entities) {
+void genjsonparser::ParseTweetStatics(const rapidjson::Value &val, tweet_ptr_p tobj, Handler *jw, bool isnew, optional_observer_ptr<dbsendmsg_list> dbmsglist, bool parse_entities) {
 	CheckTransJsonValueDef(tobj->in_reply_to_status_id, val, "in_reply_to_status_id", 0, jw);
 	CheckTransJsonValueDef(tobj->retweet_count, val, "retweet_count", 0);
 	CheckTransJsonValueDef(tobj->favourite_count, val, "favorite_count", 0);
@@ -129,14 +134,14 @@ void genjsonparser::ParseTweetStatics(const rapidjson::Value& val, tweet_ptr_p t
 }
 
 //this is paired with tweet::mkdynjson
-void genjsonparser::ParseTweetDyn(const rapidjson::Value& val, tweet_ptr_p tobj) {
-	const rapidjson::Value &p=val["p"];
+void genjsonparser::ParseTweetDyn(const rapidjson::Value &val, tweet_ptr_p tobj) {
+	const rapidjson::Value &p = val["p"];
 	if(p.IsArray()) {
 		for(rapidjson::SizeType i = 0; i < p.Size(); i++) {
 			unsigned int dbindex=CheckGetJsonValueDef<unsigned int>(p[i], "a", 0);
-			for(auto it=alist.begin(); it!=alist.end(); ++it) {
-				if((*it)->dbindex==dbindex) {
-					tweet_perspective *tp=tobj->AddTPToTweet(*it);
+			for(auto &it : alist) {
+				if(it->dbindex == dbindex) {
+					tweet_perspective *tp = tobj->AddTPToTweet(it);
 					tp->Load(CheckGetJsonValueDef<unsigned int>(p[i], "f", 0));
 					break;
 				}
@@ -144,27 +149,27 @@ void genjsonparser::ParseTweetDyn(const rapidjson::Value& val, tweet_ptr_p tobj)
 		}
 	}
 
-	const rapidjson::Value &r=val["r"];
+	const rapidjson::Value &r = val["r"];
 	if(r.IsUint()) tobj->retweet_count = r.GetUint();
 
-	const rapidjson::Value &f=val["f"];
+	const rapidjson::Value &f = val["f"];
 	if(f.IsUint()) tobj->favourite_count = f.GetUint();
 }
 
 //returns true on success
-static bool ReadEntityIndices(int &start, int &end, const rapidjson::Value& val) {
-	auto &ar=val["indices"];
-	if(ar.IsArray() && ar.Size()==2) {
+static bool ReadEntityIndices(int &start, int &end, const rapidjson::Value &val) {
+	auto &ar = val["indices"];
+	if(ar.IsArray() && ar.Size() == 2) {
 		if(ar[(rapidjson::SizeType) 0].IsInt() && ar[1].IsInt()) {
-			start=ar[(rapidjson::SizeType) 0].GetInt();
-			end=ar[1].GetInt();
+			start = ar[(rapidjson::SizeType) 0].GetInt();
+			end = ar[1].GetInt();
 			return true;
 		}
 	}
 	return false;
 }
 
-static bool ReadEntityIndices(entity &en, const rapidjson::Value& val) {
+static bool ReadEntityIndices(entity &en, const rapidjson::Value &val) {
 	return ReadEntityIndices(en.start, en.end, val);
 }
 
@@ -180,7 +185,7 @@ static std::string ProcessMediaURL(std::string url, const wxURI &wxuri) {
 	return url;
 }
 
-void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, tweet_ptr_p t, bool isnew, optional_observer_ptr<dbsendmsg_list> dbmsglist) {
+void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, tweet_ptr_p t, bool isnew, optional_observer_ptr<dbsendmsg_list> dbmsglist) {
 	LogMsg(LOGT::PARSE, "jsonparser::DoEntitiesParse");
 
 	auto &hashtags = val["hashtags"];
@@ -417,7 +422,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, tweet_ptr_p t, 
 	}
 }
 
-void genjsonparser::ParseUserContents(const rapidjson::Value& val, userdata &userobj, bool is_ssl) {
+void genjsonparser::ParseUserContents(const rapidjson::Value &val, userdata &userobj, bool is_ssl) {
 	bool changed = false;
 	CheckTransJsonValueDefTrackChanges(changed, userobj.name, val, "name", "");
 	CheckTransJsonValueDefTrackChanges(changed, userobj.screen_name, val, "screen_name", "");
@@ -451,19 +456,19 @@ jsonparser::~jsonparser() { }
 void jsonparser::RestTweetUpdateParams(const tweet &t) {
 	if(twit && twit->rbfs) {
 		if(twit->rbfs->max_tweets_left) twit->rbfs->max_tweets_left--;
-		if(!twit->rbfs->end_tweet_id || twit->rbfs->end_tweet_id>=t.id) twit->rbfs->end_tweet_id=t.id-1;
-		twit->rbfs->read_again=true;
+		if(!twit->rbfs->end_tweet_id || twit->rbfs->end_tweet_id>=t.id) twit->rbfs->end_tweet_id = t.id - 1;
+		twit->rbfs->read_again = true;
 		twit->rbfs->lastop_recvcount++;
 	}
 }
 
 void jsonparser::RestTweetPreParseUpdateParams() {
-	if(twit && twit->rbfs) twit->rbfs->read_again=false;
+	if(twit && twit->rbfs) twit->rbfs->read_again = false;
 }
 
-void jsonparser::DoFriendLookupParse(const rapidjson::Value& val) {
+void jsonparser::DoFriendLookupParse(const rapidjson::Value &val) {
 	using URF = user_relationship::URF;
-	time_t optime = (tac->ta_flags & taccount::TAF::STREAM_UP) ? 0 : time(0);
+	time_t optime = (tac->ta_flags & taccount::TAF::STREAM_UP) ? 0 : time(nullptr);
 	if(val.IsArray()) {
 		for(rapidjson::SizeType i = 0; i < val.Size(); i++) {
 			uint64_t userid = CheckGetJsonValueDef<uint64_t>(val[i], "id", 0);
@@ -567,16 +572,16 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			else RestTweetUpdateParams(*DoTweetParse(dc, JDTP::ISDM));
 			break;
 		case CS_STREAM: {
-			const rapidjson::Value& fval=dc["friends"];
-			const rapidjson::Value& eval=dc["event"];
-			const rapidjson::Value& ival=dc["id"];
-			const rapidjson::Value& tval=dc["text"];
-			const rapidjson::Value& dmval=dc["direct_message"];
-			const rapidjson::Value& delval=dc["delete"];
+			const rapidjson::Value &fval = dc["friends"];
+			const rapidjson::Value &eval = dc["event"];
+			const rapidjson::Value &ival = dc["id"];
+			const rapidjson::Value &tval = dc["text"];
+			const rapidjson::Value &dmval = dc["direct_message"];
+			const rapidjson::Value &delval = dc["delete"];
 			if(fval.IsArray()) {
 				using URF = user_relationship::URF;
 				tac->ta_flags |= taccount::TAF::STREAM_UP;
-				tac->last_stream_start_time = time(0);
+				tac->last_stream_start_time = time(nullptr);
 				tac->ClearUsersIFollow();
 				time_t optime = 0;
 				for(rapidjson::SizeType i = 0; i < fval.Size(); i++) tac->SetUserRelationship(fval[i].GetUint64(), URF::IFOLLOW_KNOWN | URF::IFOLLOW_TRUE, optime);
@@ -594,10 +599,10 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			else if(delval.IsObject() && delval["status"].IsObject()) {
 				DoTweetParse(delval["status"], JDTP::DEL);
 			}
-			else if(ival.IsNumber() && tval.IsString() && dc["recipient"].IsObject() && dc["sender"].IsObject()) {	//assume this is a direct message
+			else if(ival.IsNumber() && tval.IsString() && dc["recipient"].IsObject() && dc["sender"].IsObject()) {    //assume this is a direct message
 				DoTweetParse(dc, JDTP::ISDM);
 			}
-			else if(ival.IsNumber() && tval.IsString() && dc["user"].IsObject()) {	//assume that this is a tweet
+			else if(ival.IsNumber() && tval.IsString() && dc["user"].IsObject()) {    //assume that this is a tweet
 				DoTweetParse(dc);
 			}
 			else {
@@ -661,7 +666,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 		}
 		case CS_USERFOLLOWING:
 		case CS_USERFOLLOWERS: {
-			auto win=MagicWindowCast<tpanelparentwin_userproplisting>(twit->mp);
+			auto win = MagicWindowCast<tpanelparentwin_userproplisting>(twit->mp);
 			if(win) {
 				if(dc.IsObject()) {
 					auto &dci = dc["ids"];
@@ -688,7 +693,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 }
 
 //don't use this for perspectival attributes
-udc_ptr jsonparser::DoUserParse(const rapidjson::Value& val, flagwrapper<UMPTF> umpt_flags) {
+udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> umpt_flags) {
 	uint64_t id;
 	CheckTransJsonValueDef(id, val, "id", 0);
 	auto userdatacont = ad.GetUserContainerById(id);
@@ -711,13 +716,13 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value& val, flagwrapper<UMPTF> 
 	return userdatacont;
 }
 
-void ParsePerspectivalTweetProps(const rapidjson::Value& val, tweet_perspective *tp, Handler *handler) {
+void ParsePerspectivalTweetProps(const rapidjson::Value &val, tweet_perspective *tp, Handler *handler) {
 	tp->SetRetweeted(CheckGetJsonValueDef<bool>(val, "retweeted", false, handler));
 	tp->SetFavourited(CheckGetJsonValueDef<bool>(val, "favourited", false, handler));
 }
 
-inline udc_ptr CheckParseUserObj(uint64_t id, const rapidjson::Value& val, jsonparser &jp) {
-	if(val.HasMember("screen_name")) {	//check to see if this is a trimmed user object
+inline udc_ptr CheckParseUserObj(uint64_t id, const rapidjson::Value &val, jsonparser &jp) {
+	if(val.HasMember("screen_name")) {    //check to see if this is a trimmed user object
 		return jp.DoUserParse(val);
 	}
 	else {
@@ -725,7 +730,7 @@ inline udc_ptr CheckParseUserObj(uint64_t id, const rapidjson::Value& val, jsonp
 	}
 }
 
-tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP> sflags) {
+tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP> sflags) {
 	uint64_t tweetid;
 	if(!CheckTransJsonValueDef(tweetid, val, "id", 0, 0)) {
 		LogMsgFormat(LOGT::PARSEERR, "jsonparser::DoTweetParse: No ID present in document.");
@@ -846,7 +851,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP
 			ParseTwitterDate(0, &tobj->createtime, created_at);
 		}
 		else {
-			tobj->createtime=time(0);
+			tobj->createtime = time(nullptr);
 		}
 		auto &rtval = val["retweeted_status"];
 		if(rtval.IsObject()) {
@@ -898,7 +903,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP
 
 	if(!(sflags & JDTP::CHECKPENDINGONLY) && !(sflags & JDTP::ISRTSRC) && !(sflags & JDTP::USERTIMELINE)) {
 		if(sflags & JDTP::ISDM) {
-			if(tobj->user_recipient.get() == tac->usercont.get()) {	//received DM
+			if(tobj->user_recipient.get() == tac->usercont.get()) {    //received DM
 				if(tac->max_recvdm_id < tobj->id) tac->max_recvdm_id = tobj->id;
 			}
 			else {
@@ -990,7 +995,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP
 	return tobj;
 }
 
-void jsonparser::DoEventParse(const rapidjson::Value& val) {
+void jsonparser::DoEventParse(const rapidjson::Value &val) {
 	using URF = user_relationship::URF;
 
 	auto follow_update = [&](bool nowfollowing) {
@@ -1043,7 +1048,7 @@ void jsonparser::DoEventParse(const rapidjson::Value& val) {
 }
 
 void userdatacontainer::Dump() const {
-	time_t now = time(0);
+	time_t now = time(nullptr);
 	LogMsgFormat(LOGT::PARSE, "id: %" llFmtSpec "d, name: %s, screen_name: %s\nprofile image url: %s, cached url: %s\n"
 			"protected: %d, verified: %d, udc_flags: 0x%X, last update: %" llFmtSpec "ds ago, last DB update %" llFmtSpec "ds ago",
 			id, cstr(GetUser().name), cstr(GetUser().screen_name), cstr(GetUser().profile_img_url), cstr(cached_profile_img_url),
