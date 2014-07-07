@@ -32,12 +32,10 @@
 BEGIN_EVENT_TABLE( twitcurlext, mcurlconn )
 END_EVENT_TABLE()
 
-void twitcurlext::NotifyDoneSuccess(CURL *easy, CURLcode res) {
+void twitcurlext::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
 	std::shared_ptr<taccount> acc=tacc.lock();
 	LogMsgFormat(LOGT::OTHERTRACE, "twitcurlext::NotifyDoneSuccess: for conn: %s, account: %s", cstr(GetConnTypeName()), acc ? cstr(acc->dispname) : "none");
 	if(!acc) {
-		Reset();
-		delete this;
 		return;
 	}
 
@@ -47,25 +45,30 @@ void twitcurlext::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 	jp.ParseString(str);
 	str.clear();
 
-	if(connmode==CS_STREAM && acc->enabled) {
+	if(connmode == CS_STREAM && acc->enabled) {
 		LogMsgFormat(LOGT::SOCKERR, "Stream connection interrupted, reconnecting: for account: %s", cstr(acc->dispname));
-		DoRetry();
+		DoRetry(std::move(this_owner));
 	}
 	else if(rbfs) {
-		ExecRestGetTweetBackfill();
+		ExecRestGetTweetBackfill(static_pointer_cast<twitcurlext>(std::move(this_owner)));
 	}
 	else {
-		acc->DoPostAction(this);
+		acc->DoPostAction(*this);
 	}
 
 	acc->CheckFailedPendingConns();
 }
 
-void twitcurlext::ExecRestGetTweetBackfill() {
+void twitcurlext::ExecRestGetTweetBackfill(std::unique_ptr<twitcurlext> conn) {
+	// This is to make sure we don't dereference conn to get the vtable/this,
+	// after moving the unique_ptr into the argument
+	twitcurlext *ptr = conn.get();
+	ptr->DoExecRestGetTweetBackfill(std::move(conn));
+}
+
+void twitcurlext::DoExecRestGetTweetBackfill(std::unique_ptr<twitcurlext> this_owner) {
 	auto acc=tacc.lock();
 	if(!acc) {
-		Reset();
-		delete this;
 		return;
 	}
 
@@ -88,9 +91,9 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 
 	if(cleanup) {
 		//all done, can now clean up pending rbfs
-		acc->pending_rbfs_list.remove_if([&](restbackfillstate &r) { return (&r==rbfs); });
-		rbfs=0;
-		acc->DoPostAction(this);
+		acc->pending_rbfs_list.remove_if([&](restbackfillstate &r) { return (&r == rbfs.get()); });
+		rbfs = nullptr;
+		acc->DoPostAction(*this);
 	}
 	else {
 		rbfs->lastop_recvcount=0;
@@ -134,7 +137,7 @@ void twitcurlext::ExecRestGetTweetBackfill() {
 				cstr(acc->dispname), rbfs->type, tweets_to_get, rbfs->start_tweet_id, rbfs->end_tweet_id);
 			LogMsgFormat(LOGT::NETACT, "Executing API call: for account: %s, url: %s", cstr(acc->dispname), cstr(cururl));
 		}
-		sm.AddConn(*this);
+		sm.AddConn(std::move(this_owner));
 	}
 }
 
@@ -144,7 +147,19 @@ twitcurlext::twitcurlext(std::shared_ptr<taccount> acc) {
 twitcurlext::twitcurlext() { }
 
 twitcurlext::~twitcurlext() {
-	TwDeInit();
+	if(tc_flags & TCF::ISSTREAM) {
+		if(auto acc = tacc.lock()) {
+			if(acc->ta_flags & taccount::TAF::STREAM_UP) {
+				acc->ta_flags &= ~taccount::TAF::STREAM_UP;
+				time_t now = time(nullptr);
+				acc->last_stream_end_time = now;
+				for(auto it = acc->user_relations.begin(); it != acc->user_relations.end(); ++it) {
+					if(it->second.ifollow_updtime == 0) it->second.ifollow_updtime = now;
+					if(it->second.followsme_updtime == 0) it->second.followsme_updtime = now;
+				}
+			}
+		}
+	}
 }
 
 void twitcurlext::TwInit(std::shared_ptr<taccount> acc) {
@@ -161,14 +176,17 @@ void twitcurlext::TwInit(std::shared_ptr<taccount> acc) {
 	inited=true;
 }
 
-void twitcurlext::TwDeInit() {
-	inited=false;
+void twitcurlext::TwStartupAccVerify(std::unique_ptr<twitcurlext> conn) {
+	// This is to make sure we don't dereference conn to get the vtable/this,
+	// after moving the unique_ptr into the argument
+	twitcurlext *ptr = conn.get();
+	ptr->DoTwStartupAccVerify(std::move(conn));
 }
 
-void twitcurlext::TwStartupAccVerify() {
-	tacc.lock()->verifycredstatus=ACT_INPROGRESS;
-	connmode=CS_ACCVERIFY;
-	QueueAsyncExec();
+void twitcurlext::DoTwStartupAccVerify(std::unique_ptr<twitcurlext> this_owner) {
+	tacc.lock()->verifycredstatus = ACT_INPROGRESS;
+	connmode = CS_ACCVERIFY;
+	QueueAsyncExec(std::move(this_owner));
 }
 
 bool twitcurlext::TwSyncStartupAccVerify() {
@@ -193,43 +211,21 @@ bool twitcurlext::TwSyncStartupAccVerify() {
 	}
 }
 
-void twitcurlext::Reset() {
-	if(tc_flags & TCF::ISSTREAM) {
-		if(auto acc = tacc.lock()) {
-			if(acc->ta_flags & taccount::TAF::STREAM_UP) {
-				acc->ta_flags &= ~taccount::TAF::STREAM_UP;
-				time_t now = time(0);
-				acc->last_stream_end_time = now;
-				for(auto it = acc->user_relations.begin(); it != acc->user_relations.end(); ++it) {
-					if(it->second.ifollow_updtime == 0) it->second.ifollow_updtime = now;
-					if(it->second.followsme_updtime == 0) it->second.followsme_updtime = now;
-				}
-			}
-		}
-	}
-	tc_flags = 0;
-	scto.reset();
-	rbfs = 0;
-	ownermainframe = 0;
-	extra_id = 0;
-	genurl.clear();
-	extra1.clear();
-	ul.reset();
-	fl.reset();
-	post_action_flags = 0;
-	mp = 0;
-	extra_array.clear();
+void twitcurlext::DoRetry(std::unique_ptr<mcurlconn> &&this_owner) {
+	assert(this_owner.get() == this);
+	QueueAsyncExec(std::unique_ptr<twitcurlext>(static_cast<twitcurlext *>(this_owner.release())));
 }
 
-void twitcurlext::DoRetry() {
-	QueueAsyncExec();
+void twitcurlext::QueueAsyncExec(std::unique_ptr<twitcurlext> conn) {
+	// This is to make sure we don't dereference conn to get the vtable/this,
+	// after moving the unique_ptr into the argument
+	twitcurlext *ptr = conn.get();
+	ptr->DoQueueAsyncExec(std::move(conn));
 }
 
-void twitcurlext::QueueAsyncExec() {
-	auto acc=tacc.lock();
+void twitcurlext::DoQueueAsyncExec(std::unique_ptr<twitcurlext> this_owner) {
+	auto acc = tacc.lock();
 	if(!acc) {
-		Reset();
-		delete this;
 		return;
 	}
 
@@ -238,7 +234,6 @@ void twitcurlext::QueueAsyncExec() {
 		if(connmode==CS_POSTTWEET || connmode==CS_SENDDM) {
 			if(ownermainframe && ownermainframe->tpw) ownermainframe->tpw->NotifyPostResult(false);
 		}
-		acc->cp.Standby(this);
 		return;
 	}
 
@@ -252,7 +247,8 @@ void twitcurlext::QueueAsyncExec() {
 		case CS_DMTIMELINE:
 		case CS_USERTIMELINE:
 		case CS_USERFAVS:
-			return ExecRestGetTweetBackfill();
+			twitcurlext::ExecRestGetTweetBackfill(std::move(this_owner));
+			return;
 		case CS_STREAM:
 			LogMsgFormat(LOGT::NETACT, "Queue Stream Connection");
 			mcflags|=MCF::NOTIMEOUT;
@@ -265,7 +261,6 @@ void twitcurlext::QueueAsyncExec() {
 			std::string userliststr;
 			ul->GetIdList(userliststr);
 			if(userliststr.empty()) {	//nothing left to look up
-				acc->cp.Standby(this);
 				return;
 			}
 			if(currentlogflags&LOGT::NETACT) {
@@ -332,7 +327,7 @@ void twitcurlext::QueueAsyncExec() {
 	if(currentlogflags&LOGT::NETACT) {
 		LogMsgFormat(LOGT::NETACT, "Executing API call: for account: %s, url: %s", acc ? cstr(acc->dispname) : "", cstr(cururl));
 	}
-	sm.AddConn(*this);
+	sm.AddConn(std::move(this_owner));
 }
 
 std::string twitcurlext::GetConnTypeName() {
@@ -391,11 +386,9 @@ std::string twitcurlext::GetConnTypeName() {
 	return action;
 }
 
-void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
-	auto acc=tacc.lock();
+void twitcurlext::HandleFailure(long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
+	auto acc = tacc.lock();
 	if(!acc) {
-		Reset();
-		delete this;
 		return;
 	}
 
@@ -415,7 +408,6 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
 			else {
 				LogMsgFormat(LOGT::SOCKERR, "Stream reconnection attempt failed: for account: %s", cstr(acc->dispname));
 			}
-			acc->cp.Standby(this);
 			acc->stream_fail_count++;
 			acc->Exec();
 			return;
@@ -442,8 +434,8 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
 				else if(fl->ids.size()>1) {
 					LogMsgFormat(LOGT::SOCKERR, "Friend lookup failed, bisecting...  (%s)", cstr(acc->dispname));
 
-					twitcurlext *twit=acc->GetTwitCurlExt();
-					twit->connmode=CS_FRIENDLOOKUP;
+					std::unique_ptr<twitcurlext> twit = acc->GetTwitCurlExt();
+					twit->connmode = CS_FRIENDLOOKUP;
 					twit->fl.reset(new friendlookup);
 
 					//do the bisection
@@ -455,11 +447,11 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
 					twit->fl->ids.insert(start_it, end_it);
 					fl->ids.erase(start_it, end_it);
 
-					twit->genurl=twit->fl->GetTwitterURL();
-					twit->QueueAsyncExec();
+					twit->genurl = twit->fl->GetTwitterURL();
+					twitcurlext::QueueAsyncExec(std::move(twit));
 
-					genurl=fl->GetTwitterURL();
-					QueueAsyncExec();    //note this re-uses the original connection for half of the original lookup
+					genurl = fl->GetTwitterURL();
+					twitcurlext::QueueAsyncExec(static_pointer_cast<twitcurlext>(std::move(this_owner)));    //note this re-uses the original connection for half of the original lookup
 					return;
 				}
 			}
@@ -512,21 +504,20 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res) {
 		if(connmode==CS_USERTIMELINE || connmode==CS_USERFAVS) delrbfs=true;
 		if(rbfs->end_tweet_id==0) delrbfs=true;
 		if(delrbfs) {
-			acc->pending_rbfs_list.remove_if([&](restbackfillstate &r) { return (&r==rbfs); });
+			acc->pending_rbfs_list.remove_if([&](restbackfillstate &r) { return (&r == rbfs.get()); });
 		}
 		else retry=true;
 	}
 	if(retry && (acc->enabled || acc->init)) {
 		LogMsgFormat(LOGT::SOCKERR, "Retrying failed request: %s (%s)", cstr(action), cstr(acc->dispname));
-		acc->AddFailedPendingConn(this);
+		acc->AddFailedPendingConn(static_pointer_cast<twitcurlext>(std::move(this_owner)));
 	}
-	else acc->cp.Standby(this);
 }
 
 void twitcurlext::AddToRetryQueueNotify() {
 	auto acc = tacc.lock();
 	if(scto) {
-		LogMsgFormat(LOGT::SOCKTRACE, "twitcurlext::AddToRetryQueueNotify: Stopping stream connection timer: %s, conn: %p", acc ? cstr(acc->dispname) : "", this);
+		LogMsgFormat(LOGT::SOCKTRACE, "twitcurlext::AddToRetryQueueNotify: Stopping stream connection timer: %s, conn ID: %d", acc ? cstr(acc->dispname) : "", id);
 		scto->Stop();
 	}
 }
@@ -534,7 +525,7 @@ void twitcurlext::AddToRetryQueueNotify() {
 void twitcurlext::RemoveFromRetryQueueNotify() {
 	auto acc = tacc.lock();
 	if(scto) {
-		LogMsgFormat(LOGT::SOCKTRACE, "twitcurlext::RemoveFromRetryQueueNotify: Re-arming stream connection timer: %s, conn: %p", acc ? cstr(acc->dispname) : "", this);
+		LogMsgFormat(LOGT::SOCKTRACE, "twitcurlext::RemoveFromRetryQueueNotify: Re-arming stream connection timer: %s, conn ID: %d", acc ? cstr(acc->dispname) : "", id);
 		scto->Arm();
 	}
 }
@@ -551,7 +542,7 @@ void StreamCallback( std::string &data, twitCurl* pTwitCurlObj, void *userdata )
 	}
 	sm.RetryConnLater();
 
-	LogMsgFormat(LOGT::SOCKTRACE, "StreamCallback: Received: %s", cstr(data));
+	LogMsgFormat(LOGT::SOCKTRACE, "StreamCallback: Received: %s, conn ID: %d", cstr(data), obj->id);
 	jsonparser jp(CS_STREAM, acc, obj);
 	jp.ParseString(data);
 	data.clear();
@@ -560,8 +551,8 @@ void StreamCallback( std::string &data, twitCurl* pTwitCurlObj, void *userdata )
 void StreamActivityCallback( twitCurl* pTwitCurlObj, void *userdata ) {
 	twitcurlext *obj = static_cast<twitcurlext*>(pTwitCurlObj);
 	obj->scto->Arm();
-	LogMsgFormat(LOGT::SOCKTRACE, "Reset timeout on stream connection %p", obj);
-	std::shared_ptr<taccount> acc=obj->tacc.lock();
+	LogMsgFormat(LOGT::SOCKTRACE, "Reset timeout on stream conn ID: %d", obj->id);
+	std::shared_ptr<taccount> acc = obj->tacc.lock();
 	if(acc) {
 		acc->CheckFailedPendingConns();
 	}

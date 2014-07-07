@@ -9,7 +9,8 @@
 //  WITHOUT   ANY  WARRANTY;   without  even   the  implied   warranty  of
 //  MERCHANTABILITY  or FITNESS  FOR A  PARTICULAR PURPOSE.   See  the GNU
 //  General Public License for more details.
-////  You should have received a copy of the GNU General Public License
+//
+//  You should have received a copy of the GNU General Public License
 //  along with this program. If not, see <http://www.gnu.org/licenses/>.
 //
 //  2014 - Jonathan G Rennison <j.g.rennison@gmail.com>
@@ -36,28 +37,21 @@
 #include <wx/mstream.h>
 #include <algorithm>
 
-bool socketmanager::AddConn(twitcurlext &cs) {
-	return AddConn(cs.GetCurlHandle(), &cs);
-}
-
-dlconn::dlconn() : curlHandle(0) {
+bool socketmanager::AddConn(std::unique_ptr<twitcurlext> cs) {
+	CURL *ch = cs->GetCurlHandle(); // Do this before moving cs
+	return AddConn(ch, std::move(cs));
 }
 
 dlconn::~dlconn() {
 	if(curlHandle) curl_easy_cleanup(curlHandle);
-	curlHandle=0;
-	Reset();
-}
-
-void dlconn::Reset() {
-	url.clear();
-	data.clear();
+	curlHandle = nullptr;
 	if(extra_headers) curl_slist_free_all(extra_headers);
 	extra_headers = nullptr;
 }
 
-void dlconn::Init(const std::string &url_, oAuth *auth_obj) {
-	url=url_;
+// If this_owner is given, this will add it/itself to the socketmanager
+void dlconn::Init(std::unique_ptr<mcurlconn> &&this_owner, const std::string &url_, oAuth *auth_obj) {
+	url = url_;
 	if(!curlHandle) curlHandle = curl_easy_init();
 	else curl_easy_reset(curlHandle);
 	#ifdef __WINDOWS__
@@ -76,7 +70,11 @@ void dlconn::Init(const std::string &url_, oAuth *auth_obj) {
 		if(!oAuthHttpHeader.empty()) extra_headers = curl_slist_append(extra_headers, oAuthHttpHeader.c_str());
 	}
 	curl_easy_setopt(curlHandle, CURLOPT_HTTPHEADER, extra_headers);
-	sm.AddConn(curlHandle, this);
+
+	if(this_owner) {
+		assert(this_owner.get() == this);
+		sm.AddConn(curlHandle, std::move(this_owner));
+	}
 }
 
 int dlconn::curlCallback(char* data, size_t size, size_t nmemb, dlconn *obj) {
@@ -88,39 +86,32 @@ int dlconn::curlCallback(char* data, size_t size, size_t nmemb, dlconn *obj) {
 	return writtenSize;
 }
 
-void profileimgdlconn::Init(const std::string &imgurl_, udc_ptr_p user_) {
+void profileimgdlconn::Init(std::unique_ptr<mcurlconn> &&this_owner, const std::string &imgurl_, udc_ptr_p user_) {
 	user = user_;
 	user->udc_flags |= UDC::IMAGE_DL_IN_PROGRESS;
-	LogMsgFormat(LOGT::NETACT, "Downloading profile image %s for user id %" llFmtSpec "d (@%s), conn: %p",
-			cstr(imgurl_), user_->id, cstr(user_->GetUser().screen_name), this);
-	dlconn::Init(imgurl_);
+	LogMsgFormat(LOGT::NETACT, "Downloading profile image %s for user id %" llFmtSpec "d (@%s), conn ID: %d",
+			cstr(imgurl_), user_->id, cstr(user_->GetUser().screen_name), id);
+	dlconn::Init(std::move(this_owner), imgurl_);
 }
 
-void profileimgdlconn::DoRetry() {
-	if(url==user->GetUser().profile_img_url) Init(url, user);
-	else cp.Standby(this);
+void profileimgdlconn::DoRetry(std::unique_ptr<mcurlconn> &&this_owner) {
+	if(url == user->GetUser().profile_img_url) Init(std::move(this_owner), url, user);
 }
 
-void profileimgdlconn::HandleFailure(long httpcode, CURLcode res) {
+void profileimgdlconn::HandleFailure(long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
 	if(url == user->GetUser().profile_img_url) {
 		user->MakeProfileImageFailurePlaceholder();
 	}
-	cp.Standby(this);
 }
 
-void profileimgdlconn::Reset() {
-	dlconn::Reset();
-	user.reset();
+void profileimgdlconn::NewConn(const std::string &imgurl_, udc_ptr_p user_) {
+	std::unique_ptr<profileimgdlconn> res(new profileimgdlconn);
+	profileimgdlconn *ptr = res.get();
+	ptr->Init(std::move(res), imgurl_, user_);
 }
 
-profileimgdlconn *profileimgdlconn::GetConn(const std::string &imgurl_, udc_ptr_p user_) {
-	profileimgdlconn *res=cp.GetConn();
-	res->Init(imgurl_, user_);
-	return res;
-}
-
-void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
-	LogMsgFormat(LOGT::NETACT, "Profile image downloaded: %s for user id %" llFmtSpec "d (@%s), conn: %p", cstr(url), user->id, cstr(user->GetUser().screen_name), this);
+void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
+	LogMsgFormat(LOGT::NETACT, "Profile image downloaded: %s for user id %" llFmtSpec "d (@%s), conn ID: %d", cstr(url), user->id, cstr(user->GetUser().screen_name), id);
 
 	struct local {
 		static void clear_dl_flags(udc_ptr_p user) {
@@ -135,11 +126,6 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 			user->ImgIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
 		}
 	};
-
-	//tidy up *this when function returns
-	raii tidy_up_this([&]() {
-		cp.Standby(this);
-	});
 
 	//URL changed, abort
 	if(url != user->GetUser().profile_img_url) {
@@ -210,7 +196,7 @@ std::string profileimgdlconn::GetConnTypeName() {
 	return "Profile image download";
 }
 
-void mediaimgdlconn::Init(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_, oAuth *auth_obj) {
+void mediaimgdlconn::Init(std::unique_ptr<mcurlconn> &&this_owner, const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_, oAuth *auth_obj) {
 	media_id = media_id_;
 	flags = flags_;
 	auto it = ad.media_list.find(media_id);
@@ -223,9 +209,9 @@ void mediaimgdlconn::Init(const std::string &imgurl_, media_id_type media_id_, f
 			me.flags |= MEF::THUMB_NET_INPROGRESS;
 		}
 	}
-	LogMsgFormat(LOGT::NETACT, "Downloading media image %s, id: %" llFmtSpec "d/%" llFmtSpec "d, flags: %X, conn: %p",
-			cstr(imgurl_), media_id_.m_id, media_id_.t_id, flags_, this);
-	dlconn::Init(imgurl_, auth_obj);
+	LogMsgFormat(LOGT::NETACT, "Downloading media image %s, id: %" llFmtSpec "d/%" llFmtSpec "d, flags: %X, conn ID: %d",
+			cstr(imgurl_), media_id_.m_id, media_id_.t_id, flags_, id);
+	dlconn::Init(std::move(this_owner), imgurl_, auth_obj);
 }
 
 mediaimgdlconn *mediaimgdlconn::new_with_opt_acc_oauth(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_, const taccount *acc) {
@@ -240,11 +226,17 @@ mediaimgdlconn *mediaimgdlconn::new_with_opt_acc_oauth(const std::string &imgurl
 	}
 }
 
-void mediaimgdlconn::DoRetry() {
-	Init(url, media_id, flags);
+void mediaimgdlconn::NewConnWithOptAccOAuth(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_, const taccount *acc) {
+	std::unique_ptr<mediaimgdlconn> conn(new_with_opt_acc_oauth(imgurl_, media_id_, flags_, acc));
+	CURL *ch = conn->curlHandle;
+	sm.AddConn(ch, std::move(conn));
 }
 
-void mediaimgdlconn::HandleFailure(long httpcode, CURLcode res) {
+void mediaimgdlconn::DoRetry(std::unique_ptr<mcurlconn> &&this_owner) {
+	Init(std::move(this_owner), url, media_id, flags);
+}
+
+void mediaimgdlconn::HandleFailure(long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
 	auto it = ad.media_list.find(media_id);
 	if(it != ad.media_list.end()) {
 		media_entity &me = *(it->second);
@@ -263,16 +255,11 @@ void mediaimgdlconn::HandleFailure(long httpcode, CURLcode res) {
 			}
 		}
 	}
-	delete this;
 }
 
-void mediaimgdlconn::Reset() {
-	dlconn::Reset();
-}
-
-void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
-	LogMsgFormat(LOGT::NETACT, "Media image downloaded: %s, id: %" llFmtSpec "d/%" llFmtSpec "d, flags: %X, conn: %p",
-			cstr(url), media_id.m_id, media_id.t_id, flags, this);
+void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
+	LogMsgFormat(LOGT::NETACT, "Media image downloaded: %s, id: %" llFmtSpec "d/%" llFmtSpec "d, flags: %X, conn ID: %d",
+			cstr(url), media_id.m_id, media_id.t_id, flags, id);
 
 	struct midc_job_data {
 		wxImage thumb;
@@ -375,53 +362,8 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res) {
 			}
 		}
 	});
-
-	delete this;
 }
 
 std::string mediaimgdlconn::GetConnTypeName() {
 	return "Media image download";
 }
-
-template <typename C> connpool<C>::~connpool() {
-	ClearAllConns();
-}
-template connpool<twitcurlext>::~connpool();
-
-template <typename C> void connpool<C>::ClearAllConns() {
-	while(!idlestack.empty()) {
-		delete idlestack.top();
-		idlestack.pop();
-	}
-	for(auto it=activeset.begin(); it != activeset.end(); it++) {
-		(*it)->KillConn();
-		delete *it;
-	}
-	activeset.clear();
-}
-template void connpool<profileimgdlconn>::ClearAllConns();
-template void connpool<twitcurlext>::ClearAllConns();
-
-template <typename C> C *connpool<C>::GetConn() {
-	C *res;
-	if(idlestack.empty()) {
-		res=new C();
-	}
-	else {
-		res=idlestack.top();
-		idlestack.pop();
-	}
-	activeset.insert(res);
-	return res;
-}
-template twitcurlext *connpool<twitcurlext>::GetConn();
-
-template <typename C> void connpool<C>::Standby(C *obj) {
-	obj->Reset();
-	obj->StandbyTidy();
-	idlestack.push(obj);
-	activeset.erase(obj);
-}
-template void connpool<twitcurlext>::Standby(twitcurlext *obj);
-
-connpool<profileimgdlconn> profileimgdlconn::cp;

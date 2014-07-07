@@ -408,11 +408,11 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 			break;
 		}
 	}
-	if(type!=CS_NULL && acc && *acc) {
-		twitcurlext *twit=(*acc)->GetTwitCurlExt();
-		twit->connmode=type;
-		twit->extra_id=map[curid].tw->id;
-		twit->QueueAsyncExec();
+	if(type != CS_NULL && acc && *acc) {
+		std::unique_ptr<twitcurlext> twit = (*acc)->GetTwitCurlExt();
+		twit->connmode = type;
+		twit->extra_id = map[curid].tw->id;
+		twitcurlext::QueueAsyncExec(std::move(twit));
 	}
 }
 

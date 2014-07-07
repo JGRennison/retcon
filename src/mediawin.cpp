@@ -111,7 +111,7 @@ media_display_win::media_display_win(wxWindow *parent, media_id_type media_id_)
 	if(!(me->flags & MEF::FULL_NET_INPROGRESS) && !(me->flags & MEF::HAVE_FULL) && me->media_url.size()) {
 		flagwrapper<MIDC> flags = MIDC::FULLIMG | MIDC::OPPORTUNIST_THUMB | MIDC::OPPORTUNIST_REDRAW_TWEETS;
 		std::shared_ptr<taccount> acc = me->dm_media_acc.lock();
-		mediaimgdlconn::new_with_opt_acc_oauth(me->media_url, media_id_, flags, acc.get());
+		mediaimgdlconn::NewConnWithOptAccOAuth(me->media_url, media_id_, flags, acc.get());
 	}
 
 	wxMenu *menuF = new wxMenu;

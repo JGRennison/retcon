@@ -215,15 +215,15 @@ void mainframe::OnLookupUser(wxCommandEvent &event) {
 	wxString value;
 	std::shared_ptr<taccount> acctouse;
 	user_lookup_dlg uld(this, &type, &value, acctouse);
-	int res=uld.ShowModal();
-	if(res==wxID_OK && acctouse && type>=0 && type<=1) {
-		twitcurlext *twit=acctouse->GetTwitCurlExt();
-		twit->connmode=CS_USERLOOKUPWIN;
-		twit->extra1=std::string(value.ToUTF8());
-		twit->genurl="api.twitter.com/1.1/users/show.json";
-		if(type==0) twit->genurl+="?screen_name="+urlencode(twit->extra1);
-		else if(type==1) twit->genurl+="?user_id="+urlencode(twit->extra1);
-		twit->QueueAsyncExec();
+	int res = uld.ShowModal();
+	if(res == wxID_OK && acctouse && type >= 0 && type <= 1) {
+		std::unique_ptr<twitcurlext> twit = acctouse->GetTwitCurlExt();
+		twit->connmode = CS_USERLOOKUPWIN;
+		twit->extra1 = std::string(value.ToUTF8());
+		twit->genurl = "api.twitter.com/1.1/users/show.json";
+		if(type == 0) twit->genurl += "?screen_name=" + urlencode(twit->extra1);
+		else if(type == 1) twit->genurl += "?user_id=" + urlencode(twit->extra1);
+		twitcurlext::QueueAsyncExec(std::move(twit));
 	}
 }
 
@@ -457,8 +457,7 @@ void tweetpostwin::OnSendBtn(wxCommandEvent &event) {
 		}
 		currently_posting=true;
 		OnTCChange();
-		twitcurlext *twit=curacc->GetTwitCurlExt();
-		twit->extra1=curtext;
+		std::unique_ptr<twitcurlext> twit = curacc->GetTwitCurlExt();
 		if(dm_targ) {
 			twit->connmode=CS_SENDDM;
 			twit->extra_id=dm_targ->id;
@@ -468,8 +467,8 @@ void tweetpostwin::OnSendBtn(wxCommandEvent &event) {
 			twit->extra_id = (tweet_reply_targ) ? tweet_reply_targ->id : 0;
 			if(!image_upload_filename.empty()) twit->extra_array.push_back(image_upload_filename);
 		}
-		twit->ownermainframe=mparentwin;
-		twit->QueueAsyncExec();
+		twit->ownermainframe = mparentwin;
+		twitcurlext::QueueAsyncExec(std::move(twit));
 	}
 }
 

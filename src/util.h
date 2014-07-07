@@ -118,4 +118,27 @@ template <typename I> void SetOrClearBitsRef(I &in, I bits, bool set) {
 	in = SetOrClearBits(in, bits, set);
 }
 
+template <typename C, typename UP> unsigned int container_unordered_remove_if(C &container, UP predicate) {
+	unsigned int removecount = 0;
+	for(auto it = container.begin(); it != container.end();) {
+		if(predicate(*it)) {
+			removecount++;
+			if(std::next(it) != container.end()) {
+				*it = std::move(container.back());
+				container.pop_back();
+			}
+			else {
+				container.pop_back();
+				break;
+			}
+		}
+		else ++it;
+	}
+	return removecount;
+}
+
+template <typename OUT, typename IN> std::unique_ptr<OUT> static_pointer_cast(std::unique_ptr<IN> in) {
+	return std::unique_ptr<OUT>(static_cast<OUT *>(in.release()));
+}
+
 #endif

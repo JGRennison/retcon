@@ -215,7 +215,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value& val, tweet_ptr_p t, 
 					if(mel_flags & MELF::NONETLOAD) return;
 					if(!(me->flags & MEF::HAVE_THUMB) && !(url.empty()) && (netloadmask & mel_flags) && !(me->flags & MEF::THUMB_NET_INPROGRESS) && !(me->flags & MEF::THUMB_FAILED)) {
 						std::shared_ptr<taccount> acc = me->dm_media_acc.lock();
-						mediaimgdlconn::new_with_opt_acc_oauth(url, me->media_id, net_flags, acc.get());
+						mediaimgdlconn::NewConnWithOptAccOAuth(url, me->media_id, net_flags, acc.get());
 					}
 				};
 			};
@@ -506,7 +506,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 		return false;
 	}
 
-	if(twit && twit->ownermainframe && std::find(mainframelist.begin(), mainframelist.end(), twit->ownermainframe)==mainframelist.end()) twit->ownermainframe=0;
+	if(twit && twit->ownermainframe && std::find(mainframelist.begin(), mainframelist.end(), twit->ownermainframe.get()) == mainframelist.end()) twit->ownermainframe = nullptr;
 
 	switch(type) {
 		case CS_ACCVERIFY: {

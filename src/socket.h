@@ -20,8 +20,8 @@
 #define HGUARD_SRC_SOCKET
 
 #include "univdefs.h"
-#include "socket-common.h"
 #include "flags.h"
+#include "util.h"
 #include <wx/timer.h>
 #include <wx/defs.h>
 #include <wx/version.h>
@@ -33,10 +33,13 @@
 #include <tuple>
 #include <deque>
 #include <utility>
+#include <vector>
 
 struct socketmanager;
 struct userdatacontainer;
 struct twitcurlext;
+
+extern socketmanager sm;
 
 #if !(defined(RCS_GTKSOCKMODE) || defined(RCS_WSAASYNCSELMODE) || defined(RCS_POLLTHREADMODE))
 	#if defined(__WXGTK__)
@@ -60,7 +63,8 @@ typedef enum {
 	MCC_FAILED,
 } MCC_HTTPERRTYPE;
 
-enum {	MCCT_RETRY = wxID_HIGHEST+1,
+enum {
+	MCCT_RETRY = wxID_HIGHEST + 1,
 };
 
 struct mcurlconn : public wxEvtHandler {
@@ -70,19 +74,30 @@ struct mcurlconn : public wxEvtHandler {
 		RETRY_NOW_ON_SUCCESS  = 1<<2,
 	};
 
-	void NotifyDone(CURL *easy, CURLcode res);
-	void HandleError(CURL *easy, long httpcode, CURLcode res);      //may cause object death
-	void StandbyTidy();
-	unsigned int errorcount;
+	unsigned int errorcount = 0;
 	flagwrapper<MCF> mcflags;
 	std::string url;
-	mcurlconn() : errorcount(0), mcflags(0) {}
-	virtual ~mcurlconn();
+	unsigned int id;
 
-	virtual void NotifyDoneSuccess(CURL *easy, CURLcode res) = 0;   //may cause object death
-	virtual void DoRetry() = 0;
-	virtual void HandleFailure(long httpcode, CURLcode res) = 0;    //may cause object death
-	virtual void KillConn();
+	static unsigned int lastid;
+
+	// Functions taking a std::unique_ptr<mcurlconn>&& are entitled but not required to claim the unique_ptr being referenced.
+	// This is to ensure that an mcurlconn only ever has one owner/won't leak, and that it's lifetime can be extended
+	// and owner chnaged as necessary, eg. for connection retries, async DNS etc.
+	// Generally if not claimed the mcurlconn will be destructed shortly after.
+
+	void NotifyDone(CURL *easy, long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner);
+	void HandleError(CURL *easy, long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner);
+	void KillConn();
+	std::unique_ptr<mcurlconn> RemoveConn();
+	mcurlconn() {
+		id = ++lastid;
+	}
+	virtual ~mcurlconn() { }
+
+	virtual void NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) = 0;
+	virtual void DoRetry(std::unique_ptr<mcurlconn> &&this_owner) = 0;
+	virtual void HandleFailure(long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) = 0;
 	virtual void AddToRetryQueueNotify() { }
 	virtual void RemoveFromRetryQueueNotify() { }
 	virtual MCC_HTTPERRTYPE CheckHTTPErrType(long httpcode);
@@ -90,6 +105,9 @@ struct mcurlconn : public wxEvtHandler {
 	virtual std::string GetConnTypeName() { return ""; }
 
 	DECLARE_EVENT_TABLE()
+
+	private:
+	std::unique_ptr<mcurlconn> RemoveConnCommon(const char *logprefix);
 };
 template<> struct enum_traits<mcurlconn::MCF> { static constexpr bool flags = true; };
 
@@ -148,9 +166,9 @@ struct adns;
 struct socketmanager : public wxEvtHandler {
 	socketmanager();
 	~socketmanager();
-	bool AddConn(CURL* ch, mcurlconn *cs);
-	bool AddConn(twitcurlext &cs);
-	void RemoveConn(CURL* ch);
+	bool AddConn(CURL* ch, std::unique_ptr<mcurlconn> cs);
+	bool AddConn(std::unique_ptr<twitcurlext> cs);
+	std::unique_ptr<mcurlconn> RemoveConn(CURL *ch);
 	void RegisterSockInterest(CURL *e, curl_socket_t s, int what);
 	void NotifySockEvent(curl_socket_t sockfd, int ev_bitmask);
 #ifdef RCS_POLLTHREADMODE
@@ -160,11 +178,11 @@ struct socketmanager : public wxEvtHandler {
 	void DeInitMultiIOHandler();
 	void InitMultiIOHandlerCommon();
 	void DeInitMultiIOHandlerCommon();
-	void RetryConn(mcurlconn *cs);
+	void RetryConn(std::unique_ptr<mcurlconn> cs);
 	void RetryConnNow();
 	void RetryConnLater();
 	void RetryNotify(wxTimerEvent& event);
-	void UnregisterRetryConn(mcurlconn *cs);
+	std::unique_ptr<mcurlconn> UnregisterRetryConn(mcurlconn &cs);
 
 	bool MultiIOHandlerInited = false;
 	CURLM *curlmulti = nullptr;
@@ -181,12 +199,30 @@ struct socketmanager : public wxEvtHandler {
 	unsigned int source_id;
 	std::map<curl_socket_t,GPollFD> sockpollmap;
 #endif
-	std::forward_list<std::pair<CURL*, mcurlconn *> > connlist;
-	std::deque<mcurlconn *> retry_conns;
+
+	struct conninfo {
+		CURL* ch;
+		std::unique_ptr<mcurlconn> cs;
+	};
+	std::vector<conninfo> connlist;
+	std::deque<std::unique_ptr<mcurlconn>> retry_conns;
 	std::unique_ptr<wxTimer> retry;
 
 	std::unique_ptr<adns> asyncdns;
 	void DNSResolutionEvent(wxCommandEvent &event);
+
+	template<typename F> static void IterateConns(F func) {
+		for(auto &it : sm.connlist) {
+			if(it.cs) {
+				if(func(*(it.cs))) return;
+			}
+		};
+		for(auto &it : sm.retry_conns) {
+			if(it) {
+				if(func(*it)) return;
+			}
+		};
+	}
 
 	DECLARE_EVENT_TABLE()
 };
@@ -208,7 +244,7 @@ struct adns {
 	adns(socketmanager *sm_);
 	~adns();
 	inline CURLSH *GetHndl() const { return sharehndl; }
-	bool CheckAsync(CURL* ch, mcurlconn *cs);
+	bool CheckAsync(CURL *ch, std::unique_ptr<mcurlconn> &&cs);
 	void DNSResolutionEvent(wxCommandEvent &event);
 
 	void Lock(CURL *handle, curl_lock_data data, curl_lock_access access);
@@ -218,7 +254,13 @@ struct adns {
 	void NewShareHndl();
 	void RemoveShareHndl();
 	std::set<std::string> cached_names;
-	std::forward_list<std::tuple<std::string, CURL*, mcurlconn *> > dns_pending_conns;
+
+	struct dns_pending_conn {
+		std::string hostname;
+		CURL* ch;
+		std::unique_ptr<mcurlconn> cs;
+	};
+	std::forward_list<dns_pending_conn> dns_pending_conns;
 	std::forward_list<std::pair<std::string, adns_thread> > dns_threads;
 
 	CURLSH *sharehndl = 0;
@@ -227,7 +269,5 @@ struct adns {
 };
 
 void SetCurlHandleVerboseState(CURL *easy, bool verbose);
-
-extern socketmanager sm;
 
 #endif

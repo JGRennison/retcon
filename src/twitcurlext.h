@@ -26,6 +26,7 @@
 #include "socket.h"
 #include "magic_ptr.h"
 #include "flags.h"
+#include "observer_ptr.h"
 #include <memory>
 #include <string>
 
@@ -47,35 +48,49 @@ struct twitcurlext: public twitCurl, public mcurlconn {
 	flagwrapper<TCF> tc_flags = 0;
 	flagwrapper<PAF> post_action_flags = 0;
 	std::shared_ptr<streamconntimeout> scto;
-	restbackfillstate *rbfs = 0;
+	observer_ptr<restbackfillstate> rbfs;
 	std::unique_ptr<userlookup> ul;
 	std::string genurl;
 	std::string extra1;
 	std::vector<std::string> extra_array;
 	uint64_t extra_id = 0;
-	mainframe *ownermainframe = 0;
+	observer_ptr<mainframe> ownermainframe;
 	magic_ptr mp;
 	std::unique_ptr<friendlookup> fl;
 
-	void NotifyDoneSuccess(CURL *easy, CURLcode res);
+	void NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) override;
 	void TwInit(std::shared_ptr<taccount> acc);
-	void TwDeInit();
-	void TwStartupAccVerify();
+	static void TwStartupAccVerify(std::unique_ptr<twitcurlext> conn);
 	bool TwSyncStartupAccVerify();
 	CURL *GenGetCurlHandle() { return GetCurlHandle(); }
 	twitcurlext(std::shared_ptr<taccount> acc);
 	twitcurlext();
 	virtual ~twitcurlext();
-	void Reset();
-	void DoRetry();
-	void HandleFailure(long httpcode, CURLcode res);
-	void QueueAsyncExec();
-	void ExecRestGetTweetBackfill();
+	void DoRetry(std::unique_ptr<mcurlconn> &&this_owner) override;
+	void HandleFailure(long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) override;
+	static void QueueAsyncExec(std::unique_ptr<twitcurlext> conn);
+	static void ExecRestGetTweetBackfill(std::unique_ptr<twitcurlext> conn);
 	virtual std::string GetConnTypeName();
 	virtual void AddToRetryQueueNotify() override;
 	virtual void RemoveFromRetryQueueNotify() override;
 
+	template<typename F> static void IterateConnsByAcc(std::shared_ptr<taccount> acc, F func) {
+		socketmanager::IterateConns([&](mcurlconn &c) {
+			if(twitcurlext *t = dynamic_cast<twitcurlext *>(&c)) {
+				if(t->tacc.lock() == acc) {
+					return func(*t);
+				}
+			}
+			return false;
+		});
+	}
+
 	DECLARE_EVENT_TABLE()
+
+	protected:
+	void DoTwStartupAccVerify(std::unique_ptr<twitcurlext> this_owner);
+	void DoQueueAsyncExec(std::unique_ptr<twitcurlext> this_owner);
+	void DoExecRestGetTweetBackfill(std::unique_ptr<twitcurlext> this_owner);
 };
 template<> struct enum_traits<twitcurlext::TCF> { static constexpr bool flags = true; };
 

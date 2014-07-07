@@ -117,10 +117,6 @@ bool retcon::OnInit() {
 
 int retcon::OnExit() {
 	LogMsg(LOGT::OTHERTRACE, "retcon::OnExit");
-	for(auto it=alist.begin() ; it != alist.end(); it++) {
-		(*it)->cp.ClearAllConns();
-	}
-	profileimgdlconn::cp.ClearAllConns();
 	sm.DeInitMultiIOHandler();
 	pool.reset();
 	DBC_DeInit();

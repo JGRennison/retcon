@@ -50,44 +50,56 @@ void SetCurlHandleVerboseState(CURL *easy, bool verbose) {
 	curl_easy_setopt(easy, CURLOPT_VERBOSE, verbose);
 }
 
-mcurlconn::~mcurlconn() {
-	StandbyTidy();
-}
-
 void mcurlconn::KillConn() {
-	LogMsgFormat(LOGT::SOCKTRACE, "KillConn: conn: %p", this);
-	sm.RemoveConn(GenGetCurlHandle());
+	RemoveConnCommon("KillConn");
 }
 
-void mcurlconn::NotifyDone(CURL *easy, CURLcode res) {
-	long httpcode;
-	curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &httpcode);
+std::unique_ptr<mcurlconn> mcurlconn::RemoveConn() {
+	return RemoveConnCommon("RemoveConn");
+}
 
-	KillConn();    // this removes the connection from the curl multi-IO, and the active connection list
+// This checks both the retry list and the active list for removal
+std::unique_ptr<mcurlconn> mcurlconn::RemoveConnCommon(const char *logprefix) {
+	std::unique_ptr<mcurlconn> conn = sm.UnregisterRetryConn(*this);
+	if(conn) {
+		LogMsgFormat(LOGT::SOCKTRACE, "%s (retry list): conn ID: %d", logprefix, id);
+		return std::move(conn);
+	}
 
-	if(httpcode!=200 || res!=CURLE_OK) {
+	conn = sm.RemoveConn(GenGetCurlHandle());
+	if(conn) {
+		LogMsgFormat(LOGT::SOCKTRACE, "%s: conn ID: %d", logprefix, id);
+		return std::move(conn);
+	}
+
+	LogMsgFormat(LOGT::SOCKERR, "%s: failed, conn ID: %d", logprefix, id);
+	return nullptr;
+}
+
+void mcurlconn::NotifyDone(CURL *easy, long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
+	if(httpcode != 200 || res != CURLE_OK) {
 		//failed
 		if(res==CURLE_OK) {
 			char *req_url;
 			curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &req_url);
-			LogMsgFormat(LOGT::SOCKERR, "Request failed: type: %s, conn: %p, code: %d, url: %s", cstr(GetConnTypeName()), this, httpcode, cstr(req_url));
+			LogMsgFormat(LOGT::SOCKERR, "Request failed: type: %s, conn ID: %d, code: %d, url: %s", cstr(GetConnTypeName()), id, httpcode, cstr(req_url));
 		}
 		else {
-			LogMsgFormat(LOGT::SOCKERR, "Socket error: type: %s, conn: %p, code: %d, message: %s", cstr(GetConnTypeName()), this, res, cstr(curl_easy_strerror(res)));
+			LogMsgFormat(LOGT::SOCKERR, "Socket error: type: %s, conn ID: %d, code: %d, message: %s", cstr(GetConnTypeName()), id, res, cstr(curl_easy_strerror(res)));
 		}
-		HandleError(easy, httpcode, res);    //this may re-add the connection, or cause object death
+		HandleError(easy, httpcode, res, std::move(this_owner));    //this may re-add the connection
 	}
 	else {
 		if(mcflags&MCF::RETRY_NOW_ON_SUCCESS) {
 			mcflags&=~MCF::RETRY_NOW_ON_SUCCESS;
 			sm.RetryConnNow();
 		}
-		errorcount=0;
-		NotifyDoneSuccess(easy, res);    //may cause object death/reset
+		errorcount = 0;
+		NotifyDoneSuccess(easy, res, std::move(this_owner));
 	}
 }
 
-void mcurlconn::HandleError(CURL *easy, long httpcode, CURLcode res) {
+void mcurlconn::HandleError(CURL *easy, long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
 	errorcount++;
 	MCC_HTTPERRTYPE err=MCC_RETRY;
 	if(res==CURLE_OK) {	//http error, not socket error
@@ -98,21 +110,14 @@ void mcurlconn::HandleError(CURL *easy, long httpcode, CURLcode res) {
 	}
 	switch(err) {
 		case MCC_RETRY:
-			LogMsgFormat(LOGT::SOCKERR, "Adding request to retry queue: type: %s, conn: %p, url: %s", cstr(GetConnTypeName()), this, cstr(url));
-			sm.RetryConn(this);
+			LogMsgFormat(LOGT::SOCKERR, "Adding request to retry queue: type: %s, conn ID: %d, url: %s", cstr(GetConnTypeName()), id, cstr(url));
+			sm.RetryConn(std::move(this_owner));
 			break;
 		case MCC_FAILED:
-			LogMsgFormat(LOGT::SOCKERR, "Calling failure handler: type: %s, conn: %p, url: %s", cstr(GetConnTypeName()), this, cstr(url));
-			HandleFailure(httpcode, res);    //may cause object death
-			sm.RetryConnLater();
+			LogMsgFormat(LOGT::SOCKERR, "Calling failure handler: type: %s, conn ID: %d, url: %s", cstr(GetConnTypeName()), id, cstr(url));
+			HandleFailure(httpcode, res, std::move(this_owner));
 			break;
 	}
-}
-
-void mcurlconn::StandbyTidy() {
-	sm.UnregisterRetryConn(this);
-	errorcount=0;
-	mcflags=0;
 }
 
 MCC_HTTPERRTYPE mcurlconn::CheckHTTPErrType(long httpcode) {
@@ -120,22 +125,32 @@ MCC_HTTPERRTYPE mcurlconn::CheckHTTPErrType(long httpcode) {
 	return MCC_RETRY;
 }
 
-static void check_multi_info(socketmanager *smp) {
-	CURLMsg *msg;
-	int msgs_left;
-	mcurlconn *conn;
-	CURL *easy;
-	CURLcode res;
+unsigned int mcurlconn::lastid = 0;
 
-	while ((msg = curl_multi_info_read(smp->curlmulti, &msgs_left))) {
-		if (msg->msg == CURLMSG_DONE) {
-			easy = msg->easy_handle;
-			res = msg->data.result;
+static void check_multi_info(socketmanager *smp) {
+	int msgs_left;
+	while(CURLMsg *msg = curl_multi_info_read(smp->curlmulti, &msgs_left)) {
+		if(msg->msg == CURLMSG_DONE) {
+			CURL *easy = msg->easy_handle;
+			CURLcode res = msg->data.result;
+
 			long httpcode;
 			curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &httpcode);
-			curl_easy_getinfo(easy, CURLINFO_PRIVATE, &conn);
-			LogMsgFormat(LOGT::SOCKTRACE, "Socket Done, conn: %p, res: %d, http: %d", conn, res, httpcode);
-			conn->NotifyDone(easy, res);
+
+			// This gets the mcurlconn associated with the easy handle, and removes it from the socketmanager
+			// We then hold onto it here, it will be destructed when the scope ends unless NotifyDone claims it
+			std::unique_ptr<mcurlconn> cs = sm.RemoveConn(easy);
+
+			if(cs) {
+				LogMsgFormat(LOGT::SOCKTRACE, "Socket Done, conn ID: %d, res: %d, http: %d", cs->id, res, httpcode);
+				cs->NotifyDone(easy, httpcode, res, std::move(cs));
+			}
+			else {
+				// Getting here is a severe bug
+				mcurlconn *conn;
+				curl_easy_getinfo(easy, CURLINFO_PRIVATE, &conn);
+				LogMsgFormat(LOGT::SOCKERR, "Socket Done, yet could not be found in connection list, conn ID: %d, res: %d, http: %d", conn->id, res, httpcode);
+			}
 		}
 	}
 	if(sm.curnumsocks==0) {
@@ -145,8 +160,8 @@ static void check_multi_info(socketmanager *smp) {
 }
 
 static int sock_cb(CURL *e, curl_socket_t s, int what, socketmanager *smp, mcurlconn *cs) {
-	LogMsgFormat(LOGT::SOCKTRACE, "Socket Interest Change Callback: %d, %d, conn: %p", s, what, cs);
-	if(what!=CURL_POLL_REMOVE) {
+	LogMsgFormat(LOGT::SOCKTRACE, "Socket Interest Change Callback: %d, %d, conn ID: %d", s, what, cs ? cs->id : -1);
+	if(what != CURL_POLL_REMOVE) {
 		if(!cs) {
 			curl_easy_getinfo(e, CURLINFO_PRIVATE, &cs);
 			curl_multi_assign(smp->curlmulti, s, cs);
@@ -169,11 +184,6 @@ static int multi_timer_cb(CURLM *multi, long timeout_ms, socketmanager *smp) {
 socketmanager::socketmanager() { }
 
 socketmanager::~socketmanager() {
-	while(!retry_conns.empty()) {
-		mcurlconn *cs=retry_conns.front();
-		retry_conns.pop_front();
-		delete cs;
-	}
 	DeInitMultiIOHandler();
 }
 
@@ -181,22 +191,23 @@ curl_socket_t pre_connect_func(void *clientp, curl_socket_t curlfd, curlsocktype
 	mcurlconn *cs = static_cast<mcurlconn *>(clientp);
 	double lookuptime;
 	curl_easy_getinfo(cs->GenGetCurlHandle(), CURLINFO_NAMELOOKUP_TIME, &lookuptime);
-	LogMsgFormat(LOGT::SOCKTRACE, "DNS lookup took: %fs. Request: type: %s, conn: %p, url: %s", lookuptime, cstr(cs->GetConnTypeName()), cs, cstr(cs->url));
+	LogMsgFormat(LOGT::SOCKTRACE, "DNS lookup took: %fs. Request: type: %s, conn ID: %d, url: %s", lookuptime, cstr(cs->GetConnTypeName()), cs->id, cstr(cs->url));
 	return 0;
 }
 
-bool socketmanager::AddConn(CURL* ch, mcurlconn *cs) {
+bool socketmanager::AddConn(CURL* ch, std::unique_ptr<mcurlconn> cs) {
 	if(asyncdns) {
-		if(asyncdns->CheckAsync(ch, cs)) return true;
+		// This can conditionally steal cs, if it does it returns true and we stop here
+		if(asyncdns->CheckAsync(ch, std::move(cs))) return true;
 	}
-	connlist.push_front(std::make_pair(ch, cs));
+
 	SetCurlHandleVerboseState(ch, currentlogflags & LOGT::CURLVERB);
 	curl_easy_setopt(ch, CURLOPT_TIMEOUT, (cs->mcflags & mcurlconn::MCF::NOTIMEOUT) ? 0 : 180);
-	curl_easy_setopt(ch, CURLOPT_PRIVATE, cs);
+	curl_easy_setopt(ch, CURLOPT_PRIVATE, cs.get());
 	curl_easy_setopt(ch, CURLOPT_ACCEPT_ENCODING, ""); //accept all enabled encodings
-	if(currentlogflags&LOGT::SOCKTRACE) {
+	if(currentlogflags & LOGT::SOCKTRACE) {
 		curl_easy_setopt(ch, CURLOPT_SOCKOPTFUNCTION, &pre_connect_func);
-		curl_easy_setopt(ch, CURLOPT_SOCKOPTDATA, cs);
+		curl_easy_setopt(ch, CURLOPT_SOCKOPTDATA, cs.get());
 	}
 	if(gc.setproxy) {
 		curl_easy_setopt(ch, CURLOPT_PROXY, gc.proxyurl.c_str());
@@ -214,16 +225,30 @@ bool socketmanager::AddConn(CURL* ch, mcurlconn *cs) {
 	else {
 		curl_easy_setopt(ch, CURLOPT_INTERFACE, nullptr);
 	}
+
+	connlist.push_back({ ch, std::move(cs) });
+
 	bool ret = (CURLM_OK == curl_multi_add_handle(curlmulti, ch));
 	curl_multi_socket_action(curlmulti, 0, 0, &curnumsocks);
 	check_multi_info(&sm);
 	return ret;
 }
 
-void socketmanager::RemoveConn(CURL* ch) {
+// This removes the corresponding connection from the multi IO and the socketmanager's connection list
+// This returns the existing mcurlconn that was removed
+// It's OK to not do anything with the return value, it'll just get destructed as normal
+std::unique_ptr<mcurlconn> socketmanager::RemoveConn(CURL *ch) {
+	std::unique_ptr<mcurlconn> conn;
 	curl_multi_remove_handle(curlmulti, ch);
-	connlist.remove_if([&](const std::pair<CURL*, mcurlconn *> &p) { return p.first==ch; });
+	container_unordered_remove_if(connlist, [&](conninfo &p) {
+		if(p.ch == ch) {
+			if(p.cs) conn = std::move(p.cs);
+			return true;
+		}
+		else return false;
+	});
 	curl_multi_socket_action(curlmulti, 0, 0, &curnumsocks);
+	return std::move(conn);
 }
 
 void sockettimeout::Notify() {
@@ -291,7 +316,7 @@ void adns::RemoveShareHndl() {
 }
 
 //return true if has been handled asynchronously
-bool adns::CheckAsync(CURL* ch, mcurlconn *cs) {
+bool adns::CheckAsync(CURL *ch, std::unique_ptr<mcurlconn> &&cs) {
 	long timeout = -1;
 	curl_easy_setopt(ch, CURLOPT_DNS_CACHE_TIMEOUT, timeout);
 	curl_easy_setopt(ch, CURLOPT_SHARE, GetHndl());
@@ -309,7 +334,8 @@ bool adns::CheckAsync(CURL* ch, mcurlconn *cs) {
 
 	if(cached_names.count(name)) return false;	// name already in cache, can go now
 
-	dns_pending_conns.emplace_front(name, ch, cs);
+	dns_pending_conns.push_front({ name, ch, std::move(cs) });
+	// cs is now null, don't use again
 
 	for(auto &it : dns_threads) {
 		if(it.first == name) {
@@ -346,9 +372,9 @@ void adns::DNSResolutionEvent(wxCommandEvent &event) {
 		LogMsgFormat(LOGT::SOCKERR, "Asynchronous DNS lookup failed: %s, (%s), error: %s (%d), time: %fs", cstr(at->hostname), cstr(at->url), cstr(curl_easy_strerror(at->result)), at->result, at->lookuptime);
 	}
 
-	std::vector<std::tuple<std::string, CURL *, mcurlconn *> > current_dns_pending_conns;
-	dns_pending_conns.remove_if([&](std::tuple<std::string, CURL *, mcurlconn *> &a) -> bool {
-		if(std::get<0>(a) == at->hostname) {
+	std::vector<dns_pending_conn> current_dns_pending_conns;
+	dns_pending_conns.remove_if([&](dns_pending_conn &a) -> bool {
+		if(a.hostname == at->hostname) {
 			current_dns_pending_conns.emplace_back(std::move(a));
 			return true;
 		}
@@ -360,15 +386,15 @@ void adns::DNSResolutionEvent(wxCommandEvent &event) {
 	});
 
 	for(auto &it : current_dns_pending_conns) {
-		CURL *ch = std::get<1>(it);
-		mcurlconn *mc = std::get<2>(it);
+		CURL *ch = it.ch;
+		std::unique_ptr<mcurlconn> mc = std::move(it.cs);
 		if(at->success) {
-			LogMsgFormat(LOGT::SOCKTRACE, "Launching request as DNS lookup succeeded: type: %s, conn: %p, url: %s", cstr(mc->GetConnTypeName()), mc, cstr(mc->url));
-			sm->AddConn(ch, mc);
+			LogMsgFormat(LOGT::SOCKTRACE, "Launching request as DNS lookup succeeded: type: %s, conn ID: %d, url: %s", cstr(mc->GetConnTypeName()), mc->id, cstr(mc->url));
+			sm->AddConn(ch, std::move(mc));
 		}
 		else {
-			LogMsgFormat(LOGT::SOCKERR, "Request failed due to asynchronous DNS lookup failure: type: %s, conn: %p, url: %s", cstr(mc->GetConnTypeName()), mc, cstr(mc->url));
-			mc->HandleError(ch, 0, CURLE_COULDNT_RESOLVE_HOST);
+			LogMsgFormat(LOGT::SOCKERR, "Request failed due to asynchronous DNS lookup failure: type: %s, conn ID: %d, url: %s", cstr(mc->GetConnTypeName()), mc->id, cstr(mc->url));
+			mc->HandleError(ch, 0, CURLE_COULDNT_RESOLVE_HOST, std::move(mc));
 		}
 	}
 }
@@ -432,53 +458,62 @@ void socketmanager::DeInitMultiIOHandlerCommon() {
 	curl_multi_cleanup(curlmulti);
 }
 
-void socketmanager::RetryConn(mcurlconn *cs) {
+void socketmanager::RetryConn(std::unique_ptr<mcurlconn> cs) {
 	if(cs->mcflags & mcurlconn::MCF::IN_RETRY_QUEUE) {
-		LogMsgFormat(LOGT::SOCKERR, "socketmanager::RetryConn: Attempt to add mcurlconn to retry queue which is marked as already in queue, this is a bug: type: %s, conn: %p, url: %s", cstr(cs->GetConnTypeName()), cs, cstr(cs->url));
+		LogMsgFormat(LOGT::SOCKERR, "socketmanager::RetryConn: Attempt to add mcurlconn to retry queue which is marked as already in queue, this is a bug: type: %s, conn ID: %d, url: %s",
+				cstr(cs->GetConnTypeName()), cs->id, cstr(cs->url));
 		return;
 	}
 
-	retry_conns.push_back(cs);
 	cs->mcflags |= mcurlconn::MCF::IN_RETRY_QUEUE;
 	cs->AddToRetryQueueNotify();
+	retry_conns.push_back(std::move(cs));
 	RetryConnLater();
 }
 
-void socketmanager::UnregisterRetryConn(mcurlconn *cs) {
-	if(!(cs->mcflags & mcurlconn::MCF::IN_RETRY_QUEUE)) return;
-	for(auto it=retry_conns.begin(); it!=retry_conns.end(); ++it) {
-		if(*it == cs) {
-			LogMsgFormat(LOGT::SOCKTRACE, "socketmanager::UnregisterRetryConn: Unregistered from retry queue: type: %s, conn: %p, url: %s", cstr(cs->GetConnTypeName()), cs, cstr(cs->url));
-			*it = 0;
+std::unique_ptr<mcurlconn> socketmanager::UnregisterRetryConn(mcurlconn &cs) {
+	if(!(cs.mcflags & mcurlconn::MCF::IN_RETRY_QUEUE)) return nullptr;
+
+	std::unique_ptr<mcurlconn> csptr;
+	container_unordered_remove_if(retry_conns, [&](std::unique_ptr<mcurlconn> &it) {
+		if(it.get() == &cs) {
+			LogMsgFormat(LOGT::SOCKTRACE, "socketmanager::UnregisterRetryConn: Unregistered from retry queue: type: %s, conn ID: %d, url: %s", cstr(cs.GetConnTypeName()), cs.id, cstr(cs.url));
+			csptr = std::move(it);
+			csptr->mcflags &= ~mcurlconn::MCF::IN_RETRY_QUEUE;
+			csptr->RemoveFromRetryQueueNotify();
+			return true;
 		}
-	}
-	cs->mcflags &= ~mcurlconn::MCF::IN_RETRY_QUEUE;
-	cs->RemoveFromRetryQueueNotify();
+		else return false;
+	});
+	return std::move(csptr);
 }
 
 void socketmanager::RetryConnNow() {
-	mcurlconn *cs;
+	std::unique_ptr<mcurlconn> cs;
 	while(true) {
 		if(retry_conns.empty()) return;
-		cs=retry_conns.front();
+		cs = std::move(retry_conns.front());
 		retry_conns.pop_front();
 		if(cs) break;
 	}
 	cs->mcflags &= ~mcurlconn::MCF::IN_RETRY_QUEUE;
 	cs->mcflags |= mcurlconn::MCF::RETRY_NOW_ON_SUCCESS;
-	LogMsgFormat(LOGT::SOCKTRACE, "Dequeueing request from retry queue: type: %s, conn: %p, url: %s", cstr(cs->GetConnTypeName()), cs, cstr(cs->url));
+	LogMsgFormat(LOGT::SOCKTRACE, "Dequeueing request from retry queue: type: %s, conn ID: %d, url: %s", cstr(cs->GetConnTypeName()), cs->id, cstr(cs->url));
 	cs->RemoveFromRetryQueueNotify();
-	cs->DoRetry();
+	cs->DoRetry(std::move(cs));
 }
 
 void socketmanager::RetryConnLater() {
-	mcurlconn *cs;
+
+	// This gets the first non-null connection without removing it
+	mcurlconn *cs = nullptr;
 	while(true) {
 		if(retry_conns.empty()) return;
-		cs = retry_conns.front();
+		cs = retry_conns.front().get();
 		if(cs) break;
 		else retry_conns.pop_front();
 	}
+
 	if(!retry) retry.reset(new wxTimer(this, MCCT_RETRY));
 	if(!retry->IsRunning()) {
 		uint64_t ms = 5000 * (1 << cs->errorcount);

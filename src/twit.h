@@ -28,6 +28,7 @@
 #include "hash.h"
 #include "media_id_type.h"
 #include "set.h"
+#include "observer_ptr.h"
 #include <memory>
 #include <functional>
 #include <wx/bitmap.h>
@@ -478,8 +479,8 @@ struct userlookup {
 struct streamconntimeout : public wxTimer {
 	time_t last_activity = 0;
 	unsigned int triggercount = 0;
-	twitcurlext *tw;
-	streamconntimeout(twitcurlext *tw_) : tw(tw_) { Arm(); };
+	observer_ptr<twitcurlext> tw;
+	streamconntimeout(observer_ptr<twitcurlext> tw_) : tw(tw_) { Arm(); };
 	void Notify();
 	void Arm();
 	~streamconntimeout() { Stop(); }

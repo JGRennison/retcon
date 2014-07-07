@@ -1823,7 +1823,7 @@ void tpanelparentwin_usertweets_impl::LoadMore(unsigned int n, uint64_t lessthan
 		else {
 			if(tp->tweetlist.begin() != tp->tweetlist.end()) lower_id = *(tp->tweetlist.begin());
 		}
-		tac->SetGetTwitCurlExtHook([&](twitcurlext *tce) { tce->mp = base(); });
+		tac->SetGetTwitCurlExtHook([&](observer_ptr<twitcurlext> tce) { tce->mp = base(); });
 		tac->StartRestGetTweetBackfill(lower_id /*lower limit, exclusive*/, upper_id /*upper limit, inclusive*/, numleft, type, user->id);
 		tac->ClearGetTwitCurlExtHook();
 	}
@@ -1880,11 +1880,11 @@ tpanelparentwin_userproplisting::~tpanelparentwin_userproplisting() {
 void tpanelparentwin_userproplisting_impl::Init() {
 	std::shared_ptr<taccount> tac = getacc(*base());
 	if(tac) {
-		twitcurlext *twit=tac->GetTwitCurlExt();
+		std::unique_ptr<twitcurlext> twit = tac->GetTwitCurlExt();
 		twit->connmode = type;
 		twit->extra_id = user->id;
 		twit->mp = base();
-		twit->QueueAsyncExec();
+		twitcurlext::QueueAsyncExec(std::move(twit));
 	}
 }
 

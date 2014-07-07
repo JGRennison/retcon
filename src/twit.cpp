@@ -190,10 +190,10 @@ void streamconntimeout::Notify() {
 	time_t expected = 45 * (triggercount + 1);
 	if(delta - expected > 30) {
 		//clock has jumped > 30 seconds into the future, this indicates weirdness
-		LogMsgFormat(LOGT::SOCKERR, "Clock jump detected: Last activity %ds ago, expected ~%ds. Forcibly re-trying stream connection: %s, conn: %p",
-				(int) delta, (int) expected, acc ? cstr(acc->dispname) : "", tw);
-		tw->KillConn();
-		tw->DoRetry();
+		LogMsgFormat(LOGT::SOCKERR, "Clock jump detected: Last activity %ds ago, expected ~%ds. Forcibly re-trying stream connection: %s, conn ID: %d",
+				(int) delta, (int) expected, acc ? cstr(acc->dispname) : "", tw->id);
+		std::unique_ptr<mcurlconn> mc = tw->RemoveConn();
+		tw->DoRetry(std::move(mc));
 		return;
 	}
 
@@ -204,10 +204,10 @@ void streamconntimeout::Notify() {
 	}
 	else {
 		//90s in, timed-out
-		LogMsgFormat(LOGT::SOCKERR, "Stream connection timed out: %s, conn: %p",
-				acc ? cstr(acc->dispname) : "", tw);
-		tw->KillConn();
-		tw->HandleError(tw->GetCurlHandle(),0,CURLE_OPERATION_TIMEDOUT);
+		LogMsgFormat(LOGT::SOCKERR, "Stream connection timed out: %s, conn ID: %d",
+				acc ? cstr(acc->dispname) : "", tw->id);
+		std::unique_ptr<mcurlconn> mc = tw->RemoveConn();
+		tw->HandleError(tw->GetCurlHandle(), 0, CURLE_OPERATION_TIMEDOUT, std::move(mc));
 	}
 }
 
@@ -229,7 +229,7 @@ bool userdatacontainer::ImgIsReady(flagwrapper<PENDING_REQ> preq) {
 		if(cached_profile_img_url != user.profile_img_url) {
 			if(udc_flags & UDC::PROFILE_IMAGE_DL_FAILED) return true;
 			if(preq & PENDING_REQ::PROFIMG_DOWNLOAD_FLAG) {
-				profileimgdlconn::GetConn(user.profile_img_url, this);
+				profileimgdlconn::NewConn(user.profile_img_url, this);
 
 				// New image, bump last used timestamp to prevent it being evicted prior to display
 				profile_img_last_used = time(0);
@@ -283,7 +283,7 @@ bool userdatacontainer::ImgIsReady(flagwrapper<PENDING_REQ> preq) {
 						u->id, cstr(u->GetUser().screen_name), cstr(data->filename), cstr(u->cached_profile_img_url));
 					u->cached_profile_img_url.clear();
 					if(preq & PENDING_REQ::PROFIMG_DOWNLOAD_FLAG) {    //the saved image is not loadable, clear cache and re-download
-						profileimgdlconn::GetConn(u->GetUser().profile_img_url, u);
+						profileimgdlconn::NewConn(u->GetUser().profile_img_url, u);
 					}
 				}
 			});
@@ -867,10 +867,10 @@ bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> ac
 bool CheckLoadSingleTweet(tweet_ptr_p t, std::shared_ptr<taccount> &acc_hint) {
 	if(t->GetUsableAccount(acc_hint, tweet::GUAF::CHECKEXISTING)) {
 		t->lflags |= TLF::BEINGLOADEDOVERNET;
-		twitcurlext *twit = acc_hint->GetTwitCurlExt();
+		std::unique_ptr<twitcurlext> twit = acc_hint->GetTwitCurlExt();
 		twit->connmode = CS_SINGLETWEET;
 		twit->extra_id = t->id;
-		twit->QueueAsyncExec();
+		twitcurlext::QueueAsyncExec(std::move(twit));
 		return true;
 	}
 	else {

@@ -21,13 +21,13 @@
 
 #include "univdefs.h"
 #include "cfg.h"
-#include "socket-common.h"
 #include "user_relationship.h"
 #include "twit-common.h"
 #include "twitcurlext-common.h"
 #include "rbfs.h"
 #include "flags.h"
 #include "twit.h"
+#include "observer_ptr.h"
 #include <wx/event.h>
 #include <wx/string.h>
 #include <memory>
@@ -83,7 +83,7 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 	enum class TAF {
 		STREAM_UP			= 1<<0,
 	};
-	flagwrapper<TAF> ta_flags;
+	flagwrapper<TAF> ta_flags = 0;
 	unsigned long restinterval;	//seconds
 
 	uint64_t &GetMaxId(RBFS_TYPE type) {
@@ -96,9 +96,8 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 		}
 	}
 
-	time_t last_stream_start_time;
-	time_t last_stream_end_time;
-	connpool<twitcurlext> cp;
+	time_t last_stream_start_time = 0;
+	time_t last_stream_end_time = 0;
 	udc_ptr usercont;
 	std::unordered_map<uint64_t,user_relationship> user_relations;
 
@@ -109,35 +108,36 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 	std::unordered_map<uint64_t,udc_ptr> pendingusers;
 	std::forward_list<restbackfillstate> pending_rbfs_list;
 
-	std::deque<twitcurlext *> failed_pending_conns;	//strict subset of cp.activeset
-	wxTimer *pending_failed_conn_retry_timer;
-	wxTimer *stream_restart_timer;
+	std::deque<std::unique_ptr<twitcurlext>> failed_pending_conns;	//strict subset of cp.activeset
+	std::unique_ptr<wxTimer> pending_failed_conn_retry_timer;
+	std::unique_ptr<wxTimer> stream_restart_timer;
 	void CheckFailedPendingConns();
-	void AddFailedPendingConn(twitcurlext *conn);
+	void AddFailedPendingConn(std::unique_ptr<twitcurlext> conn);
 	void OnFailedPendingConnRetryTimer(wxTimerEvent& event);
 	void OnStreamRestartTimer(wxTimerEvent& event);
 
-	bool enabled;
-	bool init;
-	bool active;
-	bool streaming_on;
-	unsigned int stream_fail_count;
-	bool rest_on;
-	ACT_STATUS verifycredstatus;
-	bool beinginsertedintodb;
-	time_t last_rest_backfill;
-	wxTimer *rest_timer;
+	bool enabled = false;
+	bool init = false;
+	bool active = false;
+	bool streaming_on = false;
+	unsigned int stream_fail_count = 0;
+	bool rest_on = false;
+	ACT_STATUS verifycredstatus = ACT_NOTDONE;
+	bool beinginsertedintodb = false;
+	time_t last_rest_backfill = 0;
+	std::unique_ptr<wxTimer> rest_timer;
+	std::unique_ptr<wxTimer> noacc_pending_content_timer;
 
-	std::function<void(twitcurlext *)> TwitCurlExtHook;
+	std::function<void(observer_ptr<twitcurlext>)> TwitCurlExtHook;
 
 	void ClearUsersIFollow();
 	void SetUserRelationship(uint64_t userid, flagwrapper<user_relationship::URF> flags, const time_t &optime);
 
 	void StartRestGetTweetBackfill(uint64_t start_tweet_id /*lower limit, exclusive*/, uint64_t end_tweet_id /*upper limit, inclusive*/,
-			unsigned int max_tweets_to_read, RBFS_TYPE type=RBFS_TWEETS, uint64_t userid = 0);
-	void ExecRBFS(restbackfillstate *rbfs);
+			unsigned int max_tweets_to_read, RBFS_TYPE type = RBFS_TWEETS, uint64_t userid = 0);
+	void ExecRBFS(observer_ptr<restbackfillstate> rbfs);
 	void StartRestQueryPendings();
-	void DoPostAction(twitcurlext *lasttce);
+	void DoPostAction(twitcurlext &lasttce);
 	void DoPostAction(flagwrapper<PAF> postflags);
 	void GetRestBackfill();
 	void LookupFriendships(uint64_t userid);
@@ -157,21 +157,19 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 	void PostAccVerifyInit();
 	void Exec();
 	void CalcEnabled();
-	twitcurlext *PrepareNewStreamConn();
+	std::unique_ptr<twitcurlext> PrepareNewStreamConn();
 	wxString GetStatusString(bool notextifok = false);
-	taccount(genoptconf *incfg = 0);
-	~taccount();
-	twitcurlext *GetTwitCurlExt();
-	void SetGetTwitCurlExtHook(std::function<void(twitcurlext *)> func);
+	taccount(genoptconf *incfg = nullptr);
+	std::unique_ptr<twitcurlext> GetTwitCurlExt();
+	void SetGetTwitCurlExtHook(std::function<void(observer_ptr<twitcurlext>)> func);
 	void ClearGetTwitCurlExtHook();
 
 	void OnNoAccPendingContentTimer(wxTimerEvent& event);
 	void NoAccPendingContentEvent();
 	void NoAccPendingContentCheck();
-	wxTimer *noacc_pending_content_timer;
 
 	std::string DumpStateString() const;
-	void LogStateChange(const std::string &tag, raii_set *finaliser = 0);
+	void LogStateChange(const std::string &tag, raii_set *finaliser = nullptr);
 
 	//After structure filled in, but before it's actually used for anything
 	//Can check values in here

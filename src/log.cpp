@@ -85,8 +85,8 @@ void Update_currentlogflags() {
 	for(auto it=logfunclist.begin(); it!=logfunclist.end(); ++it) t_currentlogflags|=(*it)->lo_flags;
 	currentlogflags=t_currentlogflags;
 	if((old_currentlogflags ^ currentlogflags) & LOGT::CURLVERB) {
-		for(auto it=sm.connlist.begin(); it!=sm.connlist.end(); ++it) {
-			SetCurlHandleVerboseState(it->first, currentlogflags&LOGT::CURLVERB);
+		for(auto &it : sm.connlist) {
+			SetCurlHandleVerboseState(it.ch, currentlogflags & LOGT::CURLVERB);
 		}
 	}
 	if(currentlogflags & LOGT::WXVERBOSE) wxLog::SetLogLevel(wxLOG_Info);
@@ -451,17 +451,18 @@ static void dump_non_acc_user_pendings(LOGT logflags, const std::string &indent,
 void dump_pending_acc_failed_conns(LOGT logflags, const std::string &indent, const std::string &indentstep, taccount *acc) {
 	dump_acc_socket_flags(logflags, indent, acc);
 	LogMsgFormat(logflags, "%sRestartable Failed Connections: %d", cstr(indent), acc->failed_pending_conns.size());
-	for(auto it=acc->failed_pending_conns.begin(); it!=acc->failed_pending_conns.end(); ++it) {
-		LogMsgFormat(logflags, "%s%sSocket: %s, %p, Error Count: %d, mcflags: 0x%X",
-				cstr(indent), cstr(indentstep), cstr((*it)->GetConnTypeName()), (*it), (*it)->errorcount, (*it)->mcflags);
+	for(auto &it : acc->failed_pending_conns) {
+		LogMsgFormat(logflags, "%s%sSocket: %s, ID: %d, Error Count: %d, mcflags: 0x%X",
+				cstr(indent), cstr(indentstep), cstr(it->GetConnTypeName()), it->id, it->errorcount, it->mcflags);
 	}
 }
 
 void dump_pending_active_conn(LOGT logflags, const std::string &indent, const std::string &indentstep) {
 	LogMsgFormat(logflags, "%sActive connections: %d", cstr(indent), std::distance(sm.connlist.begin(), sm.connlist.end()));
-	for(auto it=sm.connlist.begin(); it!=sm.connlist.end(); ++it) {
-		LogMsgFormat(logflags, "%s%sSocket: %s, %p, Error Count: %d, mcflags: 0x%X",
-				cstr(indent), cstr(indentstep), cstr(it->second->GetConnTypeName()), it->second, it->second->errorcount, it->second->mcflags);
+	for(auto &it : sm.connlist) {
+		if(!it.cs) continue;
+		LogMsgFormat(logflags, "%s%sSocket: %s, ID: %d, Error Count: %d, mcflags: 0x%X",
+				cstr(indent), cstr(indentstep), cstr(it.cs->GetConnTypeName()), it.cs->id, it.cs->errorcount, it.cs->mcflags);
 	}
 }
 
@@ -471,10 +472,10 @@ void dump_pending_retry_conn(LOGT logflags, const std::string &indent, const std
 		if((*it)) count++;
 	}
 	LogMsgFormat(logflags, "%sConnections pending retry attempts: %d", cstr(indent), count);
-	for(auto it=sm.retry_conns.begin(); it!=sm.retry_conns.end(); ++it) {
-		if(!(*it)) continue;
-		LogMsgFormat(logflags, "%s%sSocket: %s, %p, Error Count: %d, mcflags: 0x%X",
-				cstr(indent), cstr(indentstep), cstr((*it)->GetConnTypeName()), (*it), (*it)->errorcount, (*it)->mcflags);
+	for(auto &it : sm.retry_conns) {
+		if(!it) continue;
+		LogMsgFormat(logflags, "%s%sSocket: %s, ID: %d, Error Count: %d, mcflags: 0x%X",
+				cstr(indent), cstr(indentstep), cstr(it->GetConnTypeName()), it->id, it->errorcount, it->mcflags);
 	}
 }
 

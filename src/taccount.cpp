@@ -42,30 +42,11 @@ BEGIN_EVENT_TABLE(taccount, wxEvtHandler)
 	EVT_TIMER(TAF_NOACC_PENDING_CONTENT_TIMER, taccount::OnNoAccPendingContentTimer)
 END_EVENT_TABLE()
 
-taccount::taccount(genoptconf *incfg)
-	: ta_flags(0), last_stream_start_time(0), last_stream_end_time(0), pending_failed_conn_retry_timer(0), stream_restart_timer(0),
-		enabled(false), init(false), active(false), streaming_on(false), stream_fail_count(0), rest_on(false), verifycredstatus(ACT_NOTDONE),
-		beinginsertedintodb(false), last_rest_backfill(0), rest_timer(0), noacc_pending_content_timer(0) {
+taccount::taccount(genoptconf *incfg) {
 	if(incfg) {
 		cfg.InheritFromParent(*incfg);
 		CFGParamConv();
 	}
-}
-
-taccount::~taccount() {
-	if(pending_failed_conn_retry_timer) {
-		delete pending_failed_conn_retry_timer;
-		pending_failed_conn_retry_timer=0;
-	}
-	if(stream_restart_timer) {
-		delete stream_restart_timer;
-		stream_restart_timer=0;
-	}
-	if(noacc_pending_content_timer) {
-		delete noacc_pending_content_timer;
-		noacc_pending_content_timer=0;
-	}
-	DeleteRestBackfillTimer();
 }
 
 void taccount::Setup() {
@@ -149,11 +130,11 @@ void taccount::LookupFriendships(uint64_t userid) {
 
 	if(fl->ids.empty()) return;
 
-	twitcurlext *twit=GetTwitCurlExt();
-	twit->connmode=CS_FRIENDLOOKUP;
-	twit->fl=std::move(fl);
-	twit->genurl=twit->fl->GetTwitterURL();
-	twit->QueueAsyncExec();
+	std::unique_ptr<twitcurlext> twit = GetTwitCurlExt();
+	twit->connmode = CS_FRIENDLOOKUP;
+	twit->fl = std::move(fl);
+	twit->genurl = twit->fl->GetTwitterURL();
+	twitcurlext::QueueAsyncExec(std::move(twit));
 }
 
 void taccount::OnRestTimer(wxTimerEvent& event) {
@@ -162,9 +143,9 @@ void taccount::OnRestTimer(wxTimerEvent& event) {
 
 void taccount::SetupRestBackfillTimer() {
 	if(!rest_on) return;
-	if(!rest_timer) rest_timer=new wxTimer(this, TAF_WINID_RESTTIMER);
-	time_t now=time(0);
-	time_t targettime=last_rest_backfill+restinterval;
+	if(!rest_timer) rest_timer.reset(new wxTimer(this, TAF_WINID_RESTTIMER));
+	time_t now = time(nullptr);
+	time_t targettime = last_rest_backfill + restinterval;
 	int timeleft;
 	if(targettime<=(now+10)) {				//10s of error margin
 		GetRestBackfill();
@@ -180,19 +161,21 @@ void taccount::SetupRestBackfillTimer() {
 void taccount::DeleteRestBackfillTimer() {
 	if(rest_timer) {
 		LogMsgFormat(LOGT::OTHERTRACE, "Deleting REST timer (%s)", cstr(dispname));
-		delete rest_timer;
-		rest_timer=0;
+		rest_timer.reset();
 	}
 }
 
 void taccount::GetRestBackfill() {
-	auto oktostart=[&](RBFS_TYPE type) {
-		for(auto it=cp.activeset.begin(); it!=cp.activeset.end(); ++it) {
-			if((*it)->rbfs && (*it)->rbfs->type==type && (*it)->rbfs->end_tweet_id==0) {
-				return false;	//already present
+	auto oktostart = [&](RBFS_TYPE type) {
+		bool result = true;
+		twitcurlext::IterateConnsByAcc(shared_from_this(), [&](const twitcurlext &it) {
+			if(it.rbfs && it.rbfs->type == type && it.rbfs->end_tweet_id == 0) {
+				result = false;    //already present
+				return true;
 			}
-		}
-		return true;
+			return false;
+		});
+		return result;
 	};
 
 	last_rest_backfill=time(0);
@@ -219,9 +202,9 @@ void taccount::StartRestGetTweetBackfill(uint64_t start_tweet_id, uint64_t end_t
 	ExecRBFS(rbfs);
 }
 
-void taccount::ExecRBFS(restbackfillstate *rbfs) {
+void taccount::ExecRBFS(observer_ptr<restbackfillstate> rbfs) {
 	if(rbfs->started) return;
-	twitcurlext *twit=GetTwitCurlExt();
+	std::unique_ptr<twitcurlext> twit = GetTwitCurlExt();
 	switch(rbfs->type) {
 		case RBFS_TWEETS:
 		case RBFS_MENTIONS:
@@ -243,7 +226,7 @@ void taccount::ExecRBFS(restbackfillstate *rbfs) {
 	twit->SetNoPerformFlag(true);
 	twit->rbfs=rbfs;
 	twit->post_action_flags = PAF::RESOLVE_PENDINGS;
-	twit->ExecRestGetTweetBackfill();
+	twitcurlext::ExecRestGetTweetBackfill(std::move(twit));
 }
 
 void taccount::StartRestQueryPendings() {
@@ -272,20 +255,17 @@ void taccount::StartRestQueryPendings() {
 			curobj->udc_flags&=~UDC::FORCE_REFRESH;
 		}
 		if(numusers && ul) {
-			twitcurlext *twit=GetTwitCurlExt();
-			twit->connmode=CS_USERLIST;
-			twit->ul=std::move(ul);
-			ul=0;
-			twit->post_action_flags=PAF::RESOLVE_PENDINGS;
-			twit->QueueAsyncExec();
+			std::unique_ptr<twitcurlext> twit = GetTwitCurlExt();
+			twit->connmode = CS_USERLIST;
+			twit->ul = std::move(ul);
+			twit->post_action_flags = PAF::RESOLVE_PENDINGS;
+			twitcurlext::QueueAsyncExec(std::move(twit));
 		}
 	}
 }
 
-void taccount::DoPostAction(twitcurlext *lasttce) {
-	flagwrapper<PAF> postflags = lasttce->post_action_flags;
-	cp.Standby(lasttce);
-	DoPostAction(postflags);
+void taccount::DoPostAction(twitcurlext &lasttce) {
+	DoPostAction(lasttce.post_action_flags);
 }
 
 void taccount::DoPostAction(flagwrapper<PAF> postflags) {
@@ -422,13 +402,13 @@ void taccount::Exec() {
 	LogStateChange("taccount::Exec", &finalisers);
 
 	if(init) {
-		if(verifycredstatus!=ACT_DONE) {
-			streaming_on=false;
-			rest_on=false;
-			active=false;
-			if(verifycredstatus==ACT_INPROGRESS) return;
-			twitcurlext *twit=GetTwitCurlExt();
-			twit->TwStartupAccVerify();
+		if(verifycredstatus != ACT_DONE) {
+			streaming_on = false;
+			rest_on = false;
+			active = false;
+			if(verifycredstatus == ACT_INPROGRESS) return;
+			std::unique_ptr<twitcurlext> twit = GetTwitCurlExt();
+			twitcurlext::TwStartupAccVerify(std::move(twit));
 		}
 	}
 	else if(enabled) {
@@ -441,16 +421,16 @@ void taccount::Exec() {
 		}
 		else {
 			if(!target_streaming) {
-				for(auto it=cp.activeset.begin(); it!=cp.activeset.end(); ++it) {
-					if((*it)->tc_flags & twitcurlext::TCF::ISSTREAM) {
-						LogMsgFormat(LOGT::SOCKTRACE, "taccount::Exec(): Closing stream connection: type: %s, conn: %p, url: %s",
-								cstr((*it)->GetConnTypeName()), (*it), cstr((*it)->url));
-						(*it)->KillConn();
-						cp.Standby(*it);	//kill stream, note this also modifies cp.activeset
-						break;
+				twitcurlext::IterateConnsByAcc(shared_from_this(), [&](twitcurlext &conn) {
+					if(conn.tc_flags & twitcurlext::TCF::ISSTREAM) {
+						LogMsgFormat(LOGT::SOCKTRACE, "taccount::Exec(): Closing stream connection: type: %s, conn ID: %d, url: %s",
+								cstr(conn.GetConnTypeName()), conn.id, cstr(conn.url));
+						conn.KillConn();
+						return true;
 					}
-				}
-				streaming_on=false;
+					return false;
+				});
+				streaming_on = false;
 			}
 			else if(target_streaming && rest_on) {
 				DeleteRestBackfillTimer();
@@ -461,8 +441,8 @@ void taccount::Exec() {
 
 		if(target_streaming && !streaming_on) {
 			streaming_on=true;
-			twitcurlext *twit_stream=PrepareNewStreamConn();
-			twit_stream->QueueAsyncExec();
+			std::unique_ptr<twitcurlext> twit_stream = PrepareNewStreamConn();
+			twitcurlext::QueueAsyncExec(std::move(twit_stream));
 		}
 		if(!target_streaming && !rest_on) {
 			rest_on=true;
@@ -475,16 +455,26 @@ void taccount::Exec() {
 		streaming_on=false;
 		rest_on=false;
 		failed_pending_conns.clear();
-		cp.ClearAllConns();
+
+		// This is to avoid issues around iterating over the list whilst changing it
+		// Build a list of connections to kill, then kill them individually
+		std::vector<twitcurlext *> killlist;
+		twitcurlext::IterateConnsByAcc(shared_from_this(), [&](twitcurlext &conn) {
+			killlist.push_back(&conn);
+			return false;
+		});
+		for(auto &it : killlist) {
+			it->KillConn();
+		}
 	}
 }
 
-twitcurlext *taccount::PrepareNewStreamConn() {
-	twitcurlext *twit_stream = GetTwitCurlExt();
+std::unique_ptr<twitcurlext> taccount::PrepareNewStreamConn() {
+	std::unique_ptr<twitcurlext> twit_stream = GetTwitCurlExt();
 	twit_stream->connmode = CS_STREAM;
 	twit_stream->tc_flags |= twitcurlext::TCF::ISSTREAM;
 	twit_stream->post_action_flags |= PAF::STREAM_CONN_READ_BACKFILL;
-	return twit_stream;
+	return std::move(twit_stream);
 }
 
 void taccount::CalcEnabled() {
@@ -526,25 +516,28 @@ wxString taccount::GetStatusString(bool notextifok) {
 }
 
 void taccount::CheckFailedPendingConns() {
-	if(!failed_pending_conns.empty()) {			//only try one, to avoid excessive connection cycling
-								//if it is successful the remainder will be successively queued
-		failed_pending_conns.front()->QueueAsyncExec();
+	if(!failed_pending_conns.empty()) {
+		// only try one, to avoid excessive connection cycling
+		// if it is successful the remainder will be successively queued
+		std::unique_ptr<twitcurlext> conn = std::move(failed_pending_conns.front());
 		failed_pending_conns.pop_front();
+		twitcurlext::QueueAsyncExec(std::move(conn));
 	}
 	if(pending_failed_conn_retry_timer) pending_failed_conn_retry_timer->Stop();
 	LogMsgFormat(LOGT::SOCKTRACE, "taccount::CheckFailedPendingConns(), stream_fail_count: %d, enabled: %d, userstreams: %d, streaming_on: %d, for account: %s",
 			stream_fail_count, enabled, userstreams, streaming_on, cstr(dispname));
 	if(stream_fail_count && enabled && userstreams && !streaming_on) {
-		if(!stream_restart_timer) stream_restart_timer=new wxTimer(this, TAF_STREAM_RESTART_TIMER);
-		if(!stream_restart_timer->IsRunning()) stream_restart_timer->Start(90*1000, wxTIMER_ONE_SHOT);	//give a little time for any other operations to try to connect first
+		if(!stream_restart_timer) stream_restart_timer.reset(new wxTimer(this, TAF_STREAM_RESTART_TIMER));
+		if(!stream_restart_timer->IsRunning()) stream_restart_timer->Start(90 * 1000, wxTIMER_ONE_SHOT);    //give a little time for any other operations to try to connect first
 	}
 }
 
-void taccount::AddFailedPendingConn(twitcurlext *conn) {
-	LogMsgFormat(LOGT::SOCKTRACE, "Connection failed (account: %s). Next reconnection attempt in 512 seconds, or upon successful network activity on this account (whichever is first).", cstr(dispname));
-	failed_pending_conns.push_back(conn);
-	if(!pending_failed_conn_retry_timer) pending_failed_conn_retry_timer=new wxTimer(this, TAF_FAILED_PENDING_CONN_RETRY_TIMER);
-	if(!pending_failed_conn_retry_timer->IsRunning()) pending_failed_conn_retry_timer->Start(512*1000, wxTIMER_ONE_SHOT);
+void taccount::AddFailedPendingConn(std::unique_ptr<twitcurlext> conn) {
+	LogMsgFormat(LOGT::SOCKTRACE, "Connection failed (account: %s). Next reconnection attempt in 512 seconds, or upon successful network activity on this account (whichever is first).",
+			cstr(dispname));
+	failed_pending_conns.push_back(std::move(conn));
+	if(!pending_failed_conn_retry_timer) pending_failed_conn_retry_timer.reset(new wxTimer(this, TAF_FAILED_PENDING_CONN_RETRY_TIMER));
+	if(!pending_failed_conn_retry_timer->IsRunning()) pending_failed_conn_retry_timer->Start(512 * 1000, wxTIMER_ONE_SHOT);
 }
 
 void taccount::OnFailedPendingConnRetryTimer(wxTimerEvent& event) {
@@ -554,28 +547,34 @@ void taccount::OnFailedPendingConnRetryTimer(wxTimerEvent& event) {
 void taccount::OnStreamRestartTimer(wxTimerEvent& event) {
 	LogMsgFormat(LOGT::SOCKTRACE, "taccount::OnStreamRestartTimer(), stream_fail_count: %d, enabled: %d, userstreams: %d, streaming_on: %d, for account: %s",
 			stream_fail_count, enabled, userstreams, streaming_on, cstr(dispname));
-	for(auto it=cp.activeset.begin(); it!=cp.activeset.end(); ++it) {
-		if((*it)->tc_flags & twitcurlext::TCF::ISSTREAM) {
+
+	bool have_stream = false;
+	twitcurlext::IterateConnsByAcc(shared_from_this(), [&](twitcurlext &conn) {
+		if(conn.tc_flags & twitcurlext::TCF::ISSTREAM) {
+			//stream connection already present
 			LogMsgFormat(LOGT::SOCKTRACE, "taccount::OnStreamRestartTimer(), stream connection already active, aborting");
-			return;				//stream connection already present
+			have_stream = true;
+			return true;
 		}
-	}
+		return false;
+	});
+	if(have_stream) return;
 
 	if(stream_fail_count && enabled && userstreams && !streaming_on) {
-		twitcurlext *twit_stream=PrepareNewStreamConn();
-		twit_stream->errorcount=255;	//disable retry attempts
-		twit_stream->QueueAsyncExec();
+		std::unique_ptr<twitcurlext> twit_stream = PrepareNewStreamConn();
+		twit_stream->errorcount = 255;    //disable retry attempts
+		twitcurlext::QueueAsyncExec(std::move(twit_stream));
 	}
 }
 
-twitcurlext *taccount::GetTwitCurlExt() {
-	twitcurlext *twit=cp.GetConn();
+std::unique_ptr<twitcurlext> taccount::GetTwitCurlExt() {
+	std::unique_ptr<twitcurlext> twit(new twitcurlext);
 	twit->TwInit(shared_from_this());
-	if(TwitCurlExtHook) TwitCurlExtHook(twit);
-	return twit;
+	if(TwitCurlExtHook) TwitCurlExtHook(twit.get());
+	return std::move(twit);
 }
 
-void taccount::SetGetTwitCurlExtHook(std::function<void(twitcurlext *)> func) {
+void taccount::SetGetTwitCurlExtHook(std::function<void(observer_ptr<twitcurlext>)> func) {
 	TwitCurlExtHook = std::move(func);
 }
 
@@ -600,10 +599,10 @@ void taccount::NoAccPendingContentEvent() {
 		std::shared_ptr<taccount> curacc;
 		if(t->GetUsableAccount(curacc, tweet::GUAF::NOERR)) {
 			t->lflags |= TLF::BEINGLOADEDOVERNET;
-			twitcurlext *twit = curacc->GetTwitCurlExt();
+			std::unique_ptr<twitcurlext> twit = curacc->GetTwitCurlExt();
 			twit->connmode = CS_SINGLETWEET;
 			twit->extra_id = t->id;
-			twit->QueueAsyncExec();
+			twitcurlext::QueueAsyncExec(std::move(twit));
 		}
 		else {
 			unhandled_tweets[t->id] = t;
@@ -650,7 +649,7 @@ void taccount::NoAccPendingContentCheck() {
 
 	if(otheracc) {
 		//delay action to give other accounts a chance to catch up
-		if(!noacc_pending_content_timer) noacc_pending_content_timer = new wxTimer(this, TAF_NOACC_PENDING_CONTENT_TIMER);
+		if(!noacc_pending_content_timer) noacc_pending_content_timer.reset(new wxTimer(this, TAF_NOACC_PENDING_CONTENT_TIMER));
 		noacc_pending_content_timer->Start(90 * 1000, wxTIMER_ONE_SHOT);
 	}
 	else NoAccPendingContentEvent();

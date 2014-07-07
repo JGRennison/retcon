@@ -31,6 +31,7 @@
 #include <wx/msgdlg.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
+#include <unordered_set>
 
 enum {
 	ACCWID_ENDISABLE = 1,
@@ -178,7 +179,7 @@ void acc_window::AccNew(wxCommandEvent &event) {
 	}
 	else if(answer == wxCANCEL) return;
 
-	twitcurlext *twit = ta->GetTwitCurlExt();
+	std::unique_ptr<twitcurlext> twit = ta->GetTwitCurlExt();
 	if(ta->TwDoOAuth(this, *twit)) {
 		if(twit->TwSyncStartupAccVerify()) {
 			ta->userenabled = true;
@@ -193,8 +194,6 @@ void acc_window::AccNew(wxCommandEvent &event) {
 			DBC_SendAccDBUpdate(std::move(insmsg));
 		}
 	}
-	twit->TwDeInit();
-	ta->cp.Standby(twit);
 }
 void acc_window::AccClose(wxCommandEvent &event) {
 	currentset.erase(this);
@@ -218,7 +217,7 @@ void acc_window::ReAuth(wxCommandEvent &event) {
 	taccount *acc = static_cast<taccount *>(lb->GetClientData(sel));
 	acc->enabled = 0;
 	acc->Exec();
-	twitcurlext *twit = acc->GetTwitCurlExt();
+	std::unique_ptr<twitcurlext> twit = acc->GetTwitCurlExt();
 	twit->getOAuth().setOAuthTokenKey("");		//remove existing oauth tokens
 	twit->getOAuth().setOAuthTokenSecret("");
 	if(acc->TwDoOAuth(this, *twit)) {
