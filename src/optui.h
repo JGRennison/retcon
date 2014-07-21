@@ -113,6 +113,8 @@ struct settings_window : public wxDialog {
 	void ShowAdvCtrlChange(wxCommandEvent &event);
 	void ShowVeryAdvCtrlChange(wxCommandEvent &event);
 
+	void AddSettingRow_Common(unsigned int win, wxWindow *parent, wxSizer *sizer, const wxString &name, flagwrapper<DBCV> flags,
+			genopt &val, genopt &parentval, wxWindow *item);
 	void AddSettingRow_String(unsigned int win, wxWindow *parent, wxSizer *sizer, const wxString &name, flagwrapper<DBCV> flags,
 			genopt &val, genopt &parentval, long style = wxFILTER_NONE, wxValidator *textctrlvalidator = nullptr);
 	void AddSettingRow_Bool(unsigned int win, wxWindow* parent, wxSizer *sizer, const wxString &name, flagwrapper<DBCV> flags,

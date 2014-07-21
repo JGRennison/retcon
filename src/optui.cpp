@@ -37,6 +37,7 @@ enum {
 	ACCWID_ENDISABLE = 1,
 	ACCWID_REAUTH,
 	ACCWID_REENABLEALL,
+	ACCWID_LISTWIN,
 };
 
 BEGIN_EVENT_TABLE(acc_window, wxDialog)
@@ -47,7 +48,7 @@ BEGIN_EVENT_TABLE(acc_window, wxDialog)
 	EVT_BUTTON(ACCWID_ENDISABLE, acc_window::EnDisable)
 	EVT_BUTTON(ACCWID_REAUTH, acc_window::ReAuth)
 	EVT_BUTTON(ACCWID_REENABLEALL, acc_window::ReEnableAll)
-	EVT_LISTBOX(wxID_FILE1, acc_window::OnSelChange)
+	EVT_LISTBOX(ACCWID_LISTWIN, acc_window::OnSelChange)
 END_EVENT_TABLE()
 
 std::set<acc_window *> acc_window::currentset;
@@ -62,7 +63,7 @@ acc_window::acc_window(wxWindow* parent, wxWindowID id, const wxString &title, c
 	wxBoxSizer *hbox2 = new wxBoxSizer(wxHORIZONTAL);
 	wxBoxSizer *vboxr = new wxBoxSizer(wxVERTICAL);
 
-	lb = new wxListBox(panel, wxID_FILE1, wxDefaultPosition, wxDefaultSize, 0, 0, wxLB_SINGLE | wxLB_SORT | wxLB_NEEDED_SB);
+	lb = new wxListBox(panel, ACCWID_LISTWIN, wxDefaultPosition, wxDefaultSize, 0, 0, wxLB_SINGLE | wxLB_SORT | wxLB_NEEDED_SB);
 	UpdateLB();
 	editbtn = new wxButton(panel, wxID_PROPERTIES, wxT("Settings"));
 	endisbtn = new wxButton(panel, ACCWID_ENDISABLE, wxT("Disable"));
@@ -249,8 +250,16 @@ struct DefaultChkBoxValidator : public wxValidator {
 	wxCheckBox *chkbox;
 	flagwrapper<DBCV> flags;
 
-	DefaultChkBoxValidator(genopt &val_, genopt &parentval_, flagwrapper<DBCV> flags_ = 0, wxTextCtrl *txtctrl_ = nullptr, wxCheckBox *chkbox_ = nullptr)
+	private:
+	DefaultChkBoxValidator(genopt &val_, genopt &parentval_, flagwrapper<DBCV> flags_, wxTextCtrl *txtctrl_, wxCheckBox *chkbox_)
 			: wxValidator(), val(val_), parentval(parentval_), txtctrl(txtctrl_), chkbox(chkbox_), flags(flags_) { }
+
+	public:
+	DefaultChkBoxValidator(genopt &val_, genopt &parentval_, flagwrapper<DBCV> flags_ = 0, wxWindow *ctrl_ = nullptr)
+			: wxValidator(), val(val_), parentval(parentval_), flags(flags_) {
+		txtctrl = dynamic_cast<wxTextCtrl *>(ctrl_);
+		chkbox = dynamic_cast<wxCheckBox *>(ctrl_);
+	}
 	virtual wxObject* Clone() const { return new DefaultChkBoxValidator(val, parentval, flags, txtctrl, chkbox); }
 	virtual bool TransferFromWindow() {
 		wxCheckBox *chk = (wxCheckBox*) GetWindow();
@@ -333,42 +342,36 @@ enum {
 	OPTWIN_LAST,
 };
 
-void settings_window::AddSettingRow_String(unsigned int win, wxWindow *parent, wxSizer *sizer, const wxString &name,
-		flagwrapper<DBCV> flags, genopt &val, genopt &parentval, long style, wxValidator *textctrlvalidator) {
-	wxTextValidator deftv(style, &val.val);
-	if(!textctrlvalidator) textctrlvalidator = &deftv;
+void settings_window::AddSettingRow_Common(unsigned int win, wxWindow *parent, wxSizer *sizer, const wxString &name,
+		flagwrapper<DBCV> flags, genopt &val, genopt &parentval, wxWindow *item) {
 	wxStaticText *stat = new wxStaticText(parent, wxID_ANY, name);
-	wxTextCtrl *tc = new wxTextCtrl(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize,
-			(flags & DBCV::MULTILINE) ? wxTE_MULTILINE : 0, *textctrlvalidator);
-	DefaultChkBoxValidator dcbv(val, parentval, flags, tc);
+	DefaultChkBoxValidator dcbv(val, parentval, flags, item);
 	wxCheckBox *chk = new wxCheckBox(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, 0, dcbv);
 
 	sizer->Add(stat, 0, wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL, 4);
 	wxSize statsz = stat->GetSize();
-	sizer->SetItemMinSize(stat, std::max(200,statsz.GetWidth()), statsz.GetHeight());
+	sizer->SetItemMinSize(stat, std::max(200, statsz.GetWidth()), statsz.GetHeight());
 	sizer->Add(chk, 0, wxALIGN_CENTRE | wxALIGN_CENTRE_VERTICAL, 4);
-	sizer->Add(tc, 0, wxEXPAND | wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL, 4);
+	sizer->Add(item, 0, wxEXPAND | wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL, 4);
 	opts.emplace_front(option_item {sizer, stat, win, flags});
-	opts.emplace_front(option_item {sizer, tc, win, flags});
 	opts.emplace_front(option_item {sizer, chk, win, flags});
+	opts.emplace_front(option_item {sizer, item, win, flags});
+}
+
+void settings_window::AddSettingRow_String(unsigned int win, wxWindow *parent, wxSizer *sizer, const wxString &name,
+		flagwrapper<DBCV> flags, genopt &val, genopt &parentval, long style, wxValidator *textctrlvalidator) {
+	wxTextValidator deftv(style, &val.val);
+	if(!textctrlvalidator) textctrlvalidator = &deftv;
+	wxTextCtrl *tc = new wxTextCtrl(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize,
+			(flags & DBCV::MULTILINE) ? wxTE_MULTILINE : 0, *textctrlvalidator);
+	AddSettingRow_Common(win, parent, sizer, name, flags, val, parentval, tc);
 }
 
 void settings_window::AddSettingRow_Bool(unsigned int win, wxWindow* parent, wxSizer *sizer, const wxString &name,
 		flagwrapper<DBCV> flags, genopt &val, genopt &parentval) {
 	ValueChkBoxValidator boolvalidator(val);
-	wxStaticText *stat = new wxStaticText(parent, wxID_ANY, name);
 	wxCheckBox *chkval = new wxCheckBox(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, 0, boolvalidator);
-	DefaultChkBoxValidator dcbv(val, parentval, flags, 0, chkval);
-	wxCheckBox *chk = new wxCheckBox(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, 0, dcbv);
-
-	sizer->Add(stat, 0, wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL, 4);
-	wxSize statsz = stat->GetSize();
-	sizer->SetItemMinSize(stat, std::max(200,statsz.GetWidth()), statsz.GetHeight());
-	sizer->Add(chk, 0, wxALIGN_CENTRE | wxALIGN_CENTRE_VERTICAL, 4);
-	sizer->Add(chkval, 0, wxEXPAND | wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL, 4);
-	opts.emplace_front(option_item {sizer, stat, win, flags});
-	opts.emplace_front(option_item {sizer, chkval, win, flags});
-	opts.emplace_front(option_item {sizer, chk, win, flags});
+	AddSettingRow_Common(win, parent, sizer, name, flags, val, parentval, chkval);
 }
 
 wxStaticBoxSizer *settings_window::AddGenoptconfSettingBlock(wxWindow* parent, wxSizer *sizer, const wxString &name,
@@ -393,12 +396,19 @@ wxStaticBoxSizer *settings_window::AddGenoptconfSettingBlock(wxWindow* parent, w
 	return sbox;
 }
 
+enum {
+	SWID_ACC_CHOICE = 1,
+	SWID_ADVCAT_CHK,
+	SWID_VADVCAT_CHK,
+
+	SWID_CATRANGE_START = 4000,
+};
 
 BEGIN_EVENT_TABLE(settings_window, wxDialog)
-EVT_CHOICE(wxID_FILE1, settings_window::ChoiceCtrlChange)
-EVT_CHECKBOX(wxID_FILE2, settings_window::ShowAdvCtrlChange)
-EVT_CHECKBOX(wxID_FILE3, settings_window::ShowVeryAdvCtrlChange)
-EVT_COMMAND_RANGE(4000, 4000 + OPTWIN_LAST - 1, wxEVT_COMMAND_TOGGLEBUTTON_CLICKED, settings_window::CategoryButtonClick)
+EVT_CHOICE(SWID_ACC_CHOICE, settings_window::ChoiceCtrlChange)
+EVT_CHECKBOX(SWID_ADVCAT_CHK, settings_window::ShowAdvCtrlChange)
+EVT_CHECKBOX(SWID_VADVCAT_CHK, settings_window::ShowVeryAdvCtrlChange)
+EVT_COMMAND_RANGE(SWID_CATRANGE_START, SWID_CATRANGE_START + OPTWIN_LAST - 1, wxEVT_COMMAND_TOGGLEBUTTON_CLICKED, settings_window::CategoryButtonClick)
 END_EVENT_TABLE()
 
 settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name, taccount *defshow)
@@ -434,7 +444,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 
 	cat_buttons.resize(OPTWIN_LAST);
 	auto addbtn = [&](unsigned int btnid, const wxString &btnname) {
-		wxToggleButton *btn = new wxToggleButton(panel, 4000 + btnid, btnname);
+		wxToggleButton *btn = new wxToggleButton(panel, SWID_CATRANGE_START + btnid, btnname);
 		btnbox->Add(btn, 0, wxALL, 2);
 		if(btnid == currentcat) btn->SetValue(true);
 		cat_buttons[btnid] = btn;
@@ -452,8 +462,8 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	wxBoxSizer *hboxfooter = new wxBoxSizer(wxHORIZONTAL);
 	wxButton *okbtn = new wxButton(panel, wxID_OK, wxT("OK"));
 	wxButton *cancelbtn = new wxButton(panel, wxID_CANCEL, wxT("Cancel"));
-	advoptchkbox = new wxCheckBox(panel, wxID_FILE2, wxT("Show Advanced Options"));
-	veryadvoptchkbox = new wxCheckBox(panel, wxID_FILE3, wxT("Show Very Advanced Options"));
+	advoptchkbox = new wxCheckBox(panel, SWID_ADVCAT_CHK, wxT("Show Advanced Options"));
+	veryadvoptchkbox = new wxCheckBox(panel, SWID_VADVCAT_CHK, wxT("Show Very Advanced Options"));
 	wxBoxSizer *advoptbox = new wxBoxSizer(wxVERTICAL);
 	advoptbox->Add(advoptchkbox, 0, wxALL | wxALIGN_CENTRE_VERTICAL, 2);
 	advoptbox->Add(veryadvoptchkbox, 0, wxALL | wxALIGN_CENTRE_VERTICAL, 2);
@@ -550,7 +560,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 #endif
 	AddSettingRow_String(OPTWIN_NETWORK, panel, fgs, netifacelabel, DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.netiface, gcglobdefaults.netiface);
 
-	lb = new wxChoice(panel, wxID_FILE1);
+	lb = new wxChoice(panel, SWID_ACC_CHOICE);
 
 	vbox->Add(lb, 0, wxALL, 4);
 
@@ -704,7 +714,7 @@ bool settings_window::TransferDataFromWindow() {
 void settings_window::CategoryButtonClick(wxCommandEvent &event) {
 	Freeze();
 	if(cat_buttons[currentcat]) cat_buttons[currentcat]->SetValue(false);
-	currentcat = event.GetId() - 4000;
+	currentcat = event.GetId() - SWID_CATRANGE_START;
 	cat_buttons[currentcat]->SetValue(true);
 
 	SetSizeHints(GetSize().GetWidth(), 1);
