@@ -58,6 +58,7 @@ struct genoptconf {
 	CFGTEMPL_BOOL(datetimeisutc) \
 	CFGTEMPL_UL(maxpanelprofimgsize) \
 	CFGTEMPL_UL(maxtweetsdisplayinpanel) \
+	CFGTEMPL_UL(format_default_num) \
 	CFGTEMPL(tweetdispformat) \
 	CFGTEMPL(dmdispformat) \
 	CFGTEMPL(rtdispformat) \
@@ -152,6 +153,17 @@ struct globconf : public globconf_base {
 	bool readonlymode = false;
 	bool allaccsdisabled = false;
 };
+
+struct format_set {
+	genopt tweetdispformat;
+	genopt dmdispformat;
+	genopt rtdispformat;
+	genopt userdispformat;
+};
+extern const format_set format_set_short;
+extern const format_set format_set_medium;
+extern const format_set format_set_long;
+const format_set &IndexToFormatSet(unsigned long fdn);
 
 void ReadAllCFGIn(sqlite3 *db, globconf &gc, std::list<std::shared_ptr<taccount>> &lalist);
 void WriteAllCFGOut(sqlite3 *db, const globconf &gc, const std::list<std::shared_ptr<taccount>> &lalist);

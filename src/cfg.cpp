@@ -41,10 +41,11 @@ genoptconf gcdefaults {
 #define CFGDEFAULT_datetimeisutc                            wxT("0")
 #define CFGDEFAULT_maxpanelprofimgsize                      wxT("48")
 #define CFGDEFAULT_maxtweetsdisplayinpanel                  wxT("40")
-#define CFGDEFAULT_tweetdispformat                          wxT("uZB@unbzuvup - T - t - FRfp( -Rp( 'R'Rn)fp( 'F'fn))m( - An)Swp( - Sl)QF+u(' - 'BK(+#000080)'Unread'kb)NC")
-#define CFGDEFAULT_dmdispformat                             wxT("uZB@unbzuvup -> UZB@UnbzUvUp - T - t - FRfp( -Rp( 'R'Rn)fp( 'F'fn))m( - An)Swp( - Sl)QF+u(' - 'BK(+#000080)'Unread'kb)NC")
-#define CFGDEFAULT_rtdispformat                             wxT("rZB@rnbzrvrp 'RT by' uZB@unbzuvup - T - t - FRfp( -Rp( 'R'Rn)fp( 'F'fn))m( - An)Swp( - Sl)QF+u(' - 'BK(+#000080)'Unread'kb)Nc")
-#define CFGDEFAULT_userdispformat                           wxT("uZB@unbzuvup - uN - ulNuDNuw")
+#define CFGDEFAULT_format_default_num                       wxT("1")
+#define CFGDEFAULT_tweetdispformat                          wxT("")    // these are dealt with in CFGParamConv()
+#define CFGDEFAULT_dmdispformat                             wxT("")    //
+#define CFGDEFAULT_rtdispformat                             wxT("")    //
+#define CFGDEFAULT_userdispformat                           wxT("")    //
 #define CFGDEFAULT_cachethumbs                              wxT("1")
 #define CFGDEFAULT_cachemedia                               wxT("0")
 #define CFGDEFAULT_rtdisp                                   wxT("1")
@@ -96,6 +97,33 @@ genoptglobconf gcglobdefaults {
 #undef CFGTEMPL_L
 #undef CFGTEMPL_BOOL
 };
+
+const format_set format_set_short {
+	{ wxT("uZB@unbzuvup  tQF+u(' - 'BK(+#000080)'Unread'kb)NC"), 0 },
+	{ wxT("uZB@unbzuvup \x2192 UZB@UnbzUvUp  tQF+u(' - 'BK(+#000080)'Unread'kb)NC"), 0 },
+	{ wxT("rZB@rnbzrvrp 'RT by' uZB@unbzuvup  tQF+u(' - 'BK(+#000080)'Unread'kb)Nc"), 0 },
+	{ wxT("uZB@unbzuvup  uNNuD"), 0 },
+};
+const format_set format_set_medium {
+	{ wxT("uZB@unbzuvup  tRfp( -Rp( 'R'Rn)fp( 'F'fn))m( - An)QF+u(' - 'BK(+#000080)'Unread'kb)NC"), 0 },
+	{ wxT("uZB@unbzuvup \x2192 UZB@UnbzUvUp  tQF+u(' - 'BK(+#000080)'Unread'kb)NC"), 0 },
+	{ wxT("rZB@rnbzrvrp 'RT by' uZB@unbzuvup  tRfp( -Rp( 'R'Rn)fp( 'F'fn))m( - An)QF+u(' - 'BK(+#000080)'Unread'kb)Nc"), 0 },
+	{ wxT("uZB@unbzuvup  uN - ulNuD"), 0 },
+};
+const format_set format_set_long {
+	{ wxT("uZB@unbzuvup  T - t - FRfp( -Rp( 'R'Rn)fp( 'F'fn))m( - An)Swp( - Sl)QF+u(' - 'BK(+#000080)'Unread'kb)NC"), 0 },
+	{ wxT("uZB@unbzuvup \x2192 UZB@UnbzUvUp  T - t - FSwp( - Sl)QF+u(' - 'BK(+#000080)'Unread'kb)NC"), 0 },
+	{ wxT("rZB@rnbzrvrp 'RT by' uZB@unbzuvup  T - t - FRfp( -Rp( 'R'Rn)fp( 'F'fn))m( - An)Swp( - Sl)QF+u(' - 'BK(+#000080)'Unread'kb)Nc"), 0 },
+	{ wxT("uZB@unbzuvup  uN - ulNuDNuw"), 0 },
+};
+
+const format_set &IndexToFormatSet(unsigned long fdn) {
+	const format_set *current = &format_set_short;
+	if(fdn == 1) current = &format_set_medium;
+	else if(fdn == 2) current = &format_set_long;
+
+	return *current;
+}
 
 void taccount_cfg::CFGWriteOut(DBWriteConfig &twfc) const {
 	twfc.SetDBIndex(dbindex);
@@ -186,6 +214,17 @@ void globconf::CFGParamConv() {
 	}
 
 	netiface = stdstrwx(gc.gcfg.netiface.val);
+
+	const format_set &current_format_set = IndexToFormatSet(format_default_num);
+	auto do_format_param = [&](genopt &targ, const genopt &def) {
+		if(targ.val.IsEmpty() || !targ.enable) {
+			targ = def;
+		}
+	};
+	do_format_param(gcfg.tweetdispformat, current_format_set.tweetdispformat);
+	do_format_param(gcfg.dmdispformat, current_format_set.dmdispformat);
+	do_format_param(gcfg.rtdispformat, current_format_set.rtdispformat);
+	do_format_param(gcfg.userdispformat, current_format_set.userdispformat);
 }
 
 void genoptconf::CFGWriteOutCurDir(DBWriteConfig &twfc) const {

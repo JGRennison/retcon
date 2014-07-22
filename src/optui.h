@@ -22,6 +22,7 @@
 #include "univdefs.h"
 #include "flags.h"
 #include "mainui.h"
+#include "cfg.h"
 #include <wx/tglbtn.h>
 #include <wx/listbox.h>
 #include <wx/dialog.h>
@@ -90,6 +91,10 @@ struct settings_window : public wxDialog {
 	unsigned int currentcat = 0;
 	wxBoxSizer *btnbox;
 
+	wxChoice *formatdef_lb;
+	format_set current_format_set;
+	int current_format_set_id = -1;
+
 	struct option_item {
 		wxSizer *sizer;
 		wxWindow *win;
@@ -112,9 +117,10 @@ struct settings_window : public wxDialog {
 	void ChoiceCtrlChange(wxCommandEvent &event);
 	void ShowAdvCtrlChange(wxCommandEvent &event);
 	void ShowVeryAdvCtrlChange(wxCommandEvent &event);
+	void FormatChoiceCtrlChange(wxCommandEvent &event);
 
 	void AddSettingRow_Common(unsigned int win, wxWindow *parent, wxSizer *sizer, const wxString &name, flagwrapper<DBCV> flags,
-			genopt &val, genopt &parentval, wxWindow *item);
+			wxWindow *item, const wxValidator &dcbv);
 	void AddSettingRow_String(unsigned int win, wxWindow *parent, wxSizer *sizer, const wxString &name, flagwrapper<DBCV> flags,
 			genopt &val, genopt &parentval, long style = wxFILTER_NONE, wxValidator *textctrlvalidator = nullptr);
 	void AddSettingRow_Bool(unsigned int win, wxWindow* parent, wxSizer *sizer, const wxString &name, flagwrapper<DBCV> flags,

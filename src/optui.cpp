@@ -243,36 +243,56 @@ void acc_window::ReEnableAll(wxCommandEvent &event) {
 	}
 }
 
-struct DefaultChkBoxValidator : public wxValidator {
+struct DefaultChkBoxValidatorCommon : public wxValidator {
 	genopt &val;
 	genopt &parentval;
+
+	DefaultChkBoxValidatorCommon(genopt &val_, genopt &parentval_) : val(val_), parentval(parentval_) { }
+
+	virtual bool TransferFromWindow() override {
+		wxCheckBox *chk = (wxCheckBox*) GetWindow();
+		val.enable = chk->GetValue();
+		return true;
+	}
+	virtual bool TransferToWindow() override {
+		wxCheckBox *chk = (wxCheckBox*) GetWindow();
+		chk->SetValue(val.enable);
+		statechange();
+		return true;
+	}
+	virtual bool Validate(wxWindow* parent) override {
+		statechange();
+		return true;
+	}
+	void checkboxchange(wxCommandEvent &event) {
+		statechange();
+	}
+	virtual void statechange() = 0;
+
+	DECLARE_EVENT_TABLE()
+};
+
+BEGIN_EVENT_TABLE(DefaultChkBoxValidatorCommon, wxValidator)
+EVT_CHECKBOX(wxID_ANY, DefaultChkBoxValidatorCommon::checkboxchange)
+END_EVENT_TABLE()
+
+struct DefaultChkBoxValidator : public DefaultChkBoxValidatorCommon {
 	wxTextCtrl *txtctrl;
 	wxCheckBox *chkbox;
 	flagwrapper<DBCV> flags;
 
 	private:
 	DefaultChkBoxValidator(genopt &val_, genopt &parentval_, flagwrapper<DBCV> flags_, wxTextCtrl *txtctrl_, wxCheckBox *chkbox_)
-			: wxValidator(), val(val_), parentval(parentval_), txtctrl(txtctrl_), chkbox(chkbox_), flags(flags_) { }
+			: DefaultChkBoxValidatorCommon(val_, parentval_), txtctrl(txtctrl_), chkbox(chkbox_), flags(flags_) { }
 
 	public:
 	DefaultChkBoxValidator(genopt &val_, genopt &parentval_, flagwrapper<DBCV> flags_ = 0, wxWindow *ctrl_ = nullptr)
-			: wxValidator(), val(val_), parentval(parentval_), flags(flags_) {
+			: DefaultChkBoxValidatorCommon(val_, parentval_), flags(flags_) {
 		txtctrl = dynamic_cast<wxTextCtrl *>(ctrl_);
 		chkbox = dynamic_cast<wxCheckBox *>(ctrl_);
 	}
-	virtual wxObject* Clone() const { return new DefaultChkBoxValidator(val, parentval, flags, txtctrl, chkbox); }
-	virtual bool TransferFromWindow() {
-		wxCheckBox *chk = (wxCheckBox*) GetWindow();
-		val.enable = chk->GetValue();
-		return true;
-	}
-	virtual bool TransferToWindow() {
-		wxCheckBox *chk = (wxCheckBox*) GetWindow();
-		chk->SetValue(val.enable);
-		statechange();
-		return true;
-	}
-	void statechange() {
+	virtual wxObject* Clone() const override { return new DefaultChkBoxValidator(val, parentval, flags, txtctrl, chkbox); }
+	virtual void statechange() override {
 		wxCheckBox *chk=(wxCheckBox*) GetWindow();
 		if(txtctrl) {
 			txtctrl->Enable(chk->GetValue());
@@ -292,34 +312,63 @@ struct DefaultChkBoxValidator : public wxValidator {
 			}
 		}
 	}
-	virtual bool Validate(wxWindow* parent) {
-		statechange();
-		return true;
-	}
-	void checkboxchange(wxCommandEvent &event) {
-		statechange();
-	}
-
-	DECLARE_EVENT_TABLE()
 };
 
-BEGIN_EVENT_TABLE(DefaultChkBoxValidator, wxValidator)
-EVT_CHECKBOX(wxID_ANY, DefaultChkBoxValidator::checkboxchange)
-END_EVENT_TABLE()
+struct FormatChoiceDefaultChkBoxValidator : public DefaultChkBoxValidatorCommon {
+	settings_window *sw;
+
+	FormatChoiceDefaultChkBoxValidator(genopt &val_, genopt &parentval_, settings_window *sw_) : DefaultChkBoxValidatorCommon(val_, parentval_), sw(sw_) { }
+	virtual wxObject* Clone() const override { return new FormatChoiceDefaultChkBoxValidator(val, parentval, sw); }
+	virtual void statechange() override {
+		wxCheckBox *chk = (wxCheckBox*) GetWindow();
+		sw->formatdef_lb->Enable(chk->GetValue());
+		if(!chk->GetValue()) {
+			unsigned long value;
+			parentval.val.ToULong(&value);
+			sw->formatdef_lb->SetSelection(value);
+		}
+		if(sw->current_format_set_id != sw->formatdef_lb->GetSelection()) {
+			sw->current_format_set_id = sw->formatdef_lb->GetSelection();
+			sw->current_format_set = IndexToFormatSet(sw->current_format_set_id);
+			sw->Validate(); // NB: partially recursive
+		}
+	}
+};
 
 struct ValueChkBoxValidator : public wxValidator {
 	genopt &val;
 	ValueChkBoxValidator(genopt &val_)
 			: wxValidator(), val(val_) { }
-	virtual wxObject* Clone() const { return new ValueChkBoxValidator(val); }
-	virtual bool TransferFromWindow() {
+	virtual wxObject* Clone() const override { return new ValueChkBoxValidator(val); }
+	virtual bool TransferFromWindow() override {
 		wxCheckBox *chk = (wxCheckBox*) GetWindow();
 		val.val = ((chk->GetValue()) ? wxT("1") : wxT("0"));
 		return true;
 	}
-	virtual bool TransferToWindow() {
+	virtual bool TransferToWindow() override {
 		wxCheckBox *chk = (wxCheckBox*) GetWindow();
 		chk->SetValue((val.val == wxT("1")));
+		return true;
+	}
+	virtual bool Validate(wxWindow* parent) override {
+		return true;
+	}
+};
+
+struct FormatChoiceValidator : public wxValidator {
+	genopt &val;
+	FormatChoiceValidator(genopt &val_) : wxValidator(), val(val_) { }
+	virtual wxObject* Clone() const { return new FormatChoiceValidator(val); }
+	virtual bool TransferFromWindow() {
+		wxChoice *choice = (wxChoice*) GetWindow();
+		val.val = wxString::Format(wxT("%d"), choice->GetSelection());
+		return true;
+	}
+	virtual bool TransferToWindow() {
+		wxChoice *choice = (wxChoice*) GetWindow();
+		unsigned long value;
+		val.val.ToULong(&value);
+		choice->SetSelection(value);
 		return true;
 	}
 	virtual bool Validate(wxWindow* parent) {
@@ -343,9 +392,8 @@ enum {
 };
 
 void settings_window::AddSettingRow_Common(unsigned int win, wxWindow *parent, wxSizer *sizer, const wxString &name,
-		flagwrapper<DBCV> flags, genopt &val, genopt &parentval, wxWindow *item) {
+		flagwrapper<DBCV> flags, wxWindow *item, const wxValidator &dcbv) {
 	wxStaticText *stat = new wxStaticText(parent, wxID_ANY, name);
-	DefaultChkBoxValidator dcbv(val, parentval, flags, item);
 	wxCheckBox *chk = new wxCheckBox(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, 0, dcbv);
 
 	sizer->Add(stat, 0, wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL, 4);
@@ -364,14 +412,16 @@ void settings_window::AddSettingRow_String(unsigned int win, wxWindow *parent, w
 	if(!textctrlvalidator) textctrlvalidator = &deftv;
 	wxTextCtrl *tc = new wxTextCtrl(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize,
 			(flags & DBCV::MULTILINE) ? wxTE_MULTILINE : 0, *textctrlvalidator);
-	AddSettingRow_Common(win, parent, sizer, name, flags, val, parentval, tc);
+	DefaultChkBoxValidator dcbv(val, parentval, flags, tc);
+	AddSettingRow_Common(win, parent, sizer, name, flags, tc, dcbv);
 }
 
 void settings_window::AddSettingRow_Bool(unsigned int win, wxWindow* parent, wxSizer *sizer, const wxString &name,
 		flagwrapper<DBCV> flags, genopt &val, genopt &parentval) {
 	ValueChkBoxValidator boolvalidator(val);
 	wxCheckBox *chkval = new wxCheckBox(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, 0, boolvalidator);
-	AddSettingRow_Common(win, parent, sizer, name, flags, val, parentval, chkval);
+	DefaultChkBoxValidator dcbv(val, parentval, flags, chkval);
+	AddSettingRow_Common(win, parent, sizer, name, flags, chkval, dcbv);
 }
 
 wxStaticBoxSizer *settings_window::AddGenoptconfSettingBlock(wxWindow* parent, wxSizer *sizer, const wxString &name,
@@ -400,6 +450,7 @@ enum {
 	SWID_ACC_CHOICE = 1,
 	SWID_ADVCAT_CHK,
 	SWID_VADVCAT_CHK,
+	SWID_FORMAT_CHOICE,
 
 	SWID_CATRANGE_START = 4000,
 };
@@ -409,6 +460,7 @@ EVT_CHOICE(SWID_ACC_CHOICE, settings_window::ChoiceCtrlChange)
 EVT_CHECKBOX(SWID_ADVCAT_CHK, settings_window::ShowAdvCtrlChange)
 EVT_CHECKBOX(SWID_VADVCAT_CHK, settings_window::ShowVeryAdvCtrlChange)
 EVT_COMMAND_RANGE(SWID_CATRANGE_START, SWID_CATRANGE_START + OPTWIN_LAST - 1, wxEVT_COMMAND_TOGGLEBUTTON_CLICKED, settings_window::CategoryButtonClick)
+EVT_CHOICE(SWID_FORMAT_CHOICE, settings_window::FormatChoiceCtrlChange)
 END_EVENT_TABLE()
 
 settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name, taccount *defshow)
@@ -474,8 +526,6 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	opts.emplace_front(option_item {advoptbox, veryadvoptchkbox, 0, DBCV::ADVOPTION});
 
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Max no. of items to display in panel"), DBCV::ISGLOBALCFG, gc.gcfg.maxtweetsdisplayinpanel, gcglobdefaults.maxtweetsdisplayinpanel, wxFILTER_NUMERIC);
-	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Date/time format (strftime)"), DBCV::ISGLOBALCFG, gc.gcfg.datetimeformat, gcglobdefaults.datetimeformat);
-	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs, wxT("Display date/times as UTC instead of local"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.datetimeisutc, gcglobdefaults.datetimeisutc);
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs,  wxT("Display Native Re-Tweets"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.rtdisp, gcglobdefaults.rtdisp);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("No. of inline tweet replies"), DBCV::ISGLOBALCFG, gc.gcfg.inlinereplyloadcount, gcglobdefaults.inlinereplyloadcount, wxFILTER_NUMERIC);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("No. of inline tweet replies to load on request"), DBCV::ISGLOBALCFG, gc.gcfg.inlinereplyloadmorecount, gcglobdefaults.inlinereplyloadmorecount, wxFILTER_NUMERIC);
@@ -495,10 +545,19 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, mediawinposfgs, wxT("Screen width reduction"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.mediawinscreensizewidthreduction, gcglobdefaults.mediawinscreensizewidthreduction);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, mediawinposfgs, wxT("Screen height reduction"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.mediawinscreensizeheightreduction, gcglobdefaults.mediawinscreensizeheightreduction);
 
-	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("Tweet display format"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.tweetdispformat, gcglobdefaults.tweetdispformat);
-	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("DM display format"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.dmdispformat, gcglobdefaults.dmdispformat);
-	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("Native Re-Tweet display format"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.rtdispformat, gcglobdefaults.rtdispformat);
-	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("User display format"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.userdispformat, gcglobdefaults.userdispformat);
+	formatdef_lb = new wxChoice(panel, SWID_FORMAT_CHOICE, wxDefaultPosition, wxDefaultSize, 0, nullptr, 0, FormatChoiceValidator(gc.gcfg.format_default_num));
+	formatdef_lb->Append(wxT("Short"), (void *) nullptr);
+	formatdef_lb->Append(wxT("Medium"), (void *) nullptr);
+	formatdef_lb->Append(wxT("Long"), (void *) nullptr);
+	AddSettingRow_Common(OPTWIN_FORMAT, panel, fgs, wxT("Default display formats"), DBCV::ISGLOBALCFG, formatdef_lb, FormatChoiceDefaultChkBoxValidator(gc.gcfg.format_default_num, gcglobdefaults.format_default_num, this));
+
+	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("Date/time format (strftime)"), DBCV::ISGLOBALCFG, gc.gcfg.datetimeformat, gcglobdefaults.datetimeformat);
+	AddSettingRow_Bool(OPTWIN_FORMAT, panel, fgs, wxT("Display date/times as UTC instead of local"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.datetimeisutc, gcglobdefaults.datetimeisutc);
+
+	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("Tweet display format"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.tweetdispformat, current_format_set.tweetdispformat);
+	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("DM display format"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.dmdispformat, current_format_set.dmdispformat);
+	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("Native Re-Tweet display format"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.rtdispformat, current_format_set.rtdispformat);
+	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("User display format"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.userdispformat, current_format_set.userdispformat);
 	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("Tweet mouse-over format"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.mouseover_tweetdispformat, gcglobdefaults.mouseover_tweetdispformat);
 	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("DM mouse-over format"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.mouseover_dmdispformat, gcglobdefaults.mouseover_dmdispformat);
 	AddSettingRow_String(OPTWIN_FORMAT, panel, fgs, wxT("Native Re-Tweet mouse-over format"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.mouseover_rtdispformat, gcglobdefaults.mouseover_rtdispformat);
@@ -643,6 +702,15 @@ void settings_window::ShowVeryAdvCtrlChange(wxCommandEvent &event) {
 	SetSizeHints(GetSize().GetWidth(), 1);
 	OptShowHide((advoptchkbox->IsChecked() ? DBCV::ADVOPTION : static_cast<DBCV>(0)) | (event.IsChecked() ? DBCV::VERYADVOPTION : static_cast<DBCV>(0)));
 	PostOptShowHide();
+	Thaw();
+}
+
+void settings_window::FormatChoiceCtrlChange(wxCommandEvent &event) {
+	if(event.GetSelection() == current_format_set_id) return;
+	Freeze();
+	current_format_set_id = event.GetSelection();
+	current_format_set = IndexToFormatSet(current_format_set_id);
+	Validate();
 	Thaw();
 }
 
