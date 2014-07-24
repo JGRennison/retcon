@@ -1167,6 +1167,10 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 
 	EndAllStyles();
 	EndSuppressUndo();
+
+	dispscr_mouseoverwin *mouseover = get();
+	if(mouseover) mouseover->RefreshContent();
+
 	Thaw();
 
 	#if DISPSCR_COPIOUS_LOGGING
@@ -1670,6 +1674,10 @@ bool tweetdispscr_mouseoverwin::RefreshContent() {
 	attr.SetAlignment(wxTEXT_ALIGNMENT_RIGHT);
 	SetDefaultStyle(attr);
 	Clear();
+
+	dispscr_base *targwin = get();
+	if(targwin) SetBackgroundColour(targwin->GetBackgroundColour());
+
 	BeginAlignment(wxTEXT_ALIGNMENT_RIGHT);
 	wxString format;
 	if(td->flags.Get('R') && gc.rtdisp) format = gc.gcfg.mouseover_rtdispformat.val;
