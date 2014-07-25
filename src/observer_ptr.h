@@ -28,6 +28,8 @@
 #include  <type_traits>
 #include  <memory>
 
+template <typename T> class intrusive_ptr;
+
 template <typename T>
 class observer_ptr {
 
@@ -51,6 +53,7 @@ class observer_ptr {
 
 	explicit constexpr observer_ptr(const std::unique_ptr<T> &p) noexcept : ptr(p.get()) { }
 	explicit constexpr observer_ptr(const std::shared_ptr<T> &p) noexcept : ptr(p.get()) { }
+	explicit constexpr observer_ptr(const intrusive_ptr<T> &p) noexcept : ptr(p.get()) { }
 
 	template<typename C, typename = typename std::enable_if<std::is_convertible<typename std::add_pointer<C>::type, pointer>::value>::type>
 	observer_ptr(C* p) noexcept : ptr(p) { }
@@ -71,7 +74,7 @@ class observer_ptr {
 		return old;
 	}
 	void reset(pointer p = nullptr) noexcept { ptr = p; }
-	void swap(observer_ptr<T> o) noexcept { std::swap(o.ptr, ptr); }
+	void swap(observer_ptr<T> &o) noexcept { std::swap(o.ptr, ptr); }
 };
 
 template <typename T> observer_ptr<T> make_observer(T *input) {
@@ -87,6 +90,10 @@ template <typename T> observer_ptr<T> make_observer(const std::unique_ptr<T> &in
 }
 
 template <typename T> observer_ptr<T> make_observer(const std::shared_ptr<T> &input) {
+	return observer_ptr<T> {input};
+}
+
+template <typename T> observer_ptr<T> make_observer(const intrusive_ptr<T> &input) {
 	return observer_ptr<T> {input};
 }
 
