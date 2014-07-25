@@ -1155,8 +1155,43 @@ void dbconn::DeInit() {
 	LogMsg(LOGT::DBTRACE | LOGT::THREADTRACE, "dbconn::DeInit(): State write back to database complete, database connection closed.");
 }
 
+void dbconn::CheckPurgeTweets() {
+	unsigned int purge_count = 0;
+	unsigned int refzero_count = 0;
+
+	auto it = ad.tweetobjs.begin();
+	while(it != ad.tweetobjs.end()) {
+		tweet &t = it->second;
+		uint64_t id = it->first;
+
+		if(t.lflags & TLF::REFCOUNT_WENT_NZ || t.HasPendingOps()) {
+			// Keep it
+
+			// Reset the flag, if no one creates a pointer to it before the next call to CheckPurgeTweets, it will then be purged
+			if(t.GetRefcount() == 0) {
+				t.lflags &= ~TLF::REFCOUNT_WENT_NZ;
+				refzero_count++;
+			}
+			++it;
+		}
+		else {
+			// Bin it
+			if(t.lflags & TLF::SAVED_IN_DB) ad.unloaded_db_tweet_ids.insert(id);
+			it = ad.tweetobjs.erase(it);
+			purge_count++;
+		}
+	}
+	LogMsgFormat(LOGT::DBTRACE, "dbconn::CheckPurgeTweets purged %u tweets from memory, %zu remaining, %u might be purged next time",
+			purge_count, ad.tweetobjs.size(), refzero_count);
+}
+
 void dbconn::AsyncWriteBackState() {
 	LogMsg(LOGT::DBTRACE, "dbconn::AsyncWriteBackState start");
+
+	if(batchqueue) {
+		SendMessage(std::move(batchqueue));
+	}
+
 	std::unique_ptr<dbfunctionmsg> msg(new dbfunctionmsg);
 	auto cfg_closure = WriteAllCFGOutClosure(gc, alist, true);
 	msg->funclist.emplace_back([cfg_closure](sqlite3 *db, bool &ok, dbpscache &cache) {
@@ -1172,7 +1207,10 @@ void dbconn::AsyncWriteBackState() {
 	AsyncWriteBackTpanels(*msg);
 
 	SendMessage(std::move(msg));
-	LogMsg(LOGT::DBTRACE, "dbconn::AsyncWriteBackState end, message sent to DB thread");
+
+	LogMsg(LOGT::DBTRACE, "dbconn::AsyncWriteBackState: message sent to DB thread");
+
+	CheckPurgeTweets();
 }
 
 void dbconn::SyncDoUpdates(sqlite3 *adb) {

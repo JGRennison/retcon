@@ -288,6 +288,7 @@ enum class TLF {    //for tweet.lflags
 	SHOULDSAVEINDB       = 1<<6,
 	LOADED_FROM_DB       = 1<<7,
 	ISPENDING            = 1<<8,
+	REFCOUNT_WENT_NZ     = 1<<9,
 };
 template<> struct enum_traits<TLF> { static constexpr bool flags = true; };
 
@@ -322,7 +323,15 @@ struct tweet {
 	private:
 	tweet_flags flags_at_prev_update;
 
+	int refcount = 0;
+
 	public:
+	void intrusive_ptr_increment() {
+		lflags |= TLF::REFCOUNT_WENT_NZ;
+		refcount++;
+	};
+	void intrusive_ptr_decrement() { refcount--; };
+
 	tweet() { }
 	void Dump() const;
 	tweet_perspective *AddTPToTweet(const std::shared_ptr<taccount> &tac, bool *isnew = 0);
@@ -377,6 +386,13 @@ struct tweet {
 	void AddNewPendingOp(pending_op *op) {
 		pending_ops.emplace_back(op);
 	}
+	bool HasPendingOps() const {
+		return !pending_ops.empty();
+	}
+
+	int GetRefcount() const {
+		return refcount;
+	};
 };
 template<> struct enum_traits<tweet::GUAF> { static constexpr bool flags = true; };
 template<> struct enum_traits<tweet::CFUF> { static constexpr bool flags = true; };
