@@ -23,6 +23,7 @@
 #include "hash.h"
 #include <wx/string.h>
 #include <string>
+#include <memory>
 
 class wxImage;
 
@@ -137,8 +138,8 @@ template <typename C, typename UP> unsigned int container_unordered_remove_if(C 
 	return removecount;
 }
 
-template <typename OUT, typename IN> std::unique_ptr<OUT> static_pointer_cast(std::unique_ptr<IN> in) {
-	return std::unique_ptr<OUT>(static_cast<OUT *>(in.release()));
+template <typename Tout, typename Tin> std::unique_ptr<Tout> static_pointer_cast(std::unique_ptr<Tin> in) {
+	return std::unique_ptr<Tout>(static_cast<Tout *>(in.release()));
 }
 
 #endif

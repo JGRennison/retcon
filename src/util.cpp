@@ -139,7 +139,7 @@ std::string rc_strftime(const std::string &format, const struct tm *tm, time_t t
 				insert = "%H:%M:%S";
 			}
 			else if(ch[1] == 's') {
-				insert.Printf("%" llFmtSpec "d", (long long int) timestamp);
+				insert = string_format("%" llFmtSpec "d", (long long int) timestamp);
 			}
 			else if(ch[1]) {
 				ch++;

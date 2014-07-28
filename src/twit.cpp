@@ -1061,6 +1061,38 @@ struct tm *gmtime_r(const time_t *timer, struct tm *result) {
 	return result;
 }
 #endif
+
+// This function is from https://web.nlcindia.com/gpsd/gpsd-3.1/gpsutils.c (BSD license)
+static time_t our_mkgmtime(struct tm * t)
+/* struct tm to seconds since Unix epoch */
+{
+	const int MONTHSPERYEAR = 12;
+
+	int year;
+	time_t result;
+	static const int cumdays[MONTHSPERYEAR] =
+		{ 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334 };
+
+	/*@ +matchanyintegral @*/
+	year = 1900 + t->tm_year + t->tm_mon / MONTHSPERYEAR;
+	result = (year - 1970) * 365 + cumdays[t->tm_mon % MONTHSPERYEAR];
+	result += (year - 1968) / 4;
+	result -= (year - 1900) / 100;
+	result += (year - 1600) / 400;
+	if ((year % 4) == 0 && ((year % 100) != 0 || (year % 400) == 0) &&
+		(t->tm_mon % MONTHSPERYEAR) < 2)
+	result--;
+	result += t->tm_mday - 1;
+	result *= 24;
+	result += t->tm_hour;
+	result *= 60;
+	result += t->tm_min;
+	result *= 60;
+	result += t->tm_sec;
+	/*@ -matchanyintegral @*/
+	return (result);
+}
+
 #endif
 
 //wxDateTime performs some braindead timezone adjustments and so is unusable
@@ -1076,7 +1108,7 @@ void ParseTwitterDate(struct tm *createtm, time_t *createtm_t, const std::string
 	*createtm_t = 0;
 	strptime(created_at.c_str(), "%a %b %d %T +0000 %Y", createtm);
 	#ifdef __WINDOWS__
-	*createtm_t = _mkgmtime(createtm);
+	*createtm_t = our_mkgmtime(createtm);
 	#else
 	char *tz;
 
