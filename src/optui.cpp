@@ -286,11 +286,12 @@ struct DefaultChkBoxValidator : public DefaultChkBoxValidatorCommon {
 			: DefaultChkBoxValidatorCommon(val_, parentval_), txtctrl(txtctrl_), chkbox(chkbox_), flags(flags_) { }
 
 	public:
-	DefaultChkBoxValidator(genopt &val_, genopt &parentval_, flagwrapper<DBCV> flags_ = 0, wxWindow *ctrl_ = nullptr)
-			: DefaultChkBoxValidatorCommon(val_, parentval_), flags(flags_) {
-		txtctrl = dynamic_cast<wxTextCtrl *>(ctrl_);
-		chkbox = dynamic_cast<wxCheckBox *>(ctrl_);
-	}
+	DefaultChkBoxValidator(genopt &val_, genopt &parentval_, flagwrapper<DBCV> flags_ = 0, wxTextCtrl *txtctrl_ = nullptr)
+			: DefaultChkBoxValidatorCommon(val_, parentval_), txtctrl(txtctrl_), chkbox(nullptr), flags(flags_) { }
+	DefaultChkBoxValidator(genopt &val_, genopt &parentval_, flagwrapper<DBCV> flags_ = 0, wxCheckBox *chkbox_ = nullptr)
+			: DefaultChkBoxValidatorCommon(val_, parentval_), txtctrl(nullptr), chkbox(chkbox_), flags(flags_) { }
+
+
 	virtual wxObject* Clone() const override { return new DefaultChkBoxValidator(val, parentval, flags, txtctrl, chkbox); }
 	virtual void statechange() override {
 		wxCheckBox *chk=(wxCheckBox*) GetWindow();
