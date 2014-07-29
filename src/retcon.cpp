@@ -237,20 +237,21 @@ udc_ptr alldata::GetExistingUserContainerById(uint64_t id) {
 }
 
 tweet_ptr alldata::GetTweetById(uint64_t id, bool *isnew) {
-	auto it = tweetobjs.insert(std::make_pair(id, tweet()));
-	tweet_ptr t = &(it.first->second);
+	auto it = tweetobjs.insert(std::make_pair(id, tweet_ptr()));
 	if(isnew) *isnew = it.second;
+	tweet_ptr &t = it.first->second;
 	if(it.second) {
 		//new tweet
+		t.reset(new tweet());
 		t->id = id;
 	}
-	return std::move(t);
+	return t;
 }
 
 tweet_ptr alldata::GetExistingTweetById(uint64_t id) {
 	auto it = tweetobjs.find(id);
 	if(it != tweetobjs.end()) {
-		return &(it->second);
+		return it->second;
 	}
 	else {
 		return nullptr;

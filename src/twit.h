@@ -288,7 +288,7 @@ enum class TLF {    //for tweet.lflags
 	SHOULDSAVEINDB       = 1<<6,
 	LOADED_FROM_DB       = 1<<7,
 	ISPENDING            = 1<<8,
-	REFCOUNT_WENT_NZ     = 1<<9,
+	REFCOUNT_WENT_GT1    = 1<<9,
 };
 template<> struct enum_traits<TLF> { static constexpr bool flags = true; };
 
@@ -327,10 +327,13 @@ struct tweet {
 
 	public:
 	void intrusive_ptr_increment() {
-		lflags |= TLF::REFCOUNT_WENT_NZ;
 		refcount++;
+		if(refcount > 1) lflags |= TLF::REFCOUNT_WENT_GT1;
 	};
-	void intrusive_ptr_decrement() { refcount--; };
+	void intrusive_ptr_decrement() {
+		refcount--;
+		if(refcount == 0) delete this;
+	};
 
 	tweet() { }
 	void Dump() const;

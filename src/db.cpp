@@ -1157,32 +1157,32 @@ void dbconn::DeInit() {
 
 void dbconn::CheckPurgeTweets() {
 	unsigned int purge_count = 0;
-	unsigned int refzero_count = 0;
+	unsigned int refone_count = 0;
 
 	auto it = ad.tweetobjs.begin();
 	while(it != ad.tweetobjs.end()) {
-		tweet &t = it->second;
+		tweet_ptr &t = it->second;
 		uint64_t id = it->first;
 
-		if(t.lflags & TLF::REFCOUNT_WENT_NZ || t.HasPendingOps()) {
+		if(t->lflags & TLF::REFCOUNT_WENT_GT1 || t->HasPendingOps()) {
 			// Keep it
 
-			// Reset the flag, if no one creates a pointer to it before the next call to CheckPurgeTweets, it will then be purged
-			if(t.GetRefcount() == 0) {
-				t.lflags &= ~TLF::REFCOUNT_WENT_NZ;
-				refzero_count++;
+			// Reset the flag, if no one creates a second pointer to it before the next call to CheckPurgeTweets, it will then be purged
+			if(t->GetRefcount() == 1) {
+				t->lflags &= ~TLF::REFCOUNT_WENT_GT1;
+				refone_count++;
 			}
 			++it;
 		}
 		else {
 			// Bin it
-			if(t.lflags & TLF::SAVED_IN_DB) ad.unloaded_db_tweet_ids.insert(id);
+			if(t->lflags & TLF::SAVED_IN_DB) ad.unloaded_db_tweet_ids.insert(id);
 			it = ad.tweetobjs.erase(it);
 			purge_count++;
 		}
 	}
 	LogMsgFormat(LOGT::DBTRACE, "dbconn::CheckPurgeTweets purged %u tweets from memory, %zu remaining, %u might be purged next time",
-			purge_count, ad.tweetobjs.size(), refzero_count);
+			purge_count, ad.tweetobjs.size(), refone_count);
 }
 
 void dbconn::AsyncWriteBackState() {

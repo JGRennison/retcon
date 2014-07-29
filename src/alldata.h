@@ -35,7 +35,7 @@ struct media_entity;
 
 struct alldata {
 	std::unordered_map<uint64_t, userdatacontainer> userconts;
-	std::unordered_map<uint64_t, tweet> tweetobjs;
+	container::map<uint64_t, tweet_ptr> tweetobjs;
 	std::map<std::string, std::shared_ptr<tpanel> > tpanels;
 	std::unordered_map<media_id_type, std::unique_ptr<media_entity> > media_list;
 	std::unordered_map<std::string, observer_ptr<media_entity> > img_media_map;

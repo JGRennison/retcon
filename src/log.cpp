@@ -407,7 +407,7 @@ static void dump_tweet_line(LOGT logflags, const std::string &indent, const std:
 void dump_tweet_pendings(LOGT logflags, const std::string &indent, const std::string &indentstep) {
 	bool done_header = false;
 	for(auto &it : ad.tweetobjs) {
-		const tweet *t = &(it.second);
+		const tweet *t = it.second.get();
 		if(t && !(t->pending_ops.empty())) {
 			if(!done_header) {
 				done_header = true;
