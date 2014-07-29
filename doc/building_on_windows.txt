@@ -31,7 +31,7 @@ All paths labelled as expected by the makefile, are relative to the repository r
 
 wxWidgets:
 You will need to compile wxWidgets 2.8.12 using the MinGW installed above.
- * At present USE_EXCEPTIONS and USE_RTTI in build/msw/config.gcc should be set to 0 to match the retcon makefile
+ * At present USE_EXCEPTIONS in build/msw/config.gcc should be set to 0 to match the retcon makefile
  * Exactly how you do this step depends on your platform/setup, read the wxWidgets documentation
 You will then need to copy/symlink/etc. the resulting static libraries and the wxWidgets includes, or edit the makefile, so that gcc can find them.
 Currently the makefile expects:
