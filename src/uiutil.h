@@ -104,6 +104,12 @@ media_id_type ParseMediaID(wxString url);
 void SaveWindowLayout();
 void RestoreWindowLayout();
 wxString getreltimestr(time_t timestamp, time_t &updatetime);
+
+struct generic_popup_wrapper_hook {
+	virtual void BeforePopup() = 0;
+	virtual void AfterPopup() = 0;
+};
+
 void GenericPopupWrapper(wxWindow *win, wxMenu *menu, const wxPoint &pos = wxDefaultPosition);
 inline void GenericPopupWrapper(wxWindow *win, wxMenu *menu, int x, int y) {
 	GenericPopupWrapper(win, menu, wxPoint(x, y));

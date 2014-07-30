@@ -560,7 +560,14 @@ wxColour ColourOp(const wxColour &in, const wxString &co_str) {
 void GenericPopupWrapper(wxWindow *win, wxMenu *menu, const wxPoint& pos) {
 	LogMsgFormat(LOGT::TPANEL, "About to popup menu: %p, win: %p, recursion: %d", menu, win, wxGetApp().popuprecursion);
 	wxGetApp().popuprecursion++;
+
+	generic_popup_wrapper_hook *hook = dynamic_cast<generic_popup_wrapper_hook *>(win);
+	if(hook) hook->BeforePopup();
+
 	bool result = win->PopupMenu(menu, pos);
+
+	if(hook) hook->AfterPopup();
+
 	wxGetApp().popuprecursion--;
 	LogMsgFormat(LOGT::TPANEL, "Finished popup menu: %p, win: %p, recursion: %d, result: %d", menu, win, wxGetApp().popuprecursion, result);
 }

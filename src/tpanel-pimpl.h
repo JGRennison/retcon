@@ -118,7 +118,7 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 			: panelparentwin_base_impl(base_) { }
 
 	std::shared_ptr<tpanel> tp;
-	tweetdispscr_mouseoverwin *mouseoverwin = nullptr;
+	magic_ptr_ts<tweetdispscr_mouseoverwin> mouseoverwin;
 	std::deque<std::pair<tweet_ptr, flagwrapper<PUSHFLAGS>>> pushtweetbatchqueue;
 	std::deque<std::pair<uint64_t, flagwrapper<PUSHFLAGS>>> removetweetbatchqueue;
 	container::map<uint64_t, bool> updatetweetbatchqueue;

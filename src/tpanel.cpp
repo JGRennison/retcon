@@ -1395,8 +1395,8 @@ tweetdispscr_mouseoverwin *tpanelparentwin_nt::MakeMouseOverWin() {
 }
 
 tweetdispscr_mouseoverwin *tpanelparentwin_nt_impl::MakeMouseOverWin() {
-	if(!mouseoverwin) mouseoverwin = new tweetdispscr_mouseoverwin(scrollpane, base());
-	return mouseoverwin;
+	if(!mouseoverwin) mouseoverwin.set(new tweetdispscr_mouseoverwin(scrollpane, base()));
+	return mouseoverwin.get();
 }
 
 void tpanelparentwin_nt::IncTweetIDRefCounts(uint64_t tid, uint64_t rtid) {

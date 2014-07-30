@@ -119,13 +119,12 @@ inline void generic_disp_base::CheckRefresh() {
 struct dispscr_mouseoverwin : generic_disp_base, public magic_paired_ptr_ts<dispscr_base, dispscr_mouseoverwin> {
 	unsigned int mouse_refcount = 0;
 	wxTimer mouseevttimer;
+	wxWindow *orig_parent = nullptr;
 
 	dispscr_mouseoverwin(wxWindow *parent, panelparentwin_base *tppw_, wxString thisname_ = wxT(""));
 	virtual void OnMagicPairedPtrChange(dispscr_base *targ, dispscr_base *prevtarg, bool targdestructing) override;
-	void Position(const wxSize &targ_size, const wxPoint &targ_position);
-	void targmovehandler(wxMoveEvent &event);
+	void Position(wxWindow *targ, const wxSize &targ_size);
 	void targsizehandler(wxSizeEvent &event);
-	void targitemmovehandler(wxMoveEvent &event);
 	virtual bool RefreshContent() { return false; }
 	virtual void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
                                int noUnitsX, int noUnitsY,
@@ -179,7 +178,7 @@ enum {
 	TDS_WID_UNHIDEIMGOVERRIDETIMER  = 1,
 };
 
-struct tweetdispscr : public dispscr_base {
+struct tweetdispscr : public dispscr_base, public generic_popup_wrapper_hook {
 	tweet_ptr td;
 	profimg_staticbitmap *bm;
 	profimg_staticbitmap *bm2;
@@ -213,6 +212,9 @@ struct tweetdispscr : public dispscr_base {
 
 	virtual void PanelInsertEvt() override;
 	virtual void PanelRemoveEvt() override;
+
+	virtual void BeforePopup() override;
+	virtual void AfterPopup() override;
 
 	DECLARE_EVENT_TABLE()
 };

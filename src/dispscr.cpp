@@ -56,7 +56,9 @@ BEGIN_EVENT_TABLE(generic_disp_base, wxRichTextCtrl)
 END_EVENT_TABLE()
 
 generic_disp_base::generic_disp_base(wxWindow *parent, panelparentwin_base *tppw_, long extraflags, wxString thisname_)
-: wxRichTextCtrl(parent, wxID_ANY, wxEmptyString, wxPoint(-1000, -1000), wxDefaultSize, wxRE_READONLY | wxRE_MULTILINE | wxBORDER_NONE | extraflags), tppw(tppw_), thisname(thisname_) {
+		: wxRichTextCtrl(parent, wxID_ANY, wxEmptyString, wxPoint(-1000, -1000), wxDefaultSize,
+		                 wxRE_READONLY | wxRE_MULTILINE | wxBORDER_NONE | wxCLIP_CHILDREN | extraflags),
+			tppw(tppw_), thisname(thisname_) {
 	default_background_colour = GetBackgroundColour();
 	default_foreground_colour = GetForegroundColour();
 	#if DISPSCR_COPIOUS_LOGGING
@@ -146,7 +148,7 @@ BEGIN_EVENT_TABLE(dispscr_mouseoverwin, generic_disp_base)
 END_EVENT_TABLE()
 
 dispscr_mouseoverwin::dispscr_mouseoverwin(wxWindow *parent, panelparentwin_base *tppw_, wxString thisname_)
-: generic_disp_base(parent, tppw_, wxTE_DONTWRAP, thisname_), mouseevttimer(this, wxID_HIGHEST + 1) {
+: generic_disp_base(parent, tppw_, wxTE_DONTWRAP, thisname_), mouseevttimer(this, wxID_HIGHEST + 1), orig_parent(parent) {
 
 	GetCaret()->Hide();
 }
@@ -154,17 +156,13 @@ dispscr_mouseoverwin::dispscr_mouseoverwin(wxWindow *parent, panelparentwin_base
 void dispscr_mouseoverwin::OnMagicPairedPtrChange(dispscr_base *targ, dispscr_base *prevtarg, bool targdestructing) {
 	mouse_refcount = 0;
 	if(prevtarg && !targdestructing) {
-		prevtarg->Disconnect(wxEVT_MOVE, wxMoveEventHandler(dispscr_mouseoverwin::targmovehandler), 0, this);
 		prevtarg->Disconnect(wxEVT_SIZE, wxSizeEventHandler(dispscr_mouseoverwin::targsizehandler), 0, this);
-		prevtarg->tpi->Disconnect(wxEVT_MOVE, wxMoveEventHandler(dispscr_mouseoverwin::targitemmovehandler), 0, this);
 	}
 	if(targ) {
 		Show(false);
-		targ->Connect(wxEVT_MOVE, wxMoveEventHandler(dispscr_mouseoverwin::targmovehandler), 0, this);
 		targ->Connect(wxEVT_SIZE, wxSizeEventHandler(dispscr_mouseoverwin::targsizehandler), 0, this);
-		targ->tpi->Connect(wxEVT_MOVE, wxMoveEventHandler(dispscr_mouseoverwin::targitemmovehandler), 0, this);
 		SetSize(targ->GetSize());
-		Position(targ->GetSize(), targ->GetPosition() + targ->tpi->GetPosition());
+		Position(targ, targ->GetSize());
 
 		Freeze();
 		BeginSuppressUndo();
@@ -172,8 +170,7 @@ void dispscr_mouseoverwin::OnMagicPairedPtrChange(dispscr_base *targ, dispscr_ba
 		if(show) {
 			SetSize(GetBuffer().GetCachedSize().x + GetBuffer().GetTopMargin() + GetBuffer().GetBottomMargin(),
 					GetBuffer().GetCachedSize().y + GetBuffer().GetLeftMargin() + GetBuffer().GetRightMargin());
-			Position(targ->GetSize(), targ->GetPosition() + targ->tpi->GetPosition());
-			Raise();
+			Position(targ, targ->GetSize());
 		}
 		Show(show);
 		EndSuppressUndo();
@@ -181,34 +178,23 @@ void dispscr_mouseoverwin::OnMagicPairedPtrChange(dispscr_base *targ, dispscr_ba
 	}
 	else {
 		Show(false);
-	}
-}
-
-// Add the item position to the dispscr position to get the cumulative position
-// When an event is triggered, use the new value encoded in the event
-// Get the other two values manually
-
-void dispscr_mouseoverwin::targitemmovehandler(wxMoveEvent &event) {
-	if(get()) {
-		Position(get()->GetSize(), get()->GetPosition() + event.GetPosition());
-	}
-}
-
-void dispscr_mouseoverwin::targmovehandler(wxMoveEvent &event) {
-	if(get() && get()->tpi) {
-		Position(get()->GetSize(), event.GetPosition() + get()->tpi->GetPosition());
+		Reparent(orig_parent);
 	}
 }
 
 void dispscr_mouseoverwin::targsizehandler(wxSizeEvent &event) {
-	if(get() && get()->tpi) {
-		Position(event.GetSize(), get()->GetPosition() + get()->tpi->GetPosition());
+	if(get()) {
+		Position(get(), event.GetSize());
 	}
 }
 
-void dispscr_mouseoverwin::Position(const wxSize &targ_size, const wxPoint &targ_position) {
+void dispscr_mouseoverwin::Position(wxWindow *targ, const wxSize &targ_size) {
+	if(GetParent() != targ) {
+		Reparent(targ);
+	}
+
 	wxSize this_size = GetSize();
-	wxPoint this_position(targ_position.x + targ_size.x - this_size.x, targ_position.y);
+	wxPoint this_position(targ_size.x - this_size.x, 0);
 	if(this_position != GetPosition()) {
 		#if DISPSCR_COPIOUS_LOGGING
 			LogMsgFormat(LOGT::TPANEL, "DCL: dispscr_mouseoverwin::Position: %s, moving to: %d, %d, size: %d, %d",
@@ -1649,6 +1635,16 @@ void tweetdispscr::OnTweetActMenuCmd(wxCommandEvent &event) {
 	DoAction([mf, id]() {
 		TweetActMenuAction(tamd, id, mf);
 	});
+}
+
+// These are to stop the mouseover disappearing during a popup on Windows
+void tweetdispscr::BeforePopup() {
+	if(dispscr_mouseoverwin *m = get())
+		m->MouseEnterLeaveEvent(true);
+}
+void tweetdispscr::AfterPopup() {
+	if(dispscr_mouseoverwin *m = get())
+		m->MouseEnterLeaveEvent(false);
 }
 
 BEGIN_EVENT_TABLE(tweetdispscr_mouseoverwin, dispscr_mouseoverwin)
