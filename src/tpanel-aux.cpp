@@ -371,7 +371,7 @@ BEGIN_EVENT_TABLE(tpanel_item, wxPanel)
 	EVT_MOUSEWHEEL(tpanel_item::mousewheelhandler)
 END_EVENT_TABLE()
 
-tpanel_item::tpanel_item(tpanelscrollwin *parent_)
+tpanel_item::tpanel_item(tpanelscrollpane *parent_)
 : wxPanel(parent_, wxID_ANY, wxPoint(-1000, -1000)), parent(parent_) {
 
 	thisname = wxT("tpanel_item for ") + parent_->GetThisName();
@@ -380,13 +380,18 @@ tpanel_item::tpanel_item(tpanelscrollwin *parent_)
 	vbox = new wxBoxSizer(wxVERTICAL);
 	hbox->Add(vbox, 1, wxALL | wxEXPAND, 1);
 	SetSizer(hbox);
+
+	wxSize clientsize = parent->GetClientSize();
+	SetSize(clientsize.x, wxDefaultCoord);
 }
 
 void tpanel_item::NotifySizeChange() {
 	wxSize clientsize = parent->GetClientSize();
 	SetMinSize(wxSize(clientsize.x, 1));
 	SetMaxSize(wxSize(clientsize.x, 100000));
-	Fit();
+	wxSize bestsize = DoGetBestSize();
+	SetSize(clientsize.x, bestsize.y);
+
 	if(!parent->resize_update_pending) {
 		parent->resize_update_pending = true;
 		parent->Freeze();
@@ -407,74 +412,56 @@ void tpanel_item::mousewheelhandler(wxMouseEvent &event) {
 	GetParent()->GetEventHandler()->ProcessEvent(event);
 }
 
-BEGIN_EVENT_TABLE(tpanelscrollwin, wxPanel)
-	EVT_SIZE(tpanelscrollwin::resizehandler)
-	EVT_COMMAND(wxID_ANY, wxextRESIZE_UPDATE_EVENT, tpanelscrollwin::resizemsghandler)
-	EVT_SCROLLWIN_TOP(tpanelscrollwin::OnScrollHandler)
-	EVT_SCROLLWIN_BOTTOM(tpanelscrollwin::OnScrollHandler)
-	EVT_SCROLLWIN_LINEUP(tpanelscrollwin::OnScrollHandler)
-	EVT_SCROLLWIN_LINEDOWN(tpanelscrollwin::OnScrollHandler)
-	EVT_SCROLLWIN_PAGEUP(tpanelscrollwin::OnScrollHandler)
-	EVT_SCROLLWIN_PAGEDOWN(tpanelscrollwin::OnScrollHandler)
-	EVT_SCROLLWIN_THUMBRELEASE(tpanelscrollwin::OnScrollHandler)
-	EVT_SCROLLWIN_THUMBTRACK(tpanelscrollwin::OnScrollTrack)
-	EVT_MOUSEWHEEL(tpanelscrollwin::mousewheelhandler)
+BEGIN_EVENT_TABLE(tpanelscrollbar, wxScrollBar)
+	EVT_SCROLL_TOP(tpanelscrollbar::OnScrollHandler)
+	EVT_SCROLL_BOTTOM(tpanelscrollbar::OnScrollHandler)
+	EVT_SCROLL_LINEUP(tpanelscrollbar::OnScrollHandler)
+	EVT_SCROLL_LINEDOWN(tpanelscrollbar::OnScrollHandler)
+	EVT_SCROLL_PAGEUP(tpanelscrollbar::OnScrollHandler)
+	EVT_SCROLL_PAGEDOWN(tpanelscrollbar::OnScrollHandler)
+	EVT_SCROLL_THUMBRELEASE(tpanelscrollbar::OnScrollHandler)
+	EVT_SCROLL_CHANGED(tpanelscrollbar::OnScrollHandler)
+	EVT_SCROLL_THUMBTRACK(tpanelscrollbar::OnScrollTrack)
+	EVT_MOUSEWHEEL(tpanelscrollbar::mousewheelhandler)
 END_EVENT_TABLE()
 
-tpanelscrollwin::tpanelscrollwin(panelparentwin_base *parent_)
-		: wxPanel(parent_, wxID_ANY, wxPoint(-1000, -1000)), parent(parent_), resize_update_pending(false), page_scroll_blocked(false) {
+tpanelscrollbar::tpanelscrollbar(panelparentwin_base *parent_)
+		: wxScrollBar(parent_, wxID_ANY, wxPoint(-1000, -1000), wxDefaultSize, wxSB_VERTICAL), parent(parent_), page_scroll_blocked(false) {
 
-	thisname = wxT("tpanelscrollwin for ") + parent_->GetThisName();
+	thisname = wxT("tpanelscrollbar for ") + parent_->GetThisName();
 }
 
-void tpanelscrollwin::resizehandler(wxSizeEvent &event) {
-	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollwin::resizehandler: %s, %d, %d", cstr(GetThisName()), event.GetSize().GetWidth(), event.GetSize().GetHeight());
-	#endif
-
-	for(auto &disp : parent->GetCurrentDisp()) {
-		disp.item->NotifySizeChange();
-	}
-}
-
-void tpanelscrollwin::resizemsghandler(wxCommandEvent &event) {
-	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollwin::resizemsghandler %s", cstr(GetThisName()));
-	#endif
-	RepositionItems();
-	resize_update_pending = false;
-	Thaw();
-	Update();
-}
-
-void tpanelscrollwin::mousewheelhandler(wxMouseEvent &event) {
+void tpanelscrollbar::mousewheelhandler(wxMouseEvent &event) {
 	int pxdelta = -event.GetWheelRotation() * gc.mousewheelscrollspeed / event.GetWheelDelta();
 
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollwin::mousewheelhandler %s, %d %d %d", cstr(GetThisName()),
+		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollbar::mousewheelhandler %s, %d %d %d", cstr(GetThisName()),
 				GetScrollPos(wxVERTICAL), event.GetWheelRotation(), pxdelta);
 	#endif
 
-	int y = GetScrollPos(wxVERTICAL);
-	SetScrollPos(wxVERTICAL, std::max(0, y + pxdelta));
+	int y = GetThumbPosition();
+	SetThumbPosition(std::max(0, y + pxdelta));
 	ScrollItems();
 
 	// Use gc.mousewheelscrollspeed as the threshold, this is to try and make mousewheel scrolling smooth across pages
-	OnScrollHandlerCommon(pxdelta < 0, pxdelta > 0, std::abs(gc.mousewheelscrollspeed));
+	OnScrollHandlerCommon(pxdelta < 0, pxdelta > 0, std::abs(gc.mousewheelscrollspeed), GetScrollPos(wxVERTICAL));
 }
 
-void tpanelscrollwin::OnScrollTrack(wxScrollWinEvent &event) {
+void tpanelscrollbar::OnScrollTrack(wxScrollEvent &event) {
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollwin::OnScrollTrack %s", cstr(GetThisName()));
+		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollbar::OnScrollTrack %s, %d", cstr(GetThisName()), event.GetPosition());
 	#endif
-	ScrollItems();
+	int y = event.GetPosition();
+	ScrollItemsForPosition(y);
+	SetThumbPosition(y);
+	event.Skip();
 }
 
-void tpanelscrollwin::OnScrollHandlerCommon(bool upok, bool downok, int threshold) {
-	int y = GetScrollPos(wxVERTICAL);
+void tpanelscrollbar::OnScrollHandlerCommon(bool upok, bool downok, int threshold, int current_position) {
+	int y = current_position;
 	int endpos = y + scroll_client_size;
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollwin::OnScrollHandlerCommon %s, %d %d %d %d", cstr(GetThisName()), y, scroll_virtual_size, scroll_client_size, endpos);
+		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollbar::OnScrollHandlerCommon %s, %d %d %d %d", cstr(GetThisName()), y, scroll_virtual_size, scroll_client_size, endpos);
 	#endif
 	bool scrollup = (y <= threshold && upok);
 	bool scrolldown = (endpos >= (scroll_virtual_size - threshold) && downok);
@@ -490,36 +477,43 @@ void tpanelscrollwin::OnScrollHandlerCommon(bool upok, bool downok, int threshol
 	}
 }
 
-void tpanelscrollwin::OnScrollHandler(wxScrollWinEvent &event) {
-	if(event.GetOrientation() != wxVERTICAL) {
-		event.Skip();
-		return;
-	}
+void tpanelscrollbar::OnScrollHandler(wxScrollEvent &event) {
 	wxEventType type = event.GetEventType();
-	bool upok = (type == wxEVT_SCROLLWIN_TOP || type == wxEVT_SCROLLWIN_LINEUP || type == wxEVT_SCROLLWIN_PAGEUP || type == wxEVT_SCROLLWIN_THUMBRELEASE);
-	bool downok = (type == wxEVT_SCROLLWIN_BOTTOM || type == wxEVT_SCROLLWIN_LINEDOWN || type == wxEVT_SCROLLWIN_PAGEDOWN || type == wxEVT_SCROLLWIN_THUMBRELEASE);
+	bool upok = (type == wxEVT_SCROLL_TOP || type == wxEVT_SCROLL_LINEUP || type == wxEVT_SCROLL_PAGEUP || type == wxEVT_SCROLL_THUMBRELEASE || type == wxEVT_SCROLL_CHANGED);
+	bool downok = (type == wxEVT_SCROLL_BOTTOM || type == wxEVT_SCROLL_LINEDOWN || type == wxEVT_SCROLL_PAGEDOWN || type == wxEVT_SCROLL_THUMBRELEASE || type == wxEVT_SCROLL_CHANGED);
 
-	if(type == wxEVT_SCROLLWIN_LINEUP || type == wxEVT_SCROLLWIN_LINEDOWN) {
-		int y = GetScrollPos(wxVERTICAL);
-		if(type == wxEVT_SCROLLWIN_LINEUP) y -= gc.linescrollspeed;
+	int y;
+	if(type == wxEVT_SCROLL_LINEUP || type == wxEVT_SCROLL_LINEDOWN) {
+		y = GetThumbPosition();
+		if(type == wxEVT_SCROLL_LINEUP) y -= gc.linescrollspeed;
 		else y += gc.linescrollspeed;
-		SetScrollPos(wxVERTICAL, std::max(0, y));
+		SetThumbPosition(std::max(0, y));
 		ScrollItems();
 	}
 	else {
-		ScrollItems();
+		if(type == wxEVT_SCROLLWIN_THUMBRELEASE || type == wxEVT_SCROLL_CHANGED) {
+			y = event.GetPosition();
+			SetThumbPosition(y);
+		}
+		else {
+			y = GetThumbPosition();
+		}
+		ScrollItemsForPosition(y);
 		event.Skip();
 	}
 
-	OnScrollHandlerCommon(upok, downok);
+	OnScrollHandlerCommon(upok, downok, 0, y);
 }
 
 // This determines the scrollbar size and position such that, where possible
 // the item at the top of the visible screen is unmoved
-void tpanelscrollwin::RepositionItems() {
+void tpanelscrollbar::RepositionItems() {
+	tpanelscrollpane *tsp = get();
+	if(!tsp) return;
+
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollwin::RepositionItems %s, START %d %d", cstr(GetThisName()),
-				GetScrollPos(wxVERTICAL), parent->GetCurrentDisp().size());
+		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollbar::RepositionItems %s, START %d %d", cstr(GetThisName()),
+				GetThumbPosition(), parent->GetCurrentDisp().size());
 	#endif
 	scroll_virtual_size = 0;
 	int cumul_size = 0;
@@ -544,7 +538,7 @@ void tpanelscrollwin::RepositionItems() {
 		cumul_size += s.y;
 	}
 
-	if(parent->pimpl()->displayoffset == 0 && GetScrollPos(wxVERTICAL) == 0 &&
+	if(parent->pimpl()->displayoffset == 0 && GetThumbPosition() == 0 &&
 			have_scroll_offset && !scroll_always_freeze) {
 		// We were at the very top, we would normally be scrolling down as something has been inserted above
 		// Scroll back to the top instead
@@ -554,25 +548,31 @@ void tpanelscrollwin::RepositionItems() {
 	scroll_always_freeze = false;
 
 	if(!have_scroll_offset) {
-		scroll_offset = GetScrollPos(wxVERTICAL);
+		scroll_offset = GetThumbPosition();
 	}
 
-	scroll_client_size = GetClientSize().y;
-	SetScrollbar(wxVERTICAL, scroll_offset, scroll_client_size, scroll_virtual_size);
+	scroll_client_size = tsp->GetClientSize().y;
+	SetScrollbar(scroll_offset, scroll_client_size, scroll_virtual_size, 1);
 
 	ScrollItems();
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollwin::RepositionItems %s, END %d %d %d %d %d", cstr(GetThisName()),
-				GetScrollPos(wxVERTICAL), scroll_offset, have_scroll_offset, scroll_always_freeze, cumul_size);
+		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollbar::RepositionItems %s, END %d %d %d %d %d", cstr(GetThisName()),
+				GetThumbPosition(), scroll_offset, have_scroll_offset, scroll_always_freeze, cumul_size);
 	#endif
 }
 
+// Calls ScrollItemsForPosition for the current position
+void tpanelscrollbar::ScrollItems() {
+	ScrollItemsForPosition(GetThumbPosition());
+}
+
 // Move all child windows to their correct positions
-void tpanelscrollwin::ScrollItems() {
+// This is separate from ScrollItems so that the current_position value can be supplied from an event
+void tpanelscrollbar::ScrollItemsForPosition(int current_position) {
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollwin::ScrollItems %s, %d, %d", cstr(GetThisName()), GetScrollPos(wxVERTICAL), parent->GetCurrentDisp().size());
+		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollbar::ScrollItems %s, %d, %d", cstr(GetThisName()), current_position, parent->GetCurrentDisp().size());
 	#endif
-	int y = -GetScrollPos(wxVERTICAL);
+	int y = -current_position;
 
 	for(auto &disp : parent->GetCurrentDisp()) {
 		wxSize s = disp.item->GetSize();
@@ -584,12 +584,12 @@ void tpanelscrollwin::ScrollItems() {
 	}
 }
 
-void tpanelscrollwin::ScrollToIndex(unsigned int index, int offset) {
+void tpanelscrollbar::ScrollToIndex(unsigned int index, int offset) {
 	int scroll_offset = 0;
 
 	for(auto &disp : parent->GetCurrentDisp()) {
 		if(index == 0) {
-			SetScrollPos(wxVERTICAL, scroll_offset - offset);
+			SetThumbPosition(scroll_offset - offset);
 			ScrollItems();
 			return;
 		}
@@ -601,7 +601,7 @@ void tpanelscrollwin::ScrollToIndex(unsigned int index, int offset) {
 }
 
 // Returns true if successful (id is present)
-bool tpanelscrollwin::ScrollToId(uint64_t id, int offset) {
+bool tpanelscrollbar::ScrollToId(uint64_t id, int offset) {
 	int index = parent->IDToCurrentDispIndex(id);
 	if(index >= 0) {
 		ScrollToIndex(index, offset);
@@ -609,6 +609,48 @@ bool tpanelscrollwin::ScrollToId(uint64_t id, int offset) {
 	}
 	else {
 		return false;
+	}
+}
+
+BEGIN_EVENT_TABLE(tpanelscrollpane, wxPanel)
+	EVT_SIZE(tpanelscrollpane::resizehandler)
+	EVT_COMMAND(wxID_ANY, wxextRESIZE_UPDATE_EVENT, tpanelscrollpane::resizemsghandler)
+	EVT_MOUSEWHEEL(tpanelscrollpane::mousewheelhandler)
+END_EVENT_TABLE()
+
+tpanelscrollpane::tpanelscrollpane(panelparentwin_base *parent_)
+		: wxPanel(parent_, wxID_ANY, wxPoint(-1000, -1000), wxDefaultSize, wxCLIP_CHILDREN), parent(parent_), resize_update_pending(false) {
+
+	thisname = wxT("tpanelscrollpane for ") + parent_->GetThisName();
+}
+
+void tpanelscrollpane::resizehandler(wxSizeEvent &event) {
+	#if TPANEL_SCROLLING_COPIOUS_LOGGING
+		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollpane::resizehandler: %s, %d, %d", cstr(GetThisName()), event.GetSize().GetWidth(), event.GetSize().GetHeight());
+	#endif
+
+	for(auto &disp : parent->GetCurrentDisp()) {
+		disp.item->NotifySizeChange();
+	}
+}
+
+void tpanelscrollpane::resizemsghandler(wxCommandEvent &event) {
+	#if TPANEL_SCROLLING_COPIOUS_LOGGING
+		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollpane::resizemsghandler %s", cstr(GetThisName()));
+	#endif
+	if(tpanelscrollbar *tsb = get()) {
+		tsb->RepositionItems();
+	}
+	resize_update_pending = false;
+
+	Thaw();
+	Update();
+}
+
+void tpanelscrollpane::mousewheelhandler(wxMouseEvent &event) {
+	if(tpanelscrollbar *tsb = get()) {
+		event.SetEventObject(tsb);
+		tsb->GetEventHandler()->ProcessEvent(event);
 	}
 }
 

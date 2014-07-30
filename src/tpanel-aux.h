@@ -24,7 +24,8 @@
 #include "flags.h"
 #include "magic_ptr.h"
 #include <wx/aui/auibook.h>
-#include <wx/scrolwin.h>
+#include <wx/scrolbar.h>
+#include <wx/panel.h>
 #include <wx/statbmp.h>
 #include <wx/string.h>
 #include <memory>
@@ -32,6 +33,7 @@
 struct mainframe;
 struct panelparentwin_base;
 struct tpanelscrollwin;
+struct tpanelscrollpane;
 
 struct profimg_staticbitmap : public wxStaticBitmap {
 	udc_ptr udc;
@@ -82,10 +84,10 @@ struct tpanel_item : public wxPanel {
 	wxBoxSizer *vbox;
 
 
-	tpanelscrollwin *parent;
+	tpanelscrollpane *parent;
 	wxString thisname;
 
-	tpanel_item(tpanelscrollwin *parent_);
+	tpanel_item(tpanelscrollpane *parent_);
 	inline wxString GetThisName() const { return thisname; }
 
 	void NotifySizeChange();
@@ -95,9 +97,8 @@ struct tpanel_item : public wxPanel {
 	DECLARE_EVENT_TABLE()
 };
 
-struct tpanelscrollwin : public wxPanel {
+struct tpanelscrollbar : public wxScrollBar, public magic_paired_ptr_ts<tpanelscrollpane, tpanelscrollbar> {
 	panelparentwin_base *parent;
-	bool resize_update_pending;
 	bool page_scroll_blocked;
 	wxString thisname;
 
@@ -105,18 +106,33 @@ struct tpanelscrollwin : public wxPanel {
 	int scroll_virtual_size = 0;
 	int scroll_client_size = 0;
 
-	tpanelscrollwin(panelparentwin_base *parent_);
-	void OnScrollHandler(wxScrollWinEvent &event);
-	void OnScrollTrack(wxScrollWinEvent &event);
-	void OnScrollHandlerCommon(bool upok, bool downok, int threshold = 0);
-	void resizehandler(wxSizeEvent &event);
-	void resizemsghandler(wxCommandEvent &event);
+	tpanelscrollbar(panelparentwin_base *parent_);
+	void OnScrollHandler(wxScrollEvent &event);
+	void OnScrollTrack(wxScrollEvent &event);
+	void OnScrollHandlerCommon(bool upok, bool downok, int threshold, int current_position);
 	void mousewheelhandler(wxMouseEvent &event);
 	void RepositionItems();
 	void ScrollItems();
 	void ScrollToIndex(unsigned int index, int offset);
 	bool ScrollToId(uint64_t id, int offset);
-	inline wxString GetThisName() const { return thisname; }
+	wxString GetThisName() const { return thisname; }
+
+	private:
+	void ScrollItemsForPosition(int current_position);
+
+	DECLARE_EVENT_TABLE()
+};
+
+struct tpanelscrollpane : public wxPanel, public magic_paired_ptr_ts<tpanelscrollbar, tpanelscrollpane> {
+	panelparentwin_base *parent;
+	wxString thisname;
+	bool resize_update_pending;
+
+	tpanelscrollpane(panelparentwin_base *parent_);
+	void resizehandler(wxSizeEvent &event);
+	void resizemsghandler(wxCommandEvent &event);
+	void mousewheelhandler(wxMouseEvent &event);
+	wxString GetThisName() const { return thisname; }
 
 	DECLARE_EVENT_TABLE()
 };

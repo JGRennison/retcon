@@ -31,7 +31,8 @@
 #include <wx/timer.h>
 #include <wx/string.h>
 
-struct tpanelscrollwin;
+struct tpanelscrollbar;
+struct tpanelscrollpane;
 class wxBoxSizer;
 class wxWindow;
 class wxStaticText;
@@ -89,7 +90,8 @@ struct panelparentwin_base_impl : public bindwxevt {
 	flagwrapper<TPPWF> tppw_flags = 0;
 	size_t displayoffset = 0;
 	wxWindow *parent_win = nullptr;
-	tpanelscrollwin *scrollwin = nullptr;
+	tpanelscrollbar *scrollbar = nullptr;
+	tpanelscrollpane *scrollpane = nullptr;
 	wxStaticText *clabel = nullptr;
 	wxButton *MarkReadBtn = nullptr;
 	wxButton *NewestUnreadBtn = nullptr;

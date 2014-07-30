@@ -287,7 +287,6 @@ panelparentwin_base::panelparentwin_base(wxWindow *parent, bool fitnow, wxString
 
 	wxBoxSizer* outersizer = new wxBoxSizer(wxVERTICAL);
 	pimpl()->headersizer = new wxBoxSizer(wxHORIZONTAL);
-	pimpl()->scrollwin = new tpanelscrollwin(this);
 	pimpl()->clabel = new wxStaticText(this, wxID_ANY, wxT(""), wxPoint(-1000, -1000));
 	outersizer->Add(pimpl()->headersizer, 0, wxALL | wxEXPAND, 0);
 	pimpl()->headersizer->Add(pimpl()->clabel, 0, wxALL, 2);
@@ -306,8 +305,14 @@ panelparentwin_base::panelparentwin_base(wxWindow *parent, bool fitnow, wxString
 	addbtn(TPPWID_OLDESTUNREADBTN, wxT("Oldest Unread \x2193"), "unread", pimpl()->OldestUnreadBtn);
 	addbtn(TPPWID_UNHIGHLIGHTALLBTN, wxT("Unhighlight All"), "unhighlightall", pimpl()->UnHighlightBtn);
 	pimpl()->headersizer->Add(new wxButton(this, TPPWID_TOPBTN, wxT("Top \x2191"), wxPoint(-1000, -1000), wxDefaultSize, wxBU_EXACTFIT), 0, wxALL, 2);
-	outersizer->Add(pimpl()->scrollwin, 1, wxALL | wxEXPAND, 2);
-	//outersizer->Add(new wxStaticText(this, wxID_ANY, wxT(""), wxPoint(-1000, -1000)), 0, wxALL, 2);
+
+	pimpl()->scrollbar = new tpanelscrollbar(this);
+	pimpl()->scrollpane = new tpanelscrollpane(this);
+	pimpl()->scrollbar->set(pimpl()->scrollpane);
+	wxBoxSizer* lowerhsizer = new wxBoxSizer(wxHORIZONTAL);
+	lowerhsizer->Add(pimpl()->scrollpane, 1, wxEXPAND, 0);
+	lowerhsizer->Add(pimpl()->scrollbar, 0, wxEXPAND, 0);
+	outersizer->Add(lowerhsizer, 1, wxALL | wxEXPAND, 2);
 
 	SetSizer(outersizer);
 	if(fitnow) {
@@ -335,9 +340,7 @@ void panelparentwin_base_impl::ShowHideButtons(std::string type, bool show) {
 tpanel_disp_item *panelparentwin_base_impl::CreateItemAtIndex(size_t index, uint64_t id) {
 	LogMsgFormat(LOGT::TPANEL, "panelparentwin_base_impl::CreateItemAtIndex, %s, %d, id: %" llFmtSpec "u", cstr(GetThisName()), index, id);
 
-	tpanel_item *item = new tpanel_item(scrollwin);
-	item->parent = scrollwin;
-	item->thisname = wxT("tpanel_item in ") + thisname;
+	tpanel_item *item = new tpanel_item(scrollpane);
 
 	auto newit = currentdisp.insert(std::next(currentdisp.begin(), index), { id, nullptr, item });
 	return &(*newit);
@@ -444,17 +447,17 @@ void panelparentwin_base_impl::CheckClearNoUpdateFlag() {
 		#if TPANEL_COPIOUS_LOGGING
 			LogMsgFormat(LOGT::TPANEL, "TCL: panelparentwin_base_impl::CheckClearNoUpdateFlag() %s TPPWF::NOUPDATEONPUSH", cstr(GetThisName()));
 		#endif
-		scrollwin->Freeze();
-		bool rup = scrollwin->resize_update_pending;
-		scrollwin->resize_update_pending = true;
+		scrollpane->Freeze();
+		bool rup = scrollpane->resize_update_pending;
+		scrollpane->resize_update_pending = true;
 		IterateCurrentDisp([](uint64_t id, dispscr_base *scr) {
 			scr->CheckRefresh();
 		});
 		if(scrolltoid_onupdate) HandleScrollToIDOnUpdate();
-		scrollwin->RepositionItems();
-		scrollwin->Thaw();
+		scrollbar->RepositionItems();
+		scrollpane->Thaw();
 		tppw_flags &= ~TPPWF::NOUPDATEONPUSH;
-		scrollwin->resize_update_pending = rup;
+		scrollpane->resize_update_pending = rup;
 		if(tppw_flags & TPPWF::FROZEN) {
 			tppw_flags &= ~TPPWF::FROZEN;
 			base()->Thaw();
@@ -600,10 +603,10 @@ void tpanelparentwin_nt_impl::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pu
 		return;
 	}
 
-	scrollwin->Freeze();
+	scrollpane->Freeze();
 	LogMsgFormat(LOGT::TPANEL, "tpanelparentwin_nt_impl::PushTweet %s, id: %" llFmtSpec "d, displayoffset: %d, pushflags: 0x%X, currentdisp: %d, tppw_flags: 0x%X",
 			cstr(GetThisName()), t->id, displayoffset, pushflags, (int) currentdisp.size(), tppw_flags);
-	if(pushflags & PUSHFLAGS::ABOVE) scrollwin->scroll_always_freeze = true;
+	if(pushflags & PUSHFLAGS::ABOVE) scrollbar->scroll_always_freeze = true;
 	uint64_t id = t->id;
 	bool recalcdisplayoffset = false;
 	if(pushflags & PUSHFLAGS::NOINCDISPOFFSET && currentdisp.empty()) recalcdisplayoffset = true;
@@ -611,7 +614,7 @@ void tpanelparentwin_nt_impl::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pu
 		if(id>currentdisp.front().id) {
 			if(!(pushflags & PUSHFLAGS::ABOVE)) {
 				if(!(pushflags & PUSHFLAGS::NOINCDISPOFFSET)) displayoffset++;
-				scrollwin->Thaw();
+				scrollpane->Thaw();
 				CLabelNeedsUpdating(pushflags);
 				return;
 			}
@@ -625,7 +628,7 @@ void tpanelparentwin_nt_impl::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pu
 				displayoffset++;
 			}
 			else {
-				scrollwin->Thaw();
+				scrollpane->Thaw();
 				CLabelNeedsUpdating(pushflags);
 				return;
 			}
@@ -665,11 +668,11 @@ void tpanelparentwin_nt_impl::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pu
 
 	if(pushflags & PUSHFLAGS::CHECKSCROLLTOID) {
 		if(tppw_flags & TPPWF::NOUPDATEONPUSH) scrolltoid_onupdate = scrolltoid;
-		else scrollwin->ScrollToId(id, 0);
+		else scrollbar->ScrollToId(id, 0);
 	}
 
-	scrollwin->RepositionItems();
-	scrollwin->Thaw();
+	scrollbar->RepositionItems();
+	scrollpane->Thaw();
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::PushTweet %s END, %d, %d", cstr(GetThisName()), displayoffset, currentdisp.size());
 	#endif
@@ -769,14 +772,14 @@ void tpanelparentwin_nt_impl::RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pu
 	auto it = currentdisp.begin();
 	for(; it != currentdisp.end(); it++, index++) {
 		if(it->id == id) {
-			scrollwin->Freeze();
+			scrollpane->Freeze();
 
 			if(pushflags & PUSHFLAGS::SETNOUPDATEFLAG) tppw_flags |= TPPWF::NOUPDATEONPUSH;
 			RemoveIndex(index);
 			CLabelNeedsUpdating(pushflags);
 
-			scrollwin->RepositionItems();
-			scrollwin->Thaw();
+			scrollbar->RepositionItems();
+			scrollpane->Thaw();
 			break;
 		}
 	}
@@ -793,7 +796,7 @@ void tpanelparentwin_nt_impl::PageUpHandler() {
 		LoadMore(pagemove, 0, greaterthanid, PUSHFLAGS::ABOVE | PUSHFLAGS::NOINCDISPOFFSET);
 		CheckClearNoUpdateFlag();
 	}
-	scrollwin->page_scroll_blocked=false;
+	scrollbar->page_scroll_blocked = false;
 }
 void tpanelparentwin_nt_impl::PageDownHandler() {
 	SetNoUpdateFlag();
@@ -806,7 +809,7 @@ void tpanelparentwin_nt_impl::PageDownHandler() {
 		uint64_t lessthanid = currentdisp.back().id;
 		LoadMore(pagemove, lessthanid, 0, PUSHFLAGS::BELOW | PUSHFLAGS::NOINCDISPOFFSET);
 	}
-	scrollwin->page_scroll_blocked = false;
+	scrollbar->page_scroll_blocked = false;
 	CheckClearNoUpdateFlag();
 }
 
@@ -819,7 +822,7 @@ void tpanelparentwin_nt_impl::PageTopHandler() {
 		CheckClearNoUpdateFlag();
 	}
 	base()->GenericAction([](tpanelparentwin_nt *tp) {
-		tp->pimpl()->scrollwin->ScrollToIndex(0, 0);
+		tp->pimpl()->scrollbar->ScrollToIndex(0, 0);
 	});
 }
 
@@ -834,7 +837,7 @@ void tpanelparentwin_nt_impl::JumpToTweetID(uint64_t id) {
 	bool alldone = false;
 
 	if(id <= currentdisp.front().id && id >= currentdisp.back().id) {
-		bool ok = scrollwin->ScrollToId(id, 0);
+		bool ok = scrollbar->ScrollToId(id, 0);
 		if(ok) {
 			if(GetCurrentViewTopID() == id) alldone = true;  //if this isn't true, load some more tweets below to make it true
 		}
@@ -845,7 +848,7 @@ void tpanelparentwin_nt_impl::JumpToTweetID(uint64_t id) {
 		if(stit == tp->tweetlist.end()) return;
 
 		SetNoUpdateFlag();
-		scrollwin->Freeze();
+		scrollpane->Freeze();
 
 		//this is the offset into the tweetlist set, of the target tweet
 		unsigned int targ_offset = std::distance(tp->tweetlist.cbegin(), stit);
@@ -879,7 +882,7 @@ void tpanelparentwin_nt_impl::JumpToTweetID(uint64_t id) {
 					displayoffset, loadcount, (int) currentdisp.size());
 		#endif
 
-		scrollwin->Thaw();
+		scrollpane->Thaw();
 		if(loadcount) {
 			scrolltoid = id;
 
@@ -1228,7 +1231,7 @@ void tpanelparentwin_nt_impl::HandleScrollToIDOnUpdate() {
 			LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::HandleScrollToIDOnUpdate() %s", cstr(GetThisName()));
 		#endif
 
-		scrollwin->ScrollToIndex(std::distance(currentdisp.begin(), it), 0);
+		scrollbar->ScrollToIndex(std::distance(currentdisp.begin(), it), 0);
 	}
 
 	scrolltoid_onupdate = 0;
@@ -1392,7 +1395,7 @@ tweetdispscr_mouseoverwin *tpanelparentwin_nt::MakeMouseOverWin() {
 }
 
 tweetdispscr_mouseoverwin *tpanelparentwin_nt_impl::MakeMouseOverWin() {
-	if(!mouseoverwin) mouseoverwin = new tweetdispscr_mouseoverwin(scrollwin, base());
+	if(!mouseoverwin) mouseoverwin = new tweetdispscr_mouseoverwin(scrollpane, base());
 	return mouseoverwin;
 }
 
@@ -1597,7 +1600,7 @@ void tpanelparentwin_user_impl::PageUpHandler() {
 		}
 		CheckClearNoUpdateFlag();
 	}
-	scrollwin->page_scroll_blocked = false;
+	scrollbar->page_scroll_blocked = false;
 }
 void tpanelparentwin_user_impl::PageDownHandler() {
 	SetNoUpdateFlag();
@@ -1612,7 +1615,7 @@ void tpanelparentwin_user_impl::PageDownHandler() {
 		displayoffset += topdrop;
 		base()->LoadMoreToBack(pagemove);
 	}
-	scrollwin->page_scroll_blocked = false;
+	scrollbar->page_scroll_blocked = false;
 	CheckClearNoUpdateFlag();
 }
 
@@ -1632,7 +1635,7 @@ void tpanelparentwin_user_impl::PageTopHandler() {
 		}
 		CheckClearNoUpdateFlag();
 	}
-	scrollwin->ScrollToIndex(0, 0);
+	scrollbar->ScrollToIndex(0, 0);
 }
 
 bool tpanelparentwin_user::PushBackUser(udc_ptr_p u) {
@@ -1677,7 +1680,7 @@ bool tpanelparentwin_user_impl::UpdateUser(udc_ptr_p u, size_t offset) {
 	}
 
 	if(u->IsReady(PENDING_REQ::PROFIMG_DOWNLOAD | PENDING_REQ::USEREXPIRE)) {
-		scrollwin->Freeze();
+		scrollpane->Freeze();
 		tpanel_disp_item *tpdi = CreateItemAtIndex(index, u->id);
 		tpanel_item *item = tpdi->item;
 
@@ -1694,8 +1697,8 @@ bool tpanelparentwin_user_impl::UpdateUser(udc_ptr_p u, size_t offset) {
 		CLabelNeedsUpdating(0);
 		if(!(tppw_flags & TPPWF::NOUPDATEONPUSH)) td->ForceRefresh();
 		else td->gdb_flags |= tweetdispscr::GDB_F::NEEDSREFRESH;
-		scrollwin->RepositionItems();
-		scrollwin->Thaw();
+		scrollbar->RepositionItems();
+		scrollpane->Thaw();
 		return false;
 	}
 	else {
@@ -1958,8 +1961,8 @@ bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid) {
 			#if TPANEL_COPIOUS_LOGGING
 				LogMsgFormat(LOGT::TPANEL, "TCL: RedirectMouseWheelEvent: Dispatching to %s", cstr(tppw->GetThisName()));
 			#endif
-			event.SetEventObject(tppw->pimpl()->scrollwin);
-			tppw->pimpl()->scrollwin->GetEventHandler()->ProcessEvent(event);
+			event.SetEventObject(tppw->pimpl()->scrollbar);
+			tppw->pimpl()->scrollbar->GetEventHandler()->ProcessEvent(event);
 			return true;
 		}
 		wind = wind->GetParent();
