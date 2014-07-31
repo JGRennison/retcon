@@ -16,58 +16,52 @@
 #On Unixy platforms only
 #WXCFGFLAGS: arguments for wx-config
 
-#On windows only:
-#x64: set to true to compile for x86_64/win64
-
 #Note that to build on or for Windows, the include/lib search paths will need to be edited below and/or
 #a number of libs/includes will need to be placed/built in a corresponding location where gcc can find them.
 
 
 OBJS_SRC := retcon.cpp cfg.cpp optui.cpp parse.cpp socket.cpp socket-ops.cpp tpanel.cpp tpanel-data.cpp tpanel-aux.cpp twit.cpp db.cpp log.cpp cmdline.cpp userui.cpp mainui.cpp signal.cpp threadutil.cpp
 OBJS_SRC += dispscr.cpp uiutil.cpp mediawin.cpp taccount.cpp util.cpp res.cpp aboutwin.cpp twitcurlext.cpp filter/filter.cpp filter/filter-dlg.cpp bind_wxevt.cpp
-TCOBJS_SRC:=libtwitcurl/base64.cpp libtwitcurl/HMAC_SHA1.cpp libtwitcurl/oauthlib.cpp libtwitcurl/SHA1.cpp libtwitcurl/twitcurl.cpp libtwitcurl/urlencode.cpp
-COBJS_SRC:=utf8proc/utf8proc.c
-OTHER_SRC:=version.cpp
-EXCOBJS_SRC:=
-RTROBJS_SRC:=
+TCOBJS_SRC := libtwitcurl/base64.cpp libtwitcurl/HMAC_SHA1.cpp libtwitcurl/oauthlib.cpp libtwitcurl/SHA1.cpp libtwitcurl/twitcurl.cpp libtwitcurl/urlencode.cpp
+COBJS_SRC := utf8proc/utf8proc.c
+OTHER_SRC := version.cpp
+EXCOBJS_SRC :=
+RTROBJS_SRC :=
 
-OUTNAME:=retcon
-COMMONCFLAGS=-Wall -Wextra -Wshadow -Wno-unused-parameter -Ideps
-COBJS_CFLAGS=-Wno-missing-field-initializers -Wno-sign-compare
-OPTIMISE_FLAGS = -O3
+OUTNAME := retcon
+COMMONCFLAGS := -Wall -Wextra -Wshadow -Wno-unused-parameter -Ideps
+COBJS_CFLAGS := -Wno-missing-field-initializers -Wno-sign-compare
+OPTIMISE_FLAGS := -O3
 CFLAGS = $(OPTIMISE_FLAGS) $(COMMONCFLAGS)
-AFLAGS =
-CXXFLAGS=-std=gnu++0x -fno-exceptions
-TCFLAGS=-DSHA1_NO_UTILITY_FUNCTIONS -DSHA1_NO_STL_FUNCTIONS
-WXCFGFLAGS:=--version=2.8
-GCC:=g++
-LD:=ld
-OBJDIR:=objs
-DIRS=$(OBJDIR) $(OBJDIR)$(PATHSEP)libtwitcurl $(OBJDIR)$(PATHSEP)res $(OBJDIR)$(PATHSEP)deps$(PATHSEP)utf8proc $(OBJDIR)$(PATHSEP)filter $(OBJDIR)$(PATHSEP)pch
+AFLAGS :=
+CXXFLAGS := -std=c++11 -fno-exceptions
+TCFLAGS := -DSHA1_NO_UTILITY_FUNCTIONS -DSHA1_NO_STL_FUNCTIONS
+WXCFGFLAGS := --version=2.8
+GCC := g++
+LD := ld
+OBJDIR := objs
+DIRS = $(OBJDIR) $(OBJDIR)/libtwitcurl $(OBJDIR)/res $(OBJDIR)/deps/utf8proc $(OBJDIR)/filter $(OBJDIR)/pch
 
-EXECPREFIX:=./
-PATHSEP:=/
-MKDIR:=mkdir -p
+EXECPREFIX := ./
+MKDIR := mkdir -p
 
 VERSION_STRING := $(shell git describe --tags --always --dirty=-m 2>/dev/null)
 ifdef VERSION_STRING
 BVCFLAGS += -DRETCON_BUILD_VERSION='"${VERSION_STRING}"'
 endif
 
-OUTNAMEPOSTFIX=
-
-RESCLEAN:=
+OUTNAMEPOSTFIX :=
+RESCLEAN :=
 
 ifdef debug
 
-OPTIMISE_FLAGS =
+OPTIMISE_FLAGS :=
 CFLAGS += -g
 AFLAGS += -g
-#AFLAGS:=-Wl,-d,--export-all-symbols
-DEBUGPOSTFIX:=_debug
-OBJDIR:=$(OBJDIR)$(DEBUGPOSTFIX)
-OUTNAMEPOSTFIX:=$(OUTNAMEPOSTFIX)$(DEBUGPOSTFIX)
-WXCFGFLAGS+=--debug=yes
+DEBUGPOSTFIX := _debug
+OBJDIR := $(OBJDIR)$(DEBUGPOSTFIX)
+OUTNAMEPOSTFIX := $(OUTNAMEPOSTFIX)$(DEBUGPOSTFIX)
+WXCFGFLAGS += --debug=yes
 
 else ifndef noflto
 
@@ -82,87 +76,68 @@ endif
 endif
 
 ifdef gprof
-CFLAGS+=-pg
-AFLAGS+=-pg
-GPROFPOSTFIX:=_gprof
-OBJDIR:=$(OBJDIR)$(GPROFPOSTFIX)
-OUTNAMEPOSTFIX:=$(OUTNAMEPOSTFIX)$(GPROFPOSTFIX)
+CFLAGS += -pg
+AFLAGS += -pg
+GPROFPOSTFIX := _gprof
+OBJDIR := $(OBJDIR)$(GPROFPOSTFIX)
+OUTNAMEPOSTFIX := $(OUTNAMEPOSTFIX)$(GPROFPOSTFIX)
 endif
 
 ifdef san
 ifeq ($(san), thread)
-CFLAGS+=-fPIE -pie
-AFLAGS+=-fPIE -pie
+CFLAGS += -fPIE -pie
+AFLAGS += -fPIE -pie
 endif
-CFLAGS+=-g -fsanitize=$(san) -fno-omit-frame-pointer
-AFLAGS+=-g -fsanitize=$(san)
-SANPOSTFIX:=_san_$(san)
-OBJDIR:=$(OBJDIR)$(SANPOSTFIX)
-OUTNAMEPOSTFIX:=$(OUTNAMEPOSTFIX)$(SANPOSTFIX)
+CFLAGS += -g -fsanitize=$(san) -fno-omit-frame-pointer
+AFLAGS += -g -fsanitize=$(san)
+SANPOSTFIX := _san_$(san)
+OBJDIR := $(OBJDIR)$(SANPOSTFIX)
+OUTNAMEPOSTFIX := $(OUTNAMEPOSTFIX)$(SANPOSTFIX)
 endif
 
 all:
 
-GCCMACHINE:=$(shell $(GCC) -dumpmachine)
+GCCMACHINE := $(shell $(GCC) -dumpmachine)
 ifeq (mingw, $(findstring mingw,$(GCCMACHINE)))
 #WIN
-PLATFORM:=WIN
-AFLAGS+=-mwindows -s -static -Lwxlib -Llib
-GFLAGS=-mthreads
-CFLAGS+=-D CURL_STATICLIB
-SUFFIX:=.exe
-LIBS32=-lpcre -lcurl -lwxmsw28u_richtext -lwxmsw28u_aui -lwxbase28u_xml -lwxexpat -lwxmsw28u_html -lwxmsw28u_adv -lwxmsw28u_media -lwxmsw28u_core -lwxbase28u -lwxjpeg -lwxpng -lwxtiff -lrtmp -lssh2 -lidn -lssl -lz -lcrypto -leay32 -lwldap32 -lws2_32 -lgdi32 -lshell32 -lole32 -luuid -lcomdlg32 -lwinspool -lcomctl32 -loleaut32 -lwinmm
-LIBS64=
-GCC32=i686-w64-mingw32-g++
-GCC64=x86_64-w64-mingw32-g++
-MCFLAGS=-Icurl -isystem wxinclude -Isqlite -Izlib -Isrc -I.
-TCFLAGS+=-Icurl
-HDEPS:=
-EXCOBJS_SRC+=sqlite/sqlite3.c
-DIRS+=$(OBJDIR)$(PATHSEP)deps$(PATHSEP)sqlite
-
-ifndef cross
-EXECPREFIX:=
-PATHSEP:=\\
-MKDIR:=mkdir
-HOST:=WIN
-endif
-
-ifdef x64
-SIZEPOSTFIX:=64
-OBJDIR:=$(OBJDIR)$(SIZEPOSTFIX)
-GCC:=$(GCC64)
-LIBS:=$(LIBS64)
-CFLAGS2:=-mcx16
-PACKER:=mpress -s
-else
-GCC:=$(GCC32)
-LIBS:=$(LIBS32)
-ARCH:=i686
-PACKER:=upx -9
-endif
+PLATFORM := WIN
+AFLAGS += -mwindows -s -static -Lwxlib -Llib
+GFLAGS := -mthreads
+CFLAGS += -D CURL_STATICLIB
+SUFFIX := .exe
+LIBS := -lpcre -lcurl -lwxmsw28u_richtext -lwxmsw28u_aui -lwxbase28u_xml -lwxexpat -lwxmsw28u_html -lwxmsw28u_adv -lwxmsw28u_media -lwxmsw28u_core -lwxbase28u -lwxjpeg -lwxpng -lwxtiff -lrtmp -lssh2 -lidn -lssl -lz -lcrypto -leay32 -lwldap32 -lws2_32 -lgdi32 -lshell32 -lole32 -luuid -lcomdlg32 -lwinspool -lcomctl32 -loleaut32 -lwinmm
+MCFLAGS := -Icurl -isystem wxinclude -Isqlite -Izlib -Isrc -I.
+TCFLAGS += -Icurl
+HDEPS :=
+EXCOBJS_SRC += sqlite/sqlite3.c
+DIRS += $(OBJDIR)/deps/sqlite
+ARCH := i686
 
 RTROBJS_SRC += cacert.pem.zlib
-DIRS += $(OBJDIR)$(PATHSEP)rtres
+DIRS += $(OBJDIR)/rtres
 RESCLEAN += cacert.pem.zlib
 cacert.pem.zlib: cacert.pem
 	@echo '    deflate $<'
 	$(call EXEC,zpipe < cacert.pem > cacert.pem.zlib)
 
+ifndef cross
+EXECPREFIX :=
+DIRS := $(subst /,\\,$(DIRS))
+MKDIR := mkdir
+HOST := WIN
+endif
+
 else
 #UNIX
-PLATFORM:=UNIX
-LIBS:=-lpcre -lrt `wx-config --libs $(WXCFGFLAGS)` -lcurl -lsqlite3 -lz
-MCFLAGS:=$(patsubst -I/%,-isystem /%,$(shell wx-config --cxxflags $(WXCFGFLAGS)))
-PACKER:=upx -9
-GCC_MAJOR:=$(shell $(GCC) -dumpversion | cut -d'.' -f1)
-GCC_MINOR:=$(shell $(GCC) -dumpversion | cut -d'.' -f2)
-ARCH:=$(shell test $(GCC_MAJOR) -gt 4 -o \( $(GCC_MAJOR) -eq 4 -a $(GCC_MINOR) -ge 2 \) && echo native)
+PLATFORM := UNIX
+LIBS := -lpcre -lrt `wx-config --libs $(WXCFGFLAGS)` -lcurl -lsqlite3 -lz
+MCFLAGS := $(patsubst -I/%,-isystem /%,$(shell wx-config --cxxflags $(WXCFGFLAGS)))
+ARCH := native
 
-wxconf:=$(shell wx-config --selected-config)
+wxconf := $(shell wx-config --selected-config)
 ifeq (gtk, $(findstring gtk,$(wxconf)))
-LIBS+=`pkg-config --libs glib-2.0` `pkg-config --libs gdk-2.0`
-MCFLAGS+=`pkg-config --cflags glib-2.0` `pkg-config --cflags gdk-2.0`
+LIBS += `pkg-config --libs glib-2.0` `pkg-config --libs gdk-2.0`
+MCFLAGS += `pkg-config --cflags glib-2.0` `pkg-config --cflags gdk-2.0`
 endif
 
 endif
@@ -183,16 +158,16 @@ endef
 endif
 endif
 
-OUTNAME:=$(OUTNAME)$(SIZEPOSTFIX)$(OUTNAMEPOSTFIX)
+OUTNAME := $(OUTNAME)$(OUTNAMEPOSTFIX)
 
-GCCVER:=$(shell $(GCC) -dumpversion)
+GCCVER := $(shell $(GCC) -dumpversion)
 
 ifeq (4.7.0, $(GCCVER))
 $(error GCC 4.7.0 has a nasty bug in std::unordered_multimap, this will cause problems)
 endif
 
 ifeq (4.7.1, $(GCCVER))
-CXXFLAGS+=-Wno-type-limits -Wno-uninitialized -Wno-maybe-uninitialized
+CXXFLAGS += -Wno-type-limits -Wno-uninitialized -Wno-maybe-uninitialized
 #these cannot be feasibly suppressed at the local level in gcc 4.7
 endif
 
@@ -202,28 +177,28 @@ OPTIMISE_FLAGS += -Og
 endif
 endif
 
-TARGS:=$(OUTNAME)$(SUFFIX)
+TARGS := $(OUTNAME)$(SUFFIX)
 
 all: $(TARGS)
 
 ifdef list
-CFLAGS+= -masm=intel -g --save-temps -Wa,-msyntax=intel,-aghlms=$*.lst
+CFLAGS += -masm=intel -g --save-temps -Wa,-msyntax=intel,-aghlms=$*.lst
 endif
 
 ifdef map
-AFLAGS+=-Wl,-Map=$(OUTNAME).map
+AFLAGS += -Wl,-Map=$(OUTNAME).map
 $(OUTNAME).map: $(OUTNAME)$(SUFFIX)
 all: $(OUTNAME).map
 endif
 
-OBJS:=$(patsubst src/%.cpp,$(OBJDIR)/%.o,$(addprefix src/,$(OBJS_SRC)))
-TCOBJS:=$(patsubst src/%.cpp,$(OBJDIR)/%.o,$(addprefix src/,$(TCOBJS_SRC)))
-COBJS:=$(patsubst deps/%.c,$(OBJDIR)/deps/%.o,$(addprefix deps/,$(COBJS_SRC)))
-ROBJS:=$(patsubst src/res/%.png,$(OBJDIR)/res/%.o,$(wildcard src/res/*.png))
-RTROBJS:=$(patsubst %,$(OBJDIR)/rtres/%.o,$(RTROBJS_SRC))
-EXOBJS:=$(patsubst %.c,$(OBJDIR)/deps/%.o,$(EXCOBJS_SRC))
+OBJS := $(patsubst src/%.cpp,$(OBJDIR)/%.o,$(addprefix src/,$(OBJS_SRC)))
+TCOBJS := $(patsubst src/%.cpp,$(OBJDIR)/%.o,$(addprefix src/,$(TCOBJS_SRC)))
+COBJS := $(patsubst deps/%.c,$(OBJDIR)/deps/%.o,$(addprefix deps/,$(COBJS_SRC)))
+ROBJS := $(patsubst src/res/%.png,$(OBJDIR)/res/%.o,$(wildcard src/res/*.png))
+RTROBJS := $(patsubst %,$(OBJDIR)/rtres/%.o,$(RTROBJS_SRC))
+EXOBJS := $(patsubst %.c,$(OBJDIR)/deps/%.o,$(EXCOBJS_SRC))
 
-ALL_OBJS:=$(OBJS) $(TCOBJS) $(COBJS) $(SPOBJS) $(ROBJS) $(RTROBJS) $(EXOBJS)
+ALL_OBJS := $(OBJS) $(TCOBJS) $(COBJS) $(SPOBJS) $(ROBJS) $(RTROBJS) $(EXOBJS)
 
 ifneq ($(ARCH),)
 CFLAGS2 += -march=$(ARCH)
@@ -236,11 +211,11 @@ endif
 MAKEDEPS = -MMD -MP -MT '$@ $(patsubst %.o,%.d,$(patsubst %.gch,%.d,$@))'
 
 ifndef nopch
-MPCFLAGS:=-I $(OBJDIR)/pch -include pch.h -Winvalid-pch
+MPCFLAGS := -I $(OBJDIR)/pch -include pch.h -Winvalid-pch
 
 #These cannot be reliably suppressed locally when using PCHs
 MPCFLAGS += -Wno-strict-aliasing
-COMMONCFLAGS:=$(filter-out -Wshadow,$(COMMONCFLAGS))
+COMMONCFLAGS := $(filter-out -Wshadow,$(COMMONCFLAGS))
 
 $(OBJDIR)/pch/pch.h.gch: src/pch.h | $(DIRS)
 	@echo '    g++ PCH $<'
@@ -279,11 +254,11 @@ $(TCOBJS): $(OBJDIR)/%.o: src/%.cpp
 	$(call EXEC,$(GCC) -c $< -o $@ $(CFLAGS) $(TCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS) $(MAKEDEPS))
 
 ifeq "$(PLATFORM)" "WIN"
-LINKRES=$(GCC) -Wl,-r -Wl,-b,binary $< -o $@ -nostdlib
+LINKRES = $(GCC) -Wl,-r -Wl,-b,binary $< -o $@ -nostdlib
 else
-LINKRES=$(LD) -r -b binary $< -o $@
+LINKRES = $(LD) -r -b binary $< -o $@
 endif
-OBJCOPYRES=objcopy --rename-section .data=.rodata,alloc,load,readonly,data,contents $@ $@
+OBJCOPYRES = objcopy --rename-section .data=.rodata,alloc,load,readonly,data,contents $@ $@
 
 $(ROBJS): $(OBJDIR)/%.o: src/%.png
 $(RTROBJS): $(OBJDIR)/rtres/%.o: %
