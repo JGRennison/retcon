@@ -28,6 +28,9 @@ OBJS_SRC += dispscr.cpp uiutil.cpp mediawin.cpp taccount.cpp util.cpp res.cpp ab
 TCOBJS_SRC:=libtwitcurl/base64.cpp libtwitcurl/HMAC_SHA1.cpp libtwitcurl/oauthlib.cpp libtwitcurl/SHA1.cpp libtwitcurl/twitcurl.cpp libtwitcurl/urlencode.cpp
 COBJS_SRC:=utf8proc/utf8proc.c
 OTHER_SRC:=version.cpp
+EXCOBJS_SRC:=
+RTROBJS_SRC:=
+
 OUTNAME:=retcon
 COMMONCFLAGS=-Wall -Wextra -Wshadow -Wno-unused-parameter -Ideps
 COBJS_CFLAGS=-Wno-missing-field-initializers -Wno-sign-compare
@@ -52,6 +55,8 @@ BVCFLAGS += -DRETCON_BUILD_VERSION='"${VERSION_STRING}"'
 endif
 
 OUTNAMEPOSTFIX=
+
+RESCLEAN:=
 
 ifdef debug
 
@@ -96,6 +101,8 @@ OBJDIR:=$(OBJDIR)$(SANPOSTFIX)
 OUTNAMEPOSTFIX:=$(OUTNAMEPOSTFIX)$(SANPOSTFIX)
 endif
 
+all:
+
 GCCMACHINE:=$(shell $(GCC) -dumpmachine)
 ifeq (mingw, $(findstring mingw,$(GCCMACHINE)))
 #WIN
@@ -134,6 +141,13 @@ LIBS:=$(LIBS32)
 ARCH:=i686
 PACKER:=upx -9
 endif
+
+RTROBJS_SRC += cacert.pem.zlib
+DIRS += $(OBJDIR)$(PATHSEP)rtres
+RESCLEAN += cacert.pem.zlib
+cacert.pem.zlib: cacert.pem
+	@echo '    deflate $<'
+	$(call EXEC,zpipe < cacert.pem > cacert.pem.zlib)
 
 else
 #UNIX
@@ -206,9 +220,10 @@ OBJS:=$(patsubst src/%.cpp,$(OBJDIR)/%.o,$(addprefix src/,$(OBJS_SRC)))
 TCOBJS:=$(patsubst src/%.cpp,$(OBJDIR)/%.o,$(addprefix src/,$(TCOBJS_SRC)))
 COBJS:=$(patsubst deps/%.c,$(OBJDIR)/deps/%.o,$(addprefix deps/,$(COBJS_SRC)))
 ROBJS:=$(patsubst src/res/%.png,$(OBJDIR)/res/%.o,$(wildcard src/res/*.png))
+RTROBJS:=$(patsubst %,$(OBJDIR)/rtres/%.o,$(RTROBJS_SRC))
 EXOBJS:=$(patsubst %.c,$(OBJDIR)/deps/%.o,$(EXCOBJS_SRC))
 
-ALL_OBJS:=$(OBJS) $(TCOBJS) $(COBJS) $(SPOBJS) $(ROBJS) $(EXOBJS)
+ALL_OBJS:=$(OBJS) $(TCOBJS) $(COBJS) $(SPOBJS) $(ROBJS) $(RTROBJS) $(EXOBJS)
 
 ifneq ($(ARCH),)
 CFLAGS2 += -march=$(ARCH)
@@ -271,6 +286,9 @@ endif
 OBJCOPYRES=objcopy --rename-section .data=.rodata,alloc,load,readonly,data,contents $@ $@
 
 $(ROBJS): $(OBJDIR)/%.o: src/%.png
+$(RTROBJS): $(OBJDIR)/rtres/%.o: %
+
+$(ROBJS) $(RTROBJS):
 	@echo '    Res     $<'
 	$(call EXEC,$(LINKRES))
 	$(call EXEC,$(OBJCOPYRES))
@@ -302,7 +320,7 @@ clean: mostlyclean
 	@echo '    Clean utf8proc objects'
 	$(call EXEC,rm -f $(COBJS) $(COBJS:.o=.ii) $(COBJS:.o=.lst) $(COBJS:.o=.s) $(COBJS:.o=.d))
 	@echo '    Clean res objects'
-	$(call EXEC,rm -f $(ROBJS) $(ROBJS:.o=.d))
+	$(call EXEC,rm -f $(ROBJS) $(ROBJS:.o=.d) $(RTROBJS) $(RTROBJS:.o=.d) $(RESCLEAN))
 
 install:
 ifeq "$(PLATFORM)" "WIN"

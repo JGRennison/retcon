@@ -269,5 +269,6 @@ struct adns {
 };
 
 void SetCurlHandleVerboseState(CURL *easy, bool verbose);
+void SetCacerts(CURL *handle);
 
 #endif

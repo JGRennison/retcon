@@ -55,9 +55,7 @@ void dlconn::Init(std::unique_ptr<mcurlconn> &&this_owner, const std::string &ur
 	if(!curlHandle) curlHandle = curl_easy_init();
 	else curl_easy_reset(curlHandle);
 	SetCurlHandleVerboseState(curlHandle, currentlogflags & LOGT::CURLVERB);
-	#ifdef __WINDOWS__
-	curl_easy_setopt(curlHandle, CURLOPT_CAINFO, "./cacert.pem");
-	#endif
+	SetCacerts(curlHandle);
 	curl_easy_setopt(curlHandle, CURLOPT_HTTPGET, 1);
 	curl_easy_setopt(curlHandle, CURLOPT_URL, url.c_str());
 	curl_easy_setopt(curlHandle, CURLOPT_WRITEFUNCTION, curlCallback );

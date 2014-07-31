@@ -170,9 +170,7 @@ twitcurlext::~twitcurlext() {
 void twitcurlext::TwInit(std::shared_ptr<taccount> acc) {
 	if(inited) return;
 	tacc = acc;
-	#ifdef __WINDOWS__
-	curl_easy_setopt(GetCurlHandle(), CURLOPT_CAINFO, "./cacert.pem");
-	#endif
+	SetCacerts(GetCurlHandle());
 
 	setTwitterApiType(twitCurlTypes::eTwitCurlApiFormatJson);
 	setTwitterProcotolType(acc->ssl?twitCurlTypes::eTwitCurlProtocolHttps:twitCurlTypes::eTwitCurlProtocolHttp);

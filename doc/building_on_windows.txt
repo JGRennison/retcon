@@ -61,6 +61,8 @@ Those with sufficiently fortified constitutions can try compiling OpenSSL, some 
 (Your author has so far successfully refrained from doing this).
 
 You will also need to make a cacert.pem, or find an existing one from somewhere.
+This must be placed in the root of the repository when building, as it is zlibed and embedded into the executable.
+This uses zpipe, if this is not available you will need to edit the makefile to use something else.
 
 Your attention is also drawn to the existance of as of yet unresolved issues associated with linking OpenSSL with GPL code.
 

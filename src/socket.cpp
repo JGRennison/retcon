@@ -32,6 +32,13 @@
 #ifdef RCS_GTKSOCKMODE
 	#include <glib.h>
 #endif
+#ifdef __WINDOWS__
+	#include "retcon.h"
+	#include <wx/file.h>
+	#include <wx/wfstream.h>
+	#include <wx/mstream.h>
+	#include <wx/zstream.h>
+#endif
 
 socketmanager sm;
 
@@ -910,4 +917,34 @@ wxThread::ExitCode socketpollthread::Entry() {
 	}
 }
 
+#endif
+
+#ifdef __WINDOWS__
+extern "C" unsigned char cacert_start[] asm("_binary_cacert_pem_zlib_start");
+extern "C" unsigned char cacert_end[] asm("_binary_cacert_pem_zlib_end");
+
+void SetCacerts(CURL *handle) {
+	static std::string cacertpath;
+	if(cacertpath.empty()) {
+		cacertpath = "./cacert.pem";
+		if(wxFile::Exists(wxstrstd(cacertpath))) {
+			LogMsgFormat(LOGT::SOCKTRACE, "SetCacerts: found existing ./cacert.pem");
+			// There is an existing cacert.pem we can use, no need to create one
+		}
+		else {
+			cacertpath = wxGetApp().datadir + "/cacert.pem";
+			LogMsgFormat(LOGT::SOCKTRACE, "SetCacerts: Writing out cacert.pem to: %s", cstr(cacertpath));
+			wxFFileOutputStream output(wxstrstd(cacertpath));
+			wxMemoryInputStream input(cacert_start, cacert_end - cacert_start);
+			wxZlibInputStream zliber(input, wxZLIB_ZLIB);
+			output.Write(zliber);
+			LogMsgFormat(LOGT::SOCKTRACE, "SetCacerts: Writing out cacert.pem complete");
+		}
+	}
+	curl_easy_setopt(handle, CURLOPT_CAINFO, cacertpath.c_str());
+}
+#else
+void SetCacerts(CURL *handle) {
+	// Do nothing
+}
 #endif

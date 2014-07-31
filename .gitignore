@@ -5,3 +5,6 @@ gmon.out
 retcon
 retcon_*
 *.exe
+
+cacert.pem
+cacert.pem.zlib
