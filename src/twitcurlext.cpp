@@ -141,10 +141,15 @@ void twitcurlext::DoExecRestGetTweetBackfill(std::unique_ptr<twitcurlext> this_o
 	}
 }
 
-twitcurlext::twitcurlext(std::shared_ptr<taccount> acc) {
+twitcurlext::twitcurlext(std::shared_ptr<taccount> acc) : twitcurlext() {
 	TwInit(acc);
 }
-twitcurlext::twitcurlext() { }
+twitcurlext::twitcurlext() {
+	CURL* ch = GetCurlHandle();
+	if(ch) {
+		SetCurlHandleVerboseState(ch, currentlogflags & LOGT::CURLVERB);
+	}
+}
 
 twitcurlext::~twitcurlext() {
 	if(tc_flags & TCF::ISSTREAM) {
