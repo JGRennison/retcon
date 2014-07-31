@@ -102,6 +102,7 @@ struct genoptconf {
 	CFGTEMPL_UL(asyncstatewritebackintervalmins) \
 	CFGTEMPL_L(mousewheelscrollspeed) \
 	CFGTEMPL_L(linescrollspeed) \
+	CFGTEMPL_BOOL(askuseraccsettingsonnewacc) \
 
 struct genoptglobconf {
 #define CFGTEMPL(x) genopt x;

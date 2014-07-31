@@ -169,16 +169,19 @@ void acc_window::AccNew(wxCommandEvent &event) {
 	ta->enabled = false;
 	ta->dispname = wxT("<new account>");
 
-	int answer = wxMessageBox(wxT("Would you like to review the account settings before authenticating?"), wxT("Account Creation"),
-			wxYES_NO | wxCANCEL | wxICON_QUESTION | wxNO_DEFAULT, this);
+	int answer = wxNO;
+	if(gc.askuseraccsettingsonnewacc) {
+		answer = wxMessageBox(wxT("Would you like to review the account settings before authenticating?"), wxT("Account Creation"),
+				wxYES_NO | wxCANCEL | wxICON_QUESTION | wxNO_DEFAULT, this);
 
-	if(answer == wxYES) {
-		settings_window *sw=new settings_window(this, -1, wxT("New Account Settings"), wxDefaultPosition, wxDefaultSize,
-				wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER, wxT("dialogBox"), ta.get());
-		sw->ShowModal();
-		sw->Destroy();
+		if(answer == wxYES) {
+			settings_window *sw=new settings_window(this, -1, wxT("New Account Settings"), wxDefaultPosition, wxDefaultSize,
+					wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER, wxT("dialogBox"), ta.get());
+			sw->ShowModal();
+			sw->Destroy();
+		}
+		else if(answer == wxCANCEL) return;
 	}
-	else if(answer == wxCANCEL) return;
 
 	std::unique_ptr<twitcurlext> twit = ta->GetTwitCurlExt();
 	if(ta->TwDoOAuth(this, *twit)) {
@@ -586,6 +589,8 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_String(OPTWIN_CACHING, panel, fgs,  wxT("Delete cached user profile images after\nnot being used for this many days"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.profimgcachesavedays, gcglobdefaults.profimgcachesavedays, wxFILTER_NUMERIC);
 
 	AddSettingRow_Bool(OPTWIN_TWITTER, panel, fgs,  wxT("Assume that mentions are a subset of the home timeline"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.assumementionistweet, gcglobdefaults.assumementionistweet);
+	AddSettingRow_Bool(OPTWIN_TWITTER, panel, fgs,  wxT("Ask about changing the settings of new accounts, before authentication.\nThis is useful for creating an account with different Twitter authentication settings."),
+			DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.askuseraccsettingsonnewacc, gcglobdefaults.askuseraccsettingsonnewacc);
 
 	AddSettingRow_String(OPTWIN_SAVING, panel, fgs,  wxT("Media image\nsave directories\n(1 per line)"), DBCV::ISGLOBALCFG | DBCV::MULTILINE, gc.gcfg.mediasave_directorylist, gcglobdefaults.mediasave_directorylist);
 

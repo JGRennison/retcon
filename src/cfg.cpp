@@ -85,6 +85,7 @@ genoptconf gcdefaults {
 #define CFGDEFAULT_asyncstatewritebackintervalmins          wxT("30")
 #define CFGDEFAULT_mousewheelscrollspeed                    wxT("50")
 #define CFGDEFAULT_linescrollspeed                          wxT("20")
+#define CFGDEFAULT_askuseraccsettingsonnewacc               wxT("0")
 
 genoptglobconf gcglobdefaults {
 #define CFGTEMPL(x) { CFGDEFAULT_##x, 1},
