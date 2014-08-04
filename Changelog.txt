@@ -1,3 +1,21 @@
+retcon 0.0.10
+------------------------------------------------------
+
+Add support for posting tweets with an attached image.
+Add support for viewing embedded media in received DMs.
+Add icon to toggle locking of reply/DM target in tweet post box.
+Add user ID to tweet filter variables.
+Recategorise/simplify a number of settings, in particular, add presets for the tweet/DM display formats.
+No longer deafult to asking about account settings when creating a new account, add an option for this.
+Fix no message being displayed if a user-requested user lookup failed.
+Fix partial UTF-8 sequences sometimes being emitted in debug logs.
+Fix mouse-over background colour not being immediately updated when toggling highlight.
+Fix various issues on Windows: scrolling, tweet mousovers, layout bugs.
+Embed a CA certificate bundle into the executable on Windows.
+Memory changes to try to prevent memory usage creeping up when run for extended periods.
+Minor makefile changes (add -fsanitize support).
+
+
 retcon 0.0.9
 ------------------------------------------------------
 
