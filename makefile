@@ -20,9 +20,8 @@
 #a number of libs/includes will need to be placed/built in a corresponding location where gcc can find them.
 
 
-OBJS_SRC := retcon.cpp cfg.cpp optui.cpp parse.cpp socket.cpp socket-ops.cpp tpanel.cpp tpanel-data.cpp tpanel-aux.cpp twit.cpp db.cpp log.cpp cmdline.cpp userui.cpp mainui.cpp signal.cpp threadutil.cpp
-OBJS_SRC += dispscr.cpp uiutil.cpp mediawin.cpp taccount.cpp util.cpp res.cpp aboutwin.cpp twitcurlext.cpp filter/filter.cpp filter/filter-dlg.cpp bind_wxevt.cpp
-TCOBJS_SRC := libtwitcurl/base64.cpp libtwitcurl/HMAC_SHA1.cpp libtwitcurl/oauthlib.cpp libtwitcurl/SHA1.cpp libtwitcurl/twitcurl.cpp libtwitcurl/urlencode.cpp
+OBJS_SRC := $(patsubst src/%,%,$(filter-out src/version.cpp,$(wildcard src/*.cpp)) $(wildcard src/filter/*.cpp))
+TCOBJS_SRC := $(patsubst src/%,%,$(wildcard src/libtwitcurl/*.cpp))
 COBJS_SRC := utf8proc/utf8proc.c
 OTHER_SRC := version.cpp
 EXCOBJS_SRC :=
