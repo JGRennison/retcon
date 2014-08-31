@@ -21,6 +21,7 @@
 
 #include "univdefs.h"
 #include "flags.h"
+#include "ptr_types.h"
 #include <vector>
 #include <string>
 #include <memory>
@@ -56,11 +57,22 @@ struct tpanel_auto {
 	std::shared_ptr<taccount> acc;
 };
 
+enum class TPFU {
+	DMSET                 = 1<<0,
+};
+template<> struct enum_traits<TPFU> { static constexpr bool flags = true; };
+
+struct tpanel_auto_udc {
+	flagwrapper<TPFU> autoflags;
+	udc_ptr u;
+};
+
 struct twin_layout_desc {
 	unsigned int mainframeindex;
 	unsigned int splitindex;
 	unsigned int tabindex;
 	std::vector<tpanel_auto> tpautos;
+	std::vector<tpanel_auto_udc> tpudcautos;
 	std::string name;
 	std::string dispname;
 	flagwrapper<TPF> flags;

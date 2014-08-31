@@ -72,6 +72,7 @@ typedef enum {
 	TAMI_TOGGLEHIDDEN,
 	TAMI_ADDTOPANEL,
 	TAMI_REMOVEFROMPANEL,
+	TAMI_DMSETPANEL,
 } TAMI_TYPE;
 
 struct tweetactmenuitem {

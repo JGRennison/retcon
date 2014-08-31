@@ -90,10 +90,11 @@ bool tpanel::UnRegisterTweet(uint64_t id) {
 	}
 }
 
-tpanel::tpanel(const std::string &name_, const std::string &dispname_, flagwrapper<TPF> flags_, std::vector<tpanel_auto> tpautos_)
+tpanel::tpanel(const std::string &name_, const std::string &dispname_, flagwrapper<TPF> flags_, std::vector<tpanel_auto> tpautos_, std::vector<tpanel_auto_udc> tpudcautos_)
 : name(name_), dispname(dispname_), flags(flags_) {
 	twin.clear();
 	tpautos = std::move(tpautos_);
+	tpudcautos = std::move(tpudcautos_);
 	for(auto &it : tpautos) {
 		if(it.autoflags & TPF::AUTO_HIGHLIGHTED) {
 			intl_flags |= TPIF::RECALCSETSONCIDSCHANGE | TPIF::INCCIDS_HIGHLIGHT;
@@ -116,20 +117,20 @@ std::shared_ptr<tpanel> tpanel::MkTPanel(const std::string &name_, const std::st
 	return std::move(MkTPanel(name_, dispname_, flags_ & TPF::MASK, std::move(tpautos)));
 }
 
-std::shared_ptr<tpanel> tpanel::MkTPanel(const std::string &name_, const std::string &dispname_, flagwrapper<TPF> flags_, std::vector<tpanel_auto> tpautos_) {
+std::shared_ptr<tpanel> tpanel::MkTPanel(const std::string &name_, const std::string &dispname_, flagwrapper<TPF> flags_, std::vector<tpanel_auto> tpautos_, std::vector<tpanel_auto_udc> tpudcautos_) {
 	std::string name = name_;
 	std::string dispname = dispname_;
 
-	NameDefaults(name, dispname, tpautos_);
+	NameDefaults(name, dispname, tpautos_, tpudcautos_);
 
 	std::shared_ptr<tpanel> &ref = ad.tpanels[name];
 	if(!ref) {
-		ref = std::make_shared<tpanel>(name, dispname, flags_, std::move(tpautos_));
+		ref = std::make_shared<tpanel>(name, dispname, flags_, std::move(tpautos_), std::move(tpudcautos_));
 	}
 	return ref;
 }
 
-void tpanel::NameDefaults(std::string &name, std::string &dispname, const std::vector<tpanel_auto> &tpautos) {
+void tpanel::NameDefaults(std::string &name, std::string &dispname, const std::vector<tpanel_auto> &tpautos, const std::vector<tpanel_auto_udc> &tpudcautos) {
 	bool newname = name.empty();
 	bool newdispname = dispname.empty();
 
@@ -177,9 +178,19 @@ void tpanel::NameDefaults(std::string &name, std::string &dispname, const std::v
 
 			if(newname) name += "_" + accname + "_" + type;
 		}
+		std::string dm_names;
+		for(auto &it : tpudcautos) {
+			if(it.autoflags & TPFU::DMSET) {
+				if(newname) name += "_#_" + std::to_string(it.u->id);
+				if(newdispname) {
+					if(!dm_names.empty()) dm_names += ", ";
+					dm_names += "@" + it.u->GetUser().screen_name;
+				}
+			}
+		}
+		if(!dm_names.empty()) extras.emplace_back("DM Conversation: " + dm_names);
 
 		if(newdispname) {
-			dispname = "[";
 			for(auto &it : extras) {
 				if(dispname.size() > 1) dispname += ", ";
 				dispname += it;
@@ -203,7 +214,6 @@ void tpanel::NameDefaults(std::string &name, std::string &dispname, const std::v
 				}
 				dispname += " - " + disptype;
 			}
-			dispname += "]";
 		}
 	}
 }
@@ -237,6 +247,12 @@ bool tpanel::TweetMatches(tweet_ptr_p t, const std::shared_ptr<taccount> &acc) c
 			if(tpa.autoflags & TPF::AUTO_UNREAD && t->flags.Get('u')) return true;
 		}
 	}
+	for(auto &it : tpudcautos) {
+		if(it.autoflags & TPFU::DMSET && t->flags.Get('D')) {
+			const tweetidset &tis = it.u->GetDMSet();
+			if(tis.find(t->id) != tis.end()) return true;
+		}
+	}
 	return false;
 }
 
@@ -256,6 +272,12 @@ void tpanel::RecalculateTweetSet() {
 			if(tpa.autoflags & TPF::AUTO_UNREAD) tweetlist.insert(ad.cids.unreadids.begin(), ad.cids.unreadids.end());
 		}
 		else doacc(tpa.acc.get());
+	}
+	for(auto &it : tpudcautos) {
+		if(it.autoflags & TPFU::DMSET) {
+			const tweetidset &tis = it.u->GetDMSet();
+			tweetlist.insert(tis.begin(), tis.end());
+		}
 	}
 }
 

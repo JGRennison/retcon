@@ -202,6 +202,9 @@ struct dbconn : public wxEvtHandler {
 	void ResetAsyncStateWriteTimer();
 
 	DECLARE_EVENT_TABLE()
+
+	private:
+	void SyncDoUpdates_FillUserDMIndexes(sqlite3 *adb);
 };
 template<> struct enum_traits<dbconn::DBCF> { static constexpr bool flags = true; };
 

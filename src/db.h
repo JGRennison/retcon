@@ -151,6 +151,8 @@ struct dbinsertusermsg : public dbsendmsg {
 	unsigned char *mentionindex;    //already packed and compressed, must be malloced
 	size_t mentionindex_size;
 	uint64_t profile_img_last_used;
+	unsigned char *dmindex;    //already packed and compressed, must be malloced
+	size_t dmindex_size;
 };
 
 struct dbinsertaccmsg : public dbsendmsg_callback {

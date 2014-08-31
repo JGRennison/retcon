@@ -31,6 +31,7 @@
 #include "tpanel.h"
 #include "tpanel-data.h"
 #include "set.h"
+#include "map.h"
 #ifdef __WINDOWS__
 #include <windows.h>
 #endif
@@ -82,13 +83,14 @@ static const esctable *dynjsontable = &allesctables[0];
 static const char *startup_sql=
 "PRAGMA locking_mode = EXCLUSIVE;"
 "CREATE TABLE IF NOT EXISTS tweets(id INTEGER PRIMARY KEY NOT NULL, statjson BLOB, dynjson BLOB, userid INTEGER, userrecipid INTEGER, flags INTEGER, timestamp INTEGER, rtid INTEGER);"
-"CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY NOT NULL, json BLOB, cachedprofimgurl BLOB, createtimestamp INTEGER, lastupdatetimestamp INTEGER, cachedprofileimgchecksum BLOB, mentionindex BLOB, profimglastusedtimestamp INTEGER);"
+"CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY NOT NULL, json BLOB, cachedprofimgurl BLOB, createtimestamp INTEGER, lastupdatetimestamp INTEGER, cachedprofileimgchecksum BLOB, mentionindex BLOB, profimglastusedtimestamp INTEGER, dmindex BLOB);"
 "CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, dispname TEXT, json BLOB, tweetids BLOB, dmids BLOB, userid INTEGER);"
 "CREATE TABLE IF NOT EXISTS settings(accid BLOB, name TEXT, value BLOB, PRIMARY KEY (accid, name));"
 "CREATE TABLE IF NOT EXISTS rbfspending(accid INTEGER, type INTEGER, startid INTEGER, endid INTEGER, maxleft INTEGER);"
 "CREATE TABLE IF NOT EXISTS mediacache(mid INTEGER, tid INTEGER, url BLOB, fullchecksum BLOB, thumbchecksum BLOB, flags INTEGER, lastusedtimestamp INTEGER, PRIMARY KEY (mid, tid));"
 "CREATE TABLE IF NOT EXISTS tpanelwins(mainframeindex INTEGER, splitindex INTEGER, tabindex INTEGER, name TEXT, dispname TEXT, flags INTEGER);"
 "CREATE TABLE IF NOT EXISTS tpanelwinautos(tpw INTEGER, accid INTEGER, autoflags INTEGER);"
+"CREATE TABLE IF NOT EXISTS tpanelwinudcautos(tpw INTEGER, userid INTEGER, autoflags INTEGER);"
 "CREATE TABLE IF NOT EXISTS mainframewins(mainframeindex INTEGER, x INTEGER, y INTEGER, w INTEGER, h INTEGER, maximised INTEGER);"
 "CREATE TABLE IF NOT EXISTS tpanels(name TEXT, dispname TEXT, flags INTEGER, ids BLOB);"
 "CREATE TABLE IF NOT EXISTS staticsettings(name TEXT PRIMARY KEY NOT NULL, value BLOB);"
@@ -99,7 +101,7 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"UPDATE tweets SET dynjson = ?, flags = ? WHERE id == ?;",
 	"BEGIN;",
 	"COMMIT;",
-	"INSERT OR REPLACE INTO users(id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex, profimglastusedtimestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
+	"INSERT OR REPLACE INTO users(id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex, profimglastusedtimestamp, dmindex) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);",
 	"INSERT INTO acc(name, dispname, userid) VALUES (?, ?, ?);",
 	"UPDATE acc SET tweetids = ?, dmids = ?, dispname = ? WHERE id == ?;",
 	"SELECT statjson, dynjson, userid, userrecipid, flags, timestamp, rtid FROM tweets WHERE id == ?;",
@@ -130,8 +132,11 @@ static const char *update_sql[] = {
 	"ALTER TABLE users ADD COLUMN profimglastusedtimestamp INTEGER;"
 	"UPDATE OR IGNORE users SET profimglastusedtimestamp = strftime('%s','now');"
 	,
+	"ALTER TABLE users ADD COLUMN dmindex BLOB;"
+	// SyncDoUpdates_FillUserDMIndexes should be run here
+	,
 };
-static const unsigned int db_version = 2;
+static const unsigned int db_version = 3;
 
 static const std::string globstr = "G";
 static const std::string globdbstr = "D";
@@ -585,6 +590,7 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 			}
 			sqlite3_bind_blob(stmt, 7, m->mentionindex, m->mentionindex_size, &free);
 			sqlite3_bind_int64(stmt, 8, (sqlite3_int64) m->profile_img_last_used);
+			sqlite3_bind_blob(stmt, 9, m->dmindex, m->dmindex_size, &free);
 			int res = sqlite3_step(stmt);
 			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, "DBSM::INSERTUSER got error: %d (%s) for id: %" llFmtSpec "d",
 					res, cstr(sqlite3_errmsg(db)), m->id); }
@@ -1231,6 +1237,9 @@ void dbconn::SyncDoUpdates(sqlite3 *adb) {
 			if(res != SQLITE_OK) {
 				LogMsgFormat(LOGT::DBERR, "dbconn::DoUpdates %u got error: %d (%s)", i, res, cstr(sqlite3_errmsg(adb)));
 			}
+			if(i == 2) {
+				SyncDoUpdates_FillUserDMIndexes(adb);
+			}
 		}
 		SyncWriteDBVersion(adb);
 	}
@@ -1239,6 +1248,33 @@ void dbconn::SyncDoUpdates(sqlite3 *adb) {
 	}
 
 	LogMsg(LOGT::DBTRACE, "dbconn::DoUpdates end");
+}
+
+void dbconn::SyncDoUpdates_FillUserDMIndexes(sqlite3 *adb) {
+	container::map<uint64_t, std::deque<uint64_t> > dm_index_map;
+
+	DBBindRowExec(adb, "SELECT id, userid, userrecipid FROM tweets WHERE flags & ?;",
+		[&](sqlite3_stmt *stmt) {
+			sqlite3_bind_int64(stmt, 1, tweet_flags::GetFlagValue('D'));
+		},
+		[&](sqlite3_stmt *stmt) {
+			uint64_t id = (uint64_t) sqlite3_column_int64(stmt, 0);
+			uint64_t userid = (uint64_t) sqlite3_column_int64(stmt, 1);
+			uint64_t userrecipid = (uint64_t) sqlite3_column_int64(stmt, 2);
+			dm_index_map[userid].push_back(id);
+			dm_index_map[userrecipid].push_back(id);
+		},
+		"dbconn::SyncDoUpdates_FillUserDMIndexes (DM listing)");
+
+	DBRangeBindExec(adb, "UPDATE OR IGNORE users SET dmindex = ? WHERE id == ?;",
+		dm_index_map.begin(), dm_index_map.end(),
+		[&](sqlite3_stmt *stmt, const std::pair<uint64_t, std::deque<uint64_t>> &it) {
+			size_t dmindex_size;
+			unsigned char *dmindex = settocompressedblob(it.second, dmindex_size);
+			sqlite3_bind_blob(stmt, 1, dmindex, dmindex_size, &free);
+			sqlite3_bind_int64(stmt, 2, it.first);
+		},
+		"dbconn::SyncDoUpdates_FillUserDMIndexes (DM index write back)");
 }
 
 void dbconn::SyncWriteDBVersion(sqlite3 *adb) {
@@ -1285,6 +1321,7 @@ void dbconn::InsertUser(udc_ptr_p u, optional_observer_ptr<dbsendmsg_list> msgli
 	u->lastupdate_wrotetodb = u->lastupdate;
 	msg->profile_img_last_used = u->profile_img_last_used;
 	u->profile_img_last_used_db = u->profile_img_last_used;
+	msg->dmindex = settocompressedblob(u->GetDMSet(), msg->dmindex_size);
 	SendMessageOrAddToList(std::move(msg), msglist);
 }
 
@@ -1570,6 +1607,9 @@ namespace {
 
 			uint64_t profile_img_last_used;
 
+			unsigned char *dmset_blob;
+			size_t dmset_blob_size;
+
 			bool user_needs_updating;
 			bool profimgtime_needs_updating;
 		};
@@ -1580,7 +1620,9 @@ namespace {
 			for(auto &it : ad.userconts) {
 				userdatacontainer *u = &(it.second);
 
-				if(u->user.screen_name.empty()) continue;                 //don't bother saving empty user stubs
+				if(u->user.screen_name.empty() && u->GetDMSet().empty()) {
+					continue;    //don't bother saving empty user stubs
+				}
 
 				// User needs updating
 				bool user_needs_updating = u->lastupdate != u->lastupdate_wrotetodb;
@@ -1608,6 +1650,8 @@ namespace {
 				data.mention_blob = settoblob(u->mention_index, data.mention_blob_size);
 
 				data.profile_img_last_used = u->profile_img_last_used;
+
+				data.dmset_blob = settoblob(u->GetDMSet(), data.dmset_blob_size);
 
 				data.user_needs_updating = user_needs_updating;
 				data.profimgtime_needs_updating = profimgtime_needs_updating;
@@ -1645,6 +1689,8 @@ namespace {
 				bind_compressed(stmt, 7, data.mention_blob, data.mention_blob_size, 'Z');
 				free(data.mention_blob);
 				sqlite3_bind_int64(stmt, 8, (sqlite3_int64) data.profile_img_last_used);
+				bind_compressed(stmt, 9, data.dmset_blob, data.dmset_blob_size, 'Z');
+				free(data.dmset_blob);
 
 				if(data.user_needs_updating) lastupdate_count++;
 				if(data.profimgtime_needs_updating) profimgtime_count++;
@@ -1677,7 +1723,7 @@ void dbconn::AsyncWriteBackAllUsers(dbfunctionmsg &msg) {
 
 void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 	LogMsg(LOGT::DBTRACE, "dbconn::SyncReadInAllUsers start");
-	const char sql[] = "SELECT id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex, profimglastusedtimestamp FROM users;";
+	const char sql[] = "SELECT id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex, profimglastusedtimestamp, dmindex FROM users;";
 	sqlite3_stmt *stmt = 0;
 	sqlite3_prepare_v2(adb, sql, sizeof(sql), &stmt, 0);
 
@@ -1692,6 +1738,7 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 	}
 
 	unsigned int user_read_count = 0;
+	tweetidset dmindex;
 	do {
 		int res = sqlite3_step(stmt);
 		if(res == SQLITE_ROW) {
@@ -1725,6 +1772,13 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 			setfromcompressedblob([&](uint64_t &tid) { u.mention_index.push_back(tid); }, stmt, 6);
 			u.profile_img_last_used = (uint64_t) sqlite3_column_int64(stmt, 7);
 			u.profile_img_last_used_db = u.profile_img_last_used;
+
+			setfromcompressedblob([&](uint64_t &tid) { dmindex.insert(tid); }, stmt, 8);
+			if(!dmindex.empty()) {
+				u.SetDMSet(std::move(dmindex));
+				dmindex.clear();
+			}
+
 			#if DB_COPIOUS_LOGGING
 				LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInAllUsers retrieved user id: %" llFmtSpec "d", (sqlite3_int64) id);
 			#endif
@@ -1911,7 +1965,11 @@ void dbconn::SyncReadInWindowLayout(sqlite3 *adb) {
 	sqlite3_stmt *stmt2 = 0;
 	int res2 = sqlite3_prepare_v2(adb, sql2, sizeof(sql2), &stmt2, 0);
 
-	if(res != SQLITE_OK || res2 != SQLITE_OK) {
+	const char sql3[] = "SELECT userid, autoflags FROM tpanelwinudcautos WHERE tpw == ?;";
+	sqlite3_stmt *stmt3 = 0;
+	int res3 = sqlite3_prepare_v2(adb, sql3, sizeof(sql3), &stmt3, 0);
+
+	if(res != SQLITE_OK || res2 != SQLITE_OK || res3 != SQLITE_OK) {
 		LogMsgFormat(LOGT::DBERR, "dbconn::SyncReadInWindowLayout sqlite3_prepare_v2 failed");
 		return;
 	}
@@ -1957,6 +2015,24 @@ void dbconn::SyncReadInWindowLayout(sqlite3 *adb) {
 			}
 			while(true);
 			sqlite3_reset(stmt2);
+
+			sqlite3_bind_int(stmt3, 1, rowid);
+			do {
+				int res5 = sqlite3_step(stmt3);
+				if(res5 == SQLITE_ROW) {
+					twld.tpudcautos.emplace_back();
+					uint64_t uid = (uint64_t) sqlite3_column_int64(stmt3, 0);
+					if(uid > 0) {
+						twld.tpudcautos.back().u = ad.GetUserContainerById(uid);
+					}
+					twld.tpudcautos.back().autoflags = static_cast<TPFU>(sqlite3_column_int(stmt3, 1));
+				}
+				else if(res5 != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, "dbconn::SyncReadInWindowLayout (tpanelwinudcautos) got error: %d (%s)",
+						res5, cstr(sqlite3_errmsg(adb))); }
+				else break;
+			}
+			while(true);
+			sqlite3_reset(stmt3);
 		}
 		else if(res3 != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, "dbconn::SyncReadInWindowLayout (tpanelwins) got error: %d (%s)",
 				res3, cstr(sqlite3_errmsg(adb))); }
@@ -1964,6 +2040,7 @@ void dbconn::SyncReadInWindowLayout(sqlite3 *adb) {
 	} while(true);
 	sqlite3_finalize(stmt);
 	sqlite3_finalize(stmt2);
+	sqlite3_finalize(stmt3);
 	LogMsg(LOGT::DBTRACE, "dbconn::SyncReadInWindowLayout end");
 }
 
@@ -1993,12 +2070,16 @@ void dbconn::SyncWriteBackWindowLayout(sqlite3 *adb) {
 
 	sqlite3_exec(adb, "DELETE FROM tpanelwins", 0, 0, 0);
 	sqlite3_exec(adb, "DELETE FROM tpanelwinautos", 0, 0, 0);
+	sqlite3_exec(adb, "DELETE FROM tpanelwinudcautos", 0, 0, 0);
 	const char sql[] = "INSERT INTO tpanelwins (mainframeindex, splitindex, tabindex, name, dispname, flags) VALUES (?, ?, ?, ?, ?, ?);";
 	sqlite3_stmt *stmt = 0;
 	sqlite3_prepare_v2(adb, sql, sizeof(sql), &stmt, 0);
 	const char sql2[] = "INSERT INTO tpanelwinautos (tpw, accid, autoflags) VALUES (?, ?, ?);";
 	sqlite3_stmt *stmt2 = 0;
 	sqlite3_prepare_v2(adb, sql2, sizeof(sql2), &stmt2, 0);
+	const char sql3[] = "INSERT INTO tpanelwinudcautos (tpw, userid, autoflags) VALUES (?, ?, ?);";
+	sqlite3_stmt *stmt3 = 0;
+	sqlite3_prepare_v2(adb, sql3, sizeof(sql3), &stmt3, 0);
 
 	for(auto &twld : ad.twinlayout) {
 		sqlite3_bind_int(stmt, 1, twld.mainframeindex);
@@ -2024,9 +2105,20 @@ void dbconn::SyncWriteBackWindowLayout(sqlite3 *adb) {
 					res2, cstr(sqlite3_errmsg(adb))); }
 			sqlite3_reset(stmt2);
 		}
+		for(auto &it : twld.tpudcautos) {
+			sqlite3_bind_int(stmt3, 1, rowid);
+			if(it.u) sqlite3_bind_int64(stmt3, 2, it.u->id);
+			else sqlite3_bind_int64(stmt3, 2, 0);
+			sqlite3_bind_int(stmt3, 3, flag_unwrap<TPFU>(it.autoflags));
+			int res3 = sqlite3_step(stmt3);
+			if(res3 != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, "dbconn::SyncWriteOutWindowLayout (tpanelwinudcautos) got error: %d (%s)",
+					res3, cstr(sqlite3_errmsg(adb))); }
+			sqlite3_reset(stmt3);
+		}
 	}
 	sqlite3_finalize(stmt);
 	sqlite3_finalize(stmt2);
+	sqlite3_finalize(stmt3);
 	cache.EndTransaction(adb);
 	LogMsg(LOGT::DBTRACE, "dbconn::SyncWriteBackWindowLayout end");
 }

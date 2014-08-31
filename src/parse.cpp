@@ -889,13 +889,19 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 			}
 		}
 		else {	//direct message
+			auto adduserdmindex = [&](udc_ptr_p u) {
+				u->AddDMIdToSet(tweetid);
+				u->lastupdate_wrotetodb = 0;    //force flush of user to DB
+			};
 			if(val["sender_id"].IsUint64() && val["sender"].IsObject()) {
 				uint64_t senderid = val["sender_id"].GetUint64();
 				tobj->user = CheckParseUserObj(senderid, val["sender"], *this);
+				adduserdmindex(tobj->user);
 			}
 			if(val["recipient_id"].IsUint64() && val["recipient"].IsObject()) {
 				uint64_t recipientid = val["recipient_id"].GetUint64();
 				tobj->user_recipient = CheckParseUserObj(recipientid, val["recipient"], *this);
+				adduserdmindex(tobj->user_recipient);
 			}
 		}
 	}

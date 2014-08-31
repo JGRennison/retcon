@@ -71,7 +71,7 @@ void RestoreWindowLayout() {
 			lastsplitindex = 0;
 		}
 		mainframe *mf = mainframelist[twld.mainframeindex];
-		auto tp=tpanel::MkTPanel(twld.name, twld.dispname, twld.flags, twld.tpautos);
+		auto tp=tpanel::MkTPanel(twld.name, twld.dispname, twld.flags, twld.tpautos, twld.tpudcautos);
 		tpanelparentwin *tpw = tp->MkTPanelWin(mf, (twld.splitindex > lastsplitindex));
 
 		if(twld.splitindex > lastsplitindex) {
@@ -402,6 +402,13 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 		case TAMI_REMOVEFROMPANEL: {
 			std::shared_ptr<tpanel> tp = ad.tpanels[stdstrwx(map[curid].extra)];
 			if(tp) tp->RemoveTweet(map[curid].tw->id);
+			break;
+		}
+		case TAMI_DMSETPANEL: {
+			if(mainwin) {
+				auto tp = tpanel::MkTPanel("", "", TPF::DELETEONWINCLOSE, {}, { { TPFU::DMSET, map[curid].user } });
+				tp->MkTPanelWin(mainwin, true);
+			}
 			break;
 		}
 		case TAMI_NULL: {

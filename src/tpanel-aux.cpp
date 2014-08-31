@@ -297,6 +297,7 @@ void tpanelnotebook::FillWindowLayout(unsigned int mainframeindex) {
 		twld.tabindex = tabindex;
 		auto tp = tppw->pimpl()->tp;
 		twld.tpautos = tp->tpautos;
+		twld.tpudcautos = tp->tpudcautos;
 		twld.name = tp->name;
 		twld.dispname = tp->dispname;
 		twld.flags = tp->flags;

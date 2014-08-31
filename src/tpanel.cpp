@@ -102,6 +102,21 @@ void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map) {
 	}
 	menuP->AppendSeparator();
 
+	auto dmsetmap = GetDMConversationMap();
+	if(!dmsetmap.empty()) {
+		wxMenu *submenu = new wxMenu;
+		menuP->AppendSubMenu(submenu, wxT("DM Conversations"));
+		for(auto &it : dmsetmap) {
+			auto &u = it.second;
+			map[nextid] = [u](mainframe *parent) {
+				auto tp = tpanel::MkTPanel("", "", TPF::DELETEONWINCLOSE, { }, { { TPFU::DMSET, u } });
+				tp->MkTPanelWin(parent, true);
+			};
+			submenu->Append(nextid++, wxString::Format(wxT("@%s (%u)"), wxstrstd(u->GetUser().screen_name).c_str(), u->GetDMSet().size()));
+		};
+		menuP->AppendSeparator();
+	}
+
 	map[nextid] = MkStdTpanelAction(0, TPF::DELETEONWINCLOSE | TPF::AUTO_NOACC | TPF::AUTO_HIGHLIGHTED);
 	menuP->Append(nextid++, wxT("All Highlighted"));
 	map[nextid] = MkStdTpanelAction(0, TPF::DELETEONWINCLOSE | TPF::AUTO_NOACC | TPF::AUTO_UNREAD);
@@ -185,6 +200,7 @@ void TPanelMenuActionCustom(mainframe *parent, flagwrapper<TPF> flags) {
 	wxArrayInt selections;
 	wxArrayString choices;
 	std::deque<tpanel_auto> tmpltpautos;
+	std::deque<tpanel_auto_udc> tmpltpudcautos;
 
 	choices.Alloc((3 * (1 + alist.size())) + 2);
 
@@ -209,31 +225,50 @@ void TPanelMenuActionCustom(mainframe *parent, flagwrapper<TPF> flags) {
 	add_item(TPF::AUTO_NOACC | TPF::AUTO_HIGHLIGHTED, std::shared_ptr<taccount>(), wxT("All Highlighted"));
 	add_item(TPF::AUTO_NOACC | TPF::AUTO_UNREAD, std::shared_ptr<taccount>(), wxT("All Unread"));
 
+	auto add_udc_item = [&](flagwrapper<TPFU> tpfu, udc_ptr_p u, const wxString &str) {
+		choices.Add(str);
+		tmpltpudcautos.emplace_back();
+		tmpltpudcautos.back().autoflags = tpfu;
+		tmpltpudcautos.back().u = u;
+	};
+
+	auto dmsetmap = GetDMConversationMap();
+	for(auto &it : dmsetmap) {
+		udc_ptr_p u = it.second;
+		add_udc_item(TPFU::DMSET, u, wxString::Format(wxT("DM Conversation: @%s (%u)"), wxstrstd(u->GetUser().screen_name).c_str(), u->GetDMSet().size()));
+	}
+
 	::wxGetMultipleChoices(selections, wxT(""), wxT("Select Accounts and Feed Types"), choices, parent, -1, -1, false);
 
 	std::vector<tpanel_auto> tpautos;
+	std::vector<tpanel_auto_udc> tpudcautos;
 
 	for(size_t i = 0; i < selections.GetCount(); i++) {
 		int index = selections.Item(i);
-		tpanel_auto &tpa = tmpltpautos[index];
-		bool ok = true;
+		if(index >= (int) tmpltpautos.size()) {
+			tpudcautos.emplace_back(tmpltpudcautos[index - tmpltpautos.size()]);
+		}
+		else {
+			tpanel_auto &tpa = tmpltpautos[index];
+			bool ok = true;
 
-		flagwrapper<TPF> check_tpf = tpa.autoflags & (TPF::AUTO_TW | TPF::AUTO_MN | TPF::AUTO_DM);
-		if(check_tpf && tpa.acc) {
-			for(tpanel_auto &it : tpautos) {
-				if(it.autoflags & TPF::AUTO_ALLACCS && it.autoflags & check_tpf) {
-					// don't set the bit for the account, if the corresponding all accounts bit is already set
-					ok = false;
-					break;
+			flagwrapper<TPF> check_tpf = tpa.autoflags & (TPF::AUTO_TW | TPF::AUTO_MN | TPF::AUTO_DM);
+			if(check_tpf && tpa.acc) {
+				for(tpanel_auto &it : tpautos) {
+					if(it.autoflags & TPF::AUTO_ALLACCS && it.autoflags & check_tpf) {
+						// don't set the bit for the account, if the corresponding all accounts bit is already set
+						ok = false;
+						break;
+					}
 				}
 			}
-		}
 
-		if(ok) tpautos.emplace_back(tpa);
+			if(ok) tpautos.emplace_back(tpa);
+		}
 	}
 
-	if(tpautos.size()) {
-		auto tp = tpanel::MkTPanel("", "", flags, tpautos);
+	if(tpautos.size() || tmpltpudcautos.size()) {
+		auto tp = tpanel::MkTPanel("", "", flags, std::move(tpautos), std::move(tpudcautos));
 		tp->MkTPanelWin(parent, true);
 	}
 }

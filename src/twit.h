@@ -29,6 +29,7 @@
 #include "media_id_type.h"
 #include "set.h"
 #include "observer_ptr.h"
+#include "map.h"
 #include <memory>
 #include <functional>
 #include <wx/bitmap.h>
@@ -171,6 +172,11 @@ struct userdatacontainer {
 	};
 	std::unique_ptr<mention_set_data> msd;
 
+	struct dm_set_data {
+		tweetidset dm_set;
+	};
+	std::unique_ptr<dm_set_data> dsd;
+
 	public:
 	bool NeedsUpdating(flagwrapper<PENDING_REQ> preq, time_t timevalue = 0) const;
 	flagwrapper<PENDING_RESULT> GetPending(flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT, time_t timevalue = 0);
@@ -195,6 +201,10 @@ struct userdatacontainer {
 	void NotifyProfileImageChange();
 	void MakeProfileImageFailurePlaceholder();
 	const tweetidset &GetMentionSet();
+	const tweetidset &GetDMSet();
+	void SetDMSet(tweetidset dmset);
+	void AddDMIdToSet(uint64_t id);
+	inline bool MayHaveDMSet() const { return (bool) dsd; }
 };
 
 class tweet_perspective {
@@ -553,5 +563,7 @@ void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, tweetidset
 		bool remove, std::function<void(tweet_ptr_p )> existingtweetfunc = std::function<void(tweet_ptr_p)>());
 void SendTweetFlagUpdate(const tweet &tw, unsigned long long mask);
 void SpliceTweetIDSet(tweetidset &set, tweetidset &out, uint64_t highlim_inc, uint64_t lowlim_inc, bool clearspliced);
+
+container::map<std::string, udc_ptr> GetDMConversationMap();
 
 #endif

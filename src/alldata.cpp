@@ -68,3 +68,5 @@ tweet_ptr alldata::GetExistingTweetById(uint64_t id) {
 void alldata::UnlinkTweetById(uint64_t id) {
 	tweetobjs.erase(id);
 }
+
+const tweetidset alldata::empty_tweetidset;

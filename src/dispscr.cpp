@@ -1523,6 +1523,11 @@ void AppendUserMenuItems(wxMenu &menu, tweetactmenudata &map, int &nextid, udc_p
 	menu.Append(nextid, wxT("Send DM"));
 	AppendToTAMIMenuMap(map, nextid, TAMI_DM, tw, 0, user);
 
+	if(!user->GetDMSet().empty()) {
+		menu.Append(nextid, wxT("Open DM Conversation Panel"));
+		AppendToTAMIMenuMap(map, nextid, TAMI_DMSETPANEL, tw, 0, user);
+	}
+
 	wxString username = wxstrstd(user->GetUser().screen_name);
 	menu.Append(nextid, wxString::Format(wxT("Copy User Name (%s) to Clipboard"), username.c_str()));
 	AppendToTAMIMenuMap(map, nextid, TAMI_COPYEXTRA, tw, 0, user, 0, username);

@@ -50,6 +50,8 @@ struct alldata {
 	filter_set incoming_filter;
 	filter_set alltweet_filter;
 
+	static const tweetidset empty_tweetidset;
+
 	udc_ptr GetUserContainerById(uint64_t id);
 	udc_ptr GetExistingUserContainerById(uint64_t id);
 	tweet_ptr GetTweetById(uint64_t id, bool *isnew = nullptr);
