@@ -42,8 +42,6 @@
 #include <cstdio>
 #include <cstdlib>
 
-alldata ad;
-
 IMPLEMENT_APP(retcon)
 
 DEFINE_EVENT_TYPE(wxextRetcon_Evt)
@@ -212,52 +210,4 @@ void retcon::EnqueueThreadJob(std::function<void()> &&worker_thread_job) {
 	pool->enqueue([data](ThreadPool::Worker &w) {
 		(*data)();
 	});
-}
-
-udc_ptr alldata::GetUserContainerById(uint64_t id) {
-	auto it = userconts.insert(std::make_pair(id, userdatacontainer()));
-	udc_ptr usercont = &(it.first->second);
-	if(it.second) {
-		//new user
-		usercont->id = id;
-		usercont->lastupdate = 0;
-		usercont->udc_flags = 0;
-	}
-	return std::move(usercont);
-}
-
-udc_ptr alldata::GetExistingUserContainerById(uint64_t id) {
-	auto it = userconts.find(id);
-	if(it != userconts.end()) {
-		return &(it->second);
-	}
-	else {
-		return nullptr;
-	}
-}
-
-tweet_ptr alldata::GetTweetById(uint64_t id, bool *isnew) {
-	auto it = tweetobjs.insert(std::make_pair(id, tweet_ptr()));
-	if(isnew) *isnew = it.second;
-	tweet_ptr &t = it.first->second;
-	if(it.second) {
-		//new tweet
-		t.reset(new tweet());
-		t->id = id;
-	}
-	return t;
-}
-
-tweet_ptr alldata::GetExistingTweetById(uint64_t id) {
-	auto it = tweetobjs.find(id);
-	if(it != tweetobjs.end()) {
-		return it->second;
-	}
-	else {
-		return nullptr;
-	}
-}
-
-void alldata::UnlinkTweetById(uint64_t id) {
-	tweetobjs.erase(id);
 }
