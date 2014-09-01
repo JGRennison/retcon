@@ -1192,29 +1192,31 @@ void dbconn::CheckPurgeTweets() {
 }
 
 void dbconn::AsyncWriteBackState() {
-	LogMsg(LOGT::DBTRACE, "dbconn::AsyncWriteBackState start");
+	if(!gc.readonlymode) {
+		LogMsg(LOGT::DBTRACE, "dbconn::AsyncWriteBackState start");
 
-	if(batchqueue) {
-		SendMessage(std::move(batchqueue));
+		if(batchqueue) {
+			SendMessage(std::move(batchqueue));
+		}
+
+		std::unique_ptr<dbfunctionmsg> msg(new dbfunctionmsg);
+		auto cfg_closure = WriteAllCFGOutClosure(gc, alist, true);
+		msg->funclist.emplace_back([cfg_closure](sqlite3 *db, bool &ok, dbpscache &cache) {
+			DBLogMsg(LOGT::DBTRACE, "dbconn::AsyncWriteBackState: CFG write start");
+			DBWriteConfig twfc(db);
+			cfg_closure(twfc);
+			DBLogMsg(LOGT::DBTRACE, "dbconn::AsyncWriteBackState: CFG write end");
+		});
+		AsyncWriteBackAllUsers(*msg);
+		AsyncWriteBackAccountIdLists(*msg);
+		AsyncWriteOutRBFSs(*msg);
+		AsyncWriteBackCIDSLists(*msg);
+		AsyncWriteBackTpanels(*msg);
+
+		SendMessage(std::move(msg));
+
+		LogMsg(LOGT::DBTRACE, "dbconn::AsyncWriteBackState: message sent to DB thread");
 	}
-
-	std::unique_ptr<dbfunctionmsg> msg(new dbfunctionmsg);
-	auto cfg_closure = WriteAllCFGOutClosure(gc, alist, true);
-	msg->funclist.emplace_back([cfg_closure](sqlite3 *db, bool &ok, dbpscache &cache) {
-		DBLogMsg(LOGT::DBTRACE, "dbconn::AsyncWriteBackState: CFG write start");
-		DBWriteConfig twfc(db);
-		cfg_closure(twfc);
-		DBLogMsg(LOGT::DBTRACE, "dbconn::AsyncWriteBackState: CFG write end");
-	});
-	AsyncWriteBackAllUsers(*msg);
-	AsyncWriteBackAccountIdLists(*msg);
-	AsyncWriteOutRBFSs(*msg);
-	AsyncWriteBackCIDSLists(*msg);
-	AsyncWriteBackTpanels(*msg);
-
-	SendMessage(std::move(msg));
-
-	LogMsg(LOGT::DBTRACE, "dbconn::AsyncWriteBackState: message sent to DB thread");
 
 	CheckPurgeTweets();
 }
