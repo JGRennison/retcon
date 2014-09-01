@@ -589,6 +589,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_String(OPTWIN_CACHING, panel, fgs,  wxT("Delete cached user profile images after\nnot being used for this many days"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.profimgcachesavedays, gcglobdefaults.profimgcachesavedays, wxFILTER_NUMERIC);
 
 	AddSettingRow_Bool(OPTWIN_TWITTER, panel, fgs,  wxT("Assume that mentions are a subset of the home timeline"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.assumementionistweet, gcglobdefaults.assumementionistweet);
+	AddSettingRow_Bool(OPTWIN_TWITTER, panel, fgs,  wxT("Include all replies in user stream.\nTakes effect when stream next started."), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.streamapishowallreplies, gcglobdefaults.streamapishowallreplies);
 	AddSettingRow_Bool(OPTWIN_TWITTER, panel, fgs,  wxT("Ask about changing the settings of new accounts, before authentication.\nThis is useful for creating an account with different Twitter authentication settings."),
 			DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.askuseraccsettingsonnewacc, gcglobdefaults.askuseraccsettingsonnewacc);
 

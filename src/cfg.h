@@ -103,6 +103,7 @@ struct genoptconf {
 	CFGTEMPL_L(mousewheelscrollspeed) \
 	CFGTEMPL_L(linescrollspeed) \
 	CFGTEMPL_BOOL(askuseraccsettingsonnewacc) \
+	CFGTEMPL_BOOL(streamapishowallreplies) \
 
 struct genoptglobconf {
 #define CFGTEMPL(x) genopt x;
