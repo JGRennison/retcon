@@ -21,6 +21,7 @@
 #include "twit.h"
 #include "db.h"
 #include "log.h"
+#include "log-util.h"
 #include "util.h"
 #include "taccount.h"
 #include "alldata.h"
@@ -32,6 +33,7 @@
 #include "userui.h"
 #include "retcon.h"
 #include <cstring>
+#include <limits>
 #include <wx/uri.h>
 #include <wx/msgdlg.h>
 #include <algorithm>
@@ -603,7 +605,9 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 				DoTweetParse(dc, JDTP::ISDM);
 			}
 			else if(ival.IsNumber() && tval.IsString() && dc["user"].IsObject()) {    //assume that this is a tweet
-				DoTweetParse(dc);
+				if(DoStreamTweetPreFilter(dc)) {
+					DoTweetParse(dc);
+				}
 			}
 			else {
 				LogMsgFormat(LOGT::PARSEERR, "Stream Event Parser: Can't identify event: %s", cstr(std::string(str, len)));
@@ -728,6 +732,110 @@ inline udc_ptr CheckParseUserObj(uint64_t id, const rapidjson::Value &val, jsonp
 	else {
 		return ad.GetUserContainerById(id);
 	}
+}
+
+// Returns true if tweet is OK to be used
+bool jsonparser::DoStreamTweetPreFilter(const rapidjson::Value& val) {
+	if(tac->stream_reply_mode == SRM::ALL_REPLIES) return true;
+
+	uint64_t tweetid;
+	CheckTransJsonValueDef(tweetid, val, "id", 0, 0);
+
+	const rapidjson::Value& userobj = val["user"];
+	if(!userobj.IsObject()) return false;
+	const rapidjson::Value& useridval = userobj["id"];
+	if(!useridval.IsUint64()) return false;
+	uint64_t uid = useridval.GetUint64();
+
+	auto is_userid_own_account = [&](uint64_t id) -> bool {
+		auto u = ad.GetExistingUserContainerById(id);
+		return (u && u->udc_flags & UDC::THIS_IS_ACC_USER_HINT);
+	};
+
+	auto do_i_follow_userid = [&](uint64_t id) -> bool {
+		auto it = tac->user_relations.find(id);
+		if(it != tac->user_relations.end()) {
+			user_relationship &ur = it->second;
+			if((ur.ur_flags & user_relationship::URF::IFOLLOW_KNOWN) && (ur.ur_flags & user_relationship::URF::IFOLLOW_TRUE)) {
+				return true;
+			}
+		}
+		return false;
+	};
+
+	const rapidjson::Value& text = val["text"];
+
+	auto pre_bin = [&]() {
+		if(currentlogflags & LOGT::FILTERTRACE) {
+			std::string shorttext = text.IsString() ? truncate_tweet_text(text.GetString()) : std::string("???");
+			std::string screen_name = CheckGetJsonValueDef<std::string>(userobj, "screen_name", "???");
+			LogMsgFormat(LOGT::FILTERTRACE, "jsonparser::DoStreamTweetPreFilter: Binning tweet: %" llFmtSpec "d (@%s): %" llFmtSpec "d (%s)",
+					uid, cstr(screen_name), tweetid, cstr(shorttext));
+			if(tac->stream_reply_mode == SRM::STD_REPLIES) {
+				LogMsgFormat(LOGT::FILTERERR, "jsonparser::DoStreamTweetPreFilter: Warning: Binning tweet: %" llFmtSpec "d (@%s): %" llFmtSpec "d (%s), "
+						"even though we are in standard replies mode, this may (or may not) be a bug.",
+						uid, cstr(screen_name), tweetid, cstr(shorttext));
+			}
+		}
+	};
+
+	if(is_userid_own_account(uid)) {
+		// This is one of our own tweets
+		return true;
+	}
+
+	bool is_reply = (text.IsString() && IsTweetAReply(text.GetString()));
+	int first_reply_offset = std::numeric_limits<int>::max();
+	uint64_t first_reply_uid = 0;
+
+	if(is_reply || tac->stream_reply_mode == SRM::ALL_MENTIONS) {
+		//Check user mentions
+		const rapidjson::Value &entv = val["entities"];
+		if(entv.IsObject()) {
+			const rapidjson::Value &um = entv["user_mentions"];
+			if(um.IsArray()) {
+				for(rapidjson::SizeType i = 0; i < um.Size(); i++) {
+					const rapidjson::Value &umi = um[i];
+					if(umi.IsObject()) {
+						const rapidjson::Value &umid = umi["id"];
+						if(umid.IsUint64()) {
+							if(tac->stream_reply_mode != SRM::STD_REPLIES) {
+								if(is_userid_own_account(umid.GetUint64())) {
+									// This tweet mentions us, and we're in all mentions mode
+									return true;
+								}
+							}
+							if(is_reply) {
+								int start, end;
+								if(ReadEntityIndices(start, end, umi)) {
+									if(start < first_reply_offset) {
+										first_reply_offset = start;
+										first_reply_uid = umid.GetUint64();
+									}
+								}
+							}
+						}
+					}
+				}
+				if(is_reply && first_reply_uid && tac->stream_reply_mode != SRM::ALL_MENTIONS_FOLLOWS) {
+					if(!is_userid_own_account(first_reply_uid) && !do_i_follow_userid(first_reply_uid)) {
+						// This is a reply to someone else who we don't follow
+						pre_bin();
+						return false;
+					}
+				}
+			}
+		}
+	}
+
+	if(do_i_follow_userid(uid)) {
+		// This account follows the tweet author
+		return true;
+	}
+
+	// Bin it
+	pre_bin();
+	return false;
 }
 
 tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP> sflags) {

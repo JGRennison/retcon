@@ -33,6 +33,7 @@ genoptconf gcdefaults {
 	{ wxT("1"), 1},
 	{ wxT("1"), 1},
 	{ wxT("300"), 1},
+	{ wxT("1"), 1},
 };
 
 
@@ -86,7 +87,6 @@ genoptconf gcdefaults {
 #define CFGDEFAULT_mousewheelscrollspeed                    wxT("50")
 #define CFGDEFAULT_linescrollspeed                          wxT("20")
 #define CFGDEFAULT_askuseraccsettingsonnewacc               wxT("0")
-#define CFGDEFAULT_streamapishowallreplies                  wxT("0")
 
 genoptglobconf gcglobdefaults {
 #define CFGTEMPL(x) { CFGDEFAULT_##x, 1},
@@ -169,6 +169,9 @@ void taccount::CFGParamConv() {
 	ssl = (cfg.ssl.val == wxT("1"));
 	userstreams = (cfg.userstreams.val == wxT("1"));
 	cfg.restinterval.val.ToULong(&restinterval);
+	unsigned long srm_tmp;
+	cfg.stream_reply_mode.val.ToULong(&srm_tmp);
+	stream_reply_mode = static_cast<SRM>(srm_tmp);
 }
 
 void globconf_base::CFGWriteOut(DBWriteConfig &twfc) {
@@ -251,6 +254,7 @@ void genoptconf::IterateConfs(std::function<void(const std::string &, genopt gen
 	f("ssl", &genoptconf::ssl);
 	f("userstreams", &genoptconf::userstreams);
 	f("restinterval", &genoptconf::restinterval);
+	f("stream_reply_mode", &genoptconf::stream_reply_mode);
 }
 
 void genoptconf::UnShareStrings() {

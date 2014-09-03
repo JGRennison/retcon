@@ -339,6 +339,22 @@ struct FormatChoiceDefaultChkBoxValidator : public DefaultChkBoxValidatorCommon 
 	}
 };
 
+struct GenericChoiceDefaultChkBoxValidator : public DefaultChkBoxValidatorCommon {
+	wxChoice *choice;
+
+	GenericChoiceDefaultChkBoxValidator(genopt &val_, genopt &parentval_, wxChoice *choice_) : DefaultChkBoxValidatorCommon(val_, parentval_), choice(choice_) { }
+	virtual wxObject* Clone() const override { return new GenericChoiceDefaultChkBoxValidator(val, parentval, choice); }
+	virtual void statechange() override {
+		wxCheckBox *chk = (wxCheckBox*) GetWindow();
+		choice->Enable(chk->GetValue());
+		if(!chk->GetValue()) {
+			unsigned long value;
+			parentval.val.ToULong(&value);
+			choice->SetSelection(value);
+		}
+	}
+};
+
 struct ValueChkBoxValidator : public wxValidator {
 	genopt &val;
 	ValueChkBoxValidator(genopt &val_)
@@ -359,10 +375,10 @@ struct ValueChkBoxValidator : public wxValidator {
 	}
 };
 
-struct FormatChoiceValidator : public wxValidator {
+struct GenericChoiceValidator : public wxValidator {
 	genopt &val;
-	FormatChoiceValidator(genopt &val_) : wxValidator(), val(val_) { }
-	virtual wxObject* Clone() const { return new FormatChoiceValidator(val); }
+	GenericChoiceValidator(genopt &val_) : wxValidator(), val(val_) { }
+	virtual wxObject* Clone() const { return new GenericChoiceValidator(val); }
 	virtual bool TransferFromWindow() {
 		wxChoice *choice = (wxChoice*) GetWindow();
 		val.val = wxString::Format(wxT("%d"), choice->GetSelection());
@@ -444,6 +460,14 @@ wxStaticBoxSizer *settings_window::AddGenoptconfSettingBlock(wxWindow* parent, w
 
 	AddSettingRow_Bool(OPTWIN_TWITTER, parent, fgs,  wxT("Use User Streams (recommended)"), flags | DBCV::ADVOPTION, goc.userstreams, parentgoc.userstreams);
 	AddSettingRow_String(OPTWIN_TWITTER, parent, fgs, wxT("REST API Polling Interval / seconds"), flags|DBCV::ADVOPTION, goc.restinterval, parentgoc.restinterval, wxFILTER_NUMERIC);
+
+	auto replychoice = new wxChoice(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, 0, nullptr, 0, GenericChoiceValidator(goc.stream_reply_mode));
+	replychoice->Append(wxT("Show standard stream replies"), (void *) nullptr);
+	replychoice->Append(wxT("Show standard stream replies + all mentions"), (void *) nullptr);
+	replychoice->Append(wxT("Show all stream replies from users you follow + all mentions"), (void *) nullptr);
+	replychoice->Append(wxT("Show *all* stream replies"), (void *) nullptr);
+	AddSettingRow_Common(OPTWIN_TWITTER, parent, fgs, wxT("Streaming mode replies"), flags|DBCV::ADVOPTION, replychoice, GenericChoiceDefaultChkBoxValidator(goc.stream_reply_mode, parentgoc.stream_reply_mode, replychoice));
+
 	AddSettingRow_Bool(OPTWIN_TWITTER, parent, fgs,  wxT("Use SSL\n(Very strongly recommended)"), flags|DBCV::VERYADVOPTION, goc.ssl, parentgoc.ssl);
 	AddSettingRow_String(OPTWIN_TWITTER, parent, fgs, wxT("Twitter API Consumer Key Override"), flags|DBCV::HIDDENDEFAULT|DBCV::VERYADVOPTION, goc.tokenk, parentgoc.tokenk);
 	AddSettingRow_String(OPTWIN_TWITTER, parent, fgs, wxT("Twitter API Consumer Secret Override"), flags|DBCV::HIDDENDEFAULT|DBCV::VERYADVOPTION, goc.tokens, parentgoc.tokens);
@@ -549,7 +573,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, mediawinposfgs, wxT("Screen width reduction"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.mediawinscreensizewidthreduction, gcglobdefaults.mediawinscreensizewidthreduction);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, mediawinposfgs, wxT("Screen height reduction"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.mediawinscreensizeheightreduction, gcglobdefaults.mediawinscreensizeheightreduction);
 
-	formatdef_lb = new wxChoice(panel, SWID_FORMAT_CHOICE, wxDefaultPosition, wxDefaultSize, 0, nullptr, 0, FormatChoiceValidator(gc.gcfg.format_default_num));
+	formatdef_lb = new wxChoice(panel, SWID_FORMAT_CHOICE, wxDefaultPosition, wxDefaultSize, 0, nullptr, 0, GenericChoiceValidator(gc.gcfg.format_default_num));
 	formatdef_lb->Append(wxT("Short"), (void *) nullptr);
 	formatdef_lb->Append(wxT("Medium"), (void *) nullptr);
 	formatdef_lb->Append(wxT("Long"), (void *) nullptr);
@@ -589,7 +613,6 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_String(OPTWIN_CACHING, panel, fgs,  wxT("Delete cached user profile images after\nnot being used for this many days"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.profimgcachesavedays, gcglobdefaults.profimgcachesavedays, wxFILTER_NUMERIC);
 
 	AddSettingRow_Bool(OPTWIN_TWITTER, panel, fgs,  wxT("Assume that mentions are a subset of the home timeline"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.assumementionistweet, gcglobdefaults.assumementionistweet);
-	AddSettingRow_Bool(OPTWIN_TWITTER, panel, fgs,  wxT("Include all replies in user stream.\nTakes effect when stream next started."), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.streamapishowallreplies, gcglobdefaults.streamapishowallreplies);
 	AddSettingRow_Bool(OPTWIN_TWITTER, panel, fgs,  wxT("Ask about changing the settings of new accounts, before authentication.\nThis is useful for creating an account with different Twitter authentication settings."),
 			DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.askuseraccsettingsonnewacc, gcglobdefaults.askuseraccsettingsonnewacc);
 

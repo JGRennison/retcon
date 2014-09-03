@@ -345,16 +345,21 @@ LOGT StrToLogFlags(const std::string &str) {
 	return out;
 }
 
-std::string tweet_log_line(const tweet *t) {
-	std::string sname = "???";
-	if(t->user && !t->user->GetUser().screen_name.empty()) sname = t->user->GetUser().screen_name;
-
-	std::string short_text = t->text;
+std::string truncate_tweet_text(const std::string &input) {
+	std::string short_text = input;
 	size_t newsize = get_utf8_truncate_offset(short_text.data(), 20, short_text.size());
 	if(newsize < short_text.size()) {
 		short_text.resize(newsize);
 		short_text += "...";
 	}
+	return std::move(short_text);
+}
+
+std::string tweet_log_line(const tweet *t) {
+	std::string sname = "???";
+	if(t->user && !t->user->GetUser().screen_name.empty()) sname = t->user->GetUser().screen_name;
+
+	std::string short_text = truncate_tweet_text(t->text);
 
 	std::string output = string_format("Tweet: %" llFmtSpec "d @%s (%s) tflags: %s, lflags: 0x%X, pending (default): %d, TPs: ",
 			t->id, cstr(sname), cstr(short_text), cstr(t->flags.GetString()), t->lflags, (int) t->IsPendingConst().IsReady());

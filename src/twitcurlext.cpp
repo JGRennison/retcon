@@ -258,7 +258,8 @@ void twitcurlext::DoQueueAsyncExec(std::unique_ptr<twitcurlext> this_owner) {
 			scto = std::make_shared<streamconntimeout>(this);
 			SetStreamApiCallback(&StreamCallback, 0);
 			SetStreamApiActivityCallback(&StreamActivityCallback);
-			UserStreamingApi("followings", gc.streamapishowallreplies ? "all" : "");
+			acc->stream_currently_reply_all = (acc->stream_reply_mode != SRM::STD_REPLIES);
+			UserStreamingApi("followings", acc->stream_currently_reply_all ? "all" : "");
 			break;
 		case CS_USERLIST: {
 			std::string userliststr;

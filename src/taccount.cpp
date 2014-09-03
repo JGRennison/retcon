@@ -376,9 +376,11 @@ void taccount::PostAccVerifyInit() {
 
 std::string taccount::DumpStateString() const {
 	return string_format("enabled: %d, userenabled: %d, init: %d, active: %d, streaming_on: %d, stream_fail_count: %u, rest_on: %d, "
-			"verifycredstatus: %d, beinginsertedintodb: %d, last_rest_backfill: %u, ssl: %d, userstreams: %d",
+			"verifycredstatus: %d, beinginsertedintodb: %d, last_rest_backfill: %u, ssl: %d, userstreams: %d, "
+			"stream_reply_mode: %d, stream_currently_reply_all: %d",
 			enabled, userenabled, init, active, streaming_on, stream_fail_count, rest_on,
-			verifycredstatus, beinginsertedintodb, last_rest_backfill, ssl, userstreams);
+			verifycredstatus, beinginsertedintodb, last_rest_backfill, ssl, userstreams,
+			static_cast<int>(stream_reply_mode), stream_currently_reply_all);
 }
 
 void taccount::LogStateChange(const std::string &tag, raii_set *finaliser) {
@@ -386,7 +388,7 @@ void taccount::LogStateChange(const std::string &tag, raii_set *finaliser) {
 	if((currentlogflags & LOGT::OTHERTRACE) && finaliser) {
 		auto state = [this]() {
 			return std::make_tuple(enabled, userenabled, init, active, streaming_on, stream_fail_count, rest_on,
-			verifycredstatus, beinginsertedintodb, last_rest_backfill, ssl, userstreams);
+			verifycredstatus, beinginsertedintodb, last_rest_backfill, ssl, userstreams, stream_reply_mode, stream_currently_reply_all);
 		};
 		auto oldstate = state();
 		finaliser->add([=]() {
@@ -420,7 +422,8 @@ void taccount::Exec() {
 			NoAccPendingContentCheck();
 		}
 		else {
-			if(!target_streaming) {
+			bool stream_should_reply_all = (stream_reply_mode != SRM::STD_REPLIES);
+			if(!target_streaming || stream_currently_reply_all != stream_should_reply_all) {
 				twitcurlext::IterateConnsByAcc(shared_from_this(), [&](twitcurlext &conn) {
 					if(conn.tc_flags & twitcurlext::TCF::ISSTREAM) {
 						LogMsgFormat(LOGT::SOCKTRACE, "taccount::Exec(): Closing stream connection: type: %s, conn ID: %d, url: %s",
@@ -432,7 +435,7 @@ void taccount::Exec() {
 				});
 				streaming_on = false;
 			}
-			else if(target_streaming && rest_on) {
+			if(target_streaming && rest_on) {
 				DeleteRestBackfillTimer();
 				rest_on = false;
 			}

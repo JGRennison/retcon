@@ -542,6 +542,10 @@ bool IsUserMentioned(const char *in, size_t inlen, udc_ptr_p u, std::unique_ptr<
 inline bool IsUserMentioned(const std::string &str, udc_ptr_p u, std::unique_ptr<is_user_mentioned_cache> *cache = nullptr) {
 	return IsUserMentioned(str.c_str(), str.size(), u, cache);
 }
+bool IsTweetAReply(const char *in, size_t inlen);
+inline bool IsTweetAReply(const std::string &str) {
+	return IsTweetAReply(str.c_str(), str.size());
+}
 
 #ifdef __WINDOWS__
 #ifndef gmtime_r

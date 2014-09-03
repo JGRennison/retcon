@@ -38,12 +38,20 @@ struct genopt {
 	void InheritFromParent(genopt &parent, bool ifunset=false);
 };
 
+enum class SRM {
+	STD_REPLIES            = 0,
+	ALL_MENTIONS           = 1,
+	ALL_MENTIONS_FOLLOWS   = 2,
+	ALL_REPLIES            = 3,
+};
+
 struct genoptconf {
 	genopt tokenk;
 	genopt tokens;
 	genopt ssl;
 	genopt userstreams;
 	genopt restinterval;
+	genopt stream_reply_mode;
 	void CFGWriteOutCurDir(DBWriteConfig &twfc) const;
 	void CFGReadInCurDir(DBReadConfig &twfc, const genoptconf &parent);
 	void InheritFromParent(genoptconf &parent, bool ifunset = false);
@@ -103,7 +111,6 @@ struct genoptconf {
 	CFGTEMPL_L(mousewheelscrollspeed) \
 	CFGTEMPL_L(linescrollspeed) \
 	CFGTEMPL_BOOL(askuseraccsettingsonnewacc) \
-	CFGTEMPL_BOOL(streamapishowallreplies) \
 
 struct genoptglobconf {
 #define CFGTEMPL(x) genopt x;

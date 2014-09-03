@@ -80,6 +80,9 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 
 	bool ssl;
 	bool userstreams;
+	SRM stream_reply_mode;
+	bool stream_currently_reply_all = false;
+
 	enum class TAF {
 		STREAM_UP             = 1<<0,
 	};

@@ -103,6 +103,7 @@ struct jsonparser : public genjsonparser {
 	udc_ptr DoUserParse(const rapidjson::Value& val, flagwrapper<UMPTF> umpt_flags = 0);
 	void DoEventParse(const rapidjson::Value& val);
 	void DoFriendLookupParse(const rapidjson::Value& val);
+	bool DoStreamTweetPreFilter(const rapidjson::Value& val);
 	tweet_ptr DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP> sflags = 0);
 	void RestTweetUpdateParams(const tweet &t);
 	void RestTweetPreParseUpdateParams();

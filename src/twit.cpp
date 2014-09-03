@@ -1416,6 +1416,27 @@ bool IsUserMentioned(const char *in, size_t inlen, udc_ptr_p u, std::unique_ptr<
 	return (rc > 0);
 }
 
+bool IsTweetAReply(const char *in, size_t inlen) {
+	static pcre *pattern = nullptr;
+	static pcre_extra *patextra = nullptr;
+
+	if(!pattern) {
+		const char *errptr;
+		int erroffset;
+		const char *pat = VALID_REPLY;
+		pattern = pcre_compile(pat, PCRE_UCP | PCRE_NO_UTF8_CHECK | PCRE_CASELESS | PCRE_UTF8, &errptr, &erroffset, 0);
+		if(!pattern) {
+			LogMsgFormat(LOGT::OTHERERR, "IsTweetAReply: pcre_compile failed: %s (%d)\n%s", cstr(errptr), erroffset, cstr(pat));
+			return false;
+		}
+		patextra = pcre_study(pattern, 0, &errptr);
+	}
+
+	int ovector[30];
+	int rc = pcre_exec(pattern, patextra, in, inlen, 0, 0, ovector, 30);
+	return (rc > 0);
+}
+
 void SpliceTweetIDSet(tweetidset &set, tweetidset &out, uint64_t highlim_inc, uint64_t lowlim_inc, bool clearspliced) {
 	tweetidset::iterator start = set.lower_bound(highlim_inc);
 	tweetidset::iterator end = set.upper_bound(lowlim_inc);
