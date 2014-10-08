@@ -639,6 +639,11 @@ void tpanelparentwin_nt_impl::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pu
 	}
 
 	scrollpane->Freeze();
+	auto finaliser = scope_guard([&]() {
+		scrollpane->Thaw();
+		CLabelNeedsUpdating(pushflags);
+	});
+
 	LogMsgFormat(LOGT::TPANEL, "tpanelparentwin_nt_impl::PushTweet %s, id: %" llFmtSpec "d, displayoffset: %d, pushflags: 0x%X, currentdisp: %d, tppw_flags: 0x%X",
 			cstr(GetThisName()), t->id, displayoffset, pushflags, (int) currentdisp.size(), tppw_flags);
 	if(pushflags & PUSHFLAGS::ABOVE) scrollbar->scroll_always_freeze = true;
@@ -649,8 +654,6 @@ void tpanelparentwin_nt_impl::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pu
 		if(id>currentdisp.front().id) {
 			if(!(pushflags & PUSHFLAGS::ABOVE)) {
 				if(!(pushflags & PUSHFLAGS::NOINCDISPOFFSET)) displayoffset++;
-				scrollpane->Thaw();
-				CLabelNeedsUpdating(pushflags);
 				return;
 			}
 			else if(pushflags & PUSHFLAGS::NOINCDISPOFFSET) recalcdisplayoffset = true;
@@ -663,8 +666,6 @@ void tpanelparentwin_nt_impl::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pu
 				displayoffset++;
 			}
 			else {
-				scrollpane->Thaw();
-				CLabelNeedsUpdating(pushflags);
 				return;
 			}
 		}
@@ -696,7 +697,6 @@ void tpanelparentwin_nt_impl::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pu
 	#endif
 	tpanel_disp_item *tpdi = CreateItemAtIndex(index, t->id);
 	tweetdispscr *td = CreateTweetInItem(t, *tpdi);
-	CLabelNeedsUpdating(pushflags);
 
 	if(!(tppw_flags & TPPWF::NOUPDATEONPUSH)) td->ForceRefresh();
 	else td->gdb_flags |= tweetdispscr::GDB_F::NEEDSREFRESH;
@@ -707,7 +707,6 @@ void tpanelparentwin_nt_impl::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pu
 	}
 
 	scrollbar->RepositionItems();
-	scrollpane->Thaw();
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::PushTweet %s END, %d, %d", cstr(GetThisName()), displayoffset, currentdisp.size());
 	#endif
@@ -1288,7 +1287,7 @@ void tpanelparentwin_nt_impl::IterateCurrentDisp(std::function<void(uint64_t, di
 void tpanelparentwin_nt_impl::OnBatchTimerModeTimer(wxTimerEvent& event) {
 	tppw_flags &= ~TPPWF::BATCHTIMERMODE;
 
-	raii finaliser([&]() {
+	auto finaliser = scope_guard([&]() {
 		CheckClearNoUpdateFlag();
 		tppw_flags |= TPPWF::BATCHTIMERMODE;
 	});

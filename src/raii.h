@@ -23,22 +23,43 @@
 #include <functional>
 #include <vector>
 
-class raii {
-	std::function<void()> f;
+template <typename T>
+class scope_exit_obj {
+	T f;
+	bool shouldexec;
+
 
 	public:
-	raii(std::function<void()> func) : f(std::move(func)) { }
-	void cancel() {
-		f = nullptr;
+
+	scope_exit_obj(T &&func)
+		: f(std::move(func)), shouldexec(true) { }
+
+	scope_exit_obj(const scope_exit_obj &copysrc) = delete;
+	scope_exit_obj(scope_exit_obj &&movesrc)
+		: f(std::move(movesrc.f)), shouldexec(movesrc.shouldexec) {
+		movesrc.shouldexec = false;
 	}
-	void exec() {
-		if(f) f();
-		f = nullptr;
-	}
-	~raii() {
+
+	~scope_exit_obj() {
 		exec();
 	}
+
+	void exec() {
+		if(shouldexec) {
+			f();
+			shouldexec = false;
+		}
+	}
+
+	void cancel() {
+		shouldexec = false;
+	}
 };
+
+template <typename T>
+scope_exit_obj<typename std::decay<T>::type> scope_guard(T &&func) {
+	return scope_exit_obj<typename std::decay<T>::type>(std::forward<T>(func));
+}
 
 class raii_set {
 	std::vector<std::function<void()> > f_set;
