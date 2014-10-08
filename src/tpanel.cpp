@@ -650,14 +650,18 @@ void tpanelparentwin_nt_impl::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pu
 	uint64_t id = t->id;
 	bool recalcdisplayoffset = false;
 	if(pushflags & PUSHFLAGS::NOINCDISPOFFSET && currentdisp.empty()) recalcdisplayoffset = true;
-	if(displayoffset) {
-		if(id>currentdisp.front().id) {
+	if(displayoffset > 0) {
+		if(id > currentdisp.front().id) {
 			if(!(pushflags & PUSHFLAGS::ABOVE)) {
 				if(!(pushflags & PUSHFLAGS::NOINCDISPOFFSET)) displayoffset++;
 				return;
 			}
 			else if(pushflags & PUSHFLAGS::NOINCDISPOFFSET) recalcdisplayoffset = true;
 		}
+	}
+	else if(displayoffset < 0) {
+		if(pushflags & PUSHFLAGS::NOINCDISPOFFSET) recalcdisplayoffset = true;
+		else return; // displayoffset not currently valid, do not insert
 	}
 	if(currentdisp.size() == gc.maxtweetsdisplayinpanel) {
 		if(t->id < currentdisp.back().id) {    //off the bottom of the list
@@ -823,9 +827,9 @@ void tpanelparentwin_nt_impl::RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pu
 }
 
 void tpanelparentwin_nt_impl::PageUpHandler() {
-	if(displayoffset) {
+	if(displayoffset > 0) {
 		SetNoUpdateFlag();
-		size_t pagemove = std::min((size_t) (gc.maxtweetsdisplayinpanel + 1) / 2, displayoffset);
+		size_t pagemove = std::min((size_t) (gc.maxtweetsdisplayinpanel + 1) / 2, (size_t) displayoffset);
 		uint64_t greaterthanid = currentdisp.front().id;
 		LoadMore(pagemove, 0, greaterthanid, PUSHFLAGS::ABOVE | PUSHFLAGS::NOINCDISPOFFSET);
 		CheckClearNoUpdateFlag();
@@ -836,10 +840,10 @@ void tpanelparentwin_nt_impl::PageDownHandler() {
 	SetNoUpdateFlag();
 	size_t curnum = currentdisp.size();
 	size_t tweetnum = tp->tweetlist.size();
-	if(curnum+displayoffset<tweetnum || tppw_flags & TPPWF::CANALWAYSSCROLLDOWN) {
+	if(displayoffset >= 0 && (curnum + displayoffset < tweetnum || tppw_flags & TPPWF::CANALWAYSSCROLLDOWN)) {
 		size_t pagemove;
 		if(tppw_flags & TPPWF::CANALWAYSSCROLLDOWN) pagemove = (gc.maxtweetsdisplayinpanel + 1) / 2;
-		else pagemove = std::min((size_t) (gc.maxtweetsdisplayinpanel + 1) / 2, tweetnum - (curnum + displayoffset));
+		else pagemove = std::min((size_t) (gc.maxtweetsdisplayinpanel + 1) / 2, (size_t) tweetnum - (curnum + displayoffset));
 		uint64_t lessthanid = currentdisp.back().id;
 		LoadMore(pagemove, lessthanid, 0, PUSHFLAGS::BELOW | PUSHFLAGS::NOINCDISPOFFSET);
 	}
@@ -848,9 +852,9 @@ void tpanelparentwin_nt_impl::PageDownHandler() {
 }
 
 void tpanelparentwin_nt_impl::PageTopHandler() {
-	if(displayoffset) {
+	if(displayoffset > 0) {
 		SetNoUpdateFlag();
-		size_t pushcount = std::min(displayoffset, (size_t) gc.maxtweetsdisplayinpanel);
+		size_t pushcount = std::min((size_t) displayoffset, (size_t) gc.maxtweetsdisplayinpanel);
 		displayoffset = 0;
 		LoadMore(pushcount, 0, 0, PUSHFLAGS::ABOVE | PUSHFLAGS::NOINCDISPOFFSET);
 		CheckClearNoUpdateFlag();
@@ -907,7 +911,12 @@ void tpanelparentwin_nt_impl::JumpToTweetID(uint64_t id) {
 		}
 		while(!currentdisp.empty() && currentdisp.back().id < bottom_id) PopBottom();
 
-		if(currentdisp.empty()) displayoffset = 0;
+		if(currentdisp.empty()) {
+			// Mark displayoffset as invalid
+			// Using this instead of displayoffset = 0 prevents any new tweets which arrive from sniping us, as they would otherwise
+			// assume that they can be inserted as there are no other tweets
+			displayoffset = -1;
+		}
 
 		unsigned int loadcount = offset_up_delta + offset_down_delta + 1 - currentdisp.size();
 
@@ -1619,9 +1628,9 @@ tpanelparentwin_user::~tpanelparentwin_user() {
 }
 
 void tpanelparentwin_user_impl::PageUpHandler() {
-	if(displayoffset) {
+	if(displayoffset > 0) {
 		SetNoUpdateFlag();
-		size_t pagemove = std::min((size_t) (gc.maxtweetsdisplayinpanel + 1) / 2, displayoffset);
+		size_t pagemove = std::min((size_t) (gc.maxtweetsdisplayinpanel + 1) / 2, (size_t) displayoffset);
 		size_t curnum = currentdisp.size();
 		size_t bottomdrop = std::min(curnum, (size_t) (curnum+pagemove - gc.maxtweetsdisplayinpanel));
 		for(size_t i = 0; i < bottomdrop; i++) PopBottom();
@@ -1640,7 +1649,7 @@ void tpanelparentwin_user_impl::PageDownHandler() {
 	SetNoUpdateFlag();
 	size_t curnum = currentdisp.size();
 	size_t num = ItemCount();
-	if(curnum + displayoffset<num || tppw_flags & TPPWF::CANALWAYSSCROLLDOWN) {
+	if(displayoffset >= 0 && (curnum + displayoffset < num || tppw_flags & TPPWF::CANALWAYSSCROLLDOWN)) {
 		size_t pagemove;
 		if(tppw_flags & TPPWF::CANALWAYSSCROLLDOWN) pagemove = (gc.maxtweetsdisplayinpanel + 1) / 2;
 		else pagemove = std::min((size_t) (gc.maxtweetsdisplayinpanel + 1) / 2, (size_t) (num - (curnum + displayoffset)));
@@ -1654,9 +1663,9 @@ void tpanelparentwin_user_impl::PageDownHandler() {
 }
 
 void tpanelparentwin_user_impl::PageTopHandler() {
-	if(displayoffset) {
+	if(displayoffset > 0) {
 		SetNoUpdateFlag();
-		size_t pushcount = std::min(displayoffset, (size_t) gc.maxtweetsdisplayinpanel);
+		size_t pushcount = std::min((size_t) displayoffset, (size_t) gc.maxtweetsdisplayinpanel);
 		ssize_t bottomdrop = ((ssize_t) pushcount + currentdisp.size()) - gc.maxtweetsdisplayinpanel;
 		if(bottomdrop > 0) {
 			for(ssize_t i = 0; i < bottomdrop; i++) PopBottom();

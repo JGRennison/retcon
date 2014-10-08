@@ -88,7 +88,7 @@ struct panelparentwin_base_impl : public bindwxevt {
 	public:
 	std::shared_ptr<tpanelglobal> tpg;
 	flagwrapper<TPPWF> tppw_flags = 0;
-	size_t displayoffset = 0;
+	ssize_t displayoffset = 0; // negative indicates not currently valid
 	wxWindow *parent_win = nullptr;
 	tpanelscrollbar *scrollbar = nullptr;
 	tpanelscrollpane *scrollpane = nullptr;
