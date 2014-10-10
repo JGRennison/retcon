@@ -721,8 +721,11 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> 
 }
 
 void ParsePerspectivalTweetProps(const rapidjson::Value &val, tweet_perspective *tp, Handler *handler) {
-	tp->SetRetweeted(CheckGetJsonValueDef<bool>(val, "retweeted", false, handler));
-	tp->SetFavourited(CheckGetJsonValueDef<bool>(val, "favourited", false, handler));
+	bool propvalue;
+	if(CheckTransJsonValueDef<bool>(propvalue, val, "retweeted", false, handler))
+		tp->SetRetweeted(propvalue);
+	if(CheckTransJsonValueDef<bool>(propvalue, val, "favorited", false, handler))
+		tp->SetFavourited(propvalue);
 }
 
 inline udc_ptr CheckParseUserObj(uint64_t id, const rapidjson::Value &val, jsonparser &jp) {
