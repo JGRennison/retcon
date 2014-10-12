@@ -81,15 +81,21 @@ namespace std
 #define strncasecmp _strnicmp
 #endif
 
-template <typename C, typename D> inline void ownstrtonum(C &val, D *str, ssize_t len) {
+// len can be negative to signal string is null-terminated
+// returns true if whole input string is valid
+template <typename C, typename D> inline bool ownstrtonum(C &val, D *str, ssize_t len) {
 	val = 0;
 	for(ssize_t i = 0; len < 0 || i < len; i++) {
 		if(str[i] >= '0' && str[i] <= '9') {
 			val *= 10;
 			val += str[i] - '0';
 		}
-		else break;
+		else if(str[i] == 0) {
+			return len < 0;
+		}
+		else return false;
 	}
+	return true;
 }
 
 std::string rc_strftime(const std::string &format, const struct tm *tm, time_t timestamp = 0, bool localtime = true);

@@ -220,8 +220,19 @@ void mainframe::OnLookupUser(wxCommandEvent &event) {
 		twit->connmode = CS_USERLOOKUPWIN;
 		twit->extra1 = std::string(value.ToUTF8());
 		twit->genurl = "api.twitter.com/1.1/users/show.json";
+
 		if(type == 0) twit->genurl += "?screen_name=" + urlencode(twit->extra1);
-		else if(type == 1) twit->genurl += "?user_id=" + urlencode(twit->extra1);
+		else if(type == 1) {
+			twit->genurl += "?user_id=" + urlencode(twit->extra1);
+			uint64_t id = 0;
+			if(ownstrtonum(id, twit->extra1.data(), twit->extra1.size())) {
+				udc_ptr u = ad.GetExistingUserContainerById(id);
+				if(u && !u->GetUser().screen_name.empty()) {
+					user_window::MkWin(u->id, acctouse);
+				}
+			}
+		}
+
 		twitcurlext::QueueAsyncExec(std::move(twit));
 	}
 }
