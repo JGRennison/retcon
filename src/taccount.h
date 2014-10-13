@@ -28,6 +28,7 @@
 #include "flags.h"
 #include "twit.h"
 #include "observer_ptr.h"
+#include "map.h"
 #include <wx/event.h>
 #include <wx/string.h>
 #include <memory>
@@ -69,6 +70,8 @@ struct taccount_cfg {
 	uint64_t max_recvdm_id = 0;
 	uint64_t max_sentdm_id = 0;
 	wxString dispname;
+	bool ur_ifollow_have_list = false;
+	bool ur_followsme_have_list = false;
 
 	void CFGWriteOut(DBWriteConfig &twfc) const;
 	void CFGReadInBase(DBReadConfig &twfc);
@@ -102,7 +105,7 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 	time_t last_stream_start_time = 0;
 	time_t last_stream_end_time = 0;
 	udc_ptr usercont;
-	std::unordered_map<uint64_t, user_relationship> user_relations;
+	container::map<uint64_t, user_relationship> user_relations; // this must be sorted
 
 	//any tweet or DM in this list *must* be either in ad.tweetobjs, or in the database
 	tweetidset tweet_ids;
@@ -133,8 +136,9 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 
 	std::function<void(observer_ptr<twitcurlext>)> TwitCurlExtHook;
 
-	void ClearUsersIFollow();
-	void SetUserRelationship(uint64_t userid, flagwrapper<user_relationship::URF> flags, const time_t &optime);
+	void ClearAllUserRelationshipsByType(user_relationship::UR_TYPE type, std::vector<uint64_t> *currentset = nullptr, std::vector<uint64_t> *pendingset = nullptr);
+	void GetSetUserRelationshipsByType(user_relationship::UR_TYPE type, std::vector<uint64_t> *currentset = nullptr, std::vector<uint64_t> *pendingset = nullptr);
+	void SetUserRelationship(uint64_t userid, flagwrapper<user_relationship::URF> flags, time_t optime);
 
 	void StartRestGetTweetBackfill(uint64_t start_tweet_id /*lower limit, exclusive*/, uint64_t end_tweet_id /*upper limit, inclusive*/,
 			unsigned int max_tweets_to_read, RBFS_TYPE type = RBFS_TWEETS, uint64_t userid = 0);
@@ -144,6 +148,13 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 	void DoPostAction(flagwrapper<PAF> postflags);
 	void GetRestBackfill();
 	void LookupFriendships(uint64_t userid);
+	void GetUsersFollowingMeList();
+	void HandleUsersFollowingMeList(std::vector<uint64_t> userids, bool complete);
+	void HandleUserIFollowList(std::vector<uint64_t> userids, bool complete);
+	void HandleUserRelationshipListCommon(std::vector<uint64_t> userids, bool complete, user_relationship::UR_TYPE type, bool &listvalid, user_relationship::URF setto);
+	void NotifyDiffUserRelationshipList(user_relationship::UR_TYPE type, const std::vector<uint64_t> &oldset, const std::vector<uint64_t> &oldpending);
+	void NotifyUserRelationshipChange(uint64_t userid, user_relationship::URF flags);
+	void NotifyTweetFavouriteEvent(uint64_t tweetid, uint64_t userid, bool unfavourite);
 
 	void MarkUserPending(udc_ptr_p user);
 	bool MarkPendingOrHandle(tweet_ptr_p t, flagwrapper<ARRIVAL> arr);

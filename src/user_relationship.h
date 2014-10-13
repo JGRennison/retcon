@@ -33,6 +33,11 @@ struct user_relationship {
 		QUERY_PENDING        = 1<<6,
 	};
 
+	enum class UR_TYPE {
+		IFOLLOW = 0,
+		FOLLOWSME,
+	};
+
 	flagwrapper<URF> ur_flags = 0;
 	time_t followsme_updtime = 0;    //if these are 0 and the corresponding known flag is set, then the value is known to be correct whilst the stream is still up
 	time_t ifollow_updtime = 0;

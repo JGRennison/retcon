@@ -187,6 +187,7 @@ typedef enum {
 	CS_USERFOLLOWING,
 	CS_USERFOLLOWERS,
 	CS_SINGLETWEET,
+	CS_OWNFOLLOWERLISTING,
 } CS_ENUMTYPE;
 
 enum class UMPTF { //For UnmarkPendingTweet

@@ -193,6 +193,8 @@ struct dbconn : public wxEvtHandler {
 	void SyncPurgeMediaEntities(sqlite3 *adb);
 	void SyncPurgeProfileImages(sqlite3 *adb);
 	void CheckPurgeTweets();
+	void SyncReadInUserRelationships(sqlite3 *adb);
+	void SyncWriteBackUserRelationships(sqlite3 *adb);
 
 	void HandleDBSelTweetMsg(dbseltweetmsg &msg, flagwrapper<HDBSF> flags);
 	void GenericDBSelTweetMsgHandler(wxCommandEvent &event);

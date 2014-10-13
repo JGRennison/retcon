@@ -27,6 +27,9 @@ struct taccount;
 
 std::string truncate_tweet_text(const std::string &input);
 std::string tweet_log_line(const tweet *t);
+std::string user_screenname_log(uint64_t id);
+std::string user_short_log_line(uint64_t id);
+std::string tweet_short_log_line(uint64_t id);
 void dump_pending_acc(LOGT logflags, const std::string &indent, const std::string &indentstep, taccount *acc);
 void dump_tweet_pendings(LOGT logflags, const std::string &indent, const std::string &indentstep);
 void dump_pending_acc_failed_conns(LOGT logflags, const std::string &indent, const std::string &indentstep, taccount *acc);

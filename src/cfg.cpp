@@ -138,6 +138,8 @@ void taccount_cfg::CFGWriteOut(DBWriteConfig &twfc) const {
 	twfc.WriteInt64("max_sentdm_id", max_sentdm_id);
 	twfc.WriteInt64("max_mention_id", max_mention_id);
 	twfc.WriteWX("dispname", dispname);
+	twfc.WriteInt64("ur_ifollow_have_list", ur_ifollow_have_list);
+	twfc.WriteInt64("ur_followsme_have_list", ur_followsme_have_list);
 }
 
 void taccount_cfg::CFGReadInBase(DBReadConfig &twfc) {
@@ -151,6 +153,8 @@ void taccount_cfg::CFGReadInBase(DBReadConfig &twfc) {
 	twfc.ReadUInt64("max_sentdm_id", &max_sentdm_id, 0);
 	twfc.ReadUInt64("max_mention_id", &max_mention_id, 0);
 	twfc.Read("dispname", &dispname, wxT(""));
+	twfc.ReadBool("ur_ifollow_have_list", &ur_ifollow_have_list, false);
+	twfc.ReadBool("ur_followsme_have_list", &ur_followsme_have_list, false);
 }
 
 void taccount_cfg::UnShareStrings() {

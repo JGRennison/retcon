@@ -77,6 +77,7 @@ const std::string logflagsstrings[] = {
 	"threadtrace",
 	"fileiotrace",
 	"fileioerr",
+	"notifyevt",
 };
 
 void Update_currentlogflags() {
@@ -372,6 +373,28 @@ std::string tweet_log_line(const tweet *t) {
 		output += thistp;
 	});
 	return std::move(output);
+}
+
+std::string user_screenname_log(uint64_t id) {
+	udc_ptr u = ad.GetExistingUserContainerById(id);
+	if(u && !u->GetUser().screen_name.empty()) {
+		return u->GetUser().screen_name;
+	}
+	else return "????";
+}
+
+std::string user_short_log_line(uint64_t id) {
+	return string_format("User: %" llFmtSpec "d @%s", id, cstr(user_screenname_log(id)));
+}
+
+std::string tweet_short_log_line(uint64_t id) {
+	tweet_ptr t = ad.GetExistingTweetById(id);
+	if(t && t->user) {
+		return string_format("Tweet: %" llFmtSpec "d @%s (%s)", id, cstr(user_screenname_log(t->user->id)), cstr(truncate_tweet_text(t->text)));
+	}
+	else {
+		return string_format("Tweet: %" llFmtSpec "d", id);
+	}
 }
 
 static void dump_pending_user_line(LOGT logflags, const std::string &indent, userdatacontainer *u) {

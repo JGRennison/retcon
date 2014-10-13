@@ -43,6 +43,7 @@ template <> bool IsType<bool>(const rapidjson::Value &val) { return val.IsBool()
 template <> bool IsType<unsigned int>(const rapidjson::Value &val) { return val.IsUint(); }
 template <> bool IsType<int>(const rapidjson::Value &val) { return val.IsInt(); }
 template <> bool IsType<uint64_t>(const rapidjson::Value &val) { return val.IsUint64(); }
+template <> bool IsType<int64_t>(const rapidjson::Value &val) { return val.IsInt64(); }
 template <> bool IsType<const char*>(const rapidjson::Value &val) { return val.IsString(); }
 template <> bool IsType<std::string>(const rapidjson::Value &val) { return val.IsString(); }
 
@@ -51,6 +52,7 @@ template <> bool GetType<bool>(const rapidjson::Value &val) { return val.GetBool
 template <> unsigned int GetType<unsigned int>(const rapidjson::Value &val) { return val.GetUint(); }
 template <> int GetType<int>(const rapidjson::Value &val) { return val.GetInt(); }
 template <> uint64_t GetType<uint64_t>(const rapidjson::Value &val) { return val.GetUint64(); }
+template <> int64_t GetType<int64_t>(const rapidjson::Value &val) { return val.GetInt64(); }
 template <> const char* GetType<const char*>(const rapidjson::Value &val) { return val.GetString(); }
 template <> std::string GetType<std::string>(const rapidjson::Value &val) { return val.GetString(); }
 
@@ -581,16 +583,21 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			const rapidjson::Value &dmval = dc["direct_message"];
 			const rapidjson::Value &delval = dc["delete"];
 			if(fval.IsArray()) {
-				using URF = user_relationship::URF;
 				tac->ta_flags |= taccount::TAF::STREAM_UP;
 				tac->last_stream_start_time = time(nullptr);
-				tac->ClearUsersIFollow();
-				time_t optime = 0;
-				for(rapidjson::SizeType i = 0; i < fval.Size(); i++) tac->SetUserRelationship(fval[i].GetUint64(), URF::IFOLLOW_KNOWN | URF::IFOLLOW_TRUE, optime);
+
+				std::vector<uint64_t> following;
+				following.reserve(fval.Size());
+				for(rapidjson::SizeType i = 0; i < fval.Size(); i++) {
+					following.push_back(fval[i].GetUint64());
+				}
+				tac->HandleUserIFollowList(std::move(following), true);
+
 				if(twit && (twit->post_action_flags & PAF::STREAM_CONN_READ_BACKFILL)) {
 					tac->GetRestBackfill();
 				}
 				user_window::RefreshAllFollow();
+				tac->GetUsersFollowingMeList();
 			}
 			else if(eval.IsString()) {
 				DoEventParse(dc);
@@ -684,6 +691,24 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 		}
 		case CS_SINGLETWEET: {
 			DoTweetParse(dc, JDTP::CHECKPENDINGONLY);
+			break;
+		}
+		case CS_OWNFOLLOWERLISTING: {
+			if(!dc.IsObject()) {
+				break;
+			}
+			auto &dci = dc["ids"];
+			if(!dci.IsArray()) {
+				break;
+			}
+			std::vector<uint64_t> followers;
+			followers.reserve(dci.Size());
+			for(rapidjson::SizeType i = 0; i < dci.Size(); i++) {
+				followers.push_back(dci[i].GetUint64());
+			}
+			int64_t nextcursor = CheckGetJsonValueDef<int64_t>(dc, "next_cursor", -1);
+
+			tac->HandleUsersFollowingMeList(std::move(followers), nextcursor == 0); // listing is complete if next cursor is 0, otherwise there are more pages
 			break;
 		}
 		case CS_NULL:
@@ -1118,14 +1143,16 @@ void jsonparser::DoEventParse(const rapidjson::Value &val) {
 	auto follow_update = [&](bool nowfollowing) {
 		auto targ = DoUserParse(val["target"]);
 		auto src = DoUserParse(val["source"]);
-		time_t optime = 0;
+
 		if(src->id == tac->usercont->id) {
-			tac->SetUserRelationship(targ->id, SetOrClearBits(URF::IFOLLOW_KNOWN, URF::IFOLLOW_TRUE, nowfollowing), optime);
+			URF flags = SetOrClearBits(URF::IFOLLOW_KNOWN, URF::IFOLLOW_TRUE, nowfollowing);
+			tac->SetUserRelationship(targ->id, flags, 0);
+			tac->NotifyUserRelationshipChange(targ->id, flags);
 		}
 		if(targ->id == tac->usercont->id) {
-			tac->SetUserRelationship(targ->id, SetOrClearBits(URF::FOLLOWSME_KNOWN, URF::FOLLOWSME_TRUE, nowfollowing), optime);
-			// Someone (un)followed the user
-			// TODO: Notify the user
+			URF flags = SetOrClearBits(URF::FOLLOWSME_KNOWN, URF::FOLLOWSME_TRUE, nowfollowing);
+			tac->SetUserRelationship(src->id, flags, 0);
+			tac->NotifyUserRelationshipChange(src->id, flags);
 		}
 	};
 
@@ -1138,11 +1165,11 @@ void jsonparser::DoEventParse(const rapidjson::Value &val) {
 			// This user (un)favourited the tweet
 			sflags |= nowfavourited ? JDTP::FAV : JDTP::UNFAV;
 		}
-		/*auto targ_tweet =*/ DoTweetParse(val["target_object"], sflags);
+		auto targ_tweet = DoTweetParse(val["target_object"], sflags);
 
-		if(targ->id == tac->usercont->id) {
+		if(targ->id == tac->usercont->id && targ_tweet) {
 			// Someone (un)favourited one of the user's tweets
-			// TODO: Notify the user
+			tac->NotifyTweetFavouriteEvent(targ_tweet->id, src->id, !nowfavourited);
 		}
 	};
 

@@ -322,6 +322,9 @@ void twitcurlext::DoQueueAsyncExec(std::unique_ptr<twitcurlext> this_owner) {
 		case CS_SINGLETWEET:
 			statusShowById(std::to_string(extra_id));
 			break;
+		case CS_OWNFOLLOWERLISTING:
+			followersIdsGet(std::to_string(acc->usercont->id), true);
+			break;
 		case CS_NULL:
 			break;
 	}
@@ -357,6 +360,7 @@ std::string twitcurlext::GetConnTypeName() {
 		case CS_USERFOLLOWING: action = "Retrieving following list"; break;
 		case CS_USERFOLLOWERS: action = "Retrieving followers list"; break;
 		case CS_SINGLETWEET: action = "Retrieving single tweet"; break;
+		case CS_OWNFOLLOWERLISTING: action = "Retrieving own followers listing"; break;
 		default: action = "Generic twitter API call"; break;
 	}
 	if(rbfs) {
@@ -493,6 +497,7 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res, std::unique_ptr<mcu
 		case CS_USERFOLLOWING: break;
 		case CS_USERFOLLOWERS: break;
 		case CS_SINGLETWEET: break;
+		case CS_OWNFOLLOWERLISTING: break;
 		default: break;
 	}
 	LogMsgFormat(LOGT::SOCKERR, "%s failed (%s)", cstr(action), cstr(acc->dispname));

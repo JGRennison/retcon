@@ -25,7 +25,7 @@
 #include "log.h"
 #include "userui.h"
 #include "mainui.h"
-#include "log.h"
+#include "log-util.h"
 #include "optui.h"
 #include "raii.h"
 #include "libtwitcurl/oauthlib.h"
@@ -72,16 +72,58 @@ void taccount::SetName() {
 		|| checkstr(wxString::Format(wxT("Account with user ID: %" wxLongLongFmtSpec "d"), usercont->id));
 }
 
-void taccount::ClearUsersIFollow() {
+void taccount::ClearAllUserRelationshipsByType(user_relationship::UR_TYPE type, std::vector<uint64_t> *currentset, std::vector<uint64_t> *pendingset) {
 	using URF = user_relationship::URF;
-	for(auto &it : user_relations) {
-		it.second.ur_flags |= URF::IFOLLOW_KNOWN;
-		it.second.ur_flags &= ~URF::IFOLLOW_TRUE;
-		it.second.ifollow_updtime = 0;
+
+	auto exec = [&](URF knownflag, URF trueflag, URF pendingflag, time_t user_relationship::* timeptr) {
+		for(auto &it : user_relations) {
+			if(currentset && it.second.ur_flags & knownflag && it.second.ur_flags & trueflag) {
+				currentset->push_back(it.first);
+			}
+			if(pendingset && it.second.ur_flags & knownflag && it.second.ur_flags & pendingflag) {
+				pendingset->push_back(it.first);
+			}
+			it.second.ur_flags |= knownflag;
+			it.second.ur_flags &= ~trueflag;
+			it.second.*timeptr = 0;
+		}
+	};
+
+	switch(type) {
+		case user_relationship::UR_TYPE::IFOLLOW:
+			exec(URF::IFOLLOW_KNOWN, URF::IFOLLOW_TRUE, URF::IFOLLOW_PENDING, &user_relationship::ifollow_updtime);
+			break;
+		case user_relationship::UR_TYPE::FOLLOWSME:
+			exec(URF::FOLLOWSME_KNOWN, URF::FOLLOWSME_TRUE, URF::FOLLOWSME_PENDING, &user_relationship::followsme_updtime);
+			break;
 	}
 }
 
-void taccount::SetUserRelationship(uint64_t userid, flagwrapper<user_relationship::URF> flags, const time_t &optime) {
+void taccount::GetSetUserRelationshipsByType(user_relationship::UR_TYPE type, std::vector<uint64_t> *currentset, std::vector<uint64_t> *pendingset) {
+	using URF = user_relationship::URF;
+
+	auto exec = [&](URF knownflag, URF trueflag, URF pendingflag) {
+		for(auto &it : user_relations) {
+			if(currentset && it.second.ur_flags & knownflag && it.second.ur_flags & trueflag) {
+				currentset->push_back(it.first);
+			}
+			if(pendingset && it.second.ur_flags & knownflag && it.second.ur_flags & pendingflag) {
+				pendingset->push_back(it.first);
+			}
+		}
+	};
+
+	switch(type) {
+		case user_relationship::UR_TYPE::IFOLLOW:
+			exec(URF::IFOLLOW_KNOWN, URF::IFOLLOW_TRUE, URF::IFOLLOW_PENDING);
+			break;
+		case user_relationship::UR_TYPE::FOLLOWSME:
+			exec(URF::FOLLOWSME_KNOWN, URF::FOLLOWSME_TRUE, URF::FOLLOWSME_PENDING);
+			break;
+	}
+}
+
+void taccount::SetUserRelationship(uint64_t userid, flagwrapper<user_relationship::URF> flags, time_t optime) {
 	using URF = user_relationship::URF;
 	user_relationship &ur = user_relations[userid];
 	if(flags & URF::FOLLOWSME_KNOWN) {
@@ -135,6 +177,103 @@ void taccount::LookupFriendships(uint64_t userid) {
 	twit->fl = std::move(fl);
 	twit->genurl = twit->fl->GetTwitterURL();
 	twitcurlext::QueueAsyncExec(std::move(twit));
+}
+
+void taccount::GetUsersFollowingMeList() {
+	std::unique_ptr<twitcurlext> twit = GetTwitCurlExt();
+	twit->connmode = CS_OWNFOLLOWERLISTING;
+	twitcurlext::QueueAsyncExec(std::move(twit));
+}
+
+void taccount::HandleUsersFollowingMeList(std::vector<uint64_t> userids, bool complete) {
+	using URF = user_relationship::URF;
+	HandleUserRelationshipListCommon(std::move(userids), complete, user_relationship::UR_TYPE::FOLLOWSME, ur_followsme_have_list, URF::FOLLOWSME_KNOWN | URF::FOLLOWSME_TRUE);
+}
+
+void taccount::HandleUserIFollowList(std::vector<uint64_t> userids, bool complete) {
+	using URF = user_relationship::URF;
+	HandleUserRelationshipListCommon(std::move(userids), complete, user_relationship::UR_TYPE::IFOLLOW, ur_ifollow_have_list, URF::IFOLLOW_KNOWN | URF::IFOLLOW_TRUE);
+}
+
+void taccount::HandleUserRelationshipListCommon(std::vector<uint64_t> userids, bool complete, user_relationship::UR_TYPE type, bool &listvalid, user_relationship::URF setto) {
+	std::vector<uint64_t> oldset, oldpending;
+	if(complete) {
+		ClearAllUserRelationshipsByType(type, &oldset, &oldpending);
+	}
+	else {
+		GetSetUserRelationshipsByType(type, &oldset, &oldpending);
+	}
+
+	for(uint64_t id : userids) {
+		SetUserRelationship(id, setto, 0);
+	}
+
+	// Don't notify if this is the first time
+	// No point telling the user that they're suddenly following/followed by umpteen users if they add a new account with existing follows/followers
+	if(listvalid) {
+		NotifyDiffUserRelationshipList(type, oldset, oldpending);
+	}
+	listvalid = true;
+}
+
+void taccount::NotifyDiffUserRelationshipList(user_relationship::UR_TYPE type, const std::vector<uint64_t> &oldset, const std::vector<uint64_t> &oldpending) {
+	using URF = user_relationship::URF;
+
+	std::vector<uint64_t> newset, newpending;
+	GetSetUserRelationshipsByType(type, &newset, &newpending);
+
+	auto exec = [&](URF knownflag, URF trueflag, URF pendingflag) {
+		std::vector<uint64_t> symdiffset, symdiffpending, symdiff;
+		std::set_symmetric_difference(
+			oldset.begin(), oldset.end(),
+			newset.begin(), newset.end(),
+			std::back_inserter(symdiffset));
+		std::set_symmetric_difference(
+			oldpending.begin(), oldpending.end(),
+			newpending.begin(), newpending.end(),
+			std::back_inserter(symdiffpending));
+		std::set_union(
+			symdiffset.begin(), symdiffset.end(),
+			symdiffpending.begin(), symdiffpending.end(),
+			std::back_inserter(symdiff));
+		for(uint64_t id : symdiff) {
+			user_relationship &ur = user_relations[id];
+			if(ur.ur_flags & knownflag) {
+				NotifyUserRelationshipChange(id, knownflag | (ur.ur_flags & (trueflag | pendingflag)));
+			}
+		}
+	};
+
+	switch(type) {
+		case user_relationship::UR_TYPE::IFOLLOW:
+			exec(URF::IFOLLOW_KNOWN, URF::IFOLLOW_TRUE, URF::IFOLLOW_PENDING);
+			break;
+		case user_relationship::UR_TYPE::FOLLOWSME:
+			exec(URF::FOLLOWSME_KNOWN, URF::FOLLOWSME_TRUE, URF::FOLLOWSME_PENDING);
+			break;
+	}
+}
+
+void taccount::NotifyUserRelationshipChange(uint64_t userid, user_relationship::URF flags) {
+	using URF = user_relationship::URF;
+	std::string evttype;
+	if(flags & URF::FOLLOWSME_KNOWN) {
+		if(flags & URF::FOLLOWSME_TRUE) evttype += ", Followed you";
+		else if(flags & URF::FOLLOWSME_PENDING) evttype += ", Followed you (pending)";
+		else evttype += ", Unfollowed you";
+	}
+	if(flags & URF::IFOLLOW_KNOWN) {
+		if(flags & URF::IFOLLOW_TRUE) evttype += ", You followed";
+		else if(flags & URF::IFOLLOW_PENDING) evttype += ", You followed (pending)";
+		else evttype += ", You unfollowed";
+	}
+	LogMsgFormat(LOGT::NOTIFYEVT, "taccount::NotifyUserRelationshipChange: %s: %s%s",
+			cstr(dispname), cstr(user_short_log_line(userid)), cstr(evttype));
+}
+
+void taccount::NotifyTweetFavouriteEvent(uint64_t tweetid, uint64_t userid, bool unfavourite) {
+	LogMsgFormat(LOGT::NOTIFYEVT, "taccount::NotifyTweetFavouriteEvent: %s: %s %s %s",
+			cstr(dispname), cstr(user_short_log_line(userid)), unfavourite ? "unfavourited" : "favourited", cstr(tweet_short_log_line(tweetid)));
 }
 
 void taccount::OnRestTimer(wxTimerEvent& event) {

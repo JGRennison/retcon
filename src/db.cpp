@@ -94,6 +94,7 @@ static const char *startup_sql=
 "CREATE TABLE IF NOT EXISTS mainframewins(mainframeindex INTEGER, x INTEGER, y INTEGER, w INTEGER, h INTEGER, maximised INTEGER);"
 "CREATE TABLE IF NOT EXISTS tpanels(name TEXT, dispname TEXT, flags INTEGER, ids BLOB);"
 "CREATE TABLE IF NOT EXISTS staticsettings(name TEXT PRIMARY KEY NOT NULL, value BLOB);"
+"CREATE TABLE IF NOT EXISTS userrelationships(accid INTEGER, userid INTEGER, flags INTEGER, followmetime INTEGER, ifollowtime INTEGER);"
 "INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', 'dirtyflag', strftime('%s','now'));";
 
 static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
@@ -1065,6 +1066,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	SyncReadInTpanels(syncdb);
 	SyncReadInWindowLayout(syncdb);
 	SyncReadInAllTweetIDs(syncdb);
+	SyncReadInUserRelationships(syncdb);
 
 	LogMsgFormat(LOGT::DBTRACE, "dbconn::Init(): State read in from database complete, about to create database thread");
 
@@ -1147,6 +1149,7 @@ void dbconn::DeInit() {
 		SyncWriteBackCIDSLists(syncdb);
 		SyncWriteBackWindowLayout(syncdb);
 		SyncWriteBackTpanels(syncdb);
+		SyncWriteBackUserRelationships(syncdb);
 	}
 	SyncPurgeMediaEntities(syncdb); //this does a dry-run in read-only mode
 	SyncPurgeProfileImages(syncdb); //this does a dry-run in read-only mode
@@ -2175,6 +2178,68 @@ void dbconn::SyncWriteBackTpanels(sqlite3 *adb) {
 
 void dbconn::AsyncWriteBackTpanels(dbfunctionmsg &msg) {
 	DoGenericAsyncWriteBack(msg, WriteBackTpanels(), "dbconn::AsyncWriteBackTpanels");
+}
+
+void dbconn::SyncReadInUserRelationships(sqlite3 *adb) {
+	LogMsg(LOGT::DBTRACE, "dbconn::SyncReadInUserRelationships start");
+
+	auto s = DBInitialiseSql(adb, "SELECT userid, flags, followmetime, ifollowtime FROM userrelationships WHERE accid == ?;");
+
+	for(auto &it : alist) {
+		unsigned int read_count = 0;
+
+		DBBindRowExec(adb, s.stmt(),
+			[&](sqlite3_stmt *stmt) {
+				sqlite3_bind_int(stmt, 1, it->dbindex);
+			},
+			[&](sqlite3_stmt *stmt) {
+				uint64_t id = (uint64_t) sqlite3_column_int64(stmt, 0);
+				auto &ur = it->user_relations[id];
+				ur.ur_flags = static_cast<user_relationship::URF>(sqlite3_column_int64(stmt, 1));
+				ur.followsme_updtime = (time_t) sqlite3_column_int64(stmt, 2);
+				ur.ifollow_updtime = (time_t) sqlite3_column_int64(stmt, 3);
+				read_count++;
+			},
+			"dbconn::SyncReadInUserRelationships"
+		);
+		LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInUserRelationships read in %u for account: %s", read_count, cstr(it->dispname));
+	}
+}
+
+void dbconn::SyncWriteBackUserRelationships(sqlite3 *adb) {
+	LogMsg(LOGT::DBTRACE, "dbconn::SyncWriteBackUserRelationships start");
+
+	cache.BeginTransaction(adb);
+	sqlite3_exec(adb, "DELETE FROM userrelationships", 0, 0, 0);
+
+	auto s = DBInitialiseSql(adb, "INSERT INTO userrelationships (accid, userid, flags, followmetime, ifollowtime) VALUES (?, ?, ?, ?, ?);");
+
+	for(auto &it : alist) {
+		unsigned int write_count = 0;
+
+		for(auto &ur : it->user_relations) {
+			using URF = user_relationship::URF;
+			URF flags = ur.second.ur_flags;
+			if(!(flags & (URF::FOLLOWSME_TRUE | URF::IFOLLOW_TRUE | URF::FOLLOWSME_PENDING | URF::IFOLLOW_PENDING))) continue;
+			flags &= ~URF::QUERY_PENDING;
+
+			DBBindExec(adb, s.stmt(),
+				[&](sqlite3_stmt *stmt) {
+					sqlite3_bind_int64(stmt, 1, it->dbindex);
+					sqlite3_bind_int64(stmt, 2, static_cast<int64_t>(ur.first));
+					sqlite3_bind_int64(stmt, 3, static_cast<int64_t>(flags));
+					sqlite3_bind_int64(stmt, 4, static_cast<int64_t>(ur.second.followsme_updtime));
+					sqlite3_bind_int64(stmt, 5, static_cast<int64_t>(ur.second.ifollow_updtime));
+				},
+				"dbconn::SyncWriteBackUserRelationships"
+			);
+			write_count++;
+		}
+		LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncWriteBackUserRelationships wrote %u for account: %s", write_count, cstr(it->dispname));
+	}
+
+	cache.EndTransaction(adb);
+	LogMsg(LOGT::DBTRACE, "dbconn::SyncWriteBackUserRelationships end");
 }
 
 void dbconn::SyncPurgeMediaEntities(sqlite3 *adb) {
