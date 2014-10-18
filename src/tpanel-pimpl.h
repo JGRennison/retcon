@@ -74,7 +74,7 @@ struct panelparentwin_base_impl : public bindwxevt {
 	int IDToCurrentDispIndex(uint64_t id) const;
 	wxString GetThisName() const;
 	virtual mainframe *GetMainframe();
-	tpanel_disp_item *CreateItemAtIndex(size_t index, uint64_t id);
+	tpanel_disp_item *CreateItemAtPosition(tpanel_disp_item_list::iterator iter, uint64_t id);
 
 	void ResetBatchTimer();
 
@@ -220,7 +220,7 @@ struct tpanelparentwin_user_impl : public panelparentwin_base_impl {
 	virtual void PageTopHandler() override;
 	virtual size_t ItemCount() { return userlist.size(); }
 	bool PushBackUser(udc_ptr_p u);
-	bool UpdateUser(udc_ptr_p u, size_t offset);
+	bool UpdateUser(udc_ptr_p u);
 	virtual void LoadMoreToBack(unsigned int n) { }
 };
 

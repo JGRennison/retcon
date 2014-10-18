@@ -372,12 +372,10 @@ void panelparentwin_base_impl::ShowHideButtons(std::string type, bool show) {
 	for(auto it = iterpair.first; it != iterpair.second; ++it) it->second->Show(show);
 }
 
-tpanel_disp_item *panelparentwin_base_impl::CreateItemAtIndex(size_t index, uint64_t id) {
-	LogMsgFormat(LOGT::TPANEL, "panelparentwin_base_impl::CreateItemAtIndex, %s, %d, id: %" llFmtSpec "u", cstr(GetThisName()), index, id);
-
+tpanel_disp_item *panelparentwin_base_impl::CreateItemAtPosition(tpanel_disp_item_list::iterator iter, uint64_t id) {
 	tpanel_item *item = new tpanel_item(scrollpane);
 
-	auto newit = currentdisp.insert(std::next(currentdisp.begin(), index), { id, nullptr, item });
+	auto newit = currentdisp.insert(iter, { id, nullptr, item });
 	return &(*newit);
 }
 
@@ -683,9 +681,8 @@ void tpanelparentwin_nt_impl::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pu
 		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::PushTweet 1, %d, %d, %d", displayoffset, (int) currentdisp.size(), recalcdisplayoffset);
 	#endif
 	if(pushflags & PUSHFLAGS::SETNOUPDATEFLAG) tppw_flags |= TPPWF::NOUPDATEONPUSH;
-	size_t index = 0;
 	auto it = currentdisp.begin();
-	for(; it != currentdisp.end(); it++, index++) {
+	for(; it != currentdisp.end(); ++it) {
 		if(it->id < id) break;	//insert before this iterator
 	}
 	#if TPANEL_COPIOUS_LOGGING
@@ -699,7 +696,7 @@ void tpanelparentwin_nt_impl::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pu
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::PushTweet 3, %d, %d, %d, %d", displayoffset, currentdisp.size(), index, recalcdisplayoffset);
 	#endif
-	tpanel_disp_item *tpdi = CreateItemAtIndex(index, t->id);
+	tpanel_disp_item *tpdi = CreateItemAtPosition(it, t->id);
 	tweetdispscr *td = CreateTweetInItem(t, *tpdi);
 
 	if(!(tppw_flags & TPPWF::NOUPDATEONPUSH)) td->ForceRefresh();
@@ -1632,15 +1629,14 @@ void tpanelparentwin_user_impl::PageUpHandler() {
 		SetNoUpdateFlag();
 		size_t pagemove = std::min((size_t) (gc.maxtweetsdisplayinpanel + 1) / 2, (size_t) displayoffset);
 		size_t curnum = currentdisp.size();
-		size_t bottomdrop = std::min(curnum, (size_t) (curnum+pagemove - gc.maxtweetsdisplayinpanel));
+		size_t bottomdrop = std::min(curnum, (size_t) (curnum + pagemove - gc.maxtweetsdisplayinpanel));
 		for(size_t i = 0; i < bottomdrop; i++) PopBottom();
 		auto it = userlist.begin() + displayoffset;
 		for(unsigned int i = 0; i < pagemove; i++) {
-			it--;
-			displayoffset--;
-			udc_ptr_p u = *it;
-			if(u->IsReady(PENDING_REQ::PROFIMG_DOWNLOAD)) UpdateUser(u, displayoffset);
+			--it;
+			UpdateUser(*it);
 		}
+		displayoffset -= pagemove;
 		CheckClearNoUpdateFlag();
 	}
 	scrollbar->page_scroll_blocked = false;
@@ -1653,7 +1649,7 @@ void tpanelparentwin_user_impl::PageDownHandler() {
 		size_t pagemove;
 		if(tppw_flags & TPPWF::CANALWAYSSCROLLDOWN) pagemove = (gc.maxtweetsdisplayinpanel + 1) / 2;
 		else pagemove = std::min((size_t) (gc.maxtweetsdisplayinpanel + 1) / 2, (size_t) (num - (curnum + displayoffset)));
-		size_t topdrop = std::min(curnum, (size_t) (curnum+pagemove - gc.maxtweetsdisplayinpanel));
+		size_t topdrop = std::min(curnum, (size_t) (curnum + pagemove - gc.maxtweetsdisplayinpanel));
 		for(size_t i = 0; i < topdrop; i++) PopTop();
 		displayoffset += topdrop;
 		base()->LoadMoreToBack(pagemove);
@@ -1671,10 +1667,11 @@ void tpanelparentwin_user_impl::PageTopHandler() {
 			for(ssize_t i = 0; i < bottomdrop; i++) PopBottom();
 		}
 		displayoffset = 0;
-		size_t i = 0;
-		for(auto it = userlist.begin(); it != userlist.end() && pushcount; ++it, --pushcount, i++) {
-			udc_ptr_p u = *it;
-			if(u->IsReady(PENDING_REQ::PROFIMG_DOWNLOAD)) UpdateUser(u, i);
+		for(auto &u : userlist) {
+			if(pushcount) --pushcount;
+			else break;
+
+			UpdateUser(u);
 		}
 		CheckClearNoUpdateFlag();
 	}
@@ -1686,45 +1683,42 @@ bool tpanelparentwin_user::PushBackUser(udc_ptr_p u) {
 }
 
 bool tpanelparentwin_user_impl::PushBackUser(udc_ptr_p u) {
-	bool havealready = false;
-	size_t offset;
-	for(auto it = userlist.begin(); it != userlist.end(); ++it) {
-		if((*it).get() == u.get()) {
-			havealready = true;
-			offset = std::distance(userlist.begin(), it);
-			break;
-		}
-	}
-	if(!havealready) {
+	if(std::find(userlist.begin(), userlist.end(), u) == userlist.end()) {
 		userlist.push_back(u);
-		offset = userlist.size() - 1;
 	}
-	return UpdateUser(u, offset);
+
+	return UpdateUser(u);
 }
 
-//! returns true if marked pending
-bool tpanelparentwin_user_impl::UpdateUser(udc_ptr_p u, size_t offset) {
-	size_t index = 0;
-	auto jt = userlist.begin();
-	size_t i = 0;
-	for(auto it = currentdisp.begin(); it != currentdisp.end(); ++it, i++) {
-		for(; jt != userlist.end(); ++jt) {
-			if(it->id == (*jt)->id) {
-				if(it->id == u->id) {
-					static_cast<userdispscr *>(it->disp)->Display();
-					return false;
-				}
-				else if(offset > (size_t) std::distance(userlist.begin(), jt)) {
-					index = i + 1;
-				}
-				break;
-			}
+// u must already be in userlist
+// returns true if marked pending
+bool tpanelparentwin_user_impl::UpdateUser(udc_ptr_p u) {
+	// scan currentdisp first
+	for(auto &it : currentdisp) {
+		if(it.id == u->id) {
+			static_cast<userdispscr *>(it.disp)->Display();
+			return false;
 		}
 	}
 
 	if(u->IsReady(PENDING_REQ::PROFIMG_DOWNLOAD | PENDING_REQ::USEREXPIRE)) {
+		// currentdisp is a subsample of userlist
+		// Neither are inherently ordered
+		// They are ordered with respect to each other
+		// u is not in currentdisp at this point
+
+		auto cd = currentdisp.begin();
+		for(auto &ul : userlist) {
+			if(u == ul || cd == currentdisp.end()) {
+				break;
+			}
+			if(cd->id == ul->id) {
+				++cd;
+			}
+		}
+
 		scrollpane->Freeze();
-		tpanel_disp_item *tpdi = CreateItemAtIndex(index, u->id);
+		tpanel_disp_item *tpdi = CreateItemAtPosition(cd, u->id);
 		tpanel_item *item = tpdi->item;
 
 		userdispscr *td = new userdispscr(u, item, base(), item->hbox);
