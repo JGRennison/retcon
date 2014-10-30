@@ -38,7 +38,7 @@
 #ifdef __WINDOWS__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
-#include "strptime.cpp"
+#include "../deps/strptime.cpp"
 #pragma GCC diagnostic pop
 #endif
 #include "utf8proc/utf8proc.h"
