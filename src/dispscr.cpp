@@ -689,7 +689,8 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 
 						// This is to de-duplicate entities which have the same start and end points
 						// In particular this is the case for DMs with embedded media, which have
-						// both URL and media entities with the same offsets and URL.
+						// both URL and media entities with the same offsets and URL, and for tweets
+						// with multiple attached media using extended_entities
 						// Discard all but the first one.
 						if(last_start != et.start || last_end != et.end) {
 							obj->BeginUnderline();
@@ -1048,9 +1049,12 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 			bool have_first = false;
 			Newline();
 			BeginAlignment(wxTEXT_ALIGNMENT_CENTRE);
+			wxRichTextRange img_range = AddParagraph(wxT(""));
+			SetInsertionPoint(img_range.GetEnd());
 			for(auto &it : me_list) {
 				media_entity_updaters.emplace_back(it);
-				if(have_first) WriteText(wxT(" - "));
+
+				if(have_first) WriteText(wxT(" "));
 
 				bool hide_thumb = (tw.flags.Get('p') || gc.hideallthumbs) && !hidden_thumbnails_override;
 
@@ -1060,14 +1064,20 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 					it->CheckLoadThumb(loadflags);
 				}
 
-				BeginURL(wxString::Format(wxT("M%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), (int64_t) it->media_id.m_id, (int64_t) it->media_id.t_id));
+				wxString url = wxString::Format(wxT("M%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), (int64_t) it->media_id.m_id, (int64_t) it->media_id.t_id);
+				BeginURL(url);
 				if(!gc.dispthumbs) {
 					BeginUnderline();
 					WriteText(wxT("[Image]"));
 					EndUnderline();
 				}
 				else if(it->flags & MEF::HAVE_THUMB && !hide_thumb) {
-					AddImage(it->thumbimg);
+					long curpos = GetInsertionPoint();
+					WriteImage(it->thumbimg);
+					SetInsertionPointEnd();
+					wxTextAttrEx attr(GetDefaultStyleEx());
+					attr.SetURL(url);
+					SetStyleEx(curpos, GetInsertionPoint(), attr, wxRICHTEXT_SETSTYLE_OPTIMIZE);
 					shown_thumbnails = true;
 				}
 				else if(it->flags & MEF::THUMB_NET_INPROGRESS) {
@@ -1089,22 +1099,23 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 				}
 				else {
 					BeginUnderline();
-					WriteText(wxT("[Image]"));
+					WriteText(wxT("[Image"));
 					EndUnderline();
 					EndURL();
-					WriteText(wxT(" "));
+					WriteText(wxT(" - "));
 					BeginURL(wxString::Format(wxT("L%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), (int64_t) it->media_id.m_id, (int64_t) it->media_id.t_id));
 					BeginUnderline();
-					WriteText(wxT("[Click to Load Thumbnail]"));
+					WriteText(wxT("Click to Load Thumbnail]"));
 					EndUnderline();
 				}
 				EndURL();
 				have_first = true;
 			}
-			Newline();
 			EndAlignment();
 			if(hidden_thumbnails) {
 				BeginAlignment(wxTEXT_ALIGNMENT_CENTRE);
+				wxRichTextRange r = AddParagraph(wxT(""));
+				SetInsertionPoint(r.GetEnd());
 				if(!gc.hideallthumbs) { //Unhide link does nothing when hide all thumbnails option is set
 					BeginURL(wxT("Xp"));
 					BeginUnderline();
@@ -1118,7 +1129,6 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 				WriteText(wxString::Format(wxT("[Unhide for %d seconds]"), gc.imgthumbunhidetime));
 				EndUnderline();
 				EndURL();
-				Newline();
 				EndAlignment();
 			}
 			if(shown_thumbnails && hidden_thumbnails_override) {

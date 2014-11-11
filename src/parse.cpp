@@ -127,12 +127,22 @@ void genjsonparser::ParseTweetStatics(const rapidjson::Value &val, tweet_ptr_p t
 	CheckTransJsonValueDef(tobj->favourite_count, val, "favorite_count", 0);
 	CheckTransJsonValueDef(tobj->source, val, "source", "", jw);
 	CheckTransJsonValueDef(tobj->text, val, "text", "", jw);
-	const rapidjson::Value &entv=val["entities"];
+
+	const rapidjson::Value &entv = val["entities"];
+	const rapidjson::Value &entvex = val["extended_entities"];
 	if(entv.IsObject()) {
-		if(parse_entities) DoEntitiesParse(entv, tobj, isnew, dbmsglist);
+		if(parse_entities) {
+			DoEntitiesParse(entv, entvex.IsObject() ? &entvex : nullptr, tobj, isnew, dbmsglist);
+		}
 		if(jw) {
 			jw->String("entities");
 			entv.Accept(*jw);
+		}
+	}
+	if(entvex.IsObject()) {
+		if(jw) {
+			jw->String("extended_entities");
+			entvex.Accept(*jw);
 		}
 	}
 }
@@ -189,13 +199,20 @@ static std::string ProcessMediaURL(std::string url, const wxURI &wxuri) {
 	return url;
 }
 
-void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, tweet_ptr_p t, bool isnew, optional_observer_ptr<dbsendmsg_list> dbmsglist) {
+void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observer_ptr<const rapidjson::Value> val_ex, tweet_ptr_p t, bool isnew, optional_observer_ptr<dbsendmsg_list> dbmsglist) {
 	LogMsg(LOGT::PARSE, "jsonparser::DoEntitiesParse");
 
 	auto &hashtags = val["hashtags"];
 	auto &urls = val["urls"];
 	auto &user_mentions = val["user_mentions"];
-	auto &media = val["media"];
+
+	optional_observer_ptr<const rapidjson::Value> media_array = nullptr;
+	auto &media_std = val["media"];
+	if(media_std.IsArray()) media_array = &media_std;
+	if(val_ex) {
+		auto &media_ex = (*val_ex)["media"];
+		if(media_ex.IsArray()) media_array = &media_ex;
+	}
 
 	t->entlist.clear();
 
@@ -203,7 +220,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, tweet_ptr_p t, 
 	if(hashtags.IsArray()) entity_count += hashtags.Size();
 	if(urls.IsArray()) entity_count += urls.Size();
 	if(user_mentions.IsArray()) entity_count += user_mentions.Size();
-	if(media.IsArray()) entity_count += media.Size();
+	if(media_array) entity_count += media_array->Size();
 	t->entlist.reserve(entity_count);
 
 	if(hashtags.IsArray()) {
@@ -351,7 +368,8 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, tweet_ptr_p t, 
 		}
 	}
 
-	if(media.IsArray()) {
+	if(media_array) {
+		auto &media = *media_array;
 		for(rapidjson::SizeType i = 0; i < media.Size(); i++) {
 			t->flags.Set('I');
 			t->entlist.emplace_back(ENT_MEDIA);
