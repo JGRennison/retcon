@@ -80,6 +80,7 @@ enum class JDTP {
 	USERTIMELINE       = 1<<5,
 	CHECKPENDINGONLY   = 1<<6,
 	POSTDBLOAD         = 1<<7,
+	ALWAYSREPARSE      = 1<<8,
 };
 template<> struct enum_traits<JDTP> { static constexpr bool flags = true; };
 
@@ -96,6 +97,7 @@ struct jsonparser : public genjsonparser {
 		rapidjson::Document doc;
 		uint64_t rbfs_userid = 0;
 		RBFS_TYPE rbfs_type = RBFS_NULL;
+		flagwrapper<JDTP> base_sflags = 0;
 	};
 	std::shared_ptr<parse_data> data;
 	std::unique_ptr<dbsendmsg_list> dbmsglist;

@@ -1437,6 +1437,12 @@ void TweetURLHandler(wxWindow *win, wxString url, tweet_ptr_p td, panelparentwin
 					AppendToTAMIMenuMap(tamd, nextid, TAMI_DELETE, td, deldbindex2?deldbindex2:deldbindex);
 				}
 
+				if(gc.tweetdebugactions) {
+					wxMenu *debugsubmenu = new wxMenu();
+					menu.AppendSubMenu(debugsubmenu, wxT("Debug"));
+					MakeDebugMenu(debugsubmenu, tamd, nextid, td);
+				}
+
 				dopopupmenu(menuptr);  // See note above on PopupMenu
 				break;
 			}

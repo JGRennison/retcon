@@ -111,6 +111,7 @@ struct genoptconf {
 	CFGTEMPL_L(mousewheelscrollspeed) \
 	CFGTEMPL_L(linescrollspeed) \
 	CFGTEMPL_BOOL(askuseraccsettingsonnewacc) \
+	CFGTEMPL_BOOL(tweetdebugactions) \
 
 struct genoptglobconf {
 #define CFGTEMPL(x) genopt x;

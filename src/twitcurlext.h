@@ -40,6 +40,7 @@ struct mainframe;
 struct twitcurlext: public twitCurl, public mcurlconn {
 	enum class TCF {
 		ISSTREAM       = 1<<0,
+		ALWAYSREPARSE  = 1<<1,
 	};
 
 	std::weak_ptr<taccount> tacc;

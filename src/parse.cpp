@@ -528,6 +528,10 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 		data->rbfs_type = twit->rbfs->type;
 	}
 
+	if(twit && twit->tc_flags & twitcurlext::TCF::ALWAYSREPARSE) {
+		data->base_sflags |= JDTP::ALWAYSREPARSE;
+	}
+
 	if(dc.ParseInsitu<0>(data->json.data()).HasParseError()) {
 		DisplayParseErrorMsg(dc, "jsonparser::ParseString", data->json.data());
 		return false;
@@ -948,6 +952,8 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 		return tobj;
 	}
 
+	sflags |= data->base_sflags;
+
 	if(sflags & JDTP::ISDM) tobj->flags.Set('D');
 	else tobj->flags.Set('T');
 	if(tac->ssl) tobj->flags.Set('s');
@@ -994,7 +1000,9 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 	if(sflags & JDTP::UNFAV) tp->SetFavourited(false);
 
 	std::string json;
-	if(tobj->createtime == 0 && !(sflags & JDTP::DEL)) {	// this is a better test than merely whether the tweet object is new
+	if((tobj->createtime == 0 && !(sflags & JDTP::DEL)) || (sflags & JDTP::ALWAYSREPARSE)) {
+		// this is a better test than merely whether the tweet object is new
+
 		writestream wr(json);
 		Handler jw(wr);
 		jw.StartObject();
@@ -1137,8 +1145,8 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 	if(!have_checked_pending) is_ready = tac->MarkPendingOrHandle(tobj, arr);
 	if(tobj->lflags & TLF::ISPENDING && is_ready) TryUnmarkPendingTweet(tobj);
 
-	if(tobj->lflags & TLF::SHOULDSAVEINDB || tobj->lflags&TLF::SAVED_IN_DB) {
-		if(!(tobj->lflags & TLF::SAVED_IN_DB)) {
+	if(tobj->lflags & TLF::SHOULDSAVEINDB || tobj->lflags & TLF::SAVED_IN_DB) {
+		if(!(tobj->lflags & TLF::SAVED_IN_DB) || (sflags & JDTP::ALWAYSREPARSE)) {
 			if(json.empty()) {
 				writestream wr(json);
 				Handler jw(wr);

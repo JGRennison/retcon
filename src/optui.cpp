@@ -627,6 +627,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 
 	AddSettingRow_String(OPTWIN_MISC, panel, fgs, wxT("Thread pool limit, 0 to disable\nDo not set this too high\nRestart retcon for this to take effect"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.threadpoollimit, gcglobdefaults.threadpoollimit, wxFILTER_NUMERIC);
 	AddSettingRow_String(OPTWIN_MISC, panel, fgs, wxT("Flush all state to DB interval / mins, 0 to disable\nChanges take effect after the next flush"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.asyncstatewritebackintervalmins, gcglobdefaults.asyncstatewritebackintervalmins, wxFILTER_NUMERIC);
+	AddSettingRow_Bool(OPTWIN_MISC, panel, fgs,  wxT("Show debug actions in tweet menu"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.tweetdebugactions, gcglobdefaults.tweetdebugactions);
 
 	wxFlexGridSizer *proxyfgs = nullptr;
 	addfgsizerblock(wxT("Proxy Settings"), proxyfgs);

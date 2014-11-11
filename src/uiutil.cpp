@@ -227,6 +227,13 @@ void MakeImageMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_
 	}
 }
 
+void MakeDebugMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw) {
+	if(tw->flags.Get('T')) {
+		menuP->Append(nextid, wxT("Force reload"));
+		AppendToTAMIMenuMap(map, nextid, TAMI_DBG_FORCERELOAD, tw);
+	}
+}
+
 void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 	unsigned int dbindex = map[curid].dbindex;
 	std::shared_ptr<taccount> *acc = nullptr;
@@ -408,6 +415,21 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 			if(mainwin) {
 				auto tp = tpanel::MkTPanel("", "", TPF::DELETEONWINCLOSE, {}, { { TPFU::DMSET, map[curid].user } });
 				tp->MkTPanelWin(mainwin, true);
+			}
+			break;
+		}
+		case TAMI_DBG_FORCERELOAD: {
+			std::shared_ptr<taccount> acc_hint;
+			if(acc) acc_hint = *acc;
+			if(map[curid].tw->GetUsableAccount(acc_hint, tweet::GUAF::CHECKEXISTING)) {
+				std::unique_ptr<twitcurlext> twit = acc_hint->GetTwitCurlExt();
+				twit->connmode = CS_SINGLETWEET;
+				twit->extra_id = map[curid].tw->id;
+				twit->tc_flags |= twitcurlext::TCF::ALWAYSREPARSE;
+				twitcurlext::QueueAsyncExec(std::move(twit));
+			}
+			else {
+				LogMsgFormat(LOGT::OTHERERR, "TAMI_DBG_FORCERELOAD: Cannot lookup tweet: id: %" llFmtSpec "d.", map[curid].tw->id);
 			}
 			break;
 		}

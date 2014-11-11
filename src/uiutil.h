@@ -73,6 +73,7 @@ typedef enum {
 	TAMI_ADDTOPANEL,
 	TAMI_REMOVEFROMPANEL,
 	TAMI_DMSETPANEL,
+	TAMI_DBG_FORCERELOAD,
 } TAMI_TYPE;
 
 struct tweetactmenuitem {
@@ -99,6 +100,7 @@ void MakeCopyMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p
 void MakeMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw);
 void MakeTPanelMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw, tpanelparentwin_nt *tppw);
 void MakeImageMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw);
+void MakeDebugMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw);
 void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin = nullptr);
 uint64_t ParseUrlID(wxString url);
 media_id_type ParseMediaID(wxString url);
