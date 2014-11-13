@@ -557,7 +557,7 @@ bool twitCurl::statusDestroyById( const std::string& statusId )
                                twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType];
 
         /* Perform DELETE */
-        retVal = performDelete( buildUrl );
+        retVal = performPost( buildUrl );
     }
     return retVal;
 }
@@ -1005,7 +1005,7 @@ bool twitCurl::friendshipDestroy( const std::string& userInfo, bool isUserId )
                             userInfo, isUserId );
 
         /* Perform DELETE */
-        retVal = performDelete( buildUrl );
+        retVal = performPost( buildUrl );
     }
     return retVal;
 }
@@ -1258,7 +1258,7 @@ bool twitCurl::blockDestroy( const std::string& userInfo )
                            twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType];
 
     /* Perform DELETE */
-    return performDelete( buildUrl );
+    return performPost( buildUrl );
 }
 
 /*++
@@ -1349,7 +1349,7 @@ bool twitCurl::savedSearchDestroy( const std::string& searchId )
                            twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType];
 
     /* Perform DELETE */
-    return performDelete( buildUrl );
+    return performPost( buildUrl );
 }
 
 
@@ -2053,55 +2053,6 @@ bool twitCurl::performGet( const std::string& getUrl, const std::string& oAuthHt
 }
 
 /*++
-* @method: twitCurl::performDelete
-*
-* @description: method to send http DELETE request. this is an internal method.
-*               twitcurl users should not use this method.
-*
-* @input: deleteUrl - url
-*
-* @output: none
-*
-* @remarks: internal method
-*
-*--*/
-bool twitCurl::performDelete( const std::string& deleteUrl )
-{
-    /* Return if cURL is not initialized */
-    if( !isCurlInit() )
-    {
-        return false;
-    }
-
-    std::string dataStrDummy;
-    std::string oAuthHttpHeader;
-    if( m_pOAuthHeaderList )
-    clearHeaders();
-
-    /* Prepare standard params */
-    prepareStandardParams();
-
-    /* Set OAuth header */
-    m_oAuth.getOAuthHeader( eOAuthHttpDelete, deleteUrl, dataStrDummy, oAuthHttpHeader );
-    if( oAuthHttpHeader.length() )
-    {
-        m_pOAuthHeaderList = curl_slist_append( m_pOAuthHeaderList, oAuthHttpHeader.c_str() );
-        if( m_pOAuthHeaderList )
-        {
-            curl_easy_setopt( m_curlHandle, CURLOPT_HTTPHEADER, m_pOAuthHeaderList );
-        }
-    }
-
-    /* Set http request and url */
-    curl_easy_setopt( m_curlHandle, CURLOPT_CUSTOMREQUEST, "DELETE" );
-    curl_easy_setopt( m_curlHandle, CURLOPT_URL, deleteUrl.c_str() );
-    curl_easy_setopt( m_curlHandle, CURLOPT_COPYPOSTFIELDS, dataStrDummy.c_str() );
-
-    /* Send http request */
-    return curl_gen_exec( m_curlHandle );
-}
-
-/*++
 * @method: twitCurl::performPost
 *
 * @description: method to send http POST request. this is an internal method.
@@ -2145,10 +2096,8 @@ bool twitCurl::performPost( const std::string& postUrl, std::string dataStr )
     /* Set http request, url and data */
     curl_easy_setopt( m_curlHandle, CURLOPT_POST, 1 );
     curl_easy_setopt( m_curlHandle, CURLOPT_URL, postUrl.c_str() );
-    if( dataStr.length() )
-    {
-        curl_easy_setopt( m_curlHandle, CURLOPT_COPYPOSTFIELDS, dataStr.c_str() );
-    }
+    curl_easy_setopt( m_curlHandle, CURLOPT_POSTFIELDSIZE, dataStr.size() );
+    curl_easy_setopt( m_curlHandle, CURLOPT_COPYPOSTFIELDS, dataStr.c_str() );
 
     /* Send http request */
     return curl_gen_exec( m_curlHandle );

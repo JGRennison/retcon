@@ -329,7 +329,6 @@ private:
     void prepareStandardParams();
     bool performGet( const std::string& getUrl );
     bool performGet( const std::string& getUrl, const std::string& oAuthHttpHeader );
-    bool performDelete( const std::string& deleteUrl );
     bool performPost( const std::string& postUrl, std::string dataStr = "" );
     bool curl_gen_exec(CURL *easy_handle);
     void UtilTimelineProcessParams( const struct timelineparams &tmps, std::string &buildUrl );
