@@ -1816,6 +1816,7 @@ void tpanelparentwin_usertweets_impl::LoadMore(unsigned int n, uint64_t lessthan
 	std::shared_ptr<taccount> tac = getacc(*base());
 	if(!tac) return;
 	SetNoUpdateFlag();
+	SetClabelUpdatePendingFlag();
 
 	tweetidset::const_iterator stit;
 	bool revdir = false;
@@ -1870,6 +1871,15 @@ void tpanelparentwin_usertweets_impl::LoadMore(unsigned int n, uint64_t lessthan
 }
 
 void tpanelparentwin_usertweets_impl::UpdateCLabel() {
+	if(failed) {
+		clabel->SetLabel(wxT("Lookup Failed"));
+		return;
+	}
+	if(inprogress) {
+		clabel->SetLabel(wxT("Loading..."));
+		return;
+	}
+
 	size_t curnum = currentdisp.size();
 	size_t varmax = 0;
 	wxString emptymsg = wxT("No Tweets");
@@ -1886,13 +1896,20 @@ void tpanelparentwin_usertweets_impl::UpdateCLabel() {
 void tpanelparentwin_usertweets::NotifyRequestFailed() {
 	pimpl()->failed = true;
 	pimpl()->havestarted = false;
-	pimpl()->clabel->SetLabel(wxT("Lookup Failed"));
+	pimpl()->UpdateCLabel();
+}
+
+void tpanelparentwin_usertweets::NotifyRequestSuccess() {
+	pimpl()->inprogress = false;
+	pimpl()->failed = false;
+	SetClabelUpdatePendingFlag();
 }
 
 //! There is no harm in calling this more than once
 void tpanelparentwin_usertweets::InitLoading() {
 	if(!pimpl()->havestarted) {
 		pimpl()->havestarted = true;
+		pimpl()->inprogress = true;
 		pimpl()->LoadMore(gc.maxtweetsdisplayinpanel);
 	}
 }
@@ -1922,10 +1939,21 @@ void tpanelparentwin_userproplisting_impl::Init() {
 		twit->extra_id = user->id;
 		twit->mp = base();
 		twitcurlext::QueueAsyncExec(std::move(twit));
+		inprogress = true;
 	}
+	UpdateCLabel();
 }
 
 void tpanelparentwin_userproplisting_impl::UpdateCLabel() {
+	if(failed) {
+		clabel->SetLabel(wxT("Lookup Failed"));
+		return;
+	}
+	if(inprogress) {
+		clabel->SetLabel(wxT("Loading..."));
+		return;
+	}
+
 	size_t curnum = currentdisp.size();
 	size_t varmax = 0;
 	wxString emptymsg;
@@ -1950,7 +1978,9 @@ void tpanelparentwin_userproplisting_impl::LoadMoreToBack(unsigned int n) {
 	std::shared_ptr<taccount> tac = getacc(*base());
 	if(!tac) return;
 	failed = false;
+	inprogress = false;
 	SetNoUpdateFlag();
+	SetClabelUpdatePendingFlag();
 
 	bool querypendings = false;
 	size_t index = userlist.size();
@@ -1972,7 +2002,7 @@ void tpanelparentwin_userproplisting_impl::LoadMoreToBack(unsigned int n) {
 void tpanelparentwin_userproplisting::NotifyRequestFailed() {
 	pimpl()->failed = true;
 	pimpl()->havestarted = false;
-	pimpl()->clabel->SetLabel(wxT("Lookup Failed"));
+	UpdateCLabel();
 }
 
 void tpanelparentwin_userproplisting::PushUserIDToBack(uint64_t id) {

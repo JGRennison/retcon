@@ -689,6 +689,10 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 		}
 		case CS_USERTIMELINE:
 		case CS_USERFAVS: {
+			auto win = MagicWindowCast<tpanelparentwin_usertweets>(twit->mp);
+			if(win) {
+				win->NotifyRequestSuccess();
+			}
 			RestTweetPreParseUpdateParams();
 			if(dc.IsArray()) {
 				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) DoTweetParse(dc[i], JDTP::USERTIMELINE);

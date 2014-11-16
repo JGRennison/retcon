@@ -134,6 +134,7 @@ struct tpanelparentwin_usertweets : public tpanelparentwin_nt {
 	static std::shared_ptr<tpanel> GetUserTweetTPanel(uint64_t userid, RBFS_TYPE type_ = RBFS_USER_TIMELINE);
 	virtual bool IsSingleAccountWin() const override { return true; }
 	virtual void NotifyRequestFailed() override;
+	void NotifyRequestSuccess();
 	void InitLoading();
 };
 
