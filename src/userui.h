@@ -83,6 +83,7 @@ struct user_window: public wxDialog, public magic_ptr_base {
 	wxHyperlinkCtrl *profileurl;
 	wxStaticText *lastupdate;
 	wxStaticText *id_str;
+	wxFlexGridSizer *follow_grid;
 	tpanelparentwin_usertweets *timeline_pane;
 	tpanelparentwin_usertweets *fav_timeline_pane;
 	tpanelparentwin_userproplisting *followers_pane;
@@ -111,6 +112,7 @@ struct user_window: public wxDialog, public magic_ptr_base {
 	user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_hint_);
 	~user_window();
 	void RefreshFollow(bool forcerefresh = false);
+	void RefreshAccState();
 	void Refresh(bool refreshimg = false);
 	void CheckAccHint();
 	void fill_accchoice();

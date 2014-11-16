@@ -102,7 +102,7 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	accchoice = new wxChoice(this, wxID_FILE1);
 	sbvbox->Add(accchoice, 0, wxALL, 2);
 	fill_accchoice();
-	wxFlexGridSizer *follow_grid = new wxFlexGridSizer(0, 2, 2, 2);
+	follow_grid = new wxFlexGridSizer(0, 2, 2, 2);
 	sbvbox->Add(follow_grid, 0, wxALL, 2);
 	insert_uw_row(this, follow_grid, wxT("Following:"), ifollow);
 	insert_uw_row(this, follow_grid, wxT("Followed By:"), followsme);
@@ -205,7 +205,22 @@ void user_window::OnSelChange(wxCommandEvent &event) {
 		wxNotebookEvent evt(wxEVT_NULL, nb->GetId(), nb->GetSelection(), nb->GetSelection());
 		nb_prehndlr.OnPageChange(evt);
 	}
-	RefreshFollow();
+
+	RefreshAccState();
+}
+
+void user_window::RefreshAccState() {
+	std::shared_ptr<taccount> acc = acc_hint.lock();
+	bool isownacc = (acc && acc->usercont == u);
+	follow_grid->Show(!isownacc);
+	followbtn->Show(!isownacc);
+	dmbtn->Show(!isownacc);
+	if(!isownacc) {
+		RefreshFollow();
+	}
+
+	Layout();
+	Fit();
 }
 
 void user_window::fill_accchoice() {
@@ -349,7 +364,7 @@ void user_window::Refresh(bool refreshimg) {
 	id_str->SetLabel(wxString::Format(wxT("%" wxLongLongFmtSpec "d"), u->id));
 	if(refreshimg) usericon->SetBitmap(u->cached_profile_img);
 
-	RefreshFollow();
+	RefreshAccState();
 	Layout();
 }
 
