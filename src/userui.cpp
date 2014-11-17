@@ -49,6 +49,8 @@ void notebook_event_prehandler::OnPageChange(wxNotebookEvent &event) {
 		}
 	}
 	event.Skip();
+	uw->Layout();
+	uw->Fit();
 }
 
 BEGIN_EVENT_TABLE(user_window, wxDialog)
@@ -117,7 +119,8 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	accbuttonbox->Add(dmbtn, 0, wxEXPAND | wxALIGN_TOP, 0);
 	follow_btn_mode = FOLLOWBTNMODE::FBM_NONE;
 
-	nb = new wxNotebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxCLIP_CHILDREN | wxNB_TOP | wxNB_NOPAGETHEME);
+	nb = new wxNotebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxCLIP_CHILDREN | wxNB_TOP | wxNB_NOPAGETHEME | wxNB_MULTILINE);
+	nb_prehndlr.uw = this;
 
 	wxPanel *infopanel = new wxPanel(nb, wxID_ANY);
 	vbox->Add(nb, 0, wxALL | wxEXPAND, 4);
@@ -167,6 +170,7 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	nb->AddPage(followers_pane, wxT("Followers"), false);
 	friends_pane = new tpanelparentwin_userproplisting(u, nb, getacc_prop, CS_USERFOLLOWING);
 	nb->AddPage(friends_pane, wxT("Following"), false);
+
 	nb_prehndlr.timeline_pane_list.push_front(timeline_pane);
 	nb_prehndlr.timeline_pane_list.push_front(fav_timeline_pane);
 	nb_prehndlr.userlist_pane_list.push_front(followers_pane);
@@ -202,11 +206,13 @@ void user_window::OnSelChange(wxCommandEvent &event) {
 				break;
 			}
 		}
+		RefreshAccState();
 		wxNotebookEvent evt(wxEVT_NULL, nb->GetId(), nb->GetSelection(), nb->GetSelection());
 		nb_prehndlr.OnPageChange(evt);
 	}
-
-	RefreshAccState();
+	else {
+		RefreshAccState();
+	}
 }
 
 void user_window::RefreshAccState() {
@@ -219,6 +225,37 @@ void user_window::RefreshAccState() {
 		RefreshFollow();
 	}
 
+	bool should_have_incoming_pane = isownacc && u->GetUser().u_flags & userdata::UF::ISPROTECTED;
+	bool should_have_outgoing_pane = isownacc;
+
+	if(should_have_incoming_pane && !incoming_pane) {
+		incoming_pane = new tpanelparentwin_userproplisting(u, nb, [acc](tpanelparentwin_userproplisting &) { return acc; }, CS_OWNINCOMINGFOLLOWLISTING);
+		nb->AddPage(incoming_pane, wxT("Incoming"), false);
+		nb_prehndlr.userlist_pane_list.push_front(incoming_pane);
+	}
+	if(should_have_outgoing_pane && !outgoing_pane) {
+		outgoing_pane = new tpanelparentwin_userproplisting(u, nb, [acc](tpanelparentwin_userproplisting &) { return acc; }, CS_OWNOUTGOINGFOLLOWLISTING);
+		nb->AddPage(outgoing_pane, wxT("Outgoing"), false);
+		nb_prehndlr.userlist_pane_list.push_front(outgoing_pane);
+	}
+
+	auto remove_page = [&](tpanelparentwin_userproplisting *&ptr) {
+		nb_prehndlr.userlist_pane_list.remove(ptr);
+		for(size_t i = 0; i < nb->GetPageCount(); i++) {
+			if(nb->GetPage(i) == ptr) {
+				nb->DeletePage(i);
+				ptr = nullptr;
+				break;
+			}
+		}
+	};
+	if(!should_have_incoming_pane && incoming_pane) {
+		remove_page(incoming_pane);
+	}
+	if(!should_have_outgoing_pane && outgoing_pane) {
+		remove_page(outgoing_pane);
+	}
+	SetNotebookMinSize();
 	Layout();
 	Fit();
 }
@@ -414,6 +451,19 @@ void user_window::OnDMBtn(wxCommandEvent &event) {
 	if(win) {
 		win->tpw->SetDMTarget(u);
 	}
+}
+
+// This makes sure that the window is wide enough that all of the notebook tabs fit
+void user_window::SetNotebookMinSize() {
+	int total_width = 0;
+	for(size_t i = 0; i < nb->GetPageCount(); i++) {
+		auto win = nb->GetPage(i);
+		int x;
+		win->GetTextExtent(nb->GetPageText(i), &x, nullptr);
+		total_width += x;
+	}
+	total_width += (1 + nb->GetPageCount()) * 15; // This is a Magic Number™ which seems to be big enough to cover padding, borders, etc.
+	SetSizeHints(total_width, 0);
 }
 
 user_window *user_window::GetWin(uint64_t userid_) {

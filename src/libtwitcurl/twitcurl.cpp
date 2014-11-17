@@ -1098,6 +1098,44 @@ bool twitCurl::followersIdsGet( const std::string& userInfo, bool isUserId )
 }
 
 /*++
+* @method: twitCurl::friendsOutgoingIdsGet
+*
+* @description: method to get list of IDs of all outgoing friend requests of the account user
+*
+* @input: none
+*
+* @output: true if GET is success, otherwise false. This does not check http
+*          response by twitter. Use getLastWebResponse() for that.
+*
+*--*/
+bool twitCurl::friendsOutgoingIdsGet()
+{
+    /* Perform GET */
+    return performGet( twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
+                       twitterDefaults::TWITCURL_FRIENDSOUTGOINGIDS_URL +
+                       twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType] );
+}
+
+/*++
+* @method: twitCurl::followersIncomingIdsGet
+*
+* @description: method to get list of IDs of all incoming follow requests of the account user
+*
+* @input: none
+*
+* @output: true if GET is success, otherwise false. This does not check http
+*          response by twitter. Use getLastWebResponse() for that.
+*
+*--*/
+bool twitCurl::followersIncomingIdsGet()
+{
+    /* Perform GET */
+    return performGet( twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
+                       twitterDefaults::TWITCURL_FOLLOWERSINCOMINGIDS_URL +
+                       twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType] );
+}
+
+/*++
 * @method: twitCurl::accountRateLimitGet
 *
 * @description: method to get API rate limit of current user

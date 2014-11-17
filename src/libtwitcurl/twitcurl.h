@@ -118,6 +118,8 @@ namespace twitterDefaults
     /* Social graphs URLs */
     const std::string TWITCURL_FRIENDSIDS_URL = "api.twitter.com/1.1/friends/ids";
     const std::string TWITCURL_FOLLOWERSIDS_URL = "api.twitter.com/1.1/followers/ids";
+    const std::string TWITCURL_FRIENDSOUTGOINGIDS_URL = "api.twitter.com/1.1/friendships/outgoing";
+    const std::string TWITCURL_FOLLOWERSINCOMINGIDS_URL = "api.twitter.com/1.1/friendships/incoming";
 
     /* Account URLs */
     const std::string TWITCURL_ACCOUNTRATELIMIT_URL = "api.twitter.com/1.1/account/rate_limit_status";
@@ -225,6 +227,8 @@ public:
     /* Twitter social graphs APIs */
     bool friendsIdsGet( const std::string& userInfo /* in */, bool isUserId = false /* in */ );
     bool followersIdsGet( const std::string& userInfo /* in */, bool isUserId = false /* in */ );
+    bool friendsOutgoingIdsGet();
+    bool followersIncomingIdsGet();
 
     /* Twitter account APIs */
     bool accountRateLimitGet();

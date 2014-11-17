@@ -1966,6 +1966,12 @@ void tpanelparentwin_userproplisting_impl::UpdateCLabel() {
 			varmax = user->GetUser().followers_count;
 			emptymsg = wxT("No Followers");
 			break;
+		case CS_OWNINCOMINGFOLLOWLISTING:
+			emptymsg = wxT("No incoming Follower requests");
+			break;
+		case CS_OWNOUTGOINGFOLLOWLISTING:
+			emptymsg = wxT("No outgoing Friend requests");
+			break;
 		default:
 			break;
 	}

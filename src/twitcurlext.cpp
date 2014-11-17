@@ -325,6 +325,12 @@ void twitcurlext::DoQueueAsyncExec(std::unique_ptr<twitcurlext> this_owner) {
 		case CS_OWNFOLLOWERLISTING:
 			followersIdsGet(std::to_string(acc->usercont->id), true);
 			break;
+		case CS_OWNINCOMINGFOLLOWLISTING:
+			followersIncomingIdsGet();
+			break;
+		case CS_OWNOUTGOINGFOLLOWLISTING:
+			friendsOutgoingIdsGet();
+			break;
 		case CS_NULL:
 			break;
 	}
@@ -359,6 +365,8 @@ std::string twitcurlext::GetConnTypeName() {
 		case CS_DELETEDM: action = "Deleting DM"; break;
 		case CS_USERFOLLOWING: action = "Retrieving following list"; break;
 		case CS_USERFOLLOWERS: action = "Retrieving followers list"; break;
+		case CS_OWNINCOMINGFOLLOWLISTING: action = "Retrieving incoming follower request list"; break;
+		case CS_OWNOUTGOINGFOLLOWLISTING: action = "Retrieving outgoing following request list"; break;
 		case CS_SINGLETWEET: action = "Retrieving single tweet"; break;
 		case CS_OWNFOLLOWERLISTING: action = "Retrieving own followers listing"; break;
 		default: action = "Generic twitter API call"; break;

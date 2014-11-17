@@ -702,7 +702,9 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			break;
 		}
 		case CS_USERFOLLOWING:
-		case CS_USERFOLLOWERS: {
+		case CS_USERFOLLOWERS:
+		case CS_OWNINCOMINGFOLLOWLISTING:
+		case CS_OWNOUTGOINGFOLLOWLISTING: {
 			auto win = MagicWindowCast<tpanelparentwin_userproplisting>(twit->mp);
 			if(win) {
 				if(dc.IsObject()) {
