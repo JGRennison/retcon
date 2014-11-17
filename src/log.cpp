@@ -36,6 +36,7 @@
 #include "windows.h"
 #else
 #include <sys/time.h>
+#include <malloc.h>
 #endif
 #include <memory>
 #include <forward_list>
@@ -129,6 +130,15 @@ void LogMsgProcess(LOGT logflags, const std::string &str) {
 	std::string flag_str = LogMsgFlagString(logflags) + ":";
 	std::string in = str;
 	in.erase(std::find_if(in.rbegin(), in.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), in.end());
+
+	#ifndef __WINDOWS__
+	if(logimpl_flags & LOGIMPLF::LOGMEMUSAGE) {
+		struct mallinfo mi;
+		mi = mallinfo();
+		in = string_format("Used: %10d, Alloc: %10d, %s", mi.uordblks, mi.arena, cstr(in));
+	}
+	#endif
+
 	LogMsgRaw(logflags, string_format("%s %-20s %s\n", cstr(time_str), cstr(flag_str), cstr(in)));
 }
 

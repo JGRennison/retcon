@@ -32,6 +32,7 @@ struct tweet;
 
 enum class LOGIMPLF : unsigned int {
 	FFLUSH                = 1<<0,
+	LOGMEMUSAGE           = 1<<1,
 };
 template<> struct enum_traits<LOGIMPLF> { static constexpr bool flags = true; };
 extern flagwrapper<LOGIMPLF> logimpl_flags;

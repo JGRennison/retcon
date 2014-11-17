@@ -29,28 +29,31 @@
 
 typedef CSimpleOptTempl<wxChar> CSO;
 
-enum { OPT_LOGWIN, OPT_FILE, OPT_STDERR, OPT_FILEAUTO, OPT_DATADIR, OPT_FFLUSH, OPT_READONLY, OPT_ACCSDSBD, OPT_VERSION };
+enum { OPT_LOGWIN, OPT_FILE, OPT_STDERR, OPT_FILEAUTO, OPT_DATADIR, OPT_FFLUSH, OPT_READONLY, OPT_ACCSDSBD, OPT_LOGMEMUSAGE, OPT_VERSION };
 
 CSO::SOption g_rgOptions[] =
 {
-	{ OPT_LOGWIN,  wxT("-w"),             SO_REQ_SHRT  },
-	{ OPT_FILE,    wxT("-f"),             SO_REQ_SHRT  },
-	{ OPT_STDERR,  wxT("-s"),             SO_REQ_SHRT  },
-	{ OPT_FILEAUTO,wxT("-a"),             SO_REQ_SHRT  },
-	{ OPT_DATADIR, wxT("-d"),             SO_REQ_SHRT  },
-	{ OPT_LOGWIN,  wxT("--log-window"),   SO_REQ_SHRT  },
-	{ OPT_FILE,    wxT("--log-file"),     SO_REQ_SHRT  },
-	{ OPT_FILEAUTO,wxT("--log-file-auto"),SO_REQ_SHRT  },
-	{ OPT_STDERR,  wxT("--log-stderr"),   SO_REQ_SHRT  },
-	{ OPT_DATADIR, wxT("--data-dir"),     SO_REQ_SHRT  },
-	{ OPT_FFLUSH,  wxT("-F"),             SO_NONE      },
-	{ OPT_FFLUSH,  wxT("--log-fflush"),   SO_NONE      },
-	{ OPT_READONLY,wxT("-r"),             SO_NONE      },
-	{ OPT_READONLY,wxT("--read-only"),    SO_NONE      },
-	{ OPT_ACCSDSBD,wxT("-b"),             SO_NONE      },
-	{ OPT_ACCSDSBD,wxT("--accs-disabled"),SO_NONE      },
-	{ OPT_VERSION, wxT("-V"),             SO_NONE      },
-	{ OPT_VERSION, wxT("--version"),      SO_NONE      },
+	{ OPT_LOGWIN,       wxT("-w"),             SO_REQ_SHRT  },
+	{ OPT_FILE,         wxT("-f"),             SO_REQ_SHRT  },
+	{ OPT_STDERR,       wxT("-s"),             SO_REQ_SHRT  },
+	{ OPT_FILEAUTO,     wxT("-a"),             SO_REQ_SHRT  },
+	{ OPT_DATADIR,      wxT("-d"),             SO_REQ_SHRT  },
+	{ OPT_LOGWIN,       wxT("--log-window"),   SO_REQ_SHRT  },
+	{ OPT_FILE,         wxT("--log-file"),     SO_REQ_SHRT  },
+	{ OPT_FILEAUTO,     wxT("--log-file-auto"),SO_REQ_SHRT  },
+	{ OPT_STDERR,       wxT("--log-stderr"),   SO_REQ_SHRT  },
+	{ OPT_DATADIR,      wxT("--data-dir"),     SO_REQ_SHRT  },
+	{ OPT_FFLUSH,       wxT("-F"),             SO_NONE      },
+	{ OPT_FFLUSH,       wxT("--log-fflush"),   SO_NONE      },
+	{ OPT_READONLY,     wxT("-r"),             SO_NONE      },
+	{ OPT_READONLY,     wxT("--read-only"),    SO_NONE      },
+	{ OPT_ACCSDSBD,     wxT("-b"),             SO_NONE      },
+	{ OPT_ACCSDSBD,     wxT("--accs-disabled"),SO_NONE      },
+	{ OPT_VERSION,      wxT("-V"),             SO_NONE      },
+#ifndef __WINDOWS__
+	{ OPT_LOGMEMUSAGE,  wxT("--log-mem-usage"),SO_NONE      },
+#endif
+	{ OPT_VERSION,      wxT("--version"),      SO_NONE      },
 
 	SO_END_OF_OPTIONS
 };
@@ -119,6 +122,10 @@ int cmdlineproc(wxChar **argv, int argc) {
 			}
 			case OPT_FFLUSH: {
 				logimpl_flags |= LOGIMPLF::FFLUSH;
+				break;
+			}
+			case OPT_LOGMEMUSAGE: {
+				logimpl_flags |= LOGIMPLF::LOGMEMUSAGE;
 				break;
 			}
 			case OPT_READONLY: {
