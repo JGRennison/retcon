@@ -616,7 +616,7 @@ bool LoadFilter(const std::string &input, filter_set &out) {
 }
 
 bool InitGlobalFilters() {
-	bool f1 =  LoadFilter(stdstrwx(gc.gcfg.incoming_filter.val), ad.incoming_filter);
+	bool f1 = LoadFilter(stdstrwx(gc.gcfg.incoming_filter.val), ad.incoming_filter);
 	bool f2 = LoadFilter(stdstrwx(gc.gcfg.alltweet_filter.val), ad.alltweet_filter);
 	return f1 && f2;
 }
@@ -635,4 +635,8 @@ void filter_set::FilterTweet(tweet &tw, taccount *tac) {
 filter_set & filter_set::operator=(filter_set &&other) {
 	filters = std::move(other.filters);
 	return *this;
+}
+
+void filter_set::clear() {
+	filters.clear();
 }
