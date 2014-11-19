@@ -37,6 +37,7 @@
 #ifdef __WINDOWS__
 #include "tpanel.h"
 #endif
+#include "debug.h"
 #include <wx/image.h>
 #include <wx/stdpaths.h>
 #include <cstdio>
@@ -118,6 +119,7 @@ int retcon::OnExit() {
 	sm.DeInitMultiIOHandler();
 	pool.reset();
 	DBC_DeInit();
+	DebugFinalChecks();
 	DeInitWxLogger();
 	std::exit(0);
 }

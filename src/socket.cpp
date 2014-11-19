@@ -444,7 +444,7 @@ END_EVENT_TABLE()
 DEFINE_EVENT_TYPE(wxextDNS_RESOLUTION_EVENT)
 
 void socketmanager::InitMultiIOHandlerCommon() {
-	LogMsg(LOGT::SOCKTRACE, "socketmanager::InitMultiIOHandlerCommon");
+	LogMsg(LOGT::SOCKTRACE, "socketmanager::InitMultiIOHandlerCommon: START");
 	st.reset(new sockettimeout(*this));
 	curlmulti=curl_multi_init();
 	curl_multi_setopt(curlmulti, CURLMOPT_SOCKETFUNCTION, sock_cb);
@@ -457,12 +457,14 @@ void socketmanager::InitMultiIOHandlerCommon() {
 		LogMsg(LOGT::SOCKTRACE, "This version of libcurl does not support asynchronous DNS resolution, using a workaround.");
 		asyncdns.reset(new adns(this));
 	}
+	LogMsg(LOGT::SOCKTRACE, "socketmanager::InitMultiIOHandlerCommon: END");
 }
 
 void socketmanager::DeInitMultiIOHandlerCommon() {
-	LogMsg(LOGT::SOCKTRACE, "socketmanager::DeInitMultiIOHandlerCommon");
+	LogMsg(LOGT::SOCKTRACE, "socketmanager::DeInitMultiIOHandlerCommon: START");
 	if(asyncdns) asyncdns.reset();
 	curl_multi_cleanup(curlmulti);
+	LogMsg(LOGT::SOCKTRACE, "socketmanager::DeInitMultiIOHandlerCommon: END");
 }
 
 void socketmanager::RetryConn(std::unique_ptr<mcurlconn> cs) {

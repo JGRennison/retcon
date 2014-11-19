@@ -38,6 +38,9 @@
 #include <windows.h>
 #endif
 
+struct dbconn;
+extern dbconn dbc;
+
 typedef enum {
 	DBPSC_START = 0,
 
@@ -214,15 +217,15 @@ template <typename E> void DBDoErr(E errspec, sqlite3 *adb, sqlite3_stmt *stmt, 
 	errspec(stmt, res);
 }
 
-template <> void DBDoErr<std::string>(std::string errspec, sqlite3 *adb, sqlite3_stmt *stmt, int res) {
+template <> inline void DBDoErr<std::string>(std::string errspec, sqlite3 *adb, sqlite3_stmt *stmt, int res) {
 	LogMsgFormat(LOGT::DBERR, "%s got error: %d (%s)", cstr(errspec), res, cstr(sqlite3_errmsg(adb)));
 }
 
-template <> void DBDoErr<const char *>(const char *errspec, sqlite3 *adb, sqlite3_stmt *stmt, int res) {
+template <> inline void DBDoErr<const char *>(const char *errspec, sqlite3 *adb, sqlite3_stmt *stmt, int res) {
 	DBDoErr<std::string>(errspec, adb, stmt, res);
 }
 
-template <> void DBDoErr<std::nullptr_t>(std::nullptr_t p, sqlite3 *adb, sqlite3_stmt *stmt, int res) {
+template <> inline void DBDoErr<std::nullptr_t>(std::nullptr_t p, sqlite3 *adb, sqlite3_stmt *stmt, int res) {
 	//do nothing
 }
 
@@ -232,7 +235,7 @@ struct stmt_holder {
 	sqlite3_stmt *stmt() { return m_stmt; }
 };
 
-stmt_holder DBInitialiseSql(sqlite3 *adb, sqlite3_stmt *stmt) {
+inline stmt_holder DBInitialiseSql(sqlite3 *adb, sqlite3_stmt *stmt) {
 	return stmt_holder { stmt };
 }
 
@@ -248,13 +251,13 @@ struct scoped_stmt_holder {
 	sqlite3_stmt *stmt() { return m_stmt.get(); }
 };
 
-scoped_stmt_holder DBInitialiseSql(sqlite3 *adb, std::string sql) {
+inline scoped_stmt_holder DBInitialiseSql(sqlite3 *adb, std::string sql) {
 	sqlite3_stmt *stmt;
 	sqlite3_prepare_v2(adb, sql.c_str(), sql.size(), &stmt, nullptr);
 	return scoped_stmt_holder { std::unique_ptr<sqlite3_stmt, stmt_deleter>(stmt) };
 }
 
-scoped_stmt_holder DBInitialiseSql(sqlite3 *adb, const char *sql) {
+inline scoped_stmt_holder DBInitialiseSql(sqlite3 *adb, const char *sql) {
 	return DBInitialiseSql(adb, std::string(sql));
 }
 
