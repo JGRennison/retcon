@@ -52,8 +52,13 @@ dlconn::~dlconn() {
 // If this_owner is given, this will add it/itself to the socketmanager
 void dlconn::Init(std::unique_ptr<mcurlconn> &&this_owner, const std::string &url_, oAuth *auth_obj) {
 	url = url_;
+
 	if(!curlHandle) curlHandle = curl_easy_init();
 	else curl_easy_reset(curlHandle);
+	if(extra_headers) curl_slist_free_all(extra_headers);
+	extra_headers = nullptr;
+	data.clear();
+
 	SetCurlHandleVerboseState(curlHandle, currentlogflags & LOGT::CURLVERB);
 	SetCacerts(curlHandle);
 	curl_easy_setopt(curlHandle, CURLOPT_HTTPGET, 1);
