@@ -344,24 +344,13 @@ template <typename B, typename S, typename I, typename J> void DBRangeBindExecNo
 };
 
 
-struct esctabledef {
-	unsigned char id;
-	const char *text;
-};
-
-struct esctable {
-	unsigned char tag;
-	const esctabledef *start;
-	size_t count;
-};
-
-unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsigned char tag = 'Z', bool *iscompressed = nullptr, const esctable *et = nullptr);
+unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsigned char tag = 'Z', bool *iscompressed = nullptr);
 char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsize);
 char *column_get_compressed(sqlite3_stmt* stmt, int num, size_t &outsize);
 char *column_get_compressed_and_parse(sqlite3_stmt* stmt, int num, rapidjson::Document &dc);
 
-inline unsigned char *DoCompress(const std::string &in, size_t &sz, unsigned char tag = 'Z', bool *iscompressed = nullptr, const esctable *et = nullptr) {
-	return DoCompress(in.data(), in.size(), sz, tag, iscompressed, et);
+inline unsigned char *DoCompress(const std::string &in, size_t &sz, unsigned char tag = 'Z', bool *iscompressed = nullptr) {
+	return DoCompress(in.data(), in.size(), sz, tag, iscompressed);
 }
 
 inline void writebeuint64(unsigned char* data, uint64_t id) {
@@ -407,18 +396,18 @@ template <typename C> void setfromcompressedblob(C func, sqlite3_stmt *stmt, int
 	free(blarray);
 }
 
-inline void bind_compressed(sqlite3_stmt* stmt, int num, const char *in, size_t insize, unsigned char tag = 'Z', const esctable *et = nullptr) {
+inline void bind_compressed(sqlite3_stmt* stmt, int num, const char *in, size_t insize, unsigned char tag = 'Z') {
 	size_t comsize;
-	unsigned char *com = DoCompress(in, insize, comsize, tag, nullptr, et);
+	unsigned char *com = DoCompress(in, insize, comsize, tag, nullptr);
 	sqlite3_bind_blob(stmt, num, com, comsize, &free);
 }
 
-inline void bind_compressed(sqlite3_stmt* stmt, int num, const unsigned char *in, size_t insize, unsigned char tag = 'Z', const esctable *et = nullptr) {
-	bind_compressed(stmt, num, reinterpret_cast<const char *>(in), insize, tag, et);
+inline void bind_compressed(sqlite3_stmt* stmt, int num, const unsigned char *in, size_t insize, unsigned char tag = 'Z') {
+	bind_compressed(stmt, num, reinterpret_cast<const char *>(in), insize, tag);
 }
 
-inline void bind_compressed(sqlite3_stmt* stmt, int num, const std::string &in, unsigned char tag = 'Z', const esctable *et = nullptr) {
-	bind_compressed(stmt, num, in.data(), in.size(), tag, et);
+inline void bind_compressed(sqlite3_stmt* stmt, int num, const std::string &in, unsigned char tag = 'Z') {
+	bind_compressed(stmt, num, in.data(), in.size(), tag);
 }
 
 #endif

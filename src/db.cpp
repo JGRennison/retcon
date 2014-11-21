@@ -53,6 +53,20 @@ static const unsigned char jsondictionary[] = "<a href=\"http://retweet_countsou
 		"typesizesthe[{\",\":\"}]";
 static const unsigned char profimgdictionary[] = "http://https://si0.twimg.com/profile_images/imagesmallnormal.png.jpg.jpeg.gif";
 
+
+/* This is retained only for backwards compatibility */
+
+struct esctabledef {
+	unsigned char id;
+	const char *text;
+};
+
+struct esctable {
+	unsigned char tag;
+	const esctabledef *start;
+	size_t count;
+};
+
 //never remove or change an entry in these tables
 static esctabledef dynjsondefs[] = {
 	{ 1, "{\"p\":[{\"f\":1,\"a\":1}]}" },
@@ -67,7 +81,7 @@ static esctable allesctables[] = {
 	{'S', dynjsondefs, sizeof(dynjsondefs)/sizeof(esctabledef) },
 };
 
-static const esctable *dynjsontable = &allesctables[0];
+/* ends */
 
 static const char *startup_sql=
 "PRAGMA locking_mode = EXCLUSIVE;"
@@ -204,20 +218,8 @@ static bool TagToDict(unsigned char tag, const unsigned char *&dict, size_t &dic
 
 #define HEADERSIZE 5
 
-unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsigned char tag, bool *iscompressed, const esctable *et) {
+unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsigned char tag, bool *iscompressed) {
 	unsigned char *data = 0;
-	if(et) {
-		for(unsigned int i = 0; i < et->count; i++) {
-			if(strlen(et->start[i].text) == insize && memcmp(et->start[i].text, in, insize) == 0) {
-				data = (unsigned char *) malloc(2);
-				data[0] = et->tag;
-				data[1] = et->start[i].id;
-				sz = 2;
-				if(iscompressed) *iscompressed = true;
-				break;
-			}
-		}
-	}
 	if(!data) {
 		const unsigned char *dict;
 		size_t dict_size;
@@ -444,7 +446,7 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_INSTWEET);
 			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->id);
 			bind_compressed(stmt, 2, m->statjson, 'J');
-			bind_compressed(stmt, 3, m->dynjson, 'J', dynjsontable);
+			bind_compressed(stmt, 3, m->dynjson, 'J');
 			sqlite3_bind_int64(stmt, 4, (sqlite3_int64) m->user1);
 			sqlite3_bind_int64(stmt, 5, (sqlite3_int64) m->user2);
 			sqlite3_bind_int64(stmt, 6, (sqlite3_int64) m->flags);
@@ -461,7 +463,7 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 			if(gc.readonlymode) break;
 			dbupdatetweetmsg *m = static_cast<dbupdatetweetmsg*>(msg);
 			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_UPDTWEET);
-			bind_compressed(stmt, 1, m->dynjson, 'J', dynjsontable);
+			bind_compressed(stmt, 1, m->dynjson, 'J');
 			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->flags);
 			sqlite3_bind_int64(stmt, 3, (sqlite3_int64) m->id);
 			int res = sqlite3_step(stmt);
