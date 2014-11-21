@@ -53,17 +53,6 @@ static const unsigned char jsondictionary[] = "<a href=\"http://retweet_countsou
 		"typesizesthe[{\",\":\"}]";
 static const unsigned char profimgdictionary[] = "http://https://si0.twimg.com/profile_images/imagesmallnormal.png.jpg.jpeg.gif";
 
-struct esctabledef {
-	unsigned char id;
-	const char *text;
-};
-
-struct esctable {
-	unsigned char tag;
-	const esctabledef *start;
-	size_t count;
-};
-
 //never remove or change an entry in these tables
 static esctabledef dynjsondefs[] = {
 	{ 1, "{\"p\":[{\"f\":1,\"a\":1}]}" },
@@ -123,21 +112,6 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"SELECT value FROM staticsettings WHERE (name IS ?);",
 	"INSERT INTO tpanels (name, dispname, flags, ids) VALUES (?, ?, ?, ?);",
 };
-
-static const char *update_sql[] = {
-	"ALTER TABLE mediacache ADD COLUMN lastusedtimestamp INTEGER;"
-	"UPDATE OR IGNORE mediacache SET lastusedtimestamp = strftime('%s','now');"
-	"UPDATE OR IGNORE settings SET accid = 'G' WHERE (hex(accid) == '4700');"  //This is because previous versions of retcon accidentally inserted an embedded null when writing out the config
-	"UPDATE OR IGNORE tweets SET medialist = NULL;"
-	,
-	"ALTER TABLE users ADD COLUMN profimglastusedtimestamp INTEGER;"
-	"UPDATE OR IGNORE users SET profimglastusedtimestamp = strftime('%s','now');"
-	,
-	"ALTER TABLE users ADD COLUMN dmindex BLOB;"
-	// SyncDoUpdates_FillUserDMIndexes should be run here
-	,
-};
-static const unsigned int db_version = 3;
 
 static const std::string globstr = "G";
 static const std::string globdbstr = "D";
@@ -230,7 +204,7 @@ static bool TagToDict(unsigned char tag, const unsigned char *&dict, size_t &dic
 
 #define HEADERSIZE 5
 
-static unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsigned char tag = 'Z', bool *iscompressed = nullptr, const esctable *et = nullptr) {
+unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsigned char tag, bool *iscompressed, const esctable *et) {
 	unsigned char *data = 0;
 	if(et) {
 		for(unsigned int i = 0; i < et->count; i++) {
@@ -285,7 +259,7 @@ static unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsi
 		}
 	}
 
-#if DB_COPIOUS_LOGGING
+	#if DB_COPIOUS_LOGGING
 		static size_t cumin = 0;
 		static size_t cumout = 0;
 		cumin += insize;
@@ -296,25 +270,7 @@ static unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsi
 	return data;
 }
 
-static unsigned char *DoCompress(const std::string &in, size_t &sz, unsigned char tag = 'Z', bool *iscompressed = nullptr, const esctable *et = nullptr) {
-	return DoCompress(in.data(), in.size(), sz, tag, iscompressed, et);
-}
-
-static void bind_compressed(sqlite3_stmt* stmt, int num, const char *in, size_t insize, unsigned char tag = 'Z', const esctable *et = nullptr) {
-	size_t comsize;
-	unsigned char *com = DoCompress(in, insize, comsize, tag, nullptr, et);
-	sqlite3_bind_blob(stmt, num, com, comsize, &free);
-}
-
-static void bind_compressed(sqlite3_stmt* stmt, int num, const unsigned char *in, size_t insize, unsigned char tag = 'Z', const esctable *et = nullptr) {
-	bind_compressed(stmt, num, reinterpret_cast<const char *>(in), insize, tag, et);
-}
-
-static void bind_compressed(sqlite3_stmt* stmt, int num, const std::string &in, unsigned char tag = 'Z', const esctable *et = nullptr) {
-	bind_compressed(stmt, num, in.data(), in.size(), tag, et);
-}
-
-static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsize) {
+char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsize) {
 	if(!insize) {
 		DBLogMsg(LOGT::ZLIBTRACE, "DoDecompress: insize == 0");
 		outsize = 0;
@@ -412,14 +368,14 @@ static char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsiz
 }
 
 //the result should be freed when done if non-zero
-static char *column_get_compressed(sqlite3_stmt* stmt, int num, size_t &outsize) {
+char *column_get_compressed(sqlite3_stmt* stmt, int num, size_t &outsize) {
 	const unsigned char *data = (const unsigned char *) sqlite3_column_blob(stmt, num);
 	int size = sqlite3_column_bytes(stmt, num);
 	return DoDecompress(data, size, outsize);
 }
 
 //the result should be freed when done if non-zero
-static char *column_get_compressed_and_parse(sqlite3_stmt* stmt, int num, rapidjson::Document &dc) {
+char *column_get_compressed_and_parse(sqlite3_stmt* stmt, int num, rapidjson::Document &dc) {
 	size_t str_size;
 	char *str = column_get_compressed(stmt, num, str_size);
 	if(str) {
@@ -430,49 +386,6 @@ static char *column_get_compressed_and_parse(sqlite3_stmt* stmt, int num, rapidj
 	}
 	else dc.SetNull();
 	return str;
-}
-
-inline void writebeuint64(unsigned char* data, uint64_t id) {
-	data[0] = (id >> 56) & 0xFF;
-	data[1] = (id >> 48) & 0xFF;
-	data[2] = (id >> 40) & 0xFF;
-	data[3] = (id >> 32) & 0xFF;
-	data[4] = (id >> 24) & 0xFF;
-	data[5] = (id >> 16) & 0xFF;
-	data[6] = (id >> 8) & 0xFF;
-	data[7] = (id >> 0) & 0xFF;
-}
-
-template <typename C> unsigned char *settoblob(const C &set, size_t &size) {
-	size = set.size() * 8;
-	if(!size) return 0;
-	unsigned char *data = (unsigned char *) malloc(size);
-	unsigned char *curdata = data;
-	for(auto &it : set) {
-		writebeuint64(curdata, it);
-		curdata += 8;
-	}
-	return data;
-}
-
-template <typename C> unsigned char *settocompressedblob(const C &set, size_t &size) {
-	size_t insize;
-	unsigned char *data = settoblob(set, insize);
-	unsigned char *comdata = DoCompress(data, insize, size, 'Z');
-	free(data);
-	return comdata;
-}
-
-template <typename C> void setfromcompressedblob(C func, sqlite3_stmt *stmt, int columnid) {
-	size_t blarraysize;
-	unsigned char *blarray = (unsigned char*) column_get_compressed(stmt, columnid, blarraysize);
-	blarraysize &= ~7;
-	for(unsigned int i = 0; i < blarraysize; i += 8) {    //stored in big endian format
-		uint64_t id = 0;
-		for(unsigned int j = 0; j < 8; j++) id <<= 8, id |= blarray[i + j];
-		func(id);
-	}
-	free(blarray);
 }
 
 //! This calls itself for retweet sources, *unless* the retweet source ID is in idset
@@ -1222,71 +1135,6 @@ void dbconn::AsyncWriteBackState() {
 	}
 
 	CheckPurgeTweets();
-}
-
-void dbconn::SyncDoUpdates(sqlite3 *adb) {
-	LogMsg(LOGT::DBTRACE, "dbconn::DoUpdates start");
-
-	unsigned int current_db_version = 0;
-
-	sqlite3_stmt *getstmt = cache.GetStmt(adb, DBPSC_SELSTATICSETTING);
-	sqlite3_bind_text(getstmt, 1, "dbversion", -1, SQLITE_STATIC);
-	DBRowExec(adb, getstmt, [&](sqlite3_stmt *stmt) {
-		current_db_version = (unsigned int) sqlite3_column_int64(stmt, 0);
-	}, "dbconn::DoUpdates (get DB version)");
-
-	if(current_db_version < db_version) {
-		LogMsgFormat(LOGT::DBTRACE, "dbconn::DoUpdates updating from %u to %u", current_db_version, db_version);
-		for(unsigned int i = current_db_version; i < db_version; i++) {
-			int res = sqlite3_exec(adb, update_sql[i], 0, 0, 0);
-			if(res != SQLITE_OK) {
-				LogMsgFormat(LOGT::DBERR, "dbconn::DoUpdates %u got error: %d (%s)", i, res, cstr(sqlite3_errmsg(adb)));
-			}
-			if(i == 2) {
-				SyncDoUpdates_FillUserDMIndexes(adb);
-			}
-		}
-		SyncWriteDBVersion(adb);
-	}
-	else if(current_db_version > db_version) {
-		LogMsgFormat(LOGT::DBERR, "dbconn::DoUpdates current DB version %u > %u", current_db_version, db_version);
-	}
-
-	LogMsg(LOGT::DBTRACE, "dbconn::DoUpdates end");
-}
-
-void dbconn::SyncDoUpdates_FillUserDMIndexes(sqlite3 *adb) {
-	container::map<uint64_t, std::deque<uint64_t> > dm_index_map;
-
-	DBBindRowExec(adb, "SELECT id, userid, userrecipid FROM tweets WHERE flags & ?;",
-		[&](sqlite3_stmt *stmt) {
-			sqlite3_bind_int64(stmt, 1, tweet_flags::GetFlagValue('D'));
-		},
-		[&](sqlite3_stmt *stmt) {
-			uint64_t id = (uint64_t) sqlite3_column_int64(stmt, 0);
-			uint64_t userid = (uint64_t) sqlite3_column_int64(stmt, 1);
-			uint64_t userrecipid = (uint64_t) sqlite3_column_int64(stmt, 2);
-			dm_index_map[userid].push_back(id);
-			dm_index_map[userrecipid].push_back(id);
-		},
-		"dbconn::SyncDoUpdates_FillUserDMIndexes (DM listing)");
-
-	DBRangeBindExec(adb, "UPDATE OR IGNORE users SET dmindex = ? WHERE id == ?;",
-		dm_index_map.begin(), dm_index_map.end(),
-		[&](sqlite3_stmt *stmt, const std::pair<uint64_t, std::deque<uint64_t>> &it) {
-			size_t dmindex_size;
-			unsigned char *dmindex = settocompressedblob(it.second, dmindex_size);
-			sqlite3_bind_blob(stmt, 1, dmindex, dmindex_size, &free);
-			sqlite3_bind_int64(stmt, 2, it.first);
-		},
-		"dbconn::SyncDoUpdates_FillUserDMIndexes (DM index write back)");
-}
-
-void dbconn::SyncWriteDBVersion(sqlite3 *adb) {
-	sqlite3_stmt *stmt = cache.GetStmt(adb, DBPSC_INSSTATICSETTING);
-	sqlite3_bind_text(stmt, 1, "dbversion", -1, SQLITE_STATIC);
-	sqlite3_bind_int64(stmt, 2, db_version);
-	DBExec(adb, stmt, "dbconn::SyncWriteDBVersion");
 }
 
 void dbconn::InsertNewTweet(tweet_ptr_p tobj, std::string statjson, optional_observer_ptr<dbsendmsg_list> msglist) {

@@ -24,6 +24,7 @@
 #include "db.h"
 #include "log.h"
 #include "util.h"
+#include "rapidjson-inc.h"
 #include <cstdlib>
 #include <queue>
 #include <string>
@@ -342,5 +343,82 @@ template <typename B, typename S, typename I, typename J> void DBRangeBindExecNo
 	DBRangeBindExec(adb, sql, rangebegin, rangeend, bindfunc, nullptr);
 };
 
+
+struct esctabledef {
+	unsigned char id;
+	const char *text;
+};
+
+struct esctable {
+	unsigned char tag;
+	const esctabledef *start;
+	size_t count;
+};
+
+unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsigned char tag = 'Z', bool *iscompressed = nullptr, const esctable *et = nullptr);
+char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsize);
+char *column_get_compressed(sqlite3_stmt* stmt, int num, size_t &outsize);
+char *column_get_compressed_and_parse(sqlite3_stmt* stmt, int num, rapidjson::Document &dc);
+
+inline unsigned char *DoCompress(const std::string &in, size_t &sz, unsigned char tag = 'Z', bool *iscompressed = nullptr, const esctable *et = nullptr) {
+	return DoCompress(in.data(), in.size(), sz, tag, iscompressed, et);
+}
+
+inline void writebeuint64(unsigned char* data, uint64_t id) {
+	data[0] = (id >> 56) & 0xFF;
+	data[1] = (id >> 48) & 0xFF;
+	data[2] = (id >> 40) & 0xFF;
+	data[3] = (id >> 32) & 0xFF;
+	data[4] = (id >> 24) & 0xFF;
+	data[5] = (id >> 16) & 0xFF;
+	data[6] = (id >> 8) & 0xFF;
+	data[7] = (id >> 0) & 0xFF;
+}
+
+template <typename C> unsigned char *settoblob(const C &set, size_t &size) {
+	size = set.size() * 8;
+	if(!size) return 0;
+	unsigned char *data = (unsigned char *) malloc(size);
+	unsigned char *curdata = data;
+	for(auto &it : set) {
+		writebeuint64(curdata, it);
+		curdata += 8;
+	}
+	return data;
+}
+
+template <typename C> unsigned char *settocompressedblob(const C &set, size_t &size) {
+	size_t insize;
+	unsigned char *data = settoblob(set, insize);
+	unsigned char *comdata = DoCompress(data, insize, size, 'Z');
+	free(data);
+	return comdata;
+}
+
+template <typename C> void setfromcompressedblob(C func, sqlite3_stmt *stmt, int columnid) {
+	size_t blarraysize;
+	unsigned char *blarray = (unsigned char*) column_get_compressed(stmt, columnid, blarraysize);
+	blarraysize &= ~7;
+	for(unsigned int i = 0; i < blarraysize; i += 8) {    //stored in big endian format
+		uint64_t id = 0;
+		for(unsigned int j = 0; j < 8; j++) id <<= 8, id |= blarray[i + j];
+		func(id);
+	}
+	free(blarray);
+}
+
+inline void bind_compressed(sqlite3_stmt* stmt, int num, const char *in, size_t insize, unsigned char tag = 'Z', const esctable *et = nullptr) {
+	size_t comsize;
+	unsigned char *com = DoCompress(in, insize, comsize, tag, nullptr, et);
+	sqlite3_bind_blob(stmt, num, com, comsize, &free);
+}
+
+inline void bind_compressed(sqlite3_stmt* stmt, int num, const unsigned char *in, size_t insize, unsigned char tag = 'Z', const esctable *et = nullptr) {
+	bind_compressed(stmt, num, reinterpret_cast<const char *>(in), insize, tag, et);
+}
+
+inline void bind_compressed(sqlite3_stmt* stmt, int num, const std::string &in, unsigned char tag = 'Z', const esctable *et = nullptr) {
+	bind_compressed(stmt, num, in.data(), in.size(), tag, et);
+}
 
 #endif
