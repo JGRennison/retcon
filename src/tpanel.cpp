@@ -240,6 +240,10 @@ void TPanelMenuActionCustom(mainframe *parent, flagwrapper<TPF> flags) {
 
 	::wxGetMultipleChoices(selections, wxT(""), wxT("Select Accounts and Feed Types"), choices, parent, -1, -1, false);
 
+	if(selections.GetCount() == 0) {
+		return;
+	}
+
 	std::vector<tpanel_auto> tpautos;
 	std::vector<tpanel_auto_udc> tpudcautos;
 
