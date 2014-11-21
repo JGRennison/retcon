@@ -69,4 +69,14 @@ void alldata::UnlinkTweetById(uint64_t id) {
 	tweetobjs.erase(id);
 }
 
-const tweetidset alldata::empty_tweetidset;
+optional_observer_ptr<user_dm_index> alldata::GetExistingUserDMIndexById(uint64_t id) {
+	auto it = user_dm_indexes.find(id);
+	if(it != user_dm_indexes.end()) {
+		return &(it->second);
+	}
+	return nullptr;
+}
+
+user_dm_index &alldata::GetUserDMIndexById(uint64_t id) {
+	return user_dm_indexes[id];
+}

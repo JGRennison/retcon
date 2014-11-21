@@ -24,6 +24,7 @@
 #include "media_id_type.h"
 #include "tpanel-common.h"
 #include "filter/filter.h"
+#include "observer_ptr.h"
 #include <unordered_map>
 #include <string>
 #include <memory>
@@ -32,6 +33,7 @@
 
 struct tweet;
 struct media_entity;
+struct user_dm_index;
 
 struct alldata {
 	std::unordered_map<uint64_t, userdatacontainer> userconts;
@@ -41,6 +43,7 @@ struct alldata {
 	std::unordered_map<std::string, observer_ptr<media_entity> > img_media_map;
 	container::map<uint64_t, tweet_ptr> noacc_pending_tweetobjs;
 	container::map<uint64_t, udc_ptr> noacc_pending_userconts;
+	std::unordered_map<uint64_t, user_dm_index> user_dm_indexes;
 	tweetidset unloaded_db_tweet_ids;
 	unsigned int next_media_id = 1;
 	cached_id_sets cids;
@@ -50,13 +53,13 @@ struct alldata {
 	filter_set incoming_filter;
 	filter_set alltweet_filter;
 
-	static const tweetidset empty_tweetidset;
-
 	udc_ptr GetUserContainerById(uint64_t id);
 	udc_ptr GetExistingUserContainerById(uint64_t id);
 	tweet_ptr GetTweetById(uint64_t id, bool *isnew = nullptr);
 	tweet_ptr GetExistingTweetById(uint64_t id);
 	void UnlinkTweetById(uint64_t id);
+	optional_observer_ptr<user_dm_index> GetExistingUserDMIndexById(uint64_t id);
+	user_dm_index &GetUserDMIndexById(uint64_t id);
 };
 
 extern alldata ad;

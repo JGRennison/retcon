@@ -23,7 +23,7 @@
 #include "log.h"
 #include "twit-common.h"
 
-static const unsigned int db_version = 3;
+static const unsigned int db_version = 4;
 
 static const char *update_sql[] = {
 	"ALTER TABLE mediacache ADD COLUMN lastusedtimestamp INTEGER;"
@@ -34,9 +34,11 @@ static const char *update_sql[] = {
 	"ALTER TABLE users ADD COLUMN profimglastusedtimestamp INTEGER;"
 	"UPDATE OR IGNORE users SET profimglastusedtimestamp = strftime('%s','now');"
 	,
-	"ALTER TABLE users ADD COLUMN dmindex BLOB;"
-	// SyncDoUpdates_FillUserDMIndexes should be run here
+	nullptr
+	//"ALTER TABLE users ADD COLUMN dmindex BLOB;"
 	,
+	"UPDATE OR IGNORE users SET dmindex = NULL;"
+	// SyncDoUpdates_FillUserDMIndexes should be run here
 };
 
 void dbconn::SyncDoUpdates(sqlite3 *adb) {
@@ -51,17 +53,22 @@ void dbconn::SyncDoUpdates(sqlite3 *adb) {
 	}, "dbconn::DoUpdates (get DB version)");
 
 	if(current_db_version < db_version) {
+		cache.BeginTransaction(adb);
 		LogMsgFormat(LOGT::DBTRACE, "dbconn::DoUpdates updating from %u to %u", current_db_version, db_version);
 		for(unsigned int i = current_db_version; i < db_version; i++) {
-			int res = sqlite3_exec(adb, update_sql[i], 0, 0, 0);
+			const char *sql = update_sql[i];
+			if(!sql) continue;
+
+			int res = sqlite3_exec(adb, sql, 0, 0, 0);
 			if(res != SQLITE_OK) {
 				LogMsgFormat(LOGT::DBERR, "dbconn::DoUpdates %u got error: %d (%s)", i, res, cstr(sqlite3_errmsg(adb)));
 			}
-			if(i == 2) {
+			if(i == 3) {
 				SyncDoUpdates_FillUserDMIndexes(adb);
 			}
 		}
 		SyncWriteDBVersion(adb);
+		cache.EndTransaction(adb);
 	}
 	else if(current_db_version > db_version) {
 		LogMsgFormat(LOGT::DBERR, "dbconn::DoUpdates current DB version %u > %u", current_db_version, db_version);
@@ -86,13 +93,13 @@ void dbconn::SyncDoUpdates_FillUserDMIndexes(sqlite3 *adb) {
 		},
 		"dbconn::SyncDoUpdates_FillUserDMIndexes (DM listing)");
 
-	DBRangeBindExec(adb, "UPDATE OR IGNORE users SET dmindex = ? WHERE id == ?;",
+	DBRangeBindExec(adb, "INSERT OR REPLACE INTO userdmsets(userid, dmindex) VALUES (?, ?);",
 		dm_index_map.begin(), dm_index_map.end(),
 		[&](sqlite3_stmt *stmt, const std::pair<uint64_t, std::deque<uint64_t>> &it) {
 			size_t dmindex_size;
 			unsigned char *dmindex = settocompressedblob(it.second, dmindex_size);
-			sqlite3_bind_blob(stmt, 1, dmindex, dmindex_size, &free);
-			sqlite3_bind_int64(stmt, 2, it.first);
+			sqlite3_bind_int64(stmt, 1, it.first);
+			sqlite3_bind_blob(stmt, 2, dmindex, dmindex_size, &free);
 		},
 		"dbconn::SyncDoUpdates_FillUserDMIndexes (DM index write back)");
 }
@@ -103,4 +110,3 @@ void dbconn::SyncWriteDBVersion(sqlite3 *adb) {
 	sqlite3_bind_int64(stmt, 2, db_version);
 	DBExec(adb, stmt, "dbconn::SyncWriteDBVersion");
 }
-

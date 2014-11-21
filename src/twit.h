@@ -172,11 +172,6 @@ struct userdatacontainer {
 	};
 	std::unique_ptr<mention_set_data> msd;
 
-	struct dm_set_data {
-		tweetidset dm_set;
-	};
-	std::unique_ptr<dm_set_data> dsd;
-
 	public:
 	bool NeedsUpdating(flagwrapper<PENDING_REQ> preq, time_t timevalue = 0) const;
 	flagwrapper<PENDING_RESULT> GetPending(flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT, time_t timevalue = 0);
@@ -201,11 +196,18 @@ struct userdatacontainer {
 	void NotifyProfileImageChange();
 	void MakeProfileImageFailurePlaceholder();
 	const tweetidset &GetMentionSet();
-	const tweetidset &GetDMSet();
-	void SetDMSet(tweetidset dmset);
-	void AddDMIdToSet(uint64_t id);
-	inline bool MayHaveDMSet() const { return (bool) dsd; }
 };
+
+struct user_dm_index {
+	enum class UDIF {
+		ISDIRTY               = 1<<0,
+	};
+	tweetidset ids;
+	flagwrapper<UDIF> flags = 0;
+
+	void AddDMId(uint64_t id);
+};
+template<> struct enum_traits<user_dm_index::UDIF> { static constexpr bool flags = true; };
 
 class tweet_perspective {
 	enum {
@@ -568,6 +570,10 @@ void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, tweetidset
 void SendTweetFlagUpdate(const tweet &tw, unsigned long long mask);
 void SpliceTweetIDSet(tweetidset &set, tweetidset &out, uint64_t highlim_inc, uint64_t lowlim_inc, bool clearspliced);
 
-container::map<std::string, udc_ptr> GetDMConversationMap();
+struct dm_conversation_map_item {
+	udc_ptr u;
+	observer_ptr<user_dm_index> index;
+};
+container::map<std::string, dm_conversation_map_item> GetDMConversationMap();
 
 #endif

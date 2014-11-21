@@ -249,8 +249,11 @@ bool tpanel::TweetMatches(tweet_ptr_p t, const std::shared_ptr<taccount> &acc) c
 	}
 	for(auto &it : tpudcautos) {
 		if(it.autoflags & TPFU::DMSET && t->flags.Get('D')) {
-			const tweetidset &tis = it.u->GetDMSet();
-			if(tis.find(t->id) != tis.end()) return true;
+			optional_observer_ptr<user_dm_index> udi = ad.GetExistingUserDMIndexById(it.u->id);
+			if(udi) {
+				if(udi->ids.find(t->id) != udi->ids.end())
+					return true;
+			}
 		}
 	}
 	return false;
@@ -275,8 +278,10 @@ void tpanel::RecalculateTweetSet() {
 	}
 	for(auto &it : tpudcautos) {
 		if(it.autoflags & TPFU::DMSET) {
-			const tweetidset &tis = it.u->GetDMSet();
-			tweetlist.insert(tis.begin(), tis.end());
+			optional_observer_ptr<user_dm_index> udi = ad.GetExistingUserDMIndexById(it.u->id);
+			if(udi) {
+				tweetlist.insert(udi->ids.begin(), udi->ids.end());
+			}
 		}
 	}
 }

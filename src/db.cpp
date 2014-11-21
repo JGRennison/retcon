@@ -86,7 +86,7 @@ static esctable allesctables[] = {
 static const char *startup_sql=
 "PRAGMA locking_mode = EXCLUSIVE;"
 "CREATE TABLE IF NOT EXISTS tweets(id INTEGER PRIMARY KEY NOT NULL, statjson BLOB, dynjson BLOB, userid INTEGER, userrecipid INTEGER, flags INTEGER, timestamp INTEGER, rtid INTEGER);"
-"CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY NOT NULL, json BLOB, cachedprofimgurl BLOB, createtimestamp INTEGER, lastupdatetimestamp INTEGER, cachedprofileimgchecksum BLOB, mentionindex BLOB, profimglastusedtimestamp INTEGER, dmindex BLOB);"
+"CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY NOT NULL, json BLOB, cachedprofimgurl BLOB, createtimestamp INTEGER, lastupdatetimestamp INTEGER, cachedprofileimgchecksum BLOB, mentionindex BLOB, profimglastusedtimestamp INTEGER);"
 "CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, dispname TEXT, json BLOB, tweetids BLOB, dmids BLOB, userid INTEGER);"
 "CREATE TABLE IF NOT EXISTS settings(accid BLOB, name TEXT, value BLOB, PRIMARY KEY (accid, name));"
 "CREATE TABLE IF NOT EXISTS rbfspending(accid INTEGER, type INTEGER, startid INTEGER, endid INTEGER, maxleft INTEGER);"
@@ -98,6 +98,7 @@ static const char *startup_sql=
 "CREATE TABLE IF NOT EXISTS tpanels(name TEXT, dispname TEXT, flags INTEGER, ids BLOB);"
 "CREATE TABLE IF NOT EXISTS staticsettings(name TEXT PRIMARY KEY NOT NULL, value BLOB);"
 "CREATE TABLE IF NOT EXISTS userrelationships(accid INTEGER, userid INTEGER, flags INTEGER, followmetime INTEGER, ifollowtime INTEGER);"
+"CREATE TABLE IF NOT EXISTS userdmsets(userid INTEGER PRIMARY KEY NOT NULL, dmindex BLOB);"
 "INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', 'dirtyflag', strftime('%s','now'));";
 
 static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
@@ -105,7 +106,7 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"UPDATE tweets SET dynjson = ?, flags = ? WHERE id == ?;",
 	"BEGIN;",
 	"COMMIT;",
-	"INSERT OR REPLACE INTO users(id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex, profimglastusedtimestamp, dmindex) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);",
+	"INSERT OR REPLACE INTO users(id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex, profimglastusedtimestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
 	"INSERT INTO acc(name, dispname, userid) VALUES (?, ?, ?);",
 	"UPDATE acc SET tweetids = ?, dmids = ?, dispname = ? WHERE id == ?;",
 	"SELECT statjson, dynjson, userid, userrecipid, flags, timestamp, rtid FROM tweets WHERE id == ?;",
@@ -125,6 +126,7 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"DELETE FROM staticsettings WHERE (name IS ?);",
 	"SELECT value FROM staticsettings WHERE (name IS ?);",
 	"INSERT INTO tpanels (name, dispname, flags, ids) VALUES (?, ?, ?, ?);",
+	"INSERT OR REPLACE INTO userdmsets (userid, dmindex) VALUES (?, ?);",
 };
 
 static const std::string globstr = "G";
@@ -310,7 +312,7 @@ char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsize) {
 			bool compress = TagToDict(in[0], dict, dict_size);
 			if(compress) break;
 			else {
-				DBLogMsg(LOGT::ZLIBERR, "DoDecompress: Bad tag");
+				DBLogMsgFormat(LOGT::ZLIBERR, "DoDecompress: Bad tag: 0x%X", in[0]);
 				outsize = 0;
 				return 0;
 			}
@@ -506,7 +508,6 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 			}
 			sqlite3_bind_blob(stmt, 7, m->mentionindex, m->mentionindex_size, &free);
 			sqlite3_bind_int64(stmt, 8, (sqlite3_int64) m->profile_img_last_used);
-			sqlite3_bind_blob(stmt, 9, m->dmindex, m->dmindex_size, &free);
 			int res = sqlite3_step(stmt);
 			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, "DBSM::INSERTUSER got error: %d (%s) for id: %" llFmtSpec "d",
 					res, cstr(sqlite3_errmsg(db)), m->id); }
@@ -982,6 +983,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	SyncReadInWindowLayout(syncdb);
 	SyncReadInAllTweetIDs(syncdb);
 	SyncReadInUserRelationships(syncdb);
+	SyncReadInUserDMIndexes(syncdb);
 
 	LogMsgFormat(LOGT::DBTRACE, "dbconn::Init(): State read in from database complete, about to create database thread");
 
@@ -1065,6 +1067,7 @@ void dbconn::DeInit() {
 		SyncWriteBackWindowLayout(syncdb);
 		SyncWriteBackTpanels(syncdb);
 		SyncWriteBackUserRelationships(syncdb);
+		SyncWriteBackUserDMIndexes(syncdb);
 	}
 	SyncPurgeMediaEntities(syncdb); //this does a dry-run in read-only mode
 	SyncPurgeProfileImages(syncdb); //this does a dry-run in read-only mode
@@ -1130,6 +1133,7 @@ void dbconn::AsyncWriteBackState() {
 		AsyncWriteOutRBFSs(*msg);
 		AsyncWriteBackCIDSLists(*msg);
 		AsyncWriteBackTpanels(*msg);
+		AsyncWriteBackUserDMIndexes(*msg);
 
 		SendMessage(std::move(msg));
 
@@ -1176,7 +1180,6 @@ void dbconn::InsertUser(udc_ptr_p u, optional_observer_ptr<dbsendmsg_list> msgli
 	u->lastupdate_wrotetodb = u->lastupdate;
 	msg->profile_img_last_used = u->profile_img_last_used;
 	u->profile_img_last_used_db = u->profile_img_last_used;
-	msg->dmindex = settocompressedblob(u->GetDMSet(), msg->dmindex_size);
 	SendMessageOrAddToList(std::move(msg), msglist);
 }
 
@@ -1462,9 +1465,6 @@ namespace {
 
 			uint64_t profile_img_last_used;
 
-			unsigned char *dmset_blob;
-			size_t dmset_blob_size;
-
 			bool user_needs_updating;
 			bool profimgtime_needs_updating;
 		};
@@ -1475,7 +1475,7 @@ namespace {
 			for(auto &it : ad.userconts) {
 				userdatacontainer *u = &(it.second);
 
-				if(u->user.screen_name.empty() && u->GetDMSet().empty()) {
+				if(u->user.screen_name.empty()) {
 					continue;    //don't bother saving empty user stubs
 				}
 
@@ -1505,8 +1505,6 @@ namespace {
 				data.mention_blob = settoblob(u->mention_index, data.mention_blob_size);
 
 				data.profile_img_last_used = u->profile_img_last_used;
-
-				data.dmset_blob = settoblob(u->GetDMSet(), data.dmset_blob_size);
 
 				data.user_needs_updating = user_needs_updating;
 				data.profimgtime_needs_updating = profimgtime_needs_updating;
@@ -1544,8 +1542,6 @@ namespace {
 				bind_compressed(stmt, 7, data.mention_blob, data.mention_blob_size, 'Z');
 				free(data.mention_blob);
 				sqlite3_bind_int64(stmt, 8, (sqlite3_int64) data.profile_img_last_used);
-				bind_compressed(stmt, 9, data.dmset_blob, data.dmset_blob_size, 'Z');
-				free(data.dmset_blob);
 
 				if(data.user_needs_updating) lastupdate_count++;
 				if(data.profimgtime_needs_updating) profimgtime_count++;
@@ -1578,7 +1574,7 @@ void dbconn::AsyncWriteBackAllUsers(dbfunctionmsg &msg) {
 
 void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 	LogMsg(LOGT::DBTRACE, "dbconn::SyncReadInAllUsers start");
-	const char sql[] = "SELECT id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex, profimglastusedtimestamp, dmindex FROM users;";
+	const char sql[] = "SELECT id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex, profimglastusedtimestamp FROM users;";
 	sqlite3_stmt *stmt = 0;
 	sqlite3_prepare_v2(adb, sql, sizeof(sql), &stmt, 0);
 
@@ -1593,7 +1589,6 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 	}
 
 	unsigned int user_read_count = 0;
-	tweetidset dmindex;
 	do {
 		int res = sqlite3_step(stmt);
 		if(res == SQLITE_ROW) {
@@ -1628,12 +1623,6 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 			u.profile_img_last_used = (uint64_t) sqlite3_column_int64(stmt, 7);
 			u.profile_img_last_used_db = u.profile_img_last_used;
 
-			setfromcompressedblob([&](uint64_t &tid) { dmindex.insert(tid); }, stmt, 8);
-			if(!dmindex.empty()) {
-				u.SetDMSet(std::move(dmindex));
-				dmindex.clear();
-			}
-
 			#if DB_COPIOUS_LOGGING
 				LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInAllUsers retrieved user id: %" llFmtSpec "d", (sqlite3_int64) id);
 			#endif
@@ -1643,6 +1632,95 @@ void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
 	} while(true);
 	sqlite3_finalize(stmt);
 	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInAllUsers end, read in %u users (%u total)", user_read_count, (unsigned int) ad.userconts.size());
+}
+
+namespace {
+	struct WriteBackUserDMIndexes {
+		unsigned int alldmindexcount;
+
+		WriteBackUserDMIndexes() : alldmindexcount(ad.user_dm_indexes.size()) { }
+
+		struct itemdata {
+			uint64_t id;
+
+			unsigned char *dmset_blob;
+			size_t dmset_blob_size;
+		};
+
+		//Where F is a functor of the form void(const itemdata &)
+		//F must free() itemdata blobs
+		template <typename F> void operator()(F func) const {
+			for(auto &it : ad.user_dm_indexes) {
+				user_dm_index &udi = it.second;
+
+				if(!(udi.flags & user_dm_index::UDIF::ISDIRTY))
+					continue;
+
+				itemdata data;
+				data.id = it.first;
+				data.dmset_blob = settoblob(udi.ids, data.dmset_blob_size);
+				udi.flags &= ~user_dm_index::UDIF::ISDIRTY;
+
+				func(std::move(data));
+			}
+		};
+
+		//Where F is a functor with an operator() as above
+		template <typename F> void dbexec(sqlite3 *adb, dbpscache &cache, std::string funcname, bool TSLogging, F getfunc) const {
+			SLogMsgFormat(LOGT::DBTRACE, TSLogging, "%s start", cstr(funcname));
+			cache.BeginTransaction(adb);
+
+			sqlite3_stmt *stmt = cache.GetStmt(adb, DBPSC_INSUSERDMINDEX);
+			unsigned int count = 0;
+			getfunc([&](const itemdata &data) {
+				count++;
+				sqlite3_bind_int64(stmt, 1, (sqlite3_int64) data.id);
+				bind_compressed(stmt, 2, data.dmset_blob, data.dmset_blob_size, 'Z');
+				free(data.dmset_blob);
+
+				int res = sqlite3_step(stmt);
+				if(res != SQLITE_DONE) {
+					SLogMsgFormat(LOGT::DBERR, TSLogging, "%s got error: %d (%s) for user id: %" llFmtSpec "u",
+							cstr(funcname),res, cstr(sqlite3_errmsg(adb)), data.id);
+				}
+				else {
+					SLogMsgFormat(LOGT::DBTRACE, TSLogging, "%s inserted user id: %" llFmtSpec "u", cstr(funcname), data.id);
+				}
+				sqlite3_reset(stmt);
+			});
+
+			cache.EndTransaction(adb);
+			SLogMsgFormat(LOGT::DBTRACE, TSLogging, "%s end, wrote back %u of %u user DM indexes",
+					cstr(funcname), count, alldmindexcount);
+		}
+	};
+};
+
+void dbconn::SyncWriteBackUserDMIndexes(sqlite3 *adb) {
+	DoGenericSyncWriteBack(adb, cache, WriteBackUserDMIndexes(), "dbconn::SyncWriteBackUserDMIndexes");
+}
+
+void dbconn::AsyncWriteBackUserDMIndexes(dbfunctionmsg &msg) {
+	DoGenericAsyncWriteBack(msg, WriteBackUserDMIndexes(), "dbconn::AsyncWriteBackUserDMIndexes");
+}
+
+void dbconn::SyncReadInUserDMIndexes(sqlite3 *adb) {
+	LogMsg(LOGT::DBTRACE, "dbconn::SyncReadInUserDMIndexes start");
+
+	unsigned int read_count = 0;
+	tweetidset dmindex;
+	DBRowExec(adb, "SELECT userid, dmindex FROM userdmsets;", [&](sqlite3_stmt *stmt) {
+		setfromcompressedblob([&](uint64_t &tid) { dmindex.insert(tid); }, stmt, 1);
+		if(!dmindex.empty()) {
+			uint64_t userid = (uint64_t) sqlite3_column_int64(stmt, 0);
+			user_dm_index &udi = ad.GetUserDMIndexById(userid);
+			udi.ids = std::move(dmindex);
+			dmindex.clear();
+			read_count++;
+		}
+	}, "dbconn::SyncReadInUserDMIndexes");
+
+	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInUserDMIndexes end, read in %u", read_count);
 }
 
 namespace {

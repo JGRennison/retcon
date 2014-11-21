@@ -1539,7 +1539,8 @@ void AppendUserMenuItems(wxMenu &menu, tweetactmenudata &map, int &nextid, udc_p
 	menu.Append(nextid, wxT("Send DM"));
 	AppendToTAMIMenuMap(map, nextid, TAMI_DM, tw, 0, user);
 
-	if(!user->GetDMSet().empty()) {
+	optional_observer_ptr<user_dm_index> dm_index = ad.GetExistingUserDMIndexById(user->id);
+	if(dm_index && !dm_index->ids.empty()) {
 		menu.Append(nextid, wxT("Open DM Conversation Panel"));
 		AppendToTAMIMenuMap(map, nextid, TAMI_DMSETPANEL, tw, 0, user);
 	}

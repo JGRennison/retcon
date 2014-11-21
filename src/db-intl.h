@@ -69,6 +69,7 @@ typedef enum {
 	DBPSC_DELSTATICSETTING,
 	DBPSC_SELSTATICSETTING,
 	DBPSC_INSTPANEL,
+	DBPSC_INSUSERDMINDEX,
 
 	DBPSC_NUM_STATEMENTS,
 } DBPSC_TYPE;
@@ -172,6 +173,9 @@ struct dbconn : public wxEvtHandler {
 	void SyncWriteBackAllUsers(sqlite3 *adb);
 	void AsyncWriteBackAllUsers(dbfunctionmsg &msg);
 	void SyncReadInAllUsers(sqlite3 *adb);
+	void SyncWriteBackUserDMIndexes(sqlite3 *adb);
+	void AsyncWriteBackUserDMIndexes(dbfunctionmsg &msg);
+	void SyncReadInUserDMIndexes(sqlite3 *adb);
 	void SyncWriteBackAccountIdLists(sqlite3 *adb);
 	void AsyncWriteBackAccountIdLists(dbfunctionmsg &msg);
 	void SyncWriteOutRBFSs(sqlite3 *adb);

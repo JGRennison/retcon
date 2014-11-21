@@ -501,23 +501,9 @@ const tweetidset &userdatacontainer::GetMentionSet() {
 	return msd->mention_set;
 }
 
-const tweetidset &userdatacontainer::GetDMSet() {
-	if(!dsd) {
-		return ad.empty_tweetidset;
-	}
-	else {
-		return dsd->dm_set;
-	}
-}
-
-void userdatacontainer::SetDMSet(tweetidset dmset) {
-	if(!dsd) dsd.reset(new dm_set_data);
-	dsd->dm_set = std::move(dmset);
-}
-
-void userdatacontainer::AddDMIdToSet(uint64_t id) {
-	if(!dsd) dsd.reset(new dm_set_data);
-	dsd->dm_set.insert(id);
+void user_dm_index::AddDMId(uint64_t id) {
+	flags |= UDIF::ISDIRTY;
+	ids.insert(id);
 }
 
 std::string tweet_flags::GetValueString(unsigned long long bitint) {
@@ -1445,20 +1431,19 @@ void SpliceTweetIDSet(tweetidset &set, tweetidset &out, uint64_t highlim_inc, ui
 }
 
 // Note that this uses a (lazily) lower-cased screen name as the map key, so it sorts in roughly the right order
-container::map<std::string, udc_ptr> GetDMConversationMap() {
-	container::map<std::string, udc_ptr> output;
+container::map<std::string, dm_conversation_map_item> GetDMConversationMap() {
+	container::map<std::string, dm_conversation_map_item> output;
 
-	for(auto &it : ad.userconts) {
-		auto &u = it.second;
-		if(u.MayHaveDMSet()) {
-			const tweetidset &tis = u.GetDMSet();
-			if(!tis.empty()) {
-				std::string lowercase_screenname;
-				std::transform(u.GetUser().screen_name.begin(), u.GetUser().screen_name.end(), std::back_inserter(lowercase_screenname), [](char in) {
-					return (in >= 'A' && in <= 'Z') ? in + 'a' - 'A' : in;
-				});
-				output[lowercase_screenname] = &u;
-			}
+	for(auto &it : ad.user_dm_indexes) {
+		uint64_t id = it.first;
+		auto &udi = it.second;
+		if(!udi.ids.empty()) {
+			udc_ptr u = ad.GetUserContainerById(id);
+			std::string lowercase_screenname;
+			std::transform(u->GetUser().screen_name.begin(), u->GetUser().screen_name.end(), std::back_inserter(lowercase_screenname), [](char in) {
+				return (in >= 'A' && in <= 'Z') ? in + 'a' - 'A' : in;
+			});
+			output[lowercase_screenname] = { u, &udi };
 		}
 	}
 

@@ -107,12 +107,13 @@ void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map) {
 		wxMenu *submenu = new wxMenu;
 		menuP->AppendSubMenu(submenu, wxT("DM Conversations"));
 		for(auto &it : dmsetmap) {
-			auto &u = it.second;
+			dm_conversation_map_item &item = it.second;
+			udc_ptr &u = item.u;
 			map[nextid] = [u](mainframe *parent) {
 				auto tp = tpanel::MkTPanel("", "", TPF::DELETEONWINCLOSE, { }, { { TPFU::DMSET, u } });
 				tp->MkTPanelWin(parent, true);
 			};
-			submenu->Append(nextid++, wxString::Format(wxT("@%s (%u)"), wxstrstd(u->GetUser().screen_name).c_str(), u->GetDMSet().size()));
+			submenu->Append(nextid++, wxString::Format(wxT("@%s (%u)"), wxstrstd(u->GetUser().screen_name).c_str(), item.index->ids.size()));
 		};
 		menuP->AppendSeparator();
 	}
@@ -234,8 +235,9 @@ void TPanelMenuActionCustom(mainframe *parent, flagwrapper<TPF> flags) {
 
 	auto dmsetmap = GetDMConversationMap();
 	for(auto &it : dmsetmap) {
-		udc_ptr_p u = it.second;
-		add_udc_item(TPFU::DMSET, u, wxString::Format(wxT("DM Conversation: @%s (%u)"), wxstrstd(u->GetUser().screen_name).c_str(), u->GetDMSet().size()));
+		dm_conversation_map_item &item = it.second;
+		udc_ptr &u = item.u;
+		add_udc_item(TPFU::DMSET, u, wxString::Format(wxT("DM Conversation: @%s (%u)"), wxstrstd(u->GetUser().screen_name).c_str(), item.index->ids.size()));
 	}
 
 	::wxGetMultipleChoices(selections, wxT(""), wxT("Select Accounts and Feed Types"), choices, parent, -1, -1, false);
