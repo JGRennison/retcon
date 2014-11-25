@@ -188,7 +188,7 @@ struct filter_item_cond_regex : public filter_item_cond {
 
 	virtual ~filter_item_cond_regex() {
 		if(ptn) pcre_free(ptn);
-		if(ptn) pcre_free_study(extra);
+		if(extra) pcre_free_study(extra);
 	}
 };
 
