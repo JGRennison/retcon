@@ -56,7 +56,7 @@ inline decltype(wxString().ToUTF8()) cstr_wrap(const wxString &in) {
 }
 
 bool LoadImageFromFileAndCheckHash(const wxString &filename, shb_iptr hash, wxImage &img);
-bool LoadFromFileAndCheckHash(const wxString &filename, shb_iptr hash, char *&data, size_t &size);
+bool LoadFromFileAndCheckHash(const wxString &filename, shb_iptr hash, std::string &out);
 
 //fix for MinGW, from http://pastebin.com/7rhvv92A
 #ifdef __MINGW32__

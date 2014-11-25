@@ -59,43 +59,39 @@ shb_iptr hash_block(const void *data, size_t length) {
 	return std::move(hash);
 }
 
-bool LoadFromFileAndCheckHash(const wxString &filename, shb_iptr hash, char *&data, size_t &size) {
+bool LoadFromFileAndCheckHash(const wxString &filename, shb_iptr hash, std::string &out) {
 	if(!hash) return false;
 	wxFile file;
 	bool opened = file.Open(filename);
 	if(opened) {
 		wxFileOffset len = file.Length();
 		if(len >= 0 && len < (50 << 20)) {    //don't load empty or absurdly large files
-			data = (char*) malloc(len);
-			size = file.Read(data, len);
+			out.resize(len);
+			size_t size = file.Read(&out[0], len);
 			if(size == (size_t) len) {
 				CSHA1 hashblk;
-				hashblk.Update(reinterpret_cast<unsigned char*>(data), len);
+				hashblk.Update(reinterpret_cast<const unsigned char*>(out.data()), len);
 				hashblk.Final();
 				if(memcmp(hashblk.GetHashPtr(), hash->hash_sha1, 20) == 0) {
 					return true;
 				}
 			}
-			free(data);
+			out.clear();
 		}
 	}
-	data = nullptr;
-	size = 0;
 	return false;
 }
 
 bool LoadImageFromFileAndCheckHash(const wxString &filename, shb_iptr hash, wxImage &img) {
 	if(!hash) return false;
-	char *data = nullptr;
-	size_t size;
+	std::string data;
 	bool success = false;
-	if(LoadFromFileAndCheckHash(filename, hash, data, size)) {
-		wxMemoryInputStream memstream(data, size);
+	if(LoadFromFileAndCheckHash(filename, hash, data)) {
+		wxMemoryInputStream memstream(data.data(), data.size());
 		if(img.LoadFile(memstream, wxBITMAP_TYPE_ANY)) {
 			success = true;
 		}
 	}
-	if(data) free(data);
 	return success;
 }
 

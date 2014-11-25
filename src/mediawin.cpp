@@ -98,13 +98,11 @@ media_display_win::media_display_win(wxWindow *parent, media_id_type media_id_)
 
 	if(me->flags & MEF::LOAD_FULL && !(me->flags & MEF::HAVE_FULL)) {
 		//try to load from file
-		char *data = nullptr;
-		size_t size;
-		if(LoadFromFileAndCheckHash(me->cached_full_filename(), me->full_img_sha1, data, size)) {
+		std::string data;
+		if(LoadFromFileAndCheckHash(me->cached_full_filename(), me->full_img_sha1, data)) {
 			me->flags |= MEF::HAVE_FULL;
-			me->fulldata.assign(data, size);	//redundant copy, but oh well
+			me->fulldata = std::move(data);
 		}
-		if(data) free(data);
 	}
 	if(!(me->flags & MEF::FULL_NET_INPROGRESS) && !(me->flags & MEF::HAVE_FULL) && me->media_url.size()) {
 		flagwrapper<MIDC> flags = MIDC::FULLIMG | MIDC::OPPORTUNIST_THUMB | MIDC::OPPORTUNIST_REDRAW_TWEETS;
