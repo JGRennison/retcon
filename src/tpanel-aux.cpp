@@ -32,6 +32,7 @@
 #include "cfg.h"
 #include "uiutil.h"
 #include "log.h"
+#include "log-util.h"
 #include <wx/dcmirror.h>
 #include <cstdlib>
 
@@ -779,5 +780,9 @@ void tpanel_subtweet_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF>
 }
 
 std::string tpanel_subtweet_pending_op::dump() {
-	return string_format("Push inline tweet reply to tpanel: %p, %p, %p", action_data->vbox, action_data->win.get(), action_data->top_tds.get());
+	return string_format("Push inline tweet reply to tpanel: win: %s, top tds: %s, top tweet: %s",
+			action_data->win ? cstr(action_data->win->GetThisName()) : "(null)",
+			action_data->top_tds ? cstr(action_data->top_tds->GetThisName()) : "(null)",
+			cstr(tweet_short_log_line(action_data->top_tweet->id))
+	);
 }
