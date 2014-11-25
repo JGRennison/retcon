@@ -118,9 +118,8 @@ struct dbrettweetdata {
 };
 
 enum class DBSTMF {
-	NO_ERR          = 1<<1,
-	NET_FALLBACK    = 1<<2,
-	CLEARNOUPDF     = 1<<3,
+	NO_ERR          = 1<<0,
+	CLEARNOUPDF     = 1<<1,
 };
 template<> struct enum_traits<DBSTMF> { static constexpr bool flags = true; };
 
@@ -130,14 +129,6 @@ struct dbseltweetmsg : public dbsendmsg_callback {
 	flagwrapper<DBSTMF> flags = 0;
 	container::set<uint64_t> id_set;         // ids to select
 	std::deque<dbrettweetdata> data;         // return data
-};
-
-struct dbseltweetmsg_netfallback : public dbseltweetmsg {
-	dbseltweetmsg_netfallback() : dbseltweetmsg() {
-		flags |= DBSTMF::NET_FALLBACK;
-	}
-
-	unsigned int dbindex = 0;    //for the use of the main thread only
 };
 
 struct dbinsertusermsg : public dbsendmsg {

@@ -836,19 +836,18 @@ bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> ac
 				CheckLoadSingleTweet(tobj, curacc);
 			}
 			else {
-				std::unique_ptr<dbseltweetmsg_netfallback> own_loadmsg;
+				std::unique_ptr<dbseltweetmsg> own_loadmsg;
 				dbseltweetmsg *loadmsg;
-				dbseltweetmsg_netfallback *net_loadmsg = nullptr;
 				if(existing_dbsel && *existing_dbsel) {
 					loadmsg = existing_dbsel->get();
 				}
 				else if(existing_dbsel) {
-					loadmsg = net_loadmsg = new dbseltweetmsg_netfallback;
+					loadmsg = new dbseltweetmsg;
 					existing_dbsel->reset(loadmsg);
 				}
 				else {
-					loadmsg = net_loadmsg = new dbseltweetmsg_netfallback;
-					own_loadmsg.reset(net_loadmsg);
+					loadmsg = new dbseltweetmsg;
+					own_loadmsg.reset(loadmsg);
 				}
 
 				tobj->lflags |= TLF::BEINGLOADEDFROMDB;
@@ -856,10 +855,6 @@ bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> ac
 				loadmsg->id_set.insert(tobj->id);
 				DBC_PrepareStdTweetLoadMsg(*loadmsg);
 				loadmsg->flags |= DBSTMF::NO_ERR | DBSTMF::CLEARNOUPDF;
-				if(acc_hint) {
-					if(!net_loadmsg) net_loadmsg = dynamic_cast<dbseltweetmsg_netfallback*>(loadmsg);
-					if(net_loadmsg) net_loadmsg->dbindex = acc_hint->dbindex;
-				}
 				if(own_loadmsg) DBC_SendMessageBatched(std::move(own_loadmsg));
 			}
 		}

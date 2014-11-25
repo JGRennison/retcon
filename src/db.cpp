@@ -421,9 +421,11 @@ static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetm
 		rd.timestamp = (uint64_t) sqlite3_column_int64(stmt, 5);
 		rd.rtid = rtid = (uint64_t) sqlite3_column_int64(stmt, 6);
 	}
-	else { DBLogMsgFormat((m.flags & DBSTMF::NO_ERR) ? LOGT::DBTRACE : LOGT::DBERR,
-			"DBSM::SELTWEET got error: %d (%s) for id: %" llFmtSpec "d, net fallback flag: %d",
-			res, cstr(sqlite3_errmsg(db)), (sqlite3_int64) id, (m.flags & DBSTMF::NET_FALLBACK) ? 1 : 0); }
+	else {
+		DBLogMsgFormat((m.flags & DBSTMF::NO_ERR) ? LOGT::DBTRACE : LOGT::DBERR,
+				"DBSM::SELTWEET got error: %d (%s) for id: %" llFmtSpec "d",
+				res, cstr(sqlite3_errmsg(db)), (sqlite3_int64) id);
+	}
 	sqlite3_reset(stmt);
 
 	if(rtid && idset.find(rtid) == idset.end()) {
@@ -484,7 +486,7 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 			for(auto it = m->id_set.cbegin(); it != m->id_set.cend(); ++it) {
 				ProcessMessage_SelTweet(db, stmt, *m, recv_data, *it, m->id_set);
 			}
-			if(!recv_data.empty() || m->flags & DBSTMF::NET_FALLBACK) {
+			if(!recv_data.empty()) {
 				m->data = std::move(recv_data);
 				m->SendReply(std::move(themsg), th);
 				return;
@@ -742,36 +744,6 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg &msg, flagwrapper<HDBSF> flags) {
 	LogMsgFormat(LOGT::DBTRACE, "dbconn::HandleDBSelTweetMsg start");
 
 	if(msg.flags & DBSTMF::CLEARNOUPDF) dbc_flags |= DBCF::REPLY_CLEARNOUPDF;
-
-	if(msg.flags & DBSTMF::NET_FALLBACK) {
-		dbseltweetmsg_netfallback *fmsg = dynamic_cast<dbseltweetmsg_netfallback *>(&msg);
-		std::shared_ptr<taccount> acc;
-		if(fmsg) {
-			GetAccByDBIndex(fmsg->dbindex, acc);
-		}
-		container::set<uint64_t> missing_id_set = msg.id_set;
-		for(auto &it : msg.data) {
-			missing_id_set.erase(it.id);
-		}
-		for(auto &it : missing_id_set) {
-			tweet_ptr t = ad.GetTweetById(it);
-
-			if(!t->text.size() && !(t->lflags & TLF::BEINGLOADEDOVERNET)) {	//tweet still not loaded at all
-
-				t->lflags &= ~TLF::BEINGLOADEDFROMDB;
-
-				std::shared_ptr<taccount> curacc = acc;
-				bool result = CheckLoadSingleTweet(t, curacc);
-				if(result) {
-					LogMsgFormat(LOGT::DBTRACE, "dbconn::HandleDBSelTweetMsg falling back to network for tweet: id: %" llFmtSpec "d, account: %s.",
-							t->id, cstr(curacc->dispname));
-				}
-				else {
-					LogMsgFormat(LOGT::DBERR, "dbconn::HandleDBSelTweetMsg could not fall back to network for tweet: id:%" llFmtSpec "d, no usable account.", t->id);
-				}
-			}
-		}
-	}
 
 	for(dbrettweetdata &dt : msg.data) {
 		#if DB_COPIOUS_LOGGING
