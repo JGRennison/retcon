@@ -92,7 +92,7 @@ typedef std::map<int,tweetactmenuitem> tweetactmenudata;
 extern tweetactmenudata tamd;
 
 void AppendToTAMIMenuMap(tweetactmenudata &map, int &nextid, TAMI_TYPE type, tweet_ptr tw,
-		unsigned int dbindex = 0, udc_ptr user = udc_ptr(),
+		unsigned int dbindex = 0, udc_ptr_p user = nullptr,
 		flagwrapper<TPF> flags = 0, wxString extra = wxT(""), panelparentwin_base *ppwb = nullptr);
 void MakeRetweetMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw);
 void MakeFavMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw);

@@ -22,21 +22,20 @@
 alldata ad;
 
 udc_ptr alldata::GetUserContainerById(uint64_t id) {
-	auto it = userconts.insert(std::make_pair(id, userdatacontainer()));
-	udc_ptr usercont = &(it.first->second);
+	auto it = userconts.insert(std::make_pair(id, udc_ptr()));
+	udc_ptr &usercont = it.first->second;
 	if(it.second) {
 		//new user
+		usercont.reset(new userdatacontainer());
 		usercont->id = id;
-		usercont->lastupdate = 0;
-		usercont->udc_flags = 0;
 	}
-	return std::move(usercont);
+	return usercont;
 }
 
 udc_ptr alldata::GetExistingUserContainerById(uint64_t id) {
 	auto it = userconts.find(id);
 	if(it != userconts.end()) {
-		return &(it->second);
+		return it->second;
 	}
 	else {
 		return nullptr;

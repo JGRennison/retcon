@@ -123,6 +123,7 @@ class cref_intrusive_ptr : public intrusive_ptr_common<T> {
 
 	constexpr cref_intrusive_ptr() noexcept : intrusive_ptr_common<T>(nullptr) { }
 	constexpr cref_intrusive_ptr(std::nullptr_t) noexcept : intrusive_ptr_common<T>(nullptr) { }
+	explicit cref_intrusive_ptr(pointer p) : intrusive_ptr_common<T>() { this->ptr = p; }
 	cref_intrusive_ptr(const intrusive_ptr_common<T> &o) noexcept : intrusive_ptr_common<T>() { this->ptr = o.get(); }
 
 	operator intrusive_ptr<T>() const { return intrusive_ptr<T>(this->ptr); };

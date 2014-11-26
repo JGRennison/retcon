@@ -36,7 +36,7 @@ struct media_entity;
 struct user_dm_index;
 
 struct alldata {
-	std::unordered_map<uint64_t, userdatacontainer> userconts;
+	container::map<uint64_t, udc_ptr> userconts;
 	container::map<uint64_t, tweet_ptr> tweetobjs;
 	std::map<std::string, std::shared_ptr<tpanel> > tpanels;
 	std::unordered_map<media_id_type, std::unique_ptr<media_entity> > media_list;
@@ -45,6 +45,7 @@ struct alldata {
 	container::map<uint64_t, udc_ptr> noacc_pending_userconts;
 	std::unordered_map<uint64_t, user_dm_index> user_dm_indexes;
 	tweetidset unloaded_db_tweet_ids;
+	useridset unloaded_db_user_ids;
 	unsigned int next_media_id = 1;
 	cached_id_sets cids;
 	std::vector<twin_layout_desc> twinlayout;

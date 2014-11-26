@@ -229,7 +229,7 @@ bool userdatacontainer::ImgIsReady(flagwrapper<PENDING_REQ> preq) {
 		if(cached_profile_img_url != user.profile_img_url) {
 			if(udc_flags & UDC::PROFILE_IMAGE_DL_FAILED) return true;
 			if(preq & PENDING_REQ::PROFIMG_DOWNLOAD_FLAG) {
-				profileimgdlconn::NewConn(user.profile_img_url, this);
+				profileimgdlconn::NewConn(user.profile_img_url, udc_ptr_p(this));
 
 				// New image, bump last used timestamp to prevent it being evicted prior to display
 				profile_img_last_used = time(nullptr);
@@ -316,7 +316,8 @@ flagwrapper<PENDING_RESULT> userdatacontainer::GetPending(flagwrapper<PENDING_RE
 			result |= PENDING_RESULT::PROFIMG_NOT_READY;
 		}
 	}
-	if(!NeedsUpdating(preq, timevalue) && !((udc_flags & UDC::LOOKUP_IN_PROGRESS) && (preq & PENDING_REQ::USEREXPIRE))) {
+	if(!NeedsUpdating(preq, timevalue) && !(udc_flags & UDC::BEING_LOADED_FROM_DB)
+			&& !((udc_flags & UDC::LOOKUP_IN_PROGRESS) && (preq & PENDING_REQ::USEREXPIRE))) {
 		result |= PENDING_RESULT::CONTENT_READY;
 	}
 	else {
@@ -347,7 +348,7 @@ void userdatacontainer::CheckPendingTweets(flagwrapper<UMPTF> umpt_flags) {
 	}
 	if(udc_flags & UDC::CHECK_USERLISTWIN) {
 		udc_flags &= ~UDC::CHECK_USERLISTWIN;
-		tpanelparentwin_user::CheckPendingUser(this);
+		tpanelparentwin_user::CheckPendingUser(udc_ptr_p(this));
 	}
 	ThawAll();
 }
@@ -749,13 +750,35 @@ void FastMarkPendingNonAcc(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark) {
 	}
 }
 
+// returns true if already in DB, and DB load issued *or* if DB load already in progress
+bool CheckIfUserAlreadyInDBAndLoad(udc_ptr_p u) {
+	if(u->udc_flags & UDC::BEING_LOADED_FROM_DB)
+		return true;
+	if(ad.unloaded_db_user_ids.find(u->id) != ad.unloaded_db_user_ids.end()) {
+		u->udc_flags |= UDC::BEING_LOADED_FROM_DB;
+
+		LogMsgFormat(LOGT::PENDTRACE, "CheckIfUserAlreadyInDBAndLoad: Issuing asynchronous load for: %" llFmtSpec "u", u->id);
+		std::unique_ptr<dbselusermsg> msg(new dbselusermsg());
+		msg->id_set.insert(u->id);
+		DBC_PrepareStdUserLoadMsg(*msg);
+		DBC_SendMessageBatched(std::move(msg));
+		return true;
+	}
+	return false;
+}
+
 //mark *must* be exactly right
 void taccount::FastMarkPending(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark) {
 	FastMarkPendingNonAcc(t, mark);
 
-	if(mark & PENDING_BITS::U) MarkUserPending(t->user);
-	if(mark & PENDING_BITS::UR) MarkUserPending(t->user_recipient);
-	if(mark & PENDING_BITS::RTU) MarkUserPending(t->rtsrc->user);
+	auto do_mark = [&](udc_ptr_p u) {
+		if(!CheckIfUserAlreadyInDBAndLoad(u))
+			MarkUserPending(u);
+	};
+
+	if(mark & PENDING_BITS::U) do_mark(t->user);
+	if(mark & PENDING_BITS::UR) do_mark(t->user_recipient);
+	if(mark & PENDING_BITS::RTU) do_mark(t->rtsrc->user);
 }
 
 //return true if successfully marked pending
@@ -764,14 +787,24 @@ bool FastMarkPendingNoAccFallback(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark,
 	FastMarkPendingNonAcc(t, mark);
 
 	if(mark & PENDING_BITS::ACCMASK) {
-		if(mark & PENDING_BITS::U) ad.noacc_pending_userconts[t->user->id] = t->user;
-		if(mark & PENDING_BITS::UR) ad.noacc_pending_userconts[t->user_recipient->id] = t->user_recipient;
-		if(mark & PENDING_BITS::RTU) ad.noacc_pending_userconts[t->rtsrc->user->id] = t->rtsrc->user;
+		bool have_set_noacc_pending = false;
+		auto do_mark = [&](udc_ptr_p u) {
+			if(!CheckIfUserAlreadyInDBAndLoad(u)) {
+				ad.noacc_pending_userconts[u->id] = u;
+				have_set_noacc_pending = true;
+			}
+		};
 
-		LogMsgFormat(LOGT::PENDTRACE, "%s: Cannot mark pending as there is no usable account, %s", cstr(logprefix), cstr(tweet_log_line(t.get())));
-		return false;
+		if(mark & PENDING_BITS::U) do_mark(t->user);
+		if(mark & PENDING_BITS::UR) do_mark(t->user_recipient);
+		if(mark & PENDING_BITS::RTU) do_mark(t->rtsrc->user);
+
+		if(have_set_noacc_pending) {
+			LogMsgFormat(LOGT::PENDTRACE, "%s: Cannot mark pending as there is no usable account, %s", cstr(logprefix), cstr(tweet_log_line(t.get())));
+			return false;
+		}
 	}
-	else return true;
+	return true;
 }
 
 //ends

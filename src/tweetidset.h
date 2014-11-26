@@ -25,5 +25,6 @@
 
 //note sorted in opposite order
 typedef container::set<uint64_t, std::greater<uint64_t> > tweetidset;
+typedef tweetidset useridset;
 
 #endif

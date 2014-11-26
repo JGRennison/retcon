@@ -127,6 +127,7 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"SELECT value FROM staticsettings WHERE (name IS ?);",
 	"INSERT INTO tpanels (name, dispname, flags, ids) VALUES (?, ?, ?, ?);",
 	"INSERT OR REPLACE INTO userdmsets (userid, dmindex) VALUES (?, ?);",
+	"SELECT json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex, profimglastusedtimestamp FROM users WHERE id == ?;",
 };
 
 static const std::string globstr = "G";
@@ -395,7 +396,7 @@ char *column_get_compressed_and_parse(sqlite3_stmt* stmt, int num, rapidjson::Do
 //! This calls itself for retweet sources, *unless* the retweet source ID is in idset
 //! This expects to be called in *ascending* ID order
 static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetmsg &m, std::deque<dbrettweetdata> &recv_data, uint64_t id,
-		const container::set<uint64_t> &idset, bool front_insert = false) {
+		const container::set<uint64_t> &idset, dbconn *dbc, bool front_insert = false) {
 	sqlite3_bind_int64(stmt, 1, (sqlite3_int64) id);
 	int res = sqlite3_step(stmt);
 	uint64_t rtid = 0;
@@ -420,6 +421,9 @@ static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetm
 		rd.flags = (uint64_t) sqlite3_column_int64(stmt, 4);
 		rd.timestamp = (uint64_t) sqlite3_column_int64(stmt, 5);
 		rd.rtid = rtid = (uint64_t) sqlite3_column_int64(stmt, 6);
+
+		if(rd.user1) dbc->AsyncReadInUser(db, rd.user1, m.user_data);
+		if(rd.user2) dbc->AsyncReadInUser(db, rd.user2, m.user_data);
 	}
 	else {
 		DBLogMsgFormat((m.flags & DBSTMF::NO_ERR) ? LOGT::DBTRACE : LOGT::DBERR,
@@ -431,13 +435,13 @@ static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetm
 	if(rtid && idset.find(rtid) == idset.end()) {
 		// This is a retweet, if we're not already loading the retweet source, load it here
 		// Note that this is front emplaced in *front* of the retweet which needs it
-		ProcessMessage_SelTweet(db, stmt, m, recv_data, rtid, idset, true);
+		ProcessMessage_SelTweet(db, stmt, m, recv_data, rtid, idset, dbc, true);
 	}
 }
 
 //Note that the contents of themsg may be stolen if the lifetime of the message needs to be extended
 //This is generally the case for messages which also act as replies
-static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool &ok, dbpscache &cache, dbiothread *th) {
+static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool &ok, dbpscache &cache, dbiothread *th, dbconn *dbc) {
 	dbsendmsg *msg = themsg.get();
 	switch(msg->type) {
 		case DBSM::QUIT:
@@ -484,7 +488,7 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 
 			//This is *ascending* ID order
 			for(auto it = m->id_set.cbegin(); it != m->id_set.cend(); ++it) {
-				ProcessMessage_SelTweet(db, stmt, *m, recv_data, *it, m->id_set);
+				ProcessMessage_SelTweet(db, stmt, *m, recv_data, *it, m->id_set, dbc);
 			}
 			if(!recv_data.empty()) {
 				m->data = std::move(recv_data);
@@ -515,6 +519,26 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 					res, cstr(sqlite3_errmsg(db)), m->id); }
 			else { DBLogMsgFormat(LOGT::DBTRACE, "DBSM::INSERTUSER inserted id: %" llFmtSpec "d", (sqlite3_int64) m->id); }
 			sqlite3_reset(stmt);
+			break;
+		}
+		case DBSM::SELUSER: {
+			dbselusermsg *m = static_cast<dbselusermsg*>(msg);
+			for(uint64_t id : m->id_set) {
+				DBLogMsgFormat(LOGT::DBTRACE, "DBSM::SELUSER got request for user: %" llFmtSpec "u", id);
+
+				dbc->AsyncReadInUser(db, id, m->data);
+			}
+			// Always reply, even if empty.
+			// This avoids a race conditions if the main thread sends multiple requests
+			// for the same user with reply handlers, before the first reply is
+			// received.
+			m->SendReply(std::move(themsg), th);
+			return;
+		}
+		case DBSM::NOTIFYUSERSPURGED: {
+			dbnotifyuserspurgedmsg *m = static_cast<dbnotifyuserspurgedmsg*>(msg);
+			dbc->unloaded_user_ids.insert(m->ids.begin(), m->ids.end());
+			DBLogMsgFormat(LOGT::DBTRACE, "DBSM::NOTIFYUSERSPURGED inserted %d ids", m->ids.size());
 			break;
 		}
 		case DBSM::INSERTACC: {
@@ -626,7 +650,7 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 			dbsendmsg_list *m = static_cast<dbsendmsg_list *>(msg);
 			DBLogMsgFormat(LOGT::DBTRACE, "DBSM::MSGLIST: queue size: %d", m->msglist.size());
 			for(auto &onemsg : m->msglist) {
-				ProcessMessage(db, onemsg, ok, cache, th);
+				ProcessMessage(db, onemsg, ok, cache, th, dbc);
 			}
 			cache.EndTransaction(db);
 			break;
@@ -680,7 +704,7 @@ void dbiothread::MsgLoop() {
 		}
 		#endif
 		std::unique_ptr<dbsendmsg> msgcont(msg);
-		ProcessMessage(db, msgcont, ok, cache, this);
+		ProcessMessage(db, msgcont, ok, cache, this, dbc);
 		if(!reply_list.empty()) {
 			dbreplyevtstruct *rs = new dbreplyevtstruct;
 			rs->reply_list = std::move(reply_list);
@@ -702,6 +726,8 @@ EVT_COMMAND(wxDBCONNEVT_ID_INSERTNEWACC, wxextDBCONN_NOTIFY, dbconn::OnDBNewAcco
 EVT_COMMAND(wxDBCONNEVT_ID_SENDBATCH, wxextDBCONN_NOTIFY, dbconn::OnSendBatchEvt)
 EVT_COMMAND(wxDBCONNEVT_ID_REPLY, wxextDBCONN_NOTIFY, dbconn::OnDBReplyEvt)
 EVT_COMMAND(wxDBCONNEVT_ID_GENERICSELTWEET, wxextDBCONN_NOTIFY, dbconn::GenericDBSelTweetMsgHandler)
+EVT_COMMAND(wxDBCONNEVT_ID_STDUSERLOAD, wxextDBCONN_NOTIFY, dbconn::OnStdUserLoadFromDB)
+EVT_COMMAND(wxDBCONNEVT_ID_GENERICSELUSER, wxextDBCONN_NOTIFY, dbconn::GenericDBSelUserMsgHandler)
 EVT_TIMER(DBCONNTIMER_ID_ASYNCSTATEWRITE, dbconn::OnAsyncStateWriteTimer)
 END_EVENT_TABLE()
 
@@ -744,6 +770,8 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg &msg, flagwrapper<HDBSF> flags) {
 	LogMsgFormat(LOGT::DBTRACE, "dbconn::HandleDBSelTweetMsg start");
 
 	if(msg.flags & DBSTMF::CLEARNOUPDF) dbc_flags |= DBCF::REPLY_CLEARNOUPDF;
+
+	DBSelUserReturnDataHandler(std::move(msg.user_data), 0);
 
 	for(dbrettweetdata &dt : msg.data) {
 		#if DB_COPIOUS_LOGGING
@@ -793,6 +821,74 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg &msg, flagwrapper<HDBSF> flags) {
 		}
 	}
 	LogMsgFormat(LOGT::DBTRACE, "dbconn::HandleDBSelTweetMsg end");
+}
+
+void dbconn::PrepareStdUserLoadMsg(dbselusermsg &loadmsg) {
+	loadmsg.targ = this;
+	loadmsg.cmdevtype = wxextDBCONN_NOTIFY;
+	loadmsg.winid = wxDBCONNEVT_ID_STDUSERLOAD;
+}
+
+void dbconn::OnStdUserLoadFromDB(wxCommandEvent &event) {
+	std::unique_ptr<dbselusermsg> msg(static_cast<dbselusermsg *>(event.GetClientData()));
+	event.SetClientData(0);
+	DBSelUserReturnDataHandler(std::move(msg->data), 0);
+}
+
+void dbconn::GenericDBSelUserMsgHandler(wxCommandEvent &event) {
+	std::unique_ptr<dbselusermsg> msg(static_cast<dbselusermsg *>(event.GetClientData()));
+	event.SetClientData(0);
+
+	const auto &it = generic_sel_user_funcs.find(reinterpret_cast<intptr_t>(msg.get()));
+	if(it != generic_sel_user_funcs.end()) {
+		it->second(*msg, this);
+		generic_sel_user_funcs.erase(it);
+	}
+	else {
+		DBLogMsgFormat(LOGT::DBERR, "dbconn::GenericDBSelUserMsgHandler could not find handler for %p.", msg.get());
+	}
+
+	dbc_flags |= DBCF::REPLY_CLEARNOUPDF;
+}
+
+void dbconn::SetDBSelUserMsgHandler(dbselusermsg &msg, std::function<void(dbselusermsg &, dbconn *)> f) {
+	msg.targ = this;
+	msg.cmdevtype = wxextDBCONN_NOTIFY;
+	msg.winid = wxDBCONNEVT_ID_GENERICSELUSER;
+	generic_sel_user_funcs[reinterpret_cast<intptr_t>(&msg)] = std::move(f);
+}
+
+void dbconn::DBSelUserReturnDataHandler(std::deque<dbretuserdata> data, flagwrapper<HDBSF> flags) {
+	for(dbretuserdata &du : data) {
+		LogMsgFormat(LOGT::DBTRACE, "dbconn::DBSelUserReturnDataHandler got user data id: %" llFmtSpec "u", du.id);
+
+		udc_ptr u = ad.GetUserContainerById(du.id);
+
+		ad.unloaded_db_user_ids.erase(du.id);
+		u->udc_flags &= ~UDC::BEING_LOADED_FROM_DB;
+		u->udc_flags |= UDC::SAVED_IN_DB;
+
+		unsigned int new_revision = u->user.revision_number + 1;
+		u->user = std::move(du.ud);
+		u->user.revision_number = new_revision;
+
+		u->lastupdate = std::move(du.lastupdate);
+		u->lastupdate_wrotetodb = std::move(du.lastupdate_wrotetodb);
+		u->cached_profile_img_url = std::move(du.cached_profile_img_url);
+		u->cached_profile_img_sha1 = std::move(du.cached_profile_img_sha1);
+		u->profile_img_last_used = std::move(du.profile_img_last_used);
+		u->profile_img_last_used_db = std::move(du.profile_img_last_used_db);
+
+		// Incoming mention_index likely to be larger, old one likely to be empty or nearly empty
+		std::deque<uint64_t> old_mention_index = std::move(u->mention_index);
+		u->mention_index = std::move(du.mention_index);
+		u->mention_index.insert(u->mention_index.end(), old_mention_index.begin(), old_mention_index.end());
+
+		if(!(flags & HDBSF::NOPENDINGS)) {
+			u->CheckPendingTweets();
+			dbc.dbc_flags |= DBCF::REPLY_CHECKPENDINGS;
+		}
+	}
 }
 
 void dbconn::OnDBNewAccountInsert(wxCommandEvent &event) {
@@ -950,9 +1046,9 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 
 	LogMsgFormat(LOGT::DBTRACE, "dbconn::Init(): About to read in state from database");
 
+	SyncReadInAllUserIDs(syncdb);
 	AccountSync(syncdb);
 	ReadAllCFGIn(syncdb, gc, alist);
-	SyncReadInAllUsers(syncdb);
 	SyncReadInRBFSs(syncdb);
 	SyncReadInAllMediaEntities(syncdb);
 	SyncReadInCIDSLists(syncdb);
@@ -961,6 +1057,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	SyncReadInAllTweetIDs(syncdb);
 	SyncReadInUserRelationships(syncdb);
 	SyncReadInUserDMIndexes(syncdb);
+	SyncPostUserLoadCompletion();
 
 	LogMsgFormat(LOGT::DBTRACE, "dbconn::Init(): State read in from database complete, about to create database thread");
 
@@ -1089,6 +1186,49 @@ void dbconn::CheckPurgeTweets() {
 			purge_count, ad.tweetobjs.size(), refone_count);
 }
 
+// This should be called immediately after AsyncWriteBackAllUsers
+void dbconn::CheckPurgeUsers() {
+	unsigned int refone_count = 0;
+	unsigned int purge_count = 0;
+	useridset db_purged_ids;
+
+	auto it = ad.userconts.begin();
+	while(it != ad.userconts.end()) {
+		udc_ptr &u = it->second;
+		uint64_t id = it->first;
+
+		if(u->udc_flags & UDC::NON_PURGABLE) {
+			// do nothing, user not purgable
+			++it;
+		}
+		else if(u->udc_flags & UDC::REFCOUNT_WENT_GT1 || !u->pendingtweets.empty()) {
+			// Keep it
+
+			// Reset the flag, if no one creates a second pointer to it before the next call to CheckPurgeUsers, it will then be purged
+			if(u->GetRefcount() == 1) {
+				u->udc_flags &= ~UDC::REFCOUNT_WENT_GT1;
+				refone_count++;
+			}
+			++it;
+		}
+		else {
+			// Bin it
+			if(u->udc_flags & UDC::SAVED_IN_DB) {
+				db_purged_ids.insert(id);
+				ad.unloaded_db_user_ids.insert(id);
+			}
+			it = ad.userconts.erase(it);
+			purge_count++;
+		}
+	}
+	LogMsgFormat(LOGT::DBTRACE, "dbconn::CheckPurgeUsers purged %u users from memory (%u in DB), %zu remaining, %u might be purged next time",
+			purge_count, db_purged_ids.size(), ad.userconts.size(), refone_count);
+
+	if(!db_purged_ids.empty()) {
+		SendMessage(std::unique_ptr<dbnotifyuserspurgedmsg>(new dbnotifyuserspurgedmsg(std::move(db_purged_ids))));
+	}
+}
+
 void dbconn::AsyncWriteBackState() {
 	if(!gc.readonlymode) {
 		LogMsg(LOGT::DBTRACE, "dbconn::AsyncWriteBackState start");
@@ -1118,6 +1258,7 @@ void dbconn::AsyncWriteBackState() {
 	}
 
 	CheckPurgeTweets();
+	CheckPurgeUsers();
 }
 
 void dbconn::InsertNewTweet(tweet_ptr_p tobj, std::string statjson, optional_observer_ptr<dbsendmsg_list> msglist) {
@@ -1157,6 +1298,7 @@ void dbconn::InsertUser(udc_ptr_p u, optional_observer_ptr<dbsendmsg_list> msgli
 	u->lastupdate_wrotetodb = u->lastupdate;
 	msg->profile_img_last_used = u->profile_img_last_used;
 	u->profile_img_last_used_db = u->profile_img_last_used;
+	u->udc_flags |= UDC::SAVED_IN_DB;
 	SendMessageOrAddToList(std::move(msg), msglist);
 }
 
@@ -1210,7 +1352,7 @@ void dbconn::AccountSync(sqlite3 *adb) {
 		total += ta->dm_ids.size();
 
 		uint64_t userid = (uint64_t) sqlite3_column_int64(getstmt, 4);
-		ta->usercont = ad.GetUserContainerById(userid);
+		ta->usercont = SyncReadInUser(adb, userid);
 		ta->dispname = wxString::FromUTF8((const char*) sqlite3_column_text(getstmt, 5));
 
 		LogMsgFormat(LOGT::DBTRACE, "dbconn::AccountSync: Found account: dbindex: %d, name: %s, tweet IDs: %u, DM IDs: %u",
@@ -1450,10 +1592,14 @@ namespace {
 		//F must free() itemdata blobs
 		template <typename F> void operator()(F func) const {
 			for(auto &it : ad.userconts) {
-				userdatacontainer *u = &(it.second);
+				udc_ptr_p u = it.second;
 
 				if(u->user.screen_name.empty()) {
 					continue;    //don't bother saving empty user stubs
+				}
+
+				if(u->udc_flags & UDC::BEING_LOADED_FROM_DB) {
+					continue;    //read of this user from DB in progress, do not try to write back
 				}
 
 				// User needs updating
@@ -1468,6 +1614,7 @@ namespace {
 
 				u->lastupdate_wrotetodb = u->lastupdate;
 				u->profile_img_last_used_db = u->profile_img_last_used;
+				u->udc_flags |= UDC::SAVED_IN_DB;
 
 				itemdata data;
 
@@ -1549,66 +1696,90 @@ void dbconn::AsyncWriteBackAllUsers(dbfunctionmsg &msg) {
 	DoGenericAsyncWriteBack(msg, WriteBackAllUsers(), "dbconn::AsyncWriteBackAllUsers");
 }
 
-void dbconn::SyncReadInAllUsers(sqlite3 *adb) {
-	LogMsg(LOGT::DBTRACE, "dbconn::SyncReadInAllUsers start");
-	const char sql[] = "SELECT id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex, profimglastusedtimestamp FROM users;";
-	sqlite3_stmt *stmt = 0;
-	sqlite3_prepare_v2(adb, sql, sizeof(sql), &stmt, 0);
-
-	uint64_t usercounthint = 0;
-	DBReadConfig dbrc(adb);
-	dbrc.SetDBIndexDB();
-	dbrc.ReadUInt64("UserCountHint", &usercounthint, 0);
-
-	if(usercounthint) {
-		LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInAllUsers: got user count hint: %" llFmtSpec "u.", usercounthint);
-		ad.userconts.reserve(usercounthint);
+template <typename UDC> static void ReadInUserObject(sqlite3_stmt *stmt, uint64_t id, UDC &u, userdata &ud, const char *name) {
+	rapidjson::Document dc;
+	char *json = column_get_compressed_and_parse(stmt, 0, dc);
+	if(dc.IsObject()) genjsonparser::ParseUserContents(dc, ud);
+	size_t profimg_size;
+	char *profimg = column_get_compressed(stmt, 1, profimg_size);
+	u.cached_profile_img_url.assign(profimg, profimg_size);
+	if(ud.profile_img_url.empty()) {
+		ud.profile_img_url.assign(profimg, profimg_size);
 	}
+	ud.createtime = (time_t) sqlite3_column_int64(stmt, 2);
+	u.lastupdate = (uint64_t) sqlite3_column_int64(stmt, 3);
+	u.lastupdate_wrotetodb = u.lastupdate;
+	const char *hash = (const char*) sqlite3_column_blob(stmt, 4);
+	int hashsize = sqlite3_column_bytes(stmt, 4);
+	if(hashsize == sizeof(sha1_hash_block::hash_sha1)) {
+		std::shared_ptr<sha1_hash_block> hashptr = std::make_shared<sha1_hash_block>();
+		memcpy(hashptr->hash_sha1, hash, sizeof(sha1_hash_block::hash_sha1));
+		u.cached_profile_img_sha1 = std::move(hashptr);
+	}
+	else {
+		u.cached_profile_img_sha1.reset();
+		if(hashsize)
+			LogMsgFormat(LOGT::DBERR, "%s user id: %" llFmtSpec "d, has invalid profile image hash length: %d", cstr(name), (sqlite3_int64) id, hashsize);
+	}
+	if(json) free(json);
+	if(profimg) free(profimg);
+	setfromcompressedblob([&](uint64_t &tid) { u.mention_index.push_back(tid); }, stmt, 5);
+	u.profile_img_last_used = (uint64_t) sqlite3_column_int64(stmt, 6);
+	u.profile_img_last_used_db = u.profile_img_last_used;
+}
 
-	unsigned int user_read_count = 0;
-	do {
-		int res = sqlite3_step(stmt);
-		if(res == SQLITE_ROW) {
-			user_read_count++;
-			uint64_t id = (uint64_t) sqlite3_column_int64(stmt, 0);
-			udc_ptr ref = ad.GetUserContainerById(id);
-			userdatacontainer &u = *ref.get();
-			rapidjson::Document dc;
-			char *json = column_get_compressed_and_parse(stmt, 1, dc);
-			if(dc.IsObject()) genjsonparser::ParseUserContents(dc, u.user);
-			size_t profimg_size;
-			char *profimg = column_get_compressed(stmt, 2, profimg_size);
-			u.cached_profile_img_url.assign(profimg, profimg_size);
-			if(u.user.profile_img_url.empty()) u.user.profile_img_url.assign(profimg, profimg_size);
-			u.user.createtime = (time_t) sqlite3_column_int64(stmt, 3);
-			u.lastupdate = (uint64_t) sqlite3_column_int64(stmt, 4);
-			u.lastupdate_wrotetodb = u.lastupdate;
-			const char *hash = (const char*) sqlite3_column_blob(stmt, 5);
-			int hashsize = sqlite3_column_bytes(stmt, 5);
-			if(hashsize == sizeof(sha1_hash_block::hash_sha1)) {
-				std::shared_ptr<sha1_hash_block> hashptr = std::make_shared<sha1_hash_block>();
-				memcpy(hashptr->hash_sha1, hash, sizeof(sha1_hash_block::hash_sha1));
-				u.cached_profile_img_sha1 = std::move(hashptr);
-			}
-			else {
-				u.cached_profile_img_sha1.reset();
-				if(profimg_size) LogMsgFormat(LOGT::DBERR, "dbconn::SyncReadInAllUsers user id: %" llFmtSpec "d, has invalid profile image hash length: %d", (sqlite3_int64) id, hashsize);
-			}
-			if(json) free(json);
-			if(profimg) free(profimg);
-			setfromcompressedblob([&](uint64_t &tid) { u.mention_index.push_back(tid); }, stmt, 6);
-			u.profile_img_last_used = (uint64_t) sqlite3_column_int64(stmt, 7);
-			u.profile_img_last_used_db = u.profile_img_last_used;
+// Anything loaded here will be marked non-purgable
+udc_ptr dbconn::SyncReadInUser(sqlite3 *syncdb, uint64_t id) {
+	udc_ptr u = ad.GetUserContainerById(id);
 
-			#if DB_COPIOUS_LOGGING
-				LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInAllUsers retrieved user id: %" llFmtSpec "d", (sqlite3_int64) id);
-			#endif
-		}
-		else if(res != SQLITE_DONE) { LogMsgFormat(LOGT::DBERR, "dbconn::SyncReadInAllUsers got error: %d (%s)", res, cstr(sqlite3_errmsg(adb))); }
-		else break;
-	} while(true);
-	sqlite3_finalize(stmt);
-	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInAllUsers end, read in %u users (%u total)", user_read_count, (unsigned int) ad.userconts.size());
+	// Fetch only if in unloaded_user_ids, ie. in DB but not already loaded
+	if(unloaded_user_ids.erase(id) > 0) {
+		DBBindRowExec(syncdb, cache.GetStmt(syncdb, DBPSC_SELUSER),
+			[&](sqlite3_stmt *getstmt) {
+				sqlite3_bind_int64(getstmt, 1, (sqlite3_int64) id);
+			},
+			[&](sqlite3_stmt *getstmt) {
+				ReadInUserObject(getstmt, id, *u, u->user, "dbconn::SyncReadInUser");
+				u->udc_flags |= UDC::NON_PURGABLE | UDC::SAVED_IN_DB;
+				sync_load_user_count++;
+			},
+			"dbconn::SyncReadInUser"
+		);
+	}
+	return u;
+}
+
+void dbconn::AsyncReadInUser(sqlite3 *adb, uint64_t id, std::deque<dbretuserdata> &out) {
+	// Fetch only if in unloaded_user_ids, ie. in DB but not already loaded
+	if(unloaded_user_ids.erase(id) > 0) {
+		DBBindRowExec(adb, cache.GetStmt(adb, DBPSC_SELUSER),
+			[&](sqlite3_stmt *getstmt) {
+				sqlite3_bind_int64(getstmt, 1, (sqlite3_int64) id);
+			},
+			[&](sqlite3_stmt *getstmt) {
+				out.emplace_back();
+				dbretuserdata &u = out.back();
+				u.id = id;
+				ReadInUserObject(getstmt, id, u, u.ud, "dbconn::AsyncReadInUser");
+			},
+			"dbconn::AsyncReadInUser"
+		);
+	}
+}
+
+// This must be called before all calls to SyncReadInUser and SyncPostUserLoadCompletion
+void dbconn::SyncReadInAllUserIDs(sqlite3 *adb) {
+	LogMsg(LOGT::DBTRACE, "dbconn::SyncReadInAllUserIDs start");
+	DBRowExec(adb, "SELECT id FROM users;", [&](sqlite3_stmt *getstmt) {
+		uint64_t id = (uint64_t) sqlite3_column_int64(getstmt, 0);
+		unloaded_user_ids.insert(id);
+	}, "dbconn::SyncReadInAllTweetIDs");
+	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInAllUserIDs end, read %u", unloaded_user_ids.size());
+}
+
+void dbconn::SyncPostUserLoadCompletion() {
+	ad.unloaded_db_user_ids = unloaded_user_ids;
+	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInUser read %u", sync_load_user_count);
 }
 
 namespace {
@@ -1694,6 +1865,7 @@ void dbconn::SyncReadInUserDMIndexes(sqlite3 *adb) {
 			udi.ids = std::move(dmindex);
 			dmindex.clear();
 			read_count++;
+			SyncReadInUser(adb, userid);
 		}
 	}, "dbconn::SyncReadInUserDMIndexes");
 
@@ -2222,7 +2394,7 @@ void dbconn::SyncPurgeProfileImages(sqlite3 *adb) {
 
 	for(auto &it : ad.userconts) {
 		uint64_t id = it.first;
-		userdatacontainer *u = &(it.second);
+		udc_ptr_p u = it.second;
 		if(u->cached_profile_img_sha1 && (time_t) u->profile_img_last_used < threshold) {
 			// User has a profile image which can now be evicted from the disk cache
 			expire_list.push_back(id);
@@ -2444,4 +2616,16 @@ void DBC_SetDBSelTweetMsgHandler(dbseltweetmsg &msg, std::function<void(dbseltwe
 
 void DBC_PrepareStdTweetLoadMsg(dbseltweetmsg &loadmsg) {
 	dbc.PrepareStdTweetLoadMsg(loadmsg);
+}
+
+void DBC_DBSelUserReturnDataHandler(std::deque<dbretuserdata> data, flagwrapper<HDBSF> flags) {
+	dbc.DBSelUserReturnDataHandler(std::move(data), flags);
+}
+
+void DBC_SetDBSelUserMsgHandler(dbselusermsg &msg, std::function<void(dbselusermsg &, dbconn *)> f) {
+	dbc.SetDBSelUserMsgHandler(msg, std::move(f));
+}
+
+void DBC_PrepareStdUserLoadMsg(dbselusermsg &loadmsg) {
+	dbc.PrepareStdUserLoadMsg(loadmsg);
 }

@@ -29,8 +29,8 @@ struct tweet;
 //This is to hopefully make it as painless as possible to change the pointer types later
 //The _p variant is for wherever a shared_ptr might have been passed using const shared_ptr &, ie. parameters
 
-typedef observer_ptr<userdatacontainer> udc_ptr;
-typedef udc_ptr udc_ptr_p;
+typedef intrusive_ptr<userdatacontainer> udc_ptr;
+typedef cref_intrusive_ptr<userdatacontainer> udc_ptr_p;
 
 typedef intrusive_ptr<tweet> tweet_ptr;
 typedef cref_intrusive_ptr<tweet> tweet_ptr_p;

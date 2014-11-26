@@ -117,7 +117,7 @@ uint64_t ParseUrlID(wxString url) {
 	return id;
 }
 
-void AppendToTAMIMenuMap(tweetactmenudata &map, int &nextid, TAMI_TYPE type, tweet_ptr tw, unsigned int dbindex, udc_ptr user,
+void AppendToTAMIMenuMap(tweetactmenudata &map, int &nextid, TAMI_TYPE type, tweet_ptr tw, unsigned int dbindex, udc_ptr_p user,
 		flagwrapper<TPF> flags, wxString extra, panelparentwin_base *ppwb) {
 	map[nextid] = {tw, user, type, dbindex, flags, extra, ppwb};
 	nextid++;

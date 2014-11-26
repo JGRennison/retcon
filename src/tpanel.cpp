@@ -1746,7 +1746,7 @@ bool tpanelparentwin_user_impl::UpdateUser(udc_ptr_p u) {
 	}
 	else {
 		u->udc_flags |= UDC::CHECK_USERLISTWIN;
-		if(u->NeedsUpdating(PENDING_REQ::USEREXPIRE)) {
+		if(!CheckIfUserAlreadyInDBAndLoad(u) && u->NeedsUpdating(PENDING_REQ::USEREXPIRE)) {
 			std::shared_ptr<taccount> acc;
 			u->GetUsableAccount(acc, true);
 			if(acc) {
@@ -2000,8 +2000,10 @@ void tpanelparentwin_userproplisting_impl::LoadMoreToBack(unsigned int n) {
 		udc_ptr u = ad.GetUserContainerById(useridlist[index]);
 		if(PushBackUser(u)) {
 			u->udc_flags |= UDC::CHECK_USERLISTWIN;
-			tac->pendingusers[u->id] = u;
-			querypendings = true;
+			if(!CheckIfUserAlreadyInDBAndLoad(u)) {
+				tac->MarkUserPending(u);
+				querypendings = true;
+			}
 		}
 	}
 	if(querypendings) {

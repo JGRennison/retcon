@@ -77,9 +77,12 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	u->ImgIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
 	CheckAccHint();
 
+	// Only need to do this once, user_window will hold a ref to it so it won't be evicted thereafter
+	CheckIfUserAlreadyInDBAndLoad(u);
+
 	std::shared_ptr<taccount> acc = acc_hint.lock();
-	if(acc && acc->enabled && u->NeedsUpdating(0) && !(u->udc_flags & UDC::LOOKUP_IN_PROGRESS)) {
-		acc->pendingusers[userid_] = u;
+	if(acc && acc->enabled && u->NeedsUpdating(0) && !(u->udc_flags & UDC::LOOKUP_IN_PROGRESS) && !(u->udc_flags & UDC::BEING_LOADED_FROM_DB)) {
+		acc->MarkUserPending(u);
 		acc->StartRestQueryPendings();
 	}
 
@@ -424,8 +427,8 @@ void user_window::OnClose(wxCloseEvent &event) {
 
 void user_window::OnRefreshBtn(wxCommandEvent &event) {
 	std::shared_ptr<taccount> acc = acc_hint.lock();
-	if(acc && acc->enabled && !(u->udc_flags & UDC::LOOKUP_IN_PROGRESS)) {
-		acc->pendingusers[userid] = u;
+	if(acc && acc->enabled && !(u->udc_flags & UDC::LOOKUP_IN_PROGRESS) && !(u->udc_flags & UDC::BEING_LOADED_FROM_DB)) {
+		acc->MarkUserPending(u);
 		u->udc_flags |= UDC::FORCE_REFRESH;
 		acc->StartRestQueryPendings();
 		RefreshFollow(true);

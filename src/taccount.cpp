@@ -164,7 +164,7 @@ void taccount::LookupFriendships(uint64_t userid) {
 
 		//fill up the rest of the query with users who we don't know if we have a relationship with
 		for(auto it = ad.userconts.begin(); it != ad.userconts.end() && fl->ids.size() < 100; ++it) {
-			if(it->second.GetUser().u_flags & userdata::UF::ISDEAD) continue;
+			if(it->second->GetUser().u_flags & userdata::UF::ISDEAD) continue;
 			if(user_relations.find(it->first) == user_relations.end()) fl->ids.insert(it->first);
 			user_relations[it->first].ur_flags |= URF::QUERY_PENDING;
 		}
@@ -382,6 +382,7 @@ void taccount::StartRestQueryPendings() {
 			udc_ptr curobj = curit->second;
 			it++;
 			if(curobj->udc_flags & UDC::LOOKUP_IN_PROGRESS) ;	//do nothing
+			else if(curobj->udc_flags & UDC::BEING_LOADED_FROM_DB) ;	//do nothing
 			else if(curobj->NeedsUpdating(PENDING_REQ::USEREXPIRE) || curobj->udc_flags & UDC::FORCE_REFRESH) {
 				if(!ul) ul.reset(new userlookup());
 				ul->Mark(curobj);

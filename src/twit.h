@@ -145,6 +145,10 @@ enum class UDC {
 	FRIENDACT_IN_PROGRESS     = 1<<7,
 	CHECK_USERLISTWIN         = 1<<8,
 	PROFILE_IMAGE_DL_FAILED   = 1<<9,
+	REFCOUNT_WENT_GT1         = 1<<10,
+	BEING_LOADED_FROM_DB      = 1<<11,
+	NON_PURGABLE              = 1<<12,
+	SAVED_IN_DB               = 1<<13,
 };
 template<> struct enum_traits<UDC> { static constexpr bool flags = true; };
 
@@ -172,6 +176,8 @@ struct userdatacontainer {
 	};
 	std::unique_ptr<mention_set_data> msd;
 
+	int refcount = 0;
+
 	public:
 	bool NeedsUpdating(flagwrapper<PENDING_REQ> preq, time_t timevalue = 0) const;
 	flagwrapper<PENDING_RESULT> GetPending(flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT, time_t timevalue = 0);
@@ -196,6 +202,18 @@ struct userdatacontainer {
 	void NotifyProfileImageChange();
 	void MakeProfileImageFailurePlaceholder();
 	const tweetidset &GetMentionSet();
+
+	void intrusive_ptr_increment() {
+		refcount++;
+		if(refcount > 1) udc_flags |= UDC::REFCOUNT_WENT_GT1;
+	};
+	void intrusive_ptr_decrement() {
+		refcount--;
+		if(refcount == 0) delete this;
+	};
+	int GetRefcount() const {
+		return refcount;
+	};
 };
 
 struct user_dm_index {
@@ -560,6 +578,7 @@ flagwrapper<PENDING_BITS> TryUnmarkPendingTweet(tweet_ptr_p t, flagwrapper<UMPTF
 void FastMarkPendingNonAcc(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark);
 bool FastMarkPendingNoAccFallback(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, const std::string &logprefix);
 void GenericMarkPending(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, const std::string &logprefix, flagwrapper<tweet::GUAF> guaflags = 0);
+bool CheckIfUserAlreadyInDBAndLoad(udc_ptr_p u);
 
 bool MarkPending_TPanelMap(tweet_ptr_p tobj, tpanelparentwin_nt *win_, PUSHFLAGS pushflags = PUSHFLAGS::DEFAULT, std::shared_ptr<tpanel> *pushtpanel_ = nullptr);
 bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> acc_hint, std::unique_ptr<dbseltweetmsg> *existing_dbsel = nullptr,

@@ -568,7 +568,7 @@ bool jsonparser::ParseString(const char *str, size_t len) {
 			}
 
 			tac->usercont = auser;
-			tac->usercont->udc_flags |= UDC::THIS_IS_ACC_USER_HINT;
+			tac->usercont->udc_flags |= UDC::THIS_IS_ACC_USER_HINT | UDC::NON_PURGABLE;
 			tac->SetName();
 			tac->PostAccVerifyInit();
 			break;
@@ -754,7 +754,57 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> 
 	uint64_t id;
 	CheckTransJsonValueDef(id, val, "id", 0);
 	auto userdatacont = ad.GetUserContainerById(id);
-	if(umpt_flags&UMPTF::RMV_LKPINPRGFLG) userdatacont->udc_flags &= ~UDC::LOOKUP_IN_PROGRESS;
+	if(umpt_flags & UMPTF::RMV_LKPINPRGFLG) {
+		userdatacont->udc_flags &= ~UDC::LOOKUP_IN_PROGRESS;
+	}
+
+	if(ad.unloaded_db_user_ids.find(id) != ad.unloaded_db_user_ids.end()) {
+		// See equivalent section in DoTweetParse for rationale
+
+		LogMsgFormat(LOGT::PARSE | LOGT::DBTRACE, "jsonparser::DoUserParse: User id: %" llFmtSpec "d, is in DB but not loaded. Loading and deferring parse.", id);
+
+		userdatacont->udc_flags |= UDC::BEING_LOADED_FROM_DB;
+
+		std::unique_ptr<dbselusermsg> msg(new dbselusermsg());
+		msg->id_set.insert(id);
+
+		struct funcdata {
+			CS_ENUMTYPE type;
+			udc_ptr udc;
+			std::weak_ptr<taccount> acc;
+			std::shared_ptr<jsonparser::parse_data> jp_data;
+			const rapidjson::Value *val;
+			flagwrapper<UMPTF> umpt_flags;
+		};
+		std::shared_ptr<funcdata> pdata = std::make_shared<funcdata>();
+		pdata->type = type;
+		pdata->udc = userdatacont;
+		pdata->acc = tac;
+		pdata->jp_data = this->data;
+		pdata->val = &val;
+		pdata->umpt_flags = umpt_flags;
+
+		DBC_SetDBSelUserMsgHandler(*msg, [pdata](dbselusermsg &pmsg, dbconn *dbc) {
+			//Do not use *this, it will have long since gone out of scope
+
+			LogMsgFormat(LOGT::PARSE | LOGT::DBTRACE, "jsonparser::DoUserParse: User id: %" llFmtSpec "d, now doing deferred parse.", pdata->udc->id);
+
+			DBC_DBSelUserReturnDataHandler(std::move(pmsg.data), HDBSF::NOPENDINGS);
+
+			std::shared_ptr<taccount> acc = pdata->acc.lock();
+			if(acc) {
+				jsonparser jp(pdata->type, acc);
+				jp.data = pdata->jp_data;
+				jp.DoUserParse(*(pdata->val), pdata->umpt_flags);
+			}
+			else {
+				LogMsgFormat(LOGT::PARSEERR | LOGT::DBERR, "jsonparser::DoUserParse: User id: %" llFmtSpec "d, deferred parse failed as account no longer exists.", pdata->udc->id);
+			}
+		});
+		DBC_SendMessageBatched(std::move(msg));
+		return userdatacont;
+	}
+
 	userdata &userobj = userdatacont->GetUser();
 	ParseUserContents(val, userobj, tac->ssl);
 	if(!userobj.createtime) {				//this means that the object is new
@@ -770,6 +820,7 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> 
 	if(userdatacont->udc_flags & UDC::WINDOWOPEN) user_window::CheckRefresh(id, false);
 
 	if(currentlogflags & LOGT::PARSE) userdatacont->Dump();
+
 	return userdatacont;
 }
 
@@ -1059,6 +1110,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 		else {	//direct message
 			auto adduserdmindex = [&](udc_ptr_p u) {
 				ad.GetUserDMIndexById(u->id).AddDMId(tweetid);
+				u->udc_flags |= UDC::NON_PURGABLE;
 			};
 			if(val["sender_id"].IsUint64() && val["sender"].IsObject()) {
 				uint64_t senderid = val["sender_id"].GetUint64();

@@ -25,6 +25,7 @@
 #include "log.h"
 #include "util.h"
 #include "rapidjson-inc.h"
+#include "tweetidset.h"
 #include <cstdlib>
 #include <queue>
 #include <string>
@@ -70,6 +71,7 @@ typedef enum {
 	DBPSC_SELSTATICSETTING,
 	DBPSC_INSTPANEL,
 	DBPSC_INSUSERDMINDEX,
+	DBPSC_SELUSER,
 
 	DBPSC_NUM_STATEMENTS,
 } DBPSC_TYPE;
@@ -122,6 +124,8 @@ enum {
 	wxDBCONNEVT_ID_SENDBATCH,
 	wxDBCONNEVT_ID_REPLY,
 	wxDBCONNEVT_ID_GENERICSELTWEET,
+	wxDBCONNEVT_ID_STDUSERLOAD,
+	wxDBCONNEVT_ID_GENERICSELUSER,
 };
 
 enum {
@@ -140,8 +144,16 @@ struct dbconn : public wxEvtHandler {
 	std::unique_ptr<dbsendmsg_list> batchqueue;
 	std::unique_ptr<wxTimer> asyncstateflush_timer;
 
+	// This has the same function as, but is distinct from ad.unloaded_db_user_ids.
+	// This is eventually consistent with ad.unloaded_db_user_ids, but not instantaneously consistent,
+	// mainly because the two sets are owned by different threads. The DB thread will clear an item
+	// from this before sending it to the main thread, whch will *then* clear the same item.
+	useridset unloaded_user_ids;
+	unsigned int sync_load_user_count = 0;
+
 	private:
 	std::map<intptr_t, std::function<void(dbseltweetmsg &, dbconn *)> > generic_sel_funcs;
+	std::map<intptr_t, std::function<void(dbselusermsg &, dbconn *)> > generic_sel_user_funcs;
 
 	public:
 	enum class DBCF {
@@ -155,58 +167,88 @@ struct dbconn : public wxEvtHandler {
 
 	dbconn() { }
 	~dbconn() { DeInit(); }
+
 	bool Init(const std::string &filename);
 	void DeInit();
+
 	void AsyncWriteBackState();
+
 	void SendMessage(std::unique_ptr<dbsendmsg> msg);
 	void SendMessageOrAddToList(std::unique_ptr<dbsendmsg> msg, optional_observer_ptr<dbsendmsg_list> msglist);
 	void SendMessageBatched(std::unique_ptr<dbsendmsg> msg);
 	observer_ptr<dbsendmsg_list> GetMessageBatchQueue();
+
 	void SendAccDBUpdate(std::unique_ptr<dbinsertaccmsg> insmsg);
+
+	void AccountSync(sqlite3 *adb);
 
 	void InsertNewTweet(tweet_ptr_p tobj, std::string statjson, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
 	void UpdateTweetDyn(tweet_ptr_p tobj, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
+
 	void InsertUser(udc_ptr_p u, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
-	void InsertMedia(media_entity &me, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
-	void UpdateMedia(media_entity &me, DBUMMT update_type, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
-	void AccountSync(sqlite3 *adb);
 	void SyncWriteBackAllUsers(sqlite3 *adb);
 	void AsyncWriteBackAllUsers(dbfunctionmsg &msg);
-	void SyncReadInAllUsers(sqlite3 *adb);
+	void SyncReadInAllUserIDs(sqlite3 *adb);
+	udc_ptr SyncReadInUser(sqlite3 *syncdb, uint64_t id);
+	void AsyncReadInUser(sqlite3 *adb, uint64_t id, std::deque<dbretuserdata> &out);
+	void SyncPostUserLoadCompletion();
+
+	void InsertMedia(media_entity &me, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
+	void UpdateMedia(media_entity &me, DBUMMT update_type, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
+
 	void SyncWriteBackUserDMIndexes(sqlite3 *adb);
 	void AsyncWriteBackUserDMIndexes(dbfunctionmsg &msg);
 	void SyncReadInUserDMIndexes(sqlite3 *adb);
+
 	void SyncWriteBackAccountIdLists(sqlite3 *adb);
 	void AsyncWriteBackAccountIdLists(dbfunctionmsg &msg);
+
 	void SyncWriteOutRBFSs(sqlite3 *adb);
 	void AsyncWriteOutRBFSs(dbfunctionmsg &msg);
 	void SyncReadInRBFSs(sqlite3 *adb);
+
 	void SyncReadInAllMediaEntities(sqlite3 *adb);
-	void OnStdTweetLoadFromDB(wxCommandEvent &event);
-	void PrepareStdTweetLoadMsg(dbseltweetmsg &insmsg);
+
 	void OnDBNewAccountInsert(wxCommandEvent &event);
+
 	void OnSendBatchEvt(wxCommandEvent &event);
 	void OnDBReplyEvt(wxCommandEvent &event);
+
 	void SyncReadInCIDSLists(sqlite3 *adb);
 	void SyncWriteBackCIDSLists(sqlite3 *adb);
 	void AsyncWriteBackCIDSLists(dbfunctionmsg &msg);
+
 	void SyncReadInWindowLayout(sqlite3 *adb);
 	void SyncWriteBackWindowLayout(sqlite3 *adb);
+
 	void SyncReadInAllTweetIDs(sqlite3 *adb);
 	void SyncReadInTpanels(sqlite3 *adb);
+
 	void SyncWriteBackTpanels(sqlite3 *adb);
 	void AsyncWriteBackTpanels(dbfunctionmsg &msg);
+
 	bool SyncDoUpdates(sqlite3 *adb);
 	void SyncWriteDBVersion(sqlite3 *adb);
+
 	void SyncPurgeMediaEntities(sqlite3 *adb);
 	void SyncPurgeProfileImages(sqlite3 *adb);
 	void CheckPurgeTweets();
+	void CheckPurgeUsers();
+
 	void SyncReadInUserRelationships(sqlite3 *adb);
 	void SyncWriteBackUserRelationships(sqlite3 *adb);
 
+	void OnStdTweetLoadFromDB(wxCommandEvent &event);
+	void PrepareStdTweetLoadMsg(dbseltweetmsg &loadmsg);
 	void HandleDBSelTweetMsg(dbseltweetmsg &msg, flagwrapper<HDBSF> flags);
 	void GenericDBSelTweetMsgHandler(wxCommandEvent &event);
 	void SetDBSelTweetMsgHandler(dbseltweetmsg &msg, std::function<void(dbseltweetmsg &, dbconn *)> f);
+
+	void OnStdUserLoadFromDB(wxCommandEvent &event);
+	void PrepareStdUserLoadMsg(dbselusermsg &loadmsg);
+	void GenericDBSelUserMsgHandler(wxCommandEvent &event);
+	void SetDBSelUserMsgHandler(dbselusermsg &msg, std::function<void(dbselusermsg &, dbconn *)> f);
+	void DBSelUserReturnDataHandler(std::deque<dbretuserdata> data, flagwrapper<HDBSF> flags);
 
 	void OnAsyncStateWriteTimer(wxTimerEvent& event);
 	void ResetAsyncStateWriteTimer();

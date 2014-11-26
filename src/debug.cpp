@@ -49,6 +49,9 @@ void DebugDestructAlldata() {
 	ad.unloaded_db_tweet_ids.clear();
 	LogMsgFormat(logflags, "Cleared: ad.unloaded_db_tweet_ids");
 
+	ad.unloaded_db_user_ids.clear();
+	LogMsgFormat(logflags, "Cleared: ad.unloaded_db_user_ids");
+
 	ad.cids.foreach([](tweetidset &ids) {
 		ids.clear();
 	});

@@ -27,6 +27,7 @@
 #include "ptr_types.h"
 #include "set.h"
 #include "observer_ptr.h"
+#include "twit.h"
 #include <string>
 #include <memory>
 #include <deque>
@@ -37,6 +38,7 @@
 
 struct media_entity;
 struct tweet;
+struct userdata;
 struct userdatacontainer;
 struct dbconn;
 struct dbiothread;
@@ -55,6 +57,8 @@ enum class DBSM {
 	DELACC,
 	UPDATETWEETSETFLAGS,
 	FUNCTION,
+	SELUSER,
+	NOTIFYUSERSPURGED,
 };
 
 struct dbreplyevtstruct {
@@ -117,6 +121,21 @@ struct dbrettweetdata {
 	dbrettweetdata(const dbrettweetdata& that) = delete;
 };
 
+struct dbretuserdata {
+	userdata ud;
+	uint64_t id;
+	uint64_t lastupdate;
+	uint64_t lastupdate_wrotetodb;
+	std::string cached_profile_img_url;
+	shb_iptr cached_profile_img_sha1;
+	std::deque<uint64_t> mention_index;
+	uint64_t profile_img_last_used;
+	uint64_t profile_img_last_used_db;
+
+	dbretuserdata() = default;
+	dbretuserdata(const dbretuserdata& that) = delete;
+};
+
 enum class DBSTMF {
 	NO_ERR          = 1<<0,
 	CLEARNOUPDF     = 1<<1,
@@ -129,6 +148,14 @@ struct dbseltweetmsg : public dbsendmsg_callback {
 	flagwrapper<DBSTMF> flags = 0;
 	container::set<uint64_t> id_set;         // ids to select
 	std::deque<dbrettweetdata> data;         // return data
+	std::deque<dbretuserdata> user_data;     // return data
+};
+
+struct dbselusermsg : public dbsendmsg_callback {
+	dbselusermsg() : dbsendmsg_callback(DBSM::SELUSER) { }
+
+	container::set<uint64_t> id_set;         // ids to select
+	std::deque<dbretuserdata> data;          // return data
 };
 
 struct dbinsertusermsg : public dbsendmsg {
@@ -190,6 +217,12 @@ struct dbupdatetweetsetflagsmsg : public dbsendmsg {
 	uint64_t unsetmask;
 };
 
+struct dbnotifyuserspurgedmsg : public dbsendmsg {
+	dbnotifyuserspurgedmsg(useridset &&ids_) : dbsendmsg(DBSM::NOTIFYUSERSPURGED), ids(ids_) { }
+
+	useridset ids;
+};
+
 enum class HDBSF {
 	NOPENDINGS         = 1<<0,
 };
@@ -211,5 +244,8 @@ void DBC_InsertUser(udc_ptr_p u, optional_observer_ptr<dbsendmsg_list> msglist =
 void DBC_HandleDBSelTweetMsg(dbseltweetmsg &msg, flagwrapper<HDBSF> flags);
 void DBC_SetDBSelTweetMsgHandler(dbseltweetmsg &msg, std::function<void(dbseltweetmsg &, dbconn *)> f);
 void DBC_PrepareStdTweetLoadMsg(dbseltweetmsg &loadmsg);
+void DBC_DBSelUserReturnDataHandler(std::deque<dbretuserdata> data, flagwrapper<HDBSF> flags);
+void DBC_SetDBSelUserMsgHandler(dbselusermsg &msg, std::function<void(dbselusermsg &, dbconn *)> f);
+void DBC_PrepareStdUserLoadMsg(dbselusermsg &loadmsg);
 
 #endif
