@@ -104,10 +104,8 @@ void dbconn::SyncDoUpdates_FillUserDMIndexes(sqlite3 *adb) {
 	DBRangeBindExec(adb, "INSERT OR REPLACE INTO userdmsets(userid, dmindex) VALUES (?, ?);",
 		dm_index_map.begin(), dm_index_map.end(),
 		[&](sqlite3_stmt *stmt, const std::pair<uint64_t, std::deque<uint64_t>> &it) {
-			size_t dmindex_size;
-			unsigned char *dmindex = settocompressedblob(it.second, dmindex_size);
 			sqlite3_bind_int64(stmt, 1, it.first);
-			sqlite3_bind_blob(stmt, 2, dmindex, dmindex_size, &free);
+			bind_compressed(stmt, 2, settocompressedblob(it.second));
 		},
 		"dbconn::SyncDoUpdates_FillUserDMIndexes (DM index write back)");
 }

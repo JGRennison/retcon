@@ -36,6 +36,7 @@
 #include <wx/event.h>
 #include <wx/timer.h>
 #include <sqlite3.h>
+#include <string.h>
 #ifdef __WINDOWS__
 #include <windows.h>
 #endif
@@ -391,14 +392,17 @@ template <typename B, typename S, typename I, typename J> void DBRangeBindExecNo
 	DBRangeBindExec(adb, sql, rangebegin, rangeend, bindfunc, nullptr);
 };
 
+db_bind_buffer<dbb_compressed> DoCompress(const void *in, size_t insize, unsigned char tag = 'Z', bool *iscompressed = nullptr);
+db_bind_buffer<dbb_uncompressed> DoDecompress(db_bind_buffer<dbb_compressed> &&in);
+db_bind_buffer<dbb_uncompressed> column_get_compressed(sqlite3_stmt* stmt, int num);
+db_bind_buffer<dbb_uncompressed> column_get_compressed_and_parse(sqlite3_stmt* stmt, int num, rapidjson::Document &dc);
 
-unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsigned char tag = 'Z', bool *iscompressed = nullptr);
-char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsize);
-char *column_get_compressed(sqlite3_stmt* stmt, int num, size_t &outsize);
-char *column_get_compressed_and_parse(sqlite3_stmt* stmt, int num, rapidjson::Document &dc);
+inline db_bind_buffer<dbb_compressed> DoCompress(const std::string &in, unsigned char tag = 'Z', bool *iscompressed = nullptr) {
+	return DoCompress(in.data(), in.size(), tag, iscompressed);
+}
 
-inline unsigned char *DoCompress(const std::string &in, size_t &sz, unsigned char tag = 'Z', bool *iscompressed = nullptr) {
-	return DoCompress(in.data(), in.size(), sz, tag, iscompressed);
+inline db_bind_buffer<dbb_compressed> DoCompress(const db_bind_buffer<dbb_uncompressed> &in, unsigned char tag = 'Z', bool *iscompressed = nullptr) {
+	return DoCompress(in.data, in.data_size, tag, iscompressed);
 }
 
 inline void writebeuint64(unsigned char* data, uint64_t id) {
@@ -412,42 +416,47 @@ inline void writebeuint64(unsigned char* data, uint64_t id) {
 	data[7] = (id >> 0) & 0xFF;
 }
 
-template <typename C> unsigned char *settoblob(const C &set, size_t &size) {
-	size = set.size() * 8;
-	if(!size) return 0;
-	unsigned char *data = (unsigned char *) malloc(size);
-	unsigned char *curdata = data;
-	for(auto &it : set) {
-		writebeuint64(curdata, it);
-		curdata += 8;
+template <typename C> db_bind_buffer<dbb_uncompressed> settoblob(const C &set) {
+	db_bind_buffer<dbb_uncompressed> out;
+	if(set.size()) {
+		out.allocate(set.size() * 8);
+		unsigned char *curdata = reinterpret_cast<unsigned char *>(out.mutable_data());
+		for(auto &it : set) {
+			writebeuint64(curdata, it);
+			curdata += 8;
+		}
 	}
-	return data;
+	return std::move(out);
 }
 
-template <typename C> unsigned char *settocompressedblob(const C &set, size_t &size) {
-	size_t insize;
-	unsigned char *data = settoblob(set, insize);
-	unsigned char *comdata = DoCompress(data, insize, size, 'Z');
-	free(data);
-	return comdata;
+template <typename C> db_bind_buffer<dbb_compressed> settocompressedblob(const C &set) {
+	return DoCompress(settoblob(set), 'Z');
 }
 
 template <typename C> void setfromcompressedblob(C func, sqlite3_stmt *stmt, int columnid) {
-	size_t blarraysize;
-	unsigned char *blarray = (unsigned char*) column_get_compressed(stmt, columnid, blarraysize);
-	blarraysize &= ~7;
+	db_bind_buffer<dbb_uncompressed> blblob = column_get_compressed(stmt, columnid);
+
+	unsigned char *blarray = (unsigned char*) blblob.data;
+	size_t blarraysize = blblob.data_size & ~7;
+
 	for(unsigned int i = 0; i < blarraysize; i += 8) {    //stored in big endian format
 		uint64_t id = 0;
 		for(unsigned int j = 0; j < 8; j++) id <<= 8, id |= blarray[i + j];
 		func(id);
 	}
-	free(blarray);
+}
+
+inline void bind_compressed(sqlite3_stmt* stmt, int num, db_bind_buffer<dbb_compressed> &&buffer, unsigned char tag = 'Z') {
+	buffer.align();
+	sqlite3_bind_blob(stmt, num, buffer.release_membuffer(), buffer.data_size, &free);
+}
+
+inline void bind_compressed(sqlite3_stmt* stmt, int num, db_bind_buffer<dbb_uncompressed> &&buffer, unsigned char tag = 'Z') {
+	bind_compressed(stmt, num, DoCompress(buffer, tag));
 }
 
 inline void bind_compressed(sqlite3_stmt* stmt, int num, const char *in, size_t insize, unsigned char tag = 'Z') {
-	size_t comsize;
-	unsigned char *com = DoCompress(in, insize, comsize, tag, nullptr);
-	sqlite3_bind_blob(stmt, num, com, comsize, &free);
+	bind_compressed(stmt, num, DoCompress(in, insize, tag, nullptr));
 }
 
 inline void bind_compressed(sqlite3_stmt* stmt, int num, const unsigned char *in, size_t insize, unsigned char tag = 'Z') {

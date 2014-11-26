@@ -61,6 +61,78 @@ enum class DBSM {
 	NOTIFYUSERSPURGED,
 };
 
+struct dbb_compressed { };
+struct dbb_uncompressed { };
+
+template<typename TAG>
+struct db_bind_buffer_persistent;
+
+struct deleter_free {
+	void operator()(void* ptr) { free(ptr); }
+};
+
+template<typename TAG>
+struct db_bind_buffer {
+	std::unique_ptr<void, deleter_free> membuffer;
+	const char *data = nullptr;
+	size_t data_size = 0;
+
+	char *mutable_data() {
+		return const_cast<char *>(data);
+	}
+
+	void *release_membuffer() {
+		return membuffer.release();
+	}
+
+	void make_persistent() {
+		if(!membuffer && data_size) {
+			membuffer.reset(malloc(data_size + 1));
+			memcpy(membuffer.get(), data, data_size);
+			static_cast<char *>(membuffer.get())[data_size] = 0;
+			data = static_cast<const char *>(membuffer.get());
+		}
+	}
+
+	void align() {
+		if(!data_size)
+			return;
+		if(!membuffer) {
+			make_persistent();
+		}
+		else if(data != membuffer.get()) {
+			memmove(membuffer.get(), data, data_size);
+			static_cast<char *>(membuffer.get())[data_size] = 0;
+			data = static_cast<const char *>(membuffer.get());
+		}
+	}
+
+	void allocate(size_t size) {
+		membuffer.reset(malloc(size));
+		data = static_cast<const char *>(membuffer.get());
+		data_size = size;
+	}
+
+	void allocate_nt(size_t size) {
+		allocate(size + 1);
+		data_size = size;
+		const_cast<char *>(data)[data_size] = 0;
+	}
+};
+
+template<typename TAG>
+struct db_bind_buffer_persistent : public db_bind_buffer<TAG> {
+	db_bind_buffer_persistent() = default;
+	db_bind_buffer_persistent &operator=(db_bind_buffer<TAG> &&src) noexcept {
+		*this = db_bind_buffer_persistent(std::move(src));
+		return *this;
+	}
+	db_bind_buffer_persistent(db_bind_buffer<TAG> &&src)
+			: db_bind_buffer<TAG>(std::move(src)) {
+		this->make_persistent();
+	}
+};
+
 struct dbreplyevtstruct {
 	std::deque<std::pair<wxEvtHandler *, std::unique_ptr<wxEvent> > > reply_list;
 };
@@ -108,17 +180,10 @@ struct dbupdatetweetmsg : public dbsendmsg {
 };
 
 struct dbrettweetdata {
-	char *statjson = nullptr;   //free when done
-	char *dynjson = nullptr;    //free when done
+	db_bind_buffer_persistent<dbb_uncompressed> statjson;
+	db_bind_buffer_persistent<dbb_uncompressed> dynjson;
 	uint64_t id, user1, user2, rtid, timestamp;
 	uint64_t flags;
-
-	dbrettweetdata() { }
-	~dbrettweetdata() {
-		if(statjson) free(statjson);
-		if(dynjson) free(dynjson);
-	}
-	dbrettweetdata(const dbrettweetdata& that) = delete;
 };
 
 struct dbretuserdata {
@@ -166,8 +231,7 @@ struct dbinsertusermsg : public dbsendmsg {
 	time_t createtime;
 	uint64_t lastupdate;
 	shb_iptr cached_profile_img_hash;
-	unsigned char *mentionindex;    //already packed and compressed, must be malloced
-	size_t mentionindex_size;
+	db_bind_buffer_persistent<dbb_uncompressed> mentionindex;
 	uint64_t profile_img_last_used;
 };
 

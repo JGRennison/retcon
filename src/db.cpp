@@ -221,11 +221,12 @@ static bool TagToDict(unsigned char tag, const unsigned char *&dict, size_t &dic
 
 #define HEADERSIZE 5
 
-unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsigned char tag, bool *iscompressed) {
-	unsigned char *data = 0;
-	if(!data) {
-		const unsigned char *dict;
-		size_t dict_size;
+db_bind_buffer<dbb_compressed> DoCompress(const void *in, size_t insize, unsigned char tag, bool *iscompressed) {
+	db_bind_buffer<dbb_compressed> out;
+
+	if(insize) {
+		const unsigned char *dict = nullptr;
+		size_t dict_size = 0;
 		bool compress = TagToDict(tag, dict, dict_size);
 		if(compress && insize >= 100) {
 			z_stream strm;
@@ -234,32 +235,36 @@ unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsigned ch
 			strm.opaque = Z_NULL;
 			deflateInit(&strm, 5);
 
-			if(dict) deflateSetDictionary(&strm, dict, dict_size);
+			if(dict)
+				deflateSetDictionary(&strm, dict, dict_size);
 			size_t maxsize = deflateBound(&strm, insize);
-			data = (unsigned char *) malloc(maxsize + HEADERSIZE);
+			out.allocate(maxsize + HEADERSIZE);
+			unsigned char *data = reinterpret_cast<unsigned char *>(out.mutable_data());
 			data[0] = tag;
 			data[1] = (insize >> 24) & 0xFF;
 			data[2] = (insize >> 16) & 0xFF;
 			data[3] = (insize >> 8) & 0xFF;
 			data[4] = (insize >> 0) & 0xFF;
 			strm.avail_in = insize;
-			strm.next_in = (unsigned char *) in;
+			strm.next_in = const_cast<unsigned char *>(static_cast<const unsigned char *>(in));
 			strm.avail_out = maxsize;
 			strm.next_out = data + HEADERSIZE;
 			int res = deflate(&strm, Z_FINISH);
 			#if DB_COPIOUS_LOGGING
 				DBLogMsgFormat(LOGT::ZLIBTRACE, "deflate: %d, %d, %d", res, strm.avail_in, strm.avail_out);
 			#endif
-			if(res != Z_STREAM_END) { DBLogMsgFormat(LOGT::ZLIBERR, "DoCompress: deflate: error: res: %d (%s)", res, cstr(strm.msg)); }
-			sz = HEADERSIZE + maxsize - strm.avail_out;
+			if(res != Z_STREAM_END) {
+				DBLogMsgFormat(LOGT::ZLIBERR, "DoCompress: deflate: error: res: %d (%s)", res, cstr(strm.msg));
+			}
+			out.data_size = HEADERSIZE + maxsize - strm.avail_out;
 			deflateEnd(&strm);
 			if(iscompressed) *iscompressed = true;
 		}
 		else {
-			data=(unsigned char *) malloc(insize + 1);
+			out.allocate(insize + 1);
+			unsigned char *data = reinterpret_cast<unsigned char *>(out.mutable_data());
 			data[0] = 'T';
-			if(in) memcpy(data + 1, in, insize);
-			sz = insize + 1;
+			memcpy(data + 1, in, insize);
 			if(iscompressed) *iscompressed = false;
 		}
 	}
@@ -268,75 +273,77 @@ unsigned char *DoCompress(const void *in, size_t insize, size_t &sz, unsigned ch
 		static size_t cumin = 0;
 		static size_t cumout = 0;
 		cumin += insize;
-		cumout += sz;
-		DBLogMsgFormat(LOGT::ZLIBTRACE, "compress: %d -> %d, cum: %f", insize, sz, (double) cumout / (double) cumin);
+		cumout += out.data_size;
+		DBLogMsgFormat(LOGT::ZLIBTRACE, "compress: %d -> %d, cum: %f", insize, out.data_size, (double) cumout / (double) cumin);
 	#endif
 
-	return data;
+	return std::move(out);
 }
 
-char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsize) {
-	if(!insize) {
-		DBLogMsg(LOGT::ZLIBTRACE, "DoDecompress: insize == 0");
-		outsize = 0;
-		return 0;
+db_bind_buffer<dbb_uncompressed> DoDecompress(db_bind_buffer<dbb_compressed> &&in) {
+	if(!in.data_size) {
+		return { };
 	}
-	if(insize == 2) {
+
+	const unsigned char *input = reinterpret_cast<const unsigned char *>(in.data);
+	if(in.data_size == 2) {
 		for(unsigned int i = 0; i < sizeof(allesctables) / sizeof(esctable); i++) {
-			if(in[0] == allesctables[i].tag) {
+			if(input[0] == allesctables[i].tag) {
 				for(unsigned int j = 0; j < allesctables[i].count; j++) {
-					if(in[1] == allesctables[i].start[j].id) {
-						outsize = strlen(allesctables[i].start[j].text);
-						char *data = (char *) malloc(outsize+1);
-						memcpy(data, allesctables[i].start[j].text, outsize);
-						data[outsize] = 0;
-						return data;
+					if(input[1] == allesctables[i].start[j].id) {
+						db_bind_buffer<dbb_uncompressed> out;
+						out.data = allesctables[i].start[j].text;
+						out.data_size = strlen(allesctables[i].start[j].text);
+						return std::move(out);
 					}
 				}
 				DBLogMsg(LOGT::ZLIBERR, "DoDecompress: Bad escape table identifier");
-				outsize = 0;
-				return 0;
+				return { };
 			}
 		}
 	}
 	const unsigned char *dict;
 	size_t dict_size;
-	switch(in[0]) {
+	switch(input[0]) {
 		case 'T': {
-			outsize = insize - 1;
-			char *data = (char *) malloc(outsize + 1);
-			memcpy(data, in + 1, outsize);
-			data[outsize] = 0;
-			return data;
+			db_bind_buffer<dbb_uncompressed> out;
+			std::swap(out.membuffer, in.membuffer);
+			out.data = in.data + 1;
+			out.data_size = in.data_size - 1;
+			return std::move(out);
 		}
 		default: {
-			bool compress = TagToDict(in[0], dict, dict_size);
+			bool compress = TagToDict(input[0], dict, dict_size);
 			if(compress) break;
 			else {
-				DBLogMsgFormat(LOGT::ZLIBERR, "DoDecompress: Bad tag: 0x%X", in[0]);
-				outsize = 0;
-				return 0;
+				DBLogMsgFormat(LOGT::ZLIBERR, "DoDecompress: Bad tag: 0x%X", input[0]);
+				return { };
 			}
 		}
 	}
+
+	db_bind_buffer<dbb_uncompressed> out;
 	z_stream strm;
 	strm.zalloc = Z_NULL;
 	strm.zfree = Z_NULL;
 	strm.opaque = Z_NULL;
-	strm.next_in = (unsigned char*) in + HEADERSIZE;
-	strm.avail_in = insize - HEADERSIZE;
+	strm.next_in = const_cast<unsigned char *>(input) + HEADERSIZE;
+	strm.avail_in = in.data_size - HEADERSIZE;
 	inflateInit(&strm);
-	outsize = 0;
+	out.data_size = 0;
 	for(unsigned int i = 1; i < 5; i++) {
-		outsize <<= 8;
-		outsize += in[i];
+		out.data_size <<= 8;
+		out.data_size += input[i];
 	}
 	#if DB_COPIOUS_LOGGING
 		DBLogMsgFormat(LOGT::ZLIBTRACE, "DoDecompress: insize %d, outsize %d", insize, outsize);
 	#endif
-	unsigned char *data = (unsigned char *) malloc(outsize + 1);
+
+	out.allocate_nt(out.data_size);
+	unsigned char *data = reinterpret_cast<unsigned char *>(out.mutable_data());
+
 	strm.next_out = data;
-	strm.avail_out = outsize;
+	strm.avail_out = out.data_size;
 	while(true) {
 		int res = inflate(&strm, Z_FINISH);
 		#if DB_COPIOUS_LOGGING
@@ -345,52 +352,46 @@ char *DoDecompress(const unsigned char *in, size_t insize, size_t &outsize) {
 		if(res == Z_NEED_DICT) {
 			if(dict) inflateSetDictionary(&strm, dict, dict_size);
 			else {
-				outsize = 0;
 				inflateEnd(&strm);
-				free(data);
-				DBLogMsgFormat(LOGT::ZLIBTRACE, "DoDecompress: Wants dictionary: %ux", strm.adler);
-				return 0;
+				DBLogMsgFormat(LOGT::ZLIBERR, "DoDecompress: Wants dictionary: %ux", strm.adler);
+				return { };
 			}
 		}
 		else if(res == Z_OK) continue;
 		else if(res == Z_STREAM_END) break;
 		else {
 			DBLogMsgFormat(LOGT::ZLIBERR, "DoDecompress: inflate: error: res: %d (%s)", res, cstr(strm.msg));
-			outsize = 0;
 			inflateEnd(&strm);
-			free(data);
-			return 0;
+			return { };
 		}
 	}
 
 	inflateEnd(&strm);
-	data[outsize] = 0;
 
 	#if DB_COPIOUS_LOGGING
-		DBLogMsgFormat(LOGT::ZLIBTRACE, "decompress: %d -> %d", insize, outsize);
+		DBLogMsgFormat(LOGT::ZLIBTRACE, "decompress: %d -> %d", in.data_size, out.data_size);
 	#endif
-	return (char *) data;
+	return std::move(out);
 }
 
-//the result should be freed when done if non-zero
-char *column_get_compressed(sqlite3_stmt* stmt, int num, size_t &outsize) {
-	const unsigned char *data = (const unsigned char *) sqlite3_column_blob(stmt, num);
-	int size = sqlite3_column_bytes(stmt, num);
-	return DoDecompress(data, size, outsize);
+db_bind_buffer<dbb_uncompressed> column_get_compressed(sqlite3_stmt* stmt, int num) {
+	db_bind_buffer<dbb_compressed> src;
+	src.data = static_cast<const char *>(sqlite3_column_blob(stmt, num));
+	src.data_size = sqlite3_column_bytes(stmt, num);
+	return DoDecompress(std::move(src));
 }
 
-//the result should be freed when done if non-zero
-char *column_get_compressed_and_parse(sqlite3_stmt* stmt, int num, rapidjson::Document &dc) {
-	size_t str_size;
-	char *str = column_get_compressed(stmt, num, str_size);
-	if(str) {
-		if(dc.ParseInsitu<0>(str).HasParseError()) {
-			DisplayParseErrorMsg(dc, "column_get_compressed_and_parse", str);
+db_bind_buffer<dbb_uncompressed> column_get_compressed_and_parse(sqlite3_stmt* stmt, int num, rapidjson::Document &dc) {
+	db_bind_buffer<dbb_uncompressed> buffer = column_get_compressed(stmt, num);
+	if(buffer.data_size) {
+		buffer.make_persistent();
+		if(dc.ParseInsitu<0>(const_cast<char *>(buffer.data)).HasParseError()) {
+			DisplayParseErrorMsg(dc, "column_get_compressed_and_parse", buffer.data);
 			dc.SetNull();
 		}
 	}
 	else dc.SetNull();
-	return str;
+	return std::move(buffer);
 }
 
 //! This calls itself for retweet sources, *unless* the retweet source ID is in idset
@@ -412,10 +413,9 @@ static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetm
 		else recv_data.emplace_back();
 		dbrettweetdata &rd = front_insert ? recv_data.front() : recv_data.back();
 
-		size_t outsize;
-		rd.id = (id);
-		rd.statjson = column_get_compressed(stmt, 0, outsize);
-		rd.dynjson = column_get_compressed(stmt, 1, outsize);
+		rd.id = id;
+		rd.statjson = column_get_compressed(stmt, 0);
+		rd.dynjson = column_get_compressed(stmt, 1);
 		rd.user1 = (uint64_t) sqlite3_column_int64(stmt, 2);
 		rd.user2 = (uint64_t) sqlite3_column_int64(stmt, 3);
 		rd.flags = (uint64_t) sqlite3_column_int64(stmt, 4);
@@ -512,7 +512,7 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 			else {
 				sqlite3_bind_null(stmt, 6);
 			}
-			sqlite3_bind_blob(stmt, 7, m->mentionindex, m->mentionindex_size, &free);
+			bind_compressed(stmt, 7, std::move(m->mentionindex));
 			sqlite3_bind_int64(stmt, 8, (sqlite3_int64) m->profile_img_last_used);
 			int res = sqlite3_step(stmt);
 			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, "DBSM::INSERTUSER got error: %d (%s) for id: %" llFmtSpec "d",
@@ -783,14 +783,14 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg &msg, flagwrapper<HDBSF> flags) {
 		t->lflags |= TLF::LOADED_FROM_DB;
 
 		rapidjson::Document dc;
-		if(dt.statjson && !dc.ParseInsitu<0>(dt.statjson).HasParseError() && dc.IsObject()) {
+		if(dt.statjson.data_size && !dc.ParseInsitu<0>(dt.statjson.mutable_data()).HasParseError() && dc.IsObject()) {
 			genjsonparser::ParseTweetStatics(dc, t, 0);
 		}
 		else {
 			DBLogMsgFormat(LOGT::PARSEERR | LOGT::DBERR, "dbconn::HandleDBSelTweetMsg static JSON parse error: malformed or missing, tweet id: %" llFmtSpec "d", dt.id);
 		}
 
-		if(dt.dynjson && !dc.ParseInsitu<0>(dt.dynjson).HasParseError() && dc.IsObject()) {
+		if(dt.dynjson.data_size && !dc.ParseInsitu<0>(dt.dynjson.mutable_data()).HasParseError() && dc.IsObject()) {
 			genjsonparser::ParseTweetDyn(dc, t);
 		}
 		else {
@@ -1294,7 +1294,7 @@ void dbconn::InsertUser(udc_ptr_p u, optional_observer_ptr<dbsendmsg_list> msgli
 	msg->createtime = u->user.createtime;
 	msg->lastupdate = u->lastupdate;
 	msg->cached_profile_img_hash = u->cached_profile_img_sha1;
-	msg->mentionindex = settocompressedblob(u->mention_index, msg->mentionindex_size);
+	msg->mentionindex = settoblob(u->mention_index);
 	u->lastupdate_wrotetodb = u->lastupdate;
 	msg->profile_img_last_used = u->profile_img_last_used;
 	u->profile_img_last_used_db = u->profile_img_last_used;
@@ -1400,8 +1400,8 @@ namespace {
 
 		WriteBackOutputter(std::shared_ptr<T> d) : data(d) { }
 		template <typename F> void operator()(F func) {
-			for(auto& item : *data) {
-				func(item);
+			for(auto&& item : *data) {
+				func(std::move(item));
 			}
 		}
 	};
@@ -1431,19 +1431,16 @@ namespace {
 	struct WriteBackCIDSLists {
 		struct itemdata {
 			const char *name;
-			unsigned char *index;
-			size_t index_size;
+			db_bind_buffer_persistent<dbb_uncompressed> index;
 			size_t list_size;
 		};
 
-		//Where F is a functor of the form void(const itemdata &)
+		//Where F is a functor of the form void(itemdata &&)
 		//F must free() itemdata::index
 		template <typename F> void operator()(F func) const {
 			cached_id_sets::IterateLists([&](const char *name, const tweetidset cached_id_sets::*ptr, unsigned long long tweetflag) {
 				const tweetidset &tlist = ad.cids.*ptr;
-				size_t index_size;
-				unsigned char *index = settoblob(tlist, index_size);
-				func(itemdata { name, index, index_size, tlist.size() });
+				func(itemdata { name, settoblob(tlist), tlist.size() });
 			});
 		};
 
@@ -1454,11 +1451,10 @@ namespace {
 			sqlite3_stmt *setstmt = cache.GetStmt(adb, DBPSC_INSSETTING);
 
 			unsigned int total = 0;
-			getfunc([&](const itemdata &data) {
+			getfunc([&](itemdata &&data) {
 				sqlite3_bind_text(setstmt, 1, globstr.c_str(), globstr.size(), SQLITE_STATIC);
 				sqlite3_bind_text(setstmt, 2, data.name, -1, SQLITE_STATIC);
-				bind_compressed(setstmt, 3, data.index, data.index_size, 'Z');
-				free(data.index);
+				bind_compressed(setstmt, 3, std::move(data.index), 'Z');
 				int res = sqlite3_step(setstmt);
 				if(res != SQLITE_DONE) {
 					SLogMsgFormat(LOGT::DBERR, TSLogging, "%s got error: %d (%s), for set: %s",
@@ -1488,26 +1484,24 @@ namespace {
 			std::string dispname;
 			unsigned int dbindex;
 
-			unsigned char *tweet_blob;
-			size_t tweet_blob_size;
+			db_bind_buffer_persistent<dbb_uncompressed> tweet_blob;
 			size_t tweet_count;
 
-			unsigned char *dm_blob;
-			size_t dm_blob_size;
+			db_bind_buffer_persistent<dbb_uncompressed> dm_blob;
 			size_t dm_count;
 		};
 
-		//Where F is a functor of the form void(const itemdata &)
+		//Where F is a functor of the form void(itemdata &&)
 		//F must free() itemdata::index
 		template <typename F> void operator()(F func) const {
 			for(auto &it : alist) {
 				itemdata data;
 
 				data.tweet_count = it->tweet_ids.size();
-				data.tweet_blob = settoblob(it->tweet_ids, data.tweet_blob_size);
+				data.tweet_blob = settoblob(it->tweet_ids);
 
 				data.dm_count = it->dm_ids.size();
-				data.dm_blob = settoblob(it->dm_ids, data.dm_blob_size);
+				data.dm_blob = settoblob(it->dm_ids);
 
 				data.dispname = stdstrwx(it->dispname);
 				data.dbindex = it->dbindex;
@@ -1523,11 +1517,9 @@ namespace {
 			sqlite3_stmt *setstmt = cache.GetStmt(adb, DBPSC_UPDATEACCIDLISTS);
 
 			unsigned int total = 0;
-			getfunc([&](const itemdata &data) {
-				bind_compressed(setstmt, 1, data.tweet_blob, data.tweet_blob_size, 'Z');
-				free(data.tweet_blob);
-				bind_compressed(setstmt, 2, data.dm_blob, data.dm_blob_size, 'Z');
-				free(data.dm_blob);
+			getfunc([&](itemdata &&data) {
+				bind_compressed(setstmt, 1, std::move(data.tweet_blob), 'Z');
+				bind_compressed(setstmt, 2, std::move(data.dm_blob), 'Z');
 				sqlite3_bind_text(setstmt, 3, data.dispname.c_str(), data.dispname.size(), SQLITE_TRANSIENT);
 				sqlite3_bind_int(setstmt, 4, data.dbindex);
 
@@ -1569,18 +1561,14 @@ namespace {
 			uint64_t id;
 			unsigned int dbindex;
 
-			unsigned char *json_blob;
-			size_t json_blob_size;
-
-			unsigned char *profimg_blob;
-			size_t profimg_blob_size;
+			db_bind_buffer_persistent<dbb_compressed> json_blob;
+			db_bind_buffer_persistent<dbb_compressed> profimg_blob;
 
 			time_t createtime;
 			uint64_t lastupdate;
 			shb_iptr cached_profile_img_sha1;
 
-			unsigned char *mention_blob;
-			size_t mention_blob_size;
+			db_bind_buffer_persistent<dbb_uncompressed> mention_blob;
 
 			uint64_t profile_img_last_used;
 
@@ -1588,7 +1576,7 @@ namespace {
 			bool profimgtime_needs_updating;
 		};
 
-		//Where F is a functor of the form void(const itemdata &)
+		//Where F is a functor of the form void(itemdata &&)
 		//F must free() itemdata blobs
 		template <typename F> void operator()(F func) const {
 			for(auto &it : ad.userconts) {
@@ -1619,14 +1607,14 @@ namespace {
 				itemdata data;
 
 				data.id = it.first;
-				data.json_blob = DoCompress(u->mkjson(), data.json_blob_size, 'J');
-				data.profimg_blob = DoCompress(u->cached_profile_img_url, data.profimg_blob_size, 'P');
+				data.json_blob = DoCompress(u->mkjson(), 'J');
+				data.profimg_blob = DoCompress(u->cached_profile_img_url, 'P');
 
 				data.createtime = u->user.createtime;
 				data.lastupdate = u->lastupdate;
 				data.cached_profile_img_sha1 = u->cached_profile_img_sha1;
 
-				data.mention_blob = settoblob(u->mention_index, data.mention_blob_size);
+				data.mention_blob = settoblob(u->mention_index);
 
 				data.profile_img_last_used = u->profile_img_last_used;
 
@@ -1650,11 +1638,11 @@ namespace {
 			unsigned int user_count = 0;
 			unsigned int lastupdate_count = 0;
 			unsigned int profimgtime_count = 0;
-			getfunc([&](const itemdata &data) {
+			getfunc([&](itemdata &&data) {
 				user_count++;
 				sqlite3_bind_int64(stmt, 1, (sqlite3_int64) data.id);
-				sqlite3_bind_blob(stmt, 2, data.json_blob, data.json_blob_size, &free);
-				sqlite3_bind_blob(stmt, 3, data.profimg_blob, data.profimg_blob_size, &free);
+				bind_compressed(stmt, 2, std::move(data.json_blob));
+				bind_compressed(stmt, 3, std::move(data.profimg_blob));
 				sqlite3_bind_int64(stmt, 4, (sqlite3_int64) data.createtime);
 				sqlite3_bind_int64(stmt, 5, (sqlite3_int64) data.lastupdate);
 				if(data.cached_profile_img_sha1) {
@@ -1663,8 +1651,7 @@ namespace {
 				else {
 					sqlite3_bind_null(stmt, 6);
 				}
-				bind_compressed(stmt, 7, data.mention_blob, data.mention_blob_size, 'Z');
-				free(data.mention_blob);
+				bind_compressed(stmt, 7, std::move(data.mention_blob));
 				sqlite3_bind_int64(stmt, 8, (sqlite3_int64) data.profile_img_last_used);
 
 				if(data.user_needs_updating) lastupdate_count++;
@@ -1698,17 +1685,17 @@ void dbconn::AsyncWriteBackAllUsers(dbfunctionmsg &msg) {
 
 template <typename UDC> static void ReadInUserObject(sqlite3_stmt *stmt, uint64_t id, UDC &u, userdata &ud, const char *name) {
 	rapidjson::Document dc;
-	char *json = column_get_compressed_and_parse(stmt, 0, dc);
+	db_bind_buffer<dbb_uncompressed> json = column_get_compressed_and_parse(stmt, 0, dc);
 	if(dc.IsObject()) genjsonparser::ParseUserContents(dc, ud);
-	size_t profimg_size;
-	char *profimg = column_get_compressed(stmt, 1, profimg_size);
-	u.cached_profile_img_url.assign(profimg, profimg_size);
+	db_bind_buffer<dbb_uncompressed> profimg = column_get_compressed(stmt, 1);
+	u.cached_profile_img_url.assign(profimg.data, profimg.data_size);
 	if(ud.profile_img_url.empty()) {
-		ud.profile_img_url.assign(profimg, profimg_size);
+		ud.profile_img_url.assign(profimg.data, profimg.data_size);
 	}
 	ud.createtime = (time_t) sqlite3_column_int64(stmt, 2);
 	u.lastupdate = (uint64_t) sqlite3_column_int64(stmt, 3);
 	u.lastupdate_wrotetodb = u.lastupdate;
+
 	const char *hash = (const char*) sqlite3_column_blob(stmt, 4);
 	int hashsize = sqlite3_column_bytes(stmt, 4);
 	if(hashsize == sizeof(sha1_hash_block::hash_sha1)) {
@@ -1721,8 +1708,7 @@ template <typename UDC> static void ReadInUserObject(sqlite3_stmt *stmt, uint64_
 		if(hashsize)
 			LogMsgFormat(LOGT::DBERR, "%s user id: %" llFmtSpec "d, has invalid profile image hash length: %d", cstr(name), (sqlite3_int64) id, hashsize);
 	}
-	if(json) free(json);
-	if(profimg) free(profimg);
+
 	setfromcompressedblob([&](uint64_t &tid) { u.mention_index.push_back(tid); }, stmt, 5);
 	u.profile_img_last_used = (uint64_t) sqlite3_column_int64(stmt, 6);
 	u.profile_img_last_used_db = u.profile_img_last_used;
@@ -1791,11 +1777,10 @@ namespace {
 		struct itemdata {
 			uint64_t id;
 
-			unsigned char *dmset_blob;
-			size_t dmset_blob_size;
+			db_bind_buffer_persistent<dbb_uncompressed> dmset_blob;
 		};
 
-		//Where F is a functor of the form void(const itemdata &)
+		//Where F is a functor of the form void(itemdata &&)
 		//F must free() itemdata blobs
 		template <typename F> void operator()(F func) const {
 			for(auto &it : ad.user_dm_indexes) {
@@ -1806,7 +1791,7 @@ namespace {
 
 				itemdata data;
 				data.id = it.first;
-				data.dmset_blob = settoblob(udi.ids, data.dmset_blob_size);
+				data.dmset_blob = settoblob(udi.ids);
 				udi.flags &= ~user_dm_index::UDIF::ISDIRTY;
 
 				func(std::move(data));
@@ -1820,11 +1805,10 @@ namespace {
 
 			sqlite3_stmt *stmt = cache.GetStmt(adb, DBPSC_INSUSERDMINDEX);
 			unsigned int count = 0;
-			getfunc([&](const itemdata &data) {
+			getfunc([&](itemdata &&data) {
 				count++;
 				sqlite3_bind_int64(stmt, 1, (sqlite3_int64) data.id);
-				bind_compressed(stmt, 2, data.dmset_blob, data.dmset_blob_size, 'Z');
-				free(data.dmset_blob);
+				bind_compressed(stmt, 2, std::move(data.dmset_blob));
 
 				int res = sqlite3_step(stmt);
 				if(res != SQLITE_DONE) {
@@ -1982,13 +1966,11 @@ void dbconn::SyncReadInAllMediaEntities(sqlite3 *adb) {
 		ad.media_list[id].reset(meptr);
 		media_entity &me = *meptr;
 		me.media_id = id;
-		size_t outsize;
-		char *url = column_get_compressed(stmt, 2, outsize);
-		if(url) {
-			me.media_url.assign(url, outsize);
+		db_bind_buffer_persistent<dbb_uncompressed> url = column_get_compressed(stmt, 2);
+		if(url.data_size) {
+			me.media_url.assign(url.data, url.data_size);
 			ad.img_media_map[me.media_url] = meptr;
 		}
-		free(url);
 		if(sqlite3_column_bytes(stmt, 3) == hash_size) {
 			std::shared_ptr<sha1_hash_block> hash = std::make_shared<sha1_hash_block>();
 			memcpy(hash->hash_sha1, sqlite3_column_blob(stmt, 3), hash_size);
@@ -2196,12 +2178,11 @@ namespace {
 			std::string dispname;
 			flagwrapper<TPF> flags;
 
-			unsigned char *tweetlist_blob;
-			size_t tweetlist_blob_size;
+			db_bind_buffer_persistent<dbb_uncompressed> tweetlist_blob;
 			size_t tweetlist_count;
 		};
 
-		//Where F is a functor of the form void(const itemdata &)
+		//Where F is a functor of the form void(itemdata &&)
 		//F must free() itemdata::tweetlist_blob
 		template <typename F> void operator()(F func) const {
 			for(auto &it : ad.tpanels) {
@@ -2211,7 +2192,7 @@ namespace {
 					data.name = tp.name;
 					data.dispname = tp.dispname;
 					data.flags = tp.flags;
-					data.tweetlist_blob = settoblob(tp.tweetlist, data.tweetlist_blob_size);
+					data.tweetlist_blob = settoblob(tp.tweetlist);
 					data.tweetlist_count = tp.tweetlist.size();
 					func(std::move(data));
 				}
@@ -2228,12 +2209,11 @@ namespace {
 
 			unsigned int write_count = 0;
 			unsigned int id_count = 0;
-			getfunc([&](const itemdata &data) {
+			getfunc([&](itemdata &&data) {
 				sqlite3_bind_text(stmt, 1, data.name.c_str(), data.name.size(), SQLITE_TRANSIENT);
 				sqlite3_bind_text(stmt, 2, data.dispname.c_str(), data.dispname.size(), SQLITE_TRANSIENT);
 				sqlite3_bind_int(stmt, 3, flag_unwrap<TPF>(data.flags));
-				bind_compressed(stmt, 4, data.tweetlist_blob, data.tweetlist_blob_size, 'Z');
-				free(data.tweetlist_blob);
+				bind_compressed(stmt, 4, std::move(data.tweetlist_blob));
 				int res = sqlite3_step(stmt);
 				if(res != SQLITE_DONE) {
 					SLogMsgFormat(LOGT::DBERR, TSLogging, "%s got error: %d (%s)", cstr(funcname), res, cstr(sqlite3_errmsg(adb)));
@@ -2426,7 +2406,7 @@ void dbconn::SyncPurgeProfileImages(sqlite3 *syncdb) {
 		if(!gc.readonlymode && expire_list.size()) {
 			cache.BeginTransaction(syncdb);
 
-			DBRangeBindExec(syncdb, "UPDATE users SET cachedprofimgurl = 'T', cachedprofileimgchecksum = NULL WHERE id == ?;",
+			DBRangeBindExec(syncdb, "UPDATE users SET cachedprofimgurl = NULL, cachedprofileimgchecksum = NULL WHERE id == ?;",
 					expire_list.begin(), expire_list.end(),
 					[&](sqlite3_stmt *stmt, uint64_t id) {
 						sqlite3_bind_int64(stmt, 1, id);
