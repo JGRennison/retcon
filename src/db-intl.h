@@ -230,7 +230,9 @@ struct dbconn : public wxEvtHandler {
 	bool SyncDoUpdates(sqlite3 *adb);
 	void SyncWriteDBVersion(sqlite3 *adb);
 
-	void SyncPurgeMediaEntities(sqlite3 *adb);
+	bool CheckIfPurgeDue(sqlite3 *db, time_t threshold, const char *settingname, const char *funcname, time_t &delta);
+	void UpdateLastPurged(sqlite3 *db, const char *settingname, const char *funcname);
+	void SyncPurgeMediaEntities(sqlite3 *db);
 	void SyncPurgeProfileImages(sqlite3 *adb);
 	void CheckPurgeTweets();
 	void CheckPurgeUsers();

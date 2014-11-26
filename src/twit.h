@@ -187,7 +187,10 @@ struct userdatacontainer {
 	void CheckPendingTweets(flagwrapper<UMPTF> umpt_flags = 0);
 	void MarkTweetPending(tweet_ptr_p t);
 	std::shared_ptr<taccount> GetAccountOfUser() const;
-	void GetImageLocalFilename(wxString &filename)  const;
+	static void GetImageLocalFilename(uint64_t id, wxString &filename);
+	void GetImageLocalFilename(wxString &filename) const {
+		GetImageLocalFilename(id, filename);
+	}
 	inline userdata &GetUser() { return user; }
 	inline const userdata &GetUser() const { return user; }
 	void MarkUpdated();

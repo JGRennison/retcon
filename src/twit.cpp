@@ -405,7 +405,7 @@ std::shared_ptr<taccount> userdatacontainer::GetAccountOfUser() const {
 	return std::shared_ptr<taccount>();
 }
 
-void userdatacontainer::GetImageLocalFilename(wxString &filename) const {
+void userdatacontainer::GetImageLocalFilename(uint64_t id, wxString &filename) {
 	filename.Printf(wxT("/img_%" wxLongLongFmtSpec "d"), id);
 	filename.Prepend(wxstrstd(wxGetApp().datadir));
 }

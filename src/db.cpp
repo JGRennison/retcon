@@ -2319,34 +2319,51 @@ void dbconn::SyncWriteBackUserRelationships(sqlite3 *adb) {
 	LogMsg(LOGT::DBTRACE, "dbconn::SyncWriteBackUserRelationships end");
 }
 
-void dbconn::SyncPurgeMediaEntities(sqlite3 *adb) {
-	LogMsg(LOGT::DBTRACE, "dbconn::SyncPurgeMediaEntities start");
-
+bool dbconn::CheckIfPurgeDue(sqlite3 *db, time_t threshold, const char *settingname, const char *funcname, time_t &delta) {
 	time_t last_purge = 0;
-	sqlite3_stmt *getstmt = cache.GetStmt(adb, DBPSC_SELSTATICSETTING);
-	sqlite3_bind_text(getstmt, 1, "lastmediacachepurge", -1, SQLITE_STATIC);
-	DBRowExec(adb, getstmt, [&](sqlite3_stmt *stmt) {
+
+	sqlite3_stmt *getstmt = cache.GetStmt(db, DBPSC_SELSTATICSETTING);
+	sqlite3_bind_text(getstmt, 1, settingname, -1, SQLITE_STATIC);
+	DBRowExec(db, getstmt, [&](sqlite3_stmt *stmt) {
 		last_purge = (time_t) sqlite3_column_int64(stmt, 0);
-	}, "dbconn::SyncPurgeMediaEntities (get last purged)");
+	}, string_format("%s (get last purged)", funcname));
 
-	time_t now = time(nullptr);
-	time_t delta = now - last_purge;
+	delta = time(nullptr) - last_purge;
 
-	const time_t day = 60 * 60 * 24;
-
-	if(delta < day) {
-		LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncPurgeMediaEntities end, last purged %" llFmtSpec "ds ago, not checking", (int64_t) delta);
+	if(delta < threshold) {
+		LogMsgFormat(LOGT::DBTRACE, "%s, last purged %" llFmtSpec "ds ago, not checking", cstr(funcname), (int64_t) delta);
+		return false;
 	}
 	else {
+		return true;
+	}
+}
+
+void dbconn::UpdateLastPurged(sqlite3 *db, const char *settingname, const char *funcname) {
+	sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_INSSTATICSETTING);
+	sqlite3_bind_text(stmt, 1, settingname, -1, SQLITE_STATIC);
+	sqlite3_bind_int64(stmt, 2, time(nullptr));
+	DBExec(db, stmt, string_format("%s (write last purged)", funcname));
+}
+
+void dbconn::SyncPurgeMediaEntities(sqlite3 *syncdb) {
+	LogMsg(LOGT::DBTRACE, "dbconn::SyncPurgeMediaEntities start");
+
+	const char *lastpurgesetting = "lastmediacachepurge";
+	const char *funcname = "dbconn::SyncPurgeMediaEntities";
+	const time_t day = 60 * 60 * 24;
+	time_t delta;
+
+	if(CheckIfPurgeDue(syncdb, day, lastpurgesetting, funcname, delta)) {
 		unsigned int thumb_count = 0;
 		unsigned int full_count = 0;
 
 		std::deque<media_id_type> purge_list;
 
-		DBBindRowExec(adb,
+		DBBindRowExec(syncdb,
 				"SELECT mid, tid, thumbchecksum, fullchecksum FROM mediacache WHERE ((flags == 0 OR flags IS NULL) AND lastusedtimestamp < ?);",
 				[&](sqlite3_stmt *stmt) {
-					sqlite3_bind_int64(stmt, 1, now - (day * gc.mediacachesavedays));
+					sqlite3_bind_int64(stmt, 1, time(nullptr) - (day * gc.mediacachesavedays));
 				},
 				[&](sqlite3_stmt *stmt) {
 					media_id_type mid;
@@ -2364,61 +2381,69 @@ void dbconn::SyncPurgeMediaEntities(sqlite3 *adb) {
 				}, "dbconn::SyncPurgeMediaEntities (get purge list)");
 
 		if(!gc.readonlymode) {
-			cache.BeginTransaction(adb);
+			cache.BeginTransaction(syncdb);
 
-			DBRangeBindExec(adb, "DELETE FROM mediacache WHERE (mid == ? AND tid == ?);",
+			DBRangeBindExec(syncdb, "DELETE FROM mediacache WHERE (mid == ? AND tid == ?);",
 					purge_list.begin(), purge_list.end(),
 					[&](sqlite3_stmt *stmt, media_id_type mid) {
 						sqlite3_bind_int64(stmt, 1, mid.m_id);
 						sqlite3_bind_int64(stmt, 2, mid.t_id);
 					}, "dbconn::SyncPurgeMediaEntities (purge row)");
 
-			sqlite3_stmt *stmt = cache.GetStmt(adb, DBPSC_INSSTATICSETTING);
-			sqlite3_bind_text(stmt, 1, "lastmediacachepurge", -1, SQLITE_STATIC);
-			sqlite3_bind_int64(stmt, 2, now);
-			DBExec(adb, stmt, "dbconn::SyncPurgeMediaEntities (write last purged)");
+			UpdateLastPurged(syncdb, lastpurgesetting, funcname);
 
-			cache.EndTransaction(adb);
+			cache.EndTransaction(syncdb);
 		}
 
-		LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncPurgeMediaEntities end, last purged %" llFmtSpec "ds ago, purged %u, (thumb: %u, full: %u)",
-				(int64_t) delta, (unsigned int) purge_list.size(), thumb_count, full_count);
+		LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncPurgeMediaEntities end, last purged %" llFmtSpec "ds ago, %spurged %u, (thumb: %u, full: %u)",
+				(int64_t) delta, gc.readonlymode ? "would have " : "", (unsigned int) purge_list.size(), thumb_count, full_count);
 	}
 }
 
-void dbconn::SyncPurgeProfileImages(sqlite3 *adb) {
+void dbconn::SyncPurgeProfileImages(sqlite3 *syncdb) {
 	LogMsg(LOGT::DBTRACE, "dbconn::SyncPurgeProfileImages start");
-	std::deque<uint64_t> expire_list;
 
-	const time_t threshold = time(nullptr) - (60 * 60 * 24 * gc.profimgcachesavedays);
+	const char *lastpurgesetting = "lastprofileimagepurge";
+	const char *funcname = "dbconn::SyncPurgeProfileImages";
+	const time_t day = 60 * 60 * 24;
+	time_t delta;
 
-	for(auto &it : ad.userconts) {
-		uint64_t id = it.first;
-		udc_ptr_p u = it.second;
-		if(u->cached_profile_img_sha1 && (time_t) u->profile_img_last_used < threshold) {
-			// User has a profile image which can now be evicted from the disk cache
-			expire_list.push_back(id);
-			u->cached_profile_img_url = "";
-			u->cached_profile_img_sha1 = nullptr;
-			wxString filename;
-			u->GetImageLocalFilename(filename);
-			if(!gc.readonlymode) wxRemoveFile(filename);
+	if(CheckIfPurgeDue(syncdb, day, lastpurgesetting, funcname, delta)) {
+		std::deque<uint64_t> expire_list;
+
+		// TODO: optimise this so it doesn't need a full table scan
+		DBBindRowExec(syncdb,
+				"SELECT id FROM users WHERE (cachedprofileimgchecksum IS NOT NULL AND profimglastusedtimestamp < ?);",
+				[&](sqlite3_stmt *stmt) {
+					sqlite3_bind_int64(stmt, 1, time(nullptr) - (day * gc.profimgcachesavedays));
+				},
+				[&](sqlite3_stmt *stmt) {
+					// User has a profile image which can now be evicted from the disk cache
+					uint64_t id = (uint64_t) sqlite3_column_int64(stmt, 0);
+					expire_list.push_back(id);
+				}, "dbconn::SyncPurgeProfileImages (get purge list)");
+
+		if(!gc.readonlymode && expire_list.size()) {
+			cache.BeginTransaction(syncdb);
+
+			DBRangeBindExec(syncdb, "UPDATE users SET cachedprofimgurl = 'T', cachedprofileimgchecksum = NULL WHERE id == ?;",
+					expire_list.begin(), expire_list.end(),
+					[&](sqlite3_stmt *stmt, uint64_t id) {
+						sqlite3_bind_int64(stmt, 1, id);
+
+						wxString filename;
+						userdatacontainer::GetImageLocalFilename(id, filename);
+						wxRemoveFile(filename);
+					}, "dbconn::SyncPurgeProfileImages (purge cache checksum)");
+
+			UpdateLastPurged(syncdb, lastpurgesetting, funcname);
+
+			cache.EndTransaction(syncdb);
 		}
+
+		LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncPurgeProfileImages end, last purged %" llFmtSpec "ds ago, %spurged %u",
+				(int64_t) delta, gc.readonlymode ? "would have " : "", (unsigned int) expire_list.size());
 	}
-
-	if(!gc.readonlymode && expire_list.size()) {
-		cache.BeginTransaction(adb);
-
-		DBRangeBindExec(adb, "UPDATE users SET cachedprofimgurl = 'T', cachedprofileimgchecksum = NULL WHERE id == ?;",
-				expire_list.begin(), expire_list.end(),
-				[&](sqlite3_stmt *stmt, uint64_t id) {
-					sqlite3_bind_int64(stmt, 1, id);
-				}, "dbconn::SyncPurgeProfileImages (purge cache checksum)");
-
-		cache.EndTransaction(adb);
-	}
-
-	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncPurgeProfileImages end, purged %u", (unsigned int) expire_list.size());
 }
 
 void dbconn::OnAsyncStateWriteTimer(wxTimerEvent& event) {
