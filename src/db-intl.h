@@ -196,7 +196,7 @@ struct dbconn : public wxEvtHandler {
 	void SyncReadInTpanels(sqlite3 *adb);
 	void SyncWriteBackTpanels(sqlite3 *adb);
 	void AsyncWriteBackTpanels(dbfunctionmsg &msg);
-	void SyncDoUpdates(sqlite3 *adb);
+	bool SyncDoUpdates(sqlite3 *adb);
 	void SyncWriteDBVersion(sqlite3 *adb);
 	void SyncPurgeMediaEntities(sqlite3 *adb);
 	void SyncPurgeProfileImages(sqlite3 *adb);

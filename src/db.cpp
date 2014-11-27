@@ -939,7 +939,12 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 		}
 		else {
 			// Check whether DB is old and needs to be updated
-			SyncDoUpdates(syncdb);
+			if(!SyncDoUpdates(syncdb)) {
+				// All bets are off, give up now
+				sqlite3_close(syncdb);
+				syncdb = 0;
+				return false;
+			}
 		}
 	}
 

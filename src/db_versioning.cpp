@@ -22,6 +22,7 @@
 #include "map.h"
 #include "log.h"
 #include "twit-common.h"
+#include <wx/msgdlg.h>
 
 static const unsigned int db_version = 4;
 
@@ -41,7 +42,8 @@ static const char *update_sql[] = {
 	// SyncDoUpdates_FillUserDMIndexes should be run here
 };
 
-void dbconn::SyncDoUpdates(sqlite3 *adb) {
+// return false if all bets are off and DB should not be read
+bool dbconn::SyncDoUpdates(sqlite3 *adb) {
 	LogMsg(LOGT::DBTRACE, "dbconn::DoUpdates start");
 
 	unsigned int current_db_version = 0;
@@ -72,9 +74,15 @@ void dbconn::SyncDoUpdates(sqlite3 *adb) {
 	}
 	else if(current_db_version > db_version) {
 		LogMsgFormat(LOGT::DBERR, "dbconn::DoUpdates current DB version %u > %u", current_db_version, db_version);
+
+		wxMessageDialog(0, wxString::Format(wxT("Sorry, this database cannot be read.\nIt is version %u, this program can only read up to version %u, please upgrade.\n"),
+			current_db_version, db_version),
+			wxT("Error: database too new"), wxOK | wxICON_ERROR ).ShowModal();
+		return false;
 	}
 
 	LogMsg(LOGT::DBTRACE, "dbconn::DoUpdates end");
+	return true;
 }
 
 void dbconn::SyncDoUpdates_FillUserDMIndexes(sqlite3 *adb) {
