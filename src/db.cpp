@@ -1294,7 +1294,7 @@ void dbconn::InsertUser(udc_ptr_p u, optional_observer_ptr<dbsendmsg_list> msgli
 	msg->createtime = u->user.createtime;
 	msg->lastupdate = u->lastupdate;
 	msg->cached_profile_img_hash = u->cached_profile_img_sha1;
-	msg->mentionindex = settoblob(u->mention_index);
+	msg->mentionindex = settocompressedblob_desc(u->mention_index);
 	u->lastupdate_wrotetodb = u->lastupdate;
 	msg->profile_img_last_used = u->profile_img_last_used;
 	u->profile_img_last_used_db = u->profile_img_last_used;
@@ -1431,7 +1431,7 @@ namespace {
 	struct WriteBackCIDSLists {
 		struct itemdata {
 			const char *name;
-			db_bind_buffer_persistent<dbb_uncompressed> index;
+			db_bind_buffer_persistent<dbb_compressed> index;
 			size_t list_size;
 		};
 
@@ -1440,7 +1440,7 @@ namespace {
 		template <typename F> void operator()(F func) const {
 			cached_id_sets::IterateLists([&](const char *name, const tweetidset cached_id_sets::*ptr, unsigned long long tweetflag) {
 				const tweetidset &tlist = ad.cids.*ptr;
-				func(itemdata { name, settoblob(tlist), tlist.size() });
+				func(itemdata { name, settocompressedblob_desc(tlist), tlist.size() });
 			});
 		};
 
@@ -1454,7 +1454,7 @@ namespace {
 			getfunc([&](itemdata &&data) {
 				sqlite3_bind_text(setstmt, 1, globstr.c_str(), globstr.size(), SQLITE_STATIC);
 				sqlite3_bind_text(setstmt, 2, data.name, -1, SQLITE_STATIC);
-				bind_compressed(setstmt, 3, std::move(data.index), 'Z');
+				bind_compressed(setstmt, 3, std::move(data.index));
 				int res = sqlite3_step(setstmt);
 				if(res != SQLITE_DONE) {
 					SLogMsgFormat(LOGT::DBERR, TSLogging, "%s got error: %d (%s), for set: %s",
@@ -1484,10 +1484,10 @@ namespace {
 			std::string dispname;
 			unsigned int dbindex;
 
-			db_bind_buffer_persistent<dbb_uncompressed> tweet_blob;
+			db_bind_buffer_persistent<dbb_compressed> tweet_blob;
 			size_t tweet_count;
 
-			db_bind_buffer_persistent<dbb_uncompressed> dm_blob;
+			db_bind_buffer_persistent<dbb_compressed> dm_blob;
 			size_t dm_count;
 		};
 
@@ -1498,10 +1498,10 @@ namespace {
 				itemdata data;
 
 				data.tweet_count = it->tweet_ids.size();
-				data.tweet_blob = settoblob(it->tweet_ids);
+				data.tweet_blob = settocompressedblob_desc(it->tweet_ids);
 
 				data.dm_count = it->dm_ids.size();
-				data.dm_blob = settoblob(it->dm_ids);
+				data.dm_blob = settocompressedblob_desc(it->dm_ids);
 
 				data.dispname = stdstrwx(it->dispname);
 				data.dbindex = it->dbindex;
@@ -1568,7 +1568,7 @@ namespace {
 			uint64_t lastupdate;
 			shb_iptr cached_profile_img_sha1;
 
-			db_bind_buffer_persistent<dbb_uncompressed> mention_blob;
+			db_bind_buffer_persistent<dbb_compressed> mention_blob;
 
 			uint64_t profile_img_last_used;
 
@@ -1614,7 +1614,7 @@ namespace {
 				data.lastupdate = u->lastupdate;
 				data.cached_profile_img_sha1 = u->cached_profile_img_sha1;
 
-				data.mention_blob = settoblob(u->mention_index);
+				data.mention_blob = settocompressedblob_zigzag(u->mention_index);
 
 				data.profile_img_last_used = u->profile_img_last_used;
 
@@ -1777,7 +1777,7 @@ namespace {
 		struct itemdata {
 			uint64_t id;
 
-			db_bind_buffer_persistent<dbb_uncompressed> dmset_blob;
+			db_bind_buffer_persistent<dbb_compressed> dmset_blob;
 		};
 
 		//Where F is a functor of the form void(itemdata &&)
@@ -1791,7 +1791,7 @@ namespace {
 
 				itemdata data;
 				data.id = it.first;
-				data.dmset_blob = settoblob(udi.ids);
+				data.dmset_blob = settocompressedblob_desc(udi.ids);
 				udi.flags &= ~user_dm_index::UDIF::ISDIRTY;
 
 				func(std::move(data));
@@ -2178,7 +2178,7 @@ namespace {
 			std::string dispname;
 			flagwrapper<TPF> flags;
 
-			db_bind_buffer_persistent<dbb_uncompressed> tweetlist_blob;
+			db_bind_buffer_persistent<dbb_compressed> tweetlist_blob;
 			size_t tweetlist_count;
 		};
 
@@ -2192,7 +2192,7 @@ namespace {
 					data.name = tp.name;
 					data.dispname = tp.dispname;
 					data.flags = tp.flags;
-					data.tweetlist_blob = settoblob(tp.tweetlist);
+					data.tweetlist_blob = settocompressedblob_desc(tp.tweetlist);
 					data.tweetlist_count = tp.tweetlist.size();
 					func(std::move(data));
 				}

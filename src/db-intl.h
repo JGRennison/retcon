@@ -405,44 +405,172 @@ inline db_bind_buffer<dbb_compressed> DoCompress(const db_bind_buffer<dbb_uncomp
 	return DoCompress(in.data, in.data_size, tag, iscompressed);
 }
 
-inline void writebeuint64(unsigned char* data, uint64_t id) {
-	data[0] = (id >> 56) & 0xFF;
-	data[1] = (id >> 48) & 0xFF;
-	data[2] = (id >> 40) & 0xFF;
-	data[3] = (id >> 32) & 0xFF;
-	data[4] = (id >> 24) & 0xFF;
-	data[5] = (id >> 16) & 0xFF;
-	data[6] = (id >> 8) & 0xFF;
-	data[7] = (id >> 0) & 0xFF;
+inline void store_packed_uint64(unsigned char *&curdata, uint64_t diff) {
+	if(diff < (static_cast<uint64_t>(1) << 30)) {
+		curdata[0] = (diff >> 24) & 0x3F;
+		curdata[1] = (diff >> 16) & 0xFF;
+		curdata[2] = (diff >> 8) & 0xFF;
+		curdata[3] = (diff) & 0xFF;
+		curdata += 4;
+	}
+	else if(diff < (static_cast<uint64_t>(1) << 38)) {
+		curdata[0] = ((diff >> 32) & 0x3F) | 0x40;
+		curdata[1] = (diff >> 24) & 0xFF;
+		curdata[2] = (diff >> 16) & 0xFF;
+		curdata[3] = (diff >> 8) & 0xFF;
+		curdata[4] = (diff) & 0xFF;
+		curdata += 5;
+	}
+	else if(diff < (static_cast<uint64_t>(1) << 46)) {
+		curdata[0] = ((diff >> 40) & 0x3F) | 0x80;
+		curdata[1] = (diff >> 32) & 0xFF;
+		curdata[2] = (diff >> 24) & 0xFF;
+		curdata[3] = (diff >> 16) & 0xFF;
+		curdata[4] = (diff >> 8) & 0xFF;
+		curdata[5] = (diff) & 0xFF;
+		curdata += 6;
+	}
+	else {
+		curdata[0] = 0xC0;
+		curdata[1] = (diff >> 56) & 0xFF;
+		curdata[2] = (diff >> 48) & 0xFF;
+		curdata[3] = (diff >> 40) & 0xFF;
+		curdata[4] = (diff >> 32) & 0xFF;
+		curdata[5] = (diff >> 24) & 0xFF;
+		curdata[6] = (diff >> 16) & 0xFF;
+		curdata[7] = (diff >> 8) & 0xFF;
+		curdata[8] = (diff) & 0xFF;
+		curdata += 9;
+	}
 }
 
-template <typename C> db_bind_buffer<dbb_uncompressed> settoblob(const C &set) {
-	db_bind_buffer<dbb_uncompressed> out;
+template <typename C, typename F> db_bind_buffer<dbb_compressed> settocompressedblob_intpack_generic(const C &set, unsigned char tag, F encoder) {
+	db_bind_buffer<dbb_compressed> out;
 	if(set.size()) {
-		out.allocate(set.size() * 8);
+		out.allocate(1 + (set.size() * 9));
 		unsigned char *curdata = reinterpret_cast<unsigned char *>(out.mutable_data());
-		for(auto &it : set) {
-			writebeuint64(curdata, it);
-			curdata += 8;
+		curdata[0] = tag;
+		curdata++;
+
+		for(uint64_t id : set) {
+			store_packed_uint64(curdata, encoder(id));
 		}
+		out.data_size = curdata - reinterpret_cast<unsigned char *>(out.mutable_data());
 	}
+
 	return std::move(out);
 }
 
-template <typename C> db_bind_buffer<dbb_compressed> settocompressedblob(const C &set) {
-	return DoCompress(settoblob(set), 'Z');
+// Descending diff
+template <typename C> db_bind_buffer<dbb_compressed> settocompressedblob_desc(const C &set) {
+	uint64_t last_in = 0;
+	return settocompressedblob_intpack_generic(set, 'B', [&](uint64_t in) -> uint64_t {
+		uint64_t diff = last_in - in;
+		last_in = in;
+		return diff;
+	});
+}
+
+// Ascending diff, zigzagged
+template <typename C> db_bind_buffer<dbb_compressed> settocompressedblob_zigzag(const C &set) {
+	uint64_t last_in = 0;
+	return settocompressedblob_intpack_generic(set, 'C', [&](uint64_t in) -> uint64_t {
+		uint64_t diff = in - last_in;
+		last_in = in;
+
+		uint64_t negmask = (diff >> 63) & 1;
+		// negmask = 1 if input negative, else 0
+		negmask = -negmask;
+		// negmask is -1 (all ones) if input negative, else 0
+		return (diff << 1) ^ negmask;
+	});
+}
+
+inline uint64_t fetch_packed_uint64(const unsigned char *&input) {
+	unsigned char tag = input[0] & 0xC0;
+	uint64_t output = 0;
+	switch(tag) {
+		case 0x00:
+			output = static_cast<uint64_t>(input[0] & 0x3F) << 24 |
+				static_cast<uint64_t>(input[1]) << 16 |
+				static_cast<uint64_t>(input[2]) << 8 |
+				static_cast<uint64_t>(input[3]);
+				input += 4;
+			break;
+		case 0x40:
+			output = static_cast<uint64_t>(input[0] & 0x3F) << 32 |
+				static_cast<uint64_t>(input[1]) << 24 |
+				static_cast<uint64_t>(input[2]) << 16 |
+				static_cast<uint64_t>(input[3]) << 8 |
+				static_cast<uint64_t>(input[4]);
+				input += 5;
+			break;
+		case 0x80:
+			output = static_cast<uint64_t>(input[0] & 0x3F) << 40 |
+				static_cast<uint64_t>(input[1]) << 32 |
+				static_cast<uint64_t>(input[2]) << 24 |
+				static_cast<uint64_t>(input[3]) << 16 |
+				static_cast<uint64_t>(input[4]) << 8 |
+				static_cast<uint64_t>(input[5]);
+				input += 6;
+			break;
+		case 0xC0:
+			output = static_cast<uint64_t>(input[1]) << 56 |
+				static_cast<uint64_t>(input[2]) << 48 |
+				static_cast<uint64_t>(input[3]) << 40 |
+				static_cast<uint64_t>(input[4]) << 32 |
+				static_cast<uint64_t>(input[5]) << 24 |
+				static_cast<uint64_t>(input[6]) << 16 |
+				static_cast<uint64_t>(input[7]) << 8 |
+				static_cast<uint64_t>(input[8]);
+				input += 9;
+			break;
+	}
+	return output;
 }
 
 template <typename C> void setfromcompressedblob_generic(C func, sqlite3_stmt *stmt, int columnid) {
-	db_bind_buffer<dbb_uncompressed> blblob = column_get_compressed(stmt, columnid);
+	db_bind_buffer<dbb_compressed> src;
+	src.data = static_cast<const char *>(sqlite3_column_blob(stmt, columnid));
+	src.data_size = sqlite3_column_bytes(stmt, columnid);
 
-	unsigned char *blarray = (unsigned char*) blblob.data;
-	size_t blarraysize = blblob.data_size & ~7;
+	if(!src.data_size)
+		return;
 
-	for(unsigned int i = 0; i < blarraysize; i += 8) {    //stored in big endian format
-		uint64_t id = 0;
-		for(unsigned int j = 0; j < 8; j++) id <<= 8, id |= blarray[i + j];
-		func(id);
+	if(src.data[0] == 'B') {
+		const unsigned char *curdata = reinterpret_cast<const unsigned char *>(src.data);
+		const unsigned char *enddata = curdata + src.data_size;
+		curdata++;
+		uint64_t last = 0;
+		while(curdata < enddata) {
+			last -= fetch_packed_uint64(curdata);
+			func(last);
+		}
+	}
+	else if(src.data[0] == 'C') {
+		const unsigned char *curdata = reinterpret_cast<const unsigned char *>(src.data);
+		const unsigned char *enddata = curdata + src.data_size;
+		curdata++;
+		uint64_t last = 0;
+		while(curdata < enddata) {
+			uint64_t zigzag = fetch_packed_uint64(curdata);
+			uint64_t diff = (zigzag >> 1) ^ (-(zigzag & 1));
+			last += diff;
+			func(last);
+		}
+	}
+	else {
+		// legacy format
+		db_bind_buffer<dbb_uncompressed> blblob = DoDecompress(std::move(src));
+
+		unsigned char *blarray = (unsigned char*) blblob.data;
+		size_t blarraysize = blblob.data_size & ~7;
+
+		for(unsigned int i = 0; i < blarraysize; i += 8) {    //stored in big endian format
+			uint64_t id = 0;
+			for(unsigned int j = 0; j < 8; j++) id <<= 8, id |= blarray[i + j];
+			func(id);
+		}
 	}
 }
 

@@ -24,7 +24,7 @@
 #include "twit-common.h"
 #include <wx/msgdlg.h>
 
-static const unsigned int db_version = 4;
+static const unsigned int db_version = 5;
 
 static const char *update_sql[] = {
 	"ALTER TABLE mediacache ADD COLUMN lastusedtimestamp INTEGER;"
@@ -40,6 +40,9 @@ static const char *update_sql[] = {
 	,
 	"UPDATE OR IGNORE users SET dmindex = NULL;"
 	// SyncDoUpdates_FillUserDMIndexes should be run here
+	,
+	nullptr
+	// DB set compression changes
 };
 
 // return false if all bets are off and DB should not be read
@@ -105,7 +108,7 @@ void dbconn::SyncDoUpdates_FillUserDMIndexes(sqlite3 *adb) {
 		dm_index_map.begin(), dm_index_map.end(),
 		[&](sqlite3_stmt *stmt, const std::pair<uint64_t, std::deque<uint64_t>> &it) {
 			sqlite3_bind_int64(stmt, 1, it.first);
-			bind_compressed(stmt, 2, settocompressedblob(it.second));
+			bind_compressed(stmt, 2, settocompressedblob_zigzag(it.second));
 		},
 		"dbconn::SyncDoUpdates_FillUserDMIndexes (DM index write back)");
 }

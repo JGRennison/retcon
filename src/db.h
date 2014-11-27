@@ -231,7 +231,7 @@ struct dbinsertusermsg : public dbsendmsg {
 	time_t createtime;
 	uint64_t lastupdate;
 	shb_iptr cached_profile_img_hash;
-	db_bind_buffer_persistent<dbb_uncompressed> mentionindex;
+	db_bind_buffer_persistent<dbb_compressed> mentionindex;
 	uint64_t profile_img_last_used;
 };
 
