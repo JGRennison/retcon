@@ -1346,8 +1346,8 @@ void dbconn::AccountSync(sqlite3 *adb) {
 		ta->dbindex = id;
 		alist.push_back(ta);
 
-		setfromcompressedblob([&](uint64_t &tid) { ta->tweet_ids.insert(tid); }, getstmt, 2);
-		setfromcompressedblob([&](uint64_t &tid) { ta->dm_ids.insert(tid); }, getstmt, 3);
+		setfromcompressedblob(ta->tweet_ids, getstmt, 2);
+		setfromcompressedblob(ta->dm_ids, getstmt, 3);
 		total += ta->tweet_ids.size();
 		total += ta->dm_ids.size();
 
@@ -1363,9 +1363,9 @@ void dbconn::AccountSync(sqlite3 *adb) {
 
 void dbconn::SyncReadInAllTweetIDs(sqlite3 *adb) {
 	LogMsg(LOGT::DBTRACE, "dbconn::SyncReadInAllTweetIDs start");
-	DBRowExec(adb, "SELECT id FROM tweets;", [&](sqlite3_stmt *getstmt) {
+	DBRowExec(adb, "SELECT id FROM tweets ORDER BY id DESC;", [&](sqlite3_stmt *getstmt) {
 		uint64_t id = (uint64_t) sqlite3_column_int64(getstmt, 0);
-		ad.unloaded_db_tweet_ids.insert(id);
+		ad.unloaded_db_tweet_ids.insert(ad.unloaded_db_tweet_ids.end(), id);
 	}, "dbconn::SyncReadInAllTweetIDs");
 	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInAllTweetIDs end, read %u", ad.unloaded_db_tweet_ids.size());
 }
@@ -1380,7 +1380,7 @@ void dbconn::SyncReadInCIDSLists(sqlite3 *adb) {
 	auto doonelist = [&](std::string name, tweetidset &tlist) {
 		sqlite3_bind_text(getstmt, 1, name.c_str(), name.size(), SQLITE_STATIC);
 		DBRowExecStmt(adb, getstmt, [&](sqlite3_stmt *stmt) {
-			setfromcompressedblob([&](uint64_t &id) { tlist.insert(id); }, getstmt, 0);
+			setfromcompressedblob(tlist, getstmt, 0);
 			total += tlist.size();
 		}, "dbconn::SyncReadInCIDSLists");
 		sqlite3_reset(getstmt);
@@ -1709,7 +1709,7 @@ template <typename UDC> static void ReadInUserObject(sqlite3_stmt *stmt, uint64_
 			LogMsgFormat(LOGT::DBERR, "%s user id: %" llFmtSpec "d, has invalid profile image hash length: %d", cstr(name), (sqlite3_int64) id, hashsize);
 	}
 
-	setfromcompressedblob([&](uint64_t &tid) { u.mention_index.push_back(tid); }, stmt, 5);
+	setfromcompressedblob_generic([&](uint64_t &tid) { u.mention_index.push_back(tid); }, stmt, 5);
 	u.profile_img_last_used = (uint64_t) sqlite3_column_int64(stmt, 6);
 	u.profile_img_last_used_db = u.profile_img_last_used;
 }
@@ -1756,9 +1756,9 @@ void dbconn::AsyncReadInUser(sqlite3 *adb, uint64_t id, std::deque<dbretuserdata
 // This must be called before all calls to SyncReadInUser and SyncPostUserLoadCompletion
 void dbconn::SyncReadInAllUserIDs(sqlite3 *adb) {
 	LogMsg(LOGT::DBTRACE, "dbconn::SyncReadInAllUserIDs start");
-	DBRowExec(adb, "SELECT id FROM users;", [&](sqlite3_stmt *getstmt) {
+	DBRowExec(adb, "SELECT id FROM users ORDER BY id DESC;", [&](sqlite3_stmt *getstmt) {
 		uint64_t id = (uint64_t) sqlite3_column_int64(getstmt, 0);
-		unloaded_user_ids.insert(id);
+		unloaded_user_ids.insert(unloaded_user_ids.end(), id);
 	}, "dbconn::SyncReadInAllTweetIDs");
 	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInAllUserIDs end, read %u", unloaded_user_ids.size());
 }
@@ -1842,7 +1842,7 @@ void dbconn::SyncReadInUserDMIndexes(sqlite3 *adb) {
 	unsigned int read_count = 0;
 	tweetidset dmindex;
 	DBRowExec(adb, "SELECT userid, dmindex FROM userdmsets;", [&](sqlite3_stmt *stmt) {
-		setfromcompressedblob([&](uint64_t &tid) { dmindex.insert(tid); }, stmt, 1);
+		setfromcompressedblob(dmindex, stmt, 1);
 		if(!dmindex.empty()) {
 			uint64_t userid = (uint64_t) sqlite3_column_int64(stmt, 0);
 			user_dm_index &udi = ad.GetUserDMIndexById(userid);
@@ -2160,7 +2160,7 @@ void dbconn::SyncReadInTpanels(sqlite3 *adb) {
 			std::string dispname = (const char *) sqlite3_column_text(stmt, 1);
 			flagwrapper<TPF> flags = static_cast<TPF>(sqlite3_column_int(stmt, 2));
 			std::shared_ptr<tpanel> tp = tpanel::MkTPanel(name, dispname, flags);
-			setfromcompressedblob([&](uint64_t &id) { tp->tweetlist.insert(id); }, stmt, 3);
+			setfromcompressedblob(tp->tweetlist, stmt, 3);
 			id_count += tp->tweetlist.size();
 			tp->RecalculateCIDS();
 			read_count++;

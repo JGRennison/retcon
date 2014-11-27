@@ -433,7 +433,7 @@ template <typename C> db_bind_buffer<dbb_compressed> settocompressedblob(const C
 	return DoCompress(settoblob(set), 'Z');
 }
 
-template <typename C> void setfromcompressedblob(C func, sqlite3_stmt *stmt, int columnid) {
+template <typename C> void setfromcompressedblob_generic(C func, sqlite3_stmt *stmt, int columnid) {
 	db_bind_buffer<dbb_uncompressed> blblob = column_get_compressed(stmt, columnid);
 
 	unsigned char *blarray = (unsigned char*) blblob.data;
@@ -444,6 +444,12 @@ template <typename C> void setfromcompressedblob(C func, sqlite3_stmt *stmt, int
 		for(unsigned int j = 0; j < 8; j++) id <<= 8, id |= blarray[i + j];
 		func(id);
 	}
+}
+
+template <typename C> void setfromcompressedblob(C &set, sqlite3_stmt *stmt, int columnid) {
+	setfromcompressedblob_generic([&](uint64_t id) {
+		set.insert(set.end(), id);
+	}, stmt, columnid);
 }
 
 inline void bind_compressed(sqlite3_stmt* stmt, int num, db_bind_buffer<dbb_compressed> &&buffer, unsigned char tag = 'Z') {
