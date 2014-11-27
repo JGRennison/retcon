@@ -1,3 +1,25 @@
+retcon 0.0.11
+------------------------------------------------------
+
+Add per-account setting to control filtering behaviour of replies when streaming.
+ * Standard replies (excludes some mentions) (previous default)
+ * As above + all mentions (new default)
+ * All replies from users we follow + all mentions
+ * All replies in stream
+Add per-user DM conversation panels.
+Add support for displaying more than one attached images per tweet.
+Add tabs for incoming and outgoing follow requests (for protected accounts) to user window, when looking at own account.
+Don't show follow state and DM button when looking at own account in user window.
+Fix parsing of favourite counts of tweets.
+Fix tweet/DM delete requests not working.
+Fix custom combinations dialog creating a panel even if no items or cancel were selected.
+Fix various cosmetic issues with user windows.
+Various performance improvements.
+Various logging and debugging additions/changes.
+Add checks to detect future database version changes, note that all previous releases lack meaningful checks and
+ *must not* be used with a database created by a newer version.
+
+
 retcon 0.0.10
 ------------------------------------------------------
 
