@@ -1553,10 +1553,6 @@ void dbconn::AsyncWriteBackAccountIdLists(dbfunctionmsg &msg) {
 
 namespace {
 	struct WriteBackAllUsers {
-		unsigned int allusercount;
-
-		WriteBackAllUsers() : allusercount(ad.userconts.size()) { }
-
 		struct itemdata {
 			uint64_t id;
 			unsigned int dbindex;
@@ -1630,10 +1626,6 @@ namespace {
 			SLogMsgFormat(LOGT::DBTRACE, TSLogging, "%s start", cstr(funcname));
 			cache.BeginTransaction(adb);
 
-			DBWriteConfig dbwc(adb);
-			dbwc.SetDBIndexDB();
-			dbwc.WriteInt64("UserCountHint", allusercount);
-
 			sqlite3_stmt *stmt = cache.GetStmt(adb, DBPSC_INSUSER);
 			unsigned int user_count = 0;
 			unsigned int lastupdate_count = 0;
@@ -1669,8 +1661,8 @@ namespace {
 			});
 
 			cache.EndTransaction(adb);
-			SLogMsgFormat(LOGT::DBTRACE, TSLogging, "%s end, wrote back %u of %u users (update: %u, prof img: %u)",
-					cstr(funcname), user_count, allusercount, lastupdate_count, profimgtime_count);
+			SLogMsgFormat(LOGT::DBTRACE, TSLogging, "%s end, wrote back %u users (update: %u, prof img: %u)",
+					cstr(funcname), user_count, lastupdate_count, profimgtime_count);
 		}
 	};
 };
