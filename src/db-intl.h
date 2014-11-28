@@ -152,6 +152,9 @@ struct dbconn : public wxEvtHandler {
 	useridset unloaded_user_ids;
 	unsigned int sync_load_user_count = 0;
 
+	// This contains all tweet IDs in the DB at any given time
+	tweetidset all_tweet_ids;
+
 	private:
 	std::map<intptr_t, std::function<void(dbseltweetmsg &, dbconn *)> > generic_sel_funcs;
 	std::map<intptr_t, std::function<void(dbselusermsg &, dbconn *)> > generic_sel_user_funcs;
@@ -222,9 +225,10 @@ struct dbconn : public wxEvtHandler {
 	void SyncReadInWindowLayout(sqlite3 *adb);
 	void SyncWriteBackWindowLayout(sqlite3 *adb);
 
-	void SyncReadInAllTweetIDs(sqlite3 *adb);
-	void SyncReadInTpanels(sqlite3 *adb);
+	void SyncReadInAllTweetIDs(sqlite3 *syncdb);
+	void SyncWriteBackTweetIDIndexCache(sqlite3 *syncdb);
 
+	void SyncReadInTpanels(sqlite3 *adb);
 	void SyncWriteBackTpanels(sqlite3 *adb);
 	void AsyncWriteBackTpanels(dbfunctionmsg &msg);
 

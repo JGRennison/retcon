@@ -461,9 +461,14 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 			sqlite3_bind_int64(stmt, 7, (sqlite3_int64) m->timestamp);
 			sqlite3_bind_int64(stmt, 8, (sqlite3_int64) m->rtid);
 			int res = sqlite3_step(stmt);
-			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, "DBSM::INSERTTWEET got error: %d (%s) for id: %" llFmtSpec "d",
-					res, cstr(sqlite3_errmsg(db)), m->id); }
-			else { DBLogMsgFormat(LOGT::DBTRACE, "DBSM::INSERTTWEET inserted row id: %" llFmtSpec "d", (sqlite3_int64) m->id); }
+			if(res != SQLITE_DONE) {
+				DBLogMsgFormat(LOGT::DBERR, "DBSM::INSERTTWEET got error: %d (%s) for id: %" llFmtSpec "d",
+					res, cstr(sqlite3_errmsg(db)), m->id);
+			}
+			else {
+				DBLogMsgFormat(LOGT::DBTRACE, "DBSM::INSERTTWEET inserted row id: %" llFmtSpec "d", (sqlite3_int64) m->id);
+				dbc->all_tweet_ids.insert(m->id);
+			}
 			sqlite3_reset(stmt);
 			break;
 		}
@@ -1142,6 +1147,7 @@ void dbconn::DeInit() {
 		SyncWriteBackTpanels(syncdb);
 		SyncWriteBackUserRelationships(syncdb);
 		SyncWriteBackUserDMIndexes(syncdb);
+		SyncWriteBackTweetIDIndexCache(syncdb);
 	}
 	SyncPurgeMediaEntities(syncdb); //this does a dry-run in read-only mode
 	SyncPurgeProfileImages(syncdb); //this does a dry-run in read-only mode
@@ -1361,13 +1367,55 @@ void dbconn::AccountSync(sqlite3 *adb) {
 	LogMsgFormat(LOGT::DBTRACE, "dbconn::AccountSync end, total: %u IDs", total);
 }
 
-void dbconn::SyncReadInAllTweetIDs(sqlite3 *adb) {
+void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 	LogMsg(LOGT::DBTRACE, "dbconn::SyncReadInAllTweetIDs start");
-	DBRowExec(adb, "SELECT id FROM tweets ORDER BY id DESC;", [&](sqlite3_stmt *getstmt) {
-		uint64_t id = (uint64_t) sqlite3_column_int64(getstmt, 0);
-		ad.unloaded_db_tweet_ids.insert(ad.unloaded_db_tweet_ids.end(), id);
-	}, "dbconn::SyncReadInAllTweetIDs");
-	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInAllTweetIDs end, read %u", ad.unloaded_db_tweet_ids.size());
+
+	DBBindRowExec(syncdb, cache.GetStmt(syncdb, DBPSC_SELSTATICSETTING),
+		[&](sqlite3_stmt *getstmt) {
+			sqlite3_bind_text(getstmt, 1, "tweetidsetcache", -1, SQLITE_STATIC);
+		},
+		[&](sqlite3_stmt *getstmt) {
+			setfromcompressedblob(all_tweet_ids, getstmt, 0);
+		},
+		"dbconn::SyncReadInAllTweetIDs (cache load)"
+	);
+
+	if(all_tweet_ids.empty()) {
+		// Didn't find any cache
+		LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInAllTweetIDs table scan");
+
+		DBRowExec(syncdb, "SELECT id FROM tweets ORDER BY id DESC;", [&](sqlite3_stmt *getstmt) {
+			uint64_t id = (uint64_t) sqlite3_column_int64(getstmt, 0);
+			all_tweet_ids.insert(all_tweet_ids.end(), id);
+		}, "dbconn::SyncReadInAllTweetIDs");
+	}
+
+	if(!gc.readonlymode) {
+		DBBindExec(syncdb, cache.GetStmt(syncdb, DBPSC_DELSTATICSETTING),
+			[&](sqlite3_stmt *stmt) {
+				sqlite3_bind_text(stmt, 1, "tweetidsetcache", -1, SQLITE_STATIC);
+			},
+			"dbconn::SyncReadInAllTweetIDs (delete cache)"
+		);
+	}
+
+	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInAllTweetIDs set copy");
+	ad.unloaded_db_tweet_ids = all_tweet_ids;
+	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInAllTweetIDs end, read %u", all_tweet_ids.size());
+}
+
+void dbconn::SyncWriteBackTweetIDIndexCache(sqlite3 *syncdb) {
+	LogMsg(LOGT::DBTRACE, "dbconn::SyncWriteBackTweetIDIndexCache start");
+
+	DBBindExec(syncdb, cache.GetStmt(syncdb, DBPSC_INSSTATICSETTING),
+		[&](sqlite3_stmt *setstmt) {
+			sqlite3_bind_text(setstmt, 1, "tweetidsetcache", -1, SQLITE_STATIC);
+			bind_compressed(setstmt, 2, settocompressedblob_desc(all_tweet_ids));
+		},
+		"dbconn::SyncWriteBackTweetIDIndexCache"
+	);
+
+	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncWriteBackTweetIDIndexCache end, wrote %u", all_tweet_ids.size());
 }
 
 void dbconn::SyncReadInCIDSLists(sqlite3 *adb) {
