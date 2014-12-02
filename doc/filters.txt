@@ -63,6 +63,7 @@ The following condition variables accept a PCRE regular expression: regex, which
 .location <regex>             User's location
 .loc <regex>                  Alternate spelling of .location
 .id <regex>                   User's ID as a decimal string (this is useful when the name/screen name changes frequently)
+.notes <regex>                User's notes (as set in the Notes tab of the user window)
 
 
 Actions:

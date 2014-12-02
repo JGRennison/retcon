@@ -467,6 +467,11 @@ void ParseFilter(const std::string &input, filter_set &filter_output, std::strin
 							return frs.test_temp;
 						};
 					}
+					else if(part2 == "notes") {
+						return [](userdatacontainer *u, tweet &tw, filter_run_state &frs) -> const std::string &  {
+							return u ? u->user.notes : frs.empty_str;
+						};
+					}
 					else {
 						errmsgs += string_format("No such user field: %s\n", part2.c_str());
 						ok = false;
