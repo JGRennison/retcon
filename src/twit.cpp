@@ -427,10 +427,8 @@ std::string userdatacontainer::mkjson() const {
 	jw.String(user.description);
 	jw.String("url");
 	jw.String(user.userurl);
-	if(cached_profile_img_url!=user.profile_img_url) {	//don't bother writing it if it's the same as the cached image url
-		jw.String("profile_img_url");
-		jw.String(user.profile_img_url);
-	}
+	jw.String("profile_img_url");
+	jw.String(user.profile_img_url);
 	jw.String("protected");
 	jw.Bool(user.u_flags & userdata::userdata::UF::ISPROTECTED);
 	jw.String("verified");
