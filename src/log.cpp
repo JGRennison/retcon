@@ -196,14 +196,22 @@ BEGIN_EVENT_TABLE(ChkBoxLFFlagValidator, wxValidator)
 	EVT_CHECKBOX(wxID_ANY, ChkBoxLFFlagValidator::checkboxchange)
 END_EVENT_TABLE()
 
+enum {
+	LOGWIN_ID_DUMP_PENDING = wxID_HIGHEST + 1,
+	LOGWIN_ID_DUMP_CONN,
+	LOGWIN_ID_DUMP_STATS,
+	LOGWIN_ID_FLUSH_STATE,
+};
+
 BEGIN_EVENT_TABLE(log_window, wxFrame)
 	EVT_CLOSE(log_window::OnFrameClose)
 	EVT_MENU(wxID_SAVE, log_window::OnSave)
 	EVT_MENU(wxID_CLEAR, log_window::OnClear)
 	EVT_MENU(wxID_CLOSE, log_window::OnClose)
-	EVT_MENU(wxID_FILE1, log_window::OnDumpPending)
-	EVT_MENU(wxID_FILE3, log_window::OnDumpConnInfo)
-	EVT_MENU(wxID_FILE2, log_window::OnFlushState)
+	EVT_MENU(LOGWIN_ID_DUMP_PENDING, log_window::OnDumpPending)
+	EVT_MENU(LOGWIN_ID_DUMP_CONN, log_window::OnDumpConnInfo)
+	EVT_MENU(LOGWIN_ID_DUMP_STATS, log_window::OnDumpStats)
+	EVT_MENU(LOGWIN_ID_FLUSH_STATE, log_window::OnFlushState)
 END_EVENT_TABLE()
 
 static void log_window_AddChkBox(log_window *parent, LOGT flags, const wxString &str, wxSizer *sz) {
@@ -236,9 +244,10 @@ log_window::log_window(wxWindow *parent, LOGT flagmask, bool show)
 	menuF->Append(wxID_CLEAR, wxT("Clear Log"));
 	menuF->Append(wxID_CLOSE, wxT("&Close"));
 	wxMenu *menuD = new wxMenu;
-	menuD->Append(wxID_FILE1, wxT("Dump &Pendings"));
-	menuD->Append(wxID_FILE3, wxT("Dump &Socket Data"));
-	menuD->Append(wxID_FILE2, wxT("&Flush State"));
+	menuD->Append(LOGWIN_ID_DUMP_PENDING, wxT("Dump &Pendings"));
+	menuD->Append(LOGWIN_ID_DUMP_CONN, wxT("Dump &Socket Data"));
+	menuD->Append(LOGWIN_ID_DUMP_STATS, wxT("Dump S&tats"));
+	menuD->Append(LOGWIN_ID_FLUSH_STATE, wxT("&Flush State"));
 
 	wxMenuBar *menuBar = new wxMenuBar;
 	menuBar->Append(menuF, wxT("&File"));
@@ -312,6 +321,10 @@ void log_window::OnDumpConnInfo(wxCommandEvent &event) {
 		LogMsgFormat(LOGT::USERREQ, "Account: %s (%s)", cstr((*it)->name), cstr((*it)->dispname));
 		dump_pending_acc_failed_conns(LOGT::USERREQ, "\t", "\t", (*it).get());
 	}
+}
+
+void log_window::OnDumpStats(wxCommandEvent &event) {
+	dump_id_stats(LOGT::USERREQ, "", "\t");
 }
 
 void log_window::OnFlushState(wxCommandEvent &event) {
@@ -519,6 +532,124 @@ void dump_pending_retry_conn(LOGT logflags, const std::string &indent, const std
 void dump_acc_socket_flags(LOGT logflags, const std::string &indent, taccount *acc) {
 	LogMsgFormat(logflags, "%sssl: %d, userstreams: %d, ta_flags: 0x%X, restinterval: %ds, enabled: %d, userenabled: %d, init: %d, active: %d, streaming_on: %d, stream_fail_count: %d, rest_on: %d",
 			cstr(indent), acc->ssl, acc->userstreams, acc->ta_flags, acc->restinterval, acc->enabled, acc->userenabled, acc->init, acc->active, acc->streaming_on, acc->stream_fail_count, acc->rest_on);
+}
+
+void dump_cids_stats(const cached_id_sets &cids, LOGT logflags, const std::string &indent, const std::string &indentstep) {
+	size_t total = 0;
+	cids.IterateLists([&](const char *name, tweetidset cached_id_sets::* mptr, unsigned long long flag) {
+		const tweetidset &set = cids.*mptr;
+		LogMsgFormat(logflags, "%s%s (%s): %zu", cstr(indent), cstr(name), cstr(tweet_flags::GetValueString(flag)), set.size());
+		total += set.size();
+	});
+	LogMsgFormat(logflags, "%sTotal: %zu", cstr(indent), total);
+}
+
+void dump_acc_id_stats(const taccount &acc, LOGT logflags, const std::string &indent, const std::string &indentstep) {
+	auto line = [&](const char *name, size_t value) {
+		LogMsgFormat(logflags, "%s%s: %zu", cstr(indent), cstr(name), value);
+	};
+	line("Tweets IDs", acc.tweet_ids.size());
+	line("DM IDs", acc.dm_ids.size());
+	line("Pending users", acc.pendingusers.size());
+	line("User relations", acc.user_relations.size());
+}
+
+void dump_id_stats(LOGT logflags, const std::string &indent, const std::string &indentstep) {
+	auto line = [&](const char *name, size_t value) {
+		LogMsgFormat(logflags, "%s%s: %zu", cstr(indent), cstr(name), value);
+	};
+	line("Loaded users", ad.userconts.size());
+	line("Loaded tweets", ad.tweetobjs.size());
+	line("DB unloaded users", ad.unloaded_db_user_ids.size());
+	line("DB unloaded tweets", ad.unloaded_db_tweet_ids.size());
+	line("No acc pending users", ad.noacc_pending_userconts.size());
+	line("No acc pending tweets", ad.noacc_pending_tweetobjs.size());
+
+	struct count_item {
+		size_t count = 0;
+		size_t total = 0;
+
+		void add(size_t value) {
+			if(value) {
+				total += value;
+				count++;
+			}
+		}
+	};
+
+	auto dline = [&](const char *name, const count_item &value) {
+		line(string_format("%s: count", name).c_str(), value.count);
+		line(string_format("%s: total", name).c_str(), value.total);
+	};
+
+	auto dline_bytes = [&](const char *name, const count_item &value) {
+		line(string_format("%s: count", name).c_str(), value.count);
+		line(string_format("%s: total bytes", name).c_str(), value.total);
+	};
+
+	{
+		count_item mentionindex;
+		count_item pendingtweets;
+		for(const auto &it : ad.userconts) {
+			if(it.second) {
+				mentionindex.add(it.second->mention_index.size());
+				mentionindex.add(it.second->pendingtweets.size());
+			}
+		}
+		dline("Loaded users: mention index", mentionindex);
+		dline("Loaded users: pending tweet IDs", pendingtweets);
+	}
+
+	{
+		count_item pending_ops;
+		for(const auto &it : ad.tweetobjs) {
+			if(it.second) {
+				pending_ops.add(it.second->pending_ops.size());
+			}
+		}
+		dline("Loaded tweets: pending operations", pending_ops);
+	}
+
+	line("Loaded tpanels", ad.tpanels.size());
+	size_t total_tpanel_ids = 0;
+	for(const auto &it : ad.tpanels) {
+		total_tpanel_ids += it.second->tweetlist.size();
+	}
+	line("Total tpanel tweet IDs", total_tpanel_ids);
+
+	line("Loaded media entities", ad.media_list.size());
+	line("Loaded media map URLs", ad.img_media_map.size());
+
+	{
+		count_item thumb;
+		count_item full;
+		for(const auto &it : ad.media_list) {
+			if(it.second) {
+				media_entity &me = *(it.second);
+				if(me.thumbimg.IsOk()) {
+					thumb.add(static_cast<size_t>(me.thumbimg.GetWidth() * me.thumbimg.GetHeight() * 3));
+				}
+				full.add(me.fulldata.size());
+			}
+		}
+		dline_bytes("Media thumbnails", thumb);
+		dline_bytes("Media full images", full);
+	}
+
+	line("DM indexes", ad.user_dm_indexes.size());
+	size_t total_dm_indexes = 0;
+	for(const auto &it : ad.user_dm_indexes) {
+		total_dm_indexes += it.second.ids.size();
+	}
+	line("DM indexes: total size", total_dm_indexes);
+
+	LogMsgFormat(logflags, "%sCIDS:", cstr(indent));
+	dump_cids_stats(ad.cids, logflags, indent + indentstep, indentstep);
+
+	for(auto &it : alist) {
+		LogMsgFormat(logflags, "%sAccount: %s (%s)", cstr(indent), cstr(it->name), cstr(it->dispname));
+		dump_acc_id_stats(*it, logflags, indent + indentstep, indentstep);
+	}
 }
 
 void Redirector_wxLog::DoLog(wxLogLevel level, const wxChar *msg, time_t timestamp) {

@@ -36,5 +36,6 @@ void dump_pending_acc_failed_conns(LOGT logflags, const std::string &indent, con
 void dump_pending_retry_conn(LOGT logflags, const std::string &indent, const std::string &indentstep);
 void dump_pending_active_conn(LOGT logflags, const std::string &indent, const std::string &indentstep);
 void dump_acc_socket_flags(LOGT logflags, const std::string &indent, taccount *acc);
+void dump_id_stats(LOGT logflags, const std::string &indent, const std::string &indentstep);
 
 #endif
