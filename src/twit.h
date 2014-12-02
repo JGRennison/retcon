@@ -129,6 +129,8 @@ struct userdata {
 	unsigned int favourites_count = 0;   //tweets this account has faved
 	std::string userurl;
 
+	std::string notes;
+
 	//Any change to any other member of this struct, should increment this value
 	unsigned int revision_number = 0;
 };

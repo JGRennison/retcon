@@ -444,7 +444,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 	}
 }
 
-void genjsonparser::ParseUserContents(const rapidjson::Value &val, userdata &userobj, bool is_ssl) {
+void genjsonparser::ParseUserContents(const rapidjson::Value &val, userdata &userobj, bool is_ssl, bool is_db_load) {
 	bool changed = false;
 	CheckTransJsonValueDefTrackChanges(changed, userobj.name, val, "name", "");
 	CheckTransJsonValueDefTrackChanges(changed, userobj.screen_name, val, "screen_name", "");
@@ -467,6 +467,9 @@ void genjsonparser::ParseUserContents(const rapidjson::Value &val, userdata &use
 	CheckTransJsonValueDefTrackChanges(changed, userobj.statuses_count, val, "statuses_count", userobj.statuses_count);
 	CheckTransJsonValueDefTrackChanges(changed, userobj.friends_count, val, "friends_count", userobj.friends_count);
 	CheckTransJsonValueDefTrackChanges(changed, userobj.favourites_count, val, "favourites_count", userobj.favourites_count);
+	if(is_db_load) {
+		CheckTransJsonValueDefTrackChanges(changed, userobj.notes, val, "retcon_notes", "");
+	}
 	if(changed) userobj.revision_number++;
 }
 
@@ -806,7 +809,7 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> 
 	}
 
 	userdata &userobj = userdatacont->GetUser();
-	ParseUserContents(val, userobj, tac->ssl);
+	ParseUserContents(val, userobj, tac->ssl, false);
 	if(!userobj.createtime) {				//this means that the object is new
 		std::string created_at;
 		CheckTransJsonValueDef(created_at, val, "created_at", "");

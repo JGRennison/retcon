@@ -44,6 +44,8 @@ struct tpanelparentwin_userproplisting;
 struct userdatacontainer;
 struct taccount;
 struct user_window;
+struct wxPanel;
+struct wxTextCtrl;
 
 struct notebook_event_prehandler : public wxEvtHandler {
 	void OnPageChange(wxNotebookEvent &event);
@@ -94,6 +96,9 @@ struct user_window: public wxDialog, public magic_ptr_base {
 	tpanelparentwin_userproplisting *outgoing_pane = nullptr;
 	notebook_event_prehandler nb_prehndlr;
 	wxNotebook *nb;
+	int nb_tab_insertion_point = 0;
+	wxTextCtrl *notes_txt;
+	wxPanel *notes_tab;
 
 	wxStaticText *ifollow;
 	wxStaticText *followsme;
@@ -111,6 +116,7 @@ struct user_window: public wxDialog, public magic_ptr_base {
 		FOLLOWBTN_ID = 1,
 		REFRESHBTN_ID,
 		DMBTN_ID,
+		NOTESTXT_ID,
 	};
 
 	user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_hint_);
@@ -125,7 +131,9 @@ struct user_window: public wxDialog, public magic_ptr_base {
 	void OnRefreshBtn(wxCommandEvent &event);
 	void OnFollowBtn(wxCommandEvent &event);
 	void OnDMBtn(wxCommandEvent &event);
+	void OnNotesTextChange(wxCommandEvent &event);
 	void SetNotebookMinSize();
+	void SetNotesTabTitle();
 	static user_window *MkWin(uint64_t userid_, const std::shared_ptr<taccount> &acc_hint_);
 	static user_window *GetWin(uint64_t userid_);
 	static void CheckRefresh(uint64_t userid_, bool refreshimg = false);

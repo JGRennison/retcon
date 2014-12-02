@@ -1626,7 +1626,7 @@ namespace {
 			for(auto &it : ad.userconts) {
 				udc_ptr_p u = it.second;
 
-				if(u->user.screen_name.empty()) {
+				if(u->user.screen_name.empty() && u->user.notes.empty()) {
 					continue;    //don't bother saving empty user stubs
 				}
 
@@ -1726,7 +1726,7 @@ void dbconn::AsyncWriteBackAllUsers(dbfunctionmsg &msg) {
 template <typename UDC> static void ReadInUserObject(sqlite3_stmt *stmt, uint64_t id, UDC &u, userdata &ud, const char *name) {
 	rapidjson::Document dc;
 	db_bind_buffer<dbb_uncompressed> json = column_get_compressed_and_parse(stmt, 0, dc);
-	if(dc.IsObject()) genjsonparser::ParseUserContents(dc, ud);
+	if(dc.IsObject()) genjsonparser::ParseUserContents(dc, ud, false, true);
 	db_bind_buffer<dbb_uncompressed> profimg = column_get_compressed(stmt, 1);
 	u.cached_profile_img_url.assign(profimg.data, profimg.data_size);
 	if(ud.profile_img_url.empty()) {

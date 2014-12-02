@@ -439,6 +439,10 @@ std::string userdatacontainer::mkjson() const {
 	jw.Uint(user.statuses_count);
 	jw.String("friends_count");
 	jw.Uint(user.friends_count);
+	if(!user.notes.empty()) {
+		jw.String("retcon_notes");
+		jw.String(user.notes);
+	}
 	jw.EndObject();
 	return json;
 }

@@ -27,6 +27,7 @@
 #include "util.h"
 #include "alldata.h"
 #include "log.h"
+#include <wx/textctrl.h>
 
 std::unordered_map<uint64_t, user_window*> userwinmap;
 
@@ -59,6 +60,7 @@ BEGIN_EVENT_TABLE(user_window, wxDialog)
 	EVT_BUTTON(FOLLOWBTN_ID, user_window::OnFollowBtn)
 	EVT_BUTTON(REFRESHBTN_ID, user_window::OnRefreshBtn)
 	EVT_BUTTON(DMBTN_ID, user_window::OnDMBtn)
+	EVT_TEXT(NOTESTXT_ID, user_window::OnNotesTextChange)
 END_EVENT_TABLE()
 
 static void insert_uw_row(wxWindow *parent, wxSizer *sz, const wxString &label, wxStaticText *&targ) {
@@ -181,6 +183,17 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	nb_prehndlr.nb = nb;
 	nb->PushEventHandler(&nb_prehndlr);
 
+	nb_tab_insertion_point = nb->GetPageCount();
+
+	notes_tab = new wxPanel(nb, wxID_ANY);
+	wxSizer *notes_size = new wxBoxSizer(wxVERTICAL);
+	notes_tab->SetSizer(notes_size);
+	wxString notes_header = wxT("Private Notes:\nThese notes will not be uploaded to Twitter\nand will not be visible to this or other users.");
+	notes_size->Add(new wxStaticText(notes_tab, wxID_ANY, notes_header), 0, wxALL, 2);
+	notes_txt = new wxTextCtrl(notes_tab, NOTESTXT_ID, wxT(""), wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE);
+	notes_size->Add(notes_txt, 1, wxALL | wxEXPAND, 2);
+	nb->AddPage(notes_tab, wxT("Notes"));
+
 	SetSizer(vbox);
 
 	Refresh(false);
@@ -233,12 +246,12 @@ void user_window::RefreshAccState() {
 
 	if(should_have_incoming_pane && !incoming_pane) {
 		incoming_pane = new tpanelparentwin_userproplisting(u, nb, [acc](tpanelparentwin_userproplisting &) { return acc; }, CS_OWNINCOMINGFOLLOWLISTING);
-		nb->AddPage(incoming_pane, wxT("Incoming"), false);
+		nb->InsertPage(nb_tab_insertion_point, incoming_pane, wxT("Incoming"), false);
 		nb_prehndlr.userlist_pane_list.push_front(incoming_pane);
 	}
 	if(should_have_outgoing_pane && !outgoing_pane) {
 		outgoing_pane = new tpanelparentwin_userproplisting(u, nb, [acc](tpanelparentwin_userproplisting &) { return acc; }, CS_OWNOUTGOINGFOLLOWLISTING);
-		nb->AddPage(outgoing_pane, wxT("Outgoing"), false);
+		nb->InsertPage(nb_tab_insertion_point, outgoing_pane, wxT("Outgoing"), false);
 		nb_prehndlr.userlist_pane_list.push_front(outgoing_pane);
 	}
 
@@ -381,6 +394,8 @@ void user_window::Refresh(bool refreshimg) {
 	followers->SetLabel(wxString::Format(wxT("%d"), u->GetUser().followers_count));
 	follows->SetLabel(wxString::Format(wxT("%d"), u->GetUser().friends_count));
 	faved->SetLabel(wxString::Format(wxT("%d"), u->GetUser().favourites_count));
+	notes_txt->ChangeValue(wxstrstd(u->GetUser().notes));
+	SetNotesTabTitle();
 
 	bool showurl = !u->GetUser().userurl.empty();
 	if(showurl) {
@@ -453,6 +468,36 @@ void user_window::OnDMBtn(wxCommandEvent &event) {
 	if(!win) win = mainframelist.front();
 	if(win) {
 		win->tpw->SetDMTarget(u);
+	}
+}
+
+void user_window::OnNotesTextChange(wxCommandEvent &event) {
+	// Lots of tiny updates is OK
+	// Will be written to DB on next state flush/at termination
+	std::string old_notes = std::move(u->GetUser().notes);
+	u->GetUser().notes = stdstrwx(notes_txt->GetValue());
+	u->GetUser().revision_number++;
+	u->lastupdate_wrotetodb = 0;
+
+	if(u->GetUser().notes.empty() != old_notes.empty()) {
+		SetNotesTabTitle();
+		SetNotebookMinSize();
+		Layout();
+		Fit();
+	}
+}
+
+void user_window::SetNotesTabTitle() {
+	for(size_t i = 0; i < nb->GetPageCount(); i++) {
+		if(nb->GetPage(i) == notes_tab) {
+			if(u->GetUser().notes.empty()) {
+				nb->SetPageText(i, wxT("Notes"));
+			}
+			else {
+				nb->SetPageText(i, wxT("Notes*"));
+			}
+			break;
+		}
 	}
 }
 
