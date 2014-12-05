@@ -508,7 +508,6 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res, std::unique_ptr<mcu
 		case CS_OWNFOLLOWERLISTING: break;
 		default: break;
 	}
-	LogMsgFormat(LOGT::SOCKERR, "%s failed (%s)", cstr(action), cstr(acc->dispname));
 	if(msgbox) {
 		wxString msg, errtype;
 		if(res == CURLE_OK) errtype.Printf(wxT("HTTP error code: %d"), httpcode);

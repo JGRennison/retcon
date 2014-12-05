@@ -85,15 +85,6 @@ std::unique_ptr<mcurlconn> mcurlconn::RemoveConnCommon(const char *logprefix) {
 
 void mcurlconn::NotifyDone(CURL *easy, long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
 	if(httpcode != 200 || res != CURLE_OK) {
-		//failed
-		if(res == CURLE_OK) {
-			char *req_url;
-			curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &req_url);
-			LogMsgFormat(LOGT::SOCKERR, "Request failed: type: %s, conn ID: %d, code: %d, url: %s", cstr(GetConnTypeName()), id, httpcode, cstr(req_url));
-		}
-		else {
-			LogMsgFormat(LOGT::SOCKERR, "Socket error: type: %s, conn ID: %d, code: %d, message: %s", cstr(GetConnTypeName()), id, res, cstr(curl_easy_strerror(res)));
-		}
 		HandleError(easy, httpcode, res, std::move(this_owner));    //this may re-add the connection
 	}
 	else {
@@ -106,6 +97,34 @@ void mcurlconn::NotifyDone(CURL *easy, long httpcode, CURLcode res, std::unique_
 	}
 }
 
+static void LogSocketErrorMessage(mcurlconn *mc, CURL *easy, long httpcode, CURLcode res, MCC_HTTPERRTYPE err) {
+	if(!(currentlogflags & LOGT::SOCKERR))
+		return;
+
+	const char *action = nullptr;
+	switch(err) {
+		case MCC_RETRY:
+			action = " (retrying)";
+			break;
+		case MCC_FAILED:
+			action = "";
+			break;
+	}
+
+	char *req_url = nullptr;
+	curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &req_url);
+
+	std::string fail_type;
+	if(res == CURLE_OK) {
+		fail_type = string_format("Request failed: HTTP code: %ld", httpcode);
+	}
+	else {
+		fail_type = string_format("Socket error: %s", cstr(curl_easy_strerror(res)));
+	}
+
+	LogMsgFormat(LOGT::SOCKERR, "%s%s, type: %s, url: %s, conn ID: %u", cstr(fail_type), cstr(action), cstr(mc->GetConnTypeName()), cstr(req_url), mc->id);
+}
+
 void mcurlconn::HandleError(CURL *easy, long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
 	errorcount++;
 	MCC_HTTPERRTYPE err = MCC_RETRY;
@@ -115,13 +134,14 @@ void mcurlconn::HandleError(CURL *easy, long httpcode, CURLcode res, std::unique
 	if(errorcount >= 3 && err < MCC_FAILED) {
 		err = MCC_FAILED;
 	}
+
+	LogSocketErrorMessage(this, easy, httpcode, res, err);
+
 	switch(err) {
 		case MCC_RETRY:
-			LogMsgFormat(LOGT::SOCKERR, "Adding request to retry queue: type: %s, conn ID: %d, url: %s", cstr(GetConnTypeName()), id, cstr(url));
 			sm.RetryConn(std::move(this_owner));
 			break;
 		case MCC_FAILED:
-			LogMsgFormat(LOGT::SOCKERR, "Calling failure handler: type: %s, conn ID: %d, url: %s", cstr(GetConnTypeName()), id, cstr(url));
 			HandleFailure(httpcode, res, std::move(this_owner));
 			break;
 	}
