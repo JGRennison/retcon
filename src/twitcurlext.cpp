@@ -354,7 +354,7 @@ std::string twitcurlext::GetConnTypeName() {
 		case CS_USERFAVS: action = "User favourites retrieval"; break;
 		case CS_USERLIST: action = "User lookup"; break;
 		case CS_FRIENDLOOKUP: action = "Friend/follower lookup"; break;
-		case CS_USERLOOKUPWIN: action = "User lookup (user window"; break;
+		case CS_USERLOOKUPWIN: action = "User lookup (user window)"; break;
 		case CS_FRIENDACTION_FOLLOW: action = "Follow user"; break;
 		case CS_FRIENDACTION_UNFOLLOW: action = "Unfollow user"; break;
 		case CS_POSTTWEET: action = "Posting tweet"; break;
@@ -374,22 +374,22 @@ std::string twitcurlext::GetConnTypeName() {
 	if(rbfs) {
 		switch(rbfs->type) {
 			case RBFS_TWEETS:
-				action += " (home timeline";
+				action += " (home timeline)";
 				break;
 			case RBFS_MENTIONS:
-				action += " (mentions";
+				action += " (mentions)";
 				break;
 			case RBFS_RECVDM:
-				action += " (received DMs";
+				action += " (received DMs)";
 				break;
 			case RBFS_SENTDM:
-				action += " (sent DMs";
+				action += " (sent DMs)";
 				break;
 			case RBFS_USER_TIMELINE:
-				action += " (user timeline";
+				action += " (user timeline)";
 				break;
 			case RBFS_USER_FAVS:
-				action += " (user favourites";
+				action += " (user favourites)";
 				break;
 			case RBFS_NULL:
 				break;
