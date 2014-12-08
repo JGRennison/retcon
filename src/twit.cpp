@@ -639,6 +639,17 @@ void cached_id_sets::RemoveTweet(uint64_t id) {
 	});
 }
 
+std::string cached_id_sets::DumpInfo() {
+	std::string out;
+	IterateLists([&](const char *name, tweetidset cached_id_sets::*ptr, unsigned long long tweetflag) {
+		if(!out.empty()) {
+			out += ", ";
+		}
+		out += string_format("%s: %zu", cstr(name), (this->*ptr).size());
+	});
+	return out;
+}
+
 void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, tweetidset cached_id_sets::* idsetptr, bool remove, std::function<void(tweet_ptr_p )> existingtweetfunc) {
 	tweetidset &globset = ad.cids.*idsetptr;
 

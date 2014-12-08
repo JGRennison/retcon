@@ -162,6 +162,7 @@ struct cached_id_sets {
 	}
 	void CheckTweet(tweet &tw);
 	void RemoveTweet(uint64_t id);
+	std::string DumpInfo();
 };
 
 typedef enum {

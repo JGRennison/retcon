@@ -61,9 +61,9 @@ const std::string logflagsstrings[] = {
 	"parseerr",
 	"socktrace",
 	"sockerr",
-	"tpanel",
 	"netaction",
 	"dbtrace",
+	"dbinfo",
 	"dberr",
 	"ztrace",
 	"zerr",
@@ -79,6 +79,8 @@ const std::string logflagsstrings[] = {
 	"fileiotrace",
 	"fileioerr",
 	"notifyevt",
+	"tpaneltrace",
+	"tpanelinfo",
 };
 
 void Update_currentlogflags() {

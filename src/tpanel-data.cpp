@@ -32,11 +32,11 @@
 #endif
 
 void tpanel::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags) {
-	LogMsgFormat(LOGT::TPANEL, "Pushing tweet id %" llFmtSpec "d to panel %s (pushflags: 0x%X)", t->id, cstr(name), pushflags);
+	LogMsgFormat(LOGT::TPANELTRACE, "Pushing tweet id %" llFmtSpec "d to panel %s (pushflags: 0x%X)", t->id, cstr(name), pushflags);
 	if(RegisterTweet(t)) {
 		for(auto &i : twin) {
 			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LOGT::TPANEL, "TCL: Pushing tweet id %" llFmtSpec "d to tpanel window", t->id);
+				LogMsgFormat(LOGT::TPANELTRACE, "TCL: Pushing tweet id %" llFmtSpec "d to tpanel window", t->id);
 			#endif
 			i->PushTweet(t, pushflags);
 		}
@@ -44,7 +44,7 @@ void tpanel::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags) {
 	else {	//already have this in tpanel, update it
 		for(auto &i : twin) {
 			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LOGT::TPANEL, "TCL: Updating tpanel window tweet: id %" llFmtSpec "d", t->id);
+				LogMsgFormat(LOGT::TPANELTRACE, "TCL: Updating tpanel window tweet: id %" llFmtSpec "d", t->id);
 			#endif
 			i->UpdateOwnTweet(*(t.get()), false);
 		}
@@ -52,11 +52,11 @@ void tpanel::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags) {
 }
 
 void tpanel::RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags) {
-	LogMsgFormat(LOGT::TPANEL, "Removing tweet id %" llFmtSpec "d from panel %s (pushflags: 0x%X)", id, cstr(name), pushflags);
+	LogMsgFormat(LOGT::TPANELTRACE, "Removing tweet id %" llFmtSpec "d from panel %s (pushflags: 0x%X)", id, cstr(name), pushflags);
 	if(UnRegisterTweet(id)) {
 		for(auto &i : twin) {
 			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LOGT::TPANEL, "TCL: Removing tweet id %" llFmtSpec "d from tpanel window", id);
+				LogMsgFormat(LOGT::TPANELTRACE, "TCL: Removing tweet id %" llFmtSpec "d from tpanel window", id);
 			#endif
 			i->RemoveTweet(id, pushflags);
 		}
@@ -103,7 +103,9 @@ tpanel::tpanel(const std::string &name_, const std::string &dispname_, flagwrapp
 			intl_flags |= TPIF::RECALCSETSONCIDSCHANGE | TPIF::INCCIDS_UNREAD;
 		}
 	}
-	RecalculateSets();
+	if(!tpautos.empty() || !tpudcautos.empty()) {
+		RecalculateSets();
+	}
 }
 
 std::shared_ptr<tpanel> tpanel::MkTPanel(const std::string &name_, const std::string &dispname_, flagwrapper<TPF> flags_, std::shared_ptr<taccount> *acc) {
@@ -260,6 +262,7 @@ bool tpanel::TweetMatches(tweet_ptr_p t, const std::shared_ptr<taccount> &acc) c
 }
 
 void tpanel::RecalculateTweetSet() {
+	LogMsgFormat(LOGT::TPANELINFO, "tpanel::RecalculateTweetSet START: panel %s", cstr(name));
 	for(auto &tpa : tpautos) {
 		auto doacc = [&](taccount *it) {
 			if(tpa.autoflags & TPF::AUTO_DM) tweetlist.insert(it->dm_ids.begin(), it->dm_ids.end());
@@ -284,6 +287,7 @@ void tpanel::RecalculateTweetSet() {
 			}
 		}
 	}
+	LogMsgFormat(LOGT::TPANELINFO, "tpanel::RecalculateTweetSet END: %zu ids", tweetlist.size());
 }
 
 //! This handles all CIDS changes
@@ -343,9 +347,11 @@ void tpanel::NotifyCIDSChange_AddRemoveIntl(uint64_t id, tweetidset cached_id_se
 }
 
 void tpanel::RecalculateCIDS() {
+	LogMsgFormat(LOGT::TPANELINFO, "tpanel::RecalculateCIDS START: panel %s", cstr(name));
 	ad.cids.foreach(this->cids, [&](tweetidset &adtis, tweetidset &thistis) {
 		std::set_intersection(tweetlist.begin(), tweetlist.end(), adtis.begin(), adtis.end(), std::inserter(thistis, thistis.end()), tweetlist.key_comp());
 	});
+	LogMsgFormat(LOGT::TPANELINFO, "tpanel::RecalculateCIDS END: %zu ids, %s", tweetlist.size(), cstr(this->cids.DumpInfo()));
 }
 
 void tpanel::RecalculateSets() {

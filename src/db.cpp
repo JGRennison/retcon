@@ -446,7 +446,7 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 	switch(msg->type) {
 		case DBSM::QUIT:
 			ok = false;
-			DBLogMsg(LOGT::DBTRACE, "DBSM::QUIT");
+			DBLogMsg(LOGT::DBINFO, "DBSM::QUIT");
 			break;
 		case DBSM::INSERTTWEET: {
 			if(gc.readonlymode) break;
@@ -1001,7 +1001,7 @@ void dbconn::SendAccDBUpdate(std::unique_ptr<dbinsertaccmsg> insmsg) {
 bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	if(dbc_flags & DBCF::INITED) return true;
 
-	LogMsgFormat(LOGT::DBTRACE, "dbconn::Init(): About to initialise database connection");
+	LogMsgFormat(LOGT::DBINFO, "dbconn::Init(): About to initialise database connection");
 
 	sqlite3_config(SQLITE_CONFIG_SINGLETHREAD);		//only use sqlite from one thread at any given time
 	sqlite3_initialize();
@@ -1049,7 +1049,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 		}
 	}
 
-	LogMsgFormat(LOGT::DBTRACE, "dbconn::Init(): About to read in state from database");
+	LogMsgFormat(LOGT::DBINFO, "dbconn::Init(): About to read in state from database");
 
 	SyncReadInAllUserIDs(syncdb);
 	AccountSync(syncdb);
@@ -1064,7 +1064,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	SyncReadInUserDMIndexes(syncdb);
 	SyncPostUserLoadCompletion();
 
-	LogMsgFormat(LOGT::DBTRACE, "dbconn::Init(): State read in from database complete, about to create database thread");
+	LogMsgFormat(LOGT::DBINFO, "dbconn::Init(): State read in from database complete, about to create database thread");
 
 	th = new dbiothread();
 	th->filename = filename;
@@ -1100,7 +1100,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 #endif
 #endif
 	th->Run();
-	LogMsgFormat(LOGT::DBTRACE | LOGT::THREADTRACE, "dbconn::Init(): Created database thread: %d", th->GetId());
+	LogMsgFormat(LOGT::DBINFO | LOGT::THREADTRACE, "dbconn::Init(): Created database thread: %d", th->GetId());
 
 	asyncstateflush_timer.reset(new wxTimer(this, DBCONNTIMER_ID_ASYNCSTATEWRITE));
 	ResetAsyncStateWriteTimer();
@@ -1120,7 +1120,7 @@ void dbconn::DeInit() {
 
 	dbc_flags &= ~DBCF::INITED;
 
-	LogMsg(LOGT::DBTRACE | LOGT::THREADTRACE, "dbconn::DeInit: About to terminate database thread and write back state");
+	LogMsg(LOGT::DBINFO | LOGT::THREADTRACE, "dbconn::DeInit: About to terminate database thread and write back state");
 
 	SendMessage(std::unique_ptr<dbsendmsg>(new dbsendmsg(DBSM::QUIT)));
 
@@ -1129,12 +1129,12 @@ void dbconn::DeInit() {
 	#else
 	close(pipefd);
 	#endif
-	LogMsg(LOGT::DBTRACE | LOGT::THREADTRACE, "dbconn::DeInit(): Waiting for database thread to terminate");
+	LogMsg(LOGT::DBINFO | LOGT::THREADTRACE, "dbconn::DeInit(): Waiting for database thread to terminate");
 	th->Wait();
 	syncdb = th->db;
 	delete th;
 
-	LogMsg(LOGT::DBTRACE | LOGT::THREADTRACE, "dbconn::DeInit(): Database thread terminated");
+	LogMsg(LOGT::DBINFO | LOGT::THREADTRACE, "dbconn::DeInit(): Database thread terminated");
 
 	if(!gc.readonlymode) {
 		cache.BeginTransaction(syncdb);
@@ -1159,7 +1159,7 @@ void dbconn::DeInit() {
 
 	cache.CheckTransactionRefcountState();
 
-	LogMsg(LOGT::DBTRACE | LOGT::THREADTRACE, "dbconn::DeInit(): State write back to database complete, database connection closed.");
+	LogMsg(LOGT::DBINFO | LOGT::THREADTRACE, "dbconn::DeInit(): State write back to database complete, database connection closed.");
 }
 
 void dbconn::CheckPurgeTweets() {
@@ -1188,7 +1188,7 @@ void dbconn::CheckPurgeTweets() {
 			purge_count++;
 		}
 	}
-	LogMsgFormat(LOGT::DBTRACE, "dbconn::CheckPurgeTweets purged %u tweets from memory, %zu remaining, %u might be purged next time",
+	LogMsgFormat(LOGT::DBINFO, "dbconn::CheckPurgeTweets purged %u tweets from memory, %zu remaining, %u might be purged next time",
 			purge_count, ad.tweetobjs.size(), refone_count);
 }
 
@@ -1227,7 +1227,7 @@ void dbconn::CheckPurgeUsers() {
 			purge_count++;
 		}
 	}
-	LogMsgFormat(LOGT::DBTRACE, "dbconn::CheckPurgeUsers purged %u users from memory (%u in DB), %zu remaining, %u might be purged next time",
+	LogMsgFormat(LOGT::DBINFO, "dbconn::CheckPurgeUsers purged %u users from memory (%u in DB), %zu remaining, %u might be purged next time",
 			purge_count, db_purged_ids.size(), ad.userconts.size(), refone_count);
 
 	if(!db_purged_ids.empty()) {
@@ -1237,7 +1237,7 @@ void dbconn::CheckPurgeUsers() {
 
 void dbconn::AsyncWriteBackState() {
 	if(!gc.readonlymode) {
-		LogMsg(LOGT::DBTRACE, "dbconn::AsyncWriteBackState start");
+		LogMsg(LOGT::DBINFO, "dbconn::AsyncWriteBackState start");
 
 		if(batchqueue) {
 			SendMessage(std::move(batchqueue));
@@ -1260,7 +1260,7 @@ void dbconn::AsyncWriteBackState() {
 
 		SendMessage(std::move(msg));
 
-		LogMsg(LOGT::DBTRACE, "dbconn::AsyncWriteBackState: message sent to DB thread");
+		LogMsg(LOGT::DBINFO, "dbconn::AsyncWriteBackState: message sent to DB thread");
 	}
 
 	CheckPurgeTweets();
@@ -1340,7 +1340,7 @@ void dbconn::UpdateMedia(media_entity &me, DBUMMT update_type, optional_observer
 
 //tweetids, dmids are big endian in database
 void dbconn::AccountSync(sqlite3 *adb) {
-	LogMsg(LOGT::DBTRACE, "dbconn::AccountSync start");
+	LogMsg(LOGT::DBINFO, "dbconn::AccountSync start");
 
 	unsigned int total = 0;
 	DBRowExecNoError(adb, "SELECT id, name, tweetids, dmids, userid, dispname FROM acc;", [&](sqlite3_stmt *getstmt) {
@@ -1361,14 +1361,14 @@ void dbconn::AccountSync(sqlite3 *adb) {
 		ta->usercont = SyncReadInUser(adb, userid);
 		ta->dispname = wxString::FromUTF8((const char*) sqlite3_column_text(getstmt, 5));
 
-		LogMsgFormat(LOGT::DBTRACE, "dbconn::AccountSync: Found account: dbindex: %d, name: %s, tweet IDs: %u, DM IDs: %u",
+		LogMsgFormat(LOGT::DBINFO, "dbconn::AccountSync: Found account: dbindex: %d, name: %s, tweet IDs: %u, DM IDs: %u",
 				id, cstr(name), ta->tweet_ids.size(), ta->dm_ids.size());
 	});
-	LogMsgFormat(LOGT::DBTRACE, "dbconn::AccountSync end, total: %u IDs", total);
+	LogMsgFormat(LOGT::DBINFO, "dbconn::AccountSync end, total: %u IDs", total);
 }
 
 void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
-	LogMsg(LOGT::DBTRACE, "dbconn::SyncReadInAllTweetIDs start");
+	LogMsg(LOGT::DBINFO, "dbconn::SyncReadInAllTweetIDs start");
 
 	DBBindRowExec(syncdb, cache.GetStmt(syncdb, DBPSC_SELSTATICSETTING),
 		[&](sqlite3_stmt *getstmt) {
@@ -1382,7 +1382,7 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 
 	if(all_tweet_ids.empty()) {
 		// Didn't find any cache
-		LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInAllTweetIDs table scan");
+		LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInAllTweetIDs table scan");
 
 		DBRowExec(syncdb, "SELECT id FROM tweets ORDER BY id DESC;", [&](sqlite3_stmt *getstmt) {
 			uint64_t id = (uint64_t) sqlite3_column_int64(getstmt, 0);
@@ -1401,11 +1401,11 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 
 	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInAllTweetIDs set copy");
 	ad.unloaded_db_tweet_ids = all_tweet_ids;
-	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInAllTweetIDs end, read %u", all_tweet_ids.size());
+	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInAllTweetIDs end, read %u", all_tweet_ids.size());
 }
 
 void dbconn::SyncWriteBackTweetIDIndexCache(sqlite3 *syncdb) {
-	LogMsg(LOGT::DBTRACE, "dbconn::SyncWriteBackTweetIDIndexCache start");
+	LogMsg(LOGT::DBINFO, "dbconn::SyncWriteBackTweetIDIndexCache start");
 
 	DBBindExec(syncdb, cache.GetStmt(syncdb, DBPSC_INSSTATICSETTING),
 		[&](sqlite3_stmt *setstmt) {
@@ -1415,11 +1415,11 @@ void dbconn::SyncWriteBackTweetIDIndexCache(sqlite3 *syncdb) {
 		"dbconn::SyncWriteBackTweetIDIndexCache"
 	);
 
-	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncWriteBackTweetIDIndexCache end, wrote %u", all_tweet_ids.size());
+	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncWriteBackTweetIDIndexCache end, wrote %u", all_tweet_ids.size());
 }
 
 void dbconn::SyncReadInCIDSLists(sqlite3 *adb) {
-	LogMsg(LOGT::DBTRACE, "dbconn::SyncReadInCIDSLists start");
+	LogMsg(LOGT::DBINFO, "dbconn::SyncReadInCIDSLists start");
 	const char getcidslist[] = "SELECT value FROM settings WHERE name == ?;";
 	sqlite3_stmt *getstmt = nullptr;
 	sqlite3_prepare_v2(adb, getcidslist, sizeof(getcidslist), &getstmt, 0);
@@ -1439,7 +1439,7 @@ void dbconn::SyncReadInCIDSLists(sqlite3 *adb) {
 	});
 
 	sqlite3_finalize(getstmt);
-	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInCIDSLists end, total: %u IDs", total);
+	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInCIDSLists end, total: %u IDs", total);
 }
 
 namespace {
@@ -1494,7 +1494,7 @@ namespace {
 
 		//Where F is a functor with an operator() as above
 		template <typename F> void dbexec(sqlite3 *adb, dbpscache &cache, std::string funcname, bool TSLogging, F getfunc) const {
-			SLogMsgFormat(LOGT::DBTRACE, TSLogging, "%s start", cstr(funcname));
+			SLogMsgFormat(LOGT::DBINFO, TSLogging, "%s start", cstr(funcname));
 			cache.BeginTransaction(adb);
 			sqlite3_stmt *setstmt = cache.GetStmt(adb, DBPSC_INSSETTING);
 
@@ -1513,7 +1513,7 @@ namespace {
 			});
 
 			cache.EndTransaction(adb);
-			SLogMsgFormat(LOGT::DBTRACE, TSLogging, "%s end, total: %u IDs", cstr(funcname), total);
+			SLogMsgFormat(LOGT::DBINFO, TSLogging, "%s end, total: %u IDs", cstr(funcname), total);
 		}
 	};
 };
@@ -1560,7 +1560,7 @@ namespace {
 
 		//Where F is a functor with an operator() as above
 		template <typename F> void dbexec(sqlite3 *adb, dbpscache &cache, std::string funcname, bool TSLogging, F getfunc) const {
-			SLogMsgFormat(LOGT::DBTRACE, TSLogging, "%s start", cstr(funcname));
+			SLogMsgFormat(LOGT::DBINFO, TSLogging, "%s start", cstr(funcname));
 			cache.BeginTransaction(adb);
 			sqlite3_stmt *setstmt = cache.GetStmt(adb, DBPSC_UPDATEACCIDLISTS);
 
@@ -1579,14 +1579,14 @@ namespace {
 							cstr(funcname), res, cstr(sqlite3_errmsg(adb)), data.dbindex, cstr(data.dispname));
 				}
 				else {
-					SLogMsgFormat(LOGT::DBTRACE, TSLogging, "%s inserted account: dbindex: %d, name: %s, tweet IDs: %u, DM IDs: %u",
+					SLogMsgFormat(LOGT::DBINFO, TSLogging, "%s inserted account: dbindex: %d, name: %s, tweet IDs: %u, DM IDs: %u",
 							cstr(funcname), data.dbindex, cstr(data.dispname), data.tweet_count, data.dm_count);
 				}
 				sqlite3_reset(setstmt);
 			});
 
 			cache.EndTransaction(adb);
-			SLogMsgFormat(LOGT::DBTRACE, TSLogging, "%s end, total: %u IDs", cstr(funcname), total);
+			SLogMsgFormat(LOGT::DBINFO, TSLogging, "%s end, total: %u IDs", cstr(funcname), total);
 		}
 	};
 };
@@ -1671,7 +1671,7 @@ namespace {
 
 		//Where F is a functor with an operator() as above
 		template <typename F> void dbexec(sqlite3 *adb, dbpscache &cache, std::string funcname, bool TSLogging, F getfunc) const {
-			SLogMsgFormat(LOGT::DBTRACE, TSLogging, "%s start", cstr(funcname));
+			SLogMsgFormat(LOGT::DBINFO, TSLogging, "%s start", cstr(funcname));
 			cache.BeginTransaction(adb);
 
 			sqlite3_stmt *stmt = cache.GetStmt(adb, DBPSC_INSUSER);
@@ -1709,7 +1709,7 @@ namespace {
 			});
 
 			cache.EndTransaction(adb);
-			SLogMsgFormat(LOGT::DBTRACE, TSLogging, "%s end, wrote back %u users (update: %u, prof img: %u)",
+			SLogMsgFormat(LOGT::DBINFO, TSLogging, "%s end, wrote back %u users (update: %u, prof img: %u)",
 					cstr(funcname), user_count, lastupdate_count, profimgtime_count);
 		}
 	};
@@ -1795,17 +1795,17 @@ void dbconn::AsyncReadInUser(sqlite3 *adb, uint64_t id, std::deque<dbretuserdata
 
 // This must be called before all calls to SyncReadInUser and SyncPostUserLoadCompletion
 void dbconn::SyncReadInAllUserIDs(sqlite3 *adb) {
-	LogMsg(LOGT::DBTRACE, "dbconn::SyncReadInAllUserIDs start");
+	LogMsg(LOGT::DBINFO, "dbconn::SyncReadInAllUserIDs start");
 	DBRowExec(adb, "SELECT id FROM users ORDER BY id DESC;", [&](sqlite3_stmt *getstmt) {
 		uint64_t id = (uint64_t) sqlite3_column_int64(getstmt, 0);
 		unloaded_user_ids.insert(unloaded_user_ids.end(), id);
 	}, "dbconn::SyncReadInAllTweetIDs");
-	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInAllUserIDs end, read %u", unloaded_user_ids.size());
+	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInAllUserIDs end, read %u", unloaded_user_ids.size());
 }
 
 void dbconn::SyncPostUserLoadCompletion() {
 	ad.unloaded_db_user_ids = unloaded_user_ids;
-	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInUser read %u", sync_load_user_count);
+	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInUser read %u", sync_load_user_count);
 }
 
 namespace {
@@ -1840,7 +1840,7 @@ namespace {
 
 		//Where F is a functor with an operator() as above
 		template <typename F> void dbexec(sqlite3 *adb, dbpscache &cache, std::string funcname, bool TSLogging, F getfunc) const {
-			SLogMsgFormat(LOGT::DBTRACE, TSLogging, "%s start", cstr(funcname));
+			SLogMsgFormat(LOGT::DBINFO, TSLogging, "%s start", cstr(funcname));
 			cache.BeginTransaction(adb);
 
 			sqlite3_stmt *stmt = cache.GetStmt(adb, DBPSC_INSUSERDMINDEX);
@@ -1862,7 +1862,7 @@ namespace {
 			});
 
 			cache.EndTransaction(adb);
-			SLogMsgFormat(LOGT::DBTRACE, TSLogging, "%s end, wrote back %u of %u user DM indexes",
+			SLogMsgFormat(LOGT::DBINFO, TSLogging, "%s end, wrote back %u of %u user DM indexes",
 					cstr(funcname), count, alldmindexcount);
 		}
 	};
@@ -1877,7 +1877,7 @@ void dbconn::AsyncWriteBackUserDMIndexes(dbfunctionmsg &msg) {
 }
 
 void dbconn::SyncReadInUserDMIndexes(sqlite3 *adb) {
-	LogMsg(LOGT::DBTRACE, "dbconn::SyncReadInUserDMIndexes start");
+	LogMsg(LOGT::DBINFO, "dbconn::SyncReadInUserDMIndexes start");
 
 	unsigned int read_count = 0;
 	tweetidset dmindex;
@@ -1893,7 +1893,7 @@ void dbconn::SyncReadInUserDMIndexes(sqlite3 *adb) {
 		}
 	}, "dbconn::SyncReadInUserDMIndexes");
 
-	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInUserDMIndexes end, read in %u", read_count);
+	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInUserDMIndexes end, read in %u", read_count);
 }
 
 namespace {
@@ -1920,7 +1920,7 @@ namespace {
 
 		//Where F is a functor with an operator() as above
 		template <typename F> void dbexec(sqlite3 *adb, dbpscache &cache, std::string funcname, bool TSLogging, F getfunc) const {
-			SLogMsgFormat(LOGT::DBTRACE, TSLogging, "%s start", cstr(funcname));
+			SLogMsgFormat(LOGT::DBINFO, TSLogging, "%s start", cstr(funcname));
 
 			cache.BeginTransaction(adb);
 			sqlite3_exec(adb, "DELETE FROM rbfspending", 0, 0, 0);
@@ -1945,7 +1945,7 @@ namespace {
 			});
 
 			cache.EndTransaction(adb);
-			SLogMsgFormat(LOGT::DBTRACE, TSLogging, "%s end, wrote %u", cstr(funcname), write_count);
+			SLogMsgFormat(LOGT::DBINFO, TSLogging, "%s end, wrote %u", cstr(funcname), write_count);
 		}
 	};
 };
@@ -1959,7 +1959,7 @@ void dbconn::AsyncWriteOutRBFSs(dbfunctionmsg &msg) {
 }
 
 void dbconn::SyncReadInRBFSs(sqlite3 *adb) {
-	LogMsg(LOGT::DBTRACE, "dbconn::SyncReadInRBFSs start");
+	LogMsg(LOGT::DBINFO, "dbconn::SyncReadInRBFSs start");
 
 	unsigned int read_count = 0;
 	DBRowExec(adb, "SELECT accid, type, startid, endid, maxleft FROM rbfspending;", [&](sqlite3_stmt *stmt) {
@@ -1983,14 +1983,18 @@ void dbconn::SyncReadInRBFSs(sqlite3 *adb) {
 				break;
 			}
 		}
-		if(found) { LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInRBFSs retrieved RBFS"); }
-		else { LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInRBFSs retrieved RBFS with no associated account or bad type, ignoring"); }
+		if(found) {
+			LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInRBFSs retrieved RBFS");
+		}
+		else {
+			LogMsgFormat(LOGT::DBERR, "dbconn::SyncReadInRBFSs retrieved RBFS with no associated account or bad type, ignoring");
+		}
 	}, "dbconn::SyncReadInRBFSs");
-	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInRBFSs end, read in %u", read_count);
+	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInRBFSs end, read in %u", read_count);
 }
 
 void dbconn::SyncReadInAllMediaEntities(sqlite3 *adb) {
-	LogMsg(LOGT::DBTRACE, "dbconn::SyncReadInAllMediaEntities start");
+	LogMsg(LOGT::DBINFO, "dbconn::SyncReadInAllMediaEntities start");
 
 	//This is to placate flaky mingw builds which get upset if this is put in the lambda
 	const size_t hash_size = sizeof(sha1_hash_block::hash_sha1);
@@ -2034,11 +2038,11 @@ void dbconn::SyncReadInAllMediaEntities(sqlite3 *adb) {
 		#endif
 	}, "dbconn::SyncReadInAllMediaEntities");
 
-	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInAllMediaEntities end, read in %u, cached: thumb: %u, full: %u", read_count, thumb_count, full_count);
+	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInAllMediaEntities end, read in %u, cached: thumb: %u, full: %u", read_count, thumb_count, full_count);
 }
 
 void dbconn::SyncReadInWindowLayout(sqlite3 *adb) {
-	LogMsg(LOGT::DBTRACE, "dbconn::SyncReadInWindowLayout start");
+	LogMsg(LOGT::DBINFO, "dbconn::SyncReadInWindowLayout start");
 
 	DBRowExec(adb, "SELECT mainframeindex, x, y, w, h, maximised FROM mainframewins ORDER BY mainframeindex ASC;",
 		[&](sqlite3_stmt *mfstmt) {
@@ -2115,11 +2119,11 @@ void dbconn::SyncReadInWindowLayout(sqlite3 *adb) {
 		"dbconn::SyncReadInWindowLayout (tpanelwins)"
 	);
 
-	LogMsg(LOGT::DBTRACE, "dbconn::SyncReadInWindowLayout end");
+	LogMsg(LOGT::DBINFO, "dbconn::SyncReadInWindowLayout end");
 }
 
 void dbconn::SyncWriteBackWindowLayout(sqlite3 *adb) {
-	LogMsg(LOGT::DBTRACE, "dbconn::SyncWriteBackWindowLayout start");
+	LogMsg(LOGT::DBINFO, "dbconn::SyncWriteBackWindowLayout start");
 	cache.BeginTransaction(adb);
 
 	const std::string errspec = "dbconn::SyncWriteBackWindowLayout";
@@ -2186,11 +2190,11 @@ void dbconn::SyncWriteBackWindowLayout(sqlite3 *adb) {
 		}
 	}
 	cache.EndTransaction(adb);
-	LogMsg(LOGT::DBTRACE, "dbconn::SyncWriteBackWindowLayout end");
+	LogMsg(LOGT::DBINFO, "dbconn::SyncWriteBackWindowLayout end");
 }
 
 void dbconn::SyncReadInTpanels(sqlite3 *adb) {
-	LogMsg(LOGT::DBTRACE, "dbconn::SyncReadInTpanels start");
+	LogMsg(LOGT::DBINFO, "dbconn::SyncReadInTpanels start");
 
 	unsigned int read_count = 0;
 	unsigned int id_count = 0;
@@ -2208,7 +2212,7 @@ void dbconn::SyncReadInTpanels(sqlite3 *adb) {
 		"dbconn::SyncReadInTpanels"
 	);
 
-	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInTpanels end, read in %u, IDs: %u", read_count, id_count);
+	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInTpanels end, read in %u, IDs: %u", read_count, id_count);
 }
 
 namespace {
@@ -2241,7 +2245,7 @@ namespace {
 
 		//Where F is a functor with an operator() as above
 		template <typename F> void dbexec(sqlite3 *adb, dbpscache &cache, std::string funcname, bool TSLogging, F getfunc) const {
-			SLogMsgFormat(LOGT::DBTRACE, TSLogging, "%s start", cstr(funcname));
+			SLogMsgFormat(LOGT::DBINFO, TSLogging, "%s start", cstr(funcname));
 
 			cache.BeginTransaction(adb);
 			sqlite3_exec(adb, "DELETE FROM tpanels", 0, 0, 0);
@@ -2264,7 +2268,7 @@ namespace {
 			});
 
 			cache.EndTransaction(adb);
-			SLogMsgFormat(LOGT::DBTRACE, TSLogging, "%s end, wrote %u, IDs: %u", cstr(funcname), write_count, id_count);
+			SLogMsgFormat(LOGT::DBINFO, TSLogging, "%s end, wrote %u, IDs: %u", cstr(funcname), write_count, id_count);
 		}
 	};
 };
@@ -2278,7 +2282,7 @@ void dbconn::AsyncWriteBackTpanels(dbfunctionmsg &msg) {
 }
 
 void dbconn::SyncReadInUserRelationships(sqlite3 *adb) {
-	LogMsg(LOGT::DBTRACE, "dbconn::SyncReadInUserRelationships start");
+	LogMsg(LOGT::DBINFO, "dbconn::SyncReadInUserRelationships start");
 
 	auto s = DBInitialiseSql(adb, "SELECT userid, flags, followmetime, ifollowtime FROM userrelationships WHERE accid == ?;");
 
@@ -2299,12 +2303,12 @@ void dbconn::SyncReadInUserRelationships(sqlite3 *adb) {
 			},
 			"dbconn::SyncReadInUserRelationships"
 		);
-		LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInUserRelationships read in %u for account: %s", read_count, cstr(it->dispname));
+		LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInUserRelationships read in %u for account: %s", read_count, cstr(it->dispname));
 	}
 }
 
 void dbconn::SyncWriteBackUserRelationships(sqlite3 *adb) {
-	LogMsg(LOGT::DBTRACE, "dbconn::SyncWriteBackUserRelationships start");
+	LogMsg(LOGT::DBINFO, "dbconn::SyncWriteBackUserRelationships start");
 
 	cache.BeginTransaction(adb);
 	sqlite3_exec(adb, "DELETE FROM userrelationships", 0, 0, 0);
@@ -2332,11 +2336,11 @@ void dbconn::SyncWriteBackUserRelationships(sqlite3 *adb) {
 			);
 			write_count++;
 		}
-		LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncWriteBackUserRelationships wrote %u for account: %s", write_count, cstr(it->dispname));
+		LogMsgFormat(LOGT::DBINFO, "dbconn::SyncWriteBackUserRelationships wrote %u for account: %s", write_count, cstr(it->dispname));
 	}
 
 	cache.EndTransaction(adb);
-	LogMsg(LOGT::DBTRACE, "dbconn::SyncWriteBackUserRelationships end");
+	LogMsg(LOGT::DBINFO, "dbconn::SyncWriteBackUserRelationships end");
 }
 
 bool dbconn::CheckIfPurgeDue(sqlite3 *db, time_t threshold, const char *settingname, const char *funcname, time_t &delta) {
@@ -2351,7 +2355,7 @@ bool dbconn::CheckIfPurgeDue(sqlite3 *db, time_t threshold, const char *settingn
 	delta = time(nullptr) - last_purge;
 
 	if(delta < threshold) {
-		LogMsgFormat(LOGT::DBTRACE, "%s, last purged %" llFmtSpec "ds ago, not checking", cstr(funcname), (int64_t) delta);
+		LogMsgFormat(LOGT::DBINFO, "%s, last purged %" llFmtSpec "ds ago, not checking", cstr(funcname), (int64_t) delta);
 		return false;
 	}
 	else {
@@ -2367,7 +2371,7 @@ void dbconn::UpdateLastPurged(sqlite3 *db, const char *settingname, const char *
 }
 
 void dbconn::SyncPurgeMediaEntities(sqlite3 *syncdb) {
-	LogMsg(LOGT::DBTRACE, "dbconn::SyncPurgeMediaEntities start");
+	LogMsg(LOGT::DBINFO, "dbconn::SyncPurgeMediaEntities start");
 
 	const char *lastpurgesetting = "lastmediacachepurge";
 	const char *funcname = "dbconn::SyncPurgeMediaEntities";
@@ -2415,13 +2419,13 @@ void dbconn::SyncPurgeMediaEntities(sqlite3 *syncdb) {
 			cache.EndTransaction(syncdb);
 		}
 
-		LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncPurgeMediaEntities end, last purged %" llFmtSpec "ds ago, %spurged %u, (thumb: %u, full: %u)",
+		LogMsgFormat(LOGT::DBINFO, "dbconn::SyncPurgeMediaEntities end, last purged %" llFmtSpec "ds ago, %spurged %u, (thumb: %u, full: %u)",
 				(int64_t) delta, gc.readonlymode ? "would have " : "", (unsigned int) purge_list.size(), thumb_count, full_count);
 	}
 }
 
 void dbconn::SyncPurgeProfileImages(sqlite3 *syncdb) {
-	LogMsg(LOGT::DBTRACE, "dbconn::SyncPurgeProfileImages start");
+	LogMsg(LOGT::DBINFO, "dbconn::SyncPurgeProfileImages start");
 
 	const char *lastpurgesetting = "lastprofileimagepurge";
 	const char *funcname = "dbconn::SyncPurgeProfileImages";
@@ -2461,7 +2465,7 @@ void dbconn::SyncPurgeProfileImages(sqlite3 *syncdb) {
 			cache.EndTransaction(syncdb);
 		}
 
-		LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncPurgeProfileImages end, last purged %" llFmtSpec "ds ago, %spurged %u",
+		LogMsgFormat(LOGT::DBINFO, "dbconn::SyncPurgeProfileImages end, last purged %" llFmtSpec "ds ago, %spurged %u",
 				(int64_t) delta, gc.readonlymode ? "would have " : "", (unsigned int) expire_list.size());
 	}
 }

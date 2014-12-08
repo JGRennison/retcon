@@ -39,6 +39,9 @@
 #ifndef TPANEL_SCROLLING_COPIOUS_LOGGING
 #define TPANEL_SCROLLING_COPIOUS_LOGGING 0
 #endif
+#ifndef TPANEL_COPIOUS_LOGGING
+#define TPANEL_COPIOUS_LOGGING 0
+#endif
 
 enum {
 	NOTEBOOK_ID = 42,
@@ -193,7 +196,7 @@ void tpanelnotebook::Split(size_t page, int direction) {
 
 void tpanelnotebook::PostSplitSizeCorrect() {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, wxT("TCL: tpanelnotebook::PostSplitSizeCorrect(): START"));
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelnotebook::PostSplitSizeCorrect(): START");
 	#endif
 	wxSize totalsize=GetClientSize();
 
@@ -206,7 +209,7 @@ void tpanelnotebook::PostSplitSizeCorrect() {
 			tabctrl_count++;
 			tabctrlarray.push_front(&(all_panes.Item(i)));
 			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LOGT::TPANEL, wxT("TCL: PostSplitSizeCorrect1 %d %d %d %d"), all_panes.Item(i).dock_direction, all_panes.Item(i).dock_layer,
+				LogMsgFormat(LOGT::TPANELTRACE, "TCL: PostSplitSizeCorrect1 %d %d %d %d", all_panes.Item(i).dock_direction, all_panes.Item(i).dock_layer,
 						all_panes.Item(i).dock_row, all_panes.Item(i).dock_pos);
 			#endif
 		}
@@ -245,7 +248,7 @@ void tpanelnotebook::PostSplitSizeCorrect() {
 	for(size_t i = 0; i < pane_count; ++i) {
 		if(all_panes.Item(i).name != wxT("dummy")) {
 			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LOGT::TPANEL, "TCL: PostSplitSizeCorrect2 %d %d %d %d", all_panes.Item(i).dock_direction, all_panes.Item(i).dock_layer,
+				LogMsgFormat(LOGT::TPANELTRACE, "TCL: PostSplitSizeCorrect2 %d %d %d %d", all_panes.Item(i).dock_direction, all_panes.Item(i).dock_layer,
 						all_panes.Item(i).dock_row, all_panes.Item(i).dock_pos);
 			#endif
 		}
@@ -254,7 +257,7 @@ void tpanelnotebook::PostSplitSizeCorrect() {
 	DoSizing();
 	owner->Refresh();
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelnotebook::PostSplitSizeCorrect(): END");
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelnotebook::PostSplitSizeCorrect(): END");
 	#endif
 }
 
@@ -408,7 +411,7 @@ void tpanel_item::NotifyLayoutNeeded() {
 
 void tpanel_item::mousewheelhandler(wxMouseEvent &event) {
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsg(LOGT::TPANEL, "TSCL: Item MouseWheel");
+		LogMsg(LOGT::TPANELTRACE, "TSCL: Item MouseWheel");
 	#endif
 	event.SetEventObject(GetParent());
 	GetParent()->GetEventHandler()->ProcessEvent(event);
@@ -437,7 +440,7 @@ void tpanelscrollbar::mousewheelhandler(wxMouseEvent &event) {
 	int pxdelta = -event.GetWheelRotation() * gc.mousewheelscrollspeed / event.GetWheelDelta();
 
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollbar::mousewheelhandler %s, %d %d %d", cstr(GetThisName()),
+		LogMsgFormat(LOGT::TPANELTRACE, "TSCL: tpanelscrollbar::mousewheelhandler %s, %d %d %d", cstr(GetThisName()),
 				GetScrollPos(wxVERTICAL), event.GetWheelRotation(), pxdelta);
 	#endif
 
@@ -451,7 +454,7 @@ void tpanelscrollbar::mousewheelhandler(wxMouseEvent &event) {
 
 void tpanelscrollbar::OnScrollTrack(wxScrollEvent &event) {
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollbar::OnScrollTrack %s, %d", cstr(GetThisName()), event.GetPosition());
+		LogMsgFormat(LOGT::TPANELTRACE, "TSCL: tpanelscrollbar::OnScrollTrack %s, %d", cstr(GetThisName()), event.GetPosition());
 	#endif
 	int y = event.GetPosition();
 	ScrollItemsForPosition(y);
@@ -463,7 +466,7 @@ void tpanelscrollbar::OnScrollHandlerCommon(bool upok, bool downok, int threshol
 	int y = current_position;
 	int endpos = y + scroll_client_size;
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollbar::OnScrollHandlerCommon %s, %d %d %d %d", cstr(GetThisName()), y, scroll_virtual_size, scroll_client_size, endpos);
+		LogMsgFormat(LOGT::TPANELTRACE, "TSCL: tpanelscrollbar::OnScrollHandlerCommon %s, %d %d %d %d", cstr(GetThisName()), y, scroll_virtual_size, scroll_client_size, endpos);
 	#endif
 	bool scrollup = (y <= threshold && upok);
 	bool scrolldown = (endpos >= (scroll_virtual_size - threshold) && downok);
@@ -514,7 +517,7 @@ void tpanelscrollbar::RepositionItems() {
 	if(!tsp) return;
 
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollbar::RepositionItems %s, START %d %d", cstr(GetThisName()),
+		LogMsgFormat(LOGT::TPANELTRACE, "TSCL: tpanelscrollbar::RepositionItems %s, START %d %d", cstr(GetThisName()),
 				GetThumbPosition(), parent->GetCurrentDisp().size());
 	#endif
 	scroll_virtual_size = 0;
@@ -558,7 +561,7 @@ void tpanelscrollbar::RepositionItems() {
 
 	ScrollItems();
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollbar::RepositionItems %s, END %d %d %d %d %d", cstr(GetThisName()),
+		LogMsgFormat(LOGT::TPANELTRACE, "TSCL: tpanelscrollbar::RepositionItems %s, END %d %d %d %d %d", cstr(GetThisName()),
 				GetThumbPosition(), scroll_offset, have_scroll_offset, scroll_always_freeze, cumul_size);
 	#endif
 }
@@ -572,7 +575,7 @@ void tpanelscrollbar::ScrollItems() {
 // This is separate from ScrollItems so that the current_position value can be supplied from an event
 void tpanelscrollbar::ScrollItemsForPosition(int current_position) {
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollbar::ScrollItems %s, %d, %d", cstr(GetThisName()), current_position, parent->GetCurrentDisp().size());
+		LogMsgFormat(LOGT::TPANELTRACE, "TSCL: tpanelscrollbar::ScrollItems %s, %d, %d", cstr(GetThisName()), current_position, parent->GetCurrentDisp().size());
 	#endif
 	int y = -current_position;
 
@@ -628,7 +631,7 @@ tpanelscrollpane::tpanelscrollpane(panelparentwin_base *parent_)
 
 void tpanelscrollpane::resizehandler(wxSizeEvent &event) {
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollpane::resizehandler: %s, %d, %d", cstr(GetThisName()), event.GetSize().GetWidth(), event.GetSize().GetHeight());
+		LogMsgFormat(LOGT::TPANELTRACE, "TSCL: tpanelscrollpane::resizehandler: %s, %d, %d", cstr(GetThisName()), event.GetSize().GetWidth(), event.GetSize().GetHeight());
 	#endif
 
 	for(auto &disp : parent->GetCurrentDisp()) {
@@ -638,7 +641,7 @@ void tpanelscrollpane::resizehandler(wxSizeEvent &event) {
 
 void tpanelscrollpane::resizemsghandler(wxCommandEvent &event) {
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TSCL: tpanelscrollpane::resizemsghandler %s", cstr(GetThisName()));
+		LogMsgFormat(LOGT::TPANELTRACE, "TSCL: tpanelscrollpane::resizemsghandler %s", cstr(GetThisName()));
 	#endif
 	if(tpanelscrollbar *tsb = get()) {
 		tsb->RepositionItems();

@@ -33,9 +33,9 @@ enum class LOGT : unsigned int {
 	PARSEERR           = 1<<2,
 	SOCKTRACE          = 1<<3,
 	SOCKERR            = 1<<4,
-	TPANEL             = 1<<5,
-	NETACT             = 1<<6,
-	DBTRACE            = 1<<7,
+	NETACT             = 1<<5,
+	DBTRACE            = 1<<6,
+	DBINFO             = 1<<7,
 	DBERR              = 1<<8,
 	ZLIBTRACE          = 1<<9,
 	ZLIBERR            = 1<<10,
@@ -51,10 +51,12 @@ enum class LOGT : unsigned int {
 	FILEIOTRACE        = 1<<20,
 	FILEIOERR          = 1<<21,
 	NOTIFYEVT          = 1<<22,
+	TPANELTRACE        = 1<<23,
+	TPANELINFO         = 1<<24,
 
-	GROUP_ALL          = CURLVERB | PARSE | PARSEERR | SOCKTRACE | SOCKERR | TPANEL | NETACT | DBTRACE | DBERR | ZLIBTRACE | ZLIBERR |
+	GROUP_ALL          = CURLVERB | PARSE | PARSEERR | SOCKTRACE | SOCKERR | NETACT | DBTRACE | DBINFO | DBERR | ZLIBTRACE | ZLIBERR |
 	                     OTHERTRACE | OTHERERR | USERREQ | PENDTRACE | WXLOG | WXVERBOSE | FILTERERR | FILTERTRACE | THREADTRACE |
-	                     FILEIOTRACE | FILEIOERR | NOTIFYEVT,
+	                     FILEIOTRACE | FILEIOERR | NOTIFYEVT | TPANELTRACE | TPANELINFO,
 	GROUP_STR          = GROUP_ALL,
 	GROUP_ERR          = SOCKERR | DBERR | ZLIBERR | PARSEERR | OTHERERR | WXLOG | FILTERERR | FILEIOERR,
 	GROUP_LOGWINDEF    = GROUP_ERR | USERREQ | NOTIFYEVT,

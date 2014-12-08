@@ -387,31 +387,31 @@ tpanel_disp_item *panelparentwin_base_impl::CreateItemAtPosition(tpanel_disp_ite
 
 void panelparentwin_base_impl::PopTop() {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: panelparentwin_base_impl::PopTop() %s START", cstr(GetThisName()));
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: panelparentwin_base_impl::PopTop() %s START", cstr(GetThisName()));
 	#endif
 	RemoveIndexIntl(0);
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: panelparentwin_base_impl::PopTop() %s END", cstr(GetThisName()));
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: panelparentwin_base_impl::PopTop() %s END", cstr(GetThisName()));
 	#endif
 }
 
 void panelparentwin_base_impl::PopBottom() {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: panelparentwin_base_impl::PopBottom() %s START", cstr(GetThisName()));
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: panelparentwin_base_impl::PopBottom() %s START", cstr(GetThisName()));
 	#endif
 	RemoveIndexIntl(currentdisp.size() - 1);
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: panelparentwin_base_impl::PopBottom() %s END", cstr(GetThisName()));
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: panelparentwin_base_impl::PopBottom() %s END", cstr(GetThisName()));
 	#endif
 }
 
 void panelparentwin_base_impl::RemoveIndex(size_t offset) {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: panelparentwin_base_impl::RemoveIndex(%u) %s START", offset, cstr(GetThisName()));
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: panelparentwin_base_impl::RemoveIndex(%u) %s START", offset, cstr(GetThisName()));
 	#endif
 	RemoveIndexIntl(offset);
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: panelparentwin_base_impl::RemoveIndex(%u) %s END", offset, cstr(GetThisName()));
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: panelparentwin_base_impl::RemoveIndex(%u) %s END", offset, cstr(GetThisName()));
 	#endif
 }
 
@@ -471,12 +471,12 @@ void panelparentwin_base::CheckClearNoUpdateFlag() {
 
 void panelparentwin_base_impl::CheckClearNoUpdateFlag() {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: panelparentwin_base_impl::CheckClearNoUpdateFlag() %s START", cstr(GetThisName()));
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: panelparentwin_base_impl::CheckClearNoUpdateFlag() %s START", cstr(GetThisName()));
 	#endif
 
 	if(tppw_flags & TPPWF::BATCHTIMERMODE) {
 		#if TPANEL_COPIOUS_LOGGING
-			LogMsgFormat(LOGT::TPANEL, "TCL: panelparentwin_base_impl::CheckClearNoUpdateFlag() %s TPPWF::BATCHTIMERMODE", cstr(GetThisName()));
+			LogMsgFormat(LOGT::TPANELTRACE, "TCL: panelparentwin_base_impl::CheckClearNoUpdateFlag() %s TPPWF::BATCHTIMERMODE", cstr(GetThisName()));
 		#endif
 		ResetBatchTimer();
 		return;
@@ -484,7 +484,7 @@ void panelparentwin_base_impl::CheckClearNoUpdateFlag() {
 
 	if(tppw_flags & TPPWF::NOUPDATEONPUSH) {
 		#if TPANEL_COPIOUS_LOGGING
-			LogMsgFormat(LOGT::TPANEL, "TCL: panelparentwin_base_impl::CheckClearNoUpdateFlag() %s TPPWF::NOUPDATEONPUSH", cstr(GetThisName()));
+			LogMsgFormat(LOGT::TPANELTRACE, "TCL: panelparentwin_base_impl::CheckClearNoUpdateFlag() %s TPPWF::NOUPDATEONPUSH", cstr(GetThisName()));
 		#endif
 		scrollpane->Freeze();
 		bool rup = scrollpane->resize_update_pending;
@@ -505,14 +505,14 @@ void panelparentwin_base_impl::CheckClearNoUpdateFlag() {
 
 	if(tppw_flags & TPPWF::CLABELUPDATEPENDING) {
 		#if TPANEL_COPIOUS_LOGGING
-			LogMsgFormat(LOGT::TPANEL, "TCL: panelparentwin_base_impl::CheckClearNoUpdateFlag() %s TPPWF::CLABELUPDATEPENDING", cstr(GetThisName()));
+			LogMsgFormat(LOGT::TPANELTRACE, "TCL: panelparentwin_base_impl::CheckClearNoUpdateFlag() %s TPPWF::CLABELUPDATEPENDING", cstr(GetThisName()));
 		#endif
 		UpdateCLabel();
 		tppw_flags &= ~TPPWF::CLABELUPDATEPENDING;
 	}
 
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: panelparentwin_base_impl::CheckClearNoUpdateFlag() %s END", cstr(GetThisName()));
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: panelparentwin_base_impl::CheckClearNoUpdateFlag() %s END", cstr(GetThisName()));
 	#endif
 }
 
@@ -611,7 +611,7 @@ const tpanelparentwin_nt_impl *tpanelparentwin_nt::pimpl() const {
 tpanelparentwin_nt::tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent, wxString thisname_, tpanelparentwin_nt_impl *privimpl)
 		: panelparentwin_base(parent, false, thisname_, privimpl ? privimpl : new tpanelparentwin_nt_impl(this)) {
 	pimpl()->tp = tp_;
-	LogMsgFormat(LOGT::TPANEL, "Creating tweet panel window %s", cstr(pimpl()->tp->name));
+	LogMsgFormat(LOGT::TPANELTRACE, "Creating tweet panel window %s", cstr(pimpl()->tp->name));
 
 	pimpl()->tp->twin.push_front(this);
 	tpanelparentwinlist.push_front(this);
@@ -648,7 +648,7 @@ void tpanelparentwin_nt_impl::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pu
 		CLabelNeedsUpdating(pushflags);
 	});
 
-	LogMsgFormat(LOGT::TPANEL, "tpanelparentwin_nt_impl::PushTweet %s, id: %" llFmtSpec "d, displayoffset: %d, pushflags: 0x%X, currentdisp: %d, tppw_flags: 0x%X",
+	LogMsgFormat(LOGT::TPANELTRACE, "tpanelparentwin_nt_impl::PushTweet %s, id: %" llFmtSpec "d, displayoffset: %d, pushflags: 0x%X, currentdisp: %d, tppw_flags: 0x%X",
 			cstr(GetThisName()), t->id, displayoffset, pushflags, (int) currentdisp.size(), tppw_flags);
 	if(pushflags & PUSHFLAGS::ABOVE) scrollbar->scroll_always_freeze = true;
 	uint64_t id = t->id;
@@ -684,23 +684,20 @@ void tpanelparentwin_nt_impl::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pu
 		else PopBottom();    //too many in list, remove the last one
 	}
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::PushTweet 1, %d, %d, %d", displayoffset, (int) currentdisp.size(), recalcdisplayoffset);
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::PushTweet 1, %d, %d, %d", displayoffset, currentdisp.size(), recalcdisplayoffset);
 	#endif
 	if(pushflags & PUSHFLAGS::SETNOUPDATEFLAG) tppw_flags |= TPPWF::NOUPDATEONPUSH;
 	auto it = currentdisp.begin();
 	for(; it != currentdisp.end(); ++it) {
 		if(it->id < id) break;	//insert before this iterator
 	}
-	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::PushTweet 2, %d, %d, %d, %d", displayoffset, currentdisp.size(), index, recalcdisplayoffset);
-	#endif
 	if(recalcdisplayoffset) {
 		tweetidset::const_iterator stit = tp->tweetlist.find(id);
 		if(stit != tp->tweetlist.end()) displayoffset = std::distance(tp->tweetlist.cbegin(), stit);
 		else displayoffset = 0;
 	}
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::PushTweet 3, %d, %d, %d, %d", displayoffset, currentdisp.size(), index, recalcdisplayoffset);
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::PushTweet 2, %d, %d, %d", displayoffset, currentdisp.size(), recalcdisplayoffset);
 	#endif
 	tpanel_disp_item *tpdi = CreateItemAtPosition(it, t->id);
 	tweetdispscr *td = CreateTweetInItem(t, *tpdi);
@@ -715,12 +712,12 @@ void tpanelparentwin_nt_impl::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pu
 
 	scrollbar->RepositionItems();
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::PushTweet %s END, %d, %d", cstr(GetThisName()), displayoffset, currentdisp.size());
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::PushTweet %s END, %d, %d", cstr(GetThisName()), displayoffset, currentdisp.size());
 	#endif
 }
 
 tweetdispscr *tpanelparentwin_nt_impl::CreateTweetInItem(tweet_ptr_p t, tpanel_disp_item &tpdi) {
-	LogMsgFormat(LOGT::TPANEL, "tpanelparentwin_nt_impl::CreateTweetInItem, %s, id: %" llFmtSpec "d", cstr(GetThisName()), t->id);
+	LogMsgFormat(LOGT::TPANELTRACE, "tpanelparentwin_nt_impl::CreateTweetInItem, %s, id: %" llFmtSpec "d", cstr(GetThisName()), t->id);
 
 	tpanel_item *item = tpdi.item;
 
@@ -729,7 +726,7 @@ tweetdispscr *tpanelparentwin_nt_impl::CreateTweetInItem(tweet_ptr_p t, tpanel_d
 	tpdi.disp = td;
 
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::CreateTweetInItem 1");
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::CreateTweetInItem 1");
 	#endif
 
 	if(t->flags.Get('T')) {
@@ -761,20 +758,20 @@ tweetdispscr *tpanelparentwin_nt_impl::CreateTweetInItem(tweet_ptr_p t, tpanel_d
 	}
 
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::CreateTweetInItem 2");
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::CreateTweetInItem 2");
 	#endif
 
 	td->PanelInsertEvt();
 	td->DisplayTweet();
 
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::CreateTweetInItem 3");
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::CreateTweetInItem 3");
 	#endif
 
 	tpanel_subtweet_pending_op::CheckLoadTweetReply(t, item->vbox, base(), td, gc.inlinereplyloadcount, t, td);
 
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::CreateTweetInItem %s END", cstr(GetThisName()));
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::CreateTweetInItem %s END", cstr(GetThisName()));
 	#endif
 
 	return td;
@@ -791,7 +788,7 @@ void tpanelparentwin_nt_impl::RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pu
 		return;
 	}
 
-	LogMsgFormat(LOGT::TPANEL, "tpanelparentwin_nt_impl::RemoveTweet %s, id: %" llFmtSpec "d, displayoffset: %d, pushflags: 0x%X, currentdisp: %d, tppw_flags: 0x%X",
+	LogMsgFormat(LOGT::TPANELTRACE, "tpanelparentwin_nt_impl::RemoveTweet %s, id: %" llFmtSpec "d, displayoffset: %d, pushflags: 0x%X, currentdisp: %d, tppw_flags: 0x%X",
 			cstr(GetThisName()), id, displayoffset, pushflags, (int) currentdisp.size(), tppw_flags);
 
 	if(currentdisp.empty()) {
@@ -825,7 +822,7 @@ void tpanelparentwin_nt_impl::RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pu
 		}
 	}
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::RemoveTweet %s END, %d, %d", cstr(GetThisName()), displayoffset, currentdisp.size());
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::RemoveTweet %s END, %d, %d", cstr(GetThisName()), displayoffset, currentdisp.size());
 	#endif
 }
 
@@ -872,7 +869,7 @@ void tpanelparentwin_nt::JumpToTweetID(uint64_t id) {
 }
 
 void tpanelparentwin_nt_impl::JumpToTweetID(uint64_t id) {
-	LogMsgFormat(LOGT::TPANEL, "tpanelparentwin_nt_impl::JumpToTweetID %s, %" llFmtSpec "d, displayoffset: %d, display count: %d, tweets: %d",
+	LogMsgFormat(LOGT::TPANELINFO, "tpanelparentwin_nt_impl::JumpToTweetID %s, %" llFmtSpec "d, displayoffset: %d, display count: %d, tweets: %d",
 			cstr(GetThisName()), id, displayoffset, (int) currentdisp.size(), (int) tp->tweetlist.size());
 
 	bool alldone = false;
@@ -903,7 +900,7 @@ void tpanelparentwin_nt_impl::JumpToTweetID(uint64_t id) {
 		uint64_t bottom_id = *std::next(stit, offset_down_delta);
 
 		#if TPANEL_COPIOUS_LOGGING
-			LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::JumpToTweetID targ_offset: %d, oud: %d, odd: %d, ti: %" llFmtSpec "d, bi: %" llFmtSpec "d",
+			LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::JumpToTweetID targ_offset: %d, oud: %d, odd: %d, ti: %" llFmtSpec "d, bi: %" llFmtSpec "d",
 					targ_offset, offset_up_delta, offset_down_delta, top_id, bottom_id);
 		#endif
 
@@ -924,7 +921,7 @@ void tpanelparentwin_nt_impl::JumpToTweetID(uint64_t id) {
 		unsigned int loadcount = offset_up_delta + offset_down_delta + 1 - currentdisp.size();
 
 		#if TPANEL_COPIOUS_LOGGING
-			LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::JumpToTweetID displayoffset: %d, loadcount: %d, display count: %d",
+			LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::JumpToTweetID displayoffset: %d, loadcount: %d, display count: %d",
 					displayoffset, loadcount, (int) currentdisp.size());
 		#endif
 
@@ -935,7 +932,7 @@ void tpanelparentwin_nt_impl::JumpToTweetID(uint64_t id) {
 			//if the new top id is also the top of the existing range, start loading from below the bottom of the existing range
 			if(!currentdisp.empty() && top_id == currentdisp.front().id) {
 				#if TPANEL_COPIOUS_LOGGING
-					LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::JumpToTweetID adjusting load bound: %" llFmtSpec "u", currentdisp.back().id);
+					LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::JumpToTweetID adjusting load bound: %" llFmtSpec "u", currentdisp.back().id);
 				#endif
 				LoadMore(loadcount, currentdisp.back().id, 0, PUSHFLAGS::ABOVE | PUSHFLAGS::CHECKSCROLLTOID | PUSHFLAGS::NOINCDISPOFFSET);
 			}
@@ -945,13 +942,13 @@ void tpanelparentwin_nt_impl::JumpToTweetID(uint64_t id) {
 	}
 
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::JumpToTweetID %s END", cstr(GetThisName()));
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::JumpToTweetID %s END", cstr(GetThisName()));
 	#endif
 }
 
 void tpanelparentwin_nt_impl::UpdateCLabel() {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::UpdateCLabel %s START", cstr(GetThisName()));
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::UpdateCLabel %s START", cstr(GetThisName()));
 	#endif
 	size_t curnum = currentdisp.size();
 	if(curnum) {
@@ -971,7 +968,7 @@ void tpanelparentwin_nt_impl::UpdateCLabel() {
 	ShowHideButtons("more", true);
 	headersizer->Layout();
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::UpdateCLabel %s END", cstr(GetThisName()));
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::UpdateCLabel %s END", cstr(GetThisName()));
 	#endif
 }
 
@@ -990,7 +987,7 @@ void tpanelparentwin_nt::MarkSetRead(tweetidset &&subset) {
 
 void tpanelparentwin_nt_impl::MarkSetRead(tweetidset &&subset) {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::MarkSetRead %s START", cstr(GetThisName()));
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::MarkSetRead %s START", cstr(GetThisName()));
 	#endif
 	tweetidset cached_ids = std::move(subset);
 	MarkClearCIDSSetHandler(&cached_id_sets::unreadids,
@@ -1004,7 +1001,7 @@ void tpanelparentwin_nt_impl::MarkSetRead(tweetidset &&subset) {
 	std::unique_ptr<dbupdatetweetsetflagsmsg> msg(new dbupdatetweetsetflagsmsg(std::move(cached_ids), tweet_flags::GetFlagValue('r'), tweet_flags::GetFlagValue('u')));
 	DBC_SendMessage(std::move(msg));
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::MarkSetRead %s END", cstr(GetThisName()));
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::MarkSetRead %s END", cstr(GetThisName()));
 	#endif
 }
 
@@ -1023,7 +1020,7 @@ void tpanelparentwin_nt::MarkSetUnhighlighted(tweetidset &&subset) {
 
 void tpanelparentwin_nt_impl::MarkSetUnhighlighted(tweetidset &&subset) {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::MarkSetUnhighlighted %s START", cstr(GetThisName()));
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::MarkSetUnhighlighted %s START", cstr(GetThisName()));
 	#endif
 	tweetidset cached_ids = std::move(subset);
 	MarkClearCIDSSetHandler(&cached_id_sets::highlightids,
@@ -1037,7 +1034,7 @@ void tpanelparentwin_nt_impl::MarkSetUnhighlighted(tweetidset &&subset) {
 	std::unique_ptr<dbupdatetweetsetflagsmsg> msg(new dbupdatetweetsetflagsmsg(std::move(cached_ids), 0, tweet_flags::GetFlagValue('H')));
 	DBC_SendMessage(std::move(msg));
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::MarkSetUnhighlighted %s END", cstr(GetThisName()));
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::MarkSetUnhighlighted %s END", cstr(GetThisName()));
 	#endif
 }
 
@@ -1137,7 +1134,7 @@ void tpanelparentwin_nt_impl::setupnavbuttonhandlers() {
 			IterateCurrentDisp([&](uint64_t id, dispscr_base *scr) {
 				if((tp->cids.*setptr).find(id) != (tp->cids.*setptr).end()) {
 					#if TPANEL_COPIOUS_LOGGING
-						LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::setupnavbuttonhandlers: %s: About to refresh: %" llFmtSpec "d, items: %d",
+						LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::setupnavbuttonhandlers: %s: About to refresh: %" llFmtSpec "d, items: %d",
 								cstr(logstr), id, (tp->cids.*setptr).size());
 					#endif
 					static_cast<tweetdispscr *>(scr)->DisplayTweet(false);
@@ -1260,7 +1257,7 @@ void tpanelparentwin_nt_impl::UpdateOwnTweet(uint64_t id, bool redrawimg) {
 
 	EnumDisplayedTweets([&](tweetdispscr *tds) {
 		if(tds->td->id == id || tds->rtid == id) {    //found matching entry
-			LogMsgFormat(LOGT::TPANEL, "UpdateOwnTweet: %s, Found Entry %" llFmtSpec "d.", cstr(GetThisName()), id);
+			LogMsgFormat(LOGT::TPANELTRACE, "UpdateOwnTweet: %s, Found Entry %" llFmtSpec "d.", cstr(GetThisName()), id);
 			tds->DisplayTweet(redrawimg);
 		}
 		return true;
@@ -1274,7 +1271,7 @@ void tpanelparentwin_nt_impl::HandleScrollToIDOnUpdate() {
 
 	if(it != currentdisp.end()) {
 		#if TPANEL_COPIOUS_LOGGING
-			LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_nt_impl::HandleScrollToIDOnUpdate() %s", cstr(GetThisName()));
+			LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::HandleScrollToIDOnUpdate() %s", cstr(GetThisName()));
 		#endif
 
 		scrollbar->ScrollToIndex(std::distance(currentdisp.begin(), it), 0);
@@ -1384,7 +1381,7 @@ void tpanelparentwin_nt_impl::OnBatchTimerModeTimer(wxTimerEvent& event) {
 			}
 		}
 
-		LogMsgFormat(LOGT::TPANEL, "tpanelparentwin_nt_impl::OnBatchTimerModeTimer: %s, Reduced %u pushes to %u pushes.",
+		LogMsgFormat(LOGT::TPANELTRACE, "tpanelparentwin_nt_impl::OnBatchTimerModeTimer: %s, Reduced %u pushes to %u pushes.",
 				cstr(GetThisName()), pushtweetbatchqueue.size(), pushcount);
 
 		simulation_currentdisp.clear();
@@ -1506,7 +1503,7 @@ tpanelparentwin::tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *
 void tpanelparentwin_impl::LoadMore(unsigned int n, uint64_t lessthanid, uint64_t greaterthanid, flagwrapper<PUSHFLAGS> pushflags) {
 	std::unique_ptr<dbseltweetmsg> loadmsg;
 
-	LogMsgFormat(LOGT::TPANEL, "tpanelparentwin_impl::LoadMore %s called with n: %d, lessthanid: %" llFmtSpec "d, greaterthanid: %" llFmtSpec "d, pushflags: 0x%X",
+	LogMsgFormat(LOGT::TPANELTRACE, "tpanelparentwin_impl::LoadMore %s called with n: %d, lessthanid: %" llFmtSpec "d, greaterthanid: %" llFmtSpec "d, pushflags: 0x%X",
 			cstr(GetThisName()), n, lessthanid, greaterthanid, pushflags);
 
 	SetNoUpdateFlag();
@@ -1547,7 +1544,7 @@ void tpanelparentwin_impl::LoadMore(unsigned int n, uint64_t lessthanid, uint64_
 
 	CheckClearNoUpdateFlag();
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin::LoadMore %s END", cstr(GetThisName()));
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin::LoadMore %s END", cstr(GetThisName()));
 	#endif
 }
 
@@ -1586,7 +1583,7 @@ void tpanelparentwin_impl::tabsplitcmdhandler(wxCommandEvent &event) {
 
 void tpanelparentwin_impl::UpdateCLabel() {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_impl::UpdateCLabel %s START", cstr(GetThisName()));
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_impl::UpdateCLabel %s START", cstr(GetThisName()));
 	#endif
 	tpanelparentwin_nt_impl::UpdateCLabel();
 	int pageid = owner->auib->GetPageIndex(base());
@@ -1606,7 +1603,7 @@ void tpanelparentwin_impl::UpdateCLabel() {
 		}
 	}
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANEL, "TCL: tpanelparentwin_impl::UpdateCLabel %s END", cstr(GetThisName()));
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_impl::UpdateCLabel %s END", cstr(GetThisName()));
 	#endif
 }
 
@@ -2033,14 +2030,14 @@ void tpanelparentwin_userproplisting::InitLoading() {
 
 bool RedirectMouseWheelEvent(wxMouseEvent &event, wxWindow *avoid) {
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsg(LOGT::TPANEL, "TCL: RedirectMouseWheelEvent");
+		LogMsg(LOGT::TPANELTRACE, "TCL: RedirectMouseWheelEvent");
 	#endif
 	wxWindow *wind = wxFindWindowAtPoint(wxGetMousePosition() /*event.GetPosition()*/);
 	while(wind) {
 		if(wind != avoid && std::count(tpanelparentwinlist.begin(), tpanelparentwinlist.end(), wind)) {
 			tpanelparentwin *tppw = static_cast<tpanelparentwin*>(wind);
 			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LOGT::TPANEL, "TCL: RedirectMouseWheelEvent: Dispatching to %s", cstr(tppw->GetThisName()));
+				LogMsgFormat(LOGT::TPANELTRACE, "TCL: RedirectMouseWheelEvent: Dispatching to %s", cstr(tppw->GetThisName()));
 			#endif
 			event.SetEventObject(tppw->pimpl()->scrollbar);
 			tppw->pimpl()->scrollbar->GetEventHandler()->ProcessEvent(event);
@@ -2104,7 +2101,7 @@ void UpdateUsersTweet(uint64_t userid, bool redrawimg) {
 				|| (tds->td->rtsrc->user_recipient && tds->td->rtsrc->user_recipient->id == userid)) found = true;
 		}
 		if(found) {
-			LogMsgFormat(LOGT::TPANEL, "UpdateUsersTweet: Found Entry %" llFmtSpec "d.", tds->td->id);
+			LogMsgFormat(LOGT::TPANELTRACE, "UpdateUsersTweet: Found Entry %" llFmtSpec "d.", tds->td->id);
 			tds->DisplayTweet(redrawimg);
 		}
 		return true;

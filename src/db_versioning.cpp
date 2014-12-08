@@ -47,7 +47,7 @@ static const char *update_sql[] = {
 
 // return false if all bets are off and DB should not be read
 bool dbconn::SyncDoUpdates(sqlite3 *adb) {
-	LogMsg(LOGT::DBTRACE, "dbconn::DoUpdates start");
+	LogMsg(LOGT::DBINFO, "dbconn::DoUpdates start");
 
 	unsigned int current_db_version = 0;
 
@@ -59,7 +59,7 @@ bool dbconn::SyncDoUpdates(sqlite3 *adb) {
 
 	if(current_db_version < db_version) {
 		cache.BeginTransaction(adb);
-		LogMsgFormat(LOGT::DBTRACE, "dbconn::DoUpdates updating from %u to %u", current_db_version, db_version);
+		LogMsgFormat(LOGT::DBINFO, "dbconn::DoUpdates updating from %u to %u", current_db_version, db_version);
 		for(unsigned int i = current_db_version; i < db_version; i++) {
 			const char *sql = update_sql[i];
 			if(!sql) continue;
@@ -84,7 +84,7 @@ bool dbconn::SyncDoUpdates(sqlite3 *adb) {
 		return false;
 	}
 
-	LogMsg(LOGT::DBTRACE, "dbconn::DoUpdates end");
+	LogMsg(LOGT::DBINFO, "dbconn::DoUpdates end");
 	return true;
 }
 
