@@ -203,6 +203,7 @@ enum {
 	LOGWIN_ID_DUMP_CONN,
 	LOGWIN_ID_DUMP_STATS,
 	LOGWIN_ID_FLUSH_STATE,
+	LOGWIN_ID_FLUSH_LOGFILES,
 };
 
 BEGIN_EVENT_TABLE(log_window, wxFrame)
@@ -214,6 +215,7 @@ BEGIN_EVENT_TABLE(log_window, wxFrame)
 	EVT_MENU(LOGWIN_ID_DUMP_CONN, log_window::OnDumpConnInfo)
 	EVT_MENU(LOGWIN_ID_DUMP_STATS, log_window::OnDumpStats)
 	EVT_MENU(LOGWIN_ID_FLUSH_STATE, log_window::OnFlushState)
+	EVT_MENU(LOGWIN_ID_FLUSH_LOGFILES, log_window::OnFlushLogOutputs)
 END_EVENT_TABLE()
 
 static void log_window_AddChkBox(log_window *parent, LOGT flags, const wxString &str, wxSizer *sz) {
@@ -250,6 +252,14 @@ log_window::log_window(wxWindow *parent, LOGT flagmask, bool show)
 	menuD->Append(LOGWIN_ID_DUMP_CONN, wxT("Dump &Socket Data"));
 	menuD->Append(LOGWIN_ID_DUMP_STATS, wxT("Dump S&tats"));
 	menuD->Append(LOGWIN_ID_FLUSH_STATE, wxT("&Flush State"));
+
+	unsigned int flushable_log_outputs = 0;
+	for(auto &it : logfunclist) {
+		if(it->IsFlushable())
+			flushable_log_outputs++;
+	}
+	if(flushable_log_outputs)
+		menuD->Append(LOGWIN_ID_FLUSH_LOGFILES, wxString::Format(wxT("Flush %u Log Outputs"), flushable_log_outputs));
 
 	wxMenuBar *menuBar = new wxMenuBar;
 	menuBar->Append(menuF, wxT("&File"));
@@ -333,6 +343,12 @@ void log_window::OnFlushState(wxCommandEvent &event) {
 	DBC_AsyncWriteBackState();
 }
 
+void log_window::OnFlushLogOutputs(wxCommandEvent &event) {
+	for(auto &it : logfunclist) {
+		it->Flush();
+	}
+}
+
 log_file::log_file(LOGT flagmask, const char *filename) : log_object(flagmask), closefpondel(0) {
 	fp=fopen(filename, "a");
 }
@@ -345,6 +361,10 @@ log_file::~log_file() {
 void log_file::log_str(LOGT logflags, const std::string &str) {
 	fputs(cstr(str), fp);
 	if(logimpl_flags & LOGIMPLF::FFLUSH) fflush(fp);
+}
+
+void log_file::Flush() {
+	fflush(fp);
 }
 
 LOGT StrToLogFlags(const std::string &str) {

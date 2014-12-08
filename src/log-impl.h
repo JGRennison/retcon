@@ -42,6 +42,10 @@ struct log_object {
 	virtual void log_str(LOGT logflags, const std::string &str) = 0;
 	log_object(LOGT flagmask);
 	virtual ~log_object();
+	virtual bool IsFlushable() const {
+		return false;
+	}
+	virtual void Flush() { }
 };
 
 struct log_window : public log_object, public wxFrame {
@@ -62,6 +66,7 @@ struct log_window : public log_object, public wxFrame {
 	void OnDumpConnInfo(wxCommandEvent &event);
 	void OnDumpStats(wxCommandEvent &event);
 	void OnFlushState(wxCommandEvent &event);
+	void OnFlushLogOutputs(wxCommandEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };
@@ -73,6 +78,10 @@ struct log_file : public log_object {
 	log_file(LOGT flagmask, FILE *fp_, bool closefpondel_ = false);
 	~log_file();
 	void log_str(LOGT logflags, const std::string &str);
+	virtual bool IsFlushable() const override {
+		return true;
+	}
+	virtual void Flush() override;
 };
 
 struct Redirector_wxLog : public wxLog {
