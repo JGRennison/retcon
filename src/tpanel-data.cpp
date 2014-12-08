@@ -263,19 +263,22 @@ bool tpanel::TweetMatches(tweet_ptr_p t, const std::shared_ptr<taccount> &acc) c
 
 void tpanel::RecalculateTweetSet() {
 	LogMsgFormat(LOGT::TPANELINFO, "tpanel::RecalculateTweetSet START: panel %s", cstr(name));
+
+	std::vector<observer_ptr<tweetidset>> id_sets;
+	std::vector<observer_ptr<std::deque<uint64_t>>> deque_id_sets;
 	for(auto &tpa : tpautos) {
 		auto doacc = [&](taccount *it) {
-			if(tpa.autoflags & TPF::AUTO_DM) tweetlist.insert(it->dm_ids.begin(), it->dm_ids.end());
-			if(tpa.autoflags & TPF::AUTO_TW) tweetlist.insert(it->tweet_ids.begin(), it->tweet_ids.end());
-			if(tpa.autoflags & TPF::AUTO_MN) tweetlist.insert(it->usercont->mention_index.begin(), it->usercont->mention_index.end());
+			if(tpa.autoflags & TPF::AUTO_DM) id_sets.push_back(&(it->dm_ids));
+			if(tpa.autoflags & TPF::AUTO_TW) id_sets.push_back(&(it->tweet_ids));
+			if(tpa.autoflags & TPF::AUTO_MN) deque_id_sets.push_back(&(it->usercont->mention_index));
 		};
 
 		if(tpa.autoflags & TPF::AUTO_ALLACCS) {
 			for(auto &it : alist) doacc(it.get());
 		}
 		else if(tpa.autoflags & TPF::AUTO_NOACC) {
-			if(tpa.autoflags & TPF::AUTO_HIGHLIGHTED) tweetlist.insert(ad.cids.highlightids.begin(), ad.cids.highlightids.end());
-			if(tpa.autoflags & TPF::AUTO_UNREAD) tweetlist.insert(ad.cids.unreadids.begin(), ad.cids.unreadids.end());
+			if(tpa.autoflags & TPF::AUTO_HIGHLIGHTED) id_sets.push_back(&(ad.cids.highlightids));
+			if(tpa.autoflags & TPF::AUTO_UNREAD) id_sets.push_back(&(ad.cids.unreadids));
 		}
 		else doacc(tpa.acc.get());
 	}
@@ -283,10 +286,39 @@ void tpanel::RecalculateTweetSet() {
 		if(it.autoflags & TPFU::DMSET) {
 			optional_observer_ptr<user_dm_index> udi = ad.GetExistingUserDMIndexById(it.u->id);
 			if(udi) {
-				tweetlist.insert(udi->ids.begin(), udi->ids.end());
+				id_sets.push_back(&(udi->ids));
 			}
 		}
 	}
+
+	// Sort lowest to highest in size
+	std::sort(id_sets.begin(), id_sets.end(), [](observer_ptr<tweetidset> a, observer_ptr<tweetidset> b) {
+		return a->size() < b->size();
+	});
+	if(id_sets.size() == 1) {
+		// Only one set, just copy it
+		tweetlist = *(id_sets[0]);
+	}
+	else if(id_sets.size() >= 2) {
+		observer_ptr<tweetidset> a = id_sets.back();
+		id_sets.pop_back();
+		observer_ptr<tweetidset> b = id_sets.back();
+		id_sets.pop_back();
+
+		// Union the two largest sets
+		// This avoids N log N insertion and lots of re-writes/rebalancing if the second set is also large
+		std::set_union(a->begin(), a->end(), b->begin(), b->end(), std::inserter(tweetlist, tweetlist.end()), tweetlist.key_comp());
+
+		// Individually insert any remainders
+		for(auto &it : id_sets) {
+			tweetlist.insert(it->begin(), it->end());
+		}
+	}
+
+	for(auto &it : deque_id_sets) {
+		tweetlist.insert(it->begin(), it->end());
+	}
+
 	LogMsgFormat(LOGT::TPANELINFO, "tpanel::RecalculateTweetSet END: %zu ids", tweetlist.size());
 }
 
