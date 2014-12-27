@@ -1066,6 +1066,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 
 				wxString url = wxString::Format(wxT("M%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), (int64_t) it->media_id.m_id, (int64_t) it->media_id.t_id);
 				BeginURL(url);
+				wxString reload_text;
 				if(!gc.dispthumbs) {
 					BeginUnderline();
 					WriteText(wxT("[Image]"));
@@ -1089,6 +1090,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 					BeginUnderline();
 					WriteText(wxT("[Failed to Load Image Thumbnail]"));
 					EndUnderline();
+					reload_text = wxT("Click to Try Again]");
 				}
 				else if(hide_thumb) {
 					BeginUnderline();
@@ -1101,11 +1103,14 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 					BeginUnderline();
 					WriteText(wxT("[Image"));
 					EndUnderline();
+					reload_text = wxT("Click to Load Thumbnail]");
+				}
+				if(reload_text.size()) {
 					EndURL();
 					WriteText(wxT(" - "));
 					BeginURL(wxString::Format(wxT("L%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), (int64_t) it->media_id.m_id, (int64_t) it->media_id.t_id));
 					BeginUnderline();
-					WriteText(wxT("Click to Load Thumbnail]"));
+					WriteText(reload_text);
 					EndUnderline();
 				}
 				EndURL();
@@ -1254,6 +1259,9 @@ void TweetURLHandler(wxWindow *win, wxString url, tweet_ptr_p td, panelparentwin
 	}
 	else if(url[0] == 'L') {
 		media_id_type media_id = ParseMediaID(url);
+
+		// User has requested a (re)load, clear failed flag
+		ad.media_list[media_id]->flags &= ~MEF::THUMB_FAILED;
 
 		ad.media_list[media_id]->CheckLoadThumb(MELF::FORCE);
 		for(auto &it : ad.media_list[media_id]->tweet_list) {
