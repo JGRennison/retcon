@@ -87,6 +87,7 @@ struct mcurlconn : public wxEvtHandler {
 	// Generally if not claimed the mcurlconn will be destructed shortly after.
 
 	void NotifyDone(CURL *easy, long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner);
+	bool CheckRetryNowOnSuccessFlag();
 	void HandleError(CURL *easy, long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner);
 	void KillConn();
 	std::unique_ptr<mcurlconn> RemoveConn();

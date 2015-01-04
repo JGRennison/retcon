@@ -88,13 +88,19 @@ void mcurlconn::NotifyDone(CURL *easy, long httpcode, CURLcode res, std::unique_
 		HandleError(easy, httpcode, res, std::move(this_owner));    //this may re-add the connection
 	}
 	else {
-		if(mcflags & MCF::RETRY_NOW_ON_SUCCESS) {
-			mcflags &= ~MCF::RETRY_NOW_ON_SUCCESS;
-			sm.RetryConnNow();
-		}
+		CheckRetryNowOnSuccessFlag();
 		errorcount = 0;
 		NotifyDoneSuccess(easy, res, std::move(this_owner));
 	}
+}
+
+bool mcurlconn::CheckRetryNowOnSuccessFlag() {
+	if(mcflags & MCF::RETRY_NOW_ON_SUCCESS) {
+		mcflags &= ~MCF::RETRY_NOW_ON_SUCCESS;
+		sm.RetryConnNow();
+		return true;
+	}
+	return false;
 }
 
 static void LogSocketErrorMessage(mcurlconn *mc, CURL *easy, long httpcode, CURLcode res, MCC_HTTPERRTYPE err) {

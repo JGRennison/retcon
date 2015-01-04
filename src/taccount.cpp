@@ -671,7 +671,10 @@ void taccount::CheckFailedPendingConns() {
 			stream_fail_count, enabled, userstreams, streaming_on, cstr(dispname));
 	if(CanRestartStreamingConn()) {
 		if(!stream_restart_timer) stream_restart_timer.reset(new wxTimer(this, TAF_STREAM_RESTART_TIMER));
-		if(!stream_restart_timer->IsRunning()) stream_restart_timer->Start(90 * 1000, wxTIMER_ONE_SHOT);    //give a little time for any other operations to try to connect first
+		if(!stream_restart_timer->IsRunning()) {
+			LogMsgFormat(LOGT::SOCKTRACE, "taccount::CheckFailedPendingConns(), starting stream retry timer");
+			stream_restart_timer->Start(90 * 1000, wxTIMER_ONE_SHOT);    //give a little time for any other operations to try to connect first
+		}
 	}
 }
 
@@ -717,6 +720,7 @@ void taccount::TryRestartStreamingConnNow() {
 	if(CanRestartStreamingConn()) {
 		std::unique_ptr<twitcurlext> twit_stream = PrepareNewStreamConn();
 		twit_stream->errorcount = 255;    //disable retry attempts
+		twit_stream->mcflags |= mcurlconn::MCF::RETRY_NOW_ON_SUCCESS;
 		twitcurlext::QueueAsyncExec(std::move(twit_stream));
 	}
 }

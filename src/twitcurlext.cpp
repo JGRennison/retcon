@@ -556,7 +556,10 @@ void StreamCallback(std::string &data, twitCurl *pTwitCurlObj, void *userdata) {
 		acc->streaming_on = true;
 		acc->Exec();
 	}
-	sm.RetryConnLater();
+
+	// Retry now if flag set, else retry later
+	if(!obj->CheckRetryNowOnSuccessFlag())
+		sm.RetryConnLater();
 
 	LogMsgFormat(LOGT::SOCKTRACE, "StreamCallback: Received: %s, conn ID: %d", cstr(data), obj->id);
 	jsonparser jp(CS_STREAM, acc, obj);
