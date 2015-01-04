@@ -52,6 +52,7 @@ struct log_window : public log_object, public wxFrame {
 	std::queue<std::string> pending;
 	bool isshown;
 	wxTextCtrl *txtct;
+	wxMenu *debug_menu;
 
 	void log_str(LOGT logflags, const std::string &str);
 	log_window(wxWindow *parent, LOGT flagmask, bool show = true);
@@ -67,6 +68,9 @@ struct log_window : public log_object, public wxFrame {
 	void OnDumpStats(wxCommandEvent &event);
 	void OnFlushState(wxCommandEvent &event);
 	void OnFlushLogOutputs(wxCommandEvent &event);
+	void OnRetryFirstPendingConnNow(wxCommandEvent &event);
+	void OnRestartStreamConnsNow(wxCommandEvent &event);
+	void OnMenuOpen(wxMenuEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };

@@ -669,10 +669,14 @@ void taccount::CheckFailedPendingConns() {
 	if(pending_failed_conn_retry_timer) pending_failed_conn_retry_timer->Stop();
 	LogMsgFormat(LOGT::SOCKTRACE, "taccount::CheckFailedPendingConns(), stream_fail_count: %d, enabled: %d, userstreams: %d, streaming_on: %d, for account: %s",
 			stream_fail_count, enabled, userstreams, streaming_on, cstr(dispname));
-	if(stream_fail_count && enabled && userstreams && !streaming_on) {
+	if(CanRestartStreamingConn()) {
 		if(!stream_restart_timer) stream_restart_timer.reset(new wxTimer(this, TAF_STREAM_RESTART_TIMER));
 		if(!stream_restart_timer->IsRunning()) stream_restart_timer->Start(90 * 1000, wxTIMER_ONE_SHOT);    //give a little time for any other operations to try to connect first
 	}
+}
+
+bool taccount::CanRestartStreamingConn() const {
+	return stream_fail_count && enabled && userstreams && !streaming_on;
 }
 
 void taccount::AddFailedPendingConn(std::unique_ptr<twitcurlext> conn) {
@@ -688,14 +692,21 @@ void taccount::OnFailedPendingConnRetryTimer(wxTimerEvent& event) {
 }
 
 void taccount::OnStreamRestartTimer(wxTimerEvent& event) {
-	LogMsgFormat(LOGT::SOCKTRACE, "taccount::OnStreamRestartTimer(), stream_fail_count: %d, enabled: %d, userstreams: %d, streaming_on: %d, for account: %s",
+	TryRestartStreamingConnNow();
+}
+
+void taccount::TryRestartStreamingConnNow() {
+	LogMsgFormat(LOGT::SOCKTRACE, "taccount::TryRestartStreamingConnNow(), stream_fail_count: %d, enabled: %d, userstreams: %d, streaming_on: %d, for account: %s",
 			stream_fail_count, enabled, userstreams, streaming_on, cstr(dispname));
+
+	if(stream_restart_timer)
+		stream_restart_timer->Stop();
 
 	bool have_stream = false;
 	twitcurlext::IterateConnsByAcc(shared_from_this(), [&](twitcurlext &conn) {
 		if(conn.tc_flags & twitcurlext::TCF::ISSTREAM) {
 			//stream connection already present
-			LogMsgFormat(LOGT::SOCKTRACE, "taccount::OnStreamRestartTimer(), stream connection already active, aborting");
+			LogMsgFormat(LOGT::SOCKTRACE, "taccount::TryRestartStreamingConnNow(), stream connection already active, aborting");
 			have_stream = true;
 			return true;
 		}
@@ -703,7 +714,7 @@ void taccount::OnStreamRestartTimer(wxTimerEvent& event) {
 	});
 	if(have_stream) return;
 
-	if(stream_fail_count && enabled && userstreams && !streaming_on) {
+	if(CanRestartStreamingConn()) {
 		std::unique_ptr<twitcurlext> twit_stream = PrepareNewStreamConn();
 		twit_stream->errorcount = 255;    //disable retry attempts
 		twitcurlext::QueueAsyncExec(std::move(twit_stream));

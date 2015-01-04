@@ -121,6 +121,8 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 	void AddFailedPendingConn(std::unique_ptr<twitcurlext> conn);
 	void OnFailedPendingConnRetryTimer(wxTimerEvent& event);
 	void OnStreamRestartTimer(wxTimerEvent& event);
+	bool CanRestartStreamingConn() const;
+	void TryRestartStreamingConnNow();
 
 	bool enabled = false;
 	bool init = false;

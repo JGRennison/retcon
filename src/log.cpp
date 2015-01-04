@@ -204,6 +204,8 @@ enum {
 	LOGWIN_ID_DUMP_STATS,
 	LOGWIN_ID_FLUSH_STATE,
 	LOGWIN_ID_FLUSH_LOGFILES,
+	LOGWIN_ID_RETRY_FIRST_CONN_NOW,
+	LOGWIN_ID_RETRY_STREAMS_NOW,
 };
 
 BEGIN_EVENT_TABLE(log_window, wxFrame)
@@ -216,6 +218,9 @@ BEGIN_EVENT_TABLE(log_window, wxFrame)
 	EVT_MENU(LOGWIN_ID_DUMP_STATS, log_window::OnDumpStats)
 	EVT_MENU(LOGWIN_ID_FLUSH_STATE, log_window::OnFlushState)
 	EVT_MENU(LOGWIN_ID_FLUSH_LOGFILES, log_window::OnFlushLogOutputs)
+	EVT_MENU(LOGWIN_ID_RETRY_FIRST_CONN_NOW, log_window::OnRetryFirstPendingConnNow)
+	EVT_MENU(LOGWIN_ID_RETRY_STREAMS_NOW, log_window::OnRestartStreamConnsNow)
+	EVT_MENU_OPEN(log_window::OnMenuOpen)
 END_EVENT_TABLE()
 
 static void log_window_AddChkBox(log_window *parent, LOGT flags, const wxString &str, wxSizer *sz) {
@@ -247,28 +252,51 @@ log_window::log_window(wxWindow *parent, LOGT flagmask, bool show)
 	menuF->Append(wxID_SAVE, wxT("&Save Log"));
 	menuF->Append(wxID_CLEAR, wxT("Clear Log"));
 	menuF->Append(wxID_CLOSE, wxT("&Close"));
-	wxMenu *menuD = new wxMenu;
-	menuD->Append(LOGWIN_ID_DUMP_PENDING, wxT("Dump &Pendings"));
-	menuD->Append(LOGWIN_ID_DUMP_CONN, wxT("Dump &Socket Data"));
-	menuD->Append(LOGWIN_ID_DUMP_STATS, wxT("Dump S&tats"));
-	menuD->Append(LOGWIN_ID_FLUSH_STATE, wxT("&Flush State"));
-
-	unsigned int flushable_log_outputs = 0;
-	for(auto &it : logfunclist) {
-		if(it->IsFlushable())
-			flushable_log_outputs++;
-	}
-	if(flushable_log_outputs)
-		menuD->Append(LOGWIN_ID_FLUSH_LOGFILES, wxString::Format(wxT("Flush %u Log Outputs"), flushable_log_outputs));
+	debug_menu = new wxMenu;
 
 	wxMenuBar *menuBar = new wxMenuBar;
 	menuBar->Append(menuF, wxT("&File"));
-	menuBar->Append(menuD, wxT("&Debug"));
+	menuBar->Append(debug_menu, wxT("&Debug"));
 
 	SetMenuBar(menuBar);
 
 	InitDialog();
 	LWShow(show);
+}
+
+void log_window::OnMenuOpen(wxMenuEvent &event) {
+	if(event.GetMenu() == debug_menu) {
+		wxMenuItemList items = debug_menu->GetMenuItems();	//make a copy to avoid memory issues if Destroy modifies the list
+		for(auto &it : items) {
+			debug_menu->Destroy(it);
+		}
+
+		debug_menu->Append(LOGWIN_ID_DUMP_PENDING, wxT("Dump &Pendings"));
+		debug_menu->Append(LOGWIN_ID_DUMP_CONN, wxT("Dump &Socket Data"));
+		debug_menu->Append(LOGWIN_ID_DUMP_STATS, wxT("Dump S&tats"));
+		debug_menu->Append(LOGWIN_ID_FLUSH_STATE, wxT("&Flush State"));
+
+		unsigned int flushable_log_outputs = 0;
+		for(auto &it : logfunclist) {
+			if(it->IsFlushable())
+				flushable_log_outputs++;
+		}
+		if(flushable_log_outputs)
+			debug_menu->Append(LOGWIN_ID_FLUSH_LOGFILES, wxString::Format(wxT("Flush %u Log Outputs"), flushable_log_outputs));
+
+		if(sm.PendingRetryCount())
+			debug_menu->Append(LOGWIN_ID_RETRY_FIRST_CONN_NOW,
+					wxString::Format(wxT("Retry first of %u pending connection attempts"), sm.PendingRetryCount()));
+
+		unsigned int accs_restartable_stream_conn = 0;
+		for(auto &it : alist) {
+			if(it->CanRestartStreamingConn())
+				accs_restartable_stream_conn++;
+		}
+		if(accs_restartable_stream_conn)
+			debug_menu->Append(LOGWIN_ID_RETRY_STREAMS_NOW,
+					wxString::Format(wxT("Retry %u failed streaming connection"), accs_restartable_stream_conn));
+	}
 }
 
 log_window::~log_window() {
@@ -346,6 +374,18 @@ void log_window::OnFlushState(wxCommandEvent &event) {
 void log_window::OnFlushLogOutputs(wxCommandEvent &event) {
 	for(auto &it : logfunclist) {
 		it->Flush();
+	}
+}
+
+void log_window::OnRetryFirstPendingConnNow(wxCommandEvent &event) {
+	sm.CancelRetryTimer();
+	sm.RetryConnNow();
+}
+
+void log_window::OnRestartStreamConnsNow(wxCommandEvent &event) {
+	for(auto &it : alist) {
+		if(it->CanRestartStreamingConn())
+			it->TryRestartStreamingConnNow();
 	}
 }
 

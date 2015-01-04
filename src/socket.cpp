@@ -551,6 +551,14 @@ void socketmanager::RetryConnLater() {
 	}
 }
 
+void socketmanager::CancelRetryTimer() {
+	retry.reset();
+}
+
+unsigned int socketmanager::PendingRetryCount() {
+	return retry_conns.size();
+}
+
 void socketmanager::RetryNotify(wxTimerEvent& event) {
 	RetryConnNow();
 }

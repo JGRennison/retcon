@@ -181,6 +181,8 @@ struct socketmanager : public wxEvtHandler {
 	void RetryConn(std::unique_ptr<mcurlconn> cs);
 	void RetryConnNow();
 	void RetryConnLater();
+	void CancelRetryTimer();
+	unsigned int PendingRetryCount();
 	void RetryNotify(wxTimerEvent& event);
 	std::unique_ptr<mcurlconn> UnregisterRetryConn(mcurlconn &cs);
 
