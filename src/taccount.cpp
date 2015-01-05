@@ -255,20 +255,30 @@ void taccount::NotifyDiffUserRelationshipList(user_relationship::UR_TYPE type, c
 }
 
 void taccount::NotifyUserRelationshipChange(uint64_t userid, user_relationship::URF flags) {
-	using URF = user_relationship::URF;
-	std::string evttype;
-	if(flags & URF::FOLLOWSME_KNOWN) {
-		if(flags & URF::FOLLOWSME_TRUE) evttype += ", Followed you";
-		else if(flags & URF::FOLLOWSME_PENDING) evttype += ", Followed you (pending)";
-		else evttype += ", Unfollowed you";
+	auto acc = shared_from_this();
+	auto func = [userid, flags, acc](udc_ptr_p u) {
+		using URF = user_relationship::URF;
+		std::string evttype;
+		if(flags & URF::FOLLOWSME_KNOWN) {
+			if(flags & URF::FOLLOWSME_TRUE) evttype += ", Followed you";
+			else if(flags & URF::FOLLOWSME_PENDING) evttype += ", Followed you (pending)";
+			else evttype += ", Unfollowed you";
+		}
+		if(flags & URF::IFOLLOW_KNOWN) {
+			if(flags & URF::IFOLLOW_TRUE) evttype += ", You followed";
+			else if(flags & URF::IFOLLOW_PENDING) evttype += ", You followed (pending)";
+			else evttype += ", You unfollowed";
+		}
+		LogMsgFormat(LOGT::NOTIFYEVT, "taccount::NotifyUserRelationshipChange: %s: %s%s",
+				cstr(acc->dispname), cstr(user_short_log_line(userid)), cstr(evttype));
+	};
+	udc_ptr u = ad.GetUserContainerById(userid);
+	if(CheckIfUserAlreadyInDBAndLoad(u)) {
+		ad.user_load_pending_funcs.emplace(userid, std::move(func));
+		u->udc_flags |= UDC::CHECK_STDFUNC_LIST;
 	}
-	if(flags & URF::IFOLLOW_KNOWN) {
-		if(flags & URF::IFOLLOW_TRUE) evttype += ", You followed";
-		else if(flags & URF::IFOLLOW_PENDING) evttype += ", You followed (pending)";
-		else evttype += ", You unfollowed";
-	}
-	LogMsgFormat(LOGT::NOTIFYEVT, "taccount::NotifyUserRelationshipChange: %s: %s%s",
-			cstr(dispname), cstr(user_short_log_line(userid)), cstr(evttype));
+	else
+		func(u);
 }
 
 void taccount::NotifyTweetFavouriteEvent(uint64_t tweetid, uint64_t userid, bool unfavourite) {

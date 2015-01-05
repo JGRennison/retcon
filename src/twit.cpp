@@ -350,6 +350,14 @@ void userdatacontainer::CheckPendingTweets(flagwrapper<UMPTF> umpt_flags) {
 		udc_flags &= ~UDC::CHECK_USERLISTWIN;
 		tpanelparentwin_user::CheckPendingUser(udc_ptr_p(this));
 	}
+	if(udc_flags & UDC::CHECK_STDFUNC_LIST) {
+		udc_flags &= ~UDC::CHECK_STDFUNC_LIST;
+		auto range = ad.user_load_pending_funcs.equal_range(id);
+		for(auto it = range.first; it != range.second; ++it) {
+			it->second(udc_ptr_p(this));
+		}
+		ad.user_load_pending_funcs.erase(range.first, range.second);
+	}
 	ThawAll();
 }
 

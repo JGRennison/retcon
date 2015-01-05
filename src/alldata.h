@@ -29,6 +29,7 @@
 #include <string>
 #include <memory>
 #include <map>
+#include <functional>
 #include "map.h"
 
 struct tweet;
@@ -53,6 +54,7 @@ struct alldata {
 	bool twinlayout_final = false;
 	filter_set incoming_filter;
 	filter_set alltweet_filter;
+	std::multimap<uint64_t, std::function<void(udc_ptr_p)>> user_load_pending_funcs;
 
 	udc_ptr GetUserContainerById(uint64_t id);
 	udc_ptr GetExistingUserContainerById(uint64_t id);
