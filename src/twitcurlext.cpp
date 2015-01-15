@@ -39,11 +39,13 @@ void twitcurlext::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr<mc
 		return;
 	}
 
-	jsonparser jp(connmode, acc, this);
-	std::string str;
-	getLastWebResponseMove(str);
-	jp.ParseString(str);
-	str.clear();
+	if(connmode != CS_STREAM) {
+		jsonparser jp(connmode, acc, this);
+		std::string str;
+		getLastWebResponseMove(str);
+		jp.ParseString(str);
+		str.clear();
+	}
 
 	if(connmode == CS_STREAM && acc->enabled) {
 		LogMsgFormat(LOGT::SOCKERR, "Stream connection interrupted, reconnecting: for account: %s", cstr(acc->dispname));
