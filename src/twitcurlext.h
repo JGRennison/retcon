@@ -27,8 +27,10 @@
 #include "magic_ptr.h"
 #include "flags.h"
 #include "observer_ptr.h"
+#include "util.h"
 #include <memory>
 #include <string>
+#include <type_traits>
 
 struct restbackfillstate;
 struct taccount;
@@ -36,6 +38,7 @@ struct friendlookup;
 struct streamconntimeout;
 struct userlookup;
 struct mainframe;
+struct jsonparser;
 
 struct twitcurlext: public twitCurl, public mcurlconn {
 	enum class TCF {
@@ -44,40 +47,63 @@ struct twitcurlext: public twitCurl, public mcurlconn {
 	};
 
 	std::weak_ptr<taccount> tacc;
-	CS_ENUMTYPE connmode = CS_ENUMTYPE::CS_NULL;
 	bool inited = false;
 	flagwrapper<TCF> tc_flags = 0;
 	flagwrapper<PAF> post_action_flags = 0;
-	std::shared_ptr<streamconntimeout> scto;
-	observer_ptr<restbackfillstate> rbfs;
-	std::unique_ptr<userlookup> ul;
-	std::string genurl;
-	std::string extra1;
-	std::vector<std::string> extra_array;
-	uint64_t extra_id = 0;
 	observer_ptr<mainframe> ownermainframe;
 	magic_ptr mp;
-	std::unique_ptr<friendlookup> fl;
 
-	void NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) override;
+	struct NotifyDoneSuccessState {
+		bool do_post_actions = true;
+		CURL *easy;
+		CURLcode res;
+		std::unique_ptr<mcurlconn> &&this_owner;
+
+		NotifyDoneSuccessState(CURL *easy_, CURLcode res_, std::unique_ptr<mcurlconn> &&this_owner_)
+				: easy(easy_), res(res_), this_owner(std::move(this_owner_)) { }
+	};
+
+	struct HandleFailureState {
+		bool msgbox = false;
+		bool retry = false;
+		long httpcode;
+		CURLcode res;
+		std::unique_ptr<mcurlconn> &&this_owner;
+
+		HandleFailureState(long httpcode_, CURLcode res_, std::unique_ptr<mcurlconn> &&this_owner_)
+				: httpcode(httpcode_), res(res_), this_owner(std::move(this_owner_)) { }
+	};
+
+	virtual CURL *GenGetCurlHandle() override { return GetCurlHandle(); }
 	void TwInit(std::shared_ptr<taccount> acc);
-	static void TwStartupAccVerify(std::unique_ptr<twitcurlext> conn);
-	bool TwSyncStartupAccVerify();
-	CURL *GenGetCurlHandle() { return GetCurlHandle(); }
-	twitcurlext(std::shared_ptr<taccount> acc);
-	twitcurlext();
-	virtual ~twitcurlext();
+	virtual void NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) override;
+	virtual void NotifyDoneSuccessHandler(const std::shared_ptr<taccount> &acc, NotifyDoneSuccessState &state) { }
+	virtual void ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) = 0;
+	virtual void HandleFailure(long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) override;
+	virtual void HandleFailureHandler(const std::shared_ptr<taccount> &acc, HandleFailureState &state) { }
+	virtual std::string GetConnTypeName() override;
+	virtual std::string GetConnTypeNameBase() = 0;
+	virtual bool IsQueueable(const std::shared_ptr<taccount> &acc);
+	virtual void HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) = 0;
 	void DoRetry(std::unique_ptr<mcurlconn> &&this_owner) override;
-	void HandleFailure(long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) override;
-	static void QueueAsyncExec(std::unique_ptr<twitcurlext> conn);
-	static void ExecRestGetTweetBackfill(std::unique_ptr<twitcurlext> conn);
-	virtual std::string GetConnTypeName();
-	virtual void AddToRetryQueueNotify() override;
-	virtual void RemoveFromRetryQueueNotify() override;
 
-	template<typename F> static void IterateConnsByAcc(std::shared_ptr<taccount> acc, F func) {
+	protected:
+	twitcurlext() { }
+	void DoQueueAsyncExec(std::unique_ptr<mcurlconn> this_owner);
+
+	public:
+	template<typename T> static void QueueAsyncExec(std::unique_ptr<T> conn) {
+		// This is to make sure we don't dereference conn to get the vtable/this,
+		// after moving the unique_ptr into the argument
+		static_assert(std::is_base_of<twitcurlext, T>::value, "T not derived from twitcurlext");
+		twitcurlext *ptr = conn.get();
+		ptr->DoQueueAsyncExec(static_pointer_cast<mcurlconn>(std::move(conn)));
+	}
+
+	template<typename T, typename F> static void IterateConnsByAcc(const std::shared_ptr<taccount> &acc, F func) {
+		static_assert(std::is_base_of<twitcurlext, T>::value, "T not derived from twitcurlext");
 		socketmanager::IterateConns([&](mcurlconn &c) {
-			if(twitcurlext *t = dynamic_cast<twitcurlext *>(&c)) {
+			if(T *t = dynamic_cast<T *>(&c)) {
 				if(t->tacc.lock() == acc) {
 					return func(*t);
 				}
@@ -85,17 +111,157 @@ struct twitcurlext: public twitCurl, public mcurlconn {
 			return false;
 		});
 	}
-
-	DECLARE_EVENT_TABLE()
-
-	protected:
-	void DoTwStartupAccVerify(std::unique_ptr<twitcurlext> this_owner);
-	void DoQueueAsyncExec(std::unique_ptr<twitcurlext> this_owner);
-	void DoExecRestGetTweetBackfill(std::unique_ptr<twitcurlext> this_owner);
 };
 template<> struct enum_traits<twitcurlext::TCF> { static constexpr bool flags = true; };
 
-void StreamCallback(std::string &data, twitCurl *pTwitCurlObj, void *userdata);
-void StreamActivityCallback(twitCurl *pTwitCurlObj, void *userdata);
+struct twitcurlext_stream: public twitcurlext {
+	std::unique_ptr<streamconntimeout> scto;
+
+	static std::unique_ptr<twitcurlext_stream> make_new(std::shared_ptr<taccount> acc);
+
+	virtual void NotifyDoneSuccessHandler(const std::shared_ptr<taccount> &acc, NotifyDoneSuccessState &state) override;
+	virtual void ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) override;
+	virtual void HandleFailureHandler(const std::shared_ptr<taccount> &acc, HandleFailureState &state) override;
+	virtual std::string GetConnTypeNameBase() override;
+	virtual void HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) override;
+	virtual void AddToRetryQueueNotify() override;
+	virtual void RemoveFromRetryQueueNotify() override;
+
+	~twitcurlext_stream();
+
+	private:
+	static void StreamCallback(std::string &data, twitCurl *pTwitCurlObj, void *userdata);
+	static void StreamActivityCallback(twitCurl *pTwitCurlObj, void *userdata);
+};
+
+struct twitcurlext_rbfs: public twitcurlext {
+	enum class CONNTYPE {
+		NONE,
+		TIMELINE,
+		DMTIMELINE,
+		USERTIMELINE,
+		USERFAVS,
+	};
+
+	CONNTYPE conntype;
+	observer_ptr<restbackfillstate> rbfs;
+
+	static std::unique_ptr<twitcurlext_rbfs> make_new(std::shared_ptr<taccount> acc, observer_ptr<restbackfillstate> rbfs);
+
+	virtual void NotifyDoneSuccessHandler(const std::shared_ptr<taccount> &acc, NotifyDoneSuccessState &state) override;
+	virtual void ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) override;
+	virtual void HandleFailureHandler(const std::shared_ptr<taccount> &acc, HandleFailureState &state) override;
+	virtual std::string GetConnTypeNameBase() override;
+	virtual void HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) override;
+
+	protected:
+	void DoExecRestGetTweetBackfill(std::unique_ptr<mcurlconn> this_owner);
+};
+
+struct twitcurlext_accverify: public twitcurlext {
+	static std::unique_ptr<twitcurlext_accverify> make_new(std::shared_ptr<taccount> acc);
+
+	virtual void ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) override;
+	virtual void HandleFailureHandler(const std::shared_ptr<taccount> &acc, HandleFailureState &state) override;
+	virtual std::string GetConnTypeNameBase() override;
+	bool TwSyncStartupAccVerify();
+	virtual bool IsQueueable(const std::shared_ptr<taccount> &acc) override;
+	virtual void HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) override;
+
+	protected:
+	void DoTwStartupAccVerify(std::unique_ptr<twitcurlext> this_owner);
+};
+
+struct twitcurlext_postcontent: public twitcurlext {
+	enum class CONNTYPE {
+		NONE,
+		POSTTWEET,
+		SENDDM,
+	};
+
+	CONNTYPE conntype;
+	uint64_t replyto_id = 0;
+	uint64_t dmtarg_id = 0;
+	bool has_been_enqueued = false;
+	std::string text;
+	std::vector<std::string> image_file_names;
+
+	static std::unique_ptr<twitcurlext_postcontent> make_new(std::shared_ptr<taccount> acc, CONNTYPE type);
+
+	virtual void ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) override;
+	virtual void HandleFailureHandler(const std::shared_ptr<taccount> &acc, HandleFailureState &state) override;
+	virtual std::string GetConnTypeNameBase() override;
+	virtual void HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) override;
+	~twitcurlext_postcontent();
+};
+
+struct twitcurlext_userlist: public twitcurlext {
+	std::unique_ptr<userlookup> ul;
+
+	static std::unique_ptr<twitcurlext_userlist> make_new(std::shared_ptr<taccount> acc, std::unique_ptr<userlookup> ul_);
+
+	virtual void ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) override;
+	virtual std::string GetConnTypeNameBase() override;
+	virtual void HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) override;
+};
+
+
+struct twitcurlext_friendlookup: public twitcurlext {
+	std::unique_ptr<friendlookup> fl;
+
+	static std::unique_ptr<twitcurlext_friendlookup> make_new(std::shared_ptr<taccount> acc, std::unique_ptr<friendlookup> fl_);
+
+	virtual void ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) override;
+	virtual void HandleFailureHandler(const std::shared_ptr<taccount> &acc, HandleFailureState &state) override;
+	virtual std::string GetConnTypeNameBase() override;
+	virtual void HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) override;
+};
+
+struct twitcurlext_userlookupwin: public twitcurlext {
+	enum class LOOKUPMODE {
+		ID,
+		SCREENNAME,
+	};
+
+	LOOKUPMODE mode;
+	std::string search_string;
+
+	static std::unique_ptr<twitcurlext_userlookupwin> make_new(std::shared_ptr<taccount> acc, LOOKUPMODE mode, std::string search_string);
+
+	virtual void ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) override;
+	virtual void HandleFailureHandler(const std::shared_ptr<taccount> &acc, HandleFailureState &state) override;
+	virtual std::string GetConnTypeNameBase() override;
+	virtual void HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) override;
+};
+
+
+struct twitcurlext_simple: public twitcurlext {
+	enum class CONNTYPE {
+		NONE,
+		FRIENDACTION_FOLLOW,
+		FRIENDACTION_UNFOLLOW,
+		FAV,
+		UNFAV,
+		RT,
+		DELETETWEET,
+		DELETEDM,
+		USERFOLLOWING,
+		USERFOLLOWERS,
+		SINGLETWEET,
+		OWNFOLLOWERLISTING,
+		OWNINCOMINGFOLLOWLISTING,
+		OWNOUTGOINGFOLLOWLISTING,
+	};
+
+	CONNTYPE conntype;
+	uint64_t extra_id = 0;
+
+	static std::unique_ptr<twitcurlext_simple> make_new(std::shared_ptr<taccount> acc, CONNTYPE type);
+
+	virtual void ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) override;
+	virtual void HandleFailureHandler(const std::shared_ptr<taccount> &acc, HandleFailureState &state) override;
+	virtual std::string GetConnTypeNameBase() override;
+	virtual void HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) override;
+};
 
 #endif

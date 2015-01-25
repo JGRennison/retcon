@@ -27,58 +27,340 @@
 #include "util.h"
 #include "tpanel.h"
 #include "alldata.h"
+#include "libtwitcurl/urlencode.h"
 #include <wx/msgdlg.h>
 
-BEGIN_EVENT_TABLE( twitcurlext, mcurlconn )
-END_EVENT_TABLE()
+/* * * * * * * * */
+/*  twitcurlext  */
+/* * * * * * * * */
+
+void twitcurlext::TwInit(std::shared_ptr<taccount> acc) {
+	if(inited)
+		return;
+
+	tacc = acc;
+
+	CURL* ch = GetCurlHandle();
+	if(ch) {
+		SetCurlHandleVerboseState(ch, currentlogflags & LOGT::CURLVERB);
+		SetCacerts(ch);
+	}
+
+	setTwitterApiType(twitCurlTypes::eTwitCurlApiFormatJson);
+	setTwitterProcotolType(acc->ssl ? twitCurlTypes::eTwitCurlProtocolHttps : twitCurlTypes::eTwitCurlProtocolHttp);
+
+	acc->setOAuthParameters(getOAuth());
+	inited = true;
+	acc->ApplyNewTwitCurlExtHook(this);
+}
 
 void twitcurlext::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
-	std::shared_ptr<taccount> acc=tacc.lock();
+	std::shared_ptr<taccount> acc = tacc.lock();
 	LogMsgFormat(LOGT::OTHERTRACE, "twitcurlext::NotifyDoneSuccess: for conn: %s, account: %s", cstr(GetConnTypeName()), acc ? cstr(acc->dispname) : "none");
-	if(!acc) {
+	if(!acc)
 		return;
-	}
 
-	if(connmode != CS_STREAM) {
-		jsonparser jp(connmode, acc, this);
+	if(ownermainframe && std::find(mainframelist.begin(), mainframelist.end(), ownermainframe.get()) == mainframelist.end())
+		ownermainframe = nullptr;
+
+	if(!(tc_flags & TCF::ISSTREAM)) {
+		jsonparser jp(acc, this);
 		std::string str;
 		getLastWebResponseMove(str);
-		jp.ParseString(str);
-		str.clear();
+
+		bool ok = jp.ParseString(std::move(str));
+		if(ok) {
+			if(tc_flags & TCF::ALWAYSREPARSE)
+				jp.data->base_sflags |= JDTP::ALWAYSREPARSE;
+			ParseHandler(acc, jp);
+		}
 	}
 
-	if(connmode == CS_STREAM && acc->enabled) {
-		LogMsgFormat(LOGT::SOCKERR, "Stream connection interrupted, reconnecting: for account: %s", cstr(acc->dispname));
-		DoRetry(std::move(this_owner));
-	}
-	else if(rbfs) {
-		ExecRestGetTweetBackfill(static_pointer_cast<twitcurlext>(std::move(this_owner)));
-	}
-	else {
+	NotifyDoneSuccessState state(easy, res, std::move(this_owner));
+	NotifyDoneSuccessHandler(acc, state);
+
+	if(state.do_post_actions)
 		acc->DoPostAction(*this);
-	}
 
 	acc->CheckFailedPendingConns();
 }
 
-void twitcurlext::ExecRestGetTweetBackfill(std::unique_ptr<twitcurlext> conn) {
-	// This is to make sure we don't dereference conn to get the vtable/this,
-	// after moving the unique_ptr into the argument
-	twitcurlext *ptr = conn.get();
-	ptr->DoExecRestGetTweetBackfill(std::move(conn));
+void twitcurlext::HandleFailure(long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
+	auto acc = tacc.lock();
+	if(!acc)
+		return;
+
+	auto win = MagicWindowCast<panelparentwin_base>(mp);
+	if(win)
+		win->NotifyRequestFailed();
+
+	std::string action = GetConnTypeName();
+
+	HandleFailureState state(httpcode, res, std::move(this_owner));
+	HandleFailureHandler(acc, state);
+
+	if(state.msgbox) {
+		wxString msg, errtype;
+		if(res == CURLE_OK) errtype.Printf(wxT("HTTP error code: %d"), httpcode);
+		else errtype.Printf(wxT("Socket error: CURL error code: %d, %s"), res, wxstrstd(curl_easy_strerror(res)).c_str());
+		msg.Printf(wxT("Twitter API call of type: %s, has failed\n%s"), wxstrstd(action).c_str(), acc->dispname.c_str(), errtype.c_str());
+		::wxMessageBox(msg, wxT("Operation Failed"), wxOK | wxICON_ERROR);
+	}
+	if(state.retry && (acc->enabled || acc->init)) {
+		LogMsgFormat(LOGT::SOCKERR, "Retrying failed request: %s (%s)", cstr(action), cstr(acc->dispname));
+		acc->AddFailedPendingConn(static_pointer_cast<twitcurlext>(std::move(this_owner)));
+	}
 }
 
-void twitcurlext::DoExecRestGetTweetBackfill(std::unique_ptr<twitcurlext> this_owner) {
+std::string twitcurlext::GetConnTypeName() {
+	std::string name = GetConnTypeNameBase();
+
 	auto acc = tacc.lock();
-	if(!acc) {
+	if(acc)
+		name += " (account: " + stdstrwx(acc->dispname) + ")";
+	return name;
+}
+
+void twitcurlext::DoQueueAsyncExec(std::unique_ptr<mcurlconn> this_owner) {
+	auto acc = tacc.lock();
+	if(!acc)
+		return;
+
+	if(!IsQueueable(acc))
+		return;
+
+	SetNoPerformFlag(true);
+
+	HandleQueueAsyncExec(acc, std::move(this_owner));
+	if(!this_owner) {
+		// HandleQueueAsyncExec has dealt with it, stop here
+		LogMsgFormat(LOGT::SOCKTRACE, "twitcurlext::DoQueueAsyncExec HandleQueueAsyncExec took ownership");
 		return;
 	}
 
+	char *cururl = nullptr;
+	curl_easy_getinfo(GenGetCurlHandle(), CURLINFO_EFFECTIVE_URL, &cururl);
+	this->url = cururl;
+	LogMsgFormat(LOGT::NETACT, "Executing API call: for account: %s, url: %s", cstr(acc->dispname), cstr(cururl));
+	sm.AddConn(static_pointer_cast<twitcurlext>(std::move(this_owner)));
+}
+
+bool twitcurlext::IsQueueable(const std::shared_ptr<taccount> &acc) {
+	return acc->enabled;
+}
+
+void twitcurlext::DoRetry(std::unique_ptr<mcurlconn> &&this_owner) {
+	assert(this_owner.get() == this);
+	DoQueueAsyncExec(std::move(this_owner));
+}
+
+/* * * * * * * * * * * * */
+/*  twitcurlext_stream   */
+/* * * * * * * * * * * * */
+
+std::unique_ptr<twitcurlext_stream> twitcurlext_stream::make_new(std::shared_ptr<taccount> acc) {
+	std::unique_ptr<twitcurlext_stream> twit(new twitcurlext_stream());
+	twit->TwInit(std::move(acc));
+	twit->tc_flags |= TCF::ISSTREAM;
+	return std::move(twit);
+}
+
+void twitcurlext_stream::NotifyDoneSuccessHandler(const std::shared_ptr<taccount> &acc, twitcurlext::NotifyDoneSuccessState &state) {
+	if(acc->enabled) {
+		state.do_post_actions = false;
+		LogMsgFormat(LOGT::SOCKERR, "Stream connection interrupted, reconnecting: for account: %s", cstr(acc->dispname));
+		DoRetry(std::move(state.this_owner));
+	}
+}
+
+void twitcurlext_stream::ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) {
+	// this should not be called
+	assert(false);
+}
+
+void twitcurlext_stream::HandleFailureHandler(const std::shared_ptr<taccount> &acc, twitcurlext::HandleFailureState &state) {
+	bool was_stream_mode = (acc->stream_fail_count == 0);
+	if(was_stream_mode) {
+		acc->last_rest_backfill = time(nullptr);	//don't immediately query REST api
+		LogMsgFormat(LOGT::SOCKERR, "Stream connection failed, switching to REST api: for account: %s", cstr(acc->dispname));
+	}
+	else
+		LogMsgFormat(LOGT::SOCKERR, "Stream reconnection attempt failed: for account: %s", cstr(acc->dispname));
+	acc->stream_fail_count++;
+	acc->Exec();
+}
+
+std::string twitcurlext_stream::GetConnTypeNameBase() {
+	return "Stream connection";
+}
+
+void twitcurlext_stream::HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) {
+	LogMsgFormat(LOGT::NETACT, "Queue Stream Connection");
+	mcflags |= MCF::NOTIMEOUT;
+	scto.reset(new streamconntimeout(this));
+	SetStreamApiCallback(&twitcurlext_stream::StreamCallback, 0);
+	SetStreamApiActivityCallback(&twitcurlext_stream::StreamActivityCallback);
+	acc->stream_currently_reply_all = (acc->stream_reply_mode != SRM::STD_REPLIES);
+	UserStreamingApi("followings", acc->stream_currently_reply_all ? "all" : "");
+}
+
+void twitcurlext_stream::AddToRetryQueueNotify() {
+	if(scto) {
+		auto acc = tacc.lock();
+		LogMsgFormat(LOGT::SOCKTRACE, "twitcurlext_stream::AddToRetryQueueNotify: Stopping stream connection timer: %s, conn ID: %d", acc ? cstr(acc->dispname) : "", id);
+		scto->Stop();
+	}
+}
+
+void twitcurlext_stream::RemoveFromRetryQueueNotify() {
+	if(scto) {
+		auto acc = tacc.lock();
+		LogMsgFormat(LOGT::SOCKTRACE, "twitcurlext_stream::RemoveFromRetryQueueNotify: Re-arming stream connection timer: %s, conn ID: %d", acc ? cstr(acc->dispname) : "", id);
+		scto->Arm();
+	}
+}
+
+twitcurlext_stream::~twitcurlext_stream() {
+	if(auto acc = tacc.lock()) {
+		if(acc && acc->ta_flags & taccount::TAF::STREAM_UP) {
+			acc->ta_flags &= ~taccount::TAF::STREAM_UP;
+			time_t now = time(nullptr);
+			acc->last_stream_end_time = now;
+			for(auto it = acc->user_relations.begin(); it != acc->user_relations.end(); ++it) {
+				if(it->second.ifollow_updtime == 0) it->second.ifollow_updtime = now;
+				if(it->second.followsme_updtime == 0) it->second.followsme_updtime = now;
+			}
+		}
+	}
+}
+
+void twitcurlext_stream::StreamCallback(std::string &data, twitCurl *pTwitCurlObj, void *userdata) {
+	twitcurlext_stream *obj = static_cast<twitcurlext_stream*>(pTwitCurlObj);
+	std::shared_ptr<taccount> acc = obj->tacc.lock();
+	if(!acc)
+		return;
+
+	if(acc->stream_fail_count) {
+		acc->stream_fail_count = 0;
+		acc->streaming_on = true;
+		acc->Exec();
+	}
+
+	// Retry now if flag set, else retry later
+	if(!obj->CheckRetryNowOnSuccessFlag())
+		sm.RetryConnLater();
+
+	LogMsgFormat(LOGT::SOCKTRACE, "StreamCallback: Received: %s, conn ID: %d", cstr(data), obj->id);
+	jsonparser jp(acc, obj);
+	bool ok = jp.ParseString(std::move(data));
+	if(ok)
+		jp.ProcessStreamResponse();
+	data.clear();
+}
+
+void twitcurlext_stream::StreamActivityCallback(twitCurl *pTwitCurlObj, void *userdata) {
+	twitcurlext_stream *obj = static_cast<twitcurlext_stream*>(pTwitCurlObj);
+	obj->scto->Arm();
+	LogMsgFormat(LOGT::SOCKTRACE, "Reset timeout on stream conn ID: %d", obj->id);
+	std::shared_ptr<taccount> acc = obj->tacc.lock();
+	if(acc)
+		acc->CheckFailedPendingConns();
+}
+
+/* * * * * * * * * * * */
+/*  twitcurlext_rbfs   */
+/* * * * * * * * * * * */
+
+static twitcurlext_rbfs::CONNTYPE RbfsTypeToConntype(RBFS_TYPE type) {
+	using CONNTYPE = twitcurlext_rbfs::CONNTYPE;
+	switch(type) {
+		case RBFS_TWEETS:
+		case RBFS_MENTIONS:
+			return CONNTYPE::TIMELINE;
+		case RBFS_RECVDM:
+		case RBFS_SENTDM:
+			return CONNTYPE::DMTIMELINE;
+		case RBFS_USER_TIMELINE:
+			return CONNTYPE::USERTIMELINE;
+		case RBFS_USER_FAVS:
+			return CONNTYPE::USERFAVS;
+		case RBFS_NULL:
+			break;
+	}
+	assert(false);
+	return CONNTYPE::NONE;
+}
+
+std::unique_ptr<twitcurlext_rbfs> twitcurlext_rbfs::make_new(std::shared_ptr<taccount> acc, observer_ptr<restbackfillstate> rbfs) {
+	std::unique_ptr<twitcurlext_rbfs> twit(new twitcurlext_rbfs());
+	twit->TwInit(std::move(acc));
+	twit->rbfs = rbfs;
+	twit->conntype = RbfsTypeToConntype(rbfs->type);
+	return std::move(twit);
+}
+
+void twitcurlext_rbfs::NotifyDoneSuccessHandler(const std::shared_ptr<taccount> &acc, NotifyDoneSuccessState &state) {
+	if(rbfs) {
+		state.do_post_actions = false;
+		DoExecRestGetTweetBackfill(std::move(state.this_owner));
+	}
+}
+
+void twitcurlext_rbfs::ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) {
+	/* Save RBFS values which we might want to use
+	 * This is because if we later need do a deferred parse, this and hence this->rbfs will be long since out of scope
+	 */
+	if(rbfs) {
+		jp.data->rbfs_userid = rbfs->userid;
+		jp.data->rbfs_type = rbfs->type;
+	}
+
+	switch(conntype) {
+		case CONNTYPE::TIMELINE:
+			jp.ProcessTimelineResponse(0, rbfs);
+			break;
+		case CONNTYPE::DMTIMELINE:
+			jp.ProcessTimelineResponse(JDTP::ISDM, rbfs);
+			break;
+		case CONNTYPE::USERTIMELINE:
+		case CONNTYPE::USERFAVS: {
+			auto win = MagicWindowCast<tpanelparentwin_usertweets>(mp);
+			if(win)
+				win->NotifyRequestSuccess();
+			jp.ProcessUserTimelineResponse(rbfs);
+			break;
+		}
+		case CONNTYPE::NONE:
+			assert(false);
+			break;
+	}
+}
+
+void twitcurlext_rbfs::HandleFailureHandler(const std::shared_ptr<taccount> &acc, twitcurlext::HandleFailureState &state) {
+	if(rbfs) {
+		bool delrbfs = false;
+
+		if(conntype == CONNTYPE::USERTIMELINE || conntype == CONNTYPE::USERFAVS)
+			delrbfs = true;
+		if(rbfs->end_tweet_id == 0)
+			delrbfs = true;
+
+		if(delrbfs)
+			acc->pending_rbfs_list.remove_if([&](restbackfillstate &r) { return (&r == rbfs.get()); });
+		else
+			state.retry = true;
+	}
+}
+
+void twitcurlext_rbfs::DoExecRestGetTweetBackfill(std::unique_ptr<mcurlconn> this_owner) {
+	auto acc = tacc.lock();
+	if(!acc)
+		return;
+
 	bool cleanup = false;
 	unsigned int tweets_to_get = std::min((unsigned int) 200, rbfs->max_tweets_left);
-	if((rbfs->end_tweet_id && rbfs->start_tweet_id>rbfs->end_tweet_id) || !rbfs->read_again) {
+	if((rbfs->end_tweet_id && rbfs->start_tweet_id>rbfs->end_tweet_id) || !rbfs->read_again)
 		cleanup = true;
-	}
 	else if(!tweets_to_get) {
 		if(rbfs->type == RBFS_TWEETS && gc.assumementionistweet) {
 			rbfs->max_tweets_left = 800;
@@ -87,9 +369,8 @@ void twitcurlext::DoExecRestGetTweetBackfill(std::unique_ptr<twitcurlext> this_o
 		}
 		else cleanup = true;
 	}
-	else if(rbfs->lastop_recvcount > 0 && rbfs->lastop_recvcount < 175) {    //if less than 175 tweets received in last call, assume that there won't be any more
+	else if(rbfs->lastop_recvcount > 0 && rbfs->lastop_recvcount < 175)    //if less than 175 tweets received in last call, assume that there won't be any more
 		cleanup = true;
-	}
 
 	if(cleanup) {
 		//all done, can now clean up pending rbfs
@@ -131,450 +412,473 @@ void twitcurlext::DoExecRestGetTweetBackfill(std::unique_ptr<twitcurlext> this_o
 			case RBFS_NULL:
 				break;
 		}
-		char *cururl;
+		char *cururl = nullptr;
 		curl_easy_getinfo(GenGetCurlHandle(), CURLINFO_EFFECTIVE_URL, &cururl);
 		this->url = cururl;
-		if(currentlogflags&LOGT::NETACT) {
+		if(currentlogflags & LOGT::NETACT) {
 			LogMsgFormat(LOGT::NETACT, "REST timeline fetch: acc: %s, type: %d, num: %d, start_id: %" llFmtSpec "d, end_id: %" llFmtSpec "d",
 				cstr(acc->dispname), rbfs->type, tweets_to_get, rbfs->start_tweet_id, rbfs->end_tweet_id);
 			LogMsgFormat(LOGT::NETACT, "Executing API call: for account: %s, url: %s", cstr(acc->dispname), cstr(cururl));
 		}
-		sm.AddConn(std::move(this_owner));
+		sm.AddConn(static_pointer_cast<twitcurlext>(std::move(this_owner)));
 	}
 }
 
-twitcurlext::twitcurlext(std::shared_ptr<taccount> acc) : twitcurlext() {
-	TwInit(acc);
-}
-twitcurlext::twitcurlext() {
-	CURL* ch = GetCurlHandle();
-	if(ch) {
-		SetCurlHandleVerboseState(ch, currentlogflags & LOGT::CURLVERB);
-	}
-}
-
-twitcurlext::~twitcurlext() {
-	if(tc_flags & TCF::ISSTREAM) {
-		if(auto acc = tacc.lock()) {
-			if(acc->ta_flags & taccount::TAF::STREAM_UP) {
-				acc->ta_flags &= ~taccount::TAF::STREAM_UP;
-				time_t now = time(nullptr);
-				acc->last_stream_end_time = now;
-				for(auto it = acc->user_relations.begin(); it != acc->user_relations.end(); ++it) {
-					if(it->second.ifollow_updtime == 0) it->second.ifollow_updtime = now;
-					if(it->second.followsme_updtime == 0) it->second.followsme_updtime = now;
-				}
-			}
-		}
-	}
-}
-
-void twitcurlext::TwInit(std::shared_ptr<taccount> acc) {
-	if(inited) return;
-	tacc = acc;
-	SetCacerts(GetCurlHandle());
-
-	setTwitterApiType(twitCurlTypes::eTwitCurlApiFormatJson);
-	setTwitterProcotolType(acc->ssl?twitCurlTypes::eTwitCurlProtocolHttps:twitCurlTypes::eTwitCurlProtocolHttp);
-
-	acc->setOAuthParameters(getOAuth());
-	inited = true;
-}
-
-void twitcurlext::TwStartupAccVerify(std::unique_ptr<twitcurlext> conn) {
-	// This is to make sure we don't dereference conn to get the vtable/this,
-	// after moving the unique_ptr into the argument
-	twitcurlext *ptr = conn.get();
-	ptr->DoTwStartupAccVerify(std::move(conn));
-}
-
-void twitcurlext::DoTwStartupAccVerify(std::unique_ptr<twitcurlext> this_owner) {
-	tacc.lock()->verifycredstatus = ACT_INPROGRESS;
-	connmode = CS_ACCVERIFY;
-	QueueAsyncExec(std::move(this_owner));
-}
-
-bool twitcurlext::TwSyncStartupAccVerify() {
-	tacc.lock()->verifycredstatus = ACT_INPROGRESS;
-	SetNoPerformFlag(false);
-	accountVerifyCredGet();
-	long httpcode;
-	curl_easy_getinfo(GetCurlHandle(), CURLINFO_RESPONSE_CODE, &httpcode);
-	if(httpcode == 200) {
-		auto acc=tacc.lock();
-		jsonparser jp(CS_ACCVERIFY, acc, this);
-		std::string str;
-		getLastWebResponse(str);
-		bool res = jp.ParseString(str);
-		str.clear();
-		acc->verifycredstatus = ACT_DONE;
-		return res;
-	}
-	else {
-		tacc.lock()->verifycredstatus = ACT_FAILED;
-		return false;
-	}
-}
-
-void twitcurlext::DoRetry(std::unique_ptr<mcurlconn> &&this_owner) {
-	assert(this_owner.get() == this);
-	QueueAsyncExec(std::unique_ptr<twitcurlext>(static_cast<twitcurlext *>(this_owner.release())));
-}
-
-void twitcurlext::QueueAsyncExec(std::unique_ptr<twitcurlext> conn) {
-	// This is to make sure we don't dereference conn to get the vtable/this,
-	// after moving the unique_ptr into the argument
-	twitcurlext *ptr = conn.get();
-	ptr->DoQueueAsyncExec(std::move(conn));
-}
-
-void twitcurlext::DoQueueAsyncExec(std::unique_ptr<twitcurlext> this_owner) {
-	auto acc = tacc.lock();
-	if(!acc) {
-		return;
+std::string twitcurlext_rbfs::GetConnTypeNameBase() {
+	std::string name;
+	switch(conntype) {
+		case CONNTYPE::TIMELINE: name = "Tweet timeline retrieval"; break;
+		case CONNTYPE::DMTIMELINE: name = "DM timeline retrieval"; break;
+		case CONNTYPE::USERTIMELINE: name = "User timeline retrieval"; break;
+		case CONNTYPE::USERFAVS: name = "User favourites retrieval"; break;
+		case CONNTYPE::NONE: assert(false); break;
 	}
 
-	if(acc->init && connmode == CS_ACCVERIFY) { }	//OK
-	else if(!acc->enabled) {
-		if(connmode == CS_POSTTWEET || connmode == CS_SENDDM) {
-			if(ownermainframe && ownermainframe->tpw) ownermainframe->tpw->NotifyPostResult(false);
-		}
-		return;
-	}
-
-	SetNoPerformFlag(true);
-	switch(connmode) {
-		case CS_ACCVERIFY:
-			LogMsgFormat(LOGT::NETACT, "Queue AccVerify");
-			accountVerifyCredGet();
-			break;
-		case CS_TIMELINE:
-		case CS_DMTIMELINE:
-		case CS_USERTIMELINE:
-		case CS_USERFAVS:
-			twitcurlext::ExecRestGetTweetBackfill(std::move(this_owner));
-			return;
-		case CS_STREAM:
-			LogMsgFormat(LOGT::NETACT, "Queue Stream Connection");
-			mcflags |= MCF::NOTIMEOUT;
-			scto = std::make_shared<streamconntimeout>(this);
-			SetStreamApiCallback(&StreamCallback, 0);
-			SetStreamApiActivityCallback(&StreamActivityCallback);
-			acc->stream_currently_reply_all = (acc->stream_reply_mode != SRM::STD_REPLIES);
-			UserStreamingApi("followings", acc->stream_currently_reply_all ? "all" : "");
-			break;
-		case CS_USERLIST: {
-			std::string userliststr;
-			ul->GetIdList(userliststr);
-			if(userliststr.empty()) {	//nothing left to look up
-				return;
-			}
-			if(currentlogflags&LOGT::NETACT) {
-				auto lacc = tacc.lock();
-				LogMsgFormat(LOGT::NETACT, "About to lookup users: for account: %s, user ids: %s",
-						lacc ? cstr(lacc->dispname) : "", cstr(userliststr));
-			}
-			userLookup(userliststr, "", 0);
-			break;
-			}
-		case CS_FRIENDLOOKUP:
-		case CS_USERLOOKUPWIN:
-			genericGet(genurl);
-			break;
-		case CS_FRIENDACTION_FOLLOW:
-			friendshipCreate(std::to_string(extra_id), true);
-			break;
-		case CS_FRIENDACTION_UNFOLLOW:
-			friendshipDestroy(std::to_string(extra_id), true);
-			break;
-		case CS_POSTTWEET: {
-			std::string reply = extra_id ? std::to_string(extra_id) : "";
-			if(extra_array.size()) {
-				statusUpdateWithMedia(extra1, extra_array, reply, 1);
-			}
-			else {
-				statusUpdate(extra1, reply, 1);
-			}
-			break;
-		}
-		case CS_SENDDM:
-			directMessageSend(std::to_string(extra_id), extra1, 1);
-			break;
-		case CS_RT:
-			statusReTweet(std::to_string(extra_id), 1);
-			break;
-		case CS_FAV:
-			favoriteCreate(std::to_string(extra_id));
-			break;
-		case CS_UNFAV:
-			favoriteDestroy(std::to_string(extra_id));
-			break;
-		case CS_DELETETWEET:
-			statusDestroyById(std::to_string(extra_id));
-			break;
-		case CS_DELETEDM:
-			directMessageDestroyById(std::to_string(extra_id));
-			break;
-		case CS_USERFOLLOWING:
-			friendsIdsGet(std::to_string(extra_id), true);
-			break;
-		case CS_USERFOLLOWERS:
-			followersIdsGet(std::to_string(extra_id), true);
-			break;
-		case CS_SINGLETWEET:
-			statusShowById(std::to_string(extra_id));
-			break;
-		case CS_OWNFOLLOWERLISTING:
-			followersIdsGet(std::to_string(acc->usercont->id), true);
-			break;
-		case CS_OWNINCOMINGFOLLOWLISTING:
-			followersIncomingIdsGet();
-			break;
-		case CS_OWNOUTGOINGFOLLOWLISTING:
-			friendsOutgoingIdsGet();
-			break;
-		case CS_NULL:
-			break;
-	}
-	char *cururl;
-	curl_easy_getinfo(GenGetCurlHandle(), CURLINFO_EFFECTIVE_URL, &cururl);
-	this->url = cururl;
-	if(currentlogflags&LOGT::NETACT) {
-		LogMsgFormat(LOGT::NETACT, "Executing API call: for account: %s, url: %s", acc ? cstr(acc->dispname) : "", cstr(cururl));
-	}
-	sm.AddConn(std::move(this_owner));
-}
-
-std::string twitcurlext::GetConnTypeName() {
-	std::string action;
-	switch(connmode) {
-		case CS_STREAM: action = "Stream connection"; break;
-		case CS_ACCVERIFY: action = "Verifying twitter account credentials"; break;
-		case CS_TIMELINE: action = "Tweet timeline retrieval"; break;
-		case CS_DMTIMELINE: action = "DM timeline retrieval"; break;
-		case CS_USERTIMELINE: action = "User timeline retrieval"; break;
-		case CS_USERFAVS: action = "User favourites retrieval"; break;
-		case CS_USERLIST: action = "User lookup"; break;
-		case CS_FRIENDLOOKUP: action = "Friend/follower lookup"; break;
-		case CS_USERLOOKUPWIN: action = "User lookup (user window)"; break;
-		case CS_FRIENDACTION_FOLLOW: action = "Follow user"; break;
-		case CS_FRIENDACTION_UNFOLLOW: action = "Unfollow user"; break;
-		case CS_POSTTWEET: action = "Posting tweet"; break;
-		case CS_SENDDM: action = "Sending DM"; break;
-		case CS_RT: action = "Retweeting"; break;
-		case CS_FAV: action = "Favouriting tweet"; break;
-		case CS_DELETETWEET: action = "Deleting tweet"; break;
-		case CS_DELETEDM: action = "Deleting DM"; break;
-		case CS_USERFOLLOWING: action = "Retrieving following list"; break;
-		case CS_USERFOLLOWERS: action = "Retrieving followers list"; break;
-		case CS_OWNINCOMINGFOLLOWLISTING: action = "Retrieving incoming follower request list"; break;
-		case CS_OWNOUTGOINGFOLLOWLISTING: action = "Retrieving outgoing following request list"; break;
-		case CS_SINGLETWEET: action = "Retrieving single tweet"; break;
-		case CS_OWNFOLLOWERLISTING: action = "Retrieving own followers listing"; break;
-		default: action = "Generic twitter API call"; break;
-	}
 	if(rbfs) {
 		switch(rbfs->type) {
 			case RBFS_TWEETS:
-				action += " (home timeline)";
+				name += " (home timeline)";
 				break;
 			case RBFS_MENTIONS:
-				action += " (mentions)";
+				name += " (mentions)";
 				break;
 			case RBFS_RECVDM:
-				action += " (received DMs)";
+				name += " (received DMs)";
 				break;
 			case RBFS_SENTDM:
-				action += " (sent DMs)";
+				name += " (sent DMs)";
 				break;
 			case RBFS_USER_TIMELINE:
-				action += " (user timeline)";
+				name += " (user timeline)";
 				break;
 			case RBFS_USER_FAVS:
-				action += " (user favourites)";
+				name += " (user favourites)";
 				break;
 			case RBFS_NULL:
 				break;
 		}
 	}
-	auto acc = tacc.lock();
-	if(acc) {
-		action += " (account: " + stdstrwx(acc->dispname) + ")";
-	}
-	return action;
+	return name;
 }
 
-void twitcurlext::HandleFailure(long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
+void twitcurlext_rbfs::HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) {
+	DoExecRestGetTweetBackfill(std::move(this_owner));
+
+	this_owner.reset();
+}
+
+/* * * * * * * * * * * * * */
+/*  twitcurlext_accverify  */
+/* * * * * * * * * * * * * */
+
+std::unique_ptr<twitcurlext_accverify> twitcurlext_accverify::make_new(std::shared_ptr<taccount> acc) {
+	std::unique_ptr<twitcurlext_accverify> twit(new twitcurlext_accverify());
+	twit->TwInit(std::move(acc));
+	return std::move(twit);
+}
+
+void twitcurlext_accverify::ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) {
+	jp.ProcessAccVerifyResponse();
+}
+
+void twitcurlext_accverify::HandleFailureHandler(const std::shared_ptr<taccount> &acc, twitcurlext::HandleFailureState &state) {
+	acc->verifycredstatus = ACT_FAILED;
+	state.retry = true;
+	AccountChangeTrigger();
+}
+
+std::string twitcurlext_accverify::GetConnTypeNameBase() {
+	return "Verifying twitter account credentials";
+}
+
+bool twitcurlext_accverify::TwSyncStartupAccVerify() {
 	auto acc = tacc.lock();
-	if(!acc) {
+	if(!acc)
+		return false;
+
+	acc->verifycredstatus = ACT_INPROGRESS;
+	SetNoPerformFlag(false);
+	accountVerifyCredGet();
+	long httpcode;
+	curl_easy_getinfo(GetCurlHandle(), CURLINFO_RESPONSE_CODE, &httpcode);
+	acc->verifycredstatus = ACT_FAILED;
+	if(httpcode == 200) {
+		auto acc = tacc.lock();
+		jsonparser jp(acc, this);
+		std::string str;
+		getLastWebResponse(str);
+		bool res = jp.ParseString(std::move(str));
+		if(res) {
+			jp.ProcessAccVerifyResponse(); // this sets verifycredstatus to ACT_DONE in PostAccVerifyInit if successful
+			return acc->verifycredstatus == ACT_DONE;
+		}
+	}
+	return false;
+}
+
+bool twitcurlext_accverify::IsQueueable(const std::shared_ptr<taccount> &acc) {
+	return acc->init || acc->enabled;
+}
+
+void twitcurlext_accverify::HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) {
+	LogMsgFormat(LOGT::NETACT, "Queue AccVerify");
+	acc->verifycredstatus = ACT_INPROGRESS;
+	accountVerifyCredGet();
+}
+
+/* * * * * * * * * * * * * * */
+/*  twitcurlext_postcontent  */
+/* * * * * * * * * * * * * * */
+
+std::unique_ptr<twitcurlext_postcontent> twitcurlext_postcontent::make_new(std::shared_ptr<taccount> acc, twitcurlext_postcontent::CONNTYPE type) {
+	std::unique_ptr<twitcurlext_postcontent> twit(new twitcurlext_postcontent());
+	twit->TwInit(std::move(acc));
+	twit->conntype = type;
+	return std::move(twit);
+}
+
+void twitcurlext_postcontent::ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) {
+	switch(conntype) {
+		case CONNTYPE::POSTTWEET:
+			jp.ProcessSingleTweetResponse();
+			break;
+		case CONNTYPE::SENDDM:
+			jp.ProcessSingleTweetResponse(JDTP::ISDM);
+			break;
+		case CONNTYPE::NONE:
+			assert(false);
+			break;
+	}
+	if(ownermainframe && ownermainframe->tpw)
+		ownermainframe->tpw->NotifyPostResult(true);
+}
+
+void twitcurlext_postcontent::HandleFailureHandler(const std::shared_ptr<taccount> &acc, twitcurlext::HandleFailureState &state) {
+	state.msgbox = true;
+	if(ownermainframe && ownermainframe->tpw)
+		ownermainframe->tpw->NotifyPostResult(false);
+	ownermainframe = nullptr;
+}
+
+std::string twitcurlext_postcontent::GetConnTypeNameBase() {
+	switch(conntype) {
+		case CONNTYPE::POSTTWEET:
+			return "Posting tweet";
+		case CONNTYPE::SENDDM:
+			return "Sending DM";
+		case CONNTYPE::NONE:
+			assert(false);
+			break;
+	}
+	return "";
+}
+
+void twitcurlext_postcontent::HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) {
+	switch(conntype) {
+		case CONNTYPE::POSTTWEET: {
+			std::string reply = replyto_id ? std::to_string(replyto_id) : "";
+			if(image_file_names.size()) {
+				statusUpdateWithMedia(text, image_file_names, reply, 1);
+			}
+			else {
+				statusUpdate(text, reply, 1);
+			}
+			break;
+		}
+		case CONNTYPE::SENDDM:
+			directMessageSend(std::to_string(dmtarg_id), text, 1);
+			break;
+		case CONNTYPE::NONE:
+			assert(false);
+			break;
+	}
+	has_been_enqueued = true;
+}
+
+twitcurlext_postcontent::~twitcurlext_postcontent() {
+	if(!has_been_enqueued) {
+		if(ownermainframe && ownermainframe->tpw)
+			ownermainframe->tpw->NotifyPostResult(false);
+		ownermainframe = nullptr;
+	}
+}
+}
+
+/* * * * * * * * * * * * * */
+/*  twitcurlext_userlist   */
+/* * * * * * * * * * * * * */
+
+std::unique_ptr<twitcurlext_userlist> twitcurlext_userlist::make_new(std::shared_ptr<taccount> acc, std::unique_ptr<userlookup> ul_) {
+	std::unique_ptr<twitcurlext_userlist> twit(new twitcurlext_userlist());
+	twit->TwInit(std::move(acc));
+	twit->ul = std::move(ul_);
+	return std::move(twit);
+}
+
+void twitcurlext_userlist::ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) {
+	jp.ProcessUserListResponse();
+}
+
+std::string twitcurlext_userlist::GetConnTypeNameBase() {
+	return "User lookup";
+}
+
+void twitcurlext_userlist::HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) {
+	std::string userliststr;
+	ul->GetIdList(userliststr);
+	if(userliststr.empty()) {
+		//nothing left to look up, stop
+		this_owner.reset();
 		return;
 	}
+	LogMsgFormat(LOGT::NETACT, "About to lookup users: for account: %s, user ids: %s",
+			cstr(acc->dispname), cstr(userliststr));
+	userLookup(userliststr, "", 0);
+}
 
-	auto win = MagicWindowCast<panelparentwin_base>(mp);
-	if(win) win->NotifyRequestFailed();
+/* * * * * * * * * * * * * * * */
+/*  twitcurlext_friendlookup   */
+/* * * * * * * * * * * * * * * */
 
-	std::string action = GetConnTypeName();
-	bool msgbox = false;
-	bool retry = false;
-	switch(connmode) {
-		case CS_STREAM: {
-			bool was_stream_mode = (acc->stream_fail_count == 0);
-			if(was_stream_mode) {
-				acc->last_rest_backfill = time(nullptr);	//don't immediately query REST api
-				LogMsgFormat(LOGT::SOCKERR, "Stream connection failed, switching to REST api: for account: %s", cstr(acc->dispname));
-			}
-			else {
-				LogMsgFormat(LOGT::SOCKERR, "Stream reconnection attempt failed: for account: %s", cstr(acc->dispname));
-			}
-			acc->stream_fail_count++;
-			acc->Exec();
-			return;
-		}
-		case CS_ACCVERIFY: {
-			acc->verifycredstatus = ACT_FAILED;
-			retry = true;
-			AccountChangeTrigger();
-			break;
-		}
-		case CS_TIMELINE: break;
-		case CS_DMTIMELINE: break;
-		case CS_USERTIMELINE: break;
-		case CS_USERFAVS: break;
-		case CS_USERLIST: break;
-		case CS_FRIENDLOOKUP: {
-			if(httpcode == 404) {    //we have at least one dead user
-				if(fl->ids.size() == 1) {
-					//this is the one
-					udc_ptr u = ad.GetUserContainerById(*(fl->ids.begin()));
-					u->GetUser().u_flags|=userdata::UF::ISDEAD;
-					LogMsgFormat(LOGT::SOCKERR, "Friend lookup failed, bad account: user id: %" llFmtSpec "d (%s), (%s)", u->id, cstr(u->GetUser().screen_name), cstr(acc->dispname));
-				}
-				else if(fl->ids.size() > 1) {
-					LogMsgFormat(LOGT::SOCKERR, "Friend lookup failed, bisecting...  (%s)", cstr(acc->dispname));
+std::unique_ptr<twitcurlext_friendlookup> twitcurlext_friendlookup::make_new(std::shared_ptr<taccount> acc, std::unique_ptr<friendlookup> fl_) {
+	std::unique_ptr<twitcurlext_friendlookup> twit(new twitcurlext_friendlookup());
+	twit->TwInit(std::move(acc));
+	twit->fl = std::move(fl_);
+	return std::move(twit);
+}
 
-					std::unique_ptr<twitcurlext> twit = acc->GetTwitCurlExt();
-					twit->connmode = CS_FRIENDLOOKUP;
-					twit->fl.reset(new friendlookup);
+void twitcurlext_friendlookup::ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) {
+	jp.ProcessFriendLookupResponse();
+}
 
-					//do the bisection
-					size_t splice_count = fl->ids.size() / 2;
-					auto start_it = fl->ids.begin();
-					auto end_it = fl->ids.begin();
-					std::advance(end_it, splice_count);
+void twitcurlext_friendlookup::HandleFailureHandler(const std::shared_ptr<taccount> &acc, twitcurlext::HandleFailureState &state) {
+	if(state.httpcode == 404) {    //we have at least one dead user
+		if(fl->ids.size() == 1) {
+			//this is the one
+			udc_ptr u = ad.GetUserContainerById(*(fl->ids.begin()));
+			u->GetUser().u_flags|=userdata::UF::ISDEAD;
+			LogMsgFormat(LOGT::SOCKERR, "Friend lookup failed, bad account: user id: %" llFmtSpec "d (%s), (%s)", u->id, cstr(u->GetUser().screen_name), cstr(acc->dispname));
+		}
+		else if(fl->ids.size() > 1) {
+			LogMsgFormat(LOGT::SOCKERR, "Friend lookup failed, bisecting...  (%s)", cstr(acc->dispname));
 
-					twit->fl->ids.insert(start_it, end_it);
-					fl->ids.erase(start_it, end_it);
+			std::unique_ptr<twitcurlext_friendlookup> twit = twitcurlext_friendlookup::make_new(acc, std::unique_ptr<friendlookup>(new friendlookup));
 
-					twit->genurl = twit->fl->GetTwitterURL();
-					twitcurlext::QueueAsyncExec(std::move(twit));
+			//do the bisection
+			size_t splice_count = fl->ids.size() / 2;
+			auto start_it = fl->ids.begin();
+			auto end_it = fl->ids.begin();
+			std::advance(end_it, splice_count);
 
-					genurl = fl->GetTwitterURL();
-					twitcurlext::QueueAsyncExec(static_pointer_cast<twitcurlext>(std::move(this_owner)));    //note this re-uses the original connection for half of the original lookup
-					return;
-				}
-			}
-			break;
+			twit->fl->ids.insert(start_it, end_it);
+			fl->ids.erase(start_it, end_it);
+
+			twitcurlext::QueueAsyncExec(std::move(twit));
+			twitcurlext::QueueAsyncExec(static_pointer_cast<twitcurlext>(std::move(state.this_owner)));    //note this re-uses the original connection for half of the original lookup
 		}
-		case CS_USERLOOKUPWIN: {
-			if(httpcode == 404) {
-				// No such user
-				wxString type = wxT("screen name");
-				if(genurl.find("?screen_name=") == std::string::npos) type = wxT("ID");
-				::wxMessageBox(wxString::Format(wxT("Couldn't find user with %s: '%s'"), type.c_str(), wxstrstd(extra1).c_str()), wxT("No such user"), wxOK | wxICON_EXCLAMATION);
-			}
-			else {
-				// Otherwise display generic failure message box
-				msgbox = true;
-			}
-			break;
-		}
-		case CS_FRIENDACTION_FOLLOW: msgbox = true; break;
-		case CS_FRIENDACTION_UNFOLLOW: msgbox = true; break;
-		case CS_POSTTWEET: {
-			msgbox = true;
-			if(ownermainframe && ownermainframe->tpw) ownermainframe->tpw->NotifyPostResult(false);
-			break;
-		}
-		case CS_SENDDM: {
-			msgbox = true;
-			if(ownermainframe && ownermainframe->tpw) ownermainframe->tpw->NotifyPostResult(false);
-			break;
-		}
-		case CS_RT: msgbox = true; break;
-		case CS_FAV: msgbox = true; break;
-		case CS_DELETETWEET: msgbox = true; break;
-		case CS_DELETEDM: msgbox = true; break;
-		case CS_USERFOLLOWING: break;
-		case CS_USERFOLLOWERS: break;
-		case CS_SINGLETWEET: break;
-		case CS_OWNFOLLOWERLISTING: break;
-		default: break;
-	}
-	if(msgbox) {
-		wxString msg, errtype;
-		if(res == CURLE_OK) errtype.Printf(wxT("HTTP error code: %d"), httpcode);
-		else errtype.Printf(wxT("Socket error: CURL error code: %d, %s"), res, wxstrstd(curl_easy_strerror(res)).c_str());
-		msg.Printf(wxT("Twitter API call of type: %s, has failed\n%s"), wxstrstd(action).c_str(), acc->dispname.c_str(), errtype.c_str());
-		::wxMessageBox(msg, wxT("Operation Failed"), wxOK | wxICON_ERROR);
-	}
-	if(rbfs) {
-		bool delrbfs = false;
-		if(connmode == CS_USERTIMELINE || connmode == CS_USERFAVS) delrbfs = true;
-		if(rbfs->end_tweet_id == 0) delrbfs = true;
-		if(delrbfs) {
-			acc->pending_rbfs_list.remove_if([&](restbackfillstate &r) { return (&r == rbfs.get()); });
-		}
-		else retry = true;
-	}
-	if(retry && (acc->enabled || acc->init)) {
-		LogMsgFormat(LOGT::SOCKERR, "Retrying failed request: %s (%s)", cstr(action), cstr(acc->dispname));
-		acc->AddFailedPendingConn(static_pointer_cast<twitcurlext>(std::move(this_owner)));
 	}
 }
 
-void twitcurlext::AddToRetryQueueNotify() {
-	auto acc = tacc.lock();
-	if(scto) {
-		LogMsgFormat(LOGT::SOCKTRACE, "twitcurlext::AddToRetryQueueNotify: Stopping stream connection timer: %s, conn ID: %d", acc ? cstr(acc->dispname) : "", id);
-		scto->Stop();
+std::string twitcurlext_friendlookup::GetConnTypeNameBase() {
+	return "Friend/follower lookup";
+}
+
+void twitcurlext_friendlookup::HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) {
+	genericGet(fl->GetTwitterURL());
+}
+
+/* * * * * * * * * * * * * * * */
+/*  twitcurlext_userlookupwin  */
+/* * * * * * * * * * * * * * * */
+
+std::unique_ptr<twitcurlext_userlookupwin> twitcurlext_userlookupwin::make_new(std::shared_ptr<taccount> acc,
+		twitcurlext_userlookupwin::LOOKUPMODE mode, std::string search_string) {
+	std::unique_ptr<twitcurlext_userlookupwin> twit(new twitcurlext_userlookupwin());
+	twit->TwInit(std::move(acc));
+	twit->mode = mode;
+	twit->search_string = search_string;
+	return std::move(twit);
+}
+
+void twitcurlext_userlookupwin::ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) {
+	jp.ProcessUserLookupWinResponse();
+}
+
+void twitcurlext_userlookupwin::HandleFailureHandler(const std::shared_ptr<taccount> &acc, twitcurlext::HandleFailureState &state) {
+	if(state.httpcode == 404) {
+		// No such user
+		wxString type;
+		switch(mode) {
+			case LOOKUPMODE::ID:
+				type = wxT("ID");
+				break;
+			case LOOKUPMODE::SCREENNAME:
+				type = wxT("screen name");
+				break;
+		}
+		::wxMessageBox(wxString::Format(wxT("Couldn't find user with %s: '%s'"), type.c_str(), wxstrstd(search_string).c_str()), wxT("No such user"), wxOK | wxICON_EXCLAMATION);
+	}
+	else {
+		// Otherwise display generic failure message box
+		state.msgbox = true;
 	}
 }
 
-void twitcurlext::RemoveFromRetryQueueNotify() {
-	auto acc = tacc.lock();
-	if(scto) {
-		LogMsgFormat(LOGT::SOCKTRACE, "twitcurlext::RemoveFromRetryQueueNotify: Re-arming stream connection timer: %s, conn ID: %d", acc ? cstr(acc->dispname) : "", id);
-		scto->Arm();
+std::string twitcurlext_userlookupwin::GetConnTypeNameBase() {
+	return "User lookup (user window)";
+}
+
+void twitcurlext_userlookupwin::HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) {
+	std::string url = "api.twitter.com/1.1/users/show.json";
+
+	switch(mode) {
+		case LOOKUPMODE::ID:
+			url += "?user_id=" + urlencode(search_string);
+			break;
+		case LOOKUPMODE::SCREENNAME:
+			url += "?screen_name=" + urlencode(search_string);
+			break;
+	}
+
+	genericGet(url);
+}
+
+/* * * * * * * * * * * * */
+/*  twitcurlext_simple   */
+/* * * * * * * * * * * * */
+
+std::unique_ptr<twitcurlext_simple> twitcurlext_simple::make_new(std::shared_ptr<taccount> acc, twitcurlext_simple::CONNTYPE type) {
+	std::unique_ptr<twitcurlext_simple> twit(new twitcurlext_simple());
+	twit->TwInit(std::move(acc));
+	twit->conntype = type;
+	return std::move(twit);
+}
+
+void twitcurlext_simple::ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) {
+	switch(conntype) {
+		case CONNTYPE::FRIENDACTION_FOLLOW:
+		case CONNTYPE::FRIENDACTION_UNFOLLOW:
+			jp.ProcessGenericFriendActionResponse();
+			break;
+		case CONNTYPE::RT:
+			jp.ProcessSingleTweetResponse();
+			break;
+		case CONNTYPE::FAV:
+			jp.ProcessSingleTweetResponse(JDTP::FAV);
+			break;
+		case CONNTYPE::UNFAV:
+			jp.ProcessSingleTweetResponse(JDTP::UNFAV);
+			break;
+		case CONNTYPE::DELETETWEET:
+			jp.ProcessSingleTweetResponse(JDTP::DEL);
+			break;
+		case CONNTYPE::DELETEDM:
+			jp.ProcessSingleTweetResponse(JDTP::ISDM | JDTP::DEL);
+			break;
+		case CONNTYPE::SINGLETWEET:
+			jp.ProcessSingleTweetResponse(JDTP::CHECKPENDINGONLY);
+			break;
+		case CONNTYPE::USERFOLLOWING:
+		case CONNTYPE::USERFOLLOWERS:
+		case CONNTYPE::OWNINCOMINGFOLLOWLISTING:
+		case CONNTYPE::OWNOUTGOINGFOLLOWLISTING: {
+			auto win = MagicWindowCast<tpanelparentwin_userproplisting>(mp);
+			if(win)
+				jp.ProcessGenericUserFollowListResponse(win);
+			break;
+		}
+		case CONNTYPE::OWNFOLLOWERLISTING:
+			jp.ProcessOwnFollowerListingResponse();
+			break;
+		case CONNTYPE::NONE:
+			assert(false);
+			break;
 	}
 }
 
-void StreamCallback(std::string &data, twitCurl *pTwitCurlObj, void *userdata) {
-	twitcurlext *obj = static_cast<twitcurlext*>(pTwitCurlObj);
-	std::shared_ptr<taccount> acc = obj->tacc.lock();
-	if(!acc) return;
-
-	if(acc->stream_fail_count) {
-		acc->stream_fail_count = 0;
-		acc->streaming_on = true;
-		acc->Exec();
+void twitcurlext_simple::HandleFailureHandler(const std::shared_ptr<taccount> &acc, twitcurlext::HandleFailureState &state) {
+	switch(conntype) {
+		case CONNTYPE::FRIENDACTION_FOLLOW:
+		case CONNTYPE::FRIENDACTION_UNFOLLOW:
+		case CONNTYPE::RT:
+		case CONNTYPE::FAV:
+		case CONNTYPE::UNFAV:
+		case CONNTYPE::DELETETWEET:
+		case CONNTYPE::DELETEDM:
+			state.msgbox = true;
+			break;
+		case CONNTYPE::NONE:
+			assert(false);
+			break;
+		default:
+			break;
 	}
-
-	// Retry now if flag set, else retry later
-	if(!obj->CheckRetryNowOnSuccessFlag())
-		sm.RetryConnLater();
-
-	LogMsgFormat(LOGT::SOCKTRACE, "StreamCallback: Received: %s, conn ID: %d", cstr(data), obj->id);
-	jsonparser jp(CS_STREAM, acc, obj);
-	jp.ParseString(data);
-	data.clear();
 }
 
-void StreamActivityCallback(twitCurl *pTwitCurlObj, void *userdata) {
-	twitcurlext *obj = static_cast<twitcurlext*>(pTwitCurlObj);
-	obj->scto->Arm();
-	LogMsgFormat(LOGT::SOCKTRACE, "Reset timeout on stream conn ID: %d", obj->id);
-	std::shared_ptr<taccount> acc = obj->tacc.lock();
-	if(acc) {
-		acc->CheckFailedPendingConns();
+std::string twitcurlext_simple::GetConnTypeNameBase() {
+	std::string name;
+	switch(conntype) {
+		case CONNTYPE::FRIENDACTION_FOLLOW: name = "Follow user"; break;
+		case CONNTYPE::FRIENDACTION_UNFOLLOW: name = "Unfollow user"; break;
+		case CONNTYPE::RT: name = "Retweeting"; break;
+		case CONNTYPE::FAV: name = "Favouriting tweet"; break;
+		case CONNTYPE::UNFAV: name = "Unfavouriting tweet"; break;
+		case CONNTYPE::DELETETWEET: name = "Deleting tweet"; break;
+		case CONNTYPE::DELETEDM: name = "Deleting DM"; break;
+		case CONNTYPE::USERFOLLOWING: name = "Retrieving following list"; break;
+		case CONNTYPE::USERFOLLOWERS: name = "Retrieving followers list"; break;
+		case CONNTYPE::OWNINCOMINGFOLLOWLISTING: name = "Retrieving incoming follower request list"; break;
+		case CONNTYPE::OWNOUTGOINGFOLLOWLISTING: name = "Retrieving outgoing following request list"; break;
+		case CONNTYPE::SINGLETWEET: name = "Retrieving single tweet"; break;
+		case CONNTYPE::OWNFOLLOWERLISTING: name = "Retrieving own followers listing"; break;
+		case CONNTYPE::NONE: assert(false); break;
+	}
+	return name;
+}
+
+void twitcurlext_simple::HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) {
+	switch(conntype) {
+		case CONNTYPE::FRIENDACTION_FOLLOW:
+			friendshipCreate(std::to_string(extra_id), true);
+			break;
+		case CONNTYPE::FRIENDACTION_UNFOLLOW:
+			friendshipDestroy(std::to_string(extra_id), true);
+			break;
+		case CONNTYPE::RT:
+			statusReTweet(std::to_string(extra_id), 1);
+			break;
+		case CONNTYPE::FAV:
+			favoriteCreate(std::to_string(extra_id));
+			break;
+		case CONNTYPE::UNFAV:
+			favoriteDestroy(std::to_string(extra_id));
+			break;
+		case CONNTYPE::DELETETWEET:
+			statusDestroyById(std::to_string(extra_id));
+			break;
+		case CONNTYPE::DELETEDM:
+			directMessageDestroyById(std::to_string(extra_id));
+			break;
+		case CONNTYPE::USERFOLLOWING:
+			friendsIdsGet(std::to_string(extra_id), true);
+			break;
+		case CONNTYPE::USERFOLLOWERS:
+			followersIdsGet(std::to_string(extra_id), true);
+			break;
+		case CONNTYPE::SINGLETWEET:
+			statusShowById(std::to_string(extra_id));
+			break;
+		case CONNTYPE::OWNFOLLOWERLISTING:
+			followersIdsGet(std::to_string(acc->usercont->id), true);
+			break;
+		case CONNTYPE::OWNINCOMINGFOLLOWLISTING:
+			followersIncomingIdsGet();
+			break;
+		case CONNTYPE::OWNOUTGOINGFOLLOWLISTING:
+			friendsOutgoingIdsGet();
+			break;
+		case CONNTYPE::NONE:
+			assert(false);
+			break;
 	}
 }

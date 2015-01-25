@@ -239,7 +239,7 @@ struct tpanelparentwin_userproplisting_impl : public tpanelparentwin_user_impl {
 	bool havestarted;
 	bool failed = false;
 	bool inprogress = false;
-	CS_ENUMTYPE type;
+	tpanelparentwin_userproplisting::TYPE type;
 
 	virtual void Init();
 	virtual size_t ItemCount() override { return useridlist.size(); }

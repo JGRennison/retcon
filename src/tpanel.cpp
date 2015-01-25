@@ -1865,9 +1865,9 @@ void tpanelparentwin_usertweets_impl::LoadMore(unsigned int n, uint64_t lessthan
 		else {
 			if(tp->tweetlist.begin() != tp->tweetlist.end()) lower_id = *(tp->tweetlist.begin());
 		}
-		tac->SetGetTwitCurlExtHook([&](observer_ptr<twitcurlext> tce) { tce->mp = base(); });
+		tac->SetNewTwitCurlExtHook([&](observer_ptr<twitcurlext> tce) { tce->mp = base(); });
 		tac->StartRestGetTweetBackfill(lower_id /*lower limit, exclusive*/, upper_id /*upper limit, inclusive*/, numleft, type, user->id);
-		tac->ClearGetTwitCurlExtHook();
+		tac->ClearNewTwitCurlExtHook();
 	}
 
 	CheckClearNoUpdateFlag();
@@ -1922,7 +1922,7 @@ tpanelparentwin_userproplisting_impl *tpanelparentwin_userproplisting::pimpl() {
 }
 
 tpanelparentwin_userproplisting::tpanelparentwin_userproplisting(udc_ptr_p user_, wxWindow *parent,
-		std::function<std::shared_ptr<taccount>(tpanelparentwin_userproplisting &)> getacc_, CS_ENUMTYPE type_, wxString thisname_,
+		std::function<std::shared_ptr<taccount>(tpanelparentwin_userproplisting &)> getacc_, tpanelparentwin_userproplisting::TYPE type_, wxString thisname_,
 		tpanelparentwin_userproplisting_impl *privimpl)
 		: tpanelparentwin_user(parent, thisname_.empty() ? wxString::Format(wxT("tpanelparentwin_userproplisting for: %" wxLongLongFmtSpec "d"), user_->id) : thisname_,
 		privimpl ? privimpl : new tpanelparentwin_userproplisting_impl(this)) {
@@ -1937,8 +1937,25 @@ tpanelparentwin_userproplisting::~tpanelparentwin_userproplisting() { }
 void tpanelparentwin_userproplisting_impl::Init() {
 	std::shared_ptr<taccount> tac = getacc(*base());
 	if(tac) {
-		std::unique_ptr<twitcurlext> twit = tac->GetTwitCurlExt();
-		twit->connmode = type;
+		twitcurlext_simple::CONNTYPE conntype = twitcurlext_simple::CONNTYPE::NONE;
+		switch(type) {
+			case tpanelparentwin_userproplisting::TYPE::USERFOLLOWING:
+				conntype = twitcurlext_simple::CONNTYPE::USERFOLLOWING;
+				break;
+			case tpanelparentwin_userproplisting::TYPE::USERFOLLOWERS:
+				conntype = twitcurlext_simple::CONNTYPE::USERFOLLOWERS;
+				break;
+			case tpanelparentwin_userproplisting::TYPE::OWNINCOMINGFOLLOWLISTING:
+				conntype = twitcurlext_simple::CONNTYPE::OWNINCOMINGFOLLOWLISTING;
+				break;
+			case tpanelparentwin_userproplisting::TYPE::OWNOUTGOINGFOLLOWLISTING:
+				conntype = twitcurlext_simple::CONNTYPE::OWNOUTGOINGFOLLOWLISTING;
+				break;
+			case tpanelparentwin_userproplisting::TYPE::NONE:
+				assert(false);
+				break;
+		}
+		std::unique_ptr<twitcurlext_simple> twit = twitcurlext_simple::make_new(tac, conntype);
 		twit->extra_id = user->id;
 		twit->mp = base();
 		twitcurlext::QueueAsyncExec(std::move(twit));
@@ -1960,19 +1977,21 @@ void tpanelparentwin_userproplisting_impl::UpdateCLabel() {
 	size_t curnum = currentdisp.size();
 	size_t varmax = 0;
 	wxString emptymsg;
+
+	using TYPE = tpanelparentwin_userproplisting::TYPE;
 	switch(type) {
-		case CS_USERFOLLOWING:
+		case TYPE::USERFOLLOWING:
 			varmax = user->GetUser().friends_count;
 			emptymsg = wxT("No Friends");
 			break;
-		case CS_USERFOLLOWERS:
+		case TYPE::USERFOLLOWERS:
 			varmax = user->GetUser().followers_count;
 			emptymsg = wxT("No Followers");
 			break;
-		case CS_OWNINCOMINGFOLLOWLISTING:
+		case TYPE::OWNINCOMINGFOLLOWLISTING:
 			emptymsg = wxT("No incoming Follower requests");
 			break;
-		case CS_OWNOUTGOINGFOLLOWLISTING:
+		case TYPE::OWNOUTGOINGFOLLOWLISTING:
 			emptymsg = wxT("No outgoing Friend requests");
 			break;
 		default:

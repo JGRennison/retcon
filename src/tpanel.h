@@ -153,9 +153,17 @@ struct tpanelparentwin_userproplisting_impl;
 struct tpanelparentwin_userproplisting : public tpanelparentwin_user {
 	tpanelparentwin_userproplisting_impl *pimpl();
 
+	enum class TYPE {
+		NONE,
+		USERFOLLOWING,
+		USERFOLLOWERS,
+		OWNINCOMINGFOLLOWLISTING,
+		OWNOUTGOINGFOLLOWLISTING,
+	};
+
 	tpanelparentwin_userproplisting(udc_ptr_p user_, wxWindow *parent,
 			std::function<std::shared_ptr<taccount>(tpanelparentwin_userproplisting &)> getacc,
-			CS_ENUMTYPE type_, wxString thisname_ = wxT(""), tpanelparentwin_userproplisting_impl *privimpl = nullptr);
+			TYPE type_, wxString thisname_ = wxT(""), tpanelparentwin_userproplisting_impl *privimpl = nullptr);
 	~tpanelparentwin_userproplisting();
 	virtual void NotifyRequestFailed() override;
 	void PushUserIDToBack(uint64_t id);

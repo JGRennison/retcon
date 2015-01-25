@@ -183,7 +183,7 @@ void acc_window::AccNew(wxCommandEvent &event) {
 		else if(answer == wxCANCEL) return;
 	}
 
-	std::unique_ptr<twitcurlext> twit = ta->GetTwitCurlExt();
+	std::unique_ptr<twitcurlext_accverify> twit = twitcurlext_accverify::make_new(ta);
 	if(ta->TwDoOAuth(this, *twit)) {
 		if(twit->TwSyncStartupAccVerify()) {
 			ta->userenabled = true;
@@ -221,7 +221,7 @@ void acc_window::ReAuth(wxCommandEvent &event) {
 	taccount *acc = static_cast<taccount *>(lb->GetClientData(sel));
 	acc->enabled = 0;
 	acc->Exec();
-	std::unique_ptr<twitcurlext> twit = acc->GetTwitCurlExt();
+	std::unique_ptr<twitcurlext_accverify> twit = twitcurlext_accverify::make_new(acc->shared_from_this());
 	twit->getOAuth().setOAuthTokenKey("");		//remove existing oauth tokens
 	twit->getOAuth().setOAuthTokenSecret("");
 	if(acc->TwDoOAuth(this, *twit)) {

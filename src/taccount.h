@@ -176,9 +176,10 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 	std::unique_ptr<twitcurlext> PrepareNewStreamConn();
 	wxString GetStatusString(bool notextifok = false);
 	taccount(genoptconf *incfg = nullptr);
-	std::unique_ptr<twitcurlext> GetTwitCurlExt();
-	void SetGetTwitCurlExtHook(std::function<void(observer_ptr<twitcurlext>)> func);
-	void ClearGetTwitCurlExtHook();
+
+	void ApplyNewTwitCurlExtHook(observer_ptr<twitcurlext> tce);
+	void SetNewTwitCurlExtHook(std::function<void(observer_ptr<twitcurlext>)> func);
+	void ClearNewTwitCurlExtHook();
 
 	void OnNoAccPendingContentTimer(wxTimerEvent& event);
 	void NoAccPendingContentEvent();

@@ -921,8 +921,7 @@ bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> ac
 bool CheckLoadSingleTweet(tweet_ptr_p t, std::shared_ptr<taccount> &acc_hint) {
 	if(t->GetUsableAccount(acc_hint, tweet::GUAF::CHECKEXISTING)) {
 		t->lflags |= TLF::BEINGLOADEDOVERNET;
-		std::unique_ptr<twitcurlext> twit = acc_hint->GetTwitCurlExt();
-		twit->connmode = CS_SINGLETWEET;
+		std::unique_ptr<twitcurlext_simple> twit = twitcurlext_simple::make_new(acc_hint, twitcurlext_simple::CONNTYPE::SINGLETWEET);
 		twit->extra_id = t->id;
 		twitcurlext::QueueAsyncExec(std::move(twit));
 		return true;

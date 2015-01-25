@@ -216,16 +216,13 @@ void mainframe::OnLookupUser(wxCommandEvent &event) {
 	user_lookup_dlg uld(this, &type, &value, acctouse);
 	int res = uld.ShowModal();
 	if(res == wxID_OK && acctouse && type >= 0 && type <= 1) {
-		std::unique_ptr<twitcurlext> twit = acctouse->GetTwitCurlExt();
-		twit->connmode = CS_USERLOOKUPWIN;
-		twit->extra1 = std::string(value.ToUTF8());
-		twit->genurl = "api.twitter.com/1.1/users/show.json";
+		std::string search_string = std::string(value.ToUTF8());
+		std::unique_ptr<twitcurlext_userlookupwin> twit = twitcurlext_userlookupwin::make_new(acctouse,
+				type == 1 ? twitcurlext_userlookupwin::LOOKUPMODE::ID : twitcurlext_userlookupwin::LOOKUPMODE::SCREENNAME, search_string);
 
-		if(type == 0) twit->genurl += "?screen_name=" + urlencode(twit->extra1);
-		else if(type == 1) {
-			twit->genurl += "?user_id=" + urlencode(twit->extra1);
+		if(type == 1) {
 			uint64_t id = 0;
-			if(ownstrtonum(id, twit->extra1.data(), twit->extra1.size())) {
+			if(ownstrtonum(id, search_string.data(), search_string.size())) {
 				udc_ptr u = ad.GetExistingUserContainerById(id);
 				if(u && !u->GetUser().screen_name.empty()) {
 					user_window::MkWin(u->id, acctouse);
@@ -464,18 +461,22 @@ void tweetpostwin::OnSendBtn(wxCommandEvent &event) {
 		}
 		currently_posting = true;
 		OnTCChange();
-		std::unique_ptr<twitcurlext> twit = curacc->GetTwitCurlExt();
-		twit->extra1 = curtext;
+
+		std::unique_ptr<twitcurlext_postcontent> twit;
 		if(dm_targ) {
-			twit->connmode = CS_SENDDM;
-			twit->extra_id = dm_targ->id;
+			twit = twitcurlext_postcontent::make_new(curacc, twitcurlext_postcontent::CONNTYPE::SENDDM);
+			twit->dmtarg_id = dm_targ->id;
 		}
 		else {
-			twit->connmode = CS_POSTTWEET;
-			twit->extra_id = (tweet_reply_targ) ? tweet_reply_targ->id : 0;
-			if(!image_upload_filename.empty()) twit->extra_array.push_back(image_upload_filename);
+			twit = twitcurlext_postcontent::make_new(curacc, twitcurlext_postcontent::CONNTYPE::POSTTWEET);
+			if(tweet_reply_targ)
+				twit->replyto_id = tweet_reply_targ->id;
+			if(!image_upload_filename.empty())
+				twit->image_file_names.push_back(image_upload_filename);
 		}
+		twit->text = curtext;
 		twit->ownermainframe = mparentwin;
+
 		twitcurlext::QueueAsyncExec(std::move(twit));
 	}
 }

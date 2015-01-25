@@ -473,22 +473,28 @@ void genjsonparser::ParseUserContents(const rapidjson::Value &val, userdata &use
 	if(changed) userobj.revision_number++;
 }
 
-jsonparser::jsonparser(CS_ENUMTYPE t, std::shared_ptr<taccount> a, optional_observer_ptr<twitcurlext> tw)
-		: tac(a), type(t), twit(tw) { }
+jsonparser::jsonparser(std::shared_ptr<taccount> a, optional_observer_ptr<twitcurlext> tw)
+		: tac(a), twit(tw) { }
 
-jsonparser::~jsonparser() { }
+jsonparser::~jsonparser() {
+	if(dbmsglist && !dbmsglist->msglist.empty())
+		DBC_SendMessage(std::move(dbmsglist));
+}
 
-void jsonparser::RestTweetUpdateParams(const tweet &t) {
-	if(twit && twit->rbfs) {
-		if(twit->rbfs->max_tweets_left) twit->rbfs->max_tweets_left--;
-		if(!twit->rbfs->end_tweet_id || twit->rbfs->end_tweet_id>=t.id) twit->rbfs->end_tweet_id = t.id - 1;
-		twit->rbfs->read_again = true;
-		twit->rbfs->lastop_recvcount++;
+void jsonparser::RestTweetUpdateParams(const tweet &t, optional_observer_ptr<restbackfillstate> rbfs) {
+	if(rbfs) {
+		if(rbfs->max_tweets_left)
+			rbfs->max_tweets_left--;
+		if(!rbfs->end_tweet_id || rbfs->end_tweet_id >= t.id)
+			rbfs->end_tweet_id = t.id - 1;
+		rbfs->read_again = true;
+		rbfs->lastop_recvcount++;
 	}
 }
 
-void jsonparser::RestTweetPreParseUpdateParams() {
-	if(twit && twit->rbfs) twit->rbfs->read_again = false;
+void jsonparser::RestTweetPreParseUpdateParams(optional_observer_ptr<restbackfillstate> rbfs) {
+	if(rbfs)
+		rbfs->read_again = false;
 }
 
 void jsonparser::DoFriendLookupParse(const rapidjson::Value &val) {
@@ -517,239 +523,187 @@ void jsonparser::DoFriendLookupParse(const rapidjson::Value &val) {
 	}
 }
 
-bool jsonparser::ParseString(const char *str, size_t len) {
+bool jsonparser::ParseString(std::string str) {
 	data = std::make_shared<parse_data>();
-	data->json.assign(str, str + len);
+	data->json.assign(str.begin(), str.end());
 	data->json.push_back(0);
+	data->source_str = std::move(str);
 	rapidjson::Document &dc = data->doc;
-
-	/* Save RBFS values which we might want to use
-	 * This is because if we later need do a deferred parse, twit and hence twit->rbfs will be long since out of scope
-	 */
-	if(twit && twit->rbfs) {
-		data->rbfs_userid = twit->rbfs->userid;
-		data->rbfs_type = twit->rbfs->type;
-	}
-
-	if(twit && twit->tc_flags & twitcurlext::TCF::ALWAYSREPARSE) {
-		data->base_sflags |= JDTP::ALWAYSREPARSE;
-	}
 
 	if(dc.ParseInsitu<0>(data->json.data()).HasParseError()) {
 		DisplayParseErrorMsg(dc, "jsonparser::ParseString", data->json.data());
 		return false;
 	}
 
-	if(twit && twit->ownermainframe && std::find(mainframelist.begin(), mainframelist.end(), twit->ownermainframe.get()) == mainframelist.end()) twit->ownermainframe = nullptr;
-
-	switch(type) {
-		case CS_ACCVERIFY: {
-			udc_ptr auser = DoUserParse(dc);
-			for(auto &it : alist) {
-				if(it == tac) continue;
-				if(auser->id == it->usercont->id) {
-					wxString message = wxString::Format(wxT("Error, attempted to assign more than one account to the same twitter account: %s, @%s, id: %" wxLongLongFmtSpec "d.\n"
-							"This account will be disabled, or not created. Re-authenticate or delete the offending account(s)."),
-						wxstrstd(auser->GetUser().name).c_str(), wxstrstd(auser->GetUser().screen_name).c_str(), auser->id);
-					LogMsg(LOGT::OTHERERR, stdstrwx(message));
-					wxMessageBox(message, wxT("Authentication Error"), wxOK | wxICON_ERROR);
-					tac->userenabled = false;
-					return false;
-				}
-			}
-
-			if(tac->usercont && tac->usercont->id && tac->usercont->id != auser->id) {
-				wxString message = wxString::Format(wxT("Error, attempted to re-assign account to a different twitter account.\n"
-						"Attempted to assign to: %s, @%s, id: %" wxLongLongFmtSpec "d\nInstead of: %s, @%s, id: %" wxLongLongFmtSpec "d\n"
-						"This account will be disabled. Re-authenticate the account to the correct twitter account."),
-					wxstrstd(auser->GetUser().name).c_str(), wxstrstd(auser->GetUser().screen_name).c_str(), auser->id,
-					wxstrstd(tac->usercont->GetUser().name).c_str(), wxstrstd(tac->usercont->GetUser().screen_name).c_str(), tac->usercont->id);
-				LogMsg(LOGT::OTHERERR, stdstrwx(message));
-				wxMessageBox(message, wxT("Authentication Error"), wxOK | wxICON_ERROR);
-				tac->userenabled = false;
-				return false;
-			}
-
-			tac->usercont = auser;
-			tac->usercont->udc_flags |= UDC::THIS_IS_ACC_USER_HINT | UDC::NON_PURGABLE;
-			tac->SetName();
-			tac->PostAccVerifyInit();
-			break;
-		}
-		case CS_USERLIST:
-			if(dc.IsArray()) {
-				dbmsglist.reset(new dbsendmsg_list());
-				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) DoUserParse(dc[i], UMPTF::TPDB_NOUPDF | UMPTF::RMV_LKPINPRGFLG);
-				CheckClearNoUpdateFlag_All();
-			}
-			else DoUserParse(dc);
-			break;
-		case CS_TIMELINE:
-			RestTweetPreParseUpdateParams();
-			if(dc.IsArray()) {
-				dbmsglist.reset(new dbsendmsg_list());
-				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) RestTweetUpdateParams(*DoTweetParse(dc[i]));
-			}
-			else RestTweetUpdateParams(*DoTweetParse(dc));
-			break;
-		case CS_DMTIMELINE:
-			RestTweetPreParseUpdateParams();
-			if(dc.IsArray()) {
-				dbmsglist.reset(new dbsendmsg_list());
-				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) RestTweetUpdateParams(*DoTweetParse(dc[i], JDTP::ISDM));
-			}
-			else RestTweetUpdateParams(*DoTweetParse(dc, JDTP::ISDM));
-			break;
-		case CS_STREAM: {
-			const rapidjson::Value &fval = dc["friends"];
-			const rapidjson::Value &eval = dc["event"];
-			const rapidjson::Value &ival = dc["id"];
-			const rapidjson::Value &tval = dc["text"];
-			const rapidjson::Value &dmval = dc["direct_message"];
-			const rapidjson::Value &delval = dc["delete"];
-			if(fval.IsArray()) {
-				tac->ta_flags |= taccount::TAF::STREAM_UP;
-				tac->last_stream_start_time = time(nullptr);
-
-				std::vector<uint64_t> following;
-				following.reserve(fval.Size());
-				for(rapidjson::SizeType i = 0; i < fval.Size(); i++) {
-					following.push_back(fval[i].GetUint64());
-				}
-				tac->HandleUserIFollowList(std::move(following), true);
-
-				if(twit && (twit->post_action_flags & PAF::STREAM_CONN_READ_BACKFILL)) {
-					tac->GetRestBackfill();
-				}
-				user_window::RefreshAllFollow();
-				tac->GetUsersFollowingMeList();
-			}
-			else if(eval.IsString()) {
-				DoEventParse(dc);
-			}
-			else if(dmval.IsObject()) {
-				DoTweetParse(dmval, JDTP::ISDM);
-			}
-			else if(delval.IsObject() && delval["status"].IsObject()) {
-				DoTweetParse(delval["status"], JDTP::DEL);
-			}
-			else if(ival.IsNumber() && tval.IsString() && dc["recipient"].IsObject() && dc["sender"].IsObject()) {    //assume this is a direct message
-				DoTweetParse(dc, JDTP::ISDM);
-			}
-			else if(ival.IsNumber() && tval.IsString() && dc["user"].IsObject()) {    //assume that this is a tweet
-				if(DoStreamTweetPreFilter(dc)) {
-					DoTweetParse(dc);
-				}
-			}
-			else {
-				LogMsgFormat(LOGT::PARSEERR, "Stream Event Parser: Can't identify event: %s", cstr(std::string(str, len)));
-			}
-			break;
-		}
-		case CS_FRIENDLOOKUP:
-			DoFriendLookupParse(dc);
-			user_window::RefreshAllFollow();
-			break;
-		case CS_USERLOOKUPWIN:
-			user_window::MkWin(DoUserParse(dc)->id, tac);
-			break;
-		case CS_FRIENDACTION_FOLLOW:
-		case CS_FRIENDACTION_UNFOLLOW: {
-			udc_ptr u = DoUserParse(dc);
-			u->udc_flags &= ~UDC::FRIENDACT_IN_PROGRESS;
-			tac->LookupFriendships(u->id);
-			break;
-		}
-		case CS_POSTTWEET: {
-			DoTweetParse(dc);
-			if(twit && twit->ownermainframe && twit->ownermainframe->tpw) twit->ownermainframe->tpw->NotifyPostResult(true);
-			break;
-		}
-		case CS_SENDDM: {
-			DoTweetParse(dc, JDTP::ISDM);
-			if(twit && twit->ownermainframe && twit->ownermainframe->tpw) twit->ownermainframe->tpw->NotifyPostResult(true);
-			break;
-		}
-		case CS_RT: {
-			DoTweetParse(dc);
-			break;
-		}
-		case CS_FAV: {
-			DoTweetParse(dc, JDTP::FAV);
-			break;
-		}
-		case CS_UNFAV: {
-			DoTweetParse(dc, JDTP::UNFAV);
-			break;
-		}
-		case CS_DELETETWEET: {
-			DoTweetParse(dc, JDTP::DEL);
-			break;
-		}
-		case CS_DELETEDM: {
-			DoTweetParse(dc, JDTP::ISDM | JDTP::DEL);
-			break;
-		}
-		case CS_USERTIMELINE:
-		case CS_USERFAVS: {
-			auto win = MagicWindowCast<tpanelparentwin_usertweets>(twit->mp);
-			if(win) {
-				win->NotifyRequestSuccess();
-			}
-			RestTweetPreParseUpdateParams();
-			if(dc.IsArray()) {
-				for(rapidjson::SizeType i = 0; i < dc.Size(); i++) DoTweetParse(dc[i], JDTP::USERTIMELINE);
-			}
-			else DoTweetParse(dc, JDTP::USERTIMELINE);
-			CheckClearNoUpdateFlag_All();
-			break;
-		}
-		case CS_USERFOLLOWING:
-		case CS_USERFOLLOWERS:
-		case CS_OWNINCOMINGFOLLOWLISTING:
-		case CS_OWNOUTGOINGFOLLOWLISTING: {
-			auto win = MagicWindowCast<tpanelparentwin_userproplisting>(twit->mp);
-			if(win) {
-				if(dc.IsObject()) {
-					auto &dci = dc["ids"];
-					if(dci.IsArray()) {
-						for(rapidjson::SizeType i = 0; i < dci.Size(); i++) win->PushUserIDToBack(dci[i].GetUint64());
-					}
-				}
-				win->LoadMoreToBack(gc.maxtweetsdisplayinpanel);
-			}
-			break;
-		}
-		case CS_SINGLETWEET: {
-			DoTweetParse(dc, JDTP::CHECKPENDINGONLY);
-			break;
-		}
-		case CS_OWNFOLLOWERLISTING: {
-			if(!dc.IsObject()) {
-				break;
-			}
-			auto &dci = dc["ids"];
-			if(!dci.IsArray()) {
-				break;
-			}
-			std::vector<uint64_t> followers;
-			followers.reserve(dci.Size());
-			for(rapidjson::SizeType i = 0; i < dci.Size(); i++) {
-				followers.push_back(dci[i].GetUint64());
-			}
-			int64_t nextcursor = CheckGetJsonValueDef<int64_t>(dc, "next_cursor", -1);
-
-			tac->HandleUsersFollowingMeList(std::move(followers), nextcursor == 0); // listing is complete if next cursor is 0, otherwise there are more pages
-			break;
-		}
-		case CS_NULL:
-			break;
-	}
-	if(dbmsglist) {
-		if(!dbmsglist->msglist.empty()) DBC_SendMessage(std::move(dbmsglist));
-		else dbmsglist.reset();
-	}
 	return true;
+}
+
+void jsonparser::ProcessTimelineResponse(flagwrapper<JDTP> sflags, optional_observer_ptr<restbackfillstate> rbfs) {
+	const rapidjson::Document &dc = data->doc;
+	RestTweetPreParseUpdateParams(rbfs);
+	if(dc.IsArray()) {
+		dbmsglist.reset(new dbsendmsg_list());
+		for(rapidjson::SizeType i = 0; i < dc.Size(); i++)
+			RestTweetUpdateParams(*DoTweetParse(dc[i], sflags), rbfs);
+	}
+	else
+		RestTweetUpdateParams(*DoTweetParse(dc, sflags), rbfs);
+}
+
+void jsonparser::ProcessUserTimelineResponse(optional_observer_ptr<restbackfillstate> rbfs) {
+	const rapidjson::Document &dc = data->doc;
+	RestTweetPreParseUpdateParams(rbfs);
+	if(dc.IsArray()) {
+		for(rapidjson::SizeType i = 0; i < dc.Size(); i++)
+			DoTweetParse(dc[i], JDTP::USERTIMELINE);
+	}
+	else
+		DoTweetParse(dc, JDTP::USERTIMELINE);
+	CheckClearNoUpdateFlag_All();
+}
+
+void jsonparser::ProcessStreamResponse() {
+	const rapidjson::Document &dc = data->doc;
+	const rapidjson::Value &fval = dc["friends"];
+	const rapidjson::Value &eval = dc["event"];
+	const rapidjson::Value &ival = dc["id"];
+	const rapidjson::Value &tval = dc["text"];
+	const rapidjson::Value &dmval = dc["direct_message"];
+	const rapidjson::Value &delval = dc["delete"];
+	if(fval.IsArray()) {
+		tac->ta_flags |= taccount::TAF::STREAM_UP;
+		tac->last_stream_start_time = time(nullptr);
+
+		std::vector<uint64_t> following;
+		following.reserve(fval.Size());
+		for(rapidjson::SizeType i = 0; i < fval.Size(); i++) {
+			following.push_back(fval[i].GetUint64());
+		}
+		tac->HandleUserIFollowList(std::move(following), true);
+
+		if(twit && (twit->post_action_flags & PAF::STREAM_CONN_READ_BACKFILL)) {
+			tac->GetRestBackfill();
+		}
+		user_window::RefreshAllFollow();
+		tac->GetUsersFollowingMeList();
+	}
+	else if(eval.IsString()) {
+		DoEventParse(dc);
+	}
+	else if(dmval.IsObject()) {
+		DoTweetParse(dmval, JDTP::ISDM);
+	}
+	else if(delval.IsObject() && delval["status"].IsObject()) {
+		DoTweetParse(delval["status"], JDTP::DEL);
+	}
+	else if(ival.IsNumber() && tval.IsString() && dc["recipient"].IsObject() && dc["sender"].IsObject()) {    //assume this is a direct message
+		DoTweetParse(dc, JDTP::ISDM);
+	}
+	else if(ival.IsNumber() && tval.IsString() && dc["user"].IsObject()) {    //assume that this is a tweet
+		if(DoStreamTweetPreFilter(dc)) {
+			DoTweetParse(dc);
+		}
+	}
+	else {
+		LogMsgFormat(LOGT::PARSEERR, "Stream Event Parser: Can't identify event: %s", cstr(data->source_str));
+	}
+}
+
+void jsonparser::ProcessSingleTweetResponse(flagwrapper<JDTP> sflags) {
+	DoTweetParse(data->doc, sflags);
+}
+
+void jsonparser::ProcessAccVerifyResponse() {
+	udc_ptr auser = DoUserParse(data->doc);
+	for(auto &it : alist) {
+		if(it == tac) continue;
+		if(auser->id == it->usercont->id) {
+			wxString message = wxString::Format(wxT("Error, attempted to assign more than one account to the same twitter account: %s, @%s, id: %" wxLongLongFmtSpec "d.\n"
+					"This account will be disabled, or not created. Re-authenticate or delete the offending account(s)."),
+				wxstrstd(auser->GetUser().name).c_str(), wxstrstd(auser->GetUser().screen_name).c_str(), auser->id);
+			LogMsg(LOGT::OTHERERR, stdstrwx(message));
+			wxMessageBox(message, wxT("Authentication Error"), wxOK | wxICON_ERROR);
+			tac->userenabled = false;
+			return;
+		}
+	}
+
+	if(tac->usercont && tac->usercont->id && tac->usercont->id != auser->id) {
+		wxString message = wxString::Format(wxT("Error, attempted to re-assign account to a different twitter account.\n"
+				"Attempted to assign to: %s, @%s, id: %" wxLongLongFmtSpec "d\nInstead of: %s, @%s, id: %" wxLongLongFmtSpec "d\n"
+				"This account will be disabled. Re-authenticate the account to the correct twitter account."),
+			wxstrstd(auser->GetUser().name).c_str(), wxstrstd(auser->GetUser().screen_name).c_str(), auser->id,
+			wxstrstd(tac->usercont->GetUser().name).c_str(), wxstrstd(tac->usercont->GetUser().screen_name).c_str(), tac->usercont->id);
+		LogMsg(LOGT::OTHERERR, stdstrwx(message));
+		wxMessageBox(message, wxT("Authentication Error"), wxOK | wxICON_ERROR);
+		tac->userenabled = false;
+		return;
+	}
+
+	tac->usercont = auser;
+	tac->usercont->udc_flags |= UDC::THIS_IS_ACC_USER_HINT | UDC::NON_PURGABLE;
+	tac->SetName();
+	tac->PostAccVerifyInit();
+}
+
+void jsonparser::ProcessUserListResponse() {
+	const rapidjson::Document &dc = data->doc;
+	if(dc.IsArray()) {
+		dbmsglist.reset(new dbsendmsg_list());
+		for(rapidjson::SizeType i = 0; i < dc.Size(); i++)
+			DoUserParse(dc[i], UMPTF::TPDB_NOUPDF | UMPTF::RMV_LKPINPRGFLG);
+		CheckClearNoUpdateFlag_All();
+	}
+	else DoUserParse(dc);
+}
+
+void jsonparser::ProcessFriendLookupResponse() {
+	DoFriendLookupParse(data->doc);
+	user_window::RefreshAllFollow();
+}
+
+void jsonparser::ProcessUserLookupWinResponse() {
+	user_window::MkWin(DoUserParse(data->doc)->id, tac);
+}
+
+void jsonparser::ProcessGenericFriendActionResponse() {
+	udc_ptr u = DoUserParse(data->doc);
+	u->udc_flags &= ~UDC::FRIENDACT_IN_PROGRESS;
+	tac->LookupFriendships(u->id);
+}
+
+void jsonparser::ProcessGenericUserFollowListResponse(observer_ptr<tpanelparentwin_userproplisting> win) {
+	if(!win)
+		return;
+
+	const rapidjson::Document &dc = data->doc;
+	if(dc.IsObject()) {
+		auto &dci = dc["ids"];
+		if(dci.IsArray()) {
+			for(rapidjson::SizeType i = 0; i < dci.Size(); i++)
+				win->PushUserIDToBack(dci[i].GetUint64());
+		}
+	}
+	win->LoadMoreToBack(gc.maxtweetsdisplayinpanel);
+}
+
+void jsonparser::ProcessOwnFollowerListingResponse() {
+	const rapidjson::Document &dc = data->doc;
+
+	if(!dc.IsObject())
+		return;
+	auto &dci = dc["ids"];
+	if(!dci.IsArray())
+		return;
+
+	std::vector<uint64_t> followers;
+	followers.reserve(dci.Size());
+	for(rapidjson::SizeType i = 0; i < dci.Size(); i++) {
+		followers.push_back(dci[i].GetUint64());
+	}
+	int64_t nextcursor = CheckGetJsonValueDef<int64_t>(dc, "next_cursor", -1);
+
+	tac->HandleUsersFollowingMeList(std::move(followers), nextcursor == 0); // listing is complete if next cursor is 0, otherwise there are more pages
 }
 
 //don't use this for perspectival attributes
@@ -772,7 +726,6 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> 
 		msg->id_set.insert(id);
 
 		struct funcdata {
-			CS_ENUMTYPE type;
 			udc_ptr udc;
 			std::weak_ptr<taccount> acc;
 			std::shared_ptr<jsonparser::parse_data> jp_data;
@@ -780,7 +733,6 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> 
 			flagwrapper<UMPTF> umpt_flags;
 		};
 		std::shared_ptr<funcdata> pdata = std::make_shared<funcdata>();
-		pdata->type = type;
 		pdata->udc = userdatacont;
 		pdata->acc = tac;
 		pdata->jp_data = this->data;
@@ -796,8 +748,8 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> 
 
 			std::shared_ptr<taccount> acc = pdata->acc.lock();
 			if(acc) {
-				jsonparser jp(pdata->type, acc);
-				jp.data = pdata->jp_data;
+				jsonparser jp(acc);
+				jp.SetData(pdata->jp_data);
 				jp.DoUserParse(*(pdata->val), pdata->umpt_flags);
 			}
 			else {
@@ -976,7 +928,6 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 		msg->id_set.insert(tweetid);
 
 		struct funcdata {
-			CS_ENUMTYPE type;
 			std::weak_ptr<taccount> acc;
 			std::shared_ptr<jsonparser::parse_data> jp_data;
 			const rapidjson::Value *val;
@@ -984,7 +935,6 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 			uint64_t tweetid;
 		};
 		std::shared_ptr<funcdata> pdata = std::make_shared<funcdata>();
-		pdata->type = type;
 		pdata->acc = tac;
 		pdata->jp_data = this->data;
 		pdata->val = &val;
@@ -1000,8 +950,8 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 
 			std::shared_ptr<taccount> acc = pdata->acc.lock();
 			if(acc) {
-				jsonparser jp(pdata->type, acc);
-				jp.data = pdata->jp_data;
+				jsonparser jp(acc);
+				jp.SetData(pdata->jp_data);
 				jp.DoTweetParse(*(pdata->val), pdata->sflags | JDTP::POSTDBLOAD);
 			}
 			else {

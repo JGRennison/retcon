@@ -246,16 +246,38 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 		}
 	}
 
-	CS_ENUMTYPE type = CS_NULL;
+	using STYPE = twitcurlext_simple::CONNTYPE;
+	auto simple_action = [&](STYPE type) {
+		if(acc && *acc) {
+			std::unique_ptr<twitcurlext_simple> twit = twitcurlext_simple::make_new(*acc, type);
+			twit->extra_id = map[curid].tw->id;
+			twitcurlext::QueueAsyncExec(std::move(twit));
+		}
+	};
+
 	switch(map[curid].type) {
-		case TAMI_REPLY: if(mainwin) mainwin->tpw->SetReplyTarget(map[curid].tw); break;
-		case TAMI_DM: if(mainwin) mainwin->tpw->SetDMTarget(map[curid].user); break;
-		case TAMI_RETWEET: type = CS_RT; break;
-		case TAMI_FAV: type = CS_FAV; break;
-		case TAMI_UNFAV: type = CS_UNFAV; break;
+		case TAMI_REPLY:
+			if(mainwin)
+				mainwin->tpw->SetReplyTarget(map[curid].tw);
+			break;
+		case TAMI_DM:
+			if(mainwin)
+				mainwin->tpw->SetDMTarget(map[curid].user);
+			break;
+		case TAMI_RETWEET:
+			simple_action(STYPE::RT);
+			break;
+		case TAMI_FAV:
+			simple_action(STYPE::FAV);
+			break;
+		case TAMI_UNFAV:
+			simple_action(STYPE::UNFAV);
+			break;
 		case TAMI_DELETE: {
-			if(map[curid].tw->flags.Get('D')) type = CS_DELETEDM;
-			else type = CS_DELETETWEET;
+			if(map[curid].tw->flags.Get('D'))
+				simple_action(STYPE::DELETEDM);
+			else
+				simple_action(STYPE::DELETETWEET);
 			break;
 		}
 		case TAMI_COPYLINK: {
@@ -422,8 +444,7 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 			std::shared_ptr<taccount> acc_hint;
 			if(acc) acc_hint = *acc;
 			if(map[curid].tw->GetUsableAccount(acc_hint, tweet::GUAF::CHECKEXISTING)) {
-				std::unique_ptr<twitcurlext> twit = acc_hint->GetTwitCurlExt();
-				twit->connmode = CS_SINGLETWEET;
+				std::unique_ptr<twitcurlext_simple> twit = twitcurlext_simple::make_new(acc_hint, STYPE::SINGLETWEET);
 				twit->extra_id = map[curid].tw->id;
 				twit->tc_flags |= twitcurlext::TCF::ALWAYSREPARSE;
 				twitcurlext::QueueAsyncExec(std::move(twit));
@@ -436,12 +457,6 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 		case TAMI_NULL: {
 			break;
 		}
-	}
-	if(type != CS_NULL && acc && *acc) {
-		std::unique_ptr<twitcurlext> twit = (*acc)->GetTwitCurlExt();
-		twit->connmode = type;
-		twit->extra_id = map[curid].tw->id;
-		twitcurlext::QueueAsyncExec(std::move(twit));
 	}
 }
 

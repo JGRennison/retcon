@@ -171,9 +171,9 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	nb->AddPage(timeline_pane, wxT("Timeline"), false);
 	fav_timeline_pane = new tpanelparentwin_usertweets(u, nb, getacc_tw, RBFS_USER_FAVS);
 	nb->AddPage(fav_timeline_pane, wxT("Favourites"), false);
-	followers_pane = new tpanelparentwin_userproplisting(u, nb, getacc_prop, CS_USERFOLLOWERS);
+	followers_pane = new tpanelparentwin_userproplisting(u, nb, getacc_prop, tpanelparentwin_userproplisting::TYPE::USERFOLLOWERS);
 	nb->AddPage(followers_pane, wxT("Followers"), false);
-	friends_pane = new tpanelparentwin_userproplisting(u, nb, getacc_prop, CS_USERFOLLOWING);
+	friends_pane = new tpanelparentwin_userproplisting(u, nb, getacc_prop, tpanelparentwin_userproplisting::TYPE::USERFOLLOWING);
 	nb->AddPage(friends_pane, wxT("Following"), false);
 
 	nb_prehndlr.timeline_pane_list.push_front(timeline_pane);
@@ -245,12 +245,12 @@ void user_window::RefreshAccState() {
 	bool should_have_outgoing_pane = isownacc;
 
 	if(should_have_incoming_pane && !incoming_pane) {
-		incoming_pane = new tpanelparentwin_userproplisting(u, nb, [acc](tpanelparentwin_userproplisting &) { return acc; }, CS_OWNINCOMINGFOLLOWLISTING);
+		incoming_pane = new tpanelparentwin_userproplisting(u, nb, [acc](tpanelparentwin_userproplisting &) { return acc; }, tpanelparentwin_userproplisting::TYPE::OWNINCOMINGFOLLOWLISTING);
 		nb->InsertPage(nb_tab_insertion_point, incoming_pane, wxT("Incoming"), false);
 		nb_prehndlr.userlist_pane_list.push_front(incoming_pane);
 	}
 	if(should_have_outgoing_pane && !outgoing_pane) {
-		outgoing_pane = new tpanelparentwin_userproplisting(u, nb, [acc](tpanelparentwin_userproplisting &) { return acc; }, CS_OWNOUTGOINGFOLLOWLISTING);
+		outgoing_pane = new tpanelparentwin_userproplisting(u, nb, [acc](tpanelparentwin_userproplisting &) { return acc; }, tpanelparentwin_userproplisting::TYPE::OWNOUTGOINGFOLLOWLISTING);
 		nb->InsertPage(nb_tab_insertion_point, outgoing_pane, wxT("Outgoing"), false);
 		nb_prehndlr.userlist_pane_list.push_front(outgoing_pane);
 	}
@@ -455,9 +455,12 @@ void user_window::OnFollowBtn(wxCommandEvent &event) {
 	if(follow_btn_mode != FOLLOWBTNMODE::FBM_NONE && acc && acc->enabled && !(u->udc_flags & UDC::FRIENDACT_IN_PROGRESS)) {
 		u->udc_flags |= UDC::FRIENDACT_IN_PROGRESS;
 		followbtn->Enable(false);
-		std::unique_ptr<twitcurlext> twit = acc->GetTwitCurlExt();
-		if(follow_btn_mode == FOLLOWBTNMODE::FBM_FOLLOW) twit->connmode = CS_FRIENDACTION_FOLLOW;
-		else twit->connmode = CS_FRIENDACTION_UNFOLLOW;
+		twitcurlext_simple::CONNTYPE type;
+		if(follow_btn_mode == FOLLOWBTNMODE::FBM_FOLLOW)
+			type = twitcurlext_simple::CONNTYPE::FRIENDACTION_FOLLOW;
+		else
+			type = twitcurlext_simple::CONNTYPE::FRIENDACTION_UNFOLLOW;
+		std::unique_ptr<twitcurlext_simple> twit = twitcurlext_simple::make_new(acc, type);
 		twit->extra_id = userid;
 		twitcurlext::QueueAsyncExec(std::move(twit));
 	}

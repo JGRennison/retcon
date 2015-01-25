@@ -36,6 +36,7 @@ struct taccount;
 struct twitcurlext;
 struct tweet;
 struct userdata;
+struct tpanelparentwin_userproplisting;
 
 #if wxCHECK_GCC_VERSION(4, 6)	//in old gccs, just leave the warnings turned off
 #pragma GCC diagnostic push
@@ -86,13 +87,13 @@ template<> struct enum_traits<JDTP> { static constexpr bool flags = true; };
 
 struct jsonparser : public genjsonparser {
 	std::shared_ptr<taccount> tac;
-	CS_ENUMTYPE type;
 
 	//This will not be saved for deferred parses
-	//This is saved for use of RestTweetUpdateParams et al.
+	//This is saved for use of ProcessStreamResponse
 	optional_observer_ptr<twitcurlext> twit;
 
 	struct parse_data {
+		std::string source_str;
 		std::vector<char> json;
 		rapidjson::Document doc;
 		uint64_t rbfs_userid = 0;
@@ -102,20 +103,34 @@ struct jsonparser : public genjsonparser {
 	std::shared_ptr<parse_data> data;
 	std::unique_ptr<dbsendmsg_list> dbmsglist;
 
+	jsonparser(std::shared_ptr<taccount> a, optional_observer_ptr<twitcurlext> tw = nullptr);
+	~jsonparser();
+	bool ParseString(std::string str);
+	void SetData(std::shared_ptr<parse_data> data_) {
+		data = std::move(data_);
+	}
+
+	// Methods below must only be used once data has been set using ParseString or SetData
+
 	udc_ptr DoUserParse(const rapidjson::Value& val, flagwrapper<UMPTF> umpt_flags = 0);
 	void DoEventParse(const rapidjson::Value& val);
 	void DoFriendLookupParse(const rapidjson::Value& val);
 	bool DoStreamTweetPreFilter(const rapidjson::Value& val);
 	tweet_ptr DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP> sflags = 0);
-	void RestTweetUpdateParams(const tweet &t);
-	void RestTweetPreParseUpdateParams();
+	void RestTweetUpdateParams(const tweet &t, optional_observer_ptr<restbackfillstate> rbfs);
+	void RestTweetPreParseUpdateParams(optional_observer_ptr<restbackfillstate> rbfs);
 
-	jsonparser(CS_ENUMTYPE t, std::shared_ptr<taccount> a, optional_observer_ptr<twitcurlext> tw = nullptr);
-	~jsonparser();
-	bool ParseString(const char *str, size_t len);
-	bool ParseString(const std::string &str) {
-		return ParseString(str.c_str(), str.size());
-	}
+	void ProcessTimelineResponse(flagwrapper<JDTP> sflags, optional_observer_ptr<restbackfillstate> rbfs);
+	void ProcessUserTimelineResponse(optional_observer_ptr<restbackfillstate> rbfs);
+	void ProcessStreamResponse();
+	void ProcessSingleTweetResponse(flagwrapper<JDTP> sflags = 0);
+	void ProcessAccVerifyResponse();
+	void ProcessUserListResponse();
+	void ProcessFriendLookupResponse();
+	void ProcessUserLookupWinResponse();
+	void ProcessGenericFriendActionResponse();
+	void ProcessGenericUserFollowListResponse(observer_ptr<tpanelparentwin_userproplisting> win);
+	void ProcessOwnFollowerListingResponse();
 };
 
 void DisplayParseErrorMsg(rapidjson::Document &dc, const std::string &name, const char *data);
