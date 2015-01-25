@@ -576,13 +576,20 @@ std::string twitcurlext_postcontent::GetConnTypeNameBase() {
 void twitcurlext_postcontent::HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) {
 	switch(conntype) {
 		case CONNTYPE::POSTTWEET: {
+			if(!IsImageUploadingDone()) {
+				// Need to upload media first
+				// Transfer this ownership to ums
+				std::shared_ptr<upload_media_state> ums = std::make_shared<upload_media_state>(static_pointer_cast<twitcurlext_postcontent>(std::move(this_owner)));
+				for(auto &it : image_uploads) {
+					twitcurlext::QueueAsyncExec(twitcurlext_uploadmedia::make_new(acc, it, ums));
+				}
+				return;
+			}
 			std::string reply = replyto_id ? std::to_string(replyto_id) : "";
-			if(image_file_names.size()) {
-				statusUpdateWithMedia(text, image_file_names, reply, 1);
-			}
-			else {
-				statusUpdate(text, reply, 1);
-			}
+			std::string media_upload_ids = string_join(image_uploads, ",", [](std::string &out, const std::shared_ptr<upload_item> &item) {
+				out += item->upload_id;
+			});
+			statusUpdate(text, reply, 1, media_upload_ids);
 			break;
 		}
 		case CONNTYPE::SENDDM:
@@ -595,6 +602,21 @@ void twitcurlext_postcontent::HandleQueueAsyncExec(const std::shared_ptr<taccoun
 	has_been_enqueued = true;
 }
 
+bool twitcurlext_postcontent::IsImageUploadingDone() const {
+	for(auto &it : image_uploads) {
+		if(it->upload_id.empty())
+			return false;
+	}
+	return true;
+}
+
+void twitcurlext_postcontent::SetImageUploads(const std::vector<std::string> filenames) {
+	image_uploads.clear();
+	for(auto &it : filenames) {
+		image_uploads.push_back(std::make_shared<upload_item>(it));
+	}
+}
+
 twitcurlext_postcontent::~twitcurlext_postcontent() {
 	if(!has_been_enqueued) {
 		if(ownermainframe && ownermainframe->tpw)
@@ -602,6 +624,65 @@ twitcurlext_postcontent::~twitcurlext_postcontent() {
 		ownermainframe = nullptr;
 	}
 }
+
+/* * * * * * * * * * * * * * * * * * * * * * * * */
+/*  twitcurlext_postcontent::upload_media_state  */
+/* * * * * * * * * * * * * * * * * * * * * * * * */
+
+twitcurlext_postcontent::upload_media_state::upload_media_state(std::unique_ptr<twitcurlext_postcontent> content_conn_)
+		: content_conn(std::move(content_conn_)) { }
+
+void twitcurlext_postcontent::upload_media_state::UploadSuccess() {
+	if(!content_conn)
+		return;
+
+	if(content_conn->IsImageUploadingDone()) {
+		// All image uploads done, post content
+		twitcurlext::QueueAsyncExec(std::move(content_conn));
+	}
+}
+
+void twitcurlext_postcontent::upload_media_state::UploadFailure() {
+	content_conn.reset();
+}
+
+/* * * * * * * * * * * * * * */
+/*  twitcurlext_uploadmedia  */
+/* * * * * * * * * * * * * * */
+
+std::unique_ptr<twitcurlext_uploadmedia> twitcurlext_uploadmedia::make_new(std::shared_ptr<taccount> acc,
+		std::shared_ptr<twitcurlext_postcontent::upload_item> item_, std::shared_ptr<twitcurlext_postcontent::upload_media_state> upload_state_) {
+	std::unique_ptr<twitcurlext_uploadmedia> twit(new twitcurlext_uploadmedia());
+	twit->TwInit(std::move(acc));
+	twit->item = std::move(item_);
+	twit->upload_state = std::move(upload_state_);
+	return std::move(twit);
+}
+
+void twitcurlext_uploadmedia::ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) {
+	item->upload_id = jp.ProcessUploadMediaResponse();
+	if(item->upload_id.empty())
+		upload_state->UploadFailure();
+	else
+		upload_state->UploadSuccess();
+}
+
+void twitcurlext_uploadmedia::HandleFailureHandler(const std::shared_ptr<taccount> &acc, twitcurlext::HandleFailureState &state) {
+	upload_state->UploadFailure();
+}
+
+std::string twitcurlext_uploadmedia::GetConnTypeNameBase() {
+	return "Uploading media";
+}
+
+void twitcurlext_uploadmedia::HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) {
+	mediaUpload(item->filename);
+	has_been_enqueued = true;
+}
+
+twitcurlext_uploadmedia::~twitcurlext_uploadmedia() {
+	if(!has_been_enqueued)
+		upload_state->UploadFailure();
 }
 
 /* * * * * * * * * * * * * */

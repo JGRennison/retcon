@@ -131,6 +131,7 @@ struct jsonparser : public genjsonparser {
 	void ProcessGenericFriendActionResponse();
 	void ProcessGenericUserFollowListResponse(observer_ptr<tpanelparentwin_userproplisting> win);
 	void ProcessOwnFollowerListingResponse();
+	std::string ProcessUploadMediaResponse();
 };
 
 void DisplayParseErrorMsg(rapidjson::Document &dc, const std::string &name, const char *data);

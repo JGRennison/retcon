@@ -18,7 +18,6 @@
 
 #include "univdefs.h"
 #include "mainui.h"
-#include "libtwitcurl/urlencode.h"
 #include "aboutwin.h"
 #include "tpanel.h"
 #include "tpanel-aux.h"
@@ -45,6 +44,8 @@
 #endif
 #include <forward_list>
 #include <algorithm>
+
+#define MAX_IMAGE_ATTACHMENTS_PER_TWEET 4
 
 std::vector<mainframe*> mainframelist;
 
@@ -448,7 +449,7 @@ tweetpostwin::~tweetpostwin() {
 }
 
 bool tweetpostwin::okToSend() {
-	return isgoodacc && !currently_posting && !(textctrl->IsEmpty() && image_upload_filename.empty()) && current_length <= 140;
+	return isgoodacc && !currently_posting && !(textctrl->IsEmpty() && image_upload_filenames.empty()) && current_length <= 140;
 }
 
 void tweetpostwin::OnSendBtn(wxCommandEvent &event) {
@@ -471,8 +472,7 @@ void tweetpostwin::OnSendBtn(wxCommandEvent &event) {
 			twit = twitcurlext_postcontent::make_new(curacc, twitcurlext_postcontent::CONNTYPE::POSTTWEET);
 			if(tweet_reply_targ)
 				twit->replyto_id = tweet_reply_targ->id;
-			if(!image_upload_filename.empty())
-				twit->image_file_names.push_back(image_upload_filename);
+			twit->SetImageUploads(image_upload_filenames);
 		}
 		twit->text = curtext;
 		twit->ownermainframe = mparentwin;
@@ -527,14 +527,14 @@ void tweetpostwin::OnTCUnFocus(wxFocusEvent &event) {
 void tweetpostwin::DoCheckFocusDisplay(bool force) {
 	bool shouldshow = false;
 	if(!textctrl->IsEmpty()) shouldshow = true;
-	if(!image_upload_filename.empty()) shouldshow = true;
+	if(!image_upload_filenames.empty()) shouldshow = true;
 	if(dm_targ || tweet_reply_targ) shouldshow = true;
 	if(tc_has_focus > 0) shouldshow = true;
 	if(isshown != shouldshow || force) DoShowHide(shouldshow);
 }
 
 void tweetpostwin::OnTCChange() {
-	current_length = TwitterCharCount(std::string(textctrl->GetValue().ToUTF8()), image_upload_filename.empty() ? 0 : 1);
+	current_length = TwitterCharCount(std::string(textctrl->GetValue().ToUTF8()), image_upload_filenames.empty() ? 0 : 1);
 	if(current_length > 140) {
 		if(!length_oob) {
 			infost_colout = infost->GetForegroundColour();
@@ -573,7 +573,7 @@ void tweetpostwin::resizemsghandler(wxCommandEvent &event) {
 void tweetpostwin::NotifyPostResult(bool success) {
 	if(success) {
 		textctrl->Clear();
-		SetImageUploadFilename("");
+		ClearImageUploadFilenames();
 		if(!replydesc_locked) {
 			tweet_reply_targ.reset();
 			dm_targ.reset();
@@ -599,7 +599,7 @@ void tweetpostwin::UpdateReplyDesc() {
 		replydesclosebtn->Show(true);
 		replydeslockbtn->Show(true);
 		sendbtn->SetLabel(wxT("Send DM"));
-		image_upload_filename = ""; // Images can't be uploaded with DMs at present
+		ClearImageUploadFilenames(); // Images can't be uploaded with DMs at present
 	}
 	else {
 		if(replydesc_locked) {
@@ -615,34 +615,33 @@ void tweetpostwin::UpdateReplyDesc() {
 	DoCheckFocusDisplay(true);
 }
 
-void tweetpostwin::SetImageUploadFilename(std::string filename) {
-	image_upload_filename = std::move(filename);
-	if(image_upload_filename.empty()) {
-		imagestattxt->SetLabel(wxT(""));
-	}
-	else {
-		wxFileName name(wxstrstd(image_upload_filename));
-		imagestattxt->SetLabel(wxT("Upload: ") + name.GetFullName());
-	}
+void tweetpostwin::AddImageUploadFilename(std::string filename) {
+	image_upload_filenames.push_back(std::move(filename));
+	imagestattxt->SetLabel(wxString::Format(wxT("Upload %zu images"), image_upload_filenames.size()));
+	OnTCChange();
+	DoCheckFocusDisplay();
+}
+
+void tweetpostwin::ClearImageUploadFilenames() {
+	image_upload_filenames.clear();
+	imagestattxt->SetLabel(wxT(""));
 	OnTCChange();
 	DoCheckFocusDisplay();
 }
 
 void tweetpostwin::ShowHideImageUploadBtns(bool alwayshide, bool enabled) {
 	bool show_add;
-	bool show_existing;
+	bool show_existing = !image_upload_filenames.empty();
 
 	if(dm_targ || alwayshide) {
 		show_add = false;
 		show_existing = false;
 	}
-	else if(image_upload_filename.empty()) {
+	else if(image_upload_filenames.size() < MAX_IMAGE_ATTACHMENTS_PER_TWEET) {
 		show_add = true;
-		show_existing = false;
 	}
 	else {
 		show_add = false;
-		show_existing = true;
 	}
 
 	addimagebtn->Show(show_add);
@@ -656,12 +655,12 @@ void tweetpostwin::OnAddImgBtn(wxCommandEvent &event) {
 	wxString file = wxFileSelector(wxT("Upload image with tweet"), wxStandardPaths::Get().GetDocumentsDir(), wxT(""), wxT(""),
 			wxT("Image Files (*.jpg *.jpeg *.png *.gif)|*.jpg;*.jpeg;*.png;*.gif"), wxFD_OPEN | wxFD_FILE_MUST_EXIST, this);
 	if(!file.IsEmpty()) {
-		SetImageUploadFilename(stdstrwx(file));
+		AddImageUploadFilename(stdstrwx(file));
 	}
 }
 
 void tweetpostwin::OnDelImgBtn(wxCommandEvent &event) {
-	SetImageUploadFilename("");
+	ClearImageUploadFilenames();
 }
 
 void tweetpostwin::OnCloseReplyDescBtn(wxCommandEvent &event) {

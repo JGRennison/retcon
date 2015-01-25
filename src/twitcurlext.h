@@ -39,6 +39,7 @@ struct streamconntimeout;
 struct userlookup;
 struct mainframe;
 struct jsonparser;
+struct twitcurlext_upload_media_state;
 
 struct twitcurlext: public twitCurl, public mcurlconn {
 	enum class TCF {
@@ -179,12 +180,30 @@ struct twitcurlext_postcontent: public twitcurlext {
 		SENDDM,
 	};
 
+	struct upload_item {
+		std::string filename;
+		std::string upload_id;
+
+		upload_item(std::string filename_)
+				: filename(filename_) { }
+	};
+
+	struct upload_media_state {
+		private:
+		std::unique_ptr<twitcurlext_postcontent> content_conn;
+
+		public:
+		upload_media_state(std::unique_ptr<twitcurlext_postcontent> content_conn_);
+		void UploadSuccess();
+		void UploadFailure();
+	};
+
 	CONNTYPE conntype;
 	uint64_t replyto_id = 0;
 	uint64_t dmtarg_id = 0;
 	bool has_been_enqueued = false;
 	std::string text;
-	std::vector<std::string> image_file_names;
+	std::vector<std::shared_ptr<upload_item>> image_uploads;
 
 	static std::unique_ptr<twitcurlext_postcontent> make_new(std::shared_ptr<taccount> acc, CONNTYPE type);
 
@@ -192,7 +211,24 @@ struct twitcurlext_postcontent: public twitcurlext {
 	virtual void HandleFailureHandler(const std::shared_ptr<taccount> &acc, HandleFailureState &state) override;
 	virtual std::string GetConnTypeNameBase() override;
 	virtual void HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) override;
+	bool IsImageUploadingDone() const;
+	void SetImageUploads(const std::vector<std::string> filenames);
 	~twitcurlext_postcontent();
+};
+
+struct twitcurlext_uploadmedia: public twitcurlext {
+	std::shared_ptr<twitcurlext_postcontent::upload_item> item;
+	std::shared_ptr<twitcurlext_postcontent::upload_media_state> upload_state;
+	bool has_been_enqueued = false;
+
+	static std::unique_ptr<twitcurlext_uploadmedia> make_new(std::shared_ptr<taccount> acc,
+			std::shared_ptr<twitcurlext_postcontent::upload_item> item_, std::shared_ptr<twitcurlext_postcontent::upload_media_state> upload_state_);
+
+	virtual void ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) override;
+	virtual void HandleFailureHandler(const std::shared_ptr<taccount> &acc, HandleFailureState &state) override;
+	virtual std::string GetConnTypeNameBase() override;
+	virtual void HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) override;
+	~twitcurlext_uploadmedia();
 };
 
 struct twitcurlext_userlist: public twitcurlext {

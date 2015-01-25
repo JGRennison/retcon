@@ -375,17 +375,68 @@ bool twitCurl::search( const std::string& searchQuery )
 }
 
 /*++
-* @method: twitCurl::statusUpdate
+* @method: twitCurl::mediaUpload
 *
-* @description: method to update new status message in twitter profile
+* @description: method to upload media to twitter, to later attach to a tweet
 *
-* @input: newStatus, in_reply_to_status_id, includeEntities
+* @input: filename
 *
 * @output: true if POST is success, otherwise false. This does not check http
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::statusUpdate( const std::string& newStatus, const std::string in_reply_to_status_id, signed char includeEntities )
+bool twitCurl::mediaUpload( const std::string& filename )
+{
+    /* Return if cURL is not initialized */
+    if( !isCurlInit() )
+    {
+        return false;
+    }
+
+    curl_formadd( &m_post, &m_last, CURLFORM_COPYNAME, "media",
+                  CURLFORM_FILE, filename.c_str(), CURLFORM_END );
+
+    std::string postUrl = twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
+                          twitterDefaults::TWITCURL_MEDIAUPLOAD_URL +
+                          twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType];
+
+    /* Prepare standard params */
+    prepareStandardParams();
+
+    /* Set OAuth header */
+    std::string dummyStr;
+    std::string oAuthHttpHeader;
+    m_oAuth.getOAuthHeader( eOAuthHttpPost, postUrl, dummyStr, oAuthHttpHeader );
+    if( oAuthHttpHeader.length() )
+    {
+        m_pOAuthHeaderList = curl_slist_append( m_pOAuthHeaderList, oAuthHttpHeader.c_str() );
+        if( m_pOAuthHeaderList )
+        {
+            curl_easy_setopt( m_curlHandle, CURLOPT_HTTPHEADER, m_pOAuthHeaderList );
+        }
+    }
+
+    /* Set http request, url and data */
+    curl_easy_setopt( m_curlHandle, CURLOPT_POST, 1 );
+    curl_easy_setopt( m_curlHandle, CURLOPT_URL, postUrl.c_str() );
+    curl_easy_setopt( m_curlHandle, CURLOPT_HTTPPOST, m_post);
+
+    /* Send http request */
+    return curl_gen_exec( m_curlHandle );
+}
+
+/*++
+* @method: twitCurl::statusUpdate
+*
+* @description: method to update new status message in twitter profile
+*
+* @input: newStatus, in_reply_to_status_id, includeEntities, media_upload_ids
+*
+* @output: true if POST is success, otherwise false. This does not check http
+*          response by twitter. Use getLastWebResponse() for that.
+*
+*--*/
+bool twitCurl::statusUpdate( const std::string& newStatus, const std::string in_reply_to_status_id, signed char includeEntities, const std::string media_upload_ids )
 {
     bool retVal = false;
     if( newStatus.length() )
@@ -399,86 +450,16 @@ bool twitCurl::statusUpdate( const std::string& newStatus, const std::string in_
         if(includeEntities) {
             newStatusMsg += twitCurlDefaults::TWITCURL_URL_SEP_AMP + twitCurlDefaults::TWITCURL_INCENTITIES + ((includeEntities>0)?"1":"0");
         }
+        if(media_upload_ids.size())
+        {
+            newStatusMsg += twitCurlDefaults::TWITCURL_URL_SEP_AMP + twitCurlDefaults::TWITCURL_MEDIAIDS + urlencode( media_upload_ids );
+        }
 
         /* Perform POST */
         retVal = performPost( twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
                               twitterDefaults::TWITCURL_STATUSUPDATE_URL +
                               twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType],
                               newStatusMsg );
-    }
-    return retVal;
-}
-
-/*++
-* @method: twitCurl::statusUpdate
-*
-* @description: method to update new status message in twitter profile
-*
-* @input: newStatus, in_reply_to_status_id, includeEntities
-*
-* @output: true if POST is success, otherwise false. This does not check http
-*          response by twitter. Use getLastWebResponse() for that.
-*
-*--*/
-bool twitCurl::statusUpdateWithMedia( const std::string& newStatus, const std::vector<std::string>& media_files, const std::string in_reply_to_status_id, signed char includeEntities )
-{
-    /* Return if cURL is not initialized */
-    if( !isCurlInit() )
-    {
-        return false;
-    }
-
-    bool retVal = false;
-    if( newStatus.length() || media_files.size() )
-    {
-        clearHeaders();
-
-        curl_formadd( &m_post, &m_last, CURLFORM_COPYNAME, "status",
-                      CURLFORM_COPYCONTENTS, newStatus.c_str(), CURLFORM_END );
-
-        if(in_reply_to_status_id.size())
-        {
-            curl_formadd( &m_post, &m_last, CURLFORM_COPYNAME, "in_reply_to_status_id",
-                          CURLFORM_COPYCONTENTS, in_reply_to_status_id.c_str(), CURLFORM_END );
-        }
-        if(includeEntities)
-        {
-            curl_formadd( &m_post, &m_last, CURLFORM_COPYNAME, "include_entities",
-                          CURLFORM_COPYCONTENTS, (includeEntities > 0) ? "1" : "0", CURLFORM_END );
-        }
-        for(std::vector<std::string>::const_iterator it = media_files.begin(); it != media_files.end(); ++it)
-        {
-            curl_formadd( &m_post, &m_last, CURLFORM_COPYNAME, "media[]",
-                          CURLFORM_FILE, it->c_str(), CURLFORM_END );
-        }
-
-        std::string postUrl = twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
-                              twitterDefaults::TWITCURL_STATUSUPDATEMEDIA_URL +
-                              twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType];
-
-        /* Prepare standard params */
-        prepareStandardParams();
-
-        /* Set OAuth header */
-        std::string dummyStr;
-        std::string oAuthHttpHeader;
-        m_oAuth.getOAuthHeader( eOAuthHttpPost, postUrl, dummyStr, oAuthHttpHeader );
-        if( oAuthHttpHeader.length() )
-        {
-            m_pOAuthHeaderList = curl_slist_append( m_pOAuthHeaderList, oAuthHttpHeader.c_str() );
-            if( m_pOAuthHeaderList )
-            {
-                curl_easy_setopt( m_curlHandle, CURLOPT_HTTPHEADER, m_pOAuthHeaderList );
-            }
-        }
-
-        /* Set http request, url and data */
-        curl_easy_setopt( m_curlHandle, CURLOPT_POST, 1 );
-        curl_easy_setopt( m_curlHandle, CURLOPT_URL, postUrl.c_str() );
-        curl_easy_setopt( m_curlHandle, CURLOPT_HTTPPOST, m_post);
-
-        /* Send http request */
-        retVal = curl_gen_exec( m_curlHandle );
     }
     return retVal;
 }

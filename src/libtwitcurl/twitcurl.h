@@ -70,6 +70,7 @@ namespace twitCurlDefaults
     const std::string TWITCURL_TRACK = "track=";
     const std::string TWITCURL_LOCATIONS = "locations=";
     const std::string TWITCURL_REPLYSTATUSID = "in_reply_to_status_id=";
+    const std::string TWITCURL_MEDIAIDS = "media_ids=";
 
     const std::string TWITCURL_USERAGENT = "libcurl " LIBCURL_VERSION;
 
@@ -85,9 +86,11 @@ namespace twitterDefaults
     /* Search URLs */
     const std::string TWITCURL_SEARCH_URL = "search.twitter.com/search";
 
+    /* Upload URLs */
+    const std::string TWITCURL_MEDIAUPLOAD_URL = "upload.twitter.com/1.1/media/upload";
+
     /* Status URLs */
     const std::string TWITCURL_STATUSUPDATE_URL = "api.twitter.com/1.1/statuses/update";
-    const std::string TWITCURL_STATUSUPDATEMEDIA_URL = "api.twitter.com/1.1/statuses/update_with_media";
     const std::string TWITCURL_STATUSRETWEET_URL = "api.twitter.com/1.1/statuses/retweet/";
     const std::string TWITCURL_STATUSSHOW_URL = "api.twitter.com/1.1/statuses/show/";
     const std::string TWITCURL_STATUDESTROY_URL = "api.twitter.com/1.1/statuses/destroy/";
@@ -151,7 +154,6 @@ namespace twitterDefaults
     const std::string TWITCURL_USERSTREAM_URL = "https://userstream.twitter.com/2/user.json";
     const std::string TWITCURL_PUBLICFILTERSTREAM_URL = "https://stream.twitter.com/1.1/statuses/filter.json";
     const std::string TWITCURL_PUBLICSAMPLESTREAM_URL = "https://stream.twitter.com/1.1/statuses/sample.json";
-
 };
 
 struct timelineparams {
@@ -194,8 +196,11 @@ public:
     /* Twitter search APIs */
     bool search( const std::string& searchQuery /* in */ );
 
+    /* Twitter upload APIs */
+    bool mediaUpload( const std::string& filename );
+
     /* Twitter status APIs */
-    bool statusUpdate( const std::string& newStatus, const std::string in_reply_to_status_id = "", signed char includeEntities = 0 ); /* all parameters in */
+    bool statusUpdate( const std::string& newStatus, const std::string in_reply_to_status_id = "", signed char includeEntities = 0, const std::string media_upload_ids = "" ); /* all parameters in */
     bool statusUpdateWithMedia( const std::string& newStatus, const std::vector<std::string>& media_files, const std::string in_reply_to_status_id = "", signed char includeEntities = 0 ); /* all parameters in */
     bool statusReTweet( const std::string& statusId, signed char includeEntities = 0 ); /* all parameters in */
     bool statusShowById( const std::string& statusId /* in */ );

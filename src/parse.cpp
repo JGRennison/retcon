@@ -706,6 +706,15 @@ void jsonparser::ProcessOwnFollowerListingResponse() {
 	tac->HandleUsersFollowingMeList(std::move(followers), nextcursor == 0); // listing is complete if next cursor is 0, otherwise there are more pages
 }
 
+std::string jsonparser::ProcessUploadMediaResponse() {
+	const rapidjson::Document &dc = data->doc;
+
+	if(!dc.IsObject())
+		return "";
+
+	return CheckGetJsonValueDef<std::string>(dc, "media_id_string", "");
+}
+
 //don't use this for perspectival attributes
 udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> umpt_flags) {
 	uint64_t id;

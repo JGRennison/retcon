@@ -179,11 +179,12 @@ struct tweetpostwin : public wxPanel {
 	void AUIMNoLongerValid();
 	bool okToSend();
 
-	std::string image_upload_filename;
+	std::vector<std::string> image_upload_filenames;
 	wxBitmapButton *addimagebtn;
 	wxBitmapButton *delimagebtn;
 	wxStaticText *imagestattxt;
-	void SetImageUploadFilename(std::string filename);
+	void AddImageUploadFilename(std::string filename);
+	void ClearImageUploadFilenames();
 	void ShowHideImageUploadBtns(bool alwayshide = false, bool enabled = true);
 	void OnAddImgBtn(wxCommandEvent &event);
 	void OnDelImgBtn(wxCommandEvent &event);
