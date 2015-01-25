@@ -146,26 +146,16 @@ void userlookup::Mark(udc_ptr udc) {
 }
 
 void userlookup::GetIdList(std::string &idlist) const {
-	idlist.clear();
-	if(users_queried.empty()) return;
-	auto it = users_queried.cbegin();
-	while(true) {
-		idlist += std::to_string((*it)->id);
-		it++;
-		if(it == users_queried.cend()) break;
-		idlist += ",";
-	}
+	idlist = string_join(users_queried, ",", [](std::string &out, udc_ptr_p u) {
+		out += std::to_string(u->id);
+	});
 }
 
 std::string friendlookup::GetTwitterURL() const {
-	auto it = ids.begin();
 	std::string idlist = "api.twitter.com/1.1/friendships/lookup.json?user_id=";
-	while(true) {
-		idlist += std::to_string(*it);
-		it++;
-		if(it == ids.end()) break;
-		idlist += ",";
-	}
+	idlist += string_join(ids, ",", [](std::string &out, uint64_t id) {
+		out += std::to_string(id);
+	});
 	return idlist;
 }
 

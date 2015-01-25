@@ -148,4 +148,25 @@ template <typename Tout, typename Tin> std::unique_ptr<Tout> static_pointer_cast
 	return std::unique_ptr<Tout>(static_cast<Tout *>(in.release()));
 }
 
+template <typename C, typename F> std::string string_join(const C &container, std::string delimiter, F appender) {
+	std::string out = "";
+	auto it = container.begin();
+	if(it == container.end())
+		return out;
+	while(true) {
+		appender(out, *it);
+		it++;
+		if(it == container.end())
+			break;
+		out += delimiter;
+	}
+	return out;
+}
+
+template <typename C> std::string string_join(const C &container, std::string delimiter) {
+	return string_join(container, delimiter, [](std::string &out, const std::string &in) {
+		out += in;
+	});
+}
+
 #endif
