@@ -463,34 +463,60 @@ void userdatacontainer::SetProfileBitmap(const wxBitmap &bmp) {
 
 bool userdatacontainer::GetUsableAccount(std::shared_ptr<taccount> &tac, bool enabledonly) const {
 	using URF = user_relationship::URF;
-	if(!tac) {
-		for(auto &it : alist) {	//look for users who we follow, or who follow us
-			taccount &acc = *it;
-			if(!enabledonly || acc.enabled) {
-				auto rel = acc.user_relations.find(id);
-				if(rel != acc.user_relations.end()) {
-					if(rel->second.ur_flags&(URF::FOLLOWSME_TRUE | URF::IFOLLOW_TRUE)) {
-						tac = it;
-						break;
-					}
+
+	if(tac) {
+		if(!enabledonly || tac->enabled)
+			return true;
+		else
+			tac.reset(); // suuplied account not enabled as required
+	}
+
+	//look through pending tweets for new arrivals
+	for(auto &it : pendingtweets) {
+		for(auto &jt : it->pending_ops) {
+			handlenew_pending_op *hnop = dynamic_cast<handlenew_pending_op *>(jt.get());
+			if(hnop) {
+				std::shared_ptr<taccount> acc = hnop->tac.lock();
+				if(acc && (!enabledonly || acc->enabled)) {
+					tac = std::move(acc);
+					return true;
 				}
 			}
 		}
 	}
-	if(!tac) {					//otherwise find the first enabled account
-		for(auto &it : alist) {
-			if(it->enabled) {
-				tac = it;
-				break;
+
+	//look for users who we follow, or who follow us
+	for(auto &it : alist) {
+		taccount &acc = *it;
+		if(!enabledonly || acc.enabled) {
+			auto rel = acc.user_relations.find(id);
+			if(rel != acc.user_relations.end()) {
+				if(rel->second.ur_flags & (URF::FOLLOWSME_TRUE | URF::IFOLLOW_TRUE)) {
+					tac = it;
+					return true;
+				}
 			}
 		}
 	}
-	if(!tac) {					//otherwise find the first account
-		if(!alist.empty()) tac = alist.front();
+
+	//otherwise find the first enabled account
+	for(auto &it : alist) {
+		if(it->enabled) {
+			tac = it;
+			return true;
+		}
 	}
-	if(!tac) return false;
-	if(!enabledonly || tac->enabled) return true;
-	else return false;
+
+	//otherwise find the first account
+	if(!alist.empty())
+		tac = alist.front();
+
+	if(!tac)
+		return false;
+	if(!enabledonly || tac->enabled)
+		return true;
+	else
+		return false;
 }
 
 const tweetidset &userdatacontainer::GetMentionSet() {
