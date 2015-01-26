@@ -90,6 +90,22 @@ int dlconn::curlCallback(char* data, size_t size, size_t nmemb, dlconn *obj) {
 	return writtenSize;
 }
 
+namespace profimglocal {
+	void clear_dl_flags(udc_ptr_p user) {
+		user->udc_flags &= ~UDC::IMAGE_DL_IN_PROGRESS;
+		user->udc_flags &= ~UDC::HALF_PROFILE_BITMAP_SET;
+	};
+
+	void bad_url_handler(const std::string &url, udc_ptr_p user) {
+		clear_dl_flags(user);
+		TSLogMsgFormat(LOGT::OTHERERR, "Profile image downloaded: %s for user id %" llFmtSpec "d (@%s), does not match expected url of: %s. Maybe user updated profile during download?",
+				cstr(url), user->id, cstr(user->GetUser().screen_name), cstr(user->GetUser().profile_img_url));
+
+		//Try again:
+		user->ImgIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
+	}
+};
+
 void profileimgdlconn::Init(std::unique_ptr<mcurlconn> &&this_owner, const std::string &imgurl_, udc_ptr_p user_) {
 	user = user_;
 	user->udc_flags |= UDC::IMAGE_DL_IN_PROGRESS;
@@ -105,6 +121,21 @@ void profileimgdlconn::DoRetry(std::unique_ptr<mcurlconn> &&this_owner) {
 void profileimgdlconn::HandleFailure(long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
 	if(url == user->GetUser().profile_img_url) {
 		user->MakeProfileImageFailurePlaceholder();
+		if(user->NeedsUpdating(PENDING_REQ::USEREXPIRE)) {
+			// Might have failed because user obj is too old
+			// Trigger an update
+			LogMsgFormat(LOGT::PENDTRACE, "Downloading profile image for user id %" llFmtSpec "d (@%s) failed, triggering profile update attempt",
+					user->id, cstr(user->GetUser().screen_name));
+			std::shared_ptr<taccount> acc;
+			user->GetUsableAccount(acc, true);
+			if(acc) {
+				acc->MarkUserPending(user);
+				acc->StartRestQueryPendings();
+			}
+		}
+	}
+	else { //URL changed, try again
+		profimglocal::bad_url_handler(url, user);
 	}
 }
 
@@ -117,24 +148,9 @@ void profileimgdlconn::NewConn(const std::string &imgurl_, udc_ptr_p user_) {
 void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
 	LogMsgFormat(LOGT::NETACT, "Profile image downloaded: %s for user id %" llFmtSpec "d (@%s), conn ID: %d", cstr(url), user->id, cstr(user->GetUser().screen_name), id);
 
-	struct local {
-		static void clear_dl_flags(udc_ptr_p user) {
-			user->udc_flags &= ~UDC::IMAGE_DL_IN_PROGRESS;
-			user->udc_flags &= ~UDC::HALF_PROFILE_BITMAP_SET;
-		};
-		static void bad_url_handler(const std::string &url, udc_ptr_p user) {
-			TSLogMsgFormat(LOGT::OTHERERR, "Profile image downloaded: %s for user id %" llFmtSpec "d (@%s), does not match expected url of: %s. Maybe user updated profile during download?",
-					cstr(url), user->id, cstr(user->GetUser().screen_name), cstr(user->GetUser().profile_img_url));
-
-			//Try again:
-			user->ImgIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
-		}
-	};
-
 	//URL changed, abort
 	if(url != user->GetUser().profile_img_url) {
-		local::clear_dl_flags(user);
-		local::bad_url_handler(url, user);
+		profimglocal::bad_url_handler(url, user);
 		return;
 	}
 
@@ -174,13 +190,13 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_p
 	},
 	[job_data]() {
 		udc_ptr &user = job_data->user;
-		local::clear_dl_flags(user);
+		profimglocal::clear_dl_flags(user);
 		if(!job_data->ok) {
 			user->MakeProfileImageFailurePlaceholder();
 		}
 		else if(job_data->url != user->GetUser().profile_img_url) {
 			//Doesn't seem likely, but check again that URL hasn't changed
-			local::bad_url_handler(job_data->url, user);
+			profimglocal::bad_url_handler(job_data->url, user);
 		}
 		else {
 			//Must do the bitmap stuff in the main thread, wxBitmaps are not thread safe at all
@@ -197,7 +213,7 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_p
 }
 
 std::string profileimgdlconn::GetConnTypeName() {
-	return "Profile image download";
+	return string_format("Profile image download for user id %" llFmtSpec "d (@%s)", user->id, cstr(user->GetUser().screen_name));
 }
 
 void mediaimgdlconn::Init(std::unique_ptr<mcurlconn> &&this_owner, const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_, oAuth *auth_obj) {
