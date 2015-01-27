@@ -487,7 +487,7 @@ static void dump_pending_user_line(LOGT logflags, const std::string &indent, use
 	LogMsgFormat(logflags, "%sUser: %" llFmtSpec "d (%s) udc_flags: 0x%X, last update: %" llFmtSpec "ds ago"
 			", last DB update: %" llFmtSpec "ds ago, image ready: %d, ready (nx): %d, ready (x): %d",
 			cstr(indent), u->id, cstr(u->GetUser().screen_name), u->udc_flags, (uint64_t) (now-u->lastupdate),
-			(uint64_t) (now-u->lastupdate_wrotetodb), u->ImgIsReady(0), u->IsReady(0), u->IsReady(PENDING_REQ::USEREXPIRE));
+			(uint64_t) (now-u->lastupdate_wrotetodb), u->ImgIsReady(PENDING_REQ::PROFIMG_NEED), u->IsReady(0), u->IsReady(PENDING_REQ::USEREXPIRE));
 }
 
 static void dump_pending_tweet(LOGT logflags, const std::string &indent, const std::string &indentstep, tweet *t, userdatacontainer *exclude_user) {

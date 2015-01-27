@@ -321,7 +321,8 @@ flagwrapper<PENDING_RESULT> userdatacontainer::GetPending(flagwrapper<PENDING_RE
 		}
 	}
 	if(!NeedsUpdating(preq, timevalue) && !(udc_flags & UDC::BEING_LOADED_FROM_DB)
-			&& !((udc_flags & UDC::LOOKUP_IN_PROGRESS) && (preq & PENDING_REQ::USEREXPIRE))) {
+			&& !((udc_flags & UDC::LOOKUP_IN_PROGRESS) && (preq & PENDING_REQ::USEREXPIRE))
+			&& !(GetUser().profile_img_url.empty() && (preq & PENDING_REQ::PROFIMG_NEED))) {
 		result |= PENDING_RESULT::CONTENT_READY;
 	}
 	else {
