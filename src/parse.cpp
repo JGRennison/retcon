@@ -1019,34 +1019,36 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 	if(sflags & JDTP::UNFAV) tp->SetFavourited(false);
 
 	std::string json;
-	if((tobj->createtime == 0 && !(sflags & JDTP::DEL)) || (sflags & JDTP::ALWAYSREPARSE)) {
-		// this is a better test than merely whether the tweet object is new
+	if(!(sflags & JDTP::DEL)) {
+		if((tobj->createtime == 0) || (sflags & JDTP::ALWAYSREPARSE)) {
+			// this is a better test than merely whether the tweet object is new
 
-		writestream wr(json);
-		Handler jw(wr);
-		jw.StartObject();
-		ParseTweetStatics(val, tobj, &jw, true, make_observer(dbmsglist));
-		jw.EndObject();
-		std::string created_at;
-		if(CheckTransJsonValueDef(created_at, val, "created_at", "", 0)) {
-			ParseTwitterDate(0, &tobj->createtime, created_at);
+			writestream wr(json);
+			Handler jw(wr);
+			jw.StartObject();
+			ParseTweetStatics(val, tobj, &jw, true, make_observer(dbmsglist));
+			jw.EndObject();
+			std::string created_at;
+			if(CheckTransJsonValueDef(created_at, val, "created_at", "", 0)) {
+				ParseTwitterDate(0, &tobj->createtime, created_at);
+			}
+			else {
+				tobj->createtime = time(nullptr);
+			}
+			auto &rtval = val["retweeted_status"];
+			if(rtval.IsObject()) {
+				tobj->rtsrc = DoTweetParse(rtval, sflags|JDTP::ISRTSRC);
+				if(tobj->rtsrc) tobj->flags.Set('R');
+			}
 		}
 		else {
-			tobj->createtime = time(nullptr);
+			//These properties are also checked in ParseTweetStatics.
+			//Previous versions stored the retweet count in the DB static string
+			//so these should not be removed from there, as otherwise old tweets
+			//in the DB will lose their retweet count info when loaded.
+			CheckTransJsonValueDef(tobj->retweet_count, val, "retweet_count", 0);
+			CheckTransJsonValueDef(tobj->favourite_count, val, "favorite_count", 0);
 		}
-		auto &rtval = val["retweeted_status"];
-		if(rtval.IsObject()) {
-			tobj->rtsrc = DoTweetParse(rtval, sflags|JDTP::ISRTSRC);
-			if(tobj->rtsrc) tobj->flags.Set('R');
-		}
-	}
-	else {
-		//These properties are also checked in ParseTweetStatics.
-		//Previous versions stored the retweet count in the DB static string
-		//so these should not be removed from there, as otherwise old tweets
-		//in the DB will lose their retweet count info when loaded.
-		CheckTransJsonValueDef(tobj->retweet_count, val, "retweet_count", 0);
-		CheckTransJsonValueDef(tobj->favourite_count, val, "favorite_count", 0);
 	}
 
 	auto &possiblysensitive = val["possibly_sensitive"];
@@ -1140,7 +1142,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 			}
 		}
 	}
-	else {
+	else if(!(sflags & JDTP::DEL)) {
 		tp->SetRecvTypeNorm(true);
 		tobj->lflags |= TLF::SHOULDSAVEINDB;
 		tobj->flags.Set('B');
