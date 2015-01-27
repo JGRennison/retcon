@@ -789,3 +789,7 @@ std::string tpanel_subtweet_pending_op::dump() {
 			cstr(tweet_short_log_line(action_data->top_tweet->id))
 	);
 }
+
+bool tpanel_subtweet_pending_op::IsAlive() const {
+	return action_data->win && action_data->top_tds;
+}

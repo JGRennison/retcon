@@ -155,6 +155,7 @@ struct tpanel_subtweet_pending_op : public pending_op {
 
 	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags);
 	virtual std::string dump();
+	virtual bool IsAlive() const override;
 };
 
 #endif

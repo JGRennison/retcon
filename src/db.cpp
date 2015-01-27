@@ -1171,6 +1171,8 @@ void dbconn::CheckPurgeTweets() {
 		tweet_ptr &t = it->second;
 		uint64_t id = it->first;
 
+		t->ClearDeadPendingOps();
+
 		if(t->lflags & TLF::REFCOUNT_WENT_GT1 || t->HasPendingOps()) {
 			// Keep it
 

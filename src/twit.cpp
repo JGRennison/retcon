@@ -664,6 +664,12 @@ void tweet::MarkFlagsAsRead() {
 	}
 }
 
+void tweet::ClearDeadPendingOps() {
+	container_unordered_remove_if(pending_ops, [](const std::unique_ptr<pending_op> &op) {
+		return !op->IsAlive();
+	});
+}
+
 void cached_id_sets::CheckTweet(tweet &tw) {
 	IterateLists([&](const char *name, tweetidset cached_id_sets::*mptr, unsigned long long flagvalue) {
 		if(tw.flags.Save() & flagvalue) (this->*mptr).insert(tw.id);

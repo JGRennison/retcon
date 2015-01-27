@@ -285,6 +285,7 @@ struct pending_op {
 
 	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) = 0;
 	virtual std::string dump() = 0;
+	virtual bool IsAlive() const { return true; }
 };
 
 struct rt_pending_op : public pending_op {
@@ -428,6 +429,7 @@ struct tweet {
 	bool HasPendingOps() const {
 		return !pending_ops.empty();
 	}
+	void ClearDeadPendingOps();
 
 	int GetRefcount() const {
 		return refcount;
