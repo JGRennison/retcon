@@ -213,8 +213,13 @@ bool userdatacontainer::NeedsUpdating(flagwrapper<PENDING_REQ> preq, time_t time
 }
 
 bool userdatacontainer::ImgIsReady(flagwrapper<PENDING_REQ> preq) {
-	if(udc_flags & UDC::IMAGE_DL_IN_PROGRESS) return false;
-	if(!(preq & PENDING_REQ::PROFIMG_NEED)) return false;
+	if(udc_flags & UDC::IMAGE_DL_IN_PROGRESS) {
+		LogMsgFormat(LOGT::OTHERTRACE, "userdatacontainer::ImgIsReady, not downloading profile image url: %s for user id %" llFmtSpec "d (@%s), "
+				"as download is already in progress",
+				cstr(GetUser().profile_img_url), id, cstr(GetUser().screen_name));
+		return false;
+	}
+	if(!(preq & PENDING_REQ::PROFIMG_NEED)) return true;
 	if(user.profile_img_url.size()) {
 		if(cached_profile_img_url != user.profile_img_url) {
 			if(udc_flags & UDC::PROFILE_IMAGE_DL_FAILED) return true;
@@ -223,6 +228,11 @@ bool userdatacontainer::ImgIsReady(flagwrapper<PENDING_REQ> preq) {
 
 				// New image, bump last used timestamp to prevent it being evicted prior to display
 				profile_img_last_used = time(nullptr);
+			}
+			else {
+				LogMsgFormat(LOGT::OTHERTRACE, "userdatacontainer::ImgIsReady, not downloading profile image url: %s for user id %" llFmtSpec "d (@%s), "
+						"as PENDING_REQ::PROFIMG_DOWNLOAD_FLAG is not set",
+						cstr(GetUser().profile_img_url), id, cstr(GetUser().screen_name));
 			}
 			return false;
 		}
@@ -283,7 +293,11 @@ bool userdatacontainer::ImgIsReady(flagwrapper<PENDING_REQ> preq) {
 			return true;
 		}
 	}
-	else return false;
+	else {
+		LogMsgFormat(LOGT::OTHERTRACE, "userdatacontainer::ImgIsReady, profile_img_url is empty for user id %" llFmtSpec "d (@%s), ",
+				id, cstr(GetUser().screen_name));
+		return false;
+	}
 }
 
 bool userdatacontainer::ImgHalfIsReady(flagwrapper<PENDING_REQ> preq) {
@@ -299,7 +313,7 @@ bool userdatacontainer::ImgHalfIsReady(flagwrapper<PENDING_REQ> preq) {
 flagwrapper<PENDING_RESULT> userdatacontainer::GetPending(flagwrapper<PENDING_REQ> preq, time_t timevalue) {
 	flagwrapper<PENDING_RESULT> result;
 	if(preq & PENDING_REQ::PROFIMG_NEED) {
-		if(ImgIsReady(preq) && !((udc_flags & UDC::IMAGE_DL_IN_PROGRESS) && (preq & PENDING_REQ::USEREXPIRE))) {
+		if(ImgIsReady(preq)) {
 			result |= PENDING_RESULT::PROFIMG_READY;
 		}
 		else {
