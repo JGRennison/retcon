@@ -247,7 +247,7 @@ struct dbconn : public wxEvtHandler {
 
 	void OnStdTweetLoadFromDB(wxCommandEvent &event);
 	void PrepareStdTweetLoadMsg(dbseltweetmsg &loadmsg);
-	void HandleDBSelTweetMsg(dbseltweetmsg &msg, flagwrapper<HDBSF> flags);
+	void HandleDBSelTweetMsg(dbseltweetmsg &msg, optional_observer_ptr<db_handle_msg_pending_guard> pending_guard);
 	void GenericDBSelTweetMsgHandler(wxCommandEvent &event);
 	void SetDBSelTweetMsgHandler(dbseltweetmsg &msg, std::function<void(dbseltweetmsg &, dbconn *)> f);
 
@@ -255,7 +255,7 @@ struct dbconn : public wxEvtHandler {
 	void PrepareStdUserLoadMsg(dbselusermsg &loadmsg);
 	void GenericDBSelUserMsgHandler(wxCommandEvent &event);
 	void SetDBSelUserMsgHandler(dbselusermsg &msg, std::function<void(dbselusermsg &, dbconn *)> f);
-	void DBSelUserReturnDataHandler(std::deque<dbretuserdata> data, flagwrapper<HDBSF> flags);
+	void DBSelUserReturnDataHandler(std::deque<dbretuserdata> data, optional_observer_ptr<db_handle_msg_pending_guard> pending_guard);
 
 	void OnAsyncStateWriteTimer(wxTimerEvent& event);
 	void ResetAsyncStateWriteTimer();

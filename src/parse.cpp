@@ -748,12 +748,15 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> 
 		pdata->val = &val;
 		pdata->umpt_flags = umpt_flags;
 
+		if(!this->data->db_pending_guard)
+			this->data->db_pending_guard.reset(new db_handle_msg_pending_guard());
+
 		DBC_SetDBSelUserMsgHandler(*msg, [pdata](dbselusermsg &pmsg, dbconn *dbc) {
 			//Do not use *this, it will have long since gone out of scope
 
 			LogMsgFormat(LOGT::PARSE | LOGT::DBTRACE, "jsonparser::DoUserParse: User id: %" llFmtSpec "d, now doing deferred parse.", pdata->udc->id);
 
-			DBC_DBSelUserReturnDataHandler(std::move(pmsg.data), HDBSF::NOPENDINGS);
+			DBC_DBSelUserReturnDataHandler(std::move(pmsg.data), pdata->jp_data->db_pending_guard.get());
 
 			std::shared_ptr<taccount> acc = pdata->acc.lock();
 			if(acc) {
@@ -950,12 +953,15 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 		pdata->sflags = sflags;
 		pdata->tweetid = tweetid;
 
+		if(!this->data->db_pending_guard)
+			this->data->db_pending_guard.reset(new db_handle_msg_pending_guard());
+
 		DBC_SetDBSelTweetMsgHandler(*msg, [pdata](dbseltweetmsg &pmsg, dbconn *dbc) {
 			//Do not use *this, it will have long since gone out of scope
 
 			LogMsgFormat(LOGT::PARSE | LOGT::DBTRACE, "jsonparser::DoTweetParse: Tweet id: %" llFmtSpec "d, now doing deferred parse.", pdata->tweetid);
 
-			DBC_HandleDBSelTweetMsg(pmsg, HDBSF::NOPENDINGS);
+			DBC_HandleDBSelTweetMsg(pmsg, pdata->jp_data->db_pending_guard.get());
 
 			std::shared_ptr<taccount> acc = pdata->acc.lock();
 			if(acc) {

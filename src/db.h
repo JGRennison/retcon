@@ -287,10 +287,12 @@ struct dbnotifyuserspurgedmsg : public dbsendmsg {
 	useridset ids;
 };
 
-enum class HDBSF {
-	NOPENDINGS         = 1<<0,
+struct db_handle_msg_pending_guard {
+	std::deque<tweet_ptr> tweets;
+	std::deque<udc_ptr> users;
+
+	~db_handle_msg_pending_guard();
 };
-template<> struct enum_traits<HDBSF> { static constexpr bool flags = true; };
 
 bool DBC_Init(const std::string &filename);
 void DBC_DeInit();
@@ -305,10 +307,10 @@ void DBC_UpdateMedia(media_entity &me, DBUMMT update_type, optional_observer_ptr
 void DBC_InsertNewTweet(tweet_ptr_p tobj, std::string statjson, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
 void DBC_UpdateTweetDyn(tweet_ptr_p tobj, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
 void DBC_InsertUser(udc_ptr_p u, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
-void DBC_HandleDBSelTweetMsg(dbseltweetmsg &msg, flagwrapper<HDBSF> flags);
+void DBC_HandleDBSelTweetMsg(dbseltweetmsg &msg, optional_observer_ptr<db_handle_msg_pending_guard> pending_guard = nullptr);
 void DBC_SetDBSelTweetMsgHandler(dbseltweetmsg &msg, std::function<void(dbseltweetmsg &, dbconn *)> f);
 void DBC_PrepareStdTweetLoadMsg(dbseltweetmsg &loadmsg);
-void DBC_DBSelUserReturnDataHandler(std::deque<dbretuserdata> data, flagwrapper<HDBSF> flags);
+void DBC_DBSelUserReturnDataHandler(std::deque<dbretuserdata> data, optional_observer_ptr<db_handle_msg_pending_guard> pending_guard = nullptr);
 void DBC_SetDBSelUserMsgHandler(dbselusermsg &msg, std::function<void(dbselusermsg &, dbconn *)> f);
 void DBC_PrepareStdUserLoadMsg(dbselusermsg &loadmsg);
 

@@ -32,6 +32,7 @@
 #include <vector>
 
 struct dbsendmsg_list;
+struct db_handle_msg_pending_guard;
 struct taccount;
 struct twitcurlext;
 struct tweet;
@@ -99,6 +100,7 @@ struct jsonparser : public genjsonparser {
 		uint64_t rbfs_userid = 0;
 		RBFS_TYPE rbfs_type = RBFS_NULL;
 		flagwrapper<JDTP> base_sflags = 0;
+		std::unique_ptr<db_handle_msg_pending_guard> db_pending_guard;
 	};
 	std::shared_ptr<parse_data> data;
 	std::unique_ptr<dbsendmsg_list> dbmsglist;

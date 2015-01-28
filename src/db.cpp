@@ -739,7 +739,7 @@ END_EVENT_TABLE()
 void dbconn::OnStdTweetLoadFromDB(wxCommandEvent &event) {
 	std::unique_ptr<dbseltweetmsg> msg(static_cast<dbseltweetmsg *>(event.GetClientData()));
 	event.SetClientData(0);
-	HandleDBSelTweetMsg(*msg, 0);
+	HandleDBSelTweetMsg(*msg, nullptr);
 }
 
 void dbconn::PrepareStdTweetLoadMsg(dbseltweetmsg &loadmsg) {
@@ -771,12 +771,12 @@ void dbconn::SetDBSelTweetMsgHandler(dbseltweetmsg &msg, std::function<void(dbse
 	generic_sel_funcs[reinterpret_cast<intptr_t>(&msg)] = std::move(f);
 }
 
-void dbconn::HandleDBSelTweetMsg(dbseltweetmsg &msg, flagwrapper<HDBSF> flags) {
+void dbconn::HandleDBSelTweetMsg(dbseltweetmsg &msg, optional_observer_ptr<db_handle_msg_pending_guard> pending_guard) {
 	LogMsgFormat(LOGT::DBTRACE, "dbconn::HandleDBSelTweetMsg start");
 
 	if(msg.flags & DBSTMF::CLEARNOUPDF) dbc_flags |= DBCF::REPLY_CLEARNOUPDF;
 
-	DBSelUserReturnDataHandler(std::move(msg.user_data), 0);
+	DBSelUserReturnDataHandler(std::move(msg.user_data), pending_guard);
 
 	for(dbrettweetdata &dt : msg.data) {
 		#if DB_COPIOUS_LOGGING
@@ -816,8 +816,10 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg &msg, flagwrapper<HDBSF> flags) {
 			t->rtsrc = ad.GetTweetById(dt.rtid);
 		}
 
-
-		if(!(flags & HDBSF::NOPENDINGS)) {
+		if(pending_guard) {
+			pending_guard->tweets.push_back(std::move(t));
+		}
+		else {
 			flagwrapper<PENDING_BITS> res = TryUnmarkPendingTweet(t, UMPTF::TPDB_NOUPDF);
 			if(res) {
 				GenericMarkPending(t, res, "dbconn::HandleDBSelTweetMsg");
@@ -837,7 +839,7 @@ void dbconn::PrepareStdUserLoadMsg(dbselusermsg &loadmsg) {
 void dbconn::OnStdUserLoadFromDB(wxCommandEvent &event) {
 	std::unique_ptr<dbselusermsg> msg(static_cast<dbselusermsg *>(event.GetClientData()));
 	event.SetClientData(0);
-	DBSelUserReturnDataHandler(std::move(msg->data), 0);
+	DBSelUserReturnDataHandler(std::move(msg->data), nullptr);
 }
 
 void dbconn::GenericDBSelUserMsgHandler(wxCommandEvent &event) {
@@ -863,7 +865,7 @@ void dbconn::SetDBSelUserMsgHandler(dbselusermsg &msg, std::function<void(dbselu
 	generic_sel_user_funcs[reinterpret_cast<intptr_t>(&msg)] = std::move(f);
 }
 
-void dbconn::DBSelUserReturnDataHandler(std::deque<dbretuserdata> data, flagwrapper<HDBSF> flags) {
+void dbconn::DBSelUserReturnDataHandler(std::deque<dbretuserdata> data, optional_observer_ptr<db_handle_msg_pending_guard> pending_guard) {
 	for(dbretuserdata &du : data) {
 		LogMsgFormat(LOGT::DBTRACE, "dbconn::DBSelUserReturnDataHandler got user data id: %" llFmtSpec "u", du.id);
 
@@ -889,7 +891,10 @@ void dbconn::DBSelUserReturnDataHandler(std::deque<dbretuserdata> data, flagwrap
 		u->mention_index = std::move(du.mention_index);
 		u->mention_index.insert(u->mention_index.end(), old_mention_index.begin(), old_mention_index.end());
 
-		if(!(flags & HDBSF::NOPENDINGS)) {
+		if(pending_guard) {
+			pending_guard->users.push_back(std::move(u));
+		}
+		else {
 			u->CheckPendingTweets();
 			dbc.dbc_flags |= DBCF::REPLY_CHECKPENDINGS;
 		}
@@ -2491,6 +2496,27 @@ void dbsendmsg_callback::SendReply(std::unique_ptr<dbsendmsg> data, dbiothread *
 	th->reply_list.emplace_back(targ, std::unique_ptr<wxEvent>(evt));
 }
 
+db_handle_msg_pending_guard::~db_handle_msg_pending_guard() {
+	if(users.empty() && tweets.empty())
+		return;
+
+	LogMsgFormat(LOGT::PENDTRACE, "db_handle_msg_pending_guard::~db_handle_msg_pending_guard: have %zu users, %zu tweets", users.size(), tweets.size());
+
+	for(auto &it : users) {
+		it->CheckPendingTweets();
+	}
+	for(auto &it : tweets) {
+		flagwrapper<PENDING_BITS> res = TryUnmarkPendingTweet(it, UMPTF::TPDB_NOUPDF);
+		if(res)
+			GenericMarkPending(it, res, "db_handle_msg_pending_guard::~db_handle_msg_pending_guard");
+	}
+	for(auto &it : alist) {
+		if(it->enabled)
+			it->StartRestQueryPendings();
+	}
+	CheckClearNoUpdateFlag_All();
+}
+
 void DBGenConfig::SetDBIndexGlobal() {
 	dbindextype = DBI_TYPE::GLOBAL;
 }
@@ -2657,8 +2683,8 @@ void DBC_InsertUser(udc_ptr_p u, optional_observer_ptr<dbsendmsg_list> msglist) 
 	dbc.InsertUser(u, msglist);
 }
 
-void DBC_HandleDBSelTweetMsg(dbseltweetmsg &msg, flagwrapper<HDBSF> flags) {
-	dbc.HandleDBSelTweetMsg(msg, flags);
+void DBC_HandleDBSelTweetMsg(dbseltweetmsg &msg, optional_observer_ptr<db_handle_msg_pending_guard> pending_guard) {
+	dbc.HandleDBSelTweetMsg(msg, pending_guard);
 }
 
 void DBC_SetDBSelTweetMsgHandler(dbseltweetmsg &msg, std::function<void(dbseltweetmsg &, dbconn *)> f) {
@@ -2669,8 +2695,8 @@ void DBC_PrepareStdTweetLoadMsg(dbseltweetmsg &loadmsg) {
 	dbc.PrepareStdTweetLoadMsg(loadmsg);
 }
 
-void DBC_DBSelUserReturnDataHandler(std::deque<dbretuserdata> data, flagwrapper<HDBSF> flags) {
-	dbc.DBSelUserReturnDataHandler(std::move(data), flags);
+void DBC_DBSelUserReturnDataHandler(std::deque<dbretuserdata> data, optional_observer_ptr<db_handle_msg_pending_guard> pending_guard) {
+	dbc.DBSelUserReturnDataHandler(std::move(data), pending_guard);
 }
 
 void DBC_SetDBSelUserMsgHandler(dbselusermsg &msg, std::function<void(dbselusermsg &, dbconn *)> f) {
