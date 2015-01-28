@@ -1839,8 +1839,10 @@ void tpanelparentwin_usertweets_impl::LoadMore(unsigned int n, uint64_t lessthan
 		if(stit == tp->tweetlist.cend()) break;
 
 		tweet_ptr t = ad.GetTweetById(*stit);
-		if(tac->CheckMarkPending(t)) PushTweet(t, PUSHFLAGS::USERTL | pushflags);
-		else MarkPending_TPanelMap(t, 0, PUSHFLAGS::USERTL | pushflags, &tp);
+		if(CheckMarkTweetPending(t, tac.get()))
+			PushTweet(t, PUSHFLAGS::USERTL | pushflags);
+		else
+			MarkPending_TPanelMap(t, 0, PUSHFLAGS::USERTL | pushflags, &tp);
 
 		if(revdir) {
 			if((*stit) > load_greaterthanid) load_greaterthanid = *stit;

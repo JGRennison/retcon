@@ -823,11 +823,9 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg &msg, optional_observer_ptr<db_ha
 			pending_guard->tweets.push_back(std::move(t));
 		}
 		else {
-			flagwrapper<PENDING_BITS> res = TryUnmarkPendingTweet(t, UMPTF::TPDB_NOUPDF);
-			if(res) {
-				GenericMarkPending(t, res, "dbconn::HandleDBSelTweetMsg");
+			tweet_pending_bits_guard res = TryUnmarkPendingTweet(t, UMPTF::TPDB_NOUPDF);
+			if(res)
 				dbc.dbc_flags |= DBCF::REPLY_CHECKPENDINGS;
-			}
 		}
 	}
 	LogMsgFormat(LOGT::DBTRACE, "dbconn::HandleDBSelTweetMsg end");
@@ -2603,9 +2601,7 @@ db_handle_msg_pending_guard::~db_handle_msg_pending_guard() {
 		it->CheckPendingTweets();
 	}
 	for(auto &it : tweets) {
-		flagwrapper<PENDING_BITS> res = TryUnmarkPendingTweet(it, UMPTF::TPDB_NOUPDF);
-		if(res)
-			GenericMarkPending(it, res, "db_handle_msg_pending_guard::~db_handle_msg_pending_guard");
+		TryUnmarkPendingTweet(it, UMPTF::TPDB_NOUPDF);
 	}
 	for(auto &it : alist) {
 		if(it->enabled)

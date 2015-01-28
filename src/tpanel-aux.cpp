@@ -696,9 +696,7 @@ void tpanel_subtweet_pending_op::CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, 
 			t->GetUsableAccount(pacc, GUAF::NOERR) || t->GetUsableAccount(pacc, GUAF::NOERR | GUAF::USERENABLED);
 			subt->AddNewPendingOp(new tpanel_subtweet_pending_op(v, s, top_tds, tweet_load_count, top_tweet));
 			CheckFetchPendingSingleTweet(subt, pacc);
-			flagwrapper<PENDING_BITS> res = TryUnmarkPendingTweet(subt, 0);
-			if(res)
-				GenericMarkPending(subt, res, "tpanel_subtweet_pending_op::CheckLoadTweetReply");
+			TryUnmarkPendingTweet(subt, 0);
 		};
 
 		if(load_count == 0) {

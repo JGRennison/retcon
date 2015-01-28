@@ -583,17 +583,39 @@ inline bool IsTweetAReply(const std::string &str) {
 #endif
 #endif
 
-bool CheckMarkPending_GetAcc(tweet_ptr_p t, flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT, flagwrapper<PENDING_RESULT> presult = PENDING_RESULT::DEFAULT);
-flagwrapper<PENDING_BITS> TryUnmarkPendingTweet(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags = 0);
-void FastMarkPendingNonAcc(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark);
-bool FastMarkPendingNoAccFallback(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, const std::string &logprefix);
-void GenericMarkPending(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, const std::string &logprefix, flagwrapper<tweet::GUAF> guaflags = 0);
-bool CheckIfUserAlreadyInDBAndLoad(udc_ptr_p u);
+// This calls MarkTweetPending on destruction
+// Using this return type is to enable (slightly) delayed calling of MarkTweetPending
+// whilst avoiding accidentally forgetting to call it
+struct tweet_pending_bits_guard {
+	flagwrapper<PENDING_BITS> bits;
+	optional_observer_ptr<taccount> acc;
+	tweet_ptr t;
+
+	tweet_pending_bits_guard() { }
+	tweet_pending_bits_guard(tweet_pending_bits_guard &&other);
+	~tweet_pending_bits_guard();
+	void reset();
+	explicit operator bool() {
+		return t && bits;
+	}
+};
+
+tweet_pending_bits_guard TryUnmarkPendingTweet(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags = 0, optional_observer_ptr<taccount> acc = nullptr);
+void DoMarkTweetPending(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, optional_observer_ptr<taccount> acc = nullptr);
+void DoMarkTweetPending_AccHint(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, std::shared_ptr<taccount> &acc_hint,
+		flagwrapper<tweet::GUAF> guaflags = 0);
+bool CheckMarkTweetPending(tweet_ptr_p t, optional_observer_ptr<taccount> acc = nullptr,
+		flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT, flagwrapper<PENDING_RESULT> presult = PENDING_RESULT::DEFAULT);
+bool CheckMarkTweetPending_AccHint(tweet_ptr_p t, std::shared_ptr<taccount> &acc_hint, flagwrapper<tweet::GUAF> guaflags = 0,
+		flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT, flagwrapper<PENDING_RESULT> presult = PENDING_RESULT::DEFAULT);
 
 bool MarkPending_TPanelMap(tweet_ptr_p tobj, tpanelparentwin_nt *win_, PUSHFLAGS pushflags = PUSHFLAGS::DEFAULT, std::shared_ptr<tpanel> *pushtpanel_ = nullptr);
+
+bool CheckIfUserAlreadyInDBAndLoad(udc_ptr_p u);
 bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> acc_hint, std::unique_ptr<dbseltweetmsg> *existing_dbsel = nullptr,
 		flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT, flagwrapper<PENDING_RESULT> presult = PENDING_RESULT::DEFAULT);
 bool CheckLoadSingleTweet(tweet_ptr_p t, std::shared_ptr<taccount> &acc_hint);
+
 void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, tweetidset cached_id_sets::* idsetptr,
 		bool remove, std::function<void(tweet_ptr_p )> existingtweetfunc = std::function<void(tweet_ptr_p)>());
 void SendTweetFlagUpdate(const tweet &tw, unsigned long long mask);

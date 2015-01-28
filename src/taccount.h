@@ -160,8 +160,6 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 
 	void MarkUserPending(udc_ptr_p user);
 	bool MarkPendingOrHandle(tweet_ptr_p t, flagwrapper<ARRIVAL> arr);
-	bool CheckMarkPending(tweet_ptr_p t, flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT, flagwrapper<PENDING_RESULT> presult = PENDING_RESULT::DEFAULT);
-	void FastMarkPending(tweet_ptr_p t, flagwrapper<PENDING_BITS>);
 
 	void OnRestTimer(wxTimerEvent& event);
 	void SetupRestBackfillTimer();

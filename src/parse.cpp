@@ -1170,9 +1170,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 
 	if(!have_checked_pending)
 		tac->MarkPendingOrHandle(tobj, arr);
-	flagwrapper<PENDING_BITS> res = TryUnmarkPendingTweet(tobj, 0);
-	if(res)
-		GenericMarkPending(tobj, res, "jsonparser::DoTweetParse");
+	TryUnmarkPendingTweet(tobj, 0);
 
 	if(tobj->lflags & TLF::SHOULDSAVEINDB || tobj->lflags & TLF::SAVED_IN_DB) {
 		if(!(tobj->lflags & TLF::SAVED_IN_DB) || (sflags & JDTP::ALWAYSREPARSE)) {

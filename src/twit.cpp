@@ -333,22 +333,17 @@ flagwrapper<PENDING_RESULT> userdatacontainer::GetPending(flagwrapper<PENDING_RE
 
 void userdatacontainer::CheckPendingTweets(flagwrapper<UMPTF> umpt_flags, optional_observer_ptr<taccount> acc) {
 	FreezeAll();
-	std::vector<std::pair<flagwrapper<PENDING_BITS>, tweet_ptr> > stillpending;
+	std::vector<tweet_pending_bits_guard> stillpending;
 	stillpending.reserve(pendingtweets.size());
 	for(auto &it : pendingtweets) {
-		flagwrapper<PENDING_BITS> res = TryUnmarkPendingTweet(it, umpt_flags);
-		if(res) {
-			stillpending.push_back(std::make_pair(res, it));
-		}
+		stillpending.emplace_back(TryUnmarkPendingTweet(it, umpt_flags, acc));
 	}
 	pendingtweets.clear();
 
-	for(auto &it : stillpending) {
-		if(acc)
-			acc->FastMarkPending(it.second, it.first);
-		else
-			GenericMarkPending(it.second, it.first, "userdatacontainer::CheckPendingTweets");
-	}
+	// All the guards will now run
+	// Do this here instead of in loop to avoid editing pendingtweets
+	// whilst iterating over it
+	stillpending.clear();
 
 	if(udc_flags & UDC::WINDOWOPEN) {
 		user_window *uw = user_window::GetWin(id);
@@ -378,9 +373,7 @@ void userdatacontainer::MarkTweetPending(tweet_ptr_p t) {
 }
 
 void rt_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) {
-	flagwrapper<PENDING_BITS> res = TryUnmarkPendingTweet(target_retweet, umpt_flags);
-	if(res)
-		GenericMarkPending(target_retweet, res, "rt_pending_op::MarkUnpending");
+	TryUnmarkPendingTweet(target_retweet, umpt_flags);
 }
 
 std::string rt_pending_op::dump() {
@@ -401,24 +394,48 @@ std::string handlenew_pending_op::dump() {
 	return string_format("Handle arrived on account: %s, 0x%X", acc ? cstr(acc->dispname) : "N/A", arr.get());
 }
 
-flagwrapper<PENDING_BITS> TryUnmarkPendingTweet(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) {
+tweet_pending_bits_guard::tweet_pending_bits_guard(tweet_pending_bits_guard &&other) {
+	bits = std::move(other.bits);
+	acc = std::move(other.acc);
+	t = std::move(other.t);
+	other.reset();
+}
+
+tweet_pending_bits_guard::~tweet_pending_bits_guard() {
+	if(bits && t)
+		DoMarkTweetPending(t, bits, acc);
+}
+
+void tweet_pending_bits_guard::reset() {
+	bits = 0;
+	acc.reset();
+	t.reset();
+}
+
+tweet_pending_bits_guard TryUnmarkPendingTweet(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags, optional_observer_ptr<taccount> acc) {
 	LogMsgFormat(LOGT::PENDTRACE, "Try Unmark Pending: %s, pending ops: %zu", cstr(tweet_log_line(t.get())), t->pending_ops.size());
-	flagwrapper<PENDING_BITS> result;
+	tweet_pending_bits_guard result;
 	std::vector<std::unique_ptr<pending_op> > still_pending;
 	for(auto &it : t->pending_ops) {
 		tweet_pending tp = t->IsPending(it->preq);
-		if(tp.IsReady(it->presult_required)) it->MarkUnpending(t, umpt_flags);
+		if(tp.IsReady(it->presult_required))
+			it->MarkUnpending(t, umpt_flags);
 		else {
 			still_pending.emplace_back(std::move(it));
-			result |= tp.bits;
+			result.bits |= tp.bits;
 		}
 	}
 	t->pending_ops = std::move(still_pending);
-	if(t->pending_ops.empty()) {
+	if(t->pending_ops.empty())
 		t->lflags &= ~TLF::BEINGLOADEDFROMDB;
+
+	if(result.bits) {
+		result.acc = acc;
+		result.t = t;
 	}
+
 	LogMsgFormat(LOGT::PENDTRACE, "Try Unmark Pending: end: for %" llFmtSpec "u, still pending ops: %zu, still pending: 0x%X",
-			t->id, t->pending_ops.size(), static_cast<unsigned int>(result.get()));
+			t->id, t->pending_ops.size(), static_cast<unsigned int>(result.bits.get()));
 	return result;
 }
 
@@ -760,61 +777,116 @@ void SendTweetFlagUpdate(const tweet &tw, unsigned long long mask) {
 	DBC_SendMessageBatched(std::move(msg));
 }
 
-//the following set of procedures should be kept in sync
-
-//returns true is ready, false is pending
-bool taccount::CheckMarkPending(tweet_ptr_p t, flagwrapper<PENDING_REQ> preq, flagwrapper<PENDING_RESULT> presult) {
-	tweet_pending tp = t->IsPending(preq);
-	if(tp.IsReady(presult)) {
-		return true;
-	}
-	else {
-		FastMarkPending(t, tp.bits);
-		return false;
-	}
-}
-
-//returns true is ready, false is pending
-bool CheckMarkPending_GetAcc(tweet_ptr_p t, flagwrapper<PENDING_REQ> preq, flagwrapper<PENDING_RESULT> presult) {
-	tweet_pending tp = t->IsPending(preq);
-	if(tp.IsReady(presult)) {
-		return true;
-	}
-	else {
-		GenericMarkPending(t, tp.bits, "CheckMarkPending_GetAcc");
-		return false;
-	}
-}
-
-void GenericMarkPending(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, const std::string &logprefix, flagwrapper<tweet::GUAF> guaflags) {
-	if(mark & PENDING_BITS::ACCMASK) {
-		std::shared_ptr<taccount> curacc;
-		if(t->GetUsableAccount(curacc, guaflags)) {
-			curacc->FastMarkPending(t, mark);
-		}
-		else {
-			FastMarkPendingNoAccFallback(t, mark, logprefix);
+namespace pending_detail {
+	void TweetMarkPendingNonAcc(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark) {
+		if(mark & PENDING_BITS::T_U) t->user->MarkTweetPending(t);
+		if(mark & PENDING_BITS::T_UR) t->user_recipient->MarkTweetPending(t);
+		if(mark & PENDING_BITS::RT_RTU) t->rtsrc->user->MarkTweetPending(t->rtsrc);
+		if(mark & PENDING_BITS::RT_MISSING) {
+			bool insertnewrtpo = true;
+			for(auto &it : t->rtsrc->pending_ops) {
+				rt_pending_op *rtpo = dynamic_cast<rt_pending_op*>(it.get());
+				if(rtpo && rtpo->target_retweet == t) {
+					insertnewrtpo = false;
+					break;
+				}
+			}
+			if(insertnewrtpo) t->rtsrc->AddNewPendingOp(new rt_pending_op(t));
 		}
 	}
-	else FastMarkPendingNonAcc(t, mark);
-}
 
-//mark *must* be exactly right
-void FastMarkPendingNonAcc(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark) {
-	if(mark & PENDING_BITS::T_U) t->user->MarkTweetPending(t);
-	if(mark & PENDING_BITS::T_UR) t->user_recipient->MarkTweetPending(t);
-	if(mark & PENDING_BITS::RT_RTU) t->rtsrc->user->MarkTweetPending(t->rtsrc);
-	if(mark & PENDING_BITS::RT_MISSING) {
-		bool insertnewrtpo = true;
-		for(auto &it : t->rtsrc->pending_ops) {
-			rt_pending_op *rtpo = dynamic_cast<rt_pending_op*>(it.get());
-			if(rtpo && rtpo->target_retweet == t) {
-				insertnewrtpo = false;
-				break;
+	//return true if successfully marked pending
+	bool TweetMarkPendingNoAccFallback(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark) {
+		TweetMarkPendingNonAcc(t, mark);
+
+		if(mark & PENDING_BITS::ACCMASK) {
+			bool have_set_noacc_pending = false;
+			auto do_mark = [&](udc_ptr_p u) {
+				if(!CheckIfUserAlreadyInDBAndLoad(u)) {
+					ad.noacc_pending_userconts[u->id] = u;
+					have_set_noacc_pending = true;
+				}
+			};
+
+			if(mark & PENDING_BITS::U) do_mark(t->user);
+			if(mark & PENDING_BITS::UR) do_mark(t->user_recipient);
+			if(mark & PENDING_BITS::RTU) do_mark(t->rtsrc->user);
+
+			if(have_set_noacc_pending) {
+				LogMsgFormat(LOGT::PENDTRACE, "FastMarkPendingNoAccFallback: Cannot mark pending as there is no usable account, %s", cstr(tweet_log_line(t.get())));
+				return false;
 			}
 		}
-		if(insertnewrtpo) t->rtsrc->AddNewPendingOp(new rt_pending_op(t));
+		return true;
 	}
+
+
+	void TweetMarkPendingAcc(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, taccount &acc) {
+		TweetMarkPendingNonAcc(t, mark);
+
+		auto do_mark = [&](udc_ptr_p u) {
+			if(!CheckIfUserAlreadyInDBAndLoad(u))
+				acc.MarkUserPending(u);
+		};
+
+		if(mark & PENDING_BITS::U) do_mark(t->user);
+		if(mark & PENDING_BITS::UR) do_mark(t->user_recipient);
+		if(mark & PENDING_BITS::RTU) do_mark(t->rtsrc->user);
+	}
+
+	template<typename F> bool GenericCheckMarkTweetPending(tweet_ptr_p t, flagwrapper<PENDING_REQ> preq, flagwrapper<PENDING_RESULT> presult, F function) {
+		tweet_pending tp = t->IsPending(preq);
+		if(tp.IsReady(presult)) {
+			return true;
+		}
+		else {
+			function(tp.bits);
+			return false;
+		}
+	}
+}
+
+void DoMarkTweetPending(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, optional_observer_ptr<taccount> acc) {
+	if(mark & PENDING_BITS::ACCMASK) {
+		if(acc)
+			pending_detail::TweetMarkPendingAcc(t, mark, *acc);
+		else {
+			std::shared_ptr<taccount> curacc;
+			DoMarkTweetPending_AccHint(t, mark, curacc, 0);
+		}
+	}
+	else
+		pending_detail::TweetMarkPendingNonAcc(t, mark);
+}
+
+
+void DoMarkTweetPending_AccHint(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark,
+		std::shared_ptr<taccount> &acc_hint, flagwrapper<tweet::GUAF> guaflags) {
+
+	if(mark & PENDING_BITS::ACCMASK) {
+		if(t->GetUsableAccount(acc_hint, guaflags))
+			pending_detail::TweetMarkPendingAcc(t, mark, *acc_hint);
+		else
+			pending_detail::TweetMarkPendingNoAccFallback(t, mark);
+	}
+	else
+		pending_detail::TweetMarkPendingNonAcc(t, mark);
+}
+
+// returns true if ready, false is pending
+bool CheckMarkTweetPending(tweet_ptr_p t, optional_observer_ptr<taccount> acc, flagwrapper<PENDING_REQ> preq, flagwrapper<PENDING_RESULT> presult) {
+	return pending_detail::GenericCheckMarkTweetPending(t, preq, presult, [&](flagwrapper<PENDING_BITS> mark) {
+		DoMarkTweetPending(t, mark, acc);
+	});
+}
+
+// returns true if ready, false is pending
+bool CheckMarkTweetPending_AccHint(tweet_ptr_p t, std::shared_ptr<taccount> &acc_hint, flagwrapper<tweet::GUAF> guaflags,
+		flagwrapper<PENDING_REQ> preq, flagwrapper<PENDING_RESULT> presult) {
+
+	return pending_detail::GenericCheckMarkTweetPending(t, preq, presult, [&](flagwrapper<PENDING_BITS> mark) {
+		DoMarkTweetPending_AccHint(t, mark, acc_hint, guaflags);
+	});
 }
 
 // returns true if already in DB, and DB load issued *or* if DB load already in progress
@@ -833,48 +905,6 @@ bool CheckIfUserAlreadyInDBAndLoad(udc_ptr_p u) {
 	}
 	return false;
 }
-
-//mark *must* be exactly right
-void taccount::FastMarkPending(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark) {
-	FastMarkPendingNonAcc(t, mark);
-
-	auto do_mark = [&](udc_ptr_p u) {
-		if(!CheckIfUserAlreadyInDBAndLoad(u))
-			MarkUserPending(u);
-	};
-
-	if(mark & PENDING_BITS::U) do_mark(t->user);
-	if(mark & PENDING_BITS::UR) do_mark(t->user_recipient);
-	if(mark & PENDING_BITS::RTU) do_mark(t->rtsrc->user);
-}
-
-//return true if successfully marked pending
-//mark *must* be exactly right
-bool FastMarkPendingNoAccFallback(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, const std::string &logprefix) {
-	FastMarkPendingNonAcc(t, mark);
-
-	if(mark & PENDING_BITS::ACCMASK) {
-		bool have_set_noacc_pending = false;
-		auto do_mark = [&](udc_ptr_p u) {
-			if(!CheckIfUserAlreadyInDBAndLoad(u)) {
-				ad.noacc_pending_userconts[u->id] = u;
-				have_set_noacc_pending = true;
-			}
-		};
-
-		if(mark & PENDING_BITS::U) do_mark(t->user);
-		if(mark & PENDING_BITS::UR) do_mark(t->user_recipient);
-		if(mark & PENDING_BITS::RTU) do_mark(t->rtsrc->user);
-
-		if(have_set_noacc_pending) {
-			LogMsgFormat(LOGT::PENDTRACE, "%s: Cannot mark pending as there is no usable account, %s", cstr(logprefix), cstr(tweet_log_line(t.get())));
-			return false;
-		}
-	}
-	return true;
-}
-
-//ends
 
 bool MarkPending_TPanelMap(tweet_ptr_p tobj, tpanelparentwin_nt* win_, PUSHFLAGS pushflags, std::shared_ptr<tpanel> *pushtpanel_) {
 	tpanel *tp = nullptr;
@@ -906,19 +936,7 @@ bool CheckFetchPendingSingleTweet(tweet_ptr_p tobj, std::shared_ptr<taccount> ac
 	bool isready = false;
 
 	if(tobj->text.size()) {
-		tweet_pending tp = tobj->IsPending(preq);
-		if(tp.IsReady(presult)) {
-			isready = true;
-		}
-		else {
-			if(tobj->GetUsableAccount(acc_hint, GUAF::CHECKEXISTING | GUAF::NOERR) ||
-					tobj->GetUsableAccount(acc_hint, GUAF::CHECKEXISTING | GUAF::NOERR | GUAF::USERENABLED)) {
-				acc_hint->FastMarkPending(tobj, tp.bits);
-			}
-			else {
-				FastMarkPendingNoAccFallback(tobj, tp.bits, "CheckFetchPendingSingleTweet");
-			}
-		}
+		isready = CheckMarkTweetPending_AccHint(tobj, acc_hint, GUAF::CHECKEXISTING | GUAF::NOERR, preq, presult);
 	}
 	else {	//tweet not loaded at all
 		if(!(tobj->lflags & TLF::BEINGLOADEDFROMDB) && !(tobj->lflags & TLF::BEINGLOADEDOVERNET)) {
@@ -1010,10 +1028,12 @@ tweet_pending tweet::IsPending(flagwrapper<PENDING_REQ> preq) {
 }
 
 bool taccount::MarkPendingOrHandle(tweet_ptr_p t, flagwrapper<ARRIVAL> arr) {
-	bool isready = CheckMarkPending(t);
+	bool isready = CheckMarkTweetPending(t, this);
 	if(arr) {
-		if(isready) HandleNewTweet(t, shared_from_this(), arr);
-		else t->AddNewPendingOp(new handlenew_pending_op(shared_from_this(), arr, t->id));
+		if(isready)
+			HandleNewTweet(t, shared_from_this(), arr);
+		else
+			t->AddNewPendingOp(new handlenew_pending_op(shared_from_this(), arr, t->id));
 	}
 	return isready;
 }
