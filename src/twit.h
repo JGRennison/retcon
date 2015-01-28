@@ -187,7 +187,7 @@ struct userdatacontainer {
 	bool IsReady(flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT, time_t timevalue = 0) {
 		return !(GetPending(preq, timevalue) & PENDING_RESULT::NOT_READY);
 	}
-	void CheckPendingTweets(flagwrapper<UMPTF> umpt_flags = 0);
+	void CheckPendingTweets(flagwrapper<UMPTF> umpt_flags = 0, optional_observer_ptr<taccount> acc = nullptr);
 	void MarkTweetPending(tweet_ptr_p t);
 	std::shared_ptr<taccount> GetAccountOfUser() const;
 	static void GetImageLocalFilename(uint64_t id, wxString &filename);
@@ -324,8 +324,7 @@ enum class TLF {    //for tweet.lflags
 	HAVEFIRSTTP          = 1<<5,
 	SHOULDSAVEINDB       = 1<<6,
 	LOADED_FROM_DB       = 1<<7,
-	ISPENDING            = 1<<8,
-	REFCOUNT_WENT_GT1    = 1<<9,
+	REFCOUNT_WENT_GT1    = 1<<8,
 };
 template<> struct enum_traits<TLF> { static constexpr bool flags = true; };
 

@@ -1123,7 +1123,6 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 	if(sflags & JDTP::ISRTSRC) tp->SetRecvTypeRTSrc(true);
 
 	bool have_checked_pending = false;
-	bool is_ready = false;
 
 	if(sflags & JDTP::CHECKPENDINGONLY) {
 		tp->SetRecvTypeCPO(true);
@@ -1134,11 +1133,11 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 			std::shared_ptr<tpanel> usertp = tpanelparentwin_usertweets::GetUserTweetTPanel(data->rbfs_userid, data->rbfs_type);
 			if(usertp) {
 				have_checked_pending = true;
-				is_ready = tac->MarkPendingOrHandle(tobj, arr);
-				if(is_ready) {
+				bool is_ready = tac->MarkPendingOrHandle(tobj, arr);
+				if(is_ready)
 					usertp->PushTweet(tobj, PUSHFLAGS::USERTL | PUSHFLAGS::BELOW);
-				}
-				else MarkPending_TPanelMap(tobj, 0, PUSHFLAGS::USERTL | PUSHFLAGS::BELOW, &usertp);
+				else
+					MarkPending_TPanelMap(tobj, 0, PUSHFLAGS::USERTL | PUSHFLAGS::BELOW, &usertp);
 			}
 		}
 	}
@@ -1159,12 +1158,15 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 			}
 			if(!tobj->flags.Get('r')) tobj->flags.Set('u');
 			have_checked_pending = true;
-			is_ready = tac->MarkPendingOrHandle(tobj, arr | ARRIVAL::NEW);
+			tac->MarkPendingOrHandle(tobj, arr | ARRIVAL::NEW);
 		}
 	}
 
-	if(!have_checked_pending) is_ready = tac->MarkPendingOrHandle(tobj, arr);
-	if(tobj->lflags & TLF::ISPENDING && is_ready) TryUnmarkPendingTweet(tobj);
+	if(!have_checked_pending)
+		tac->MarkPendingOrHandle(tobj, arr);
+	flagwrapper<PENDING_BITS> res = TryUnmarkPendingTweet(tobj, 0);
+	if(res)
+		GenericMarkPending(tobj, res, "jsonparser::DoTweetParse");
 
 	if(tobj->lflags & TLF::SHOULDSAVEINDB || tobj->lflags & TLF::SAVED_IN_DB) {
 		if(!(tobj->lflags & TLF::SAVED_IN_DB) || (sflags & JDTP::ALWAYSREPARSE)) {

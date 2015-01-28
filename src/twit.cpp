@@ -331,7 +331,7 @@ flagwrapper<PENDING_RESULT> userdatacontainer::GetPending(flagwrapper<PENDING_RE
 	return result;
 }
 
-void userdatacontainer::CheckPendingTweets(flagwrapper<UMPTF> umpt_flags) {
+void userdatacontainer::CheckPendingTweets(flagwrapper<UMPTF> umpt_flags, optional_observer_ptr<taccount> acc) {
 	FreezeAll();
 	std::vector<std::pair<flagwrapper<PENDING_BITS>, tweet_ptr> > stillpending;
 	stillpending.reserve(pendingtweets.size());
@@ -344,7 +344,10 @@ void userdatacontainer::CheckPendingTweets(flagwrapper<UMPTF> umpt_flags) {
 	pendingtweets.clear();
 
 	for(auto &it : stillpending) {
-		GenericMarkPending(it.second, it.first, "userdatacontainer::CheckPendingTweets");
+		if(acc)
+			acc->FastMarkPending(it.second, it.first);
+		else
+			GenericMarkPending(it.second, it.first, "userdatacontainer::CheckPendingTweets");
 	}
 
 	if(udc_flags & UDC::WINDOWOPEN) {
@@ -375,7 +378,9 @@ void userdatacontainer::MarkTweetPending(tweet_ptr_p t) {
 }
 
 void rt_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) {
-	TryUnmarkPendingTweet(target_retweet, umpt_flags);
+	flagwrapper<PENDING_BITS> res = TryUnmarkPendingTweet(target_retweet, umpt_flags);
+	if(res)
+		GenericMarkPending(target_retweet, res, "rt_pending_op::MarkUnpending");
 }
 
 std::string rt_pending_op::dump() {
@@ -392,7 +397,7 @@ std::string handlenew_pending_op::dump() {
 }
 
 flagwrapper<PENDING_BITS> TryUnmarkPendingTweet(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) {
-	LogMsgFormat(LOGT::PENDTRACE, "Try Unmark Pending: %s", cstr(tweet_log_line(t.get())));
+	LogMsgFormat(LOGT::PENDTRACE, "Try Unmark Pending: %s, pending ops: %zu", cstr(tweet_log_line(t.get())), t->pending_ops.size());
 	flagwrapper<PENDING_BITS> result;
 	std::vector<std::unique_ptr<pending_op> > still_pending;
 	for(auto &it : t->pending_ops) {
@@ -406,8 +411,9 @@ flagwrapper<PENDING_BITS> TryUnmarkPendingTweet(tweet_ptr_p t, flagwrapper<UMPTF
 	t->pending_ops = std::move(still_pending);
 	if(t->pending_ops.empty()) {
 		t->lflags &= ~TLF::BEINGLOADEDFROMDB;
-		t->lflags &= ~TLF::ISPENDING;
 	}
+	LogMsgFormat(LOGT::PENDTRACE, "Try Unmark Pending: end: for %" llFmtSpec "u, still pending ops: %zu, still pending: 0x%X",
+			t->id, t->pending_ops.size(), static_cast<unsigned int>(result.get()));
 	return result;
 }
 
@@ -790,12 +796,10 @@ void GenericMarkPending(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark, const std
 
 //mark *must* be exactly right
 void FastMarkPendingNonAcc(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark) {
-	t->lflags |= TLF::ISPENDING;
 	if(mark & PENDING_BITS::T_U) t->user->MarkTweetPending(t);
 	if(mark & PENDING_BITS::T_UR) t->user_recipient->MarkTweetPending(t);
 	if(mark & PENDING_BITS::RT_RTU) t->rtsrc->user->MarkTweetPending(t->rtsrc);
 	if(mark & PENDING_BITS::RT_MISSING) {
-		t->rtsrc->lflags |= TLF::ISPENDING;
 		bool insertnewrtpo = true;
 		for(auto &it : t->rtsrc->pending_ops) {
 			rt_pending_op *rtpo = dynamic_cast<rt_pending_op*>(it.get());
@@ -867,12 +871,6 @@ bool FastMarkPendingNoAccFallback(tweet_ptr_p t, flagwrapper<PENDING_BITS> mark,
 
 //ends
 
-void RemoveUserFromAccPendingLists(uint64_t userid) {
-	for(auto &it : alist) {
-		it->pendingusers.erase(userid);
-	}
-}
-
 bool MarkPending_TPanelMap(tweet_ptr_p tobj, tpanelparentwin_nt* win_, PUSHFLAGS pushflags, std::shared_ptr<tpanel> *pushtpanel_) {
 	tpanel *tp = nullptr;
 	if(pushtpanel_) tp = (*pushtpanel_).get();
@@ -888,10 +886,8 @@ bool MarkPending_TPanelMap(tweet_ptr_p tobj, tpanelparentwin_nt* win_, PUSHFLAGS
 		found = true;
 		break;
 	}
-	if(!found) {
-		tobj->lflags |= TLF::ISPENDING;
+	if(!found)
 		tobj->AddNewPendingOp(new tpanelload_pending_op(win_, pushflags, pushtpanel_));
-	}
 	return found;
 }
 
@@ -977,7 +973,7 @@ tweet_pending tweet::IsPending(flagwrapper<PENDING_REQ> preq) {
 	if(user) {
 		result.result = user->GetPending(preq, createtime);
 		if(result.result & PENDING_RESULT::NOT_READY) result.bits |= PENDING_BITS::T_U;
-		if(user->NeedsUpdating(preq, createtime)) result.bits |= PENDING_BITS::U;
+		if(result.result & PENDING_RESULT::CONTENT_NOT_READY) result.bits |= PENDING_BITS::U;
 	}
 	else presult.Combine(PENDING_RESULT::CONTENT_NOT_READY);
 
@@ -987,7 +983,7 @@ tweet_pending tweet::IsPending(flagwrapper<PENDING_REQ> preq) {
 			flagwrapper<PENDING_RESULT> user_result = user_recipient->GetPending(preq, createtime);
 			presult.Combine(user_result);
 			if(user_result & PENDING_RESULT::NOT_READY) result.bits |= PENDING_BITS::T_UR;
-			if(user_recipient->NeedsUpdating(preq, createtime)) result.bits |= PENDING_BITS::UR;
+			if(user_result & PENDING_RESULT::CONTENT_NOT_READY) result.bits |= PENDING_BITS::UR;
 		}
 	}
 

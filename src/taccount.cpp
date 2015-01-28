@@ -370,14 +370,29 @@ void taccount::StartRestQueryPendings() {
 			it++;
 			if(curobj->udc_flags & UDC::LOOKUP_IN_PROGRESS) ;	//do nothing
 			else if(curobj->udc_flags & UDC::BEING_LOADED_FROM_DB) ;	//do nothing
-			else if(curobj->NeedsUpdating(PENDING_REQ::USEREXPIRE) || curobj->udc_flags & UDC::FORCE_REFRESH) {
-				if(!ul) ul.reset(new userlookup());
-				ul->Mark(curobj);
-				numusers++;
-			}
 			else {
-				pendingusers.erase(curit);		//user not pending, remove from list
-				curobj->CheckPendingTweets();
+				bool ok = false;
+				if(curobj->NeedsUpdating(PENDING_REQ::USEREXPIRE) || curobj->udc_flags & UDC::FORCE_REFRESH) {
+					ok = true;
+				}
+				else {
+					// user probably not pending, remove from list for now
+					pendingusers.erase(curit);
+
+					// properly check
+					curobj->CheckPendingTweets(0, this);
+
+					if(pendingusers.find(curobj->id) != pendingusers.end()) {
+						// CheckPendingTweets re-added it to the list
+						ok = true;
+					}
+				}
+				if(ok) {
+					if(!ul)
+						ul.reset(new userlookup());
+					ul->Mark(curobj);
+					numusers++;
+				}
 			}
 			curobj->udc_flags &= ~UDC::FORCE_REFRESH;
 		}

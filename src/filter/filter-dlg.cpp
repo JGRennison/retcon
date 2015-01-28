@@ -221,7 +221,6 @@ void filter_dlg::ExecFilter() {
 			FilterOneTweet(*(fdg->apply_filter), tobj);
 		}
 		else {
-			tobj->lflags |= TLF::ISPENDING;
 			tobj->AddNewPendingOp(new applyfilter_pending_op(fdg->apply_filter));
 		}
 	}
