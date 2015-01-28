@@ -387,6 +387,11 @@ std::string rt_pending_op::dump() {
 	return string_format("Retweet depends on this: %s", cstr(tweet_log_line(target_retweet.get())));
 }
 
+handlenew_pending_op::handlenew_pending_op(const std::shared_ptr<taccount> &acc, flagwrapper<ARRIVAL> arr_, uint64_t tweet_id_)
+		: tac(acc), arr(arr_), tweet_id(tweet_id_) {
+	ad.handlenew_pending_ops.insert(this);
+}
+
 void handlenew_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) {
 	HandleNewTweet(t, tac.lock(), arr);
 }
@@ -1008,7 +1013,7 @@ bool taccount::MarkPendingOrHandle(tweet_ptr_p t, flagwrapper<ARRIVAL> arr) {
 	bool isready = CheckMarkPending(t);
 	if(arr) {
 		if(isready) HandleNewTweet(t, shared_from_this(), arr);
-		else t->AddNewPendingOp(new handlenew_pending_op(shared_from_this(), arr));
+		else t->AddNewPendingOp(new handlenew_pending_op(shared_from_this(), arr, t->id));
 	}
 	return isready;
 }

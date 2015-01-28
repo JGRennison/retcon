@@ -307,10 +307,13 @@ struct tpanelload_pending_op : public pending_op {
 	virtual std::string dump();
 };
 
-struct handlenew_pending_op : public pending_op {
+// Note that this adds itself to ad.handlenew_pending_ops
+struct handlenew_pending_op : public pending_op, public magic_ptr_contained<handlenew_pending_op> {
 	std::weak_ptr<taccount> tac;
 	flagwrapper<ARRIVAL> arr;
-	handlenew_pending_op(const std::shared_ptr<taccount> &acc, flagwrapper<ARRIVAL> arr_) : tac(acc), arr(arr_) { }
+	uint64_t tweet_id;
+
+	handlenew_pending_op(const std::shared_ptr<taccount> &acc, flagwrapper<ARRIVAL> arr_, uint64_t tweet_id_);
 
 	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags);
 	virtual std::string dump();

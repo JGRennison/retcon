@@ -55,6 +55,7 @@ struct alldata {
 	filter_set incoming_filter;
 	filter_set alltweet_filter;
 	std::multimap<uint64_t, std::function<void(udc_ptr_p)>> user_load_pending_funcs;
+	magic_ptr_container<handlenew_pending_op> handlenew_pending_ops;
 
 	udc_ptr GetUserContainerById(uint64_t id);
 	udc_ptr GetExistingUserContainerById(uint64_t id);

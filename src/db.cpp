@@ -99,6 +99,7 @@ static const char *startup_sql=
 "CREATE TABLE IF NOT EXISTS staticsettings(name TEXT PRIMARY KEY NOT NULL, value BLOB);"
 "CREATE TABLE IF NOT EXISTS userrelationships(accid INTEGER, userid INTEGER, flags INTEGER, followmetime INTEGER, ifollowtime INTEGER);"
 "CREATE TABLE IF NOT EXISTS userdmsets(userid INTEGER PRIMARY KEY NOT NULL, dmindex BLOB);"
+"CREATE TABLE IF NOT EXISTS handlenewpending(accid INTEGER, arrivalflags INTEGER, tweetid INTEGER);"
 "INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', 'dirtyflag', strftime('%s','now'));";
 
 static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
@@ -128,6 +129,8 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"INSERT INTO tpanels (name, dispname, flags, ids) VALUES (?, ?, ?, ?);",
 	"INSERT OR REPLACE INTO userdmsets (userid, dmindex) VALUES (?, ?);",
 	"SELECT json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex, profimglastusedtimestamp FROM users WHERE id == ?;",
+	"DELETE FROM handlenewpending;",
+	"INSERT INTO handlenewpending (accid, arrivalflags, tweetid) VALUES (?, ?, ?);",
 };
 
 static const std::string globstr = "G";
@@ -1060,6 +1063,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	AccountSync(syncdb);
 	ReadAllCFGIn(syncdb, gc, alist);
 	SyncReadInRBFSs(syncdb);
+	SyncReadInHandleNewPendingOps(syncdb);
 	SyncReadInAllMediaEntities(syncdb);
 	SyncReadInCIDSLists(syncdb);
 	SyncReadInTpanels(syncdb);
@@ -1111,6 +1115,12 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	ResetAsyncStateWriteTimer();
 
 	dbc_flags |= DBCF::INITED;
+
+	for(auto &it : post_init_callbacks) {
+		it(this);
+	}
+	post_init_callbacks.clear();
+
 	return true;
 }
 
@@ -1147,6 +1157,7 @@ void dbconn::DeInit() {
 		SyncWriteBackAllUsers(syncdb);
 		SyncWriteBackAccountIdLists(syncdb);
 		SyncWriteOutRBFSs(syncdb);
+		SyncWriteOutHandleNewPendingOps(syncdb);
 		SyncWriteBackCIDSLists(syncdb);
 		SyncWriteBackWindowLayout(syncdb);
 		SyncWriteBackTpanels(syncdb);
@@ -1261,6 +1272,7 @@ void dbconn::AsyncWriteBackState() {
 		AsyncWriteBackAllUsers(*msg);
 		AsyncWriteBackAccountIdLists(*msg);
 		AsyncWriteOutRBFSs(*msg);
+		AsyncWriteOutHandleNewPendingOps(*msg);
 		AsyncWriteBackCIDSLists(*msg);
 		AsyncWriteBackTpanels(*msg);
 		AsyncWriteBackUserDMIndexes(*msg);
@@ -1998,6 +2010,91 @@ void dbconn::SyncReadInRBFSs(sqlite3 *adb) {
 		}
 	}, "dbconn::SyncReadInRBFSs");
 	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInRBFSs end, read in %u", read_count);
+}
+
+namespace {
+	struct WriteBackHandleNewPendingOps {
+		struct itemdata {
+			unsigned int dbindex;
+			flagwrapper<ARRIVAL> arr;
+			uint64_t tweetid;
+		};
+
+		//Where F is a functor of the form void(const itemdata &)
+		template <typename F> void operator()(F func) const {
+			for(auto &it : ad.handlenew_pending_ops) {
+				auto acc = it->tac.lock();
+				if(acc)
+					func(itemdata { acc->dbindex, it->arr, it->tweet_id });
+			}
+		};
+
+		//Where F is a functor with an operator() as above
+		template <typename F> void dbexec(sqlite3 *adb, dbpscache &cache, std::string funcname, bool TSLogging, F getfunc) const {
+			SLogMsgFormat(LOGT::DBINFO, TSLogging, "%s start", cstr(funcname));
+
+			cache.BeginTransaction(adb);
+			DBExec(adb, cache.GetStmt(adb, DBPSC_CLEARHANDLENEWPENDINGS), "WriteBackHandleNewPendingOps");
+			sqlite3_stmt *stmt = cache.GetStmt(adb, DBPSC_INSHANDLENEWPENDINGS);
+
+			unsigned int write_count = 0;
+			getfunc([&](const itemdata &data) {
+				sqlite3_bind_int64(stmt, 1, (sqlite3_int64) data.dbindex);
+				sqlite3_bind_int64(stmt, 2, (sqlite3_int64) data.arr);
+				sqlite3_bind_int64(stmt, 3, (sqlite3_int64) data.tweetid);
+				int res = sqlite3_step(stmt);
+				if(res != SQLITE_DONE) {
+					SLogMsgFormat(LOGT::DBERR, TSLogging, "%s got error: %d (%s)", cstr(funcname), res, cstr(sqlite3_errmsg(adb)));
+				}
+				else {
+					SLogMsgFormat(LOGT::DBTRACE, TSLogging, "%s inserted pending handle new", cstr(funcname));
+				}
+				sqlite3_reset(stmt);
+				write_count++;
+			});
+
+			cache.EndTransaction(adb);
+			SLogMsgFormat(LOGT::DBINFO, TSLogging, "%s end, wrote %u", cstr(funcname), write_count);
+		}
+	};
+};
+
+void dbconn::SyncWriteOutHandleNewPendingOps(sqlite3 *adb) {
+	DoGenericSyncWriteBack(adb, cache, WriteBackHandleNewPendingOps(), "dbconn::SyncWriteOutHandleNewPendingOps");
+}
+
+void dbconn::AsyncWriteOutHandleNewPendingOps(dbfunctionmsg &msg) {
+	DoGenericAsyncWriteBack(msg, WriteBackHandleNewPendingOps(), "dbconn::AsyncWriteOutHandleNewPendingOps");
+}
+
+void dbconn::SyncReadInHandleNewPendingOps(sqlite3 *adb) {
+	LogMsg(LOGT::DBINFO, "dbconn::SyncReadInHandleNewPendingOps start");
+
+	unsigned int read_count = 0;
+	DBRowExec(adb, "SELECT accid, arrivalflags, tweetid FROM handlenewpending;", [&](sqlite3_stmt *stmt) {
+		unsigned int dbindex = (unsigned int) sqlite3_column_int64(stmt, 0);
+		bool found = false;
+		for(auto &it : alist) {
+			if(it->dbindex == dbindex) {
+				uint64_t tweetid = (uint64_t) sqlite3_column_int64(stmt, 2);
+				ARRIVAL arrflags = static_cast<ARRIVAL>(sqlite3_column_int64(stmt, 1));
+				post_init_callbacks.emplace_back([tweetid, arrflags, it](dbconn *dbc) {
+					tweet_ptr t = ad.GetTweetById(tweetid);
+					CheckFetchPendingSingleTweet(t, it);
+					it->MarkPendingOrHandle(t, arrflags);
+				});
+				found = true;
+				read_count++;
+				LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInHandleNewPendingOps retrieved: %" llFmtSpec "d -> %s (0x%X)",
+						tweetid, cstr(it->name), static_cast<unsigned int>(arrflags));
+				break;
+			}
+		}
+		if(!found) {
+			LogMsgFormat(LOGT::DBERR, "dbconn::SyncReadInHandleNewPendingOps retrieved handlenewpending with no associated account or bad type, ignoring");
+		}
+	}, "dbconn::SyncReadInHandleNewPendingOps");
+	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInHandleNewPendingOps end, read in %u", read_count);
 }
 
 void dbconn::SyncReadInAllMediaEntities(sqlite3 *adb) {

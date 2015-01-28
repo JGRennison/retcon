@@ -73,6 +73,8 @@ typedef enum {
 	DBPSC_INSTPANEL,
 	DBPSC_INSUSERDMINDEX,
 	DBPSC_SELUSER,
+	DBPSC_CLEARHANDLENEWPENDINGS,
+	DBPSC_INSHANDLENEWPENDINGS,
 
 	DBPSC_NUM_STATEMENTS,
 } DBPSC_TYPE;
@@ -158,6 +160,7 @@ struct dbconn : public wxEvtHandler {
 	private:
 	std::map<intptr_t, std::function<void(dbseltweetmsg &, dbconn *)> > generic_sel_funcs;
 	std::map<intptr_t, std::function<void(dbselusermsg &, dbconn *)> > generic_sel_user_funcs;
+	std::vector<std::function<void(dbconn *)> > post_init_callbacks;
 
 	public:
 	enum class DBCF {
@@ -210,6 +213,10 @@ struct dbconn : public wxEvtHandler {
 	void SyncWriteOutRBFSs(sqlite3 *adb);
 	void AsyncWriteOutRBFSs(dbfunctionmsg &msg);
 	void SyncReadInRBFSs(sqlite3 *adb);
+
+	void SyncWriteOutHandleNewPendingOps(sqlite3 *adb);
+	void AsyncWriteOutHandleNewPendingOps(dbfunctionmsg &msg);
+	void SyncReadInHandleNewPendingOps(sqlite3 *adb);
 
 	void SyncReadInAllMediaEntities(sqlite3 *adb);
 

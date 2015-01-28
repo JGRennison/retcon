@@ -535,6 +535,9 @@ void dump_tweet_pendings(LOGT logflags, const std::string &indent, const std::st
 			dump_tweet_line(logflags, indent + indentstep, indentstep, it.second.get());
 		}
 	}
+	if(!ad.handlenew_pending_ops.empty()) {
+		LogMsgFormat(logflags, "%sTotal handlenew_pending_op pending count: %zu", cstr(indent), ad.handlenew_pending_ops.size());
+	}
 }
 
 static void dump_non_acc_user_pendings(LOGT logflags, const std::string &indent, const std::string &indentstep) {
