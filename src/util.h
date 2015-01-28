@@ -144,6 +144,12 @@ template <typename C, typename UP> unsigned int container_unordered_remove_if(C 
 	return removecount;
 }
 
+template <typename C, typename V> unsigned int container_unordered_remove(C &container, const V &value) {
+	return container_unordered_remove_if(container, [&](const typename C::value_type &v) {
+		return v == value;
+	});
+}
+
 template <typename Tout, typename Tin> std::unique_ptr<Tout> static_pointer_cast(std::unique_ptr<Tin> in) {
 	return std::unique_ptr<Tout>(static_cast<Tout *>(in.release()));
 }

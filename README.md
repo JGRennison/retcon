@@ -45,6 +45,7 @@ This includes documentation for:
 * wxWidgets v2.8 series  
 * zlib  
 * libcurl v7.21.6 or later with SSL  
+* Boost.Iterator  
 
 ### Building
 Should build out of the box with `make` and `make install`.  

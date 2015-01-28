@@ -20,13 +20,20 @@
 #define HGUARD_SRC_MAGIC_PTR
 
 #include "univdefs.h"
+#include "util.h"
+#include "observer_ptr.h"
 #include <vector>
+#include <type_traits>
+#include <boost/iterator/iterator_adaptor.hpp>
 
 struct magic_ptr_base;
 struct magic_ptr;
+template<typename T> struct magic_ptr_container;
+template<typename T> struct magic_ptr_contained;
 
 struct magic_ptr_base {
 	friend struct magic_ptr;
+	template<typename T> friend struct magic_ptr_container;
 
 	virtual ~magic_ptr_base();
 
@@ -100,22 +107,11 @@ inline magic_ptr_base::~magic_ptr_base() {
 }
 
 inline void magic_ptr_base::Mark(magic_ptr* t) {
-	for(size_t i = 0; i < list.size(); i++) {
-		if(list[i] == t) return;
-	}
 	list.push_back(t);
 }
 
 inline void magic_ptr_base::Unmark(magic_ptr* t) {
-	for(size_t i = 0; i < list.size(); i++) {
-		if(list[i] == t) {
-			if(i + 1 < list.size()) {
-				list[i] = list[list.size() - 1];
-			}
-			list.pop_back();
-			break;
-		}
-	}
+	container_unordered_remove(list, t);
 }
 
 template <typename C> C *MagicWindowCast(magic_ptr &in) {
@@ -152,6 +148,69 @@ template <typename C> struct magic_ptr_ts {
 	}
 	operator bool() const {
 		return (bool) ptr;
+	}
+};
+
+template<typename T> struct magic_ptr_contained : private magic_ptr {
+	friend magic_ptr_container<T>;
+
+	private:
+	magic_ptr ptr;
+};
+
+template<typename T> struct magic_ptr_container {
+	friend magic_ptr_contained<T>;
+
+	static_assert(std::is_base_of<magic_ptr_contained<T>, T>::value, "T not derived from magic_ptr_contained<T>");
+
+	private:
+	magic_ptr_base base_container;
+
+	public:
+	void insert(T *t) {
+		magic_ptr_contained<T> *t_contained = t;
+		magic_ptr *t_ptr = t_contained;
+		t_ptr->set(&base_container);
+	}
+
+	void clear() {
+		base_container.ResetAllMagicPtrs();
+	}
+
+	class const_iterator
+			: public boost::iterator_adaptor<const_iterator,
+				std::vector<magic_ptr*>::iterator,
+				const observer_ptr<T>
+			> {
+
+		public:
+		const_iterator()
+				: const_iterator::iterator_adaptor_() {}
+
+		explicit const_iterator(const typename const_iterator::iterator_adaptor_::base_type& p)
+				: const_iterator::iterator_adaptor_(p) {}
+
+		private:
+		friend class boost::iterator_core_access;
+		const observer_ptr<T> dereference() const {
+			return static_cast<T*>(*(this->base()));
+		}
+	};
+
+	const_iterator begin() {
+		return const_iterator(base_container.list.begin());
+	}
+
+	const_iterator end() {
+		return const_iterator(base_container.list.end());
+	}
+
+	bool empty() const {
+		return base_container.list.empty();
+	}
+
+	size_t size() const {
+		return base_container.list.size();
 	}
 };
 
