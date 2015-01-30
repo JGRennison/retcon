@@ -84,6 +84,10 @@ namespace std
 // len can be negative to signal string is null-terminated
 // returns true if whole input string is valid
 template <typename C, typename D> inline bool ownstrtonum(C &val, D *str, ssize_t len) {
+	if(len == 0)
+		return false;
+	if(str[0] == 0)
+		return false;
 	val = 0;
 	for(ssize_t i = 0; len < 0 || i < len; i++) {
 		if(str[i] >= '0' && str[i] <= '9') {
