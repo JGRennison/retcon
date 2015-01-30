@@ -1283,7 +1283,8 @@ void TweetURLHandler(wxWindow *win, wxString url, tweet_ptr_p td, panelparentwin
 		switch((wxChar) url[1]) {
 			case 'd': { //send dm
 				uint64_t userid;
-				ownstrtonum(userid, (wxChar*) &url[2], -1);
+				if(!ownstrtonum(userid, (wxChar*) &url[2], -1))
+					break;
 				mainframe *mf = tppw->GetMainframe();
 				if(!mf && mainframelist.size()) mf = mainframelist.front();
 				if(mf) {
