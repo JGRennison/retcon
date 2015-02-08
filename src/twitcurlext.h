@@ -237,6 +237,7 @@ struct twitcurlext_userlist: public twitcurlext {
 	static std::unique_ptr<twitcurlext_userlist> make_new(std::shared_ptr<taccount> acc, std::unique_ptr<userlookup> ul_);
 
 	virtual void ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) override;
+	virtual void HandleFailureHandler(const std::shared_ptr<taccount> &acc, HandleFailureState &state) override;
 	virtual std::string GetConnTypeNameBase() override;
 	virtual void HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) override;
 };

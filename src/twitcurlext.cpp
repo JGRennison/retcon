@@ -27,6 +27,7 @@
 #include "util.h"
 #include "tpanel.h"
 #include "alldata.h"
+#include "log-util.h"
 #include "libtwitcurl/urlencode.h"
 #include <wx/msgdlg.h>
 
@@ -700,8 +701,19 @@ void twitcurlext_userlist::ParseHandler(const std::shared_ptr<taccount> &acc, js
 	jp.ProcessUserListResponse();
 }
 
+void twitcurlext_userlist::HandleFailureHandler(const std::shared_ptr<taccount> &acc, twitcurlext::HandleFailureState &state) {
+	if(state.httpcode == 404) {    // all users in this query appear to be dead
+		for(auto &it : ul->users_queried) {
+			LogMsgFormat(LOGT::OTHERTRACE, "Marking user: %s, as dead", cstr(user_short_log_line(it->id)));
+			it->udc_flags |= UDC::ISDEAD;
+		}
+	}
+}
+
 std::string twitcurlext_userlist::GetConnTypeNameBase() {
-	return "User lookup";
+	std::string userliststr;
+	ul->GetIdList(userliststr);
+	return "User lookup: " + userliststr;
 }
 
 void twitcurlext_userlist::HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) {

@@ -370,6 +370,7 @@ void taccount::StartRestQueryPendings() {
 			it++;
 			if(curobj->udc_flags & UDC::LOOKUP_IN_PROGRESS) ;	//do nothing
 			else if(curobj->udc_flags & UDC::BEING_LOADED_FROM_DB) ;	//do nothing
+			else if(curobj->udc_flags & UDC::ISDEAD) ;	//do nothing
 			else {
 				bool ok = false;
 				if(curobj->NeedsUpdating(PENDING_REQ::USEREXPIRE) || curobj->udc_flags & UDC::FORCE_REFRESH) {

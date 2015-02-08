@@ -732,6 +732,8 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> 
 		userdatacont->udc_flags &= ~UDC::LOOKUP_IN_PROGRESS;
 	}
 
+	userdatacont->udc_flags &= ~UDC::ISDEAD;
+
 	if(ad.unloaded_db_user_ids.find(id) != ad.unloaded_db_user_ids.end()) {
 		// See equivalent section in DoTweetParse for rationale
 

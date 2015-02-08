@@ -152,6 +152,7 @@ enum class UDC {
 	NON_PURGABLE              = 1<<12,
 	SAVED_IN_DB               = 1<<13,
 	CHECK_STDFUNC_LIST        = 1<<14,
+	ISDEAD                    = 1<<15,
 };
 template<> struct enum_traits<UDC> { static constexpr bool flags = true; };
 
