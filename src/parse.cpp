@@ -444,21 +444,22 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 	}
 }
 
-void genjsonparser::ParseUserContents(const rapidjson::Value &val, userdata &userobj, bool is_ssl, bool is_db_load) {
+flagwrapper<genjsonparser::USERPARSERESULT> genjsonparser::ParseUserContents(const rapidjson::Value &val, userdata &userobj, bool is_ssl, bool is_db_load) {
 	bool changed = false;
+	bool img_changed = false;
 	CheckTransJsonValueDefTrackChanges(changed, userobj.name, val, "name", "");
 	CheckTransJsonValueDefTrackChanges(changed, userobj.screen_name, val, "screen_name", "");
 	CheckTransJsonValueDefTrackChanges(changed, userobj.description, val, "description", "");
 	CheckTransJsonValueDefTrackChanges(changed, userobj.location, val, "location", "");
 	CheckTransJsonValueDefTrackChanges(changed, userobj.userurl, val, "url", "");
 	if(is_ssl) {
-		if(!CheckTransJsonValueDefTrackChanges(changed, userobj.profile_img_url, val, "profile_image_url_https", "")) {
-			CheckTransJsonValueDefTrackChanges(changed, userobj.profile_img_url, val, "profile_img_url", "");
+		if(!CheckTransJsonValueDefTrackChanges(img_changed, userobj.profile_img_url, val, "profile_image_url_https", "")) {
+			CheckTransJsonValueDefTrackChanges(img_changed, userobj.profile_img_url, val, "profile_img_url", "");
 		}
 	}
 	else {
-		if(!CheckTransJsonValueDefTrackChanges(changed, userobj.profile_img_url, val, "profile_img_url", "")) {
-			CheckTransJsonValueDefTrackChanges(changed, userobj.profile_img_url, val, "profile_image_url_https", "");
+		if(!CheckTransJsonValueDefTrackChanges(img_changed, userobj.profile_img_url, val, "profile_img_url", "")) {
+			CheckTransJsonValueDefTrackChanges(img_changed, userobj.profile_img_url, val, "profile_image_url_https", "");
 		}
 	}
 	CheckTransJsonValueDefFlagTrackChanges(changed, userobj.u_flags, userdata::UF::ISPROTECTED, val, "protected", false);
@@ -470,7 +471,14 @@ void genjsonparser::ParseUserContents(const rapidjson::Value &val, userdata &use
 	if(is_db_load) {
 		CheckTransJsonValueDefTrackChanges(changed, userobj.notes, val, "retcon_notes", "");
 	}
-	if(changed) userobj.revision_number++;
+	flagwrapper<USERPARSERESULT> result = 0;
+	if(changed)
+		result |= USERPARSERESULT::OTHER_UPDATED;
+	if(img_changed)
+		result |= USERPARSERESULT::PROFIMG_UPDATED;
+	if(changed || img_changed)
+		userobj.revision_number++;
+	return result;
 }
 
 jsonparser::jsonparser(std::shared_ptr<taccount> a, optional_observer_ptr<twitcurlext> tw)
@@ -773,7 +781,15 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> 
 	}
 
 	userdata &userobj = userdatacont->GetUser();
-	ParseUserContents(val, userobj, tac->ssl, false);
+	auto parseresult = ParseUserContents(val, userobj, tac->ssl, false);
+	if(parseresult & genjsonparser::USERPARSERESULT::PROFIMG_UPDATED) {
+		if(userdatacont->udc_flags & UDC::PROFILE_IMAGE_DL_FAILED) {
+			// Profile image was previously marked as failed
+			// The URL has changed, so download the new one now
+			userdatacont->udc_flags &= ~UDC::PROFILE_IMAGE_DL_FAILED;
+			userdatacont->ImgIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
+		}
+	}
 	if(!userobj.createtime) {				//this means that the object is new
 		std::string created_at;
 		CheckTransJsonValueDef(created_at, val, "created_at", "");

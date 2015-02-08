@@ -65,13 +65,19 @@ struct Handler : public rapidjson::Writer<writestream> {
 };
 
 struct genjsonparser {
+	enum class USERPARSERESULT {
+		PROFIMG_UPDATED        = 1<<0,
+		OTHER_UPDATED          = 1<<1,
+	};
+
 	static void ParseTweetStatics(const rapidjson::Value& val, tweet_ptr_p tobj,
 			Handler *jw = 0, bool isnew = false, optional_observer_ptr<dbsendmsg_list> dbmsglist = nullptr, bool parse_entities = true);
 	static void DoEntitiesParse(const rapidjson::Value& val, optional_observer_ptr<const rapidjson::Value> val_ex, tweet_ptr_p t,
 			bool isnew = false, optional_observer_ptr<dbsendmsg_list> dbmsglist = nullptr);
-	static void ParseUserContents(const rapidjson::Value& val, userdata &userobj, bool is_ssl, bool is_db_load);
+	static flagwrapper<USERPARSERESULT> ParseUserContents(const rapidjson::Value& val, userdata &userobj, bool is_ssl, bool is_db_load);
 	static void ParseTweetDyn(const rapidjson::Value& val, tweet_ptr_p tobj);
 };
+template<> struct enum_traits<genjsonparser::USERPARSERESULT> { static constexpr bool flags = true; };
 
 enum class JDTP {
 	ISDM               = 1<<0,
