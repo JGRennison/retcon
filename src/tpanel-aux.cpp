@@ -684,9 +684,13 @@ void tpanel_subtweet_pending_op::CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, 
 		tweetdispscr *tds, unsigned int load_count, tweet_ptr_p top_tweet, tweetdispscr *top_tds) {
 	using GUAF = tweet::GUAF;
 
-	if(t->in_reply_to_status_id) {
+	uint64_t reply_id = t->in_reply_to_status_id;
+	if(!reply_id && t->rtsrc)
+		reply_id = t->rtsrc->in_reply_to_status_id;
+
+	if(reply_id) {
 		std::function<void(unsigned int)> loadmorefunc = [=](unsigned int tweet_load_count) {
-			tweet_ptr subt = ad.GetTweetById(t->in_reply_to_status_id);
+			tweet_ptr subt = ad.GetTweetById(reply_id);
 
 			if(top_tweet->IsArrivedHereAnyPerspective()) {	//save
 				subt->lflags |= TLF::SHOULDSAVEINDB;
