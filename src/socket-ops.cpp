@@ -33,6 +33,7 @@
 #include "raii.h"
 #include "hash.h"
 #include "taccount.h"
+#include "imgutil.h"
 #include <wx/file.h>
 #include <wx/mstream.h>
 #include <algorithm>
@@ -312,10 +313,8 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr
 			if(job_data->thumbok) {
 				const int maxdim = 64;
 				if(img.GetHeight() > maxdim || img.GetWidth() > maxdim) {
-					double scalefactor=(double) maxdim / (double) std::max(img.GetHeight(), img.GetWidth());
-					int newwidth = (double) img.GetWidth() * scalefactor;
-					int newheight = (double) img.GetHeight() * scalefactor;
-					job_data->thumb = img.Scale(std::lround(newwidth), std::lround(newheight), wxIMAGE_QUALITY_HIGH);
+					double scalefactor = (double) maxdim / (double) std::max(img.GetHeight(), img.GetWidth());
+					job_data->thumb = ScaleImage(img, scalefactor);
 				}
 				else job_data->thumb = img;
 				if(gc.cachethumbs && !gc.readonlymode) {

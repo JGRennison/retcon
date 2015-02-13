@@ -24,6 +24,7 @@
 #include "log.h"
 #include "socket-ops.h"
 #include "cfg.h"
+#include "imgutil.h"
 #include <wx/filename.h>
 #include <wx/filedlg.h>
 #include <wx/dcclient.h>
@@ -64,9 +65,7 @@ void image_panel::UpdateBitmap() {
 		double wratio = ((double) GetSize().GetWidth()) / ((double) img.GetWidth());
 		double hratio = ((double) GetSize().GetHeight()) / ((double) img.GetHeight());
 		double targratio = std::min(wratio, hratio);
-		int targheight = targratio * img.GetHeight();
-		int targwidth = targratio * img.GetWidth();
-		bm=wxBitmap(img.Scale(targwidth, targheight, wxIMAGE_QUALITY_HIGH));
+		bm = wxBitmap(ScaleImage(img, targratio));
 	}
 	Refresh();
 }

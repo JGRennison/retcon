@@ -13,30 +13,15 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program. If not, see <http://www.gnu.org/licenses/>.
 //
-//  2012 - Jonathan G Rennison <j.g.rennison@gmail.com>
+//  2015 - Jonathan G Rennison <j.g.rennison@gmail.com>
 //==========================================================================
 
+#ifndef HGUARD_SRC_IMGUTIL
+#define HGUARD_SRC_IMGUTIL
+
 #include "univdefs.h"
-#include "res.h"
-#include "imgutil.h"
-#include <wx/mstream.h>
-#include <algorithm>
+#include <wx/image.h>
 
-wxBitmap MkScaledBitmap(const wxImage &img, int maxx, int maxy) {
-	if(img.GetHeight() > maxy || img.GetWidth() > maxx) {
-		double scalefactor = std::min((double) maxx / (double) img.GetWidth(), (double) maxy / (double) img.GetHeight());
-		return wxBitmap(ScaleImage(img, scalefactor));
-	}
-	else return wxBitmap(img);
-}
+wxImage ScaleImage(const wxImage &input, double scale);
 
-void MkImgBitmap(const wxImage &inimg, wxBitmap *bmp, wxImage *img) {
-	if(img) *img = inimg;
-	if(bmp) *bmp = wxBitmap(inimg);
-}
-
-wxImage MkImage(unsigned char *data, size_t len) {
-	wxMemoryInputStream memstream(data, len);
-	wxImage img(memstream);
-	return img;
-}
+#endif

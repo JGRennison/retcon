@@ -133,6 +133,13 @@ LIBS := -lpcre -lrt `wx-config --libs $(WXCFGFLAGS)` -lcurl -lsqlite3 -lz
 MCFLAGS := $(patsubst -I/%,-isystem /%,$(shell wx-config --cxxflags $(WXCFGFLAGS)))
 ARCH := native
 
+VIPS_VERSION := $(shell pkg-config vips --modversion 2>/dev/null)
+ifneq (, $(VIPS_VERSION))
+LIBS += `pkg-config --libs vips`
+MCFLAGS += `pkg-config --cflags vips`
+MCFLAGS += -D USE_VIPS
+endif
+
 wxconf := $(shell wx-config --selected-config)
 ifeq (gtk, $(findstring gtk,$(wxconf)))
 LIBS += `pkg-config --libs glib-2.0` `pkg-config --libs gdk-2.0`

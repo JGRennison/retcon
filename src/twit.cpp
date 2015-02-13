@@ -34,6 +34,7 @@
 #include "mainui.h"
 #include "log-util.h"
 #include "mediawin.h"
+#include "imgutil.h"
 
 #ifdef __WINDOWS__
 #pragma GCC diagnostic push
@@ -492,9 +493,7 @@ wxImage userdatacontainer::ScaleImageToProfileSize(const wxImage &img, double li
 	int maxdim = (gc.maxpanelprofimgsize * limitscalefactor);
 	if(img.GetHeight()>maxdim || img.GetWidth()>maxdim) {
 		double scalefactor = (double) maxdim / (double) std::max(img.GetHeight(), img.GetWidth());
-		int newwidth = (double) img.GetWidth() * scalefactor;
-		int newheight = (double) img.GetHeight() * scalefactor;
-		return img.Scale(std::lround(newwidth), std::lround(newheight), wxIMAGE_QUALITY_HIGH);
+		return ScaleImage(img, scalefactor);
 	}
 	else return img;
 }
