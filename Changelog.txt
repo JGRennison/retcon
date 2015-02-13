@@ -1,3 +1,18 @@
+retcon 0.1.0
+------------------------------------------------------
+
+Support attaching up to 4 images per tweet.
+Add notes tab to user window, allows storing private notes on a user.
+Add user notes to list of filter variables.
+Add link to retry failed image thumbnail downloads.
+Show inline replies of retweets of replies
+Fix various edge cases involving profile image download failures, tweet deletions, and out-of-date user data.
+Fix new tweets sometimes being effectively lost if they arrive just before retcon is terminated.
+Various database and startup performance improvements.
+Change some logging categories, reduce number of log messages for socket errors.
+Add items to log window debug menu to flush log outputs, retry failed connections, and print statistics.
+
+
 retcon 0.0.11
 ------------------------------------------------------
 
