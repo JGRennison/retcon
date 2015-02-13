@@ -395,13 +395,22 @@ struct tweet {
 	bool IsArrivedHereAnyPerspective() const;
 	std::string GetPermalink() const;
 	void MarkFlagsAsRead();
-	inline void IterateTP(std::function<void(const tweet_perspective &)> f) const {
-		if(lflags & TLF::HAVEFIRSTTP) f(first_tp);
-		for(auto &it : tp_extra_list) f(it);
+
+	//! Where F is a functor of the type: void(const tweet_perspective &tp)
+	template<typename F> void IterateTP(F f) const {
+		if(lflags & TLF::HAVEFIRSTTP) {
+			f(first_tp);
+		}
+		for(auto &it : tp_extra_list) {
+			f(it);
+		}
 	}
-	inline void IterateTP(std::function<void(tweet_perspective &)> f) {
-		if(lflags & TLF::HAVEFIRSTTP) f(first_tp);
-		for(auto &it : tp_extra_list) f(it);
+
+	//! Where F is a functor taking the type: void(tweet_perspective &tp)
+	template<typename F> void IterateTP(F f) {
+		const_cast<const tweet *>(this)->IterateTP([&](const tweet_perspective &tp) {
+			f(const_cast<tweet_perspective &>(tp));
+		});
 	}
 
 	//If mask is zero, it is not used
