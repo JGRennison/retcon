@@ -691,16 +691,15 @@ void tpanelparentwin_nt_impl::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pu
 	for(; it != currentdisp.end(); ++it) {
 		if(it->id < id) break;	//insert before this iterator
 	}
-	if(recalcdisplayoffset) {
-		tweetidset::const_iterator stit = tp->tweetlist.find(id);
-		if(stit != tp->tweetlist.end()) displayoffset = std::distance(tp->tweetlist.cbegin(), stit);
-		else displayoffset = 0;
-	}
+
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::PushTweet 2, %d, %d, %d", displayoffset, currentdisp.size(), recalcdisplayoffset);
 	#endif
 	tpanel_disp_item *tpdi = CreateItemAtPosition(it, t->id);
 	tweetdispscr *td = CreateTweetInItem(t, *tpdi);
+
+	if(recalcdisplayoffset)
+		RecalculateDisplayOffset();
 
 	if(!(tppw_flags & TPPWF::NOUPDATEONPUSH)) td->ForceRefresh();
 	else td->gdb_flags |= tweetdispscr::GDB_F::NEEDSREFRESH;
@@ -1381,6 +1380,13 @@ void tpanelparentwin_nt_impl::OnBatchTimerModeTimer(wxTimerEvent& event) {
 			}
 		}
 
+		if(pushtweetbatchqueue.size() > pushcount) {
+			// Some tweets are not being pushed, and hence may
+			// not be included in any displayoffset adjustment,
+			// so recalculate it here
+			RecalculateDisplayOffset();
+		}
+
 		LogMsgFormat(LOGT::TPANELTRACE, "tpanelparentwin_nt_impl::OnBatchTimerModeTimer: %s, Reduced %u pushes to %u pushes.",
 				cstr(GetThisName()), pushtweetbatchqueue.size(), pushcount);
 
@@ -1475,6 +1481,17 @@ void tpanelparentwin_nt::UpdateAllCLabels() {
 	for(auto &it : tpanelparentwinlist) {
 		it->UpdateCLabel();
 	}
+}
+
+void tpanelparentwin_nt_impl::RecalculateDisplayOffset() {
+	displayoffset = 0;
+
+	if(currentdisp.empty())
+		return;
+
+	tweetidset::const_iterator stit = tp->tweetlist.find(currentdisp.front().id);
+	if(stit != tp->tweetlist.end())
+		displayoffset = std::distance(tp->tweetlist.cbegin(), stit);
 }
 
 BEGIN_EVENT_TABLE(tpanelparentwin_impl, tpanelparentwin_nt_impl)
