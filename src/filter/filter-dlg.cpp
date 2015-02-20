@@ -34,11 +34,13 @@
 
 enum {
 	ID_CHECKBOX_START      = 1000,
+	ID_LIMIT_TXT           = 2000,
 };
 
 BEGIN_EVENT_TABLE(filter_dlg, wxDialog)
 	EVT_COMMAND_RANGE(ID_CHECKBOX_START, ID_CHECKBOX_START + 999, wxEVT_COMMAND_CHECKBOX_CLICKED, filter_dlg::CheckBoxUpdate)
 	EVT_BUTTON(wxID_OK, filter_dlg::OnOK)
+	EVT_TEXT(ID_LIMIT_TXT, filter_dlg::OnLimitCountUpdate)
 END_EVENT_TABLE()
 
 struct selection_category {
@@ -62,16 +64,27 @@ struct filter_dlg_gui {
 	std::shared_ptr<filter_set> apply_filter;
 	wxString apply_filter_txt;
 	wxButton *filterbtn = nullptr;
+	wxCheckBox *limit_count_chk = nullptr;
+	wxTextCtrl *limit_count_txt = nullptr;
 };
 
-filter_dlg::filter_dlg(wxWindow *parent, wxWindowID id, std::function<const tweetidset *()> getidset_, const wxPoint &pos, const wxSize &size)
-		: wxDialog(parent, id, wxT("Apply Filter to Tweets"), pos, size, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER), getidset(getidset_) {
+filter_dlg::filter_dlg(wxWindow *parent, wxWindowID id, std::function<const tweetidset *()> getidset_, std::string srcname_, const wxPoint &pos, const wxSize &size)
+		: wxDialog(parent, id, wxT("Apply Filter"), pos, size, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER), getidset(getidset_), srcname(std::move(srcname_)) {
 	fdg.reset(new filter_dlg_gui);
 	fdg->apply_filter = std::make_shared<filter_set>();
 	fdg->hbox = new wxBoxSizer(wxHORIZONTAL);
 	fdg->vbox = new wxBoxSizer(wxVERTICAL);
 
 	fdg->hbox->Add(fdg->vbox, 1, wxALL | wxEXPAND, 0);
+
+	if(!srcname.empty()) {
+		wxStaticText *srcname_label = new wxStaticText(this, wxID_ANY, wxstrstd(srcname));
+		wxBoxSizer *hs = new wxBoxSizer(wxHORIZONTAL);
+		hs->AddStretchSpacer();
+		hs->Add(srcname_label, 0, wxEXPAND | wxALIGN_CENTRE_VERTICAL | wxALIGN_CENTRE, 0);
+		hs->AddStretchSpacer();
+		fdg->vbox->Add(hs, 0, wxEXPAND | wxALIGN_CENTRE_VERTICAL | wxALL, 4);
+	}
 
 	auto addblock = [&](wxString name) -> wxFlexGridSizer * {
 		wxStaticBoxSizer *hbox1 = new wxStaticBoxSizer(wxVERTICAL, this, name);
@@ -121,6 +134,18 @@ filter_dlg::filter_dlg(wxWindow *parent, wxWindowID id, std::function<const twee
 	fdg->total = new wxStaticText(this, wxID_ANY, wxT("Total selected"));
 	cb->Add(fdg->total, 0, wxEXPAND | wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL, 4);
 
+	{
+		wxFlexGridSizer *lfgs = addblock(wxT("Limit"));
+		fdg->limit_count_chk = new wxCheckBox(this, nextcheckboxid, wxT("First N"));
+		lfgs->Add(fdg->limit_count_chk, 0, wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL, 4);
+
+		wxSize chksz = fdg->limit_count_chk->GetSize();
+		lfgs->SetItemMinSize(fdg->limit_count_chk, std::max(200, chksz.GetWidth()), chksz.GetHeight());
+
+		fdg->limit_count_txt = new wxTextCtrl(this, ID_LIMIT_TXT, wxT("0"), wxDefaultPosition, wxDefaultSize, 0, wxTextValidator(wxFILTER_NUMERIC));
+		lfgs->Add(fdg->limit_count_txt, 0, wxEXPAND | wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL, 4);
+	}
+
 	wxStaticBoxSizer *filtersb = new wxStaticBoxSizer(wxVERTICAL, this, wxT("Filter"));
 	fdg->vbox->Add(filtersb, 0, wxALL | wxEXPAND | wxALIGN_TOP, 4);
 
@@ -159,9 +184,33 @@ void filter_dlg::RefreshSelection() {
 			fdg->selectedset.insert(output.begin(), output.end());
 		}
 	}
-	fdg->total->SetLabel(wxString::Format(wxT("%d"), fdg->selectedset.size()));
-	fdg->filterbtn->SetLabel(wxString::Format(wxT("Filter %d"), fdg->selectedset.size()));
-	fdg->filterbtn->Enable(!fdg->selectedset.empty());
+	RefreshCounts();
+}
+
+size_t filter_dlg::GetCount() {
+	size_t count = fdg->selectedset.size();
+	bool limit_count_set = fdg->limit_count_chk->GetValue();
+	fdg->limit_count_txt->Enable(limit_count_set);
+	if(limit_count_set) {
+		// Limit enabled
+		size_t limit = 0;
+		if(ownstrtonum(limit, cstr(fdg->limit_count_txt->GetValue()), -1)) {
+			if(count > limit)
+				count = limit;
+		}
+	}
+	return count;
+}
+
+void filter_dlg::RefreshCounts() {
+	size_t count = GetCount();
+	fdg->total->SetLabel(wxString::Format(wxT("%d"), count));
+	fdg->filterbtn->SetLabel(wxString::Format(wxT("Filter %d"), count));
+	fdg->filterbtn->Enable(count);
+}
+
+void filter_dlg::OnLimitCountUpdate(wxCommandEvent &event) {
+	RefreshCounts();
 }
 
 void filter_dlg::ReCalculateCategories() {
@@ -174,8 +223,17 @@ void filter_dlg::ReCalculateCategories() {
 	RefreshSelection();
 }
 
+void filter_dlg::ApplyLimit() {
+	size_t count = GetCount();
+	if(count < fdg->selectedset.size()) {
+		tweetidset orig = std::move(fdg->selectedset);
+		std::copy_n(orig.begin(), count, std::inserter(fdg->selectedset, fdg->selectedset.end()));
+	}
+}
+
 void filter_dlg::OnOK(wxCommandEvent &event) {
 	if(Validate() && TransferDataFromWindow()) {
+		ApplyLimit();
 		ExecFilter();
 		if(IsModal()) {
 			EndModal(wxID_OK);

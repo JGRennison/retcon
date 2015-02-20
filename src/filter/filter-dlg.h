@@ -33,14 +33,19 @@ class filter_dlg : public wxDialog {
 	std::unique_ptr<filter_dlg_gui> fdg;
 	std::function<const tweetidset *()> getidset;
 	std::map<int, selection_category> checkboxmap;
+	std::string srcname;
 
 	public:
-	filter_dlg(wxWindow *parent, wxWindowID id, std::function<const tweetidset *()> getidset_, const wxPoint &pos = wxDefaultPosition,
+	filter_dlg(wxWindow *parent, wxWindowID id, std::function<const tweetidset *()> getidset_, std::string srcname_, const wxPoint &pos = wxDefaultPosition,
 			const wxSize &size = wxDefaultSize);
 	~filter_dlg();
 	void CheckBoxUpdate(wxCommandEvent &event);
 	void RefreshSelection();
+	size_t GetCount();
+	void RefreshCounts();
+	void OnLimitCountUpdate(wxCommandEvent &event);
 	void ReCalculateCategories();
+	void ApplyLimit();
 	void OnOK(wxCommandEvent &event);
 	void ExecFilter();
 

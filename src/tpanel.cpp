@@ -1147,7 +1147,7 @@ void tpanelparentwin_nt_impl::setupnavbuttonhandlers() {
 	addhandler(TPPWID_FILTERDLGBTN, [this](wxCommandEvent &event) {
 		filter_dlg *fdg = new filter_dlg(base(), wxID_ANY, [this]() -> const tweetidset * {
 			return &(tp->tweetlist);
-		});
+		}, tp->dispname);
 		fdg->ShowModal();
 		fdg->Destroy();
 	});
