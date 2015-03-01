@@ -25,8 +25,6 @@
 #include <string>
 #include <memory>
 
-class wxImage;
-
 inline wxString wxstrstd(const std::string &st) {
 	return wxString::FromUTF8(st.c_str());
 }
@@ -40,6 +38,7 @@ inline std::string stdstrwx(const wxString &st) {
 	return std::string(st.ToUTF8());
 }
 
+void hexify_char(std::string &out, unsigned char c);
 std::string hexify(const char *in, size_t len);
 wxString hexify_wx(const char *in, size_t len);
 inline std::string hexify(const std::string &in) {
@@ -61,9 +60,6 @@ inline const char *cstr_wrap(const std::string &in) {
 inline decltype(wxString().ToUTF8()) cstr_wrap(const wxString &in) {
 	return in.ToUTF8();
 }
-
-bool LoadImageFromFileAndCheckHash(const wxString &filename, shb_iptr hash, wxImage &img);
-bool LoadFromFileAndCheckHash(const wxString &filename, shb_iptr hash, std::string &out);
 
 //fix for MinGW, from http://pastebin.com/7rhvv92A
 #ifdef __MINGW32__

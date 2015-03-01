@@ -19,19 +19,20 @@
 #include "univdefs.h"
 #include "util.h"
 #include "hash.h"
-#include <wx/file.h>
-#include <wx/mstream.h>
-#include <wx/image.h>
 #include "libtwitcurl/SHA1.h"
 
-std::string hexify(const char *in, size_t len) {
+void hexify_char(std::string &out, unsigned char c) {
 	const char hex[] = "0123456789ABCDEF";
+	out.push_back(hex[c >> 4]);
+	out.push_back(hex[c & 15]);
+}
+
+std::string hexify(const char *in, size_t len) {
 	std::string out;
 	out.reserve(2 * len);
 	for(size_t i = 0; i < len; i++) {
 		const unsigned char c = (const unsigned char) in[i];
-		out.push_back(hex[c >> 4]);
-		out.push_back(hex[c & 15]);
+		hexify_char(out, c);
 	}
 	return out;
 }
@@ -59,42 +60,6 @@ void hash_block(sha1_hash_block &out, const void *data, size_t length) {
 	hashblk.Update(static_cast<const unsigned char*>(data), length);
 	hashblk.Final();
 	hashblk.GetHash(static_cast<unsigned char*>(out.hash_sha1));
-}
-
-bool LoadFromFileAndCheckHash(const wxString &filename, shb_iptr hash, std::string &out) {
-	if(!hash) return false;
-	wxFile file;
-	bool opened = file.Open(filename);
-	if(opened) {
-		wxFileOffset len = file.Length();
-		if(len >= 0 && len < (50 << 20)) {    //don't load empty or absurdly large files
-			out.resize(len);
-			size_t size = file.Read(&out[0], len);
-			if(size == (size_t) len) {
-				CSHA1 hashblk;
-				hashblk.Update(reinterpret_cast<const unsigned char*>(out.data()), len);
-				hashblk.Final();
-				if(memcmp(hashblk.GetHashPtr(), hash->hash_sha1, 20) == 0) {
-					return true;
-				}
-			}
-			out.clear();
-		}
-	}
-	return false;
-}
-
-bool LoadImageFromFileAndCheckHash(const wxString &filename, shb_iptr hash, wxImage &img) {
-	if(!hash) return false;
-	std::string data;
-	bool success = false;
-	if(LoadFromFileAndCheckHash(filename, hash, data)) {
-		wxMemoryInputStream memstream(data.data(), data.size());
-		if(img.LoadFile(memstream, wxBITMAP_TYPE_ANY)) {
-			success = true;
-		}
-	}
-	return success;
 }
 
 std::string rc_strftime(const std::string &format, const struct tm *tm, time_t timestamp, bool localtime) {
@@ -162,22 +127,22 @@ std::string rc_strftime(const std::string &format, const struct tm *tm, time_t t
 
 //from http://stackoverflow.com/questions/2342162/stdstring-formatting-like-sprintf#2342176
 std::string string_format(const std::string &fmt, ...) {
-    int size = 100;
-    std::string str;
-    va_list ap;
-    while (1) {
-        str.resize(size);
-        va_start(ap, fmt);
-        int n = vsnprintf((char *)str.c_str(), size, fmt.c_str(), ap);
-        va_end(ap);
-        if (n > -1 && n < size) {
-            str.resize(n);
-            return str;
-        }
-        if (n > -1)
-            size = n + 1;
-        else
-            size *= 2;
-    }
-    return str;
+	int size = 100;
+	std::string str;
+	va_list ap;
+	while (1) {
+		str.resize(size);
+		va_start(ap, fmt);
+		int n = vsnprintf((char *)str.c_str(), size, fmt.c_str(), ap);
+		va_end(ap);
+		if (n > -1 && n < size) {
+			str.resize(n);
+			return str;
+		}
+		if (n > -1)
+			size = n + 1;
+		else
+			size *= 2;
+	}
+	return str;
 }
