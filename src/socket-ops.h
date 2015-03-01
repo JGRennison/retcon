@@ -24,17 +24,18 @@
 #include "media_id_type.h"
 #include "flags.h"
 #include "ptr_types.h"
+#include "libtwitcurl/oauthlib.h"
 
-class oAuth;
 struct taccount;
 
 struct dlconn : public mcurlconn {
 	CURL* curlHandle = nullptr;
 	std::string data;
 	struct curl_slist *extra_headers = nullptr;
+	std::unique_ptr<oAuth> auth_obj;
 
 	static int curlCallback(char* data, size_t size, size_t nmemb, dlconn *obj);
-	void Init(std::unique_ptr<mcurlconn> &&this_owner, const std::string &url_, oAuth *auth_obj = nullptr);
+	void Init(std::unique_ptr<mcurlconn> &&this_owner, const std::string &url_, std::unique_ptr<oAuth> auth_obj_ = nullptr);
 	~dlconn();
 	CURL *GenGetCurlHandle() { return curlHandle; }
 
@@ -70,7 +71,7 @@ struct mediaimgdlconn : public dlconn {
 	media_id_type media_id;
 	flagwrapper<MIDC> flags;
 
-	void Init(std::unique_ptr<mcurlconn> &&this_owner, const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_ = 0, oAuth *auth_obj = nullptr);
+	void Init(std::unique_ptr<mcurlconn> &&this_owner, const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_ = 0, std::unique_ptr<oAuth> auth_obj_ = nullptr);
 
 	void NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) override;
 	void DoRetry(std::unique_ptr<mcurlconn> &&this_owner);
@@ -80,7 +81,9 @@ struct mediaimgdlconn : public dlconn {
 	static void NewConnWithOptAccOAuth(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_ = 0, const taccount *acc = nullptr);
 
 	protected:
-	mediaimgdlconn(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_ = 0, oAuth *auth_obj = nullptr) { Init(nullptr, imgurl_, media_id_, flags_, auth_obj); }
+	mediaimgdlconn(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_ = 0, std::unique_ptr<oAuth> auth_obj_ = nullptr) {
+		Init(nullptr, imgurl_, media_id_, flags_, std::move(auth_obj_));
+	}
 	static mediaimgdlconn *new_with_opt_acc_oauth(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_ = 0, const taccount *acc = nullptr);
 };
 

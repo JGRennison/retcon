@@ -50,8 +50,9 @@ dlconn::~dlconn() {
 }
 
 // If this_owner is given, this will add it/itself to the socketmanager
-void dlconn::Init(std::unique_ptr<mcurlconn> &&this_owner, const std::string &url_, oAuth *auth_obj) {
+void dlconn::Init(std::unique_ptr<mcurlconn> &&this_owner, const std::string &url_, std::unique_ptr<oAuth> auth_obj_) {
 	url = url_;
+	auth_obj = std::move(auth_obj_);
 
 	if(!curlHandle) curlHandle = curl_easy_init();
 	else curl_easy_reset(curlHandle);
@@ -216,7 +217,7 @@ std::string profileimgdlconn::GetConnTypeName() {
 	return string_format("Profile image download for user id %" llFmtSpec "d (@%s)", user->id, cstr(user->GetUser().screen_name));
 }
 
-void mediaimgdlconn::Init(std::unique_ptr<mcurlconn> &&this_owner, const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_, oAuth *auth_obj) {
+void mediaimgdlconn::Init(std::unique_ptr<mcurlconn> &&this_owner, const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_, std::unique_ptr<oAuth> auth_obj_) {
 	media_id = media_id_;
 	flags = flags_;
 	auto it = ad.media_list.find(media_id);
@@ -231,15 +232,15 @@ void mediaimgdlconn::Init(std::unique_ptr<mcurlconn> &&this_owner, const std::st
 	}
 	LogMsgFormat(LOGT::NETACT, "Downloading media image %s, id: %" llFmtSpec "d/%" llFmtSpec "d, flags: %X, conn ID: %d",
 			cstr(imgurl_), media_id_.m_id, media_id_.t_id, flags_, id);
-	dlconn::Init(std::move(this_owner), imgurl_, auth_obj);
+	dlconn::Init(std::move(this_owner), imgurl_, std::move(auth_obj_));
 }
 
 mediaimgdlconn *mediaimgdlconn::new_with_opt_acc_oauth(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_, const taccount *acc) {
 	if(acc && acc->active) {
 		// Set oAuth parameters for this media download
-		oAuth auth;
-		acc->setOAuthParameters(auth);
-		return new mediaimgdlconn(imgurl_, media_id_, flags_, &auth);
+		std::unique_ptr<oAuth> auth(new oAuth());
+		acc->setOAuthParameters(*auth);
+		return new mediaimgdlconn(imgurl_, media_id_, flags_, std::move(auth));
 	}
 	else {
 		return new mediaimgdlconn(imgurl_, media_id_, flags_);
@@ -253,7 +254,7 @@ void mediaimgdlconn::NewConnWithOptAccOAuth(const std::string &imgurl_, media_id
 }
 
 void mediaimgdlconn::DoRetry(std::unique_ptr<mcurlconn> &&this_owner) {
-	Init(std::move(this_owner), url, media_id, flags);
+	Init(std::move(this_owner), url, media_id, flags, std::move(auth_obj));
 }
 
 void mediaimgdlconn::HandleFailure(long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
