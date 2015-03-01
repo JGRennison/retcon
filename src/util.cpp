@@ -24,9 +24,8 @@
 #include <wx/image.h>
 #include "libtwitcurl/SHA1.h"
 
-std::string hexify(const std::string &in) {
+std::string hexify(const char *in, size_t len) {
 	const char hex[] = "0123456789ABCDEF";
-	size_t len = in.length();
 	std::string out;
 	out.reserve(2 * len);
 	for(size_t i = 0; i < len; i++) {
@@ -37,9 +36,8 @@ std::string hexify(const std::string &in) {
 	return out;
 }
 
-wxString hexify_wx(const std::string &in) {
+wxString hexify_wx(const char *in, size_t len) {
 	const wxChar hex[] = wxT("0123456789ABCDEF");
-	size_t len = in.length();
 	wxString out;
 	out.Alloc(2 * len);
 	for(size_t i = 0; i < len; i++) {
@@ -52,11 +50,15 @@ wxString hexify_wx(const std::string &in) {
 
 shb_iptr hash_block(const void *data, size_t length) {
 	std::shared_ptr<sha1_hash_block> hash = std::make_shared<sha1_hash_block>();
+	hash_block(*hash, data, length);
+	return std::move(hash);
+}
+
+void hash_block(sha1_hash_block &out, const void *data, size_t length) {
 	CSHA1 hashblk;
 	hashblk.Update(static_cast<const unsigned char*>(data), length);
 	hashblk.Final();
-	hashblk.GetHash(static_cast<unsigned char*>(hash->hash_sha1));
-	return std::move(hash);
+	hashblk.GetHash(static_cast<unsigned char*>(out.hash_sha1));
 }
 
 bool LoadFromFileAndCheckHash(const wxString &filename, shb_iptr hash, std::string &out) {

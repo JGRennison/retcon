@@ -39,8 +39,15 @@ inline wxString wxstrstd(const char *ch, size_t len) {
 inline std::string stdstrwx(const wxString &st) {
 	return std::string(st.ToUTF8());
 }
-std::string hexify(const std::string &in);
-wxString hexify_wx(const std::string &in);
+
+std::string hexify(const char *in, size_t len);
+wxString hexify_wx(const char *in, size_t len);
+inline std::string hexify(const std::string &in) {
+	return hexify(in.data(), in.size());
+}
+inline wxString hexify_wx(const std::string &in) {
+	return hexify_wx(in.data(), in.size());
+}
 
 // This is intended to be used instead of std::string().c_str()
 // as it is too easy to accidentally do a wxString().c_str() and get silently broken results

@@ -30,5 +30,6 @@ struct sha1_hash_block {
 typedef std::shared_ptr<const sha1_hash_block> shb_iptr;
 
 shb_iptr hash_block(const void *data, size_t length);
+void hash_block(sha1_hash_block &out, const void *data, size_t length);
 
 #endif
