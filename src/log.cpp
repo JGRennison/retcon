@@ -39,7 +39,7 @@
 #include <malloc.h>
 #endif
 #include <memory>
-#include <forward_list>
+#include <vector>
 #include <wx/checkbox.h>
 #include <wx/sizer.h>
 #include <wx/menu.h>
@@ -51,7 +51,7 @@ std::unique_ptr<Redirector_wxLog> globalwxlogredirector;
 
 LOGT currentlogflags = LOGT::ZERO;
 flagwrapper<LOGIMPLF> logimpl_flags = 0;
-std::forward_list<log_object*> logfunclist;
+std::vector<log_object*> logfunclist;
 
 static void dump_non_acc_user_pendings(LOGT logflags, const std::string &indent, const std::string &indentstep);
 
@@ -145,13 +145,12 @@ void LogMsgProcess(LOGT logflags, const std::string &str) {
 }
 
 log_object::log_object(LOGT flagmask) : lo_flags(flagmask) {
-	logfunclist.remove(this);
-	logfunclist.push_front(this);
+	logfunclist.push_back(this);
 	Update_currentlogflags();
 }
 
 log_object::~log_object() {
-	logfunclist.remove(this);
+	container_unordered_remove(logfunclist, this);
 	Update_currentlogflags();
 }
 
@@ -300,7 +299,7 @@ void log_window::OnMenuOpen(wxMenuEvent &event) {
 }
 
 log_window::~log_window() {
-	logfunclist.remove(this);
+	container_unordered_remove(logfunclist, this);
 	LogMsgFormat(LOGT::OTHERTRACE, "log_window::~log_window");
 	globallogwindow = nullptr;
 }
@@ -341,7 +340,7 @@ void log_window::OnClear(wxCommandEvent &event) {
 }
 
 void log_window::OnClose(wxCommandEvent &event) {
-	logfunclist.remove(this);
+	container_unordered_remove(logfunclist, this);
 	LogMsgFormat(LOGT::OTHERTRACE, "log_window::OnClose");
 	LWShow(false);
 }
