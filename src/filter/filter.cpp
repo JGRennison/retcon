@@ -201,7 +201,7 @@ struct filter_item_cond_flags : public filter_item_cond {
 	std::string teststr;
 
 	bool test(tweet &tw, filter_run_state &frs) override {
-		uint64_t curflags = tw.flags.Save();
+		uint64_t curflags = tw.flags.ToULLong();
 		bool result = true;
 		if(any && !(curflags&any)) result = false;
 		if(all && (curflags&all)!=all) result = false;
@@ -228,7 +228,7 @@ struct filter_item_action_setflag : public filter_item_action {
 	std::string setstr;
 
 	void action(tweet &tw) override {
-		unsigned long long oldflags = tw.flags.Save();
+		unsigned long long oldflags = tw.flags.ToULLong();
 		unsigned long long newflags = (oldflags | setflags) & ~unsetflags;
 		tw.flags = tweet_flags(newflags);
 		LogMsgFormat(LOGT::FILTERTRACE, "Setting Tweet Flags for Tweet: %" llFmtSpec "d, Flags: Before %s, Action: %s, Result: %s",

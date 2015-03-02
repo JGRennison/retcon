@@ -1294,7 +1294,7 @@ void dbconn::InsertNewTweet(tweet_ptr_p tobj, std::string statjson, optional_obs
 	msg->user1 = tobj->user->id;
 	msg->user2 = tobj->user_recipient ? tobj->user_recipient->id : 0;
 	msg->timestamp = tobj->createtime;
-	msg->flags = tobj->flags.Save();
+	msg->flags = tobj->flags.ToULLong();
 	if(tobj->rtsrc) msg->rtid = tobj->rtsrc->id;
 	else msg->rtid = 0;
 
@@ -1305,7 +1305,7 @@ void dbconn::UpdateTweetDyn(tweet_ptr_p tobj, optional_observer_ptr<dbsendmsg_li
 	std::unique_ptr<dbupdatetweetmsg> msg(new dbupdatetweetmsg());
 	msg->dynjson = tobj->mkdynjson();
 	msg->id = tobj->id;
-	msg->flags = tobj->flags.Save();
+	msg->flags = tobj->flags.ToULLong();
 	SendMessageOrAddToList(std::move(msg), msglist);
 }
 

@@ -342,14 +342,12 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 			break;
 		}
 		case TAMI_MARKREAD: {
-			map[curid].tw->flags.Set('r', true);
-			map[curid].tw->flags.Set('u', false);
+			map[curid].tw->MarkFlagsAsRead();
 			map[curid].tw->CheckFlagsUpdated(tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
 			break;
 		}
 		case TAMI_MARKUNREAD: {
-			map[curid].tw->flags.Set('r', false);
-			map[curid].tw->flags.Set('u', true);
+			map[curid].tw->MarkFlagsAsUnread();
 			map[curid].tw->CheckFlagsUpdated(tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
 			break;
 		}

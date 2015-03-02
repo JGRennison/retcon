@@ -759,10 +759,13 @@ tweet_perspective *tweet::GetTweetTP(const std::shared_ptr<taccount> &tac) {
 }
 
 void tweet::MarkFlagsAsRead() {
-	if(flags.Get('u')) {
-		flags.Set('r', true);
-		flags.Set('u', false);
-	}
+	flags.Set('r', true);
+	flags.Set('u', false);
+}
+
+void tweet::MarkFlagsAsUnread() {
+	flags.Set('r', false);
+	flags.Set('u', true);
 }
 
 void tweet::ClearDeadPendingOps() {
@@ -773,7 +776,7 @@ void tweet::ClearDeadPendingOps() {
 
 void cached_id_sets::CheckTweet(tweet &tw) {
 	IterateLists([&](const char *name, tweetidset cached_id_sets::*mptr, unsigned long long flagvalue) {
-		if(tw.flags.Save() & flagvalue) (this->*mptr).insert(tw.id);
+		if(tw.flags.ToULLong() & flagvalue) (this->*mptr).insert(tw.id);
 		else (this->*mptr).erase(tw.id);
 	});
 }
@@ -843,8 +846,8 @@ void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, tweetidset
 void SendTweetFlagUpdate(const tweet &tw, unsigned long long mask) {
 	tweetidset ids;
 	ids.insert(tw.id);
-	unsigned long long setmask = mask & tw.flags.Save();
-	unsigned long long unsetmask = mask & (~tw.flags.Save());
+	unsigned long long setmask = mask & tw.flags.ToULLong();
+	unsigned long long unsetmask = mask & (~tw.flags.ToULLong());
 	std::unique_ptr<dbupdatetweetsetflagsmsg>msg(new dbupdatetweetsetflagsmsg(std::move(ids), setmask, unsetmask));
 	DBC_SendMessageBatched(std::move(msg));
 }
@@ -1154,14 +1157,14 @@ void tweet::GetMediaEntities(std::vector<media_entity *> &out, flagwrapper<MEF> 
 }
 
 void tweet::CheckFlagsUpdated(flagwrapper<tweet::CFUF> cfuflags) {
-	unsigned long long changemask = flags_at_prev_update.Save() ^ flags.Save();
+	unsigned long long changemask = flags_at_prev_update.ToULLong() ^ flags.ToULLong();
 	if(!changemask) return;
 
 	flags_at_prev_update = flags;
 
 	cached_id_sets::IterateLists([&](const char *name, tweetidset cached_id_sets::*mptr, unsigned long long flagvalue) {
 		if(changemask & flagvalue) {
-			if(flags.Save() & flagvalue) {
+			if(flags.ToULLong() & flagvalue) {
 				auto result = (ad.cids.*mptr).insert(id);
 				if(result.second) {
 					//new insertion

@@ -518,7 +518,7 @@ bool CondCodeProc(generic_disp_base *obj, size_t &i, const wxString &format, wxS
 			if(!td) break;
 
 			result = true;
-			uint64_t curflags = td->flags.Save();
+			uint64_t curflags = td->flags.ToULLong();
 			if(any && !(curflags & any)) result = false;
 			if(all && (curflags & all) != all) result = false;
 			if(none && (curflags & none)) result = false;

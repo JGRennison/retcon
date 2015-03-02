@@ -396,6 +396,7 @@ struct tweet {
 	bool IsArrivedHereAnyPerspective() const;
 	std::string GetPermalink() const;
 	void MarkFlagsAsRead();
+	void MarkFlagsAsUnread();
 
 	//! Where F is a functor of the type: void(const tweet_perspective &tp)
 	template<typename F> void IterateTP(F f) const {

@@ -36,11 +36,14 @@ struct tweet_flags {
 	public:
 	tweet_flags() : bits() { }
 	tweet_flags(unsigned long long val) : bits(val) { }
-	tweet_flags(const tweet_flags &cpysrc) : bits(cpysrc.Save()) { }
+	tweet_flags(const tweet_flags &cpysrc) : bits(cpysrc.ToULLong()) { }
 
 	//Note that the below functions do minimal, if any, error checking
 
-	static constexpr unsigned long long GetFlagValue(char in) { return ((uint64_t) 1) << GetFlagNum(in); }
+	static constexpr unsigned long long GetFlagValue(char in) {
+		return ((uint64_t) 1) << GetFlagNum(in);
+	}
+
 	static constexpr ssize_t GetFlagNum(char in) {
 		return (in >= '0' && in <= '9')
 			? in-'0'
@@ -92,9 +95,12 @@ struct tweet_flags {
 		else return 0;
 	}
 
-	unsigned long long Save() const { return bits.to_ullong(); }
+	unsigned long long ToULLong() const {
+		return bits.to_ullong();
+	}
+
 	std::string GetString() const {
-		return GetValueString(Save());
+		return GetValueString(ToULLong());
 	}
 
 	tweet_flags & operator &=(const tweet_flags &other) {
@@ -110,7 +116,7 @@ struct tweet_flags {
 		return *this;
 	}
 	tweet_flags operator ~() const {
-		return tweet_flags(~Save());
+		return tweet_flags(~ToULLong());
 	}
 };
 
