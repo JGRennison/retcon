@@ -30,6 +30,7 @@
 #include "set.h"
 #include "observer_ptr.h"
 #include "map.h"
+#include "fileutil.h"
 #include <memory>
 #include <functional>
 #include <wx/bitmap.h>
@@ -502,6 +503,20 @@ struct media_entity_raii_updater {
 	~media_entity_raii_updater();
 };
 
+struct video_entity {
+	struct video_variant {
+		std::string content_type;
+		std::string url;
+		unsigned int bitrate;
+	};
+	std::vector<video_variant> variants;
+	unsigned int aspect_w = 0;
+	unsigned int aspect_h = 0;
+	unsigned int size_w = 0;
+	unsigned int size_h = 0;
+	unsigned int duration_ms = 0;
+};
+
 struct media_entity {
 	media_id_type media_id; //compound type used to prevent id-clashes between media-entity images and non-media-entity images
 	std::string media_url;
@@ -513,15 +528,18 @@ struct media_entity {
 	shb_iptr thumb_img_sha1;
 	uint64_t lastused = 0;
 	std::weak_ptr<taccount> dm_media_acc;
+	std::unique_ptr<video_entity> video;
+	std::map<std::string, temp_file_holder> video_file_cache;
 
 	flagwrapper<MEF> flags = 0;
+	std::function<void(media_entity *, flagwrapper<MELF>)> check_load_thumb_func;
 
 	static wxString cached_full_filename(media_id_type media_id);
 	static wxString cached_thumb_filename(media_id_type media_id);
+	static std::string cached_video_filename(media_id_type media_id, const std::string &url);
 	wxString cached_full_filename() const { return cached_full_filename(media_id); }
 	wxString cached_thumb_filename() const { return cached_thumb_filename(media_id); }
-
-	std::function<void(media_entity *, flagwrapper<MELF>)> check_load_thumb_func;
+	std::string cached_video_filename(const std::string &url) const { return cached_video_filename(media_id, url); }
 
 	void CheckLoadThumb(flagwrapper<MELF> melf) {
 		if(check_load_thumb_func) check_load_thumb_func(this, melf);
@@ -531,8 +549,12 @@ struct media_entity {
 	void ClearPurgeFlag(observer_ptr<dbsendmsg_list> msglist = nullptr);
 
 	static observer_ptr<media_entity> MakeNew(media_id_type mid, std::string url);
+	static observer_ptr<media_entity> GetExisting(media_id_type mid);
 
 	void UpdateLastUsed(observer_ptr<dbsendmsg_list> msglist = nullptr);
+	void NotifyVideoLoadStarted(const std::string &url);
+	void NotifyVideoLoadSuccess(const std::string &url, temp_file_holder video_file);
+	void NotifyVideoLoadFailure(const std::string &url);
 };
 
 struct userlookup {

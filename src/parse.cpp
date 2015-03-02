@@ -56,9 +56,16 @@ template <> int64_t GetType<int64_t>(const rapidjson::Value &val) { return val.G
 template <> const char* GetType<const char*>(const rapidjson::Value &val) { return val.GetString(); }
 template <> std::string GetType<std::string>(const rapidjson::Value &val) { return val.GetString(); }
 
+static const rapidjson::Value &GetSubProp(const rapidjson::Value &val, const char *prop) {
+	if(prop)
+		return val[prop];
+	else
+		return val;
+}
+
 template <typename C, typename D> static bool CheckTransJsonValueDef(C &var, const rapidjson::Value &val,
 		const char *prop, const D def, Handler *handler = nullptr) {
-	const rapidjson::Value &subval = val[prop];
+	const rapidjson::Value &subval = GetSubProp(val, prop);
 	bool res = IsType<C>(subval);
 	var = res ? GetType<C>(subval) : def;
 	if(res && handler) {
@@ -70,7 +77,7 @@ template <typename C, typename D> static bool CheckTransJsonValueDef(C &var, con
 
 template <typename C, typename D> static bool CheckTransJsonValueDefFlag(C &var, D flagmask, const rapidjson::Value &val,
 		const char *prop, bool def, Handler *handler = nullptr) {
-	const rapidjson::Value &subval = val[prop];
+	const rapidjson::Value &subval = GetSubProp(val, prop);
 	bool res = IsType<bool>(subval);
 	bool flagval = res ? GetType<bool>(subval):def;
 	if(flagval) var |= flagmask;
@@ -100,7 +107,7 @@ template <typename C, typename D> static bool CheckTransJsonValueDefFlagTrackCha
 
 template <typename C, typename D> static C CheckGetJsonValueDef(const rapidjson::Value &val, const char *prop, const D def,
 		Handler *handler = nullptr, bool *hadval = nullptr) {
-	const rapidjson::Value &subval = val[prop];
+	const rapidjson::Value &subval = GetSubProp(val, prop);
 	bool res = IsType<C>(subval);
 	if(res && handler) {
 		handler->String(prop);
@@ -268,9 +275,9 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 					job_data->ok = LoadImageFromFileAndCheckHash(media_entity::cached_thumb_filename(job_data->media_id), job_data->hash, job_data->img);
 				},
 				[job_data, url, net_flags, netloadmask, mel_flags]() {
-					auto it = ad.media_list.find(job_data->media_id);
-					if(it != ad.media_list.end()) {
-						media_entity &m = *(it->second);
+					observer_ptr<media_entity> me = media_entity::GetExisting(job_data->media_id);
+					if(me) {
+						media_entity &m = *me;
 
 						m.flags &= ~MEF::THUMB_NET_INPROGRESS;
 						if(job_data->ok) {
@@ -386,12 +393,8 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 			}
 			en->media_id.t_id = 0;
 
-			observer_ptr<media_entity> me = nullptr;
-			auto it = ad.media_list.find(en->media_id);
-			if(it != ad.media_list.end()) {
-				me = it->second.get();
-			}
-			else {
+			observer_ptr<media_entity> me = media_entity::GetExisting(en->media_id);
+			if(!me) {
 				std::string url;
 				if(t->flags.Get('s')) {
 					if(!CheckTransJsonValueDef(url, media[i], "media_url_https", "")) {
@@ -406,6 +409,40 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 				url += ":large";
 				me = media_entity::MakeNew(en->media_id, url);
 				if(gc.cachethumbs || gc.cachemedia) DBC_InsertMedia(*me, dbmsglist);
+			}
+
+			const rapidjson::Value &videoinfo = media[i]["video_info"];
+			if(videoinfo.IsObject()) {
+				std::unique_ptr<video_entity> ve(new video_entity());
+				const rapidjson::Value &aspect = videoinfo["aspect_ratio"];
+				if(aspect.IsArray() && aspect.Size() == 2) {
+					CheckTransJsonValueDef(ve->aspect_w, aspect[static_cast<rapidjson::SizeType>(0)], nullptr, 0);
+					CheckTransJsonValueDef(ve->aspect_h, aspect[static_cast<rapidjson::SizeType>(1)], nullptr, 0);
+				}
+				CheckTransJsonValueDef(ve->duration_ms, videoinfo, "duration_millis", 0);
+				const rapidjson::Value &variants = videoinfo["variants"];
+				if(variants.IsArray()) {
+					for(rapidjson::SizeType j = 0; j < variants.Size(); j++) {
+						const rapidjson::Value &var = variants[j];
+						if(!var.IsObject())
+							continue;
+						ve->variants.emplace_back();
+						auto &v = ve->variants.back();
+						CheckTransJsonValueDef(v.content_type, var, "content_type", "");
+						CheckTransJsonValueDef(v.url, var, "url", "");
+						CheckTransJsonValueDef(v.bitrate, var, "bitrate", 0);
+					}
+				}
+				const rapidjson::Value &sizes = media[i]["sizes"];
+				if(sizes.IsObject()) {
+					const rapidjson::Value &size_large = sizes["large"];
+					if(size_large.IsObject()) {
+						CheckTransJsonValueDef(ve->size_w, size_large, "w", 0);
+						CheckTransJsonValueDef(ve->size_h, size_large, "h", 0);
+					}
+				}
+
+				me->video = std::move(ve);
 			}
 
 			auto res = std::find_if(me->tweet_list.begin(), me->tweet_list.end(), [&](tweet_ptr_p tt) {

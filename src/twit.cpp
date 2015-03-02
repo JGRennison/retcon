@@ -34,6 +34,7 @@
 #include "mainui.h"
 #include "log-util.h"
 #include "mediawin.h"
+#include "hash.h"
 
 #ifdef __WINDOWS__
 #pragma GCC diagnostic push
@@ -50,6 +51,7 @@
 #include <wx/stdpaths.h>
 #include <wx/dcmemory.h>
 #include <wx/filefn.h>
+#include <wx/filename.h>
 #include <algorithm>
 #include <unordered_map>
 
@@ -74,10 +76,18 @@ media_entity_raii_updater::~media_entity_raii_updater() {
 }
 
 wxString media_entity::cached_full_filename(media_id_type media_id) {
-	return wxString::Format(wxT("%s%s%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), wxstrstd(wxGetApp().datadir).c_str(), wxT("/media_"), media_id.m_id, media_id.t_id);
+	return wxFileName(wxstrstd(wxGetApp().datadir), wxString::Format(wxT("media_%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), media_id.m_id, media_id.t_id)).GetFullPath();
 }
 wxString media_entity::cached_thumb_filename(media_id_type media_id) {
-	return wxString::Format(wxT("%s%s%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), wxstrstd(wxGetApp().datadir).c_str(), wxT("/mediathumb_"), media_id.m_id, media_id.t_id);
+	return wxFileName(wxstrstd(wxGetApp().datadir), wxString::Format(wxT("mediathumb_%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d"), media_id.m_id, media_id.t_id)).GetFullPath();
+}
+
+std::string media_entity::cached_video_filename(media_id_type media_id, const std::string &url) {
+	sha1_hash_block url_hash;
+	hash_block(url_hash, url.data(), url.size());
+	wxString hash_str = hexify_wx((const char *) url_hash.hash_sha1, sizeof(url_hash.hash_sha1));
+	wxFileName filename(wxstrstd(wxGetApp().tmpdir), wxString::Format(wxT("retcon_video_%" wxLongLongFmtSpec "d_%" wxLongLongFmtSpec "d_%s"), media_id.m_id, media_id.t_id, hash_str.c_str()));
+	return stdstrwx(filename.GetFullPath());
 }
 
 void media_entity::PurgeCache(observer_ptr<dbsendmsg_list> msglist) {
@@ -119,6 +129,14 @@ observer_ptr<media_entity> media_entity::MakeNew(media_id_type mid, std::string 
 	return me;
 }
 
+observer_ptr<media_entity> media_entity::GetExisting(media_id_type mid) {
+	auto it = ad.media_list.find(mid);
+	if(it != ad.media_list.end())
+		return it->second.get();
+	else
+		return nullptr;
+}
+
 
 void media_entity::UpdateLastUsed(observer_ptr<dbsendmsg_list> msglist) {
 	uint64_t now = time(nullptr);
@@ -127,6 +145,24 @@ void media_entity::UpdateLastUsed(observer_ptr<dbsendmsg_list> msglist) {
 		lastused = now;
 		DBC_UpdateMedia(*this, DBUMMT::LASTUSED, msglist ? msglist : DBC_GetMessageBatchQueue());
 	}
+}
+
+void media_entity::NotifyVideoLoadStarted(const std::string &url) {
+	video_file_cache[url].Reset();
+}
+
+void media_entity::NotifyVideoLoadSuccess(const std::string &url, temp_file_holder video_file) {
+	auto &vc = video_file_cache[url];
+	vc = std::move(video_file);
+	vc.AddToSet(wxGetApp().temp_file_set);
+	if(win)
+		win->NotifyVideoLoadSuccess(url);
+}
+
+void media_entity::NotifyVideoLoadFailure(const std::string &url) {
+	video_file_cache.erase(url);
+	if(win)
+		win->NotifyVideoLoadFailure(url);
 }
 
 userlookup::~userlookup() {

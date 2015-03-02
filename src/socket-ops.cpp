@@ -220,14 +220,17 @@ std::string profileimgdlconn::GetConnTypeName() {
 void mediaimgdlconn::Init(std::unique_ptr<mcurlconn> &&this_owner, const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_, std::unique_ptr<oAuth> auth_obj_) {
 	media_id = media_id_;
 	flags = flags_;
-	auto it = ad.media_list.find(media_id);
-	if(it != ad.media_list.end()) {
-		media_entity &me = *(it->second);
+	observer_ptr<media_entity> m = media_entity::GetExisting(media_id);
+	if(m) {
+		media_entity &me = *m;
 		if(flags & MIDC::FULLIMG) {
 			me.flags |= MEF::FULL_NET_INPROGRESS;
 		}
 		if(flags & MIDC::THUMBIMG) {
 			me.flags |= MEF::THUMB_NET_INPROGRESS;
+		}
+		if(flags & MIDC::VIDEO) {
+			me.NotifyVideoLoadStarted(imgurl_);
 		}
 	}
 	LogMsgFormat(LOGT::NETACT, "Downloading media image %s, id: %" llFmtSpec "d/%" llFmtSpec "d, flags: %X, conn ID: %d",
@@ -258,9 +261,9 @@ void mediaimgdlconn::DoRetry(std::unique_ptr<mcurlconn> &&this_owner) {
 }
 
 void mediaimgdlconn::HandleFailure(long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
-	auto it = ad.media_list.find(media_id);
-	if(it != ad.media_list.end()) {
-		media_entity &me = *(it->second);
+	observer_ptr<media_entity> m = media_entity::GetExisting(media_id);
+	if(m) {
+		media_entity &me = *m;
 		if(flags & MIDC::FULLIMG) {
 			me.flags |= MEF::FULL_FAILED;
 			me.flags &= ~MEF::FULL_NET_INPROGRESS;
@@ -275,12 +278,43 @@ void mediaimgdlconn::HandleFailure(long httpcode, CURLcode res, std::unique_ptr<
 				UpdateTweet(*jt);
 			}
 		}
+		if(flags & MIDC::VIDEO) {
+			me.NotifyVideoLoadFailure(url);
+		}
 	}
 }
 
 void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
 	LogMsgFormat(LOGT::NETACT, "Media image downloaded: %s, id: %" llFmtSpec "d/%" llFmtSpec "d, flags: %X, conn ID: %d",
 			cstr(url), media_id.m_id, media_id.t_id, flags, id);
+
+	if(flags & MIDC::VIDEO) {
+		observer_ptr<media_entity> me = media_entity::GetExisting(media_id);
+		if(!me)
+			return;
+
+		struct video_job_data {
+			std::string fulldata;
+			media_id_type media_id;
+			std::string url;
+			temp_file_holder video_file;
+		};
+		auto job_data = std::make_shared<video_job_data>();
+		job_data->fulldata = std::move(data);
+		job_data->media_id = media_id;
+		job_data->url = std::move(url);
+		job_data->video_file.Init(me->cached_video_filename(media_id, job_data->url));
+		wxGetApp().EnqueueThreadJob([job_data]() {
+			wxFile file(wxstrstd(job_data->video_file.GetFilename()), wxFile::write);
+			file.Write(job_data->fulldata.data(), job_data->fulldata.size());
+		},
+		[job_data]() {
+			observer_ptr<media_entity> m = media_entity::GetExisting(job_data->media_id);
+			if(m)
+				m->NotifyVideoLoadSuccess(job_data->url, std::move(job_data->video_file));
+		});
+		return;
+	}
 
 	struct midc_job_data {
 		wxImage thumb;
@@ -342,9 +376,9 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr
 	},
 	[job_data]() {
 		MIDC &flags = job_data->flags;
-		auto it = ad.media_list.find(job_data->media_id);
-		if(it != ad.media_list.end()) {
-			media_entity &me = *(it->second);
+		observer_ptr<media_entity> m = media_entity::GetExisting(job_data->media_id);
+		if(m) {
+			media_entity &me = *m;
 
 			me.ClearPurgeFlag();
 

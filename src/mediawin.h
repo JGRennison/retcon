@@ -20,90 +20,23 @@
 #define HGUARD_SRC_MEDIAWIN
 
 #include "univdefs.h"
-#include "twit-common.h"
 #include "media_id_type.h"
-#include "flags.h"
-#include <wx/panel.h>
-#include <wx/gdicmn.h>
-#include <wx/event.h>
-#include <wx/bitmap.h>
-#include <wx/image.h>
-#include <wx/animate.h>
-#include <wx/menu.h>
-#include <wx/timer.h>
-#include <wx/sizer.h>
-#include <wx/stattext.h>
-#include <wx/window.h>
 #include <wx/frame.h>
-#include <wx/scrolwin.h>
+#include <memory>
 #include <string>
-#include <functional>
-#include <vector>
-#include <map>
 
-struct media_display_win;
-struct media_entity;
-
-struct image_panel : public wxPanel {
-	image_panel(wxWindow *parent, wxSize size = wxDefaultSize);
-	void OnPaint(wxPaintEvent &event);
-	void OnResize(wxSizeEvent &event);
-	void UpdateBitmap();
-
-	wxBitmap bm;
-	wxImage img;
-
-	DECLARE_EVENT_TABLE()
-};
-
-enum class MDZF {
-	ZOOMSET         = 1<<0,
-};
-template<> struct enum_traits<MDZF> { static constexpr bool flags = true; };
+struct media_display_win_pimpl;
 
 struct media_display_win : public wxFrame {
-	media_id_type media_id;
-	std::string media_url;
-	image_panel *sb = nullptr;
-	wxStaticText *st = nullptr;
-	wxBoxSizer *sz = nullptr;
-	std::function<void(bool)> setsavemenuenablestate;
-	std::vector<std::function<void(wxMenuEvent &)> > menuopenhandlers;
-	wxAnimation anim;
-	bool is_animated = false;
-	bool img_ok = false;
-	unsigned int current_frame_index = 0;
-	wxImage current_img;
-	wxTimer animation_timer;
-#if defined(__WXGTK__)
-	wxAnimationCtrl anim_ctrl;
-	bool using_anim_ctrl = false;
-#endif
-	std::map<int, std::function<void(wxCommandEvent &event)> > dynmenuhandlerlist;
-	int next_dynmenu_id;
-	wxMenu *zoom_menu = nullptr;
-	wxScrolledWindow *scrollwin  = nullptr;
-	flagwrapper<MDZF> zoomflags = 0;
-	double zoomvalue = 1.0;
+	private:
+	std::unique_ptr<media_display_win_pimpl> pimpl;
 
+	public:
 	media_display_win(wxWindow *parent, media_id_type media_id_);
 	~media_display_win();
 	void UpdateImage();
-	void GetImage(wxString &message);
-	media_entity *GetMediaEntity();
-	void OnSave(wxCommandEvent &event);
-	void SaveToDir(const wxString &dir);
-	void DelayLoadNextAnimFrame();
-	void OnAnimationTimer(wxTimerEvent& event);
-	void dynmenudispatchhandler(wxCommandEvent &event);
-	void OnMenuOpen(wxMenuEvent &event);
-	void OnMenuZoomFit(wxCommandEvent &event);
-	void OnMenuZoomOrig(wxCommandEvent &event);
-	void OnMenuZoomSet(wxCommandEvent &event);
-	void CalcSizes(wxSize imgsize, wxSize &winsize, wxSize &targimgsize);
-	void ImgSizerLayout();
-
-	DECLARE_EVENT_TABLE()
+	void NotifyVideoLoadSuccess(const std::string &url);
+	void NotifyVideoLoadFailure(const std::string &url);
 };
 
 #endif

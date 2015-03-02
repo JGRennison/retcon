@@ -129,7 +129,7 @@ endif
 else
 #UNIX
 PLATFORM := UNIX
-LIBS := -lpcre -lrt `wx-config --libs $(WXCFGFLAGS)` -lcurl -lsqlite3 -lz
+LIBS := -lpcre -lrt `wx-config --libs std,media $(WXCFGFLAGS)` -lcurl -lsqlite3 -lz
 MCFLAGS := $(patsubst -I/%,-isystem /%,$(shell wx-config --cxxflags $(WXCFGFLAGS)))
 ARCH := native
 

@@ -40,6 +40,8 @@
 #include "debug.h"
 #include <wx/image.h>
 #include <wx/stdpaths.h>
+#include <wx/filename.h>
+#include <wx/filefn.h>
 #include <cstdio>
 #include <cstdlib>
 
@@ -62,6 +64,7 @@ bool retcon::OnInit() {
 	::wxInitAllImageHandlers();
 	srand((unsigned int) time(nullptr));
 	datadir = stdstrwx(wxStandardPaths::Get().GetUserDataDir());
+	tmpdir = make_temp_dir("retcon-");
 	cmdlineproc(argv, argc);
 	if(terms_requested) return false;
 	if(!globallogwindow) new log_window(nullptr, LOGT::GROUP_LOGWINDEF, false);
@@ -119,6 +122,13 @@ int retcon::OnExit() {
 	sm.DeInitMultiIOHandler();
 	pool.reset();
 	DBC_DeInit();
+	for(const observer_ptr<temp_file_holder> &it : temp_file_set) {
+		LogMsgFormat(LOGT::FILEIOTRACE, "retcon::OnExit, resetting: %s", cstr(it->GetFilename()));
+		it->Reset();
+	}
+	if(!::wxRmdir(wxstrstd(tmpdir))) {
+		LogMsgFormat(LOGT::FILEIOERR, "retcon::OnExit, could not remove temp dir: %s", cstr(tmpdir));
+	}
 	DebugFinalChecks();
 	DeInitWxLogger();
 	std::exit(0);

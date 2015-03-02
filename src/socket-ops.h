@@ -64,6 +64,7 @@ enum class MIDC {
 	REDRAW_TWEETS                = 1<<2,
 	OPPORTUNIST_THUMB            = 1<<3,
 	OPPORTUNIST_REDRAW_TWEETS    = 1<<4,
+	VIDEO                        = 1<<5,
 };
 template<> struct enum_traits<MIDC> { static constexpr bool flags = true; };
 
