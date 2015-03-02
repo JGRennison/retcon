@@ -180,6 +180,8 @@ template<typename T> struct magic_ptr_container {
 	class const_iterator
 			: public boost::iterator_adaptor<const_iterator,
 				std::vector<magic_ptr*>::iterator,
+				const observer_ptr<T>,
+				boost::use_default,
 				const observer_ptr<T>
 			> {
 
