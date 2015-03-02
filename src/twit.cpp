@@ -157,13 +157,49 @@ void media_entity::NotifyVideoLoadSuccess(const std::string &url, temp_file_hold
 	vc.AddToSet(wxGetApp().temp_file_set);
 	if(win)
 		win->NotifyVideoLoadSuccess(url);
+
+	CheckVideoLoadSaveActions(url);
 }
 
 void media_entity::NotifyVideoLoadFailure(const std::string &url) {
 	video_file_cache.erase(url);
 	if(win)
 		win->NotifyVideoLoadFailure(url);
+
+	auto iterpair = pending_video_save_requests.equal_range(url);
+	if(iterpair.first != iterpair.second) {
+		// pending save actions
+		wxString message = wxT("Couldn't save video file to:");
+		for(auto it = iterpair.first; it != iterpair.second; ++it) {
+			const wxString &target = it->second;
+			message += wxT("\n\t");
+			message += target;
+		}
+		message += wxT("\n\nDownload failed.");
+		::wxMessageBox(message, wxT("Save Failed"), wxOK | wxICON_ERROR);
+		pending_video_save_requests.erase(iterpair.first, iterpair.second);
+	}
 }
+
+void media_entity::CheckVideoLoadSaveActions(const std::string &url) {
+	auto iterpair = pending_video_save_requests.equal_range(url);
+	if(iterpair.first == iterpair.second)
+		return; // no pending save actions
+
+	auto vc = video_file_cache.find(url);
+	if(vc != video_file_cache.end() && vc->second.IsValid()) {
+		// File is ready
+		for(auto it = iterpair.first; it != iterpair.second; ++it) {
+			const wxString &target = it->second;
+			if(!::wxCopyFile(wxstrstd(vc->second.GetFilename()), target, true))
+				::wxMessageBox(wxString::Format(wxT("Couldn't save video file to:\n\t%s\n\nIs directory writable?"), target.c_str()),
+						wxT("Save Failed"), wxOK | wxICON_ERROR);
+		}
+		pending_video_save_requests.erase(iterpair.first, iterpair.second);
+	}
+}
+
+std::multimap<std::string, wxString> media_entity::pending_video_save_requests;
 
 userlookup::~userlookup() {
 	UnMarkAll();

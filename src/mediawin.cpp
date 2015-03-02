@@ -255,15 +255,34 @@ media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_
 
 	if(is_video) {
 		setsavemenuenablestate = [](bool enable) { };
+
+		auto add_video_save_menu = [&](const std::string &url, const wxString &title) {
+			AddSaveMenu(menuBar, title, [url](observer_ptr<media_entity> me) -> std::string {
+				return url;
+			}, [url](observer_ptr<media_entity> me, wxString filename) {
+				media_entity::pending_video_save_requests.insert(std::make_pair(url, filename));
+				me->CheckVideoLoadSaveActions(url);
+				auto vc = me->video_file_cache.find(url);
+				if(vc == me->video_file_cache.end()) {
+					// Start download if not already in progress/done
+					std::shared_ptr<taccount> acc = me->dm_media_acc.lock();
+					mediaimgdlconn::NewConnWithOptAccOAuth(url, me->media_id, MIDC::VIDEO, acc.get());
+				}
+			});
+		};
+		if(!mp4_save_url.empty())
+			add_video_save_menu(mp4_save_url, wxT("Save MP4"));
+		if(!webm_save_url.empty())
+			add_video_save_menu(webm_save_url, wxT("Save WebM"));
 	}
 	else {
 		int menubarcount = menuBar->GetMenuCount();
 		setsavemenuenablestate = [menubarcount, this, menuBar](bool enable) {
 			menuBar->EnableTop(menubarcount, enable);
 		};
-		AddSaveMenu(menuBar, wxT("&Save Image"), [this](observer_ptr<media_entity> me) -> std::string {
+		AddSaveMenu(menuBar, wxT("Save Image"), [](observer_ptr<media_entity> me) -> std::string {
 			return me->media_url;
-		}, [this](observer_ptr<media_entity> me, wxString filename) {
+		}, [](observer_ptr<media_entity> me, wxString filename) {
 			wxFile file(filename, wxFile::write);
 			file.Write(me->fulldata.data(), me->fulldata.size());
 		});
@@ -725,6 +744,7 @@ void media_display_win_pimpl::TryLoadVideo() {
 		return;
 
 	video_entity::video_variant &vv = video_variants.back();
+	win->SetTitle(wxstrstd(vv.url));
 
 	observer_ptr<media_entity> me = GetMediaEntity();
 	if(!me) {
@@ -753,6 +773,9 @@ void media_display_win::NotifyVideoLoadSuccess(const std::string &url) {
 
 void media_display_win_pimpl::NotifyVideoLoadSuccess(const std::string &url) {
 	LogMsgFormat(LOGT::OTHERTRACE, "media_display_win_pimpl::NotifyVideoLoadSuccess");
+
+	if(video_variants.empty() || url != video_variants.back().url)
+		return;
 
 	observer_ptr<media_entity> me = GetMediaEntity();
 	if(!me) {
@@ -790,6 +813,7 @@ void media_display_win_pimpl::NotifyVideoLoadFailure(const std::string &url) {
 
 	video_variants.pop_back();
 	if(video_variants.empty()) {
+		win->SetTitle(wxT("Loading video failed"));
 		ShowErrorMessage(wxT("Loading video failed"));
 	}
 	else {
