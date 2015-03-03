@@ -454,7 +454,7 @@ void tpanel::MarkCIDSSetGenericUndoable(tweetidset cached_id_sets::* idsetptr, t
 		bool remove, tweet_flags add_flags, tweet_flags remove_flags) {
 
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanel::MarkCIDSSetGenericUndoable %s START", cstr(name));
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanel::MarkCIDSSetGenericUndoable START");
 	#endif
 
 	tweet_flags all_flags = add_flags;
@@ -475,18 +475,20 @@ void tpanel::MarkCIDSSetGenericUndoable(tweetidset cached_id_sets::* idsetptr, t
 	);
 
 	if(undo_item) {
-		undo_item->AppendAction(std::unique_ptr<undo::generic_action>(new undo::generic_action([=]() mutable {
-			// Note: reversal of remove and add flags, and inversion of remove flag
-			// Note: exclude unset
-			MarkCIDSSetGenericUndoable(idsetptr, nullptr, std::move(cached_ids), nullptr, !remove, remove_flags, add_flags);
-		})));
+		undo_item->AppendAction(std::unique_ptr<undo::generic_action>(new undo::generic_action(
+			[idsetptr, cached_ids, remove, remove_flags, add_flags]() mutable {
+				// Note: reversal of remove and add flags, and inversion of remove flag
+				// Note: exclude set to nullptr
+				tpanel::MarkCIDSSetGenericUndoable(idsetptr, nullptr, std::move(cached_ids), nullptr, !remove, remove_flags, add_flags);
+			}
+		)));
 	}
 
 	std::unique_ptr<dbupdatetweetsetflagsmsg> msg(new dbupdatetweetsetflagsmsg(std::move(cached_ids), add_flags.ToULLong(), remove_flags.ToULLong()));
 	DBC_SendMessage(std::move(msg));
 
 	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanel::MarkCIDSSetGenericUndoable %s END", cstr(name));
+		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanel::MarkCIDSSetGenericUndoable END");
 	#endif
 }
 
@@ -496,16 +498,13 @@ void tpanel::MarkCIDSSetGenericUndoable(tweetidset cached_id_sets::* idsetptr, t
 //! Iff exclude is set to nullptr
 //! * This does clear/add the subset
 void tpanel::MarkCIDSSetHandler(tweetidset cached_id_sets::* idsetptr, tpanel *exclude, std::function<void(tweet_ptr_p)> existingtweetfunc, const tweetidset &subset, bool remove) {
-	for(auto &it : twin)
-		it->Freeze();
+	if(exclude) {
+		exclude->SetNoUpdateFlag_TP();
+		exclude->SetClabelUpdatePendingFlag_TP();
+	}
 
-	SetNoUpdateFlag_TP();
-	SetClabelUpdatePendingFlag_TP();
 	MarkTweetIDSetCIDS(subset, exclude, idsetptr, remove, existingtweetfunc);
 	CheckClearNoUpdateFlag_All();
-
-	for(auto &it : twin)
-		it->Thaw();
 }
 
 void tpanel::RecalculateSets() {

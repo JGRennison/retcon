@@ -84,9 +84,9 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	observer_ptr<undo::item> MakeUndoItem(const std::string &prefix);
 
 	private:
-	void MarkCIDSSetGenericUndoable(tweetidset cached_id_sets::* idsetptr, tpanel *exclude, tweetidset &&subset, optional_observer_ptr<undo::item> undo_item,
+	static void MarkCIDSSetGenericUndoable(tweetidset cached_id_sets::* idsetptr, tpanel *exclude, tweetidset &&subset, optional_observer_ptr<undo::item> undo_item,
 			bool remove, tweet_flags add_flags, tweet_flags remove_flags);
-	void MarkCIDSSetHandler(tweetidset cached_id_sets::* idsetptr, tpanel *exclude, std::function<void(tweet_ptr_p)> existingtweetfunc,
+	static void MarkCIDSSetHandler(tweetidset cached_id_sets::* idsetptr, tpanel *exclude, std::function<void(tweet_ptr_p)> existingtweetfunc,
 			const tweetidset &subset, bool remove);
 
 	enum class TPIF {
