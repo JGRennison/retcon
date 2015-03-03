@@ -969,69 +969,19 @@ void tpanelparentwin_nt_impl::UpdateCLabel() {
 }
 
 void tpanelparentwin_nt_impl::markallreadevthandler(wxCommandEvent &event) {
-	MarkSetRead();
+	tp->MarkSetRead(tp->MakeUndoItem("mark all read"));
 }
 
-void tpanelparentwin_nt_impl::MarkSetRead() {
-	MarkSetRead(std::move(tp->cids.unreadids));
-	tp->cids.unreadids.clear(); //do not rely on presence of move semantics
-}
-
-void tpanelparentwin_nt::MarkSetRead(tweetidset &&subset) {
-	pimpl()->MarkSetRead(std::move(subset));
-}
-
-void tpanelparentwin_nt_impl::MarkSetRead(tweetidset &&subset) {
-	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::MarkSetRead %s START", cstr(GetThisName()));
-	#endif
-	tweetidset cached_ids = std::move(subset);
-	MarkClearCIDSSetHandler(&cached_id_sets::unreadids,
-		[&](tweet_ptr_p tw) {
-			tw->MarkFlagsAsRead();
-			tw->IgnoreChangeToFlagsByMask(tweet_flags::GetFlagValue('u') | tweet_flags::GetFlagValue('r'));
-			UpdateTweet(*tw, false);
-		},
-		cached_ids
-	);
-	std::unique_ptr<dbupdatetweetsetflagsmsg> msg(new dbupdatetweetsetflagsmsg(std::move(cached_ids), tweet_flags::GetFlagValue('r'), tweet_flags::GetFlagValue('u')));
-	DBC_SendMessage(std::move(msg));
-	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::MarkSetRead %s END", cstr(GetThisName()));
-	#endif
+void tpanelparentwin_nt::MarkSetRead(tweetidset &&subset, optional_observer_ptr<undo::item> undo_item) {
+	pimpl()->tp->MarkSetReadOrUnread(std::move(subset), undo_item, true);
 }
 
 void tpanelparentwin_nt_impl::markremoveallhighlightshandler(wxCommandEvent &event) {
-	MarkSetUnhighlighted();
+	tp->MarkSetUnhighlighted(tp->MakeUndoItem("unhighlight all"));
 }
 
-void tpanelparentwin_nt_impl::MarkSetUnhighlighted() {
-	MarkSetUnhighlighted(std::move(tp->cids.highlightids));
-	tp->cids.highlightids.clear(); //do not rely on presence of move semantics
-}
-
-void tpanelparentwin_nt::MarkSetUnhighlighted(tweetidset &&subset) {
-	pimpl()->MarkSetUnhighlighted(std::move(subset));
-}
-
-void tpanelparentwin_nt_impl::MarkSetUnhighlighted(tweetidset &&subset) {
-	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::MarkSetUnhighlighted %s START", cstr(GetThisName()));
-	#endif
-	tweetidset cached_ids = std::move(subset);
-	MarkClearCIDSSetHandler(&cached_id_sets::highlightids,
-		[&](tweet_ptr_p tw) {
-			tw->flags.Set('H', false);
-			tw->IgnoreChangeToFlagsByMask(tweet_flags::GetFlagValue('H'));
-			UpdateTweet(*tw, false);
-		},
-		cached_ids
-	);
-	std::unique_ptr<dbupdatetweetsetflagsmsg> msg(new dbupdatetweetsetflagsmsg(std::move(cached_ids), 0, tweet_flags::GetFlagValue('H')));
-	DBC_SendMessage(std::move(msg));
-	#if TPANEL_COPIOUS_LOGGING
-		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::MarkSetUnhighlighted %s END", cstr(GetThisName()));
-	#endif
+void tpanelparentwin_nt::MarkSetUnhighlighted(tweetidset &&subset, optional_observer_ptr<undo::item> undo_item) {
+	pimpl()->tp->MarkSetHighlightState(std::move(subset), undo_item, true);
 }
 
 void tpanelparentwin_nt_impl::setupnavbuttonhandlers() {
@@ -1183,17 +1133,6 @@ void tpanelparentwin_nt_impl::morebtnhandler(wxCommandEvent &event) {
 	wmith2->Check(tppw_flags & TPPWF::SHOWDELETED);
 
 	GenericPopupWrapper(base(), &pmenu, btnrect.GetLeft(), btnrect.GetBottom());
-}
-
-//this does not clear the subset
-//note that the tpanel cids should be cleared/modified *before* calling this function
-void tpanelparentwin_nt_impl::MarkClearCIDSSetHandler(tweetidset cached_id_sets::* idsetptr, std::function<void(tweet_ptr_p )> existingtweetfunc, const tweetidset &subset) {
-	base()->Freeze();
-	tp->SetNoUpdateFlag_TP();
-	tp->SetClabelUpdatePendingFlag_TP();
-	MarkTweetIDSetCIDS(subset, tp.get(), idsetptr, true, existingtweetfunc);
-	CheckClearNoUpdateFlag_All();
-	base()->Thaw();
 }
 
 bool tpanelparentwin_nt::IsSingleAccountWin() const {

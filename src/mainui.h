@@ -52,6 +52,7 @@ enum
     ID_Accounts,
     ID_Viewlog,
     ID_UserLookup,
+    ID_Undo,
 };
 
 class mainframe: public wxFrame
@@ -59,6 +60,7 @@ class mainframe: public wxFrame
 	std::map<int, unsigned int> proflookupidmap;
 	wxMenu *tpmenu = nullptr;
 	wxMenu *lookupmenu = nullptr;
+	wxMenu *filemenu = nullptr;
 
 public:
 	tpanelnotebook *auib = nullptr;
@@ -80,11 +82,12 @@ public:
 	void OnClose(wxCloseEvent &event);
 	void OnMouseWheel(wxMouseEvent &event);
 	void OnMenuOpen(wxMenuEvent &event);
+	void OnOwnProfileMenuCmd(wxCommandEvent &event);
 	void OnTPanelMenuCmd(wxCommandEvent &event);
 	void OnLookupUser(wxCommandEvent &event);
+	void OnUndoCmd(wxCommandEvent &event);
 	void OnSize(wxSizeEvent &event);
 	void OnMove(wxMoveEvent &event);
-	void OnOwnProfileMenuCmd(wxCommandEvent &event);
 	static wxString DecorateTitle(wxString basetitle);
 	void ResetTitle();
 	static void ResetAllTitles();

@@ -22,6 +22,7 @@
 #include "univdefs.h"
 #include "tpanel-common.h"
 #include "twit-common.h"
+#include "undo.h"
 #include <forward_list>
 #include <vector>
 #include <string>
@@ -74,7 +75,19 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	void NotifyCIDSChange_AddRemove(uint64_t id, tweetidset cached_id_sets::*ptr, bool add, flagwrapper<PUSHFLAGS> pushflags  = PUSHFLAGS::DEFAULT);
 	void RecalculateCIDS();
 
+	void MarkSetRead(optional_observer_ptr<undo::item> undo_item);
+	void MarkSetReadOrUnread(tweetidset &&subset, optional_observer_ptr<undo::item> undo_item, bool mark_read);
+	void MarkSetUnhighlighted(optional_observer_ptr<undo::item> undo_item);
+	void MarkSetHighlightState(tweetidset &&subset, optional_observer_ptr<undo::item> undo_item, bool unhighlight);
+
+	observer_ptr<undo::item> MakeUndoItem(const std::string &prefix);
+
 	private:
+	void MarkCIDSSetGenericUndoable(tweetidset cached_id_sets::* idsetptr, const tpanel *exclude, tweetidset &&subset, optional_observer_ptr<undo::item> undo_item,
+			bool remove, tweet_flags add_flags, tweet_flags remove_flags);
+	void MarkCIDSSetHandler(tweetidset cached_id_sets::* idsetptr, const tpanel *exclude, std::function<void(tweet_ptr_p)> existingtweetfunc,
+			const tweetidset &subset, bool remove);
+
 	enum class TPIF {
 		RECALCSETSONCIDSCHANGE       = 1<<0,
 		INCCIDS_HIGHLIGHT            = 1<<1,

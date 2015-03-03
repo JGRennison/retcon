@@ -26,6 +26,7 @@
 #include "uiutil.h"
 #include "magic_ptr.h"
 #include "flags.h"
+#include "undo.h"
 #include <wx/panel.h>
 #include <forward_list>
 #include <functional>
@@ -103,8 +104,8 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	std::shared_ptr<tpanel> GetTP();
 
 	//These are for TweetActMenuAction
-	void MarkSetRead(tweetidset &&subset);
-	void MarkSetUnhighlighted(tweetidset &&subset);
+	void MarkSetRead(tweetidset &&subset, optional_observer_ptr<undo::item> undo_item);
+	void MarkSetUnhighlighted(tweetidset &&subset, optional_observer_ptr<undo::item> undo_item);
 
 	//These are primarily for for tweetdispscr PanelInsertEvt/PanelRemoveEvt
 	void IncTweetIDRefCounts(uint64_t tid, uint64_t rtid);

@@ -22,6 +22,7 @@
 #include "univdefs.h"
 #include "magic_ptr.h"
 #include "fileutil.h"
+#include "undo.h"
 #include <wx/app.h>
 #include <wx/event.h>
 #include <string>
@@ -59,6 +60,7 @@ class retcon: public wxApp {
 	std::string tmpdir;
 	unsigned int popuprecursion;
 	magic_ptr_container<temp_file_holder> temp_file_set;
+	undo::undo_stack undo_state;
 
 	void EnqueuePending(std::function<void()> &&f);
 	void EnqueueThreadJob(std::function<void()> &&worker_thread_job, std::function<void()> &&main_thread_post_job);

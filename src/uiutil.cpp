@@ -362,7 +362,7 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 			if(tppw->GetTP()->cids.unreadids.empty()) break;
 			tweetidset subset;
 			SpliceTweetIDSet(tppw->GetTP()->cids.unreadids, subset, *(tppw->GetTP()->cids.unreadids.begin()), map[curid].tw->id + 1, true);
-			tppw->MarkSetRead(std::move(subset));
+			tppw->MarkSetRead(std::move(subset), tppw->GetTP()->MakeUndoItem("mark newer unread"));
 			break;
 		}
 		case TAMI_MARKOLDERUNREAD: {
@@ -370,7 +370,7 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 			if(tppw->GetTP()->cids.unreadids.empty()) break;
 			tweetidset subset;
 			SpliceTweetIDSet(tppw->GetTP()->cids.unreadids, subset, map[curid].tw->id - 1, 0, true);
-			tppw->MarkSetRead(std::move(subset));
+			tppw->MarkSetRead(std::move(subset), tppw->GetTP()->MakeUndoItem("mark older unread"));
 			break;
 		}
 		case TAMI_MARKNEWERUNHIGHLIGHTED: {
@@ -378,7 +378,7 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 			if(tppw->GetTP()->cids.highlightids.empty()) break;
 			tweetidset subset;
 			SpliceTweetIDSet(tppw->GetTP()->cids.highlightids, subset, *(tppw->GetTP()->cids.highlightids.begin()), map[curid].tw->id + 1, true);
-			tppw->MarkSetUnhighlighted(std::move(subset));
+			tppw->MarkSetUnhighlighted(std::move(subset), tppw->GetTP()->MakeUndoItem("unhighlighted newer"));
 			break;
 		}
 		case TAMI_MARKOLDERUNHIGHLIGHTED: {
@@ -386,7 +386,7 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 			if(tppw->GetTP()->cids.highlightids.empty()) break;
 			tweetidset subset;
 			SpliceTweetIDSet(tppw->GetTP()->cids.highlightids, subset, map[curid].tw->id - 1, 0, true);
-			tppw->MarkSetUnhighlighted(std::move(subset));
+			tppw->MarkSetUnhighlighted(std::move(subset), tppw->GetTP()->MakeUndoItem("unhighlighted older"));
 			break;
 		}
 		case TAMI_TOGGLEHIDEIMG: {

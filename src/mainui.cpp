@@ -34,6 +34,7 @@
 #include "twitcurlext.h"
 #include "retcon.h"
 #include "version.h"
+#include "undo.h"
 #include <wx/msgdlg.h>
 #include <wx/app.h>
 #include <wx/filedlg.h>
@@ -57,6 +58,7 @@ BEGIN_EVENT_TABLE(mainframe, wxFrame)
 	EVT_MENU(ID_Accounts, mainframe::OnAccounts)
 	EVT_MENU(ID_Viewlog, mainframe::OnViewlog)
 	EVT_MENU(ID_UserLookup, mainframe::OnLookupUser)
+	EVT_MENU(ID_Undo, mainframe::OnUndoCmd)
 	EVT_CLOSE(mainframe::OnClose)
 	EVT_MOUSEWHEEL(mainframe::OnMouseWheel)
 	EVT_MENU_OPEN(mainframe::OnMenuOpen)
@@ -76,19 +78,16 @@ mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& si
 
 	wxMenu *menuH = new wxMenu;
 	menuH->Append(ID_About, wxT("&About"));
-	wxMenu *menuF = new wxMenu;
-	menuF->Append(ID_Viewlog, wxT("View &Log"));
-	menuF->Append(ID_Close, wxT("&Close Window"));
-	menuF->Append(ID_Quit, wxT("E&xit"));
 	wxMenu *menuO = new wxMenu;
 	menuO->Append(ID_Settings, wxT("&Settings"));
 	menuO->Append(ID_Accounts, wxT("&Accounts"));
 
+	filemenu = new wxMenu;
 	tpmenu = new wxMenu;
 	lookupmenu = new wxMenu;
 
 	wxMenuBar *menuBar = new wxMenuBar;
-	menuBar->Append(menuF, wxT("&File"));
+	menuBar->Append(filemenu, wxT("&File"));
 	menuBar->Append(tpmenu, wxT("&Panels"));
 	menuBar->Append(lookupmenu, wxT("&Lookup"));
 	menuBar->Append(menuO, wxT("&Options"));
@@ -194,6 +193,21 @@ void mainframe::OnMenuOpen(wxMenuEvent &event) {
 		}
 		lookupmenu->AppendSubMenu(profmenu, wxT("&Own Profile"));
 	}
+	else if(event.GetMenu() == filemenu) {
+		DestroyMenuContents(filemenu);
+		undo::undo_stack &us = wxGetApp().undo_state;
+		if(us.GetTopItem()) {
+			filemenu->Append(ID_Undo, wxString::Format(wxT("&Undo %s"), wxstrstd(us.GetTopItem()->GetName()).c_str()));
+		}
+		else {
+			filemenu->Append(ID_Undo, wxT("&Undo"))->Enable(false);
+		}
+		filemenu->AppendSeparator();
+
+		filemenu->Append(ID_Viewlog, wxT("View &Log"));
+		filemenu->Append(ID_Close, wxT("&Close Window"));
+		filemenu->Append(ID_Quit, wxT("E&xit"));
+	}
 }
 
 void mainframe::OnOwnProfileMenuCmd(wxCommandEvent &event) {
@@ -230,6 +244,10 @@ void mainframe::OnLookupUser(wxCommandEvent &event) {
 
 		twitcurlext::QueueAsyncExec(std::move(twit));
 	}
+}
+
+void mainframe::OnUndoCmd(wxCommandEvent &event) {
+	wxGetApp().undo_state.ExecuteTopItem();
 }
 
 void mainframe::OnSize(wxSizeEvent &event) {
