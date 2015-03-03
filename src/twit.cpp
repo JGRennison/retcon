@@ -798,13 +798,16 @@ std::string cached_id_sets::DumpInfo() {
 	return out;
 }
 
-void MarkTweetIDSetCIDS(const tweetidset &ids, const tpanel *exclude, tweetidset cached_id_sets::* idsetptr, bool remove, std::function<void(tweet_ptr_p )> existingtweetfunc) {
+void MarkTweetIDSetCIDS(const tweetidset &ids, tpanel *exclude, tweetidset cached_id_sets::* idsetptr, bool remove, std::function<void(tweet_ptr_p )> existingtweetfunc) {
 	tweetidset &globset = ad.cids.*idsetptr;
 
 	if(remove) {
 		for(auto &tweet_id : ids) globset.erase(tweet_id);
 	}
 	else globset.insert(ids.begin(), ids.end());
+
+	if(exclude)
+		exclude->NotifyCIDSChange_AddRemove_Bulk(ids, idsetptr, !remove);
 
 	for(auto &tpiter : ad.tpanels) {
 		tpanel *tp = tpiter.second.get();

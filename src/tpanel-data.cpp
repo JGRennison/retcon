@@ -341,11 +341,15 @@ void tpanel::NotifyCIDSChange(uint64_t id, tweetidset cached_id_sets::*ptr, bool
 	NotifyCIDSChange_AddRemove(id, ptr, add, pushflags);
 }
 
+bool tpanel::NotifyCIDSChange_AddRemove_IsApplicable(tweetidset cached_id_sets::* ptr) const {
+	return (intl_flags & TPIF::INCCIDS_HIGHLIGHT && ptr == &cached_id_sets::highlightids)
+			|| (intl_flags & TPIF::INCCIDS_UNREAD && ptr == &cached_id_sets::unreadids);
+}
+
 //! This only handles tpanels which includes CIDS sets as auto sources
 //! This is used by bulk CIDS operations
-void tpanel::NotifyCIDSChange_AddRemoveIntl(uint64_t id, tweetidset cached_id_sets::*ptr, bool add, flagwrapper<PUSHFLAGS> pushflags) {
-	if((intl_flags & TPIF::INCCIDS_HIGHLIGHT && ptr == &cached_id_sets::highlightids)
-			|| (intl_flags & TPIF::INCCIDS_UNREAD && ptr == &cached_id_sets::unreadids)) {
+void tpanel::NotifyCIDSChange_AddRemoveIntl(uint64_t id, tweetidset cached_id_sets::* ptr, bool add, flagwrapper<PUSHFLAGS> pushflags) {
+	if(NotifyCIDSChange_AddRemove_IsApplicable(ptr)) {
 		if(add) PushTweet(ad.GetTweetById(id), pushflags);
 		else if(tweetlist.count(id)) {
 			//we have this tweet, and may be removing it
@@ -377,6 +381,20 @@ void tpanel::NotifyCIDSChange_AddRemoveIntl(uint64_t id, tweetidset cached_id_se
 				RemoveTweet(id, pushflags);
 			}
 		}
+	}
+}
+
+//! This only handles tpanels which includes CIDS sets as auto sources
+//! This is used by bulk CIDS operations
+void tpanel::NotifyCIDSChange_AddRemove_Bulk(const tweetidset &ids, tweetidset cached_id_sets::* ptr, bool add) {
+	if(!NotifyCIDSChange_AddRemove_IsApplicable(ptr))
+		return;
+
+	if(!(intl_flags & tpanel::TPIF::RECALCSETSONCIDSCHANGE))
+		return;
+
+	for(auto &tweet_id : ids) {
+		NotifyCIDSChange_AddRemoveIntl(tweet_id, ptr, add, PUSHFLAGS::SETNOUPDATEFLAG);
 	}
 }
 
@@ -432,7 +450,7 @@ observer_ptr<undo::item> tpanel::MakeUndoItem(const std::string &prefix) {
 	return wxGetApp().undo_state.NewItem(string_format("%s: %s", cstr(prefix), cstr(dispname)));
 }
 
-void tpanel::MarkCIDSSetGenericUndoable(tweetidset cached_id_sets::* idsetptr, const tpanel *exclude, tweetidset &&subset, optional_observer_ptr<undo::item> undo_item,
+void tpanel::MarkCIDSSetGenericUndoable(tweetidset cached_id_sets::* idsetptr, tpanel *exclude, tweetidset &&subset, optional_observer_ptr<undo::item> undo_item,
 		bool remove, tweet_flags add_flags, tweet_flags remove_flags) {
 
 	#if TPANEL_COPIOUS_LOGGING
@@ -477,7 +495,7 @@ void tpanel::MarkCIDSSetGenericUndoable(tweetidset cached_id_sets::* idsetptr, c
 //! * Note that the tpanel cids should be cleared/modified/added *before* calling this function
 //! Iff exclude is set to nullptr
 //! * This does clear/add the subset
-void tpanel::MarkCIDSSetHandler(tweetidset cached_id_sets::* idsetptr, const tpanel *exclude, std::function<void(tweet_ptr_p)> existingtweetfunc, const tweetidset &subset, bool remove) {
+void tpanel::MarkCIDSSetHandler(tweetidset cached_id_sets::* idsetptr, tpanel *exclude, std::function<void(tweet_ptr_p)> existingtweetfunc, const tweetidset &subset, bool remove) {
 	for(auto &it : twin)
 		it->Freeze();
 

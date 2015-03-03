@@ -71,8 +71,9 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	bool TweetMatches(tweet_ptr_p t, const std::shared_ptr<taccount> &acc) const;
 
 	//id must correspond to a usable tweet in ad.tweetobjs, if adding
-	void NotifyCIDSChange(uint64_t id, tweetidset cached_id_sets::*ptr, bool add, flagwrapper<PUSHFLAGS> pushflags  = PUSHFLAGS::DEFAULT);
-	void NotifyCIDSChange_AddRemove(uint64_t id, tweetidset cached_id_sets::*ptr, bool add, flagwrapper<PUSHFLAGS> pushflags  = PUSHFLAGS::DEFAULT);
+	void NotifyCIDSChange(uint64_t id, tweetidset cached_id_sets::* ptr, bool add, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
+	void NotifyCIDSChange_AddRemove(uint64_t id, tweetidset cached_id_sets::* ptr, bool add, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
+	void NotifyCIDSChange_AddRemove_Bulk(const tweetidset &ids, tweetidset cached_id_sets::* ptr, bool add);
 	void RecalculateCIDS();
 
 	void MarkSetRead(optional_observer_ptr<undo::item> undo_item);
@@ -83,9 +84,9 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	observer_ptr<undo::item> MakeUndoItem(const std::string &prefix);
 
 	private:
-	void MarkCIDSSetGenericUndoable(tweetidset cached_id_sets::* idsetptr, const tpanel *exclude, tweetidset &&subset, optional_observer_ptr<undo::item> undo_item,
+	void MarkCIDSSetGenericUndoable(tweetidset cached_id_sets::* idsetptr, tpanel *exclude, tweetidset &&subset, optional_observer_ptr<undo::item> undo_item,
 			bool remove, tweet_flags add_flags, tweet_flags remove_flags);
-	void MarkCIDSSetHandler(tweetidset cached_id_sets::* idsetptr, const tpanel *exclude, std::function<void(tweet_ptr_p)> existingtweetfunc,
+	void MarkCIDSSetHandler(tweetidset cached_id_sets::* idsetptr, tpanel *exclude, std::function<void(tweet_ptr_p)> existingtweetfunc,
 			const tweetidset &subset, bool remove);
 
 	enum class TPIF {
@@ -97,6 +98,7 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 
 	void RecalculateSets();
 	void RecalculateTweetSet();
+	bool NotifyCIDSChange_AddRemove_IsApplicable(tweetidset cached_id_sets::* ptr) const;
 	void NotifyCIDSChange_AddRemoveIntl(uint64_t id, tweetidset cached_id_sets::*ptr, bool add, flagwrapper<PUSHFLAGS> pushflags);
 };
 template<> struct enum_traits<tpanel::TPIF> { static constexpr bool flags = true; };
