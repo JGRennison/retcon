@@ -613,3 +613,10 @@ void GenericPopupWrapper(wxWindow *win, wxMenu *menu, const wxPoint& pos) {
 	wxGetApp().popuprecursion--;
 	LogMsgFormat(LOGT::TPANELTRACE, "Finished popup menu: %p, win: %p, recursion: %d, result: %d", menu, win, wxGetApp().popuprecursion, result);
 }
+
+void DestroyMenuContents(wxMenu *menu) {
+	wxMenuItemList items = menu->GetMenuItems();    //make a copy to avoid memory issues if Destroy modifies the list
+	for(auto &it : items) {
+		menu->Destroy(it);
+	}
+}

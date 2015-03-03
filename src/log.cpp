@@ -265,10 +265,7 @@ log_window::log_window(wxWindow *parent, LOGT flagmask, bool show)
 
 void log_window::OnMenuOpen(wxMenuEvent &event) {
 	if(event.GetMenu() == debug_menu) {
-		wxMenuItemList items = debug_menu->GetMenuItems();	//make a copy to avoid memory issues if Destroy modifies the list
-		for(auto &it : items) {
-			debug_menu->Destroy(it);
-		}
+		DestroyMenuContents(debug_menu);
 
 		debug_menu->Append(LOGWIN_ID_DUMP_PENDING, wxT("Dump &Pendings"));
 		debug_menu->Append(LOGWIN_ID_DUMP_CONN, wxT("Dump &Socket Data"));

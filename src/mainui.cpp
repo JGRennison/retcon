@@ -181,10 +181,7 @@ void mainframe::OnMenuOpen(wxMenuEvent &event) {
 		MakeTPanelMenu(tpmenu, tpm);
 	}
 	else if(event.GetMenu() == lookupmenu) {
-		wxMenuItemList items = lookupmenu->GetMenuItems();		//make a copy to avoid memory issues if Destroy modifies the list
-		for(auto &it : items) {
-			lookupmenu->Destroy(it);
-		}
+		DestroyMenuContents(lookupmenu);
 		proflookupidmap.clear();
 
 		int nextid = lookupprofilestartid;

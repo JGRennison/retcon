@@ -24,6 +24,7 @@
 #include "socket-ops.h"
 #include "twit.h"
 #include "util.h"
+#include "uiutil.h"
 #include <wx/animate.h>
 #include <wx/bitmap.h>
 #include <wx/dcclient.h>
@@ -292,10 +293,7 @@ media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_
 		menuopenhandlers.push_back([this](wxMenuEvent &event) {
 			if(event.GetMenu() != zoom_menu) return;
 
-			wxMenuItemList items = zoom_menu->GetMenuItems();		//make a copy to avoid memory issues if Destroy modifies the list
-			for(auto &it : items) {
-				zoom_menu->Destroy(it);
-			}
+			DestroyMenuContents(zoom_menu);
 
 #if defined(__WXGTK__)
 			if(using_anim_ctrl) {
@@ -343,10 +341,7 @@ void media_display_win_pimpl::AddSaveMenu(wxMenuBar *menuBar, const wxString &ti
 	menuopenhandlers.push_back([this, menuF, get_url, title, save_action](wxMenuEvent &event) {
 		if(event.GetMenu() != menuF) return;
 
-		wxMenuItemList items = menuF->GetMenuItems();		//make a copy to avoid memory issues if Destroy modifies the list
-		for(auto &it : items) {
-			menuF->Destroy(it);
-		}
+		DestroyMenuContents(menuF);
 
 		observer_ptr<media_entity> me = this->GetMediaEntity();
 		if(!me)
