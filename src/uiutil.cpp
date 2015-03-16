@@ -153,8 +153,16 @@ void MakeFavMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p 
 }
 
 void MakeCopyMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw) {
-	menuP->Append(nextid, wxT("Copy Text"));
-	AppendToTAMIMenuMap(map, nextid, TAMI_COPYTEXT, tw);
+	if(tw->flags.Get('R')) {
+		menuP->Append(nextid, wxT("Copy Text"));
+		AppendToTAMIMenuMap(map, nextid, TAMI_COPYRTTEXT, tw);
+		menuP->Append(nextid, wxT("Copy Retweet Text"));
+		AppendToTAMIMenuMap(map, nextid, TAMI_COPYTEXT, tw);
+	}
+	else {
+		menuP->Append(nextid, wxT("Copy Text"));
+		AppendToTAMIMenuMap(map, nextid, TAMI_COPYTEXT, tw);
+	}
 	menuP->Append(nextid, wxT("Copy Link to Tweet"));
 	AppendToTAMIMenuMap(map, nextid, TAMI_COPYLINK, tw);
 	menuP->Append(nextid, wxString::Format(wxT("Copy ID (%" wxLongLongFmtSpec "d)"), tw->id));
@@ -300,6 +308,13 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 		case TAMI_COPYTEXT: {
 			if(wxTheClipboard->Open()) {
 				wxTheClipboard->SetData(new wxTextDataObject(wxstrstd(map[curid].tw->text)));
+				wxTheClipboard->Close();
+			}
+			break;
+		}
+		case TAMI_COPYRTTEXT: {
+			if(wxTheClipboard->Open()) {
+				wxTheClipboard->SetData(new wxTextDataObject(wxstrstd(map[curid].tw->rtsrc->text)));
 				wxTheClipboard->Close();
 			}
 			break;
