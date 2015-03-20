@@ -31,8 +31,12 @@ struct tweet;
 
 typedef intrusive_ptr<userdatacontainer> udc_ptr;
 typedef cref_intrusive_ptr<userdatacontainer> udc_ptr_p;
+typedef intrusive_ptr<userdatacontainer> optional_udc_ptr;
+typedef cref_intrusive_ptr<userdatacontainer> optional_udc_ptr_p;
 
 typedef intrusive_ptr<tweet> tweet_ptr;
 typedef cref_intrusive_ptr<tweet> tweet_ptr_p;
+typedef intrusive_ptr<tweet> optional_tweet_ptr;
+typedef cref_intrusive_ptr<tweet> optional_tweet_ptr_p;
 
 #endif

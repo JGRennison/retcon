@@ -58,9 +58,9 @@ struct alldata {
 	magic_ptr_container<handlenew_pending_op> handlenew_pending_ops;
 
 	udc_ptr GetUserContainerById(uint64_t id);
-	udc_ptr GetExistingUserContainerById(uint64_t id);
+	optional_udc_ptr GetExistingUserContainerById(uint64_t id);
 	tweet_ptr GetTweetById(uint64_t id, bool *isnew = nullptr);
-	tweet_ptr GetExistingTweetById(uint64_t id);
+	optional_tweet_ptr GetExistingTweetById(uint64_t id);
 	void UnlinkTweetById(uint64_t id);
 	optional_observer_ptr<user_dm_index> GetExistingUserDMIndexById(uint64_t id);
 	user_dm_index &GetUserDMIndexById(uint64_t id);

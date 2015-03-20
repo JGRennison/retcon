@@ -32,7 +32,7 @@ udc_ptr alldata::GetUserContainerById(uint64_t id) {
 	return usercont;
 }
 
-udc_ptr alldata::GetExistingUserContainerById(uint64_t id) {
+optional_udc_ptr alldata::GetExistingUserContainerById(uint64_t id) {
 	auto it = userconts.find(id);
 	if(it != userconts.end()) {
 		return it->second;
@@ -54,7 +54,7 @@ tweet_ptr alldata::GetTweetById(uint64_t id, bool *isnew) {
 	return t;
 }
 
-tweet_ptr alldata::GetExistingTweetById(uint64_t id) {
+optional_tweet_ptr alldata::GetExistingTweetById(uint64_t id) {
 	auto it = tweetobjs.find(id);
 	if(it != tweetobjs.end()) {
 		return it->second;

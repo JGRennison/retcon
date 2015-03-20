@@ -56,18 +56,21 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 			const std::vector<tpanel_auto> &tpautos, const std::vector<tpanel_auto_udc> &tpudcautos);
 	static std::string ManualName(std::string dispname);
 
-	void PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
-	void RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
-	bool RegisterTweet(tweet_ptr_p t);
+	bool PushTweet(uint64_t id, optional_tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
+	bool PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
+	void BulkPushTweet(tweetidset ids, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
+
+	bool RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
+	bool RegisterTweet(uint64_t id, optional_tweet_ptr_p t);
 	bool UnRegisterTweet(uint64_t id);
 	tpanelparentwin *MkTPanelWin(mainframe *parent, bool select = false);
 	void OnTPanelWinClose(tpanelparentwin_nt *tppw);
 	bool IsSingleAccountTPanel() const;
 	void SetNoUpdateFlag_TP() const;
+	void CheckClearNoUpdateFlag_TP() const;
 	void SetClabelUpdatePendingFlag_TP() const;
 	void UpdateCLabelLater_TP() const;
 	bool TweetMatches(tweet_ptr_p t, const std::shared_ptr<taccount> &acc) const;
-	void ReinitialiseState();
 
 	//id must correspond to a usable tweet in ad.tweetobjs, if adding
 	void NotifyCIDSChange(uint64_t id, tweetidset cached_id_sets::* ptr, bool add, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);

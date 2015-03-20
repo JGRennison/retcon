@@ -108,6 +108,7 @@ enum class TPPWF {	//for tppw_flags
 template<> struct enum_traits<TPPWF> { static constexpr bool flags = true; };
 
 void UpdateTweet(const tweet &t, bool redrawimg = false);
+void UpdateTweet(uint64_t id, bool redrawimg = false);
 void UpdateAllTweets(bool redrawimg = false, bool resethighlight = false);
 void UpdateUsersTweet(uint64_t userid, bool redrawimg = false);
 

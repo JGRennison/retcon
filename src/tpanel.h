@@ -92,17 +92,16 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 
 	tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent, wxString thisname_ = wxT(""), tpanelparentwin_nt_impl *privimpl = nullptr);
 	virtual ~tpanelparentwin_nt();
-	void PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
+	void PushTweet(uint64_t id, optional_tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
+	void PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags);
 	void RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
 	void JumpToTweetID(uint64_t id);
 	virtual bool IsSingleAccountWin() const override;
 	void EnumDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush);
 	void UpdateOwnTweet(uint64_t id, bool redrawimg);
-	void UpdateOwnTweet(const tweet &t, bool redrawimg);
 	tweetdispscr_mouseoverwin *MakeMouseOverWin();
 	void GenericAction(std::function<void(tpanelparentwin_nt *)> func);
 	std::shared_ptr<tpanel> GetTP();
-	void TPReinitialiseState();
 
 	//These are for TweetActMenuAction
 	void MarkSetRead(tweetidset &&subset, optional_observer_ptr<undo::item> undo_item);

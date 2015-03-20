@@ -78,14 +78,7 @@ static void DeleteTPanel(std::shared_ptr<tpanel> tp, optional_observer_ptr<undo:
 		undo_item->AppendAction(std::unique_ptr<undo::generic_action>(new undo::generic_action(
 			[ids, panel_name, panel_dispname, flags]() mutable {
 				std::shared_ptr<tpanel> newtp = tpanel::MkTPanel(std::move(panel_name), std::move(panel_dispname), flags);
-				if(newtp->tweetlist.empty()) {
-					// this is an empty panel, just move the id set in
-					newtp->tweetlist = std::move(ids);
-				}
-				else {
-					newtp->tweetlist.insert(ids.begin(), ids.end());
-				}
-				newtp->ReinitialiseState();
+				newtp->BulkPushTweet(std::move(ids));
 
 				if(newtp->twin.empty()) {
 					// try to create a panel window in the current mainframe, if no panel windows exist already
@@ -659,16 +652,33 @@ tpanelparentwin_nt::~tpanelparentwin_nt() {
 	tpanelparentwinlist.remove(this);
 }
 
+void tpanelparentwin_nt::PushTweet(uint64_t id, optional_tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags) {
+	pimpl()->PushTweet(id, t, pushflags);
+}
+
 void tpanelparentwin_nt::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags) {
-	pimpl()->PushTweet(t, pushflags);
+	pimpl()->PushTweet(t->id, t, pushflags);
 }
 
 //This should be kept in sync with OnBatchTimerModeTimer
-void tpanelparentwin_nt_impl::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags) {
+void tpanelparentwin_nt_impl::PushTweet(uint64_t id, optional_tweet_ptr t, flagwrapper<PUSHFLAGS> pushflags) {
 	if(tppw_flags & TPPWF::BATCHTIMERMODE) {
-		pushtweetbatchqueue.emplace_back(t, pushflags);
+		pushtweetbatchqueue.push_back({ id, t, pushflags });
 		UpdateBatchTimer();
 		return;
+	}
+
+	if(!t) {
+		// If no tweet is given, try to load from the DB or over the net
+		// Because of the batching above, we should only get here if the tweet is expected
+		// to be displayed
+		// If the tweet happens to be ready now, continue
+
+		t = ad.GetTweetById(id);
+		if(!CheckFetchPendingSingleTweet(t, std::shared_ptr<taccount>(), nullptr, PENDING_REQ::GUI_DEFAULT, PENDING_RESULT::GUI_DEFAULT)) {
+			MarkPending_TPanelMap(t, base(), pushflags);
+			return;
+		}
 	}
 
 	scrollpane->Freeze();
@@ -678,9 +688,8 @@ void tpanelparentwin_nt_impl::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pu
 	});
 
 	LogMsgFormat(LOGT::TPANELTRACE, "tpanelparentwin_nt_impl::PushTweet %s, id: %" llFmtSpec "d, displayoffset: %d, pushflags: 0x%X, currentdisp: %d, tppw_flags: 0x%X",
-			cstr(GetThisName()), t->id, displayoffset, pushflags, (int) currentdisp.size(), tppw_flags);
+			cstr(GetThisName()), id, displayoffset, pushflags, (int) currentdisp.size(), tppw_flags);
 	if(pushflags & PUSHFLAGS::ABOVE) scrollbar->scroll_always_freeze = true;
-	uint64_t id = t->id;
 	bool recalcdisplayoffset = false;
 	if(pushflags & PUSHFLAGS::NOINCDISPOFFSET && currentdisp.empty()) recalcdisplayoffset = true;
 	if(displayoffset > 0) {
@@ -697,7 +706,7 @@ void tpanelparentwin_nt_impl::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pu
 		else return; // displayoffset not currently valid, do not insert
 	}
 	if(currentdisp.size() == gc.maxtweetsdisplayinpanel) {
-		if(t->id < currentdisp.back().id) {    //off the bottom of the list
+		if(id < currentdisp.back().id) {    //off the bottom of the list
 			if(pushflags & PUSHFLAGS::BELOW) {
 				PopTop();
 				displayoffset++;
@@ -724,7 +733,7 @@ void tpanelparentwin_nt_impl::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pu
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::PushTweet 2, %d, %d, %d", displayoffset, currentdisp.size(), recalcdisplayoffset);
 	#endif
-	tpanel_disp_item *tpdi = CreateItemAtPosition(it, t->id);
+	tpanel_disp_item *tpdi = CreateItemAtPosition(it, id);
 	tweetdispscr *td = CreateTweetInItem(t, *tpdi);
 
 	if(recalcdisplayoffset)
@@ -1196,14 +1205,6 @@ void tpanelparentwin_nt_impl::EnumDisplayedTweets(std::function<bool (tweetdisps
 	if(checkupdateflag) CheckClearNoUpdateFlag();
 }
 
-void tpanelparentwin_nt::UpdateOwnTweet(const tweet &t, bool redrawimg) {
-	pimpl()->UpdateOwnTweet(t, redrawimg);
-}
-
-void tpanelparentwin_nt_impl::UpdateOwnTweet(const tweet &t, bool redrawimg) {
-	UpdateOwnTweet(t.id, redrawimg);
-}
-
 void tpanelparentwin_nt::UpdateOwnTweet(uint64_t id, bool redrawimg) {
 	pimpl()->UpdateOwnTweet(id, redrawimg);
 }
@@ -1286,22 +1287,19 @@ void tpanelparentwin_nt_impl::OnBatchTimerModeTimer(wxTimerEvent& event) {
 	if(!pushtweetbatchqueue.empty()) {
 		struct simulation_disp {
 			uint64_t id;
-			std::pair<tweet_ptr, flagwrapper<PUSHFLAGS> > *pushptr;
+			tweetbatchqueue_item *pushptr;
 		};
 		std::list<simulation_disp> simulation_currentdisp;
 		tweetidset gotids;
 		for(auto &it : currentdisp) {
-			simulation_currentdisp.push_back({ it.id, 0 });
+			simulation_currentdisp.push_back({ it.id, nullptr });
 			gotids.insert(it.id);
 		}
 
 		bool clabelneedsupdating = false;
 
 		for(auto &item : pushtweetbatchqueue) {
-			uint64_t id = item.first->id;
-			flagwrapper<PUSHFLAGS> pushflags = item.second;
-
-			auto result = gotids.insert(id);
+			auto result = gotids.insert(item.id);
 			if(!result.second) {
 				//whoops, insertion didn't take place
 				//hence id was already there
@@ -1314,13 +1312,13 @@ void tpanelparentwin_nt_impl::OnBatchTimerModeTimer(wxTimerEvent& event) {
 			clabelneedsupdating = true;
 
 			if(simulation_currentdisp.size() == gc.maxtweetsdisplayinpanel) {
-				if(id < simulation_currentdisp.back().id) {    //off the end of the list
-					if(pushflags & PUSHFLAGS::BELOW) {
+				if(item.id < simulation_currentdisp.back().id) {    //off the end of the list
+					if(item.pushflags & PUSHFLAGS::BELOW) {
 						simulation_currentdisp.pop_front();
 					}
 					else continue;
 				}
-				else if(pushflags & PUSHFLAGS::BELOW) {
+				else if(item.pushflags & PUSHFLAGS::BELOW) {
 					//too many in list and pushing to bottom, remove the top one
 					simulation_currentdisp.pop_front();
 				}
@@ -1333,17 +1331,17 @@ void tpanelparentwin_nt_impl::OnBatchTimerModeTimer(wxTimerEvent& event) {
 			size_t index = 0;
 			auto it = simulation_currentdisp.begin();
 			for(; it != simulation_currentdisp.end(); it++, index++) {
-				if(it->id < id) break;	//insert before this iterator
+				if(it->id < item.id) break;	//insert before this iterator
 			}
 
-			simulation_currentdisp.insert(it, { id, &item });
+			simulation_currentdisp.insert(it, { item.id, &item });
 		}
 
 		size_t pushcount = 0;
 		for(auto &it : simulation_currentdisp) {
 			if(it.pushptr) {
-				PushTweet(it.pushptr->first, it.pushptr->second);
-				updatetweetbatchqueue.erase(it.pushptr->first->id);  //don't bother updating items we've just pushed
+				PushTweet(it.pushptr->id, it.pushptr->t, it.pushptr->pushflags);
+				updatetweetbatchqueue.erase(it.pushptr->id);  //don't bother updating items we've just pushed
 				pushcount++;
 			}
 		}
@@ -1460,21 +1458,6 @@ void tpanelparentwin_nt_impl::RecalculateDisplayOffset() {
 	tweetidset::const_iterator stit = tp->tweetlist.find(currentdisp.front().id);
 	if(stit != tp->tweetlist.end())
 		displayoffset = std::distance(tp->tweetlist.cbegin(), stit);
-}
-
-void tpanelparentwin_nt::TPReinitialiseState() {
-	pimpl()->TPReinitialiseState();
-}
-
-void tpanelparentwin_nt_impl::TPReinitialiseState() {
-	SetNoUpdateFlag();
-	SetClabelUpdatePendingFlag();
-	while(!currentdisp.empty()) {
-		PopTop();
-	}
-	displayoffset = 0;
-	LoadMore(gc.maxtweetsdisplayinpanel);
-	CheckClearNoUpdateFlag();
 }
 
 BEGIN_EVENT_TABLE(tpanelparentwin_impl, tpanelparentwin_nt_impl)
@@ -2130,11 +2113,16 @@ void UpdateUsersTweet(uint64_t userid, bool redrawimg) {
 }
 
 void UpdateTweet(const tweet &t, bool redrawimg) {
+	UpdateTweet(t.id, redrawimg);
+}
+
+void UpdateTweet(uint64_t id, bool redrawimg) {
 	//Escape hatch: don't bother iterating over tpanelparentwinlist if no entry in all_tweetid_count_map,
 	//ie. no tweet is displayed in any panel which is/is a retweet of that ID
-	if(tpanelparentwin_nt_impl::all_tweetid_count_map.find(t.id) == tpanelparentwin_nt_impl::all_tweetid_count_map.end()) return;
+	if(tpanelparentwin_nt_impl::all_tweetid_count_map.find(id) == tpanelparentwin_nt_impl::all_tweetid_count_map.end())
+		return;
 
 	for(auto &it : tpanelparentwinlist) {
-		it->UpdateOwnTweet(t, redrawimg);
+		it->UpdateOwnTweet(id, redrawimg);
 	}
 }

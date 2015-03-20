@@ -781,6 +781,13 @@ void cached_id_sets::CheckTweet(tweet &tw) {
 	});
 }
 
+void cached_id_sets::CheckTweetID(uint64_t id) {
+	foreach(ad.cids, [&](tweetidset &thisset, tweetidset &adset) {
+		if(adset.find(id) != adset.end()) thisset.insert(id);
+		else thisset.erase(id);
+	});
+}
+
 void cached_id_sets::RemoveTweet(uint64_t id) {
 	IterateLists([&](const char *name, tweetidset cached_id_sets::*mptr, unsigned long long flagvalue) {
 		(this->*mptr).erase(id);

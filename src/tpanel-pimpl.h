@@ -119,7 +119,13 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 
 	std::shared_ptr<tpanel> tp;
 	magic_ptr_ts<tweetdispscr_mouseoverwin> mouseoverwin;
-	std::deque<std::pair<tweet_ptr, flagwrapper<PUSHFLAGS>>> pushtweetbatchqueue;
+
+	struct tweetbatchqueue_item {
+		uint64_t id;
+		optional_tweet_ptr t;
+		flagwrapper<PUSHFLAGS> pushflags;
+	};
+	std::deque<tweetbatchqueue_item> pushtweetbatchqueue;
 	std::deque<std::pair<uint64_t, flagwrapper<PUSHFLAGS>>> removetweetbatchqueue;
 	container::map<uint64_t, bool> updatetweetbatchqueue;
 	std::deque<std::function<void(tpanelparentwin_nt *)> > batchedgenericactions;
@@ -128,7 +134,11 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 	container::map<uint64_t, unsigned int> tweetid_count_map;
 	static container::map<uint64_t, unsigned int> all_tweetid_count_map;
 
-	void PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
+	void PushTweet(uint64_t id, optional_tweet_ptr t, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
+	void PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags) {
+		PushTweet(t->id, t, pushflags);
+	}
+
 	void RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
 	tweetdispscr *CreateTweetInItem(tweet_ptr_p t, tpanel_disp_item &tpdi);
 	void JumpToTweetID(uint64_t id);
@@ -146,11 +156,9 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 	virtual void UpdateCLabel() override;
 	void EnumDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush);
 	void UpdateOwnTweet(uint64_t id, bool redrawimg);
-	void UpdateOwnTweet(const tweet &t, bool redrawimg);
 	tweetdispscr_mouseoverwin *MakeMouseOverWin();
 	void GenericAction(std::function<void(tpanelparentwin_nt *)> func);
 	void RecalculateDisplayOffset();
-	void TPReinitialiseState();
 
 	DECLARE_EVENT_TABLE()
 };

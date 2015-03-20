@@ -33,29 +33,58 @@
 #define TPANEL_COPIOUS_LOGGING 0
 #endif
 
-void tpanel::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags) {
-	LogMsgFormat(LOGT::TPANELTRACE, "Pushing tweet id %" llFmtSpec "d to panel %s (pushflags: 0x%X)", t->id, cstr(name), pushflags);
-	if(RegisterTweet(t)) {
+bool tpanel::PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags) {
+	return PushTweet(t->id, t, pushflags);
+}
+
+bool tpanel::PushTweet(uint64_t id, optional_tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags) {
+	LogMsgFormat(LOGT::TPANELTRACE, "Pushing tweet id %" llFmtSpec "d to panel %s (pushflags: 0x%X)", id, cstr(name), pushflags);
+	bool adding_tweet = RegisterTweet(id, t);
+	if(adding_tweet) {
 		for(auto &i : twin) {
 			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LOGT::TPANELTRACE, "TCL: Pushing tweet id %" llFmtSpec "d to tpanel window", t->id);
+				LogMsgFormat(LOGT::TPANELTRACE, "TCL: Pushing tweet id %" llFmtSpec "d to tpanel window", id);
 			#endif
-			i->PushTweet(t, pushflags);
+			i->PushTweet(id, t, pushflags);
 		}
 	}
 	else {	//already have this in tpanel, update it
 		for(auto &i : twin) {
 			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LOGT::TPANELTRACE, "TCL: Updating tpanel window tweet: id %" llFmtSpec "d", t->id);
+				LogMsgFormat(LOGT::TPANELTRACE, "TCL: Updating tpanel window tweet: id %" llFmtSpec "d", id);
 			#endif
-			i->UpdateOwnTweet(*(t.get()), false);
+			i->UpdateOwnTweet(id, false);
 		}
+	}
+	return adding_tweet;
+}
+
+void tpanel::BulkPushTweet(tweetidset ids, flagwrapper<PUSHFLAGS> pushflags) {
+	if(!twin.empty()) {
+		// There are windows for this panel open, slow path
+		SetNoUpdateFlag_TP();
+		for(auto &it : ids) {
+			PushTweet(it, nullptr, pushflags);
+		}
+		CheckClearNoUpdateFlag_TP();
+	}
+	else {
+		if(!tweetlist.empty()) {
+			// Panel already has stuff in it, merge sets
+			tweetlist.insert(ids.begin(), ids.end());
+		}
+		else {
+			// Panel is empty, fast path
+			tweetlist = std::move(ids);
+		}
+		RecalculateSets();
 	}
 }
 
-void tpanel::RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags) {
+bool tpanel::RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags) {
 	LogMsgFormat(LOGT::TPANELTRACE, "Removing tweet id %" llFmtSpec "d from panel %s (pushflags: 0x%X)", id, cstr(name), pushflags);
-	if(UnRegisterTweet(id)) {
+	bool removing_tweet = UnRegisterTweet(id);
+	if(removing_tweet) {
 		for(auto &i : twin) {
 			#if TPANEL_COPIOUS_LOGGING
 				LogMsgFormat(LOGT::TPANELTRACE, "TCL: Removing tweet id %" llFmtSpec "d from tpanel window", id);
@@ -63,17 +92,22 @@ void tpanel::RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags) {
 			i->RemoveTweet(id, pushflags);
 		}
 	}
+	return removing_tweet;
 }
 
 //returns true if new tweet
-bool tpanel::RegisterTweet(tweet_ptr_p t) {
-	cids.CheckTweet(*t);
-	if(tweetlist.count(t->id)) {
+bool tpanel::RegisterTweet(uint64_t id, optional_tweet_ptr_p t) {
+	if(t)
+		cids.CheckTweet(*t);
+	else
+		cids.CheckTweetID(id);
+
+	if(tweetlist.count(id)) {
 		//already have this tweet
 		return false;
 	}
 	else {
-		tweetlist.insert(t->id);
+		tweetlist.insert(id);
 		return true;
 	}
 }
@@ -348,7 +382,9 @@ bool tpanel::NotifyCIDSChange_AddRemove_IsApplicable(tweetidset cached_id_sets::
 //! This is used by bulk CIDS operations
 void tpanel::NotifyCIDSChange_AddRemoveIntl(uint64_t id, tweetidset cached_id_sets::* ptr, bool add, flagwrapper<PUSHFLAGS> pushflags) {
 	if(NotifyCIDSChange_AddRemove_IsApplicable(ptr)) {
-		if(add) PushTweet(ad.GetTweetById(id), pushflags);
+		if(add) {
+			PushTweet(id, nullptr, pushflags);
+		}
 		else if(tweetlist.count(id)) {
 			//we have this tweet, and may be removing it
 
@@ -510,13 +546,6 @@ void tpanel::RecalculateSets() {
 	RecalculateCIDS();
 }
 
-void tpanel::ReinitialiseState() {
-	RecalculateSets();
-	for(auto &jt : twin) {
-		jt->TPReinitialiseState();
-	}
-}
-
 void tpanel::OnTPanelWinClose(tpanelparentwin_nt *tppw) {
 	twin.remove(tppw);
 	if(twin.empty() && flags&TPF::DELETEONWINCLOSE) {
@@ -542,6 +571,12 @@ bool tpanel::IsSingleAccountTPanel() const {
 void tpanel::SetNoUpdateFlag_TP() const {
 	for(auto &jt : twin) {
 		jt->SetNoUpdateFlag();
+	}
+}
+
+void tpanel::CheckClearNoUpdateFlag_TP() const {
+	for(auto &jt : twin) {
+		jt->CheckClearNoUpdateFlag();
 	}
 }
 
