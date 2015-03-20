@@ -1165,9 +1165,19 @@ void tweet::CheckFlagsUpdated(flagwrapper<tweet::CFUF> cfuflags) {
 
 	flags_at_prev_update = flags;
 
+	HandleFlagChange(id, changemask, flags.ToULLong());
+
+	if(cfuflags & CFUF::UPDATE_TWEET) UpdateTweet(*this, false);
+	if(cfuflags & CFUF::SEND_DB_UPDATE_ALWAYS) SendTweetFlagUpdate(*this, changemask);
+	else if(cfuflags & CFUF::SEND_DB_UPDATE) {
+		if(lflags & TLF::SAVED_IN_DB) SendTweetFlagUpdate(*this, changemask);
+	}
+}
+
+void tweet::HandleFlagChange(uint64_t id, unsigned long long changemask, unsigned long long newvalue) {
 	cached_id_sets::IterateLists([&](const char *name, tweetidset cached_id_sets::*mptr, unsigned long long flagvalue) {
 		if(changemask & flagvalue) {
-			if(flags.ToULLong() & flagvalue) {
+			if(newvalue & flagvalue) {
 				auto result = (ad.cids.*mptr).insert(id);
 				if(result.second) {
 					//new insertion
@@ -1187,12 +1197,20 @@ void tweet::CheckFlagsUpdated(flagwrapper<tweet::CFUF> cfuflags) {
 			}
 		}
 	});
+}
 
-	if(cfuflags & CFUF::SET_NOUPDF_ALL) CheckClearNoUpdateFlag_All();
-	if(cfuflags & CFUF::UPDATE_TWEET) UpdateTweet(*this, false);
-	if(cfuflags & CFUF::SEND_DB_UPDATE_ALWAYS) SendTweetFlagUpdate(*this, changemask);
-	else if(cfuflags & CFUF::SEND_DB_UPDATE) {
-		if(lflags & TLF::SAVED_IN_DB) SendTweetFlagUpdate(*this, changemask);
+void tweet::ChangeFlagsById(uint64_t id, unsigned long long setflags, unsigned long long unsetflags, flagwrapper<CFUF> cfuflags) {
+	tweet_ptr t = ad.GetExistingTweetById(id);
+	if(t) {
+		t->flags = tweet_flags((t->flags.ToULLong() | setflags) & ~unsetflags);
+		t->CheckFlagsUpdated(cfuflags);
+	}
+	else if(cfuflags & CFUF::SEND_DB_UPDATE_ALWAYS || cfuflags & CFUF::SEND_DB_UPDATE) {
+		tweetidset ids;
+		ids.insert(id);
+		std::unique_ptr<dbupdatetweetsetflagsmsg>msg(new dbupdatetweetsetflagsmsg(std::move(ids), setflags, unsetflags));
+		DBC_SendMessageBatched(std::move(msg));
+		HandleFlagChange(id, setflags | unsetflags, setflags);
 	}
 }
 

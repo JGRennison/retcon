@@ -422,9 +422,10 @@ struct tweet {
 		SEND_DB_UPDATE             = 1<<0,
 		SEND_DB_UPDATE_ALWAYS      = 1<<1,
 		UPDATE_TWEET               = 1<<2,
-		SET_NOUPDF_ALL             = 1<<3,
 	};
 	void CheckFlagsUpdated(flagwrapper<CFUF> cfuflags = 0);
+	static void HandleFlagChange(uint64_t id, unsigned long long changemask, unsigned long long newvalue);
+	static void ChangeFlagsById(uint64_t id, unsigned long long setflags, unsigned long long unsetflags, flagwrapper<CFUF> cfuflags = 0);
 
 	//! Use with caution
 	//! Intended for bulk CIDS operations which do their own state tracking
