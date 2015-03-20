@@ -73,8 +73,6 @@ bool tpanel::RegisterTweet(tweet_ptr_p t) {
 		return false;
 	}
 	else {
-		if(t->id > upperid) upperid = t->id;
-		if(t->id < lowerid || lowerid == 0) lowerid = t->id;
 		tweetlist.insert(t->id);
 		return true;
 	}
@@ -510,6 +508,13 @@ void tpanel::MarkCIDSSetHandler(tweetidset cached_id_sets::* idsetptr, tpanel *e
 void tpanel::RecalculateSets() {
 	RecalculateTweetSet();
 	RecalculateCIDS();
+}
+
+void tpanel::ReinitialiseState() {
+	RecalculateSets();
+	for(auto &jt : twin) {
+		jt->TPReinitialiseState();
+	}
 }
 
 void tpanel::OnTPanelWinClose(tpanelparentwin_nt *tppw) {

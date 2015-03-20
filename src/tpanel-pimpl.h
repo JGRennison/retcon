@@ -150,6 +150,7 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 	tweetdispscr_mouseoverwin *MakeMouseOverWin();
 	void GenericAction(std::function<void(tpanelparentwin_nt *)> func);
 	void RecalculateDisplayOffset();
+	void TPReinitialiseState();
 
 	DECLARE_EVENT_TABLE()
 };

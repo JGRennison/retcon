@@ -50,6 +50,8 @@
 
 std::vector<mainframe*> mainframelist;
 
+static mainframe* last_menu_opened_mainframe = nullptr;
+
 BEGIN_EVENT_TABLE(mainframe, wxFrame)
 	EVT_MENU(ID_Close,  mainframe::OnCloseWindow)
 	EVT_MENU(ID_Quit,  mainframe::OnQuit)
@@ -176,6 +178,8 @@ void mainframe::OnMouseWheel(wxMouseEvent &event) {
 }
 
 void mainframe::OnMenuOpen(wxMenuEvent &event) {
+	last_menu_opened_mainframe = this;
+
 	if(event.GetMenu() == tpmenu) {
 		MakeTPanelMenu(tpmenu, tpm);
 	}
@@ -279,6 +283,18 @@ void mainframe::ResetAllTitles() {
 	for(auto &it : mainframelist) {
 		it->ResetTitle();
 	}
+}
+
+optional_observer_ptr<mainframe> mainframe::GetLastMenuOpenedMainframe() {
+	if(!last_menu_opened_mainframe)
+		return nullptr;
+
+	for(auto &it : mainframelist) {
+		if(it == last_menu_opened_mainframe)
+			return last_menu_opened_mainframe;
+	}
+
+	return nullptr;
 }
 
 void AccountUpdateAllMainframes() {

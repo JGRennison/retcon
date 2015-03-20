@@ -91,6 +91,7 @@ public:
 	static wxString DecorateTitle(wxString basetitle);
 	void ResetTitle();
 	static void ResetAllTitles();
+	static optional_observer_ptr<mainframe> GetLastMenuOpenedMainframe();
 
 	DECLARE_EVENT_TABLE()
 };

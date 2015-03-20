@@ -40,8 +40,6 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	tweetidset tweetlist;
 	std::forward_list<tpanelparentwin_nt*> twin;
 	flagwrapper<TPF> flags;
-	uint64_t upperid;
-	uint64_t lowerid;
 	cached_id_sets cids;
 	std::vector<tpanel_auto> tpautos;
 	std::vector<tpanel_auto_udc> tpudcautos;
@@ -69,6 +67,7 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	void SetClabelUpdatePendingFlag_TP() const;
 	void UpdateCLabelLater_TP() const;
 	bool TweetMatches(tweet_ptr_p t, const std::shared_ptr<taccount> &acc) const;
+	void ReinitialiseState();
 
 	//id must correspond to a usable tweet in ad.tweetobjs, if adding
 	void NotifyCIDSChange(uint64_t id, tweetidset cached_id_sets::* ptr, bool add, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);

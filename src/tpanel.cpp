@@ -69,6 +69,49 @@ std::function<void(mainframe *)> MkStdTpanelAction(unsigned int dbindex, flagwra
 	};
 }
 
+static void DeleteTPanel(std::shared_ptr<tpanel> tp, optional_observer_ptr<undo::item> undo_item) {
+	if(undo_item) {
+		const tweetidset &ids = tp->tweetlist;
+		const std::string &panel_name = tp->name;
+		const std::string &panel_dispname = tp->dispname;
+		const flagwrapper<TPF> &flags = tp->flags;
+		undo_item->AppendAction(std::unique_ptr<undo::generic_action>(new undo::generic_action(
+			[ids, panel_name, panel_dispname, flags]() mutable {
+				std::shared_ptr<tpanel> newtp = tpanel::MkTPanel(std::move(panel_name), std::move(panel_dispname), flags);
+				if(newtp->tweetlist.empty()) {
+					// this is an empty panel, just move the id set in
+					newtp->tweetlist = std::move(ids);
+				}
+				else {
+					newtp->tweetlist.insert(ids.begin(), ids.end());
+				}
+				newtp->ReinitialiseState();
+
+				if(newtp->twin.empty()) {
+					// try to create a panel window in the current mainframe, if no panel windows exist already
+					optional_observer_ptr<mainframe> mf = mainframe::GetLastMenuOpenedMainframe();
+					if(mf) {
+						newtp->MkTPanelWin(mf.get(), true);
+					}
+				}
+			}
+		)));
+	}
+
+	//Use temporary vector as tpanel list may be modified as a result of sending close message
+	//Having the list modified from under us whilst iterating would be bad news
+	std::vector<tpanelparentwin *> windows;
+	for(auto &win : tp->twin) {
+		tpanelparentwin *tpw = dynamic_cast<tpanelparentwin *>(win);
+		if(tpw) windows.push_back(tpw);
+	}
+	for(auto &win : windows) {
+		wxCommandEvent evt;
+		win->pimpl()->tabclosehandler(evt);
+	}
+	ad.tpanels.erase(tp->name);
+}
+
 static void PerAccTPanelMenu(wxMenu *menu, tpanelmenudata &map, int &nextid, flagwrapper<TPF> flagbase, unsigned int dbindex) {
 	map[nextid] = MkStdTpanelAction(dbindex, flagbase | TPF::AUTO_TW);
 	menu->Append(nextid++, wxT("&Tweets"));
@@ -175,18 +218,7 @@ void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map) {
 					int res = ::wxMessageBox(msg, wxT("Delete Panel?"), wxICON_EXCLAMATION | wxYES_NO);
 					if(res != wxYES) return;
 
-					//Use temporary vector as tpanel list may be modified as a result of sending close message
-					//Having the list modified from under us whilst iterating would be bad news
-					std::vector<tpanelparentwin *> windows;
-					for(auto &win : tp->twin) {
-						tpanelparentwin *tpw = dynamic_cast<tpanelparentwin *>(win);
-						if(tpw) windows.push_back(tpw);
-					}
-					for(auto &win : windows) {
-						wxCommandEvent evt;
-						win->pimpl()->tabclosehandler(evt);
-					}
-					ad.tpanels.erase(tp->name);
+					DeleteTPanel(tp, tp->MakeUndoItem("delete panel"));
 				}
 			};
 			submenu->Append(nextid++, wxstrstd(it->dispname));
@@ -1428,6 +1460,21 @@ void tpanelparentwin_nt_impl::RecalculateDisplayOffset() {
 	tweetidset::const_iterator stit = tp->tweetlist.find(currentdisp.front().id);
 	if(stit != tp->tweetlist.end())
 		displayoffset = std::distance(tp->tweetlist.cbegin(), stit);
+}
+
+void tpanelparentwin_nt::TPReinitialiseState() {
+	pimpl()->TPReinitialiseState();
+}
+
+void tpanelparentwin_nt_impl::TPReinitialiseState() {
+	SetNoUpdateFlag();
+	SetClabelUpdatePendingFlag();
+	while(!currentdisp.empty()) {
+		PopTop();
+	}
+	displayoffset = 0;
+	LoadMore(gc.maxtweetsdisplayinpanel);
+	CheckClearNoUpdateFlag();
 }
 
 BEGIN_EVENT_TABLE(tpanelparentwin_impl, tpanelparentwin_nt_impl)

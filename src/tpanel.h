@@ -102,6 +102,7 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	tweetdispscr_mouseoverwin *MakeMouseOverWin();
 	void GenericAction(std::function<void(tpanelparentwin_nt *)> func);
 	std::shared_ptr<tpanel> GetTP();
+	void TPReinitialiseState();
 
 	//These are for TweetActMenuAction
 	void MarkSetRead(tweetidset &&subset, optional_observer_ptr<undo::item> undo_item);
