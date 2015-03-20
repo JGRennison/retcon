@@ -20,23 +20,28 @@
 #define HGUARD_SRC_FILTER_FILTER
 
 #include "../univdefs.h"
+#include "../undo.h"
 #include <functional>
 #include <string>
 #include <memory>
 #include <vector>
 
 struct filter_item;
+struct filter_undo_action;
 struct tweet;
 struct taccount;
 
 struct filter_set {
 	std::vector<std::unique_ptr<filter_item> > filters;
+	std::unique_ptr<filter_undo_action> filter_undo;
 
 	void FilterTweet(tweet &tw, taccount *tac = nullptr);
 	filter_set();
 	~filter_set();
 	filter_set & operator =(filter_set &&other);
 	void clear();
+	void EnableUndo();
+	std::unique_ptr<undo::action> GetUndoAction();
 };
 
 #endif

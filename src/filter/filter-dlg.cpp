@@ -25,6 +25,7 @@
 #include "../db.h"
 #include "../twit.h"
 #include "../tpanel.h"
+#include "../retcon.h"
 #include <wx/stattext.h>
 #include <wx/checkbox.h>
 #include <wx/textctrl.h>
@@ -56,12 +57,25 @@ struct selection_category {
 	}
 };
 
+struct filter_dlg_shared_state {
+	filter_set apply_filter;
+	std::string srcname;
+
+	filter_dlg_shared_state() {
+		apply_filter.EnableUndo();
+	}
+	~filter_dlg_shared_state() {
+		observer_ptr<undo::item> undo_item = wxGetApp().undo_state.NewItem(string_format("apply filter: %s", cstr(srcname)));
+		undo_item->AppendAction(apply_filter.GetUndoAction());
+	}
+};
+
 struct filter_dlg_gui {
 	wxBoxSizer *vbox = nullptr;
 	wxBoxSizer *hbox = nullptr;
 	wxStaticText *total = nullptr;
 	tweetidset selectedset;
-	std::shared_ptr<filter_set> apply_filter;
+	std::shared_ptr<filter_dlg_shared_state> shared_state;
 	wxString apply_filter_txt;
 	wxButton *filterbtn = nullptr;
 	wxCheckBox *limit_count_chk = nullptr;
@@ -71,7 +85,8 @@ struct filter_dlg_gui {
 filter_dlg::filter_dlg(wxWindow *parent, wxWindowID id, std::function<const tweetidset *()> getidset_, std::string srcname_, const wxPoint &pos, const wxSize &size)
 		: wxDialog(parent, id, wxT("Apply Filter"), pos, size, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER), getidset(getidset_), srcname(std::move(srcname_)) {
 	fdg.reset(new filter_dlg_gui);
-	fdg->apply_filter = std::make_shared<filter_set>();
+	fdg->shared_state = std::make_shared<filter_dlg_shared_state>();
+	fdg->shared_state->srcname = srcname;
 	fdg->hbox = new wxBoxSizer(wxHORIZONTAL);
 	fdg->vbox = new wxBoxSizer(wxVERTICAL);
 
@@ -149,7 +164,7 @@ filter_dlg::filter_dlg(wxWindow *parent, wxWindowID id, std::function<const twee
 	wxStaticBoxSizer *filtersb = new wxStaticBoxSizer(wxVERTICAL, this, wxT("Filter"));
 	fdg->vbox->Add(filtersb, 0, wxALL | wxEXPAND | wxALIGN_TOP, 4);
 
-	FilterTextValidator filterval(*(fdg->apply_filter), &fdg->apply_filter_txt);
+	FilterTextValidator filterval(fdg->shared_state->apply_filter, &fdg->apply_filter_txt);
 	wxTextCtrl *filtertc = new wxTextCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE, filterval);
 	filtersb->Add(filtertc, 0, wxEXPAND | wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL, 4);
 
@@ -251,16 +266,16 @@ void FilterOneTweet(filter_set &fs, tweet_ptr_p t) {
 }
 
 struct applyfilter_pending_op : public pending_op {
-	std::shared_ptr<filter_set> apply_filter;
+	std::shared_ptr<filter_dlg_shared_state> shared_state;
 
-	applyfilter_pending_op(std::shared_ptr<filter_set> apply_filter_)
-			: apply_filter(std::move(apply_filter_)) {
+	applyfilter_pending_op(std::shared_ptr<filter_dlg_shared_state> shared_state_)
+			: shared_state(std::move(shared_state_)) {
 		preq = PENDING_REQ::USEREXPIRE;
 		presult_required = PENDING_RESULT::CONTENT_READY;
 	}
 
 	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) override {
-		FilterOneTweet(*apply_filter, t);
+		FilterOneTweet(shared_state->apply_filter, t);
 	}
 
 	virtual std::string dump() override {
@@ -276,10 +291,10 @@ void filter_dlg::ExecFilter() {
 	for(auto id : fdg->selectedset) {
 		tweet_ptr tobj = ad.GetTweetById(id);
 		if(CheckFetchPendingSingleTweet(tobj, std::shared_ptr<taccount>(), &loadmsg, PENDING_REQ::USEREXPIRE, PENDING_RESULT::CONTENT_READY)) {
-			FilterOneTweet(*(fdg->apply_filter), tobj);
+			FilterOneTweet(fdg->shared_state->apply_filter, tobj);
 		}
 		else {
-			tobj->AddNewPendingOp(new applyfilter_pending_op(fdg->apply_filter));
+			tobj->AddNewPendingOp(new applyfilter_pending_op(fdg->shared_state));
 		}
 	}
 	if(loadmsg) {

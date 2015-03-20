@@ -48,6 +48,7 @@ struct filter_run_state {
 	taccount *tac = nullptr;
 	const std::string empty_str;
 	std::string test_temp;
+	observer_ptr<filter_undo_action> filter_undo;
 };
 
 enum class FIF {
@@ -214,10 +215,45 @@ struct filter_item_cond_flags : public filter_item_cond {
 };
 
 struct filter_item_action : public filter_item {
-	virtual void action(tweet &tw) = 0;
+	virtual void action(tweet &tw, filter_run_state &frs) = 0;
 	void exec(tweet &tw, filter_run_state &frs) {
-		if(frs.recursion.empty()) action(tw);
-		else if(frs.recursion.back() & FRSF::ACTIVE) action(tw);
+		if(frs.recursion.empty()) action(tw, frs);
+		else if(frs.recursion.back() & FRSF::ACTIVE) action(tw, frs);
+	}
+};
+
+struct filter_undo_action : public undo::action {
+	std::map<std::string, tweetidset> panel_removed_nowadd;
+	std::map<std::string, tweetidset> panel_added_nowremove;
+
+	struct flag_action {
+		unsigned long long old_flags;
+		unsigned long long new_flags;
+	};
+	container::map<uint64_t, flag_action> flag_actions;
+
+	virtual void execute() override {
+		for(auto &it : panel_removed_nowadd) {
+			std::shared_ptr<tpanel> tp = tpanel::MkTPanel(tpanel::ManualName(it.first), it.first, TPF::MANUAL | TPF::SAVETODB);
+			tp->BulkPushTweet(std::move(it.second));
+		}
+
+		for(auto &it : panel_added_nowremove) {
+			std::shared_ptr<tpanel> tp = ad.tpanels[tpanel::ManualName(it.first)];
+			if(tp) {
+				for(auto &jt : it.second) {
+					tp->RemoveTweet(jt);
+				}
+			}
+		}
+
+		for(auto &it : flag_actions) {
+			unsigned long long mask = it.second.old_flags ^ it.second.new_flags;
+
+			// Note reversed set/unset flags as undoing flag change
+			tweet::ChangeFlagsById(it.first, (~it.second.new_flags) & mask, it.second.new_flags & mask,
+					tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
+		}
 	}
 };
 
@@ -227,12 +263,21 @@ struct filter_item_action_setflag : public filter_item_action {
 	uint64_t unsetflags = 0;
 	std::string setstr;
 
-	void action(tweet &tw) override {
+	void action(tweet &tw, filter_run_state &frs) override {
 		unsigned long long oldflags = tw.flags.ToULLong();
 		unsigned long long newflags = (oldflags | setflags) & ~unsetflags;
 		tw.flags = tweet_flags(newflags);
 		LogMsgFormat(LOGT::FILTERTRACE, "Setting Tweet Flags for Tweet: %" llFmtSpec "d, Flags: Before %s, Action: %s, Result: %s",
 				tw.id, cstr(tweet_flags::GetValueString(oldflags)), cstr(setstr), cstr(tweet_flags::GetValueString(newflags)));
+
+		if(oldflags != newflags && frs.filter_undo) {
+			auto it = frs.filter_undo->flag_actions.insert(std::make_pair(tw.id, filter_undo_action::flag_action()));
+			if(it.second) {
+				// new flag_action
+				it.first->second.old_flags = oldflags;
+			}
+			it.first->second.new_flags = newflags;
+		}
 	}
 };
 
@@ -240,18 +285,28 @@ struct filter_item_action_panel : public filter_item_action {
 	bool remove;
 	std::string panel_name;
 
-	void action(tweet &tw) override {
+	void action(tweet &tw, filter_run_state &frs) override {
+		bool actually_done = false;
 		if(remove) {
 			std::shared_ptr<tpanel> tp = ad.tpanels[tpanel::ManualName(panel_name)];
 			if(tp) {
-				tp->RemoveTweet(tw.id);
+				actually_done = tp->RemoveTweet(tw.id);
 				LogMsgFormat(LOGT::FILTERTRACE, "Removing Tweet: %" llFmtSpec "d from Panel: %s", tw.id, cstr(panel_name));
 			}
 		}
 		else {
 			std::shared_ptr<tpanel> tp = tpanel::MkTPanel(tpanel::ManualName(panel_name), panel_name, TPF::MANUAL | TPF::SAVETODB);
-			tp->PushTweet(ad.GetTweetById(tw.id));
+			actually_done = tp->PushTweet(ad.GetTweetById(tw.id));
 			LogMsgFormat(LOGT::FILTERTRACE, "Adding Tweet: %" llFmtSpec "d to Panel: %s", tw.id, cstr(panel_name));
+		}
+
+		if(actually_done && frs.filter_undo) {
+			if(remove) {
+				frs.filter_undo->panel_removed_nowadd[panel_name].insert(tw.id);
+			}
+			else {
+				frs.filter_undo->panel_added_nowremove[panel_name].insert(tw.id);
+			}
 		}
 	}
 };
@@ -632,6 +687,7 @@ filter_set::~filter_set() { }
 void filter_set::FilterTweet(tweet &tw, taccount *tac) {
 	filter_run_state frs;
 	frs.tac = tac;
+	frs.filter_undo = filter_undo.get();
 	for(auto &f : filters) {
 		f->exec(tw, frs);
 	}
@@ -644,4 +700,14 @@ filter_set & filter_set::operator=(filter_set &&other) {
 
 void filter_set::clear() {
 	filters.clear();
+	filter_undo.reset();
+}
+
+void filter_set::EnableUndo() {
+	if(!filter_undo)
+		filter_undo.reset(new filter_undo_action());
+}
+
+std::unique_ptr<undo::action> filter_set::GetUndoAction() {
+	return std::move(filter_undo);
 }
