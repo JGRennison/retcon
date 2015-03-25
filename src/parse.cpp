@@ -18,6 +18,7 @@
 
 #include "univdefs.h"
 #include "parse.h"
+#include "json-util.h"
 #include "twit.h"
 #include "db.h"
 #include "log.h"
@@ -38,86 +39,9 @@
 #include <wx/msgdlg.h>
 #include <algorithm>
 
-template <typename C> bool IsType(const rapidjson::Value &val);
-template <> bool IsType<bool>(const rapidjson::Value &val) { return val.IsBool(); }
-template <> bool IsType<unsigned int>(const rapidjson::Value &val) { return val.IsUint(); }
-template <> bool IsType<int>(const rapidjson::Value &val) { return val.IsInt(); }
-template <> bool IsType<uint64_t>(const rapidjson::Value &val) { return val.IsUint64(); }
-template <> bool IsType<int64_t>(const rapidjson::Value &val) { return val.IsInt64(); }
-template <> bool IsType<const char*>(const rapidjson::Value &val) { return val.IsString(); }
-template <> bool IsType<std::string>(const rapidjson::Value &val) { return val.IsString(); }
+using namespace parse_util;
 
-template <typename C> C GetType(const rapidjson::Value &val);
-template <> bool GetType<bool>(const rapidjson::Value &val) { return val.GetBool(); }
-template <> unsigned int GetType<unsigned int>(const rapidjson::Value &val) { return val.GetUint(); }
-template <> int GetType<int>(const rapidjson::Value &val) { return val.GetInt(); }
-template <> uint64_t GetType<uint64_t>(const rapidjson::Value &val) { return val.GetUint64(); }
-template <> int64_t GetType<int64_t>(const rapidjson::Value &val) { return val.GetInt64(); }
-template <> const char* GetType<const char*>(const rapidjson::Value &val) { return val.GetString(); }
-template <> std::string GetType<std::string>(const rapidjson::Value &val) { return val.GetString(); }
-
-static const rapidjson::Value &GetSubProp(const rapidjson::Value &val, const char *prop) {
-	if(prop)
-		return val[prop];
-	else
-		return val;
-}
-
-template <typename C, typename D> static bool CheckTransJsonValueDef(C &var, const rapidjson::Value &val,
-		const char *prop, const D def, Handler *handler = nullptr) {
-	const rapidjson::Value &subval = GetSubProp(val, prop);
-	bool res = IsType<C>(subval);
-	var = res ? GetType<C>(subval) : def;
-	if(res && handler) {
-		handler->String(prop);
-		subval.Accept(*handler);
-	}
-	return res;
-}
-
-template <typename C, typename D> static bool CheckTransJsonValueDefFlag(C &var, D flagmask, const rapidjson::Value &val,
-		const char *prop, bool def, Handler *handler = nullptr) {
-	const rapidjson::Value &subval = GetSubProp(val, prop);
-	bool res = IsType<bool>(subval);
-	bool flagval = res ? GetType<bool>(subval):def;
-	if(flagval) var |= flagmask;
-	else var &= ~flagmask;
-	if(res && handler) {
-		handler->String(prop);
-		subval.Accept(*handler);
-	}
-	return res;
-}
-
-template <typename C, typename D> static bool CheckTransJsonValueDefTrackChanges(bool &changeflag, C &var, const rapidjson::Value &val,
-		const char *prop, const D def, Handler *handler = nullptr) {
-	C oldvar = var;
-	bool result = CheckTransJsonValueDef(var, val, prop, def, handler);
-	if(var != oldvar) changeflag = true;
-	return result;
-}
-
-template <typename C, typename D> static bool CheckTransJsonValueDefFlagTrackChanges(bool &changeflag, C &var, D flagmask, const rapidjson::Value &val,
-		const char *prop, bool def, Handler *handler = nullptr) {
-	C oldvar = var;
-	bool result = CheckTransJsonValueDefFlag(var, flagmask, val, prop, def, handler);
-	if((var & flagmask) != (oldvar & flagmask)) changeflag = true;
-	return result;
-}
-
-template <typename C, typename D> static C CheckGetJsonValueDef(const rapidjson::Value &val, const char *prop, const D def,
-		Handler *handler = nullptr, bool *hadval = nullptr) {
-	const rapidjson::Value &subval = GetSubProp(val, prop);
-	bool res = IsType<C>(subval);
-	if(res && handler) {
-		handler->String(prop);
-		subval.Accept(*handler);
-	}
-	if(hadval) *hadval = res;
-	return res?GetType<C>(subval):def;
-}
-
-void DisplayParseErrorMsg(rapidjson::Document &dc, const std::string &name, const char *data) {
+void parse_util::DisplayParseErrorMsg(rapidjson::Document &dc, const std::string &name, const char *data) {
 	std::string errjson;
 	writestream wr(errjson);
 	Handler jw(wr);
@@ -125,6 +49,14 @@ void DisplayParseErrorMsg(rapidjson::Document &dc, const std::string &name, cons
 	jw.String(data);
 	jw.EndArray();
 	LogMsgFormat(LOGT::PARSEERR, "JSON parse error: %s, message: %s, offset: %d, data:\n%s", name.c_str(), dc.GetParseError(), dc.GetErrorOffset(), cstr(errjson));
+}
+
+bool parse_util::ParseStringInPlace(rapidjson::Document &dc, char *mutable_string, const std::string &name) {
+	if(dc.ParseInsitu<0>(mutable_string).HasParseError()) {
+		DisplayParseErrorMsg(dc, name, mutable_string);
+		return false;
+	}
+	return true;
 }
 
 //if jw, caller should already have called jw->StartObject(), etc
@@ -575,12 +507,7 @@ bool jsonparser::ParseString(std::string str) {
 	data->source_str = std::move(str);
 	rapidjson::Document &dc = data->doc;
 
-	if(dc.ParseInsitu<0>(data->json.data()).HasParseError()) {
-		DisplayParseErrorMsg(dc, "jsonparser::ParseString", data->json.data());
-		return false;
-	}
-
-	return true;
+	return ParseStringInPlace(dc, data->json.data(), "jsonparser::ParseString");
 }
 
 void jsonparser::ProcessTimelineResponse(flagwrapper<JDTP> sflags, optional_observer_ptr<restbackfillstate> rbfs) {

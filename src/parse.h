@@ -21,6 +21,7 @@
 
 #include "univdefs.h"
 #include "rapidjson-inc.h"
+#include "json-common.h"
 #include "twit-common.h"
 #include "flags.h"
 #include "rbfs.h"
@@ -38,31 +39,6 @@ struct twitcurlext;
 struct tweet;
 struct userdata;
 struct tpanelparentwin_userproplisting;
-
-#if wxCHECK_GCC_VERSION(4, 6)	//in old gccs, just leave the warnings turned off
-#pragma GCC diagnostic push
-#endif
-#pragma GCC diagnostic ignored "-Wtype-limits"
-#include "rapidjson/writer.h"
-#include "rapidjson/reader.h"
-#if wxCHECK_GCC_VERSION(4, 6)
-#pragma GCC diagnostic pop
-#endif
-
-struct writestream {
-	writestream(std::string &str_, size_t reshint = 512) : str(str_) { str.clear(); str.reserve(reshint); }
-	std::string &str;
-	inline void Put(char ch) { str.push_back(ch); }
-};
-
-struct Handler : public rapidjson::Writer<writestream> {
-	using rapidjson::Writer<writestream>::String;
-	Handler& String(const std::string &str) {
-		rapidjson::Writer<writestream>::String(str.c_str(), str.size());
-		return *this;
-	}
-	Handler(writestream &wr) : rapidjson::Writer<writestream>::Writer(wr) { }
-};
 
 struct genjsonparser {
 	enum class USERPARSERESULT {
@@ -141,7 +117,5 @@ struct jsonparser : public genjsonparser {
 	void ProcessOwnFollowerListingResponse();
 	std::string ProcessUploadMediaResponse();
 };
-
-void DisplayParseErrorMsg(rapidjson::Document &dc, const std::string &name, const char *data);
 
 #endif

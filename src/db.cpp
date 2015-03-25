@@ -28,6 +28,7 @@
 #include "twitcurlext.h"
 #include "alldata.h"
 #include "parse.h"
+#include "json-util.h"
 #include "tpanel.h"
 #include "tpanel-data.h"
 #include "set.h"
@@ -388,8 +389,7 @@ db_bind_buffer<dbb_uncompressed> column_get_compressed_and_parse(sqlite3_stmt* s
 	db_bind_buffer<dbb_uncompressed> buffer = column_get_compressed(stmt, num);
 	if(buffer.data_size) {
 		buffer.make_persistent();
-		if(dc.ParseInsitu<0>(const_cast<char *>(buffer.data)).HasParseError()) {
-			DisplayParseErrorMsg(dc, "column_get_compressed_and_parse", buffer.data);
+		if(!parse_util::ParseStringInPlace(dc, const_cast<char *>(buffer.data), "column_get_compressed_and_parse")) {
 			dc.SetNull();
 		}
 	}
