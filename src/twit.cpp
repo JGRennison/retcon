@@ -538,6 +538,8 @@ std::string userdatacontainer::mkjson() const {
 	jw.String(user.screen_name);
 	jw.String("description");
 	jw.String(user.description);
+	jw.String("location");
+	jw.String(user.location);
 	jw.String("url");
 	jw.String(user.userurl);
 	jw.String("profile_img_url");
