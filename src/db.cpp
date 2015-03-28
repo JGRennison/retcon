@@ -137,9 +137,6 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 static const std::string globstr = "G";
 static const std::string globdbstr = "D";
 
-#define DBLogMsgFormat TSLogMsgFormat
-#define DBLogMsg TSLogMsg
-
 static int busy_handler_callback(void *ptr, int count) {
 	if(count < 7) {    //this should lead to a maximum wait of ~3.2s
 		unsigned int sleeplen = 25 << count;
@@ -195,10 +192,10 @@ void dbpscache::EndTransaction(sqlite3 *adb) {
 
 void dbpscache::CheckTransactionRefcountState() {
 	if(transaction_refcount_went_negative) {
-		LogMsgFormat(LOGT::DBERR, "dbpscache::CheckTransactionRefcountState transaction_refcount went negative");
+		TSLogMsgFormat(LOGT::DBERR, "dbpscache::CheckTransactionRefcountState transaction_refcount went negative");
 	}
 	if(transaction_refcount != 0) {
-		LogMsgFormat(LOGT::DBERR, "dbpscache::CheckTransactionRefcountState transaction_refcount is %d", transaction_refcount);
+		TSLogMsgFormat(LOGT::DBERR, "dbpscache::CheckTransactionRefcountState transaction_refcount is %d", transaction_refcount);
 	}
 }
 
@@ -255,10 +252,10 @@ db_bind_buffer<dbb_compressed> DoCompress(const void *in, size_t insize, unsigne
 			strm.next_out = data + HEADERSIZE;
 			int res = deflate(&strm, Z_FINISH);
 			#if DB_COPIOUS_LOGGING
-				DBLogMsgFormat(LOGT::ZLIBTRACE, "deflate: %d, %d, %d", res, strm.avail_in, strm.avail_out);
+				TSLogMsgFormat(LOGT::ZLIBTRACE, "deflate: %d, %d, %d", res, strm.avail_in, strm.avail_out);
 			#endif
 			if(res != Z_STREAM_END) {
-				DBLogMsgFormat(LOGT::ZLIBERR, "DoCompress: deflate: error: res: %d (%s)", res, cstr(strm.msg));
+				TSLogMsgFormat(LOGT::ZLIBERR, "DoCompress: deflate: error: res: %d (%s)", res, cstr(strm.msg));
 			}
 			out.data_size = HEADERSIZE + maxsize - strm.avail_out;
 			deflateEnd(&strm);
@@ -278,7 +275,7 @@ db_bind_buffer<dbb_compressed> DoCompress(const void *in, size_t insize, unsigne
 		static size_t cumout = 0;
 		cumin += insize;
 		cumout += out.data_size;
-		DBLogMsgFormat(LOGT::ZLIBTRACE, "compress: %d -> %d, cum: %f", insize, out.data_size, (double) cumout / (double) cumin);
+		TSLogMsgFormat(LOGT::ZLIBTRACE, "compress: %d -> %d, cum: %f", insize, out.data_size, (double) cumout / (double) cumin);
 	#endif
 
 	return std::move(out);
@@ -301,7 +298,7 @@ db_bind_buffer<dbb_uncompressed> DoDecompress(db_bind_buffer<dbb_compressed> &&i
 						return std::move(out);
 					}
 				}
-				DBLogMsg(LOGT::ZLIBERR, "DoDecompress: Bad escape table identifier");
+				TSLogMsg(LOGT::ZLIBERR, "DoDecompress: Bad escape table identifier");
 				return { };
 			}
 		}
@@ -320,7 +317,7 @@ db_bind_buffer<dbb_uncompressed> DoDecompress(db_bind_buffer<dbb_compressed> &&i
 			bool compress = TagToDict(input[0], dict, dict_size);
 			if(compress) break;
 			else {
-				DBLogMsgFormat(LOGT::ZLIBERR, "DoDecompress: Bad tag: 0x%X", input[0]);
+				TSLogMsgFormat(LOGT::ZLIBERR, "DoDecompress: Bad tag: 0x%X", input[0]);
 				return { };
 			}
 		}
@@ -340,7 +337,7 @@ db_bind_buffer<dbb_uncompressed> DoDecompress(db_bind_buffer<dbb_compressed> &&i
 		out.data_size += input[i];
 	}
 	#if DB_COPIOUS_LOGGING
-		DBLogMsgFormat(LOGT::ZLIBTRACE, "DoDecompress: insize %d, outsize %d", insize, outsize);
+		TSLogMsgFormat(LOGT::ZLIBTRACE, "DoDecompress: insize %d, outsize %d", insize, outsize);
 	#endif
 
 	out.allocate_nt(out.data_size);
@@ -351,20 +348,20 @@ db_bind_buffer<dbb_uncompressed> DoDecompress(db_bind_buffer<dbb_compressed> &&i
 	while(true) {
 		int res = inflate(&strm, Z_FINISH);
 		#if DB_COPIOUS_LOGGING
-			DBLogMsgFormat(LOGT::ZLIBTRACE, "inflate: %d, %d, %d", res, strm.avail_in, strm.avail_out);
+			TSLogMsgFormat(LOGT::ZLIBTRACE, "inflate: %d, %d, %d", res, strm.avail_in, strm.avail_out);
 		#endif
 		if(res == Z_NEED_DICT) {
 			if(dict) inflateSetDictionary(&strm, dict, dict_size);
 			else {
 				inflateEnd(&strm);
-				DBLogMsgFormat(LOGT::ZLIBERR, "DoDecompress: Wants dictionary: %ux", strm.adler);
+				TSLogMsgFormat(LOGT::ZLIBERR, "DoDecompress: Wants dictionary: %ux", strm.adler);
 				return { };
 			}
 		}
 		else if(res == Z_OK) continue;
 		else if(res == Z_STREAM_END) break;
 		else {
-			DBLogMsgFormat(LOGT::ZLIBERR, "DoDecompress: inflate: error: res: %d (%s)", res, cstr(strm.msg));
+			TSLogMsgFormat(LOGT::ZLIBERR, "DoDecompress: inflate: error: res: %d (%s)", res, cstr(strm.msg));
 			inflateEnd(&strm);
 			return { };
 		}
@@ -373,7 +370,7 @@ db_bind_buffer<dbb_uncompressed> DoDecompress(db_bind_buffer<dbb_compressed> &&i
 	inflateEnd(&strm);
 
 	#if DB_COPIOUS_LOGGING
-		DBLogMsgFormat(LOGT::ZLIBTRACE, "decompress: %d -> %d", in.data_size, out.data_size);
+		TSLogMsgFormat(LOGT::ZLIBTRACE, "decompress: %d -> %d", in.data_size, out.data_size);
 	#endif
 	return std::move(out);
 }
@@ -406,7 +403,7 @@ static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetm
 	uint64_t rtid = 0;
 	if(res == SQLITE_ROW) {
 		#if DB_COPIOUS_LOGGING
-			DBLogMsgFormat(LOGT::DBTRACE, "DBSM::SELTWEET got id:%" llFmtSpec "d", (sqlite3_int64) id);
+			TSLogMsgFormat(LOGT::DBTRACE, "DBSM::SELTWEET got id:%" llFmtSpec "d", (sqlite3_int64) id);
 		#endif
 
 		// emplacing at the *back* in the normal case is to ensure that the resulting deque is (mostly) in *ascending* order of ID
@@ -429,7 +426,7 @@ static void ProcessMessage_SelTweet(sqlite3 *db, sqlite3_stmt *stmt, dbseltweetm
 		if(rd.user2) dbc->AsyncReadInUser(db, rd.user2, m.user_data);
 	}
 	else {
-		DBLogMsgFormat((m.flags & DBSTMF::NO_ERR) ? LOGT::DBTRACE : LOGT::DBERR,
+		TSLogMsgFormat((m.flags & DBSTMF::NO_ERR) ? LOGT::DBTRACE : LOGT::DBERR,
 				"DBSM::SELTWEET got error: %d (%s) for id: %" llFmtSpec "d",
 				res, cstr(sqlite3_errmsg(db)), (sqlite3_int64) id);
 	}
@@ -449,7 +446,7 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 	switch(msg->type) {
 		case DBSM::QUIT:
 			ok = false;
-			DBLogMsg(LOGT::DBINFO, "DBSM::QUIT");
+			TSLogMsg(LOGT::DBINFO, "DBSM::QUIT");
 			break;
 		case DBSM::INSERTTWEET: {
 			if(gc.readonlymode) break;
@@ -465,11 +462,11 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 			sqlite3_bind_int64(stmt, 8, (sqlite3_int64) m->rtid);
 			int res = sqlite3_step(stmt);
 			if(res != SQLITE_DONE) {
-				DBLogMsgFormat(LOGT::DBERR, "DBSM::INSERTTWEET got error: %d (%s) for id: %" llFmtSpec "d",
+				TSLogMsgFormat(LOGT::DBERR, "DBSM::INSERTTWEET got error: %d (%s) for id: %" llFmtSpec "d",
 					res, cstr(sqlite3_errmsg(db)), m->id);
 			}
 			else {
-				DBLogMsgFormat(LOGT::DBTRACE, "DBSM::INSERTTWEET inserted row id: %" llFmtSpec "d", (sqlite3_int64) m->id);
+				TSLogMsgFormat(LOGT::DBTRACE, "DBSM::INSERTTWEET inserted row id: %" llFmtSpec "d", (sqlite3_int64) m->id);
 				dbc->all_tweet_ids.insert(m->id);
 			}
 			sqlite3_reset(stmt);
@@ -483,9 +480,9 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->flags);
 			sqlite3_bind_int64(stmt, 3, (sqlite3_int64) m->id);
 			int res = sqlite3_step(stmt);
-			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, "DBSM::UPDATETWEET got error: %d (%s) for id: %" llFmtSpec "d",
+			if(res != SQLITE_DONE) { TSLogMsgFormat(LOGT::DBERR, "DBSM::UPDATETWEET got error: %d (%s) for id: %" llFmtSpec "d",
 					res, cstr(sqlite3_errmsg(db)), m->id); }
-			else { DBLogMsgFormat(LOGT::DBTRACE, "DBSM::UPDATETWEET updated id: %" llFmtSpec "d", (sqlite3_int64) m->id); }
+			else { TSLogMsgFormat(LOGT::DBTRACE, "DBSM::UPDATETWEET updated id: %" llFmtSpec "d", (sqlite3_int64) m->id); }
 			sqlite3_reset(stmt);
 			break;
 		}
@@ -523,16 +520,16 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 			bind_compressed(stmt, 7, std::move(m->mentionindex));
 			sqlite3_bind_int64(stmt, 8, (sqlite3_int64) m->profile_img_last_used);
 			int res = sqlite3_step(stmt);
-			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, "DBSM::INSERTUSER got error: %d (%s) for id: %" llFmtSpec "d",
+			if(res != SQLITE_DONE) { TSLogMsgFormat(LOGT::DBERR, "DBSM::INSERTUSER got error: %d (%s) for id: %" llFmtSpec "d",
 					res, cstr(sqlite3_errmsg(db)), m->id); }
-			else { DBLogMsgFormat(LOGT::DBTRACE, "DBSM::INSERTUSER inserted id: %" llFmtSpec "d", (sqlite3_int64) m->id); }
+			else { TSLogMsgFormat(LOGT::DBTRACE, "DBSM::INSERTUSER inserted id: %" llFmtSpec "d", (sqlite3_int64) m->id); }
 			sqlite3_reset(stmt);
 			break;
 		}
 		case DBSM::SELUSER: {
 			dbselusermsg *m = static_cast<dbselusermsg*>(msg);
 			for(uint64_t id : m->id_set) {
-				DBLogMsgFormat(LOGT::DBTRACE, "DBSM::SELUSER got request for user: %" llFmtSpec "u", id);
+				TSLogMsgFormat(LOGT::DBTRACE, "DBSM::SELUSER got request for user: %" llFmtSpec "u", id);
 
 				dbc->AsyncReadInUser(db, id, m->data);
 			}
@@ -546,7 +543,7 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 		case DBSM::NOTIFYUSERSPURGED: {
 			dbnotifyuserspurgedmsg *m = static_cast<dbnotifyuserspurgedmsg*>(msg);
 			dbc->unloaded_user_ids.insert(m->ids.begin(), m->ids.end());
-			DBLogMsgFormat(LOGT::DBTRACE, "DBSM::NOTIFYUSERSPURGED inserted %d ids", m->ids.size());
+			TSLogMsgFormat(LOGT::DBTRACE, "DBSM::NOTIFYUSERSPURGED inserted %d ids", m->ids.size());
 			break;
 		}
 		case DBSM::INSERTACC: {
@@ -558,9 +555,9 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 			sqlite3_bind_int64(stmt, 3, (sqlite3_int64) m->userid);
 			int res = sqlite3_step(stmt);
 			m->dbindex = (unsigned int) sqlite3_last_insert_rowid(db);
-			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, "DBSM::INSERTACC got error: %d (%s) for account name: %s",
+			if(res != SQLITE_DONE) { TSLogMsgFormat(LOGT::DBERR, "DBSM::INSERTACC got error: %d (%s) for account name: %s",
 					res, cstr(sqlite3_errmsg(db)), cstr(m->dispname)); }
-			else { DBLogMsgFormat(LOGT::DBTRACE, "DBSM::INSERTACC inserted account dbindex: %d, name: %s", m->dbindex, cstr(m->dispname)); }
+			else { TSLogMsgFormat(LOGT::DBTRACE, "DBSM::INSERTACC inserted account dbindex: %d, name: %s", m->dbindex, cstr(m->dispname)); }
 			sqlite3_reset(stmt);
 			m->SendReply(std::move(themsg), th);
 			return;
@@ -571,9 +568,9 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_DELACC);
 			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->dbindex);
 			int res = sqlite3_step(stmt);
-			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, "DBSM::DELACC got error: %d (%s) for account dbindex: %d",
+			if(res != SQLITE_DONE) { TSLogMsgFormat(LOGT::DBERR, "DBSM::DELACC got error: %d (%s) for account dbindex: %d",
 					res, cstr(sqlite3_errmsg(db)), m->dbindex); }
-			else { DBLogMsgFormat(LOGT::DBTRACE, "DBSM::DELACC deleted account dbindex: %d", m->dbindex); }
+			else { TSLogMsgFormat(LOGT::DBTRACE, "DBSM::DELACC deleted account dbindex: %d", m->dbindex); }
 			sqlite3_reset(stmt);
 			break;
 		}
@@ -586,9 +583,9 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 			bind_compressed(stmt, 3, m->url, 'P');
 			sqlite3_bind_int64(stmt, 4, (sqlite3_int64) m->lastused);
 			int res = sqlite3_step(stmt);
-			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, "DBSM::INSERTMEDIA got error: %d (%s) for id: %" llFmtSpec "d/%" llFmtSpec "d",
+			if(res != SQLITE_DONE) { TSLogMsgFormat(LOGT::DBERR, "DBSM::INSERTMEDIA got error: %d (%s) for id: %" llFmtSpec "d/%" llFmtSpec "d",
 					res, cstr(sqlite3_errmsg(db)), (sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id); }
-			else { DBLogMsgFormat(LOGT::DBTRACE, "DBSM::INSERTMEDIA inserted media id: %" llFmtSpec "d/%" llFmtSpec "d",
+			else { TSLogMsgFormat(LOGT::DBTRACE, "DBSM::INSERTMEDIA inserted media id: %" llFmtSpec "d/%" llFmtSpec "d",
 					(sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id); }
 			sqlite3_reset(stmt);
 			break;
@@ -629,9 +626,9 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->media_id.m_id);
 			sqlite3_bind_int64(stmt, 3, (sqlite3_int64) m->media_id.t_id);
 			int res = sqlite3_step(stmt);
-			if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, "DBSM::UPDATEMEDIAMSG got error: %d (%s) for id: %" llFmtSpec "d/%" llFmtSpec "d (%d)",
+			if(res != SQLITE_DONE) { TSLogMsgFormat(LOGT::DBERR, "DBSM::UPDATEMEDIAMSG got error: %d (%s) for id: %" llFmtSpec "d/%" llFmtSpec "d (%d)",
 					res, cstr(sqlite3_errmsg(db)), (sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id, m->update_type); }
-			else { DBLogMsgFormat(LOGT::DBTRACE, "DBSM::UPDATEMEDIAMSG updated media id: %" llFmtSpec "d/%" llFmtSpec "d (%d)",
+			else { TSLogMsgFormat(LOGT::DBTRACE, "DBSM::UPDATEMEDIAMSG updated media id: %" llFmtSpec "d/%" llFmtSpec "d (%d)",
 					(sqlite3_int64) m->media_id.m_id, (sqlite3_int64) m->media_id.t_id, m->update_type); }
 			sqlite3_reset(stmt);
 			break;
@@ -646,7 +643,7 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 				sqlite3_bind_int64(stmt, 2, (sqlite3_int64) (~m->unsetmask));
 				sqlite3_bind_int64(stmt, 3, (sqlite3_int64) *it);
 				int res = sqlite3_step(stmt);
-				if(res != SQLITE_DONE) { DBLogMsgFormat(LOGT::DBERR, "DBSM::UPDATETWEETSETFLAGS got error: %d (%s) for id: %" llFmtSpec "d",
+				if(res != SQLITE_DONE) { TSLogMsgFormat(LOGT::DBERR, "DBSM::UPDATETWEETSETFLAGS got error: %d (%s) for id: %" llFmtSpec "d",
 						res, cstr(sqlite3_errmsg(db)), *it); }
 				sqlite3_reset(stmt);
 			}
@@ -656,7 +653,7 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 		case DBSM::MSGLIST: {
 			cache.BeginTransaction(db);
 			dbsendmsg_list *m = static_cast<dbsendmsg_list *>(msg);
-			DBLogMsgFormat(LOGT::DBTRACE, "DBSM::MSGLIST: queue size: %d", m->msglist.size());
+			TSLogMsgFormat(LOGT::DBTRACE, "DBSM::MSGLIST: queue size: %d", m->msglist.size());
 			for(auto &onemsg : m->msglist) {
 				ProcessMessage(db, onemsg, ok, cache, th, dbc);
 			}
@@ -666,7 +663,7 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 		case DBSM::FUNCTION: {
 			cache.BeginTransaction(db);
 			dbfunctionmsg *m = static_cast<dbfunctionmsg *>(msg);
-			DBLogMsgFormat(LOGT::DBTRACE, "DBSM::FUNCTION: queue size: %d", m->funclist.size());
+			TSLogMsgFormat(LOGT::DBTRACE, "DBSM::FUNCTION: queue size: %d", m->funclist.size());
 			for(auto &onemsg : m->funclist) {
 				onemsg(db, ok, cache);
 			}
@@ -761,7 +758,7 @@ void dbconn::GenericDBSelTweetMsgHandler(wxCommandEvent &event) {
 		generic_sel_funcs.erase(it);
 	}
 	else {
-		DBLogMsgFormat(LOGT::DBERR, "dbconn::GenericDBSelTweetMsgHandler could not find handler for %p.", msg.get());
+		TSLogMsgFormat(LOGT::DBERR, "dbconn::GenericDBSelTweetMsgHandler could not find handler for %p.", msg.get());
 	}
 
 	dbc_flags |= DBCF::REPLY_CLEARNOUPDF;
@@ -783,7 +780,7 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg &msg, optional_observer_ptr<db_ha
 
 	for(dbrettweetdata &dt : msg.data) {
 		#if DB_COPIOUS_LOGGING
-			DBLogMsgFormat(LOGT::DBTRACE, "dbconn::HandleDBSelTweetMsg got tweet: id:%" llFmtSpec "d, statjson: %s, dynjson: %s", dt.id, cstr(dt.statjson), cstr(dt.dynjson));
+			LogMsgFormat(LOGT::DBTRACE, "dbconn::HandleDBSelTweetMsg got tweet: id:%" llFmtSpec "d, statjson: %s, dynjson: %s", dt.id, cstr(dt.statjson), cstr(dt.dynjson));
 		#endif
 		ad.unloaded_db_tweet_ids.erase(dt.id);
 		tweet_ptr t = ad.GetTweetById(dt.id);
@@ -795,14 +792,14 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg &msg, optional_observer_ptr<db_ha
 			genjsonparser::ParseTweetStatics(dc, t, 0);
 		}
 		else {
-			DBLogMsgFormat(LOGT::PARSEERR | LOGT::DBERR, "dbconn::HandleDBSelTweetMsg static JSON parse error: malformed or missing, tweet id: %" llFmtSpec "d", dt.id);
+			LogMsgFormat(LOGT::PARSEERR | LOGT::DBERR, "dbconn::HandleDBSelTweetMsg static JSON parse error: malformed or missing, tweet id: %" llFmtSpec "d", dt.id);
 		}
 
 		if(dt.dynjson.data_size && !dc.ParseInsitu<0>(dt.dynjson.mutable_data()).HasParseError() && dc.IsObject()) {
 			genjsonparser::ParseTweetDyn(dc, t);
 		}
 		else {
-			DBLogMsgFormat(LOGT::PARSEERR | LOGT::DBERR, "dbconn::HandleDBSelTweetMsg dyn JSON parse error: malformed or missing, tweet id: %" llFmtSpec "d", dt.id);
+			LogMsgFormat(LOGT::PARSEERR | LOGT::DBERR, "dbconn::HandleDBSelTweetMsg dyn JSON parse error: malformed or missing, tweet id: %" llFmtSpec "d", dt.id);
 		}
 
 		t->user = ad.GetUserContainerById(dt.user1);
@@ -853,7 +850,7 @@ void dbconn::GenericDBSelUserMsgHandler(wxCommandEvent &event) {
 		generic_sel_user_funcs.erase(it);
 	}
 	else {
-		DBLogMsgFormat(LOGT::DBERR, "dbconn::GenericDBSelUserMsgHandler could not find handler for %p.", msg.get());
+		TSLogMsgFormat(LOGT::DBERR, "dbconn::GenericDBSelUserMsgHandler could not find handler for %p.", msg.get());
 	}
 
 	dbc_flags |= DBCF::REPLY_CLEARNOUPDF;
@@ -1262,10 +1259,10 @@ void dbconn::AsyncWriteBackState() {
 		std::unique_ptr<dbfunctionmsg> msg(new dbfunctionmsg);
 		auto cfg_closure = WriteAllCFGOutClosure(gc, alist, true);
 		msg->funclist.emplace_back([cfg_closure](sqlite3 *db, bool &ok, dbpscache &cache) {
-			DBLogMsg(LOGT::DBTRACE, "dbconn::AsyncWriteBackState: CFG write start");
+			TSLogMsg(LOGT::DBTRACE, "dbconn::AsyncWriteBackState: CFG write start");
 			DBWriteConfig twfc(db);
 			cfg_closure(twfc);
-			DBLogMsg(LOGT::DBTRACE, "dbconn::AsyncWriteBackState: CFG write end");
+			TSLogMsg(LOGT::DBTRACE, "dbconn::AsyncWriteBackState: CFG write end");
 		});
 		AsyncWriteBackAllUsers(*msg);
 		AsyncWriteBackAccountIdLists(*msg);
@@ -1763,7 +1760,7 @@ template <typename UDC> static void ReadInUserObject(sqlite3_stmt *stmt, uint64_
 	else {
 		u.cached_profile_img_sha1.reset();
 		if(hashsize)
-			LogMsgFormat(LOGT::DBERR, "%s user id: %" llFmtSpec "d, has invalid profile image hash length: %d", cstr(name), (sqlite3_int64) id, hashsize);
+			TSLogMsgFormat(LOGT::DBERR, "%s user id: %" llFmtSpec "d, has invalid profile image hash length: %d", cstr(name), (sqlite3_int64) id, hashsize);
 	}
 
 	setfromcompressedblob_generic([&](uint64_t &tid) { u.mention_index.push_back(tid); }, stmt, 5);
@@ -2457,7 +2454,7 @@ bool dbconn::CheckIfPurgeDue(sqlite3 *db, time_t threshold, const char *settingn
 	delta = time(nullptr) - last_purge;
 
 	if(delta < threshold) {
-		LogMsgFormat(LOGT::DBINFO, "%s, last purged %" llFmtSpec "ds ago, not checking", cstr(funcname), (int64_t) delta);
+		TSLogMsgFormat(LOGT::DBINFO, "%s, last purged %" llFmtSpec "ds ago, not checking", cstr(funcname), (int64_t) delta);
 		return false;
 	}
 	else {
@@ -2683,7 +2680,7 @@ bool DBReadConfig::exec(sqlite3_stmt *rstmt) {
 	if(res == SQLITE_ROW) return true;
 	else if(res == SQLITE_DONE) return false;
 	else {
-		DBLogMsgFormat(LOGT::DBERR, "DBReadConfig got error: %d (%s)", res, cstr(sqlite3_errmsg(db)));
+		TSLogMsgFormat(LOGT::DBERR, "DBReadConfig got error: %d (%s)", res, cstr(sqlite3_errmsg(db)));
 		return false;
 	}
 }

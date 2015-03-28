@@ -45,6 +45,7 @@
 #include <wx/menu.h>
 #include <wx/textctrl.h>
 #include <wx/event.h>
+#include <wx/thread.h>
 
 log_window *globallogwindow = nullptr;
 std::unique_ptr<Redirector_wxLog> globalwxlogredirector;
@@ -761,6 +762,11 @@ void logevt_handler::OnThreadLogMsg(wxCommandEvent &event) {
 logevt_handler the_logevt_handler;
 
 void ThreadSafeLogMsg(LOGT logflags, const std::string &str) {
+	if(wxThread::IsMain()) {
+		LogMsg(logflags, str);
+		return;
+	}
+
 	wxCommandEvent evt(wxextLOGEVT, wxextLOGEVT_ID_THREADLOGMSG);
 	evt.SetString(wxstrstd(str));	//prevent any COW semantics
 	evt.SetExtraLong(flag_unwrap<LOGT>(logflags));
