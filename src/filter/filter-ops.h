@@ -22,8 +22,8 @@
 #include "../univdefs.h"
 #include "filter.h"
 
-void ParseFilter(const std::string &input, filter_set &out, std::string &errmsgs);
-bool LoadFilter(const std::string &input, filter_set &out);
+void ParseFilter(std::string input, filter_set &out, std::string &errmsgs);
+bool LoadFilter(std::string input, filter_set &out);
 
 bool InitGlobalFilters();
 

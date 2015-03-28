@@ -23,13 +23,18 @@
 #include "../alldata.h"
 #include "../cfg.h"
 #include "filter.h"
+#include "filter-intl.h"
 #include "../taccount.h"
 #include "../flags.h"
 #include "../tpanel-data.h"
 #include "../map.h"
+#include "../db-lazy.h"
+#include "../db-intl.h"
 #define PCRE_STATIC
 #include <pcre.h>
 #include <list>
+#include <functional>
+#include <type_traits>
 
 //This is such that PCRE_STUDY_JIT_COMPILE can be used pre PCRE 8.20
 #ifndef PCRE_STUDY_JIT_COMPILE
@@ -64,31 +69,40 @@ template<> struct enum_traits<FIF> { static constexpr bool flags = true; };
 struct filter_item {
 	flagwrapper<FIF> flags = 0;
 	virtual void exec(tweet &tw, filter_run_state &frs) = 0;
+	virtual void exec(filter_db_lazy_state &state, uint64_t tweet_id, filter_run_state &frs) = 0;
 	virtual ~filter_item() { }
 	virtual bool test_recursion(filter_run_state &frs, std::string &err) { return true; }
 };
 
 struct filter_item_cond : public filter_item {
-	virtual bool test(tweet &tw, filter_run_state &frs) { return true; }
-	void exec(tweet &tw, filter_run_state &frs) override {
+	virtual bool test(tweet &tw, filter_run_state &frs) {
+		return true;
+	}
+
+	virtual bool test(filter_db_lazy_state &state, uint64_t tweet_id, filter_run_state &frs) {
+		return true;
+	}
+
+	// return true if OK to continue
+	bool pre_exec(filter_run_state &frs) {
 		if(flags & FIF::ENDIF) {
 			frs.recursion.pop_back();
-			return;
+			return false;
 		}
 		else if(flags & FIF::ELIF) {
 			if(frs.recursion.back() & (FRSF::DONEIF | FRSF::PARENTINACTIVE)) {
 				frs.recursion.back() &= ~FRSF::ACTIVE;
-				return;
+				return false;
 			}
 		}
 		else if(flags & FIF::ORIF) {
 			if(frs.recursion.back() & FRSF::ACTIVE) {
 				//leave the active bit set
-				return;
+				return false;
 			}
 			if(frs.recursion.back() & (FRSF::DONEIF | FRSF::PARENTINACTIVE)) {
 				frs.recursion.back() &= ~FRSF::ACTIVE;
-				return;
+				return false;
 			}
 		}
 		else if(flags & FIF::ELSE) {
@@ -98,18 +112,20 @@ struct filter_item_cond : public filter_item {
 			else {
 				frs.recursion.back() |= FRSF::DONEIF | FRSF::ACTIVE;
 			}
-			return;
+			return false;
 		}
 		else {
 			if(!frs.recursion.empty() && !(frs.recursion.back() & FRSF::ACTIVE)) {
 				//this is a nested if, the parent if is not active
 				frs.recursion.push_back(FRSF::PARENTINACTIVE);
-				return;
+				return false;
 			}
 			frs.recursion.push_back(0);
 		}
+		return true;
+	}
 
-		bool testresult = test(tw, frs);
+	void post_exec(bool testresult, filter_run_state &frs) {
 		if(flags & FIF::NEG) testresult = !testresult;
 		if(testresult) {
 			frs.recursion.back() |= FRSF::DONEIF | FRSF::ACTIVE;
@@ -118,6 +134,17 @@ struct filter_item_cond : public filter_item {
 			frs.recursion.back() &= ~FRSF::ACTIVE;
 		}
 	}
+
+	void exec(tweet &tw, filter_run_state &frs) override {
+		if(pre_exec(frs))
+			post_exec(test(tw, frs), frs);
+	}
+
+	void exec(filter_db_lazy_state &state, uint64_t tweet_id, filter_run_state &frs) override {
+		if(pre_exec(frs))
+			post_exec(test(state, tweet_id, frs), frs);
+	}
+
 	bool test_recursion(filter_run_state &frs, std::string &err) override {
 		if(flags & FIF::ENDIF) {
 			if(frs.recursion.empty()) {
@@ -139,14 +166,38 @@ struct filter_item_cond : public filter_item {
 	}
 };
 
-using tweetmodefptr = const std::string & (*)(tweet &, filter_run_state &);
-using usrmodefptr = const std::string & (*)(userdatacontainer *u, tweet &, filter_run_state &frs);
-
 struct filter_item_cond_regex : public filter_item_cond {
 	pcre *ptn = nullptr;
 	pcre_extra *extra = nullptr;
 	std::string regexstr;
-	std::function<bool(filter_item_cond_regex &, tweet &, filter_run_state &)> dotests;
+
+	enum class PROP {
+		TWEET_TEXT,
+		TWEET_SOURCE,
+
+		USER_NAME,
+		USER_SCREENNAME,
+		USER_DESCRIPTION,
+		USER_LOCATION,
+		USER_NOTES,
+		USER_IDSTR,
+	};
+	PROP property;
+
+	enum class TYPE_FLAGS {
+		IS_USER_TEST                 = 1<<0, // if not set, is a tweet test
+
+		// flags for tweet tests
+		TRY_RETWEET                  = 1<<1,
+
+		// flags for user test
+		TRY_RETWEET_USER             = 1<<2,
+		TRY_RECIP_USER               = 1<<3,
+		TRY_RETWEET_USER_IF_TRUE     = 1<<4,
+		TRY_RECIP_USER_IF_TRUE       = 1<<5,
+		TRY_ACC_USER                 = 1<<6,
+	};
+	flagwrapper<TYPE_FLAGS> type_flags;
 
 	struct user_cache_entry {
 		unsigned int revision;
@@ -154,44 +205,183 @@ struct filter_item_cond_regex : public filter_item_cond {
 	};
 	container::map<uint64_t, user_cache_entry> usertestcache;
 
-	bool tweet_test(tweetmodefptr fptr, tweet &top_tw, tweet &tw, filter_run_state &frs) {
-		return regex_test(fptr(tw, frs), top_tw);
+	bool regex_test(const std::string &str) {
+		const int ovecsize = 30;
+		int ovector[30];
+		bool result = (pcre_exec(ptn, extra,  str.c_str(), str.size(), 0, 0, ovector, ovecsize) >= 1);
+		return result;
 	}
 
-	bool user_test(usrmodefptr fptr, tweet &top_tw, userdatacontainer *u, filter_run_state &frs) {
-		if(!u) return regex_test(fptr(u, top_tw, frs), top_tw);
+	template <typename T> const std::string &get_tweet_prop(T tweet_access, filter_run_state &frs) {
+		switch(property) {
+			case PROP::TWEET_TEXT:
+				return tweet_access->GetText();
+			case PROP::TWEET_SOURCE:
+				return tweet_access->GetSource();
+			default:
+				return frs.empty_str;
+		}
+	}
 
-		auto iter = usertestcache.insert(std::make_pair(u->id, user_cache_entry()));
+	template <typename T> const std::string &get_user_prop(T user_access, filter_run_state &frs) {
+		switch(property) {
+			case PROP::USER_NAME:
+				return user_access->GetName();
+			case PROP::USER_SCREENNAME:
+				return user_access->GetScreenName();
+			case PROP::USER_DESCRIPTION:
+				return user_access->GetDescription();
+			case PROP::USER_LOCATION:
+				return user_access->GetLocation();
+			case PROP::USER_NOTES:
+				return user_access->GetNotes();
+			case PROP::USER_IDSTR:
+				frs.test_temp = string_format("%" llFmtSpec "u", user_access->GetCurrentUserID());
+				return frs.test_temp;
+			default:
+				return frs.empty_str;
+		}
+	}
+
+	template <typename T> bool user_test(T user_access, filter_run_state &frs) {
+		if(!user_access->IsValid())
+			return regex_test("");
+
+		auto iter = usertestcache.insert(std::make_pair(user_access->GetCurrentUserID(), user_cache_entry()));
 		bool new_insertion = iter.second;
 		user_cache_entry &uce = iter.first->second;
-		if(!new_insertion && uce.revision == u->GetUser().revision_number) {
+		if(!new_insertion && uce.revision == user_access->GetRevisionNumber()) {
 			//cached result
 			return uce.result;
 		}
 
-		uce.revision = u->GetUser().revision_number;
-		uce.result = regex_test(fptr(u, top_tw, frs), top_tw);
+		uce.revision = user_access->GetRevisionNumber();
+		uce.result = regex_test(get_user_prop(user_access, frs));
 		return uce.result;
 	}
 
-	bool regex_test(const std::string &str, tweet &tw) {
-		const int ovecsize = 30;
-		int ovector[30];
-		bool result = (pcre_exec(ptn, extra,  str.c_str(), str.size(), 0, 0, ovector, ovecsize) >= 1);
-		LogMsgFormat(LOGT::FILTERTRACE, "String Regular Expression Test for Tweet: %" llFmtSpec "d, String: '%s', Regex: '%s', Result: %smatch",
-				tw.id, cstr(str), cstr(regexstr), result ? "" : "no ");
-		return result;
+	template <typename T> bool test_generic(T tweet_generic, filter_run_state &frs) {
+		if(type_flags & TYPE_FLAGS::IS_USER_TEST) {
+			if(type_flags & TYPE_FLAGS::TRY_RETWEET_USER) {
+				if(tweet_generic.HasRT())
+					return user_test(tweet_generic.GetRTUser(), frs);
+			}
+			if(type_flags & TYPE_FLAGS::TRY_RECIP_USER) {
+				if(tweet_generic.HasRecipUser())
+					return user_test(tweet_generic.GetRecipUser(), frs);
+			}
+			if(type_flags & TYPE_FLAGS::TRY_RETWEET_USER_IF_TRUE) {
+				if(tweet_generic.HasRT() && user_test(tweet_generic.GetRTUser(), frs))
+					return true;
+			}
+			if(type_flags & TYPE_FLAGS::TRY_RECIP_USER_IF_TRUE) {
+				if(tweet_generic.HasRecipUser() && user_test(tweet_generic.GetRecipUser(), frs))
+					return true;
+			}
+			if(type_flags & TYPE_FLAGS::TRY_ACC_USER && std::is_same<T, generic_tweet_access_loaded>::value && frs.tac) {
+				// This does not make sense in a lazy DB context, so test for template type
+				return user_test(db_lazy_user_compat_accessor(frs.tac->usercont.get()), frs);
+			}
+			return user_test(tweet_generic.GetUser(), frs);
+		}
+		else {
+			if(type_flags & TYPE_FLAGS::TRY_RETWEET) {
+				if(tweet_generic.HasRT())
+					return regex_test(get_tweet_prop(tweet_generic.GetRetweet(), frs));
+			}
+			return regex_test(get_tweet_prop(tweet_generic.GetTweet(), frs));
+		}
 	}
 
 	bool test(tweet &tw, filter_run_state &frs) override {
-		return dotests(*this, tw, frs);
+		return test_generic(generic_tweet_access_loaded(tw), frs);
+	}
+
+	bool test(filter_db_lazy_state &state, uint64_t tweet_id, filter_run_state &frs) override {
+		return test_generic(generic_tweet_access_dblazy(state, tweet_id), frs);
 	}
 
 	virtual ~filter_item_cond_regex() {
 		if(ptn) pcre_free(ptn);
 		if(extra) pcre_free_study(extra);
 	}
+
+	void parse_setup(const std::string &part1, const std::string &part2, bool &ok, std::string &errmsgs);
 };
+template<> struct enum_traits<filter_item_cond_regex::TYPE_FLAGS> { static constexpr bool flags = true; };
+
+void filter_item_cond_regex::parse_setup(const std::string &part1, const std::string &part2, bool &ok, std::string &errmsgs) {
+	auto tweetmode = [&]() {
+		if(part2 == "text") {
+			property = PROP::TWEET_TEXT;
+		}
+		else if(part2 == "source") {
+			property = PROP::TWEET_SOURCE;
+		}
+		else {
+			errmsgs += string_format("No such tweet field: %s\n", part2.c_str());
+			ok = false;
+		}
+	};
+
+	auto usermode = [&]() {
+		if(part2 == "name") {
+			property = PROP::USER_NAME;
+		}
+		else if(part2 == "screenname" || part2 == "sname") {
+			property = PROP::USER_SCREENNAME;
+		}
+		else if(part2 == "description" || part2 == "desc") {
+			property = PROP::USER_DESCRIPTION;
+		}
+		else if(part2 == "loc" || part2 == "location") {
+			property = PROP::USER_LOCATION;
+		}
+		else if(part2 == "id") {
+			property = PROP::USER_IDSTR;
+		}
+		else if(part2 == "notes") {
+			property = PROP::USER_NOTES;
+		}
+		else {
+			errmsgs += string_format("No such user field: %s\n", part2.c_str());
+			ok = false;
+		}
+	};
+
+	if(part1 == "retweet") {
+		tweetmode();
+		type_flags = TYPE_FLAGS::TRY_RETWEET;
+	}
+	else if(part1 == "tweet") {
+		tweetmode();
+		type_flags = 0;
+	}
+	else if(part1 == "user") {
+		usermode();
+		type_flags = TYPE_FLAGS::IS_USER_TEST;
+	}
+	else if(part1 == "retweetuser") {
+		usermode();
+		type_flags = TYPE_FLAGS::IS_USER_TEST | TYPE_FLAGS::TRY_RETWEET_USER;
+	}
+	else if(part1 == "userrecipient") {
+		usermode();
+		type_flags = TYPE_FLAGS::IS_USER_TEST | TYPE_FLAGS::TRY_RECIP_USER;
+	}
+	else if(part1 == "anyuser") {
+		usermode();
+		type_flags = TYPE_FLAGS::IS_USER_TEST | TYPE_FLAGS::TRY_RECIP_USER_IF_TRUE | TYPE_FLAGS::TRY_RETWEET_USER_IF_TRUE;
+	}
+	else if(part1 == "accountuser") {
+		usermode();
+		type_flags = TYPE_FLAGS::IS_USER_TEST | TYPE_FLAGS::TRY_ACC_USER;
+	}
+	else {
+		errmsgs += string_format("No such field type: %s\n", part1.c_str());
+		ok = false;
+	}
+}
 
 struct filter_item_cond_flags : public filter_item_cond {
 	uint64_t any = 0;
@@ -201,59 +391,47 @@ struct filter_item_cond_flags : public filter_item_cond {
 	bool retweet;
 	std::string teststr;
 
-	bool test(tweet &tw, filter_run_state &frs) override {
-		uint64_t curflags = tw.flags.ToULLong();
+	bool test_common(uint64_t curflags) {
 		bool result = true;
-		if(any && !(curflags&any)) result = false;
-		if(all && (curflags&all)!=all) result = false;
-		if(none && (curflags&none)) result = false;
-		if(missing && (curflags|missing)==curflags) result = false;
-		LogMsgFormat(LOGT::FILTERTRACE, "Tweet Flag Test for Tweet: %" llFmtSpec "d, Flags: %s, Criteria: %s, Result: %smatch",
-				tw.id, cstr(tw.flags.GetString()), cstr(teststr), result ? "" : "no ");
+		if(any && !(curflags & any)) result = false;
+		if(all && (curflags & all) != all) result = false;
+		if(none && (curflags & none)) result = false;
+		if(missing && (curflags | missing) == curflags) result = false;
 		return result;
+	}
+
+	template <typename T> bool test_generic(T tweet_generic, filter_run_state &frs) {
+		if(retweet && tweet_generic.HasRT())
+			return test_common(tweet_generic.GetRetweet()->GetFlags().ToULLong());
+		else
+			return test_common(tweet_generic.GetTweet()->GetFlags().ToULLong());
+	}
+
+	bool test(tweet &tw, filter_run_state &frs) override {
+		return test_generic(generic_tweet_access_loaded(tw), frs);
+	}
+
+	bool test(filter_db_lazy_state &state, uint64_t tweet_id, filter_run_state &frs) override {
+		return test_generic(generic_tweet_access_dblazy(state, tweet_id), frs);
 	}
 };
 
 struct filter_item_action : public filter_item {
 	virtual void action(tweet &tw, filter_run_state &frs) = 0;
-	void exec(tweet &tw, filter_run_state &frs) {
-		if(frs.recursion.empty()) action(tw, frs);
-		else if(frs.recursion.back() & FRSF::ACTIVE) action(tw, frs);
+	virtual void action(filter_db_lazy_state &state, uint64_t tweet_id, filter_run_state &frs) = 0;
+
+	bool exec_common(filter_run_state &frs) {
+		return frs.recursion.empty() || frs.recursion.back() & FRSF::ACTIVE;
 	}
-};
 
-struct filter_undo_action : public undo::action {
-	std::map<std::string, tweetidset> panel_removed_nowadd;
-	std::map<std::string, tweetidset> panel_added_nowremove;
+	void exec(tweet &tw, filter_run_state &frs) override {
+		if(exec_common(frs))
+			action(tw, frs);
+	}
 
-	struct flag_action {
-		unsigned long long old_flags;
-		unsigned long long new_flags;
-	};
-	container::map<uint64_t, flag_action> flag_actions;
-
-	virtual void execute() override {
-		for(auto &it : panel_removed_nowadd) {
-			std::shared_ptr<tpanel> tp = tpanel::MkTPanel(tpanel::ManualName(it.first), it.first, TPF::MANUAL | TPF::SAVETODB);
-			tp->BulkPushTweet(std::move(it.second));
-		}
-
-		for(auto &it : panel_added_nowremove) {
-			std::shared_ptr<tpanel> tp = ad.tpanels[tpanel::ManualName(it.first)];
-			if(tp) {
-				for(auto &jt : it.second) {
-					tp->RemoveTweet(jt);
-				}
-			}
-		}
-
-		for(auto &it : flag_actions) {
-			unsigned long long mask = it.second.old_flags ^ it.second.new_flags;
-
-			// Note reversed set/unset flags as undoing flag change
-			tweet::ChangeFlagsById(it.first, (~it.second.new_flags) & mask, it.second.new_flags & mask,
-					tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
-		}
+	void exec(filter_db_lazy_state &state, uint64_t tweet_id, filter_run_state &frs) override {
+		if(exec_common(frs))
+			action(state, tweet_id, frs);
 	}
 };
 
@@ -263,53 +441,112 @@ struct filter_item_action_setflag : public filter_item_action {
 	uint64_t unsetflags = 0;
 	std::string setstr;
 
+	void RegisterBulkAction(filter_bulk_action &bulk_action, uint64_t tweet_id, uint64_t oldflags, uint64_t newflags) {
+		if(oldflags != newflags) {
+			auto it = bulk_action.flag_actions.insert(std::make_pair(tweet_id, filter_bulk_action::flag_action()));
+			if(it.second) {
+				// new flag_action
+				it.first->second.new_flags = newflags;
+			}
+			it.first->second.old_flags = oldflags;
+		}
+	}
+
 	void action(tweet &tw, filter_run_state &frs) override {
-		unsigned long long oldflags = tw.flags.ToULLong();
-		unsigned long long newflags = (oldflags | setflags) & ~unsetflags;
+		uint64_t oldflags = tw.flags.ToULLong();
+		uint64_t newflags = (oldflags | setflags) & ~unsetflags;
 		tw.flags = tweet_flags(newflags);
 		LogMsgFormat(LOGT::FILTERTRACE, "Setting Tweet Flags for Tweet: %" llFmtSpec "d, Flags: Before %s, Action: %s, Result: %s",
 				tw.id, cstr(tweet_flags::GetValueString(oldflags)), cstr(setstr), cstr(tweet_flags::GetValueString(newflags)));
 
-		if(oldflags != newflags && frs.filter_undo) {
-			auto it = frs.filter_undo->flag_actions.insert(std::make_pair(tw.id, filter_undo_action::flag_action()));
-			if(it.second) {
-				// new flag_action
-				it.first->second.old_flags = oldflags;
-			}
-			it.first->second.new_flags = newflags;
-		}
+		if(frs.filter_undo)
+			RegisterBulkAction(frs.filter_undo->bulk_action, tw.id, newflags, oldflags); // Note flag order reversed as this is an undo action
+	}
+
+	void action(filter_db_lazy_state &state, uint64_t tweet_id, filter_run_state &frs) override {
+		state.dl_tweet.LoadTweetID(tweet_id);
+		uint64_t oldflags = state.dl_tweet.GetFlags().ToULLong();
+		uint64_t newflags = (oldflags | setflags) & ~unsetflags;
+		state.dl_tweet.SetFlags(newflags);
+
+		RegisterBulkAction(state.bulk_action, tweet_id, oldflags, newflags);
 	}
 };
+
+static void PanelRemoveOneTweet(const std::shared_ptr<tpanel> &tp, const std::string &panel_name, uint64_t tweet_id, optional_observer_ptr<filter_bulk_action> undo_action) {
+	bool actually_done = false;
+	if(tp) {
+		actually_done = tp->RemoveTweet(tweet_id);
+	}
+	if(undo_action && actually_done) {
+		undo_action->panel_to_add[panel_name].insert(tweet_id);
+	}
+}
 
 struct filter_item_action_panel : public filter_item_action {
 	bool remove;
 	std::string panel_name;
 
 	void action(tweet &tw, filter_run_state &frs) override {
-		bool actually_done = false;
 		if(remove) {
-			std::shared_ptr<tpanel> tp = ad.tpanels[tpanel::ManualName(panel_name)];
-			if(tp) {
-				actually_done = tp->RemoveTweet(tw.id);
-				LogMsgFormat(LOGT::FILTERTRACE, "Removing Tweet: %" llFmtSpec "d from Panel: %s", tw.id, cstr(panel_name));
-			}
+			PanelRemoveOneTweet(ad.tpanels[tpanel::ManualName(panel_name)], panel_name, tw.id,
+				frs.filter_undo ? &(frs.filter_undo->bulk_action) : nullptr);
 		}
 		else {
 			std::shared_ptr<tpanel> tp = tpanel::MkTPanel(tpanel::ManualName(panel_name), panel_name, TPF::MANUAL | TPF::SAVETODB);
-			actually_done = tp->PushTweet(ad.GetTweetById(tw.id));
-			LogMsgFormat(LOGT::FILTERTRACE, "Adding Tweet: %" llFmtSpec "d to Panel: %s", tw.id, cstr(panel_name));
+			bool actually_done = tp->PushTweet(ad.GetTweetById(tw.id));
+			if(actually_done && frs.filter_undo)
+				frs.filter_undo->bulk_action.panel_to_remove[panel_name].insert(tw.id);
 		}
+	}
 
-		if(actually_done && frs.filter_undo) {
-			if(remove) {
-				frs.filter_undo->panel_removed_nowadd[panel_name].insert(tw.id);
-			}
-			else {
-				frs.filter_undo->panel_added_nowremove[panel_name].insert(tw.id);
-			}
+	void action(filter_db_lazy_state &state, uint64_t tweet_id, filter_run_state &frs) override {
+		if(remove) {
+			state.bulk_action.panel_to_remove[panel_name].insert(tweet_id);
+		}
+		else {
+			state.bulk_action.panel_to_add[panel_name].insert(tweet_id);
 		}
 	}
 };
+
+void filter_bulk_action::execute(optional_observer_ptr<filter_bulk_action> undo_action) {
+	LogMsgFormat(LOGT::FILTERTRACE, "filter_bulk_action::execute: %zu flag actions, %zu panel adds, %zu panel removes, undo: %d",
+			flag_actions.size(), panel_to_add.size(), panel_to_remove.size(), undo_action ? 1 : 0);
+
+	for(auto &it : flag_actions) {
+		uint64_t mask = it.second.old_flags ^ it.second.new_flags;
+
+		tweet::ChangeFlagsById(it.first, it.second.new_flags & mask, (~it.second.new_flags) & mask,
+				tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
+	}
+
+	// Send tweet flags first and flush as panel adds below may well load tweets updated above
+	dbc.FlushBatchQueue();
+
+	for(auto &it : panel_to_add) {
+		std::shared_ptr<tpanel> tp = tpanel::MkTPanel(tpanel::ManualName(it.first), it.first, TPF::MANUAL | TPF::SAVETODB);
+		tp->BulkPushTweet(std::move(it.second), PUSHFLAGS::DEFAULT, undo_action ? &(undo_action->panel_to_remove[it.first]) : nullptr);
+	}
+
+	for(auto &it : panel_to_remove) {
+		std::shared_ptr<tpanel> tp = ad.tpanels[tpanel::ManualName(it.first)];
+
+		if(tp) {
+			for(auto &jt : it.second) {
+				PanelRemoveOneTweet(tp, it.first, jt, undo_action);
+			}
+		}
+	}
+
+	if(undo_action) {
+		undo_action->flag_actions.clear();
+		for(auto &it : flag_actions) {
+			undo_action->flag_actions.insert(undo_action->flag_actions.end(),
+					std::make_pair(it.first, flag_action { it.second.new_flags, it.second.old_flags })); // Note that flags are swapped
+		}
+	}
+}
 
 const char condsyntax[] = R"(^\s*(?:(?:(el)(?:s(?:e\s*)?)?)?|(or\s*))if(n)?\s+)";
 const char regexsyntax[] = R"(^(\w+)\.(\w+)\s+(.*\S)\s*$)";
@@ -324,7 +561,7 @@ const char panelsyntax[] = R"(^\s*panel\s+(add|remove)\s+(\S.*\S)\s*$)";
 const char blanklinesyntax[] = R"(^(?:\s*#.*)?\s*$)"; //this also filters comments
 
 
-void ParseFilter(const std::string &input, filter_set &filter_output, std::string &errmsgs) {
+void ParseFilter(std::string input, filter_set &filter_output, std::string &errmsgs) {
 	static pcre *cond_pattern = nullptr;
 	static pcre_extra *cond_patextra = nullptr;
 	static pcre *regex_pattern = nullptr;
@@ -475,119 +712,7 @@ void ParseFilter(const std::string &input, filter_set &filter_output, std::strin
 				}
 				ritem->regexstr = std::move(userptnstr);
 
-				auto tweetmode = [&]() -> tweetmodefptr{
-					if(part2 == "text") {
-						return [](tweet &tw, filter_run_state &frs) -> const std::string & {
-							return tw.text;
-						};
-					}
-					else if(part2 == "source") {
-						return [](tweet &tw, filter_run_state &frs) -> const std::string &  {
-							return tw.source;
-						};
-					}
-					else {
-						errmsgs += string_format("No such tweet field: %s\n", part2.c_str());
-						ok = false;
-						return [](tweet &tw, filter_run_state &frs) -> const std::string &  {
-							return frs.empty_str;
-						};
-					}
-				};
-
-				auto usermode = [&]() -> usrmodefptr {
-					if(part2 == "name") {
-						return [](userdatacontainer *u, tweet &tw, filter_run_state &frs) -> const std::string &  {
-							return u ? u->user.name : frs.empty_str;
-						};
-					}
-					else if(part2 == "screenname" || part2 == "sname") {
-						return [](userdatacontainer *u, tweet &tw, filter_run_state &frs) -> const std::string &  {
-							return u ? u->user.screen_name : frs.empty_str;
-						};
-					}
-					else if(part2 == "description" || part2 == "desc") {
-						return [](userdatacontainer *u, tweet &tw, filter_run_state &frs) -> const std::string & {
-							return u ? u->user.description : frs.empty_str;
-						};
-					}
-					else if(part2 == "loc" || part2 == "location") {
-						return [](userdatacontainer *u, tweet &tw, filter_run_state &frs) -> const std::string &  {
-							return u ? u->user.location : frs.empty_str;
-						};
-					}
-					else if(part2 == "id") {
-						return [](userdatacontainer *u, tweet &tw, filter_run_state &frs) -> const std::string &  {
-							frs.test_temp = string_format("%" llFmtSpec "u", u->id);
-							return frs.test_temp;
-						};
-					}
-					else if(part2 == "notes") {
-						return [](userdatacontainer *u, tweet &tw, filter_run_state &frs) -> const std::string &  {
-							return u ? u->user.notes : frs.empty_str;
-						};
-					}
-					else {
-						errmsgs += string_format("No such user field: %s\n", part2.c_str());
-						ok = false;
-						return [](userdatacontainer *u, tweet &tw, filter_run_state &frs) -> const std::string &  {
-							return frs.empty_str;
-						};
-					}
-				};
-
-				if(part1 == "retweet") {
-					auto fptr = tweetmode();
-					ritem->dotests = [fptr](filter_item_cond_regex &r, tweet &tw, filter_run_state &frs) -> bool {
-						if(tw.rtsrc) return r.tweet_test(fptr, tw, *tw.rtsrc, frs);
-						else return r.tweet_test(fptr, tw, tw, frs);
-					};
-				}
-				else if(part1 == "tweet") {
-					auto fptr = tweetmode();
-					ritem->dotests = [fptr](filter_item_cond_regex &r, tweet &tw, filter_run_state &frs) {
-						return r.tweet_test(fptr, tw, tw, frs);
-					};
-				}
-				else if(part1 == "user") {
-					auto fptr = usermode();
-					ritem->dotests = [fptr](filter_item_cond_regex &r, tweet &tw, filter_run_state &frs) {
-						return r.user_test(fptr, tw, tw.user.get(), frs);
-					};
-				}
-				else if(part1 == "retweetuser") {
-					auto fptr = usermode();
-					ritem->dotests = [fptr](filter_item_cond_regex &r, tweet &tw, filter_run_state &frs) {
-						if(tw.rtsrc) return r.user_test(fptr, tw, tw.rtsrc->user.get(), frs);
-						else return r.user_test(fptr, tw, tw.user.get(), frs);
-					};
-				}
-				else if(part1 == "userrecipient") {
-					auto fptr = usermode();
-					ritem->dotests = [fptr](filter_item_cond_regex &r, tweet &tw, filter_run_state &frs) {
-						if(tw.user_recipient) return r.user_test(fptr, tw, tw.user_recipient.get(), frs);
-						else return r.user_test(fptr, tw, tw.user.get(), frs);
-					};
-				}
-				else if(part1 == "anyuser") {
-					auto fptr = usermode();
-					ritem->dotests = [fptr](filter_item_cond_regex &r, tweet &tw, filter_run_state &frs) {
-						if(tw.user_recipient && r.user_test(fptr, tw, tw.user_recipient.get(), frs)) return true;
-						if(tw.rtsrc && r.user_test(fptr, tw, tw.rtsrc->user.get(), frs)) return true;
-						return r.user_test(fptr, tw, tw.user.get(), frs);
-					};
-				}
-				else if(part1 == "accountuser") {
-					auto fptr = usermode();
-					ritem->dotests = [fptr](filter_item_cond_regex &r, tweet &tw, filter_run_state &frs) {
-						if(frs.tac) return r.user_test(fptr, tw, frs.tac->usercont.get(), frs);
-						else return r.regex_test("", tw);
-					};
-				}
-				else {
-					errmsgs += string_format("No such field type: %s\n", part1.c_str());
-					ok = false;
-				}
+				ritem->parse_setup(part1, part2, ok, errmsgs);
 
 				if(ok) filter_output.filters.emplace_back(std::move(ritem));
 			}
@@ -608,7 +733,7 @@ void ParseFilter(const std::string &input, filter_set &filter_output, std::strin
 			filter_output.filters.emplace_back(std::move(citem));
 		}
 		else if(pcre_exec(flagset_pattern, flagset_patextra,  pos, linelen, 0, 0, ovector, ovecsize) >= 1) {
-			static unsigned long long allowed_flags = tweet_flags::GetFlagStringValue(setflags_allowed);
+			static uint64_t allowed_flags = tweet_flags::GetFlagStringValue(setflags_allowed);
 
 			std::unique_ptr<filter_item_action_setflag> fitem(new filter_item_action_setflag);
 			fitem->setstr = std::string(pos + ovector[2], ovector[3] - ovector[2]);
@@ -619,7 +744,7 @@ void ParseFilter(const std::string &input, filter_set &filter_output, std::strin
 					case '+': current = &(fitem->setflags); break;
 					case '-': current = &(fitem->unsetflags); break;
 					default: {
-						unsigned long long flag = tweet_flags::GetFlagValue(c);
+						uint64_t flag = tweet_flags::GetFlagValue(c);
 						if(flag & allowed_flags) *current |= flag;
 						else {
 							errmsgs += string_format("Setting tweet flag '%c' is not allowed. Allowed flags: %s\n", c, setflags_allowed);
@@ -651,6 +776,8 @@ void ParseFilter(const std::string &input, filter_set &filter_output, std::strin
 		return;
 	}
 
+	filter_output.filter_text = std::move(input);
+
 	filter_run_state frs;
 	for(auto &it : filter_output.filters) {
 		std::string err;
@@ -665,9 +792,9 @@ void ParseFilter(const std::string &input, filter_set &filter_output, std::strin
 	}
 }
 
-bool LoadFilter(const std::string &input, filter_set &out) {
+bool LoadFilter(std::string input, filter_set &out) {
 	std::string errmsgs;
-	ParseFilter(input, out, errmsgs);
+	ParseFilter(std::move(input), out, errmsgs);
 	if(!errmsgs.empty()) {
 		LogMsgFormat(LOGT::FILTERERR, "Could not parse filter: Error: %s", cstr(errmsgs));
 		return false;
@@ -693,14 +820,29 @@ void filter_set::FilterTweet(tweet &tw, taccount *tac) {
 	}
 }
 
+void filter_set::FilterTweet(filter_db_lazy_state &state, uint64_t tweet_id) {
+	filter_run_state frs;
+	frs.filter_undo = filter_undo.get();
+	for(auto &f : filters) {
+		f->exec(state, tweet_id, frs);
+	}
+}
+
 filter_set & filter_set::operator=(filter_set &&other) {
 	filters = std::move(other.filters);
+	filter_undo = std::move(other.filter_undo);
+	filter_text = std::move(other.filter_text);
 	return *this;
+}
+
+filter_set::filter_set(filter_set &&other) {
+	*this = std::move(other);
 }
 
 void filter_set::clear() {
 	filters.clear();
 	filter_undo.reset();
+	filter_text.clear();
 }
 
 void filter_set::EnableUndo() {
@@ -710,4 +852,48 @@ void filter_set::EnableUndo() {
 
 std::unique_ptr<undo::action> filter_set::GetUndoAction() {
 	return std::move(filter_undo);
+}
+
+void filter_set::DBFilterTweetIDs(filter_set fs, tweetidset ids, bool enable_undo, std::function<void(std::unique_ptr<undo::action>)> completion) {
+	dbc.AsyncWriteBackStateMinimal();
+
+	LogMsgFormat(LOGT::FILTERTRACE, "filter_set::DBFilterTweetIDs: sending %zu tweet IDs to DB thread", ids.size());
+
+	struct db_filter_msg : public dbfunctionmsg_callback {
+		filter_set fs;
+		tweetidset ids;
+		filter_bulk_action bulk_action;
+	};
+
+	std::unique_ptr<db_filter_msg> msg(new db_filter_msg());
+	msg->fs = std::move(fs);
+	msg->ids = std::move(ids);
+
+	msg->db_func = [](sqlite3 *db, bool &ok, dbpscache &cache, dbfunctionmsg_callback &self_) {
+		db_filter_msg &self = static_cast<db_filter_msg &>(self_);
+		// We are now in the DB thread
+
+		filter_db_lazy_state state(db);
+		for(uint64_t id : self.ids) {
+			self.fs.FilterTweet(state, id);
+		}
+
+		self.bulk_action = std::move(state.bulk_action);
+	};
+
+	msg->callback_func = [completion, enable_undo](std::unique_ptr<dbfunctionmsg_callback> self_) {
+		db_filter_msg &self = static_cast<db_filter_msg &>(*self_);
+		LogMsgFormat(LOGT::FILTERTRACE, "filter_set::DBFilterTweetIDs: got reply from DB thread");
+
+		std::unique_ptr<filter_undo_action> undo_action;
+		if(enable_undo)
+			undo_action.reset(new filter_undo_action());
+
+		self.bulk_action.execute(undo_action ? &(undo_action->bulk_action) : nullptr);
+		LogMsgFormat(LOGT::FILTERTRACE, "filter_set::DBFilterTweetIDs: executed bulk actions");
+
+		completion(std::move(undo_action));
+	};
+
+	dbc.SendFunctionMsgCallback(std::move(msg));
 }

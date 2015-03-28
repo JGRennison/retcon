@@ -21,27 +21,38 @@
 
 #include "../univdefs.h"
 #include "../undo.h"
+#include "../map.h"
+#include "../tweetidset.h"
 #include <functional>
 #include <string>
 #include <memory>
 #include <vector>
+#include <map>
 
 struct filter_item;
 struct filter_undo_action;
 struct tweet;
 struct taccount;
+struct filter_db_lazy_state;
 
 struct filter_set {
 	std::vector<std::unique_ptr<filter_item> > filters;
 	std::unique_ptr<filter_undo_action> filter_undo;
+	std::string filter_text;
 
 	void FilterTweet(tweet &tw, taccount *tac = nullptr);
+	void FilterTweet(filter_db_lazy_state &state, uint64_t tweet_id);
 	filter_set();
 	~filter_set();
-	filter_set & operator =(filter_set &&other);
+	filter_set & operator=(filter_set &&other);
+	filter_set(filter_set &&other);
+
 	void clear();
 	void EnableUndo();
 	std::unique_ptr<undo::action> GetUndoAction();
+
+	// This takes full and exclusive ownership of fs
+	static void DBFilterTweetIDs(filter_set fs, tweetidset ids, bool enable_undo, std::function<void(std::unique_ptr<undo::action>)> completion);
 };
 
 #endif

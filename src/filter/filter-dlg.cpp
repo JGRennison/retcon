@@ -20,6 +20,7 @@
 #include "filter-dlg.h"
 #include "filter-ops.h"
 #include "filter-vldtr.h"
+#include "filter-intl.h"
 #include "../log.h"
 #include "../alldata.h"
 #include "../db.h"
@@ -61,13 +62,13 @@ struct selection_category {
 struct filter_dlg_shared_state {
 	filter_set apply_filter;
 	std::string srcname;
+	std::unique_ptr<undo::action> db_undo_action;
 
 	// This is to handle the case where the filter_dlg_shared_state is destructed after the app,
 	// This can happen if the last shared_ptr was held by an object destructed at exit (e.g. a tweet with a pending filter op).
 	magic_ptr_ts<retcon> app;
 
 	filter_dlg_shared_state() {
-		apply_filter.EnableUndo();
 		app = &(wxGetApp());
 	}
 
@@ -77,6 +78,7 @@ struct filter_dlg_shared_state {
 
 		observer_ptr<undo::item> undo_item = app->undo_state.NewItem(string_format("apply filter: %s", cstr(srcname)));
 		undo_item->AppendAction(apply_filter.GetUndoAction());
+		undo_item->AppendAction(std::move(db_undo_action));
 	}
 };
 
@@ -298,8 +300,23 @@ void filter_dlg::ExecFilter() {
 
 	SetNoUpdateFlag_All();
 
+	fdg->shared_state->apply_filter.EnableUndo();
+
+	tweetidset dbset;
+
 	for(auto id : fdg->selectedset) {
-		tweet_ptr tobj = ad.GetTweetById(id);
+		optional_tweet_ptr tobj = ad.GetExistingTweetById(id);
+		if(!tobj) {
+			if(ad.unloaded_db_tweet_ids.find(id) != ad.unloaded_db_tweet_ids.end()) {
+				// This is in DB
+				dbset.insert(id);
+				continue;
+			}
+
+			// fallback, shouldn't happen too often
+			tobj = ad.GetTweetById(id);
+		}
+
 		if(CheckFetchPendingSingleTweet(tobj, std::shared_ptr<taccount>(), &loadmsg, PENDING_REQ::USEREXPIRE, PENDING_RESULT::CONTENT_READY)) {
 			FilterOneTweet(fdg->shared_state->apply_filter, tobj);
 		}
@@ -313,4 +330,31 @@ void filter_dlg::ExecFilter() {
 		DBC_SendMessage(std::move(loadmsg));
 	}
 	else CheckClearNoUpdateFlag_All();
+
+	if(!dbset.empty()) {
+		filter_set fs;
+		LoadFilter(fdg->shared_state->apply_filter.filter_text, fs);
+
+		// Do not send shared_state to the completion callback/DB thread, as this would
+		// cause major problems if for whatever reason a reply was not sent and the message and
+		// thus callback was destructed in the DB thread, in the case where it held the last reference
+		// to the shared_state. The shared_state destructor may not be run in the DB thread.
+
+		static std::map<uint64_t, std::shared_ptr<filter_dlg_shared_state>> pending_db_filters;
+		static uint64_t next_id;
+		uint64_t this_id = next_id++;
+		pending_db_filters[this_id] = fdg->shared_state;
+
+		filter_set::DBFilterTweetIDs(std::move(fs), std::move(dbset), true, [this_id](std::unique_ptr<undo::action> undo) {
+			auto it = pending_db_filters.find(this_id);
+			if(it != pending_db_filters.end()) {
+				it->second->db_undo_action = std::move(undo);
+				pending_db_filters.erase(it);
+				LogMsgFormat(LOGT::FILTERTRACE, "filter_dlg::ExecFilter: DB filter complete, %zu pending", pending_db_filters.size());
+			}
+			else {
+				LogMsgFormat(LOGT::FILTERERR, "filter_dlg::ExecFilter: DB filter completion: item missing from pending_db_filters!");
+			}
+		});
+	}
 }
