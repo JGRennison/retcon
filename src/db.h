@@ -58,6 +58,7 @@ enum class DBSM {
 	UPDATETWEETSETFLAGS_GROUP,
 	UPDATETWEETSETFLAGS_MULTI,
 	FUNCTION,
+	FUNCTION_CALLBACK,
 	SELUSER,
 	NOTIFYUSERSPURGED,
 };
@@ -311,6 +312,7 @@ struct db_handle_msg_pending_guard {
 bool DBC_Init(const std::string &filename);
 void DBC_DeInit();
 void DBC_AsyncWriteBackState();
+void DBC_AsyncWriteBackStateMinimal();
 void DBC_SendMessage(std::unique_ptr<dbsendmsg> msg);
 void DBC_SendMessageOrAddToList(std::unique_ptr<dbsendmsg> msg, optional_observer_ptr<dbsendmsg_list> msglist);
 void DBC_SendMessageBatched(std::unique_ptr<dbsendmsg> msg);

@@ -156,9 +156,13 @@ dbpscache::~dbpscache() {
 	DeAllocAll();
 }
 
+const char *dbpscache::GetQueryString(DBPSC_TYPE type) {
+	return std_sql_stmts[type];
+}
+
 sqlite3_stmt *dbpscache::GetStmt(sqlite3 *adb, DBPSC_TYPE type) {
 	if(!stmts[type]) {
-		sqlite3_prepare_v2(adb, std_sql_stmts[type], -1, &stmts[type], 0);
+		sqlite3_prepare_v2(adb, GetQueryString(type), -1, &stmts[type], 0);
 	}
 	return stmts[type];
 }
@@ -687,6 +691,14 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 			cache.EndTransaction(db);
 			break;
 		}
+		case DBSM::FUNCTION_CALLBACK: {
+			cache.BeginTransaction(db);
+			dbfunctionmsg_callback *m = static_cast<dbfunctionmsg_callback *>(msg);
+			m->db_func(db, ok, cache, *m);
+			cache.EndTransaction(db);
+			m->SendReply(std::move(themsg), th);
+			return;
+		}
 		default: break;
 	}
 }
@@ -750,6 +762,7 @@ EVT_COMMAND(wxDBCONNEVT_ID_REPLY, wxextDBCONN_NOTIFY, dbconn::OnDBReplyEvt)
 EVT_COMMAND(wxDBCONNEVT_ID_GENERICSELTWEET, wxextDBCONN_NOTIFY, dbconn::GenericDBSelTweetMsgHandler)
 EVT_COMMAND(wxDBCONNEVT_ID_STDUSERLOAD, wxextDBCONN_NOTIFY, dbconn::OnStdUserLoadFromDB)
 EVT_COMMAND(wxDBCONNEVT_ID_GENERICSELUSER, wxextDBCONN_NOTIFY, dbconn::GenericDBSelUserMsgHandler)
+EVT_COMMAND(wxDBCONNEVT_ID_FUNCTIONCALLBACK, wxextDBCONN_NOTIFY, dbconn::OnDBSendFunctionMsgCallback)
 EVT_TIMER(DBCONNTIMER_ID_ASYNCSTATEWRITE, dbconn::OnAsyncStateWriteTimer)
 END_EVENT_TABLE()
 
@@ -930,8 +943,26 @@ void dbconn::OnDBNewAccountInsert(wxCommandEvent &event) {
 	}
 }
 
+void dbconn::OnDBSendFunctionMsgCallback(wxCommandEvent &event) {
+	std::unique_ptr<dbfunctionmsg_callback> msg(static_cast<dbfunctionmsg_callback *>(event.GetClientData()));
+	event.SetClientData(0);
+
+	dbfunctionmsg_callback *msg_ptr = msg.get();
+	msg_ptr->callback_func(std::move(msg));
+}
+
 void dbconn::SendMessageBatched(std::unique_ptr<dbsendmsg> msg) {
-	GetMessageBatchQueue()->msglist.emplace_back(std::move(msg));
+	observer_ptr<dbsendmsg_list> batch = GetMessageBatchQueue();
+	batch->msglist.emplace_back(std::move(msg));
+
+	if(batch->msglist.size() >= 8192)
+		FlushBatchQueue(); // queue is getting large, send it off now
+}
+
+void dbconn::FlushBatchQueue() {
+	if(batchqueue) {
+		SendMessage(std::move(batchqueue));
+	}
 }
 
 observer_ptr<dbsendmsg_list> dbconn::GetMessageBatchQueue() {
@@ -969,9 +1000,7 @@ void dbconn::OnSendBatchEvt(wxCommandEvent &event) {
 	if(!(dbc_flags & DBCF::INITED)) return;
 
 	dbc_flags &= ~DBCF::BATCHEVTPENDING;
-	if(batchqueue) {
-		SendMessage(std::move(batchqueue));
-	}
+	FlushBatchQueue();
 }
 
 void dbconn::OnDBReplyEvt(wxCommandEvent &event) {
@@ -1034,6 +1063,13 @@ void dbconn::SendAccDBUpdate(std::unique_ptr<dbinsertaccmsg> insmsg) {
 	insmsg->targ = this;
 	insmsg->cmdevtype = wxextDBCONN_NOTIFY;
 	insmsg->winid = wxDBCONNEVT_ID_INSERTNEWACC;
+	dbc.SendMessage(std::move(insmsg));
+}
+
+void dbconn::SendFunctionMsgCallback(std::unique_ptr<dbfunctionmsg_callback> insmsg) {
+	insmsg->targ = this;
+	insmsg->cmdevtype = wxextDBCONN_NOTIFY;
+	insmsg->winid = wxDBCONNEVT_ID_FUNCTIONCALLBACK;
 	dbc.SendMessage(std::move(insmsg));
 }
 
@@ -1160,9 +1196,7 @@ void dbconn::DeInit() {
 
 	asyncstateflush_timer.reset();
 
-	if(batchqueue) {
-		SendMessage(std::move(batchqueue));
-	}
+	FlushBatchQueue();
 
 	dbc_flags &= ~DBCF::INITED;
 
@@ -1288,9 +1322,7 @@ void dbconn::AsyncWriteBackState() {
 	if(!gc.readonlymode) {
 		LogMsg(LOGT::DBINFO, "dbconn::AsyncWriteBackState start");
 
-		if(batchqueue) {
-			SendMessage(std::move(batchqueue));
-		}
+		FlushBatchQueue();
 
 		std::unique_ptr<dbfunctionmsg> msg(new dbfunctionmsg);
 		auto cfg_closure = WriteAllCFGOutClosure(gc, alist, true);
@@ -1315,6 +1347,21 @@ void dbconn::AsyncWriteBackState() {
 
 	CheckPurgeTweets();
 	CheckPurgeUsers();
+}
+
+// This is mainly useful for DB filtering
+void dbconn::AsyncWriteBackStateMinimal() {
+	if(!gc.readonlymode) {
+		LogMsg(LOGT::DBINFO, "dbconn::AsyncWriteBackStateMinimal start");
+
+		FlushBatchQueue();
+
+		std::unique_ptr<dbfunctionmsg> msg(new dbfunctionmsg);
+		AsyncWriteBackAllUsers(*msg);
+		SendMessage(std::move(msg));
+
+		LogMsg(LOGT::DBINFO, "dbconn::AsyncWriteBackStateMinimal: message sent to DB thread");
+	}
 }
 
 void dbconn::InsertNewTweet(tweet_ptr_p tobj, std::string statjson, optional_observer_ptr<dbsendmsg_list> msglist) {
@@ -2767,6 +2814,10 @@ void DBC_DeInit() {
 
 void DBC_AsyncWriteBackState() {
 	dbc.AsyncWriteBackState();
+}
+
+void DBC_AsyncWriteBackStateMinimal() {
+	dbc.AsyncWriteBackStateMinimal();
 }
 
 void DBC_SendMessage(std::unique_ptr<dbsendmsg> msg) {

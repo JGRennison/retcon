@@ -82,6 +82,7 @@ typedef enum {
 struct dbpscache {
 	sqlite3_stmt *stmts[DBPSC_NUM_STATEMENTS];
 
+	static const char *GetQueryString(DBPSC_TYPE type);
 	sqlite3_stmt *GetStmt(sqlite3 *adb, DBPSC_TYPE type);
 	int ExecStmt(sqlite3 *adb, DBPSC_TYPE type);
 	void DeAllocAll();
@@ -119,6 +120,12 @@ struct dbfunctionmsg : public dbsendmsg {
 	std::vector<std::function<void(sqlite3 *, bool &, dbpscache &)> > funclist;
 };
 
+struct dbfunctionmsg_callback : public dbsendmsg_callback {
+	dbfunctionmsg_callback(): dbsendmsg_callback(DBSM::FUNCTION_CALLBACK) { }
+	std::function<void(sqlite3 *, bool &, dbpscache &, dbfunctionmsg_callback &)> db_func;
+	std::function<void(std::unique_ptr<dbfunctionmsg_callback>)> callback_func;
+};
+
 DECLARE_EVENT_TYPE(wxextDBCONN_NOTIFY, -1)
 
 enum {
@@ -129,6 +136,7 @@ enum {
 	wxDBCONNEVT_ID_GENERICSELTWEET,
 	wxDBCONNEVT_ID_STDUSERLOAD,
 	wxDBCONNEVT_ID_GENERICSELUSER,
+	wxDBCONNEVT_ID_FUNCTIONCALLBACK,
 };
 
 enum {
@@ -179,10 +187,12 @@ struct dbconn : public wxEvtHandler {
 	void DeInit();
 
 	void AsyncWriteBackState();
+	void AsyncWriteBackStateMinimal();
 
 	void SendMessage(std::unique_ptr<dbsendmsg> msg);
 	void SendMessageOrAddToList(std::unique_ptr<dbsendmsg> msg, optional_observer_ptr<dbsendmsg_list> msglist);
 	void SendMessageBatched(std::unique_ptr<dbsendmsg> msg);
+	void FlushBatchQueue();
 	observer_ptr<dbsendmsg_list> GetMessageBatchQueue();
 
 	void SendBatchedTweetFlagUpdate(uint64_t id, uint64_t setmask, uint64_t unsetmask);
@@ -265,6 +275,9 @@ struct dbconn : public wxEvtHandler {
 	void GenericDBSelUserMsgHandler(wxCommandEvent &event);
 	void SetDBSelUserMsgHandler(dbselusermsg &msg, std::function<void(dbselusermsg &, dbconn *)> f);
 	void DBSelUserReturnDataHandler(std::deque<dbretuserdata> data, optional_observer_ptr<db_handle_msg_pending_guard> pending_guard);
+
+	void SendFunctionMsgCallback(std::unique_ptr<dbfunctionmsg_callback> insmsg);
+	void OnDBSendFunctionMsgCallback(wxCommandEvent &event);
 
 	void OnAsyncStateWriteTimer(wxTimerEvent& event);
 	void ResetAsyncStateWriteTimer();
