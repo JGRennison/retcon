@@ -1277,6 +1277,7 @@ struct tm *gmtime_r(const time_t *timer, struct tm *result) {
 	return result;
 }
 #endif
+#endif
 
 // This function is from https://web.nlcindia.com/gpsd/gpsd-3.1/gpsutils.c (BSD license)
 static time_t our_mkgmtime(struct tm * t)
@@ -1296,8 +1297,9 @@ static time_t our_mkgmtime(struct tm * t)
 	result -= (year - 1900) / 100;
 	result += (year - 1600) / 400;
 	if ((year % 4) == 0 && ((year % 100) != 0 || (year % 400) == 0) &&
-		(t->tm_mon % MONTHSPERYEAR) < 2)
-	result--;
+			(t->tm_mon % MONTHSPERYEAR) < 2) {
+		result--;
+	}
 	result += t->tm_mday - 1;
 	result *= 24;
 	result += t->tm_hour;
@@ -1308,8 +1310,6 @@ static time_t our_mkgmtime(struct tm * t)
 	/*@ -matchanyintegral @*/
 	return (result);
 }
-
-#endif
 
 //wxDateTime performs some braindead timezone adjustments and so is unusable
 //mktime and friends also have onerous timezone behaviour
@@ -1323,21 +1323,7 @@ void ParseTwitterDate(struct tm *createtm, time_t *createtm_t, const std::string
 	memset(createtm, 0, sizeof(struct tm));
 	*createtm_t = 0;
 	strptime(created_at.c_str(), "%a %b %d %T +0000 %Y", createtm);
-	#ifdef __WINDOWS__
 	*createtm_t = our_mkgmtime(createtm);
-	#else
-	char *tz;
-
-	tz = getenv("TZ");
-	setenv("TZ", "", 1);
-	tzset();
-	*createtm_t = mktime(createtm);
-	if (tz)
-	   setenv("TZ", tz, 1);
-	else
-	   unsetenv("TZ");
-	tzset();
-	#endif
 }
 
 #define TCO_LINK_LENGTH 22
