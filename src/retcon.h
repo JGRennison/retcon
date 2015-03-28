@@ -23,6 +23,7 @@
 #include "magic_ptr.h"
 #include "fileutil.h"
 #include "undo.h"
+#include "magic_ptr.h"
 #include <wx/app.h>
 #include <wx/event.h>
 #include <string>
@@ -41,7 +42,7 @@ namespace ThreadPool {
 	class Pool;
 }
 
-class retcon: public wxApp {
+class retcon: public wxApp, public magic_ptr_base {
 	virtual bool OnInit();
 	virtual int OnExit();
 	int FilterEvent(wxEvent &event);

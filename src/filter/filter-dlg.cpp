@@ -26,6 +26,7 @@
 #include "../twit.h"
 #include "../tpanel.h"
 #include "../retcon.h"
+#include "../magic_ptr.h"
 #include <wx/stattext.h>
 #include <wx/checkbox.h>
 #include <wx/textctrl.h>
@@ -61,11 +62,20 @@ struct filter_dlg_shared_state {
 	filter_set apply_filter;
 	std::string srcname;
 
+	// This is to handle the case where the filter_dlg_shared_state is destructed after the app,
+	// This can happen if the last shared_ptr was held by an object destructed at exit (e.g. a tweet with a pending filter op).
+	magic_ptr_ts<retcon> app;
+
 	filter_dlg_shared_state() {
 		apply_filter.EnableUndo();
+		app = &(wxGetApp());
 	}
+
 	~filter_dlg_shared_state() {
-		observer_ptr<undo::item> undo_item = wxGetApp().undo_state.NewItem(string_format("apply filter: %s", cstr(srcname)));
+		if(!app)
+			return;
+
+		observer_ptr<undo::item> undo_item = app->undo_state.NewItem(string_format("apply filter: %s", cstr(srcname)));
 		undo_item->AppendAction(apply_filter.GetUndoAction());
 	}
 };
