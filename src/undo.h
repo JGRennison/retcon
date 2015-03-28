@@ -60,7 +60,8 @@ namespace undo {
 		public:
 
 		void AppendAction(std::unique_ptr<action> act) {
-			actions.emplace_back(std::move(act));
+			if(act)
+				actions.emplace_back(std::move(act));
 		}
 
 		const std::string &GetName() const {

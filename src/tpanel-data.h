@@ -58,7 +58,8 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 
 	bool PushTweet(uint64_t id, optional_tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
 	bool PushTweet(tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
-	void BulkPushTweet(tweetidset ids, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
+	void BulkPushTweet(tweetidset ids, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT,
+			optional_observer_ptr<tweetidset> actually_added = nullptr);
 
 	bool RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
 	bool RegisterTweet(uint64_t id, optional_tweet_ptr_p t);

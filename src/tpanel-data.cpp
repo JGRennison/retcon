@@ -59,22 +59,30 @@ bool tpanel::PushTweet(uint64_t id, optional_tweet_ptr_p t, flagwrapper<PUSHFLAG
 	return adding_tweet;
 }
 
-void tpanel::BulkPushTweet(tweetidset ids, flagwrapper<PUSHFLAGS> pushflags) {
+void tpanel::BulkPushTweet(tweetidset ids, flagwrapper<PUSHFLAGS> pushflags, optional_observer_ptr<tweetidset> actually_added) {
 	if(!twin.empty()) {
 		// There are windows for this panel open, slow path
 		SetNoUpdateFlag_TP();
 		for(auto &it : ids) {
-			PushTweet(it, nullptr, pushflags);
+			bool added = PushTweet(it, nullptr, pushflags);
+			if(added && actually_added)
+				actually_added->insert(it);
 		}
 		CheckClearNoUpdateFlag_TP();
 	}
 	else {
 		if(!tweetlist.empty()) {
 			// Panel already has stuff in it, merge sets
-			tweetlist.insert(ids.begin(), ids.end());
+			for(auto &it : ids) {
+				auto result = tweetlist.insert(it);
+				if(result.second && actually_added)
+					actually_added->insert(it);
+			}
 		}
 		else {
 			// Panel is empty, fast path
+			if(actually_added)
+				*actually_added = ids;
 			tweetlist = std::move(ids);
 		}
 		RecalculateSets();
