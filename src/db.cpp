@@ -633,9 +633,9 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 			sqlite3_reset(stmt);
 			break;
 		}
-		case DBSM::UPDATETWEETSETFLAGS: {
+		case DBSM::UPDATETWEETSETFLAGS_GROUP: {
 			if(gc.readonlymode) break;
-			dbupdatetweetsetflagsmsg *m = static_cast<dbupdatetweetsetflagsmsg *>(msg);
+			dbupdatetweetsetflagsmsg_group *m = static_cast<dbupdatetweetsetflagsmsg_group *>(msg);
 			cache.BeginTransaction(db);
 			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_UPDATETWEETFLAGSMASKED);
 			for(auto it = m->ids.begin(); it != m->ids.end(); ++it) {
@@ -643,8 +643,25 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 				sqlite3_bind_int64(stmt, 2, (sqlite3_int64) (~m->unsetmask));
 				sqlite3_bind_int64(stmt, 3, (sqlite3_int64) *it);
 				int res = sqlite3_step(stmt);
-				if(res != SQLITE_DONE) { TSLogMsgFormat(LOGT::DBERR, "DBSM::UPDATETWEETSETFLAGS got error: %d (%s) for id: %" llFmtSpec "d",
+				if(res != SQLITE_DONE) { TSLogMsgFormat(LOGT::DBERR, "DBSM::UPDATETWEETSETFLAGS_GROUP got error: %d (%s) for id: %" llFmtSpec "d",
 						res, cstr(sqlite3_errmsg(db)), *it); }
+				sqlite3_reset(stmt);
+			}
+			cache.EndTransaction(db);
+			break;
+		}
+		case DBSM::UPDATETWEETSETFLAGS_MULTI: {
+			if(gc.readonlymode) break;
+			dbupdatetweetsetflagsmsg_multi *m = static_cast<dbupdatetweetsetflagsmsg_multi *>(msg);
+			cache.BeginTransaction(db);
+			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_UPDATETWEETFLAGSMASKED);
+			for(auto &it : m->flag_actions) {
+				sqlite3_bind_int64(stmt, 1, (sqlite3_int64) it.setmask);
+				sqlite3_bind_int64(stmt, 2, (sqlite3_int64) ~(it.unsetmask));
+				sqlite3_bind_int64(stmt, 3, (sqlite3_int64) it.id);
+				int res = sqlite3_step(stmt);
+				if(res != SQLITE_DONE) { TSLogMsgFormat(LOGT::DBERR, "DBSM::UPDATETWEETSETFLAGS_MULTI got error: %d (%s) for id: %" llFmtSpec "d",
+						res, cstr(sqlite3_errmsg(db)), it.id); }
 				sqlite3_reset(stmt);
 			}
 			cache.EndTransaction(db);
@@ -927,6 +944,25 @@ observer_ptr<dbsendmsg_list> dbconn::GetMessageBatchQueue() {
 		AddPendingEvent(evt);
 	}
 	return make_observer(batchqueue);
+}
+
+void dbconn::SendBatchedTweetFlagUpdate(uint64_t id, uint64_t setmask, uint64_t unsetmask) {
+	observer_ptr<dbsendmsg_list> batch = GetMessageBatchQueue();
+
+	if(!batch->msglist.empty() && batch->msglist.back()->type == DBSM::UPDATETWEETSETFLAGS_MULTI) {
+		// the last item in the batch is a UPDATETWEETSETFLAGS_MULTI
+		// try to use that instead of allocating a new one
+
+		dbupdatetweetsetflagsmsg_multi *msg = static_cast<dbupdatetweetsetflagsmsg_multi *>(batch->msglist.back().get());
+		if(msg->flag_actions.capacity() < 65536 || msg->flag_actions.size() < msg->flag_actions.capacity()) {
+			// not too full, this can be appended to
+			msg->flag_actions.push_back({ id, setmask, unsetmask });
+			return;
+		}
+	}
+	std::unique_ptr<dbupdatetweetsetflagsmsg_multi> msg(new dbupdatetweetsetflagsmsg_multi());
+	msg->flag_actions.push_back({ id, setmask, unsetmask });
+	SendMessageBatched(std::move(msg));
 }
 
 void dbconn::OnSendBatchEvt(wxCommandEvent &event) {
@@ -2747,6 +2783,10 @@ void DBC_SendMessageBatched(std::unique_ptr<dbsendmsg> msg) {
 
 observer_ptr<dbsendmsg_list> DBC_GetMessageBatchQueue() {
 	return dbc.GetMessageBatchQueue();
+}
+
+void DBC_SendBatchedTweetFlagUpdate(uint64_t id, uint64_t setmask, uint64_t unsetmask) {
+	dbc.SendBatchedTweetFlagUpdate(id, setmask, unsetmask);
 }
 
 void DBC_SendAccDBUpdate(std::unique_ptr<dbinsertaccmsg> insmsg) {

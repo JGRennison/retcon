@@ -55,7 +55,8 @@ enum class DBSM {
 	INSERTMEDIA,
 	UPDATEMEDIAMSG,
 	DELACC,
-	UPDATETWEETSETFLAGS,
+	UPDATETWEETSETFLAGS_GROUP,
+	UPDATETWEETSETFLAGS_MULTI,
 	FUNCTION,
 	SELUSER,
 	NOTIFYUSERSPURGED,
@@ -273,12 +274,25 @@ struct dbupdatemediamsg : public dbsendmsg {
 	DBUMMT update_type;
 };
 
-struct dbupdatetweetsetflagsmsg : public dbsendmsg {
-	dbupdatetweetsetflagsmsg(tweetidset &&ids_, uint64_t setmask_, uint64_t unsetmask_) : dbsendmsg(DBSM::UPDATETWEETSETFLAGS), ids(ids_), setmask(setmask_), unsetmask(unsetmask_) { }
+struct dbupdatetweetsetflagsmsg_group : public dbsendmsg {
+	dbupdatetweetsetflagsmsg_group(tweetidset &&ids_, uint64_t setmask_, uint64_t unsetmask_)
+			: dbsendmsg(DBSM::UPDATETWEETSETFLAGS_GROUP), ids(ids_), setmask(setmask_), unsetmask(unsetmask_) { }
 
 	tweetidset ids;
 	uint64_t setmask;
 	uint64_t unsetmask;
+};
+
+struct dbupdatetweetsetflagsmsg_multi : public dbsendmsg {
+	dbupdatetweetsetflagsmsg_multi()
+			: dbsendmsg(DBSM::UPDATETWEETSETFLAGS_MULTI) { }
+
+	struct flag_action {
+		uint64_t id;
+		uint64_t setmask;
+		uint64_t unsetmask;
+	};
+	std::vector<flag_action> flag_actions;
 };
 
 struct dbnotifyuserspurgedmsg : public dbsendmsg {
@@ -301,6 +315,7 @@ void DBC_SendMessage(std::unique_ptr<dbsendmsg> msg);
 void DBC_SendMessageOrAddToList(std::unique_ptr<dbsendmsg> msg, optional_observer_ptr<dbsendmsg_list> msglist);
 void DBC_SendMessageBatched(std::unique_ptr<dbsendmsg> msg);
 observer_ptr<dbsendmsg_list> DBC_GetMessageBatchQueue();
+void DBC_SendBatchedTweetFlagUpdate(uint64_t id, uint64_t setmask, uint64_t unsetmask);
 void DBC_SendAccDBUpdate(std::unique_ptr<dbinsertaccmsg> insmsg);
 void DBC_InsertMedia(media_entity &me, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
 void DBC_UpdateMedia(media_entity &me, DBUMMT update_type, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);

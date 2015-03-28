@@ -856,12 +856,9 @@ void MarkTweetIDSetCIDS(const tweetidset &ids, tpanel *exclude, tweetidset cache
 }
 
 void SendTweetFlagUpdate(const tweet &tw, unsigned long long mask) {
-	tweetidset ids;
-	ids.insert(tw.id);
 	unsigned long long setmask = mask & tw.flags.ToULLong();
 	unsigned long long unsetmask = mask & (~tw.flags.ToULLong());
-	std::unique_ptr<dbupdatetweetsetflagsmsg>msg(new dbupdatetweetsetflagsmsg(std::move(ids), setmask, unsetmask));
-	DBC_SendMessageBatched(std::move(msg));
+	DBC_SendBatchedTweetFlagUpdate(tw.id, setmask, unsetmask);
 }
 
 namespace pending_detail {
@@ -1215,10 +1212,7 @@ void tweet::ChangeFlagsById(uint64_t id, unsigned long long setflags, unsigned l
 		t->CheckFlagsUpdated(cfuflags);
 	}
 	else if(cfuflags & CFUF::SEND_DB_UPDATE_ALWAYS || cfuflags & CFUF::SEND_DB_UPDATE) {
-		tweetidset ids;
-		ids.insert(id);
-		std::unique_ptr<dbupdatetweetsetflagsmsg>msg(new dbupdatetweetsetflagsmsg(std::move(ids), setflags, unsetflags));
-		DBC_SendMessageBatched(std::move(msg));
+		DBC_SendBatchedTweetFlagUpdate(id, setflags, unsetflags);
 		HandleFlagChange(id, setflags | unsetflags, setflags);
 	}
 }

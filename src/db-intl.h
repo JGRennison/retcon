@@ -185,6 +185,8 @@ struct dbconn : public wxEvtHandler {
 	void SendMessageBatched(std::unique_ptr<dbsendmsg> msg);
 	observer_ptr<dbsendmsg_list> GetMessageBatchQueue();
 
+	void SendBatchedTweetFlagUpdate(uint64_t id, uint64_t setmask, uint64_t unsetmask);
+
 	void SendAccDBUpdate(std::unique_ptr<dbinsertaccmsg> insmsg);
 
 	void AccountSync(sqlite3 *adb);

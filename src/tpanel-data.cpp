@@ -518,7 +518,7 @@ void tpanel::MarkCIDSSetGenericUndoable(tweetidset cached_id_sets::* idsetptr, t
 		)));
 	}
 
-	std::unique_ptr<dbupdatetweetsetflagsmsg> msg(new dbupdatetweetsetflagsmsg(std::move(cached_ids), add_flags.ToULLong(), remove_flags.ToULLong()));
+	std::unique_ptr<dbupdatetweetsetflagsmsg_group> msg(new dbupdatetweetsetflagsmsg_group(std::move(cached_ids), add_flags.ToULLong(), remove_flags.ToULLong()));
 	DBC_SendMessage(std::move(msg));
 
 	#if TPANEL_COPIOUS_LOGGING
