@@ -23,9 +23,11 @@
 #include "media_id_type.h"
 #include "tpanel-common.h"
 #include "ptr_types.h"
+#include "primaryclipboard.h"
 #include <wx/colour.h>
 #include <wx/string.h>
 #include <wx/menu.h>
+#include <wx/richtext/richtextctrl.h>
 #include <memory>
 #include <map>
 
@@ -131,6 +133,17 @@ wxColour ColourOp(const wxColour &in, const wxColour &delta, COLOUR_OP co);
 wxColour ColourOp(const wxColour &in, const wxString &co_str);
 wxColour NormaliseColour(double br, double bg, double bb);
 
-void DestroyMenuContents(wxMenu *menu) ;
+void DestroyMenuContents(wxMenu *menu);
+
+struct commonRichTextCtrl : public wxRichTextCtrl {
+	commonRichTextCtrl(wxWindow *parent_, wxWindowID id = wxID_ANY, const wxString &text = wxEmptyString, long style = wxRE_MULTILINE);
+
+#if HANDLE_PRIMARY_CLIPBOARD
+	void OnLeftUp(wxMouseEvent& event);
+	void OnMiddleClick(wxMouseEvent& event);
+#endif
+
+	DECLARE_EVENT_TABLE()
+};
 
 #endif

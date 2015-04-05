@@ -21,7 +21,6 @@
 
 #include "univdefs.h"
 #include "uiutil.h"
-#include "primaryclipboard.h"
 #include <wx/menu.h>
 #include <wx/event.h>
 #include <wx/aui/aui.h>
@@ -96,7 +95,7 @@ public:
 	DECLARE_EVENT_TABLE()
 };
 
-struct tweetposttextbox : public wxRichTextCtrl {
+struct tweetposttextbox : public commonRichTextCtrl {
 	tweetpostwin *parent = nullptr;
 	int lastheight = 0;
 
@@ -107,13 +106,8 @@ struct tweetposttextbox : public wxRichTextCtrl {
 	void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 			int noUnitsX, int noUnitsY,
 			int xPos = 0, int yPos = 0,
-			bool noRefresh = false);    //virtual override
+			bool noRefresh = false) override;
 	void SetCursorToEnd();
-
-#if HANDLE_PRIMARY_CLIPBOARD
-	void OnLeftUp(wxMouseEvent& event);
-	void OnMiddleClick(wxMouseEvent& event);
-#endif
 
 	DECLARE_EVENT_TABLE()
 };

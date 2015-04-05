@@ -322,17 +322,12 @@ mainframe *GetMainframeAncestor(wxWindow *in, bool passtoplevels) {
 DECLARE_EVENT_TYPE(wxextTPRESIZE_UPDATE_EVENT, -1)
 DEFINE_EVENT_TYPE(wxextTPRESIZE_UPDATE_EVENT)
 
-BEGIN_EVENT_TABLE(tweetposttextbox, wxRichTextCtrl)
+BEGIN_EVENT_TABLE(tweetposttextbox, commonRichTextCtrl)
 	EVT_TEXT(wxID_ANY, tweetposttextbox::OnTCUpdate)
-#if HANDLE_PRIMARY_CLIPBOARD
-	EVT_LEFT_UP(tweetposttextbox::OnLeftUp)
-	EVT_MIDDLE_DOWN(tweetposttextbox::OnMiddleClick)
-#endif
 END_EVENT_TABLE()
 
 tweetposttextbox::tweetposttextbox(tweetpostwin *parent_, const wxString &deftext, wxWindowID id)
-	: wxRichTextCtrl(parent_, id, deftext, wxPoint(-1000, -1000), wxDefaultSize, wxRE_MULTILINE | wxWANTS_CHARS), parent(parent_), lastheight(0) {
-}
+	: commonRichTextCtrl(parent_, id, deftext, wxRE_MULTILINE | wxWANTS_CHARS), parent(parent_), lastheight(0) { }
 
 tweetposttextbox::~tweetposttextbox() {
 	if(parent) {
@@ -369,26 +364,6 @@ void tweetposttextbox::SetCursorToEnd() {
 	SetFocus();
 	if(parent && parent->mparentwin) parent->mparentwin->Raise();
 }
-
-#if HANDLE_PRIMARY_CLIPBOARD
-// This is effectively a backport of http://trac.wxwidgets.org/changeset/70011
-
-void tweetposttextbox::OnLeftUp(wxMouseEvent& event) {
-	wxTheClipboard->UsePrimarySelection(true);
-	Copy();
-	wxTheClipboard->UsePrimarySelection(false);
-
-	// Propagate
-	event.Skip(true);
-}
-
-void tweetposttextbox::OnMiddleClick(wxMouseEvent& event) {
-	wxTheClipboard->UsePrimarySelection(true);
-	Paste();
-	wxTheClipboard->UsePrimarySelection(false);
-}
-
-#endif
 
 BEGIN_EVENT_TABLE(tweetpostwin, wxPanel)
 	EVT_BUTTON(TPWIN_SENDBTN, tweetpostwin::OnSendBtn)

@@ -47,18 +47,14 @@
 
 DEFINE_EVENT_TYPE(wxextGDB_Popup_Evt)
 
-BEGIN_EVENT_TABLE(generic_disp_base, wxRichTextCtrl)
+BEGIN_EVENT_TABLE(generic_disp_base, commonRichTextCtrl)
 	EVT_MOUSEWHEEL(generic_disp_base::mousewheelhandler)
 	EVT_TEXT_URL(wxID_ANY, generic_disp_base::urleventhandler)
 	EVT_COMMAND(wxID_ANY, wxextGDB_Popup_Evt, generic_disp_base::popupmenuhandler)
-#if HANDLE_PRIMARY_CLIPBOARD
-	EVT_LEFT_UP(generic_disp_base::OnLeftUp)
-#endif
 END_EVENT_TABLE()
 
 generic_disp_base::generic_disp_base(wxWindow *parent, panelparentwin_base *tppw_, long extraflags, wxString thisname_)
-		: wxRichTextCtrl(parent, wxID_ANY, wxEmptyString, wxPoint(-1000, -1000), wxDefaultSize,
-		                 wxRE_READONLY | wxRE_MULTILINE | wxBORDER_NONE | wxCLIP_CHILDREN | extraflags),
+		: commonRichTextCtrl(parent, wxID_ANY, wxEmptyString, wxRE_READONLY | wxRE_MULTILINE | wxBORDER_NONE | wxCLIP_CHILDREN | extraflags),
 			tppw(tppw_), thisname(thisname_) {
 	default_background_colour = GetBackgroundColour();
 	default_foreground_colour = GetForegroundColour();
@@ -127,20 +123,6 @@ void generic_disp_base::DoAction(std::function<void()> &&f) {
 		f();
 	}
 }
-
-#if HANDLE_PRIMARY_CLIPBOARD
-// This is effectively a backport of http://trac.wxwidgets.org/changeset/70011
-
-void generic_disp_base::OnLeftUp(wxMouseEvent& event) {
-	wxTheClipboard->UsePrimarySelection(true);
-	Copy();
-	wxTheClipboard->UsePrimarySelection(false);
-
-	// Propagate
-	event.Skip(true);
-}
-
-#endif
 
 BEGIN_EVENT_TABLE(dispscr_mouseoverwin, generic_disp_base)
 	EVT_ENTER_WINDOW(dispscr_mouseoverwin::mouseenterhandler)

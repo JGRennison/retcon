@@ -635,3 +635,39 @@ void DestroyMenuContents(wxMenu *menu) {
 		menu->Destroy(it);
 	}
 }
+
+BEGIN_EVENT_TABLE(commonRichTextCtrl, wxRichTextCtrl)
+#if HANDLE_PRIMARY_CLIPBOARD
+	EVT_LEFT_UP(commonRichTextCtrl::OnLeftUp)
+	EVT_MIDDLE_DOWN(commonRichTextCtrl::OnMiddleClick)
+#endif
+END_EVENT_TABLE()
+
+commonRichTextCtrl::commonRichTextCtrl(wxWindow *parent_, wxWindowID id, const wxString &text, long style)
+	: wxRichTextCtrl(parent_, id, text, wxPoint(-1000, -1000), wxDefaultSize, style) { }
+
+#if HANDLE_PRIMARY_CLIPBOARD
+// This is effectively a backport of http://trac.wxwidgets.org/changeset/70011
+
+void commonRichTextCtrl::OnLeftUp(wxMouseEvent& event) {
+	wxTheClipboard->UsePrimarySelection(true);
+	Copy();
+	wxTheClipboard->UsePrimarySelection(false);
+
+	// Propagate
+	event.Skip(true);
+}
+
+void commonRichTextCtrl::OnMiddleClick(wxMouseEvent& event) {
+	if(IsEditable()) {
+		wxTheClipboard->UsePrimarySelection(true);
+		Paste();
+		wxTheClipboard->UsePrimarySelection(false);
+	}
+	else {
+		// Propagate
+		event.Skip(true);
+	}
+}
+
+#endif
