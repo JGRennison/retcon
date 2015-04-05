@@ -18,6 +18,7 @@
 * Customisable display formatting  
 * Configurable network and storage/caching behaviour  
 * Connection failure resilience  
+* Emoji display support  
 * ...  
 
 ### URLs
@@ -61,6 +62,7 @@ The following libraries are bundled with the source:
 * [twitcurl](http://code.google.com/p/twitcurl/) (modified)  
 * [SimpleOpt](http://code.google.com/p/simpleopt/) (modified)  
 * [cpp-btree](https://code.google.com/p/cpp-btree/) (modified)  
+* [twemoji](https://github.com/twitter/twemoji/) (partial)  
 
 ### License:
 GPLv2

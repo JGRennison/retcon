@@ -553,6 +553,12 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	hboxfooter->Add(cancelbtn, 0, wxALL | wxALIGN_BOTTOM | wxALIGN_RIGHT, 2);
 	opts.emplace_front(option_item {advoptbox, veryadvoptchkbox, 0, DBCV::ADVOPTION});
 
+	auto emoji_mode_choice = new wxChoice(panel, wxID_ANY, wxDefaultPosition, wxDefaultSize, 0, nullptr, 0, GenericChoiceValidator(gc.gcfg.emoji_mode));
+	emoji_mode_choice->Append(wxT("Disabled"), (void *) nullptr);
+	emoji_mode_choice->Append(wxT("16x16 icons"), (void *) nullptr);
+	emoji_mode_choice->Append(wxT("36x36 icons"), (void *) nullptr);
+	AddSettingRow_Common(OPTWIN_DISPLAY, panel, fgs, wxT("Display emojis"), DBCV::ISGLOBALCFG, emoji_mode_choice, GenericChoiceDefaultChkBoxValidator(gc.gcfg.emoji_mode, gcglobdefaults.emoji_mode, emoji_mode_choice));
+
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Max no. of items to display in panel"), DBCV::ISGLOBALCFG, gc.gcfg.maxtweetsdisplayinpanel, gcglobdefaults.maxtweetsdisplayinpanel, wxFILTER_NUMERIC);
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs,  wxT("Display Native Re-Tweets"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.rtdisp, gcglobdefaults.rtdisp);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("No. of inline tweet replies"), DBCV::ISGLOBALCFG, gc.gcfg.inlinereplyloadcount, gcglobdefaults.inlinereplyloadcount, wxFILTER_NUMERIC);

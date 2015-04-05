@@ -45,6 +45,12 @@ enum class SRM {
 	ALL_REPLIES            = 3,
 };
 
+enum class EMOJI_MODE {
+	OFF                    = 0,
+	SIZE_16                = 1,
+	SIZE_36                = 2,
+};
+
 struct genoptconf {
 	genopt tokenk;
 	genopt tokens;
@@ -112,6 +118,7 @@ struct genoptconf {
 	CFGTEMPL_L(linescrollspeed) \
 	CFGTEMPL_BOOL(askuseraccsettingsonnewacc) \
 	CFGTEMPL_BOOL(tweetdebugactions) \
+	CFGTEMPL(emoji_mode) \
 
 struct genoptglobconf {
 #define CFGTEMPL(x) genopt x;
@@ -155,6 +162,7 @@ struct globconf : public globconf_base {
 	std::string proxyurl;
 	std::string noproxylist;
 	std::string netiface;
+	EMOJI_MODE emoji_mode;
 
 	void CFGReadIn(DBReadConfig &twfc);
 	void CFGParamConv();

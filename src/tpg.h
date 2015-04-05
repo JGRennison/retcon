@@ -20,6 +20,7 @@
 #define HGUARD_SRC_TPG
 
 #include "univdefs.h"
+#include "emoji/emoji.h"
 #include <wx/bitmap.h>
 #include <wx/image.h>
 #include <memory>
@@ -56,6 +57,8 @@ struct tpanelglobal {
 	wxBitmap multiunreadicon;
 	wxBitmap photoicon;
 	wxImage photoicon_img;
+
+	emoji_cache emoji;
 
 	static std::shared_ptr<tpanelglobal> Get();
 	static std::weak_ptr<tpanelglobal> tpg_glob;

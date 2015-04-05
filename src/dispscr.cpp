@@ -34,6 +34,7 @@
 #include "mainui.h"
 #include "retcon.h"
 #include "tpanel-data.h"
+#include "emoji/emoji.h"
 #if HANDLE_PRIMARY_CLIPBOARD
 #include <wx/clipbrd.h>
 #endif
@@ -362,12 +363,28 @@ void TweetReplaceStringSeq(std::function<void(const char *, size_t)> func, const
 
 //use -1 for end to run until end of string
 static void DoWriteSubstr(generic_disp_base &td, const std::string &str, int start, int end, int &track_byte, int &track_index, bool trim) {
-	wxString output;
+	std::string output;
 	TweetReplaceStringSeq([&](const char *s, size_t len) {
-		output += wxString::FromUTF8(s, len);
+		output.append(s, len);
 	}, str, start, end, track_byte, track_index);
-	if(trim) output.Trim();
-	if(output.Len()) td.WriteText(output);
+
+	if(trim)
+		rtrim(output);
+
+	auto tpg = tpanelglobal::Get();
+	if(!output.empty()) {
+		EmojiParseString(
+			output,
+			gc.emoji_mode,
+			tpg->emoji,
+			[&](std::string text) {
+				td.WriteText(wxstrstd(text));
+			},
+			[&](wxImage img) {
+				td.WriteImage(img);
+			}
+		);
+	}
 }
 
 std::string TweetReplaceAllStringSeqs(const std::string &str) {

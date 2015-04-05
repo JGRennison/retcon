@@ -88,6 +88,7 @@ genoptconf gcdefaults {
 #define CFGDEFAULT_linescrollspeed                          wxT("20")
 #define CFGDEFAULT_askuseraccsettingsonnewacc               wxT("0")
 #define CFGDEFAULT_tweetdebugactions                        wxT("0")
+#define CFGDEFAULT_emoji_mode                               wxT("1")
 
 genoptglobconf gcglobdefaults {
 #define CFGTEMPL(x) { CFGDEFAULT_##x, 1},
@@ -235,6 +236,10 @@ void globconf::CFGParamConv() {
 	do_format_param(gcfg.dmdispformat, current_format_set.dmdispformat);
 	do_format_param(gcfg.rtdispformat, current_format_set.rtdispformat);
 	do_format_param(gcfg.userdispformat, current_format_set.userdispformat);
+
+	unsigned long emoji_mode_tmp;
+	gc.gcfg.emoji_mode.val.ToULong(&emoji_mode_tmp);
+	emoji_mode = static_cast<EMOJI_MODE>(emoji_mode_tmp);
 }
 
 void genoptconf::CFGWriteOutCurDir(DBWriteConfig &twfc) const {

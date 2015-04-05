@@ -20,7 +20,7 @@
 #a number of libs/includes will need to be placed/built in a corresponding location where gcc can find them.
 
 
-OBJS_SRC := $(patsubst src/%,%,$(filter-out src/version.cpp,$(wildcard src/*.cpp)) $(wildcard src/filter/*.cpp))
+OBJS_SRC := $(patsubst src/%,%,$(filter-out src/version.cpp,$(wildcard src/*.cpp)) $(wildcard src/filter/*.cpp) $(wildcard src/emoji/*.cpp))
 TCOBJS_SRC := $(patsubst src/%,%,$(wildcard src/libtwitcurl/*.cpp))
 COBJS_SRC := utf8proc/utf8proc.c
 OTHER_SRC := version.cpp
@@ -39,7 +39,7 @@ WXCFGFLAGS := --version=2.8
 GCC := g++
 LD := ld
 OBJDIR := objs
-DIRS = $(OBJDIR) $(OBJDIR)/libtwitcurl $(OBJDIR)/res $(OBJDIR)/deps/utf8proc $(OBJDIR)/filter $(OBJDIR)/pch
+DIRS = $(OBJDIR) $(OBJDIR)/libtwitcurl $(OBJDIR)/res $(OBJDIR)/res/twemoji/16x16 $(OBJDIR)/res/twemoji/36x36 $(OBJDIR)/deps/utf8proc $(OBJDIR)/filter $(OBJDIR)/emoji $(OBJDIR)/pch
 
 EXECPREFIX := ./
 MKDIR := mkdir -p
@@ -193,7 +193,7 @@ endif
 OBJS := $(patsubst src/%.cpp,$(OBJDIR)/%.o,$(addprefix src/,$(OBJS_SRC)))
 TCOBJS := $(patsubst src/%.cpp,$(OBJDIR)/%.o,$(addprefix src/,$(TCOBJS_SRC)))
 COBJS := $(patsubst deps/%.c,$(OBJDIR)/deps/%.o,$(addprefix deps/,$(COBJS_SRC)))
-ROBJS := $(patsubst src/res/%.png,$(OBJDIR)/res/%.o,$(wildcard src/res/*.png))
+ROBJS := $(patsubst src/res/%.png,$(OBJDIR)/res/%.o,$(wildcard src/res/*.png) $(wildcard src/res/twemoji/16x16/*.png) $(wildcard src/res/twemoji/36x36/*.png))
 RTROBJS := $(patsubst %,$(OBJDIR)/rtres/%.o,$(RTROBJS_SRC))
 EXOBJS := $(patsubst %.c,$(OBJDIR)/deps/%.o,$(EXCOBJS_SRC))
 
