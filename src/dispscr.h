@@ -229,6 +229,6 @@ struct userdispscr : public dispscr_base {
 
 void AppendUserMenuItems(wxMenu &menu, tweetactmenudata &map, int &nextid, udc_ptr user, tweet_ptr tw);
 void TweetReplaceStringSeq(std::function<void(const char *, size_t)> func, const std::string &str, int start, int end, int &track_byte, int &track_index);
-std::string TweetReplaceAllStringSeqs(const std::string &str);
+void WriteToRichTextCtrlWithEmojis(wxRichTextCtrl &td, const std::string &str);
 
 #endif

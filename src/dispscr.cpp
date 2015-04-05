@@ -344,7 +344,7 @@ void TweetReplaceStringSeq(std::function<void(const char *, size_t)> func, const
 }
 
 //use -1 for end to run until end of string
-static void DoWriteSubstr(generic_disp_base &td, const std::string &str, int start, int end, int &track_byte, int &track_index, bool trim) {
+static void DoWriteSubstr(wxRichTextCtrl &td, const std::string &str, int start, int end, int &track_byte, int &track_index, bool trim) {
 	std::string output;
 	TweetReplaceStringSeq([&](const char *s, size_t len) {
 		output.append(s, len);
@@ -369,14 +369,10 @@ static void DoWriteSubstr(generic_disp_base &td, const std::string &str, int sta
 	}
 }
 
-std::string TweetReplaceAllStringSeqs(const std::string &str) {
-	std::string output;
+void WriteToRichTextCtrlWithEmojis(wxRichTextCtrl &td, const std::string &str) {
 	int track_byte = 0;
 	int track_index = 0;
-	TweetReplaceStringSeq([&](const char *s, size_t len) {
-		output += std::string(s, len);
-	}, str, 0, str.size(), track_byte, track_index);
-	return output;
+	DoWriteSubstr(td, str, 0, str.size(), track_byte, track_index, true);
 }
 
 inline void GenFlush(generic_disp_base *obj, wxString &str) {

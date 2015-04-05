@@ -40,6 +40,7 @@
 #include <wx/filedlg.h>
 #include <wx/stdpaths.h>
 #include <wx/filename.h>
+#include <wx/wupdlock.h>
 #if HANDLE_PRIMARY_CLIPBOARD
 #include <wx/clipbrd.h>
 #endif
@@ -322,18 +323,37 @@ mainframe *GetMainframeAncestor(wxWindow *in, bool passtoplevels) {
 DECLARE_EVENT_TYPE(wxextTPRESIZE_UPDATE_EVENT, -1)
 DEFINE_EVENT_TYPE(wxextTPRESIZE_UPDATE_EVENT)
 
-BEGIN_EVENT_TABLE(tweetposttextbox, commonRichTextCtrl)
+tweetpostctrlcommon::tweetpostctrlcommon(tweetpostwin *parent_, wxWindowID id, const wxString &text, long style)
+		: commonRichTextCtrl(parent_, id, text, style), parent(parent_) { }
+
+void tweetpostctrlcommon::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
+		int noUnitsX, int noUnitsY,
+		int xPos, int yPos,
+		bool noRefresh) {
+	wxRichTextCtrl::SetScrollbars(0, 0, 0, 0, 0, 0, noRefresh);
+	int newheight = (pixelsPerUnitY * noUnitsY) + 4;
+	int curheight;
+	int curwidth;
+	GetSize(&curwidth, &curheight);
+
+	if(parent && curheight != newheight && lastheight != newheight) {
+		parent->vbox->SetItemMinSize(this, 10, newheight);
+		lastheight = newheight;
+		if(!parent->resize_update_pending) {
+			parent->resize_update_pending = true;
+			parent->Freeze();
+			wxCommandEvent event(wxextTPRESIZE_UPDATE_EVENT, GetId());
+			parent->GetEventHandler()->AddPendingEvent(event);
+		}
+	}
+}
+
+BEGIN_EVENT_TABLE(tweetposttextbox, tweetpostctrlcommon)
 	EVT_TEXT(wxID_ANY, tweetposttextbox::OnTCUpdate)
 END_EVENT_TABLE()
 
-tweetposttextbox::tweetposttextbox(tweetpostwin *parent_, const wxString &deftext, wxWindowID id)
-	: commonRichTextCtrl(parent_, id, deftext, wxRE_MULTILINE | wxWANTS_CHARS), parent(parent_), lastheight(0) { }
-
-tweetposttextbox::~tweetposttextbox() {
-	if(parent) {
-		parent->textctrl = nullptr;
-	}
-}
+tweetposttextbox::tweetposttextbox(tweetpostwin *parent_, wxWindowID id, const wxString &text)
+	: tweetpostctrlcommon(parent_, id, text, wxRE_MULTILINE | wxWANTS_CHARS) { }
 
 void tweetposttextbox::OnTCChar(wxRichTextEvent &event) { }
 
@@ -341,28 +361,18 @@ void tweetposttextbox::OnTCUpdate(wxCommandEvent &event) {
 	if(parent) parent->OnTCChange();
 }
 
-void tweetposttextbox::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
-		int noUnitsX, int noUnitsY,
-		int xPos, int yPos,
-		bool noRefresh ) {
-	wxRichTextCtrl::SetScrollbars(0, 0, 0, 0, 0, 0, noRefresh);
-	int newheight = (pixelsPerUnitY * noUnitsY) + 4;
-	int curheight;
-	GetSize(0, &curheight);
-	if(parent && !parent->resize_update_pending && lastheight!=newheight && curheight!=newheight) {
-		parent->vbox->SetItemMinSize(this, 10, newheight);
-		parent->resize_update_pending = true;
-		lastheight = newheight;
-		wxCommandEvent event(wxextTPRESIZE_UPDATE_EVENT, GetId());
-		parent->GetEventHandler()->AddPendingEvent(event);
-	}
-}
-
 void tweetposttextbox::SetCursorToEnd() {
-	SetCaretPosition(GetLastPosition());
+	MoveCaret(GetLastPosition());
 	SetInsertionPoint(GetLastPosition());
 	SetFocus();
 	if(parent && parent->mparentwin) parent->mparentwin->Raise();
+}
+
+tweetreplydescbox::tweetreplydescbox(tweetpostwin *parent_, wxWindowID id, const wxString &text)
+		: tweetpostctrlcommon(parent_, id, text, wxRE_MULTILINE | wxRE_READONLY | wxBORDER_NONE) {
+	GetCaret()->Hide();
+	SetBackgroundColour(parent->GetBackgroundColour());
+	BeginSuppressUndo();
 }
 
 BEGIN_EVENT_TABLE(tweetpostwin, wxPanel)
@@ -388,7 +398,7 @@ tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *p
 	tpg = tpanelglobal::Get();
 	vbox = new wxBoxSizer(wxVERTICAL);
 	infost = new wxStaticText(this, wxID_ANY, wxT("0/140"), wxPoint(-1000, -1000), wxDefaultSize);
-	replydesc = new wxStaticText(this, wxID_ANY, wxT(""), wxPoint(-1000, -1000), wxDefaultSize, wxST_NO_AUTORESIZE);
+	replydesc = new tweetreplydescbox(this, wxID_ANY, wxT(""));
 	replydeslockbtn = new wxBitmapButton(this, TPWID_TOGGLEREPDESCLOCK, GetReplyDescLockBtnBitmap(), wxPoint(-1000, -1000));
 	replydesclosebtn = new wxBitmapButton(this, TPWID_CLOSEREPDESC, tpg->closeicon, wxPoint(-1000, -1000));
 	addnamesbtn = new wxButton(this, TPWID_ADDNAMES, wxT("Add names \x2193"), wxPoint(-1000, -1000), wxDefaultSize, wxBU_EXACTFIT);
@@ -398,7 +408,7 @@ tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *p
 	replydescbox->Add(addnamesbtn, 0, wxLEFT | wxRIGHT | wxALIGN_CENTRE, 1);
 	replydescbox->Add(replydeslockbtn, 0, wxALL | wxALIGN_CENTRE, 1);
 	replydescbox->Add(replydesclosebtn, 0, wxALL | wxALIGN_CENTRE, 1);
-	textctrl = new tweetposttextbox(this, wxT(""), TPWID_TEXTCTRL);
+	textctrl = new tweetposttextbox(this, TPWID_TEXTCTRL, wxT(""));
 	cleartextbtn = new wxBitmapButton(this, TPWID_CLEARTEXT, tpg->closeicon, wxPoint(-1000, -1000));
 	cleartextbtn->Show(false);
 	wxBoxSizer *tweetpostbox = new wxBoxSizer(wxHORIZONTAL);
@@ -448,9 +458,6 @@ tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *p
 tweetpostwin::~tweetpostwin() {
 	if(mparentwin) {
 		mparentwin->tpw = nullptr;
-	}
-	if(textctrl) {
-		textctrl->parent = nullptr;
 	}
 }
 
@@ -574,6 +581,7 @@ void tweetpostwin::CheckEnableSendBtn() {
 void tweetpostwin::resizemsghandler(wxCommandEvent &event) {
 	DoShowHide(isshown);
 	resize_update_pending = false;
+	Thaw();
 }
 
 void tweetpostwin::NotifyPostResult(bool success) {
@@ -592,15 +600,20 @@ void tweetpostwin::NotifyPostResult(bool success) {
 
 void tweetpostwin::UpdateReplyDesc() {
 	iumc.reset();
+	wxWindowUpdateLocker thislock(this);
+	wxWindowUpdateLocker desclock(replydesc);
+	wxWindowUpdateLocker postlock(textctrl);
 	if(tweet_reply_targ) {
-		replydesc->SetLabel(wxT("Reply to: @") + wxstrstd(tweet_reply_targ->user->GetUser().screen_name) + wxT(": ") + wxstrstd(TweetReplaceAllStringSeqs(tweet_reply_targ->text)));
+		replydesc->SetValue(wxT("Reply to: @") + wxstrstd(tweet_reply_targ->user->GetUser().screen_name) + wxT(": "));
+		replydesc->SetInsertionPointEnd();
+		WriteToRichTextCtrlWithEmojis(*replydesc, tweet_reply_targ->text);
 		replydesc->Show(true);
 		replydesclosebtn->Show(true);
 		replydeslockbtn->Show(true);
 		sendbtn->SetLabel(wxT("Reply"));
 	}
 	else if(dm_targ) {
-		replydesc->SetLabel(wxT("Direct Message: @") + wxstrstd(dm_targ->GetUser().screen_name));
+		replydesc->SetValue(wxT("Direct Message: @") + wxstrstd(dm_targ->GetUser().screen_name));
 		replydesc->Show(true);
 		replydesclosebtn->Show(true);
 		replydeslockbtn->Show(true);
@@ -726,6 +739,8 @@ void tweetpostwin::CheckAddNamesBtn() {
 
 void tweetpostwin::OnAddNamesBtn(wxCommandEvent &event) {
 	if(tweet_reply_targ) {
+		wxWindowUpdateLocker thislock(this);
+		wxWindowUpdateLocker postlock(textctrl);
 		textctrl->SetInsertionPoint(0);
 		bool changed = false;
 		IterateUserNames(tweet_reply_targ, [&](udc_ptr u) {
@@ -737,6 +752,9 @@ void tweetpostwin::OnAddNamesBtn(wxCommandEvent &event) {
 }
 
 void tweetpostwin::SetReplyTarget(tweet_ptr_p targ) {
+	wxWindowUpdateLocker thislock(this);
+	wxWindowUpdateLocker desclock(replydesc);
+	wxWindowUpdateLocker postlock(textctrl);
 	if(tweet_reply_targ != targ) replydesc_locked = false;
 	textctrl->SetInsertionPoint(0);
 	bool changed = false;
@@ -762,10 +780,11 @@ void tweetpostwin::SetReplyTarget(tweet_ptr_p targ) {
 			accc->TrySetSel(best);
 		}
 	}
-	if(changed) OnTCChange();
 	tweet_reply_targ = targ;
 	dm_targ.reset();
 	UpdateReplyDesc();
+	if(changed)
+		OnTCChange();
 	textctrl->SetCursorToEnd();
 }
 

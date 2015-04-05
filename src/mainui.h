@@ -21,6 +21,7 @@
 
 #include "univdefs.h"
 #include "uiutil.h"
+#include "magic_ptr.h"
 #include <wx/menu.h>
 #include <wx/event.h>
 #include <wx/aui/aui.h>
@@ -95,21 +96,28 @@ public:
 	DECLARE_EVENT_TABLE()
 };
 
-struct tweetposttextbox : public commonRichTextCtrl {
-	tweetpostwin *parent = nullptr;
+struct tweetpostctrlcommon : public commonRichTextCtrl {
+	magic_ptr_ts<tweetpostwin> parent;
 	int lastheight = 0;
 
-	tweetposttextbox(tweetpostwin *parent_, const wxString &deftext, wxWindowID id);
-	~tweetposttextbox();
-	void OnTCChar(wxRichTextEvent &event);
-	void OnTCUpdate(wxCommandEvent &event);
+	tweetpostctrlcommon(tweetpostwin *parent_, wxWindowID id = wxID_ANY, const wxString &text = wxEmptyString, long style = wxRE_MULTILINE);
 	void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 			int noUnitsX, int noUnitsY,
 			int xPos = 0, int yPos = 0,
 			bool noRefresh = false) override;
+};
+
+struct tweetposttextbox : public tweetpostctrlcommon {
+	tweetposttextbox(tweetpostwin *parent_, wxWindowID id = wxID_ANY, const wxString &text = wxEmptyString);
+	void OnTCChar(wxRichTextEvent &event);
+	void OnTCUpdate(wxCommandEvent &event);
 	void SetCursorToEnd();
 
 	DECLARE_EVENT_TABLE()
+};
+
+struct tweetreplydescbox : public tweetpostctrlcommon {
+	tweetreplydescbox(tweetpostwin *parent_, wxWindowID id = wxID_ANY, const wxString &text = wxEmptyString);
 };
 
 enum {
@@ -123,7 +131,7 @@ enum {
 	TPWID_DELIMG,
 };
 
-struct tweetpostwin : public wxPanel {
+struct tweetpostwin : public wxPanel, public magic_ptr_base {
 	tweetposttextbox *textctrl = nullptr;
 	wxWindow *parentwin = nullptr;
 	mainframe *mparentwin = nullptr;
@@ -142,7 +150,7 @@ struct tweetpostwin : public wxPanel {
 	unsigned int current_length = 0;
 	bool length_oob = false;
 	wxColour infost_colout;
-	wxStaticText *replydesc = nullptr;
+	tweetreplydescbox *replydesc = nullptr;
 	wxBitmapButton *replydesclosebtn = nullptr;
 	wxBitmapButton *cleartextbtn = nullptr;
 	wxBitmapButton *replydeslockbtn = nullptr;
