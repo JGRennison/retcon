@@ -53,10 +53,11 @@ enum class LOGT : unsigned int {
 	NOTIFYEVT          = 1<<22,
 	TPANELTRACE        = 1<<23,
 	TPANELINFO         = 1<<24,
+	GLIB               = 1<<25,
 
 	GROUP_ALL          = CURLVERB | PARSE | PARSEERR | SOCKTRACE | SOCKERR | NETACT | DBTRACE | DBINFO | DBERR | ZLIBTRACE | ZLIBERR |
 	                     OTHERTRACE | OTHERERR | USERREQ | PENDTRACE | WXLOG | WXVERBOSE | FILTERERR | FILTERTRACE | THREADTRACE |
-	                     FILEIOTRACE | FILEIOERR | NOTIFYEVT | TPANELTRACE | TPANELINFO,
+	                     FILEIOTRACE | FILEIOERR | NOTIFYEVT | TPANELTRACE | TPANELINFO | GLIB,
 	GROUP_STR          = GROUP_ALL,
 	GROUP_ERR          = SOCKERR | DBERR | ZLIBERR | PARSEERR | OTHERERR | WXLOG | FILTERERR | FILEIOERR,
 	GROUP_LOGWINDEF    = GROUP_ERR | USERREQ | NOTIFYEVT,
@@ -75,6 +76,11 @@ void ThreadSafeLogMsg(LOGT logflags, const std::string &str);
 
 #define TSLogMsgFormat(l, ...) if( currentlogflags & (l) ) ThreadSafeLogMsg(l, string_format(__VA_ARGS__))
 #define TSLogMsg(l, s) if( currentlogflags & (l) ) ThreadSafeLogMsg(l, s)
+
+void ThreadAlwaysLogMsg(LOGT logflags, const std::string &str);
+
+#define TALogMsgFormat(l, ...) if( currentlogflags & (l) ) ThreadAlwaysLogMsg(l, string_format(__VA_ARGS__))
+#define TALogMsg(l, s) if( currentlogflags & (l) ) ThreadAlwaysLogMsg(l, s)
 
 inline void SwitchableLogMsg(LOGT logflags, bool threadsafe, const std::string &str) {
 	if(threadsafe) ThreadSafeLogMsg(logflags, str);

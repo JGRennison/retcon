@@ -101,4 +101,9 @@ extern log_window *globallogwindow;
 void InitWxLogger();
 void DeInitWxLogger();
 
+#if defined(__WXGTK__)
+void InitGlibLogger();
+void DeInitGlibLogger();
+#endif
+
 #endif

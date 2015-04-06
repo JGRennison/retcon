@@ -46,6 +46,9 @@
 #include <wx/textctrl.h>
 #include <wx/event.h>
 #include <wx/thread.h>
+#if defined(__WXGTK__)
+#include <glib.h>
+#endif
 
 log_window *globallogwindow = nullptr;
 std::unique_ptr<Redirector_wxLog> globalwxlogredirector;
@@ -82,6 +85,7 @@ const std::string logflagsstrings[] = {
 	"notifyevt",
 	"tpaneltrace",
 	"tpanelinfo",
+	"glib",
 };
 
 void Update_currentlogflags() {
@@ -767,8 +771,72 @@ void ThreadSafeLogMsg(LOGT logflags, const std::string &str) {
 		return;
 	}
 
+	ThreadAlwaysLogMsg(logflags, str);
+}
+
+void ThreadAlwaysLogMsg(LOGT logflags, const std::string &str) {
 	wxCommandEvent evt(wxextLOGEVT, wxextLOGEVT_ID_THREADLOGMSG);
 	evt.SetString(wxstrstd(str));	//prevent any COW semantics
 	evt.SetExtraLong(flag_unwrap<LOGT>(logflags));
 	the_logevt_handler.AddPendingEvent(evt);
 }
+
+#if defined(__WXGTK__)
+
+const char *GetGlibLogLevelString(GLogLevelFlags log_level) {
+	switch (log_level & G_LOG_LEVEL_MASK) {
+		case G_LOG_LEVEL_ERROR:
+			return "ERROR";
+		case G_LOG_LEVEL_CRITICAL:
+			return "CRITICAL";
+		case G_LOG_LEVEL_WARNING:
+			return "WARNING";
+		case G_LOG_LEVEL_MESSAGE:
+			return "Message";
+		case G_LOG_LEVEL_INFO:
+			return "INFO";
+		case G_LOG_LEVEL_DEBUG:
+			return "DEBUG";
+		default:
+			return "UNKNOWN";
+	}
+}
+
+static void GlibLogHandler(const gchar *log_domain, GLogLevelFlags log_level, const gchar *message, gpointer user_data) {
+	if(!(currentlogflags & LOGT::GLIB))
+		return;
+
+	if(log_level & G_LOG_FLAG_RECURSION)
+		return;
+
+	const char *extra = "";
+
+	if(log_domain && strcmp(log_domain, "GLib-GObject") == 0 && message
+			&& strstr(message, "has no handler with id")
+			&& (log_level & G_LOG_LEVEL_MASK) == G_LOG_LEVEL_WARNING) {
+		// found gobject signal spam message, only show once
+		static bool found_gsignal_warning = false;
+		if(found_gsignal_warning)
+			return;
+
+		found_gsignal_warning = true;
+		extra = "\n\tIgnoring future warnings of this type.\n";
+	}
+
+	if(log_domain) {
+		TALogMsgFormat(LOGT::GLIB, "%s-%s: %s%s", log_domain, GetGlibLogLevelString(log_level), message, extra);
+	}
+	else {
+		TALogMsgFormat(LOGT::GLIB, "%s: %s%s", GetGlibLogLevelString(log_level), message, extra);
+	}
+}
+
+void InitGlibLogger() {
+	g_log_set_default_handler(GlibLogHandler, nullptr);
+}
+
+void DeInitGlibLogger() {
+	g_log_set_default_handler(g_log_default_handler, nullptr);
+}
+
+#endif

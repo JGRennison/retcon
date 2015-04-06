@@ -61,6 +61,12 @@ bool retcon::OnInit() {
 	SetAppName(appname);
 	InitWxLogger();
 	rs.add([&]() { DeInitWxLogger(); });
+
+#if defined(__WXGTK__)
+	InitGlibLogger();
+	rs.add([&]() { DeInitGlibLogger(); });
+#endif
+
 	::wxInitAllImageHandlers();
 	srand((unsigned int) time(nullptr));
 	datadir = stdstrwx(wxStandardPaths::Get().GetUserDataDir());
