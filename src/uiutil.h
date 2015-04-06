@@ -138,6 +138,8 @@ void DestroyMenuContents(wxMenu *menu);
 struct commonRichTextCtrl : public wxRichTextCtrl {
 	commonRichTextCtrl(wxWindow *parent_, wxWindowID id = wxID_ANY, const wxString &text = wxEmptyString, long style = wxRE_MULTILINE);
 
+	void WriteImageAltText(const wxImage& image, const wxString &altText);
+
 #if HANDLE_PRIMARY_CLIPBOARD
 	void OnLeftUp(wxMouseEvent& event);
 	void OnMiddleClick(wxMouseEvent& event);

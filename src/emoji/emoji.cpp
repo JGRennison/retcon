@@ -81,7 +81,7 @@ wxImage emoji_cache::GetEmojiImg(EMOJI_MODE mode, uint32_t first, uint32_t secon
 	return *img;
 }
 
-void EmojiParseString(const std::string &input, EMOJI_MODE mode, emoji_cache &cache, std::function<void(std::string)> string_out, std::function<void(wxImage)> img_out) {
+void EmojiParseString(const std::string &input, EMOJI_MODE mode, emoji_cache &cache, std::function<void(std::string)> string_out, std::function<void(wxImage, std::string)> img_out) {
 	static pcre *pattern = nullptr;
 	static pcre_extra *patextra = nullptr;
 
@@ -138,10 +138,11 @@ void EmojiParseString(const std::string &input, EMOJI_MODE mode, emoji_cache &ca
 			img = cache.GetEmojiImg(mode, first, second);
 		}
 
+		std::string out_text(input.data() + ovector[0], input.data() + ovector[1]);
 		if(img.IsOk())
-			img_out(std::move(img));
+			img_out(std::move(img), std::move(out_text));
 		else
-			output_string(std::string(input.data() + ovector[0], input.data() + ovector[1]));
+			output_string(std::move(out_text));
 	}
 	output_string(std::string(input.data() + startoffset, input.data() + input.size()));
 }

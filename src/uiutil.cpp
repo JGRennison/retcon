@@ -636,6 +636,24 @@ void DestroyMenuContents(wxMenu *menu) {
 	}
 }
 
+struct AltTextRichTextImage : public wxRichTextImage {
+	wxString altText;
+
+	AltTextRichTextImage(const wxRichTextImageBlock& imageBlock, wxRichTextObject* parent, wxTextAttrEx* charStyle, const wxString &altText_)
+			: wxRichTextImage(imageBlock, parent, charStyle), altText(altText_) { }
+
+	AltTextRichTextImage(const AltTextRichTextImage& obj)
+			: wxRichTextImage(obj), altText(obj.altText) { }
+
+	virtual wxRichTextObject* Clone() const override {
+		return new AltTextRichTextImage(*this);
+	}
+
+	virtual wxString GetTextForRange(const wxRichTextRange& range) const override {
+		return altText;
+	}
+};
+
 BEGIN_EVENT_TABLE(commonRichTextCtrl, wxRichTextCtrl)
 #if HANDLE_PRIMARY_CLIPBOARD
 	EVT_LEFT_UP(commonRichTextCtrl::OnLeftUp)
@@ -645,6 +663,34 @@ END_EVENT_TABLE()
 
 commonRichTextCtrl::commonRichTextCtrl(wxWindow *parent_, wxWindowID id, const wxString &text, long style)
 	: wxRichTextCtrl(parent_, id, text, wxPoint(-1000, -1000), wxDefaultSize, style) { }
+
+// This is based on wxRichTextBuffer::InsertImageWithUndo
+void commonRichTextCtrl::WriteImageAltText(const wxImage& image, const wxString &altText) {
+	long pos = GetCaretPosition() + 1;
+
+	wxRichTextAction* action = new wxRichTextAction(NULL, wxT("Insert Image"), wxRICHTEXT_INSERT, &(GetBuffer()), this, false);
+
+	wxRichTextImageBlock imageBlock;
+	wxImage image2 = image;
+	imageBlock.MakeImageBlock(image2, wxBITMAP_TYPE_PNG);
+
+	wxTextAttrEx attr(GetDefaultStyle());
+	wxRichTextParagraph* newPara = new wxRichTextParagraph(&(GetBuffer()), &attr);
+
+	wxRichTextImage* imageObject = new AltTextRichTextImage(imageBlock, newPara, nullptr, altText);
+	newPara->AppendChild(imageObject);
+	action->GetNewParagraphs().AppendChild(newPara);
+	action->GetNewParagraphs().UpdateRanges();
+
+	action->GetNewParagraphs().SetPartialParagraph(true);
+
+	action->SetPosition(pos);
+
+	// Set the range we'll need to delete in Undo
+	action->SetRange(wxRichTextRange(pos, pos));
+
+	GetBuffer().SubmitAction(action);
+}
 
 #if HANDLE_PRIMARY_CLIPBOARD
 // This is effectively a backport of http://trac.wxwidgets.org/changeset/70011

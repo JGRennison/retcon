@@ -36,6 +36,6 @@ class emoji_cache {
 	wxImage GetEmojiImg(EMOJI_MODE mode, uint32_t first, uint32_t second);
 };
 
-void EmojiParseString(const std::string &input, EMOJI_MODE mode, emoji_cache &cache, std::function<void(std::string)> string_out, std::function<void(wxImage)> img_out);
+void EmojiParseString(const std::string &input, EMOJI_MODE mode, emoji_cache &cache, std::function<void(std::string)> string_out, std::function<void(wxImage, std::string)> img_out);
 
 #endif
