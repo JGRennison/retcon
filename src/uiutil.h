@@ -24,6 +24,7 @@
 #include "tpanel-common.h"
 #include "ptr_types.h"
 #include "primaryclipboard.h"
+#include "magic_ptr.h"
 #include <wx/colour.h>
 #include <wx/string.h>
 #include <wx/menu.h>
@@ -146,6 +147,16 @@ struct commonRichTextCtrl : public wxRichTextCtrl {
 #endif
 
 	DECLARE_EVENT_TABLE()
+};
+
+struct settings_changed_notifier : public magic_ptr_contained<settings_changed_notifier> {
+	virtual void NotifySettingsChanged() = 0;
+
+	settings_changed_notifier();
+	static void NotifyAll();
+
+	private:
+	static magic_ptr_container<settings_changed_notifier> container;
 };
 
 #endif

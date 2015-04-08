@@ -717,3 +717,15 @@ void commonRichTextCtrl::OnMiddleClick(wxMouseEvent& event) {
 }
 
 #endif
+
+settings_changed_notifier::settings_changed_notifier() {
+	container.insert(this);
+}
+
+void settings_changed_notifier::NotifyAll() {
+	for(auto &it : container) {
+		it->NotifySettingsChanged();
+	}
+}
+
+magic_ptr_container<settings_changed_notifier> settings_changed_notifier::container;

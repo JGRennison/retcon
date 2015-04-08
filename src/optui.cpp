@@ -712,6 +712,7 @@ settings_window::~settings_window() {
 		it->SetupRestBackfillTimer();
 	}
 	AccountChangeTrigger();
+	settings_changed_notifier::NotifyAll();
 }
 
 void settings_window::ChoiceCtrlChange(wxCommandEvent &event) {
