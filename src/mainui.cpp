@@ -348,12 +348,18 @@ void tweetpostctrlcommon::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 	}
 }
 
+void tweetpostctrlcommon::NotifySettingsChanged() {
+	ReplaceAllEmoji();
+}
+
 BEGIN_EVENT_TABLE(tweetposttextbox, tweetpostctrlcommon)
 	EVT_TEXT(wxID_ANY, tweetposttextbox::OnTCUpdate)
 END_EVENT_TABLE()
 
 tweetposttextbox::tweetposttextbox(tweetpostwin *parent_, wxWindowID id, const wxString &text)
-	: tweetpostctrlcommon(parent_, id, text, wxRE_MULTILINE | wxWANTS_CHARS) { }
+		: tweetpostctrlcommon(parent_, id, text, wxRE_MULTILINE | wxWANTS_CHARS) {
+	EnableEmojiChecking(true);
+}
 
 void tweetposttextbox::OnTCChar(wxRichTextEvent &event) { }
 

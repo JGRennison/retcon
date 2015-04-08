@@ -137,9 +137,19 @@ wxColour NormaliseColour(double br, double bg, double bb);
 void DestroyMenuContents(wxMenu *menu);
 
 struct commonRichTextCtrl : public wxRichTextCtrl {
+	private:
+	bool emojiCheckingEnabled = false;
+
+	void EmojiCheckContentInsertionEventHandler(wxRichTextEvent &event);
+	void EmojiCheckCharEventHandler(wxRichTextEvent &event);
+	void EmojiCheckRange(long start, long end);
+
+	public:
 	commonRichTextCtrl(wxWindow *parent_, wxWindowID id = wxID_ANY, const wxString &text = wxEmptyString, long style = wxRE_MULTILINE);
 
 	void WriteImageAltText(const wxImage& image, const wxString &altText);
+	void EnableEmojiChecking(bool enabled);
+	void ReplaceAllEmoji();
 
 #if HANDLE_PRIMARY_CLIPBOARD
 	void OnLeftUp(wxMouseEvent& event);

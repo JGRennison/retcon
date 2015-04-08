@@ -32,6 +32,8 @@
 #include "util.h"
 #include "log.h"
 #include "retcon.h"
+#include "dispscr.h"
+#include "tpg.h"
 #include <wx/colour.h>
 #include <wx/clipbrd.h>
 #include <wx/dataobj.h>
@@ -690,6 +692,61 @@ void commonRichTextCtrl::WriteImageAltText(const wxImage& image, const wxString 
 	action->SetRange(wxRichTextRange(pos, pos));
 
 	GetBuffer().SubmitAction(action);
+}
+
+void commonRichTextCtrl::EnableEmojiChecking(bool enabled) {
+	if(!emojiCheckingEnabled && enabled) {
+		Connect(wxEVT_COMMAND_RICHTEXT_CONTENT_INSERTED, wxRichTextEventHandler(commonRichTextCtrl::EmojiCheckContentInsertionEventHandler));
+		Connect(wxEVT_COMMAND_RICHTEXT_CHARACTER, wxRichTextEventHandler(commonRichTextCtrl::EmojiCheckCharEventHandler));
+	}
+	if(emojiCheckingEnabled && !enabled) {
+		Disconnect(wxEVT_COMMAND_RICHTEXT_CONTENT_INSERTED, wxRichTextEventHandler(commonRichTextCtrl::EmojiCheckContentInsertionEventHandler));
+		Disconnect(wxEVT_COMMAND_RICHTEXT_CHARACTER, wxRichTextEventHandler(commonRichTextCtrl::EmojiCheckCharEventHandler));
+	}
+
+	emojiCheckingEnabled = enabled;
+}
+
+void commonRichTextCtrl::EmojiCheckContentInsertionEventHandler(wxRichTextEvent &event) {
+	wxRichTextRange range = event.GetRange();
+	EmojiCheckRange(range.GetStart(), range.GetEnd());
+}
+
+void commonRichTextCtrl::EmojiCheckCharEventHandler(wxRichTextEvent &event) {
+	EmojiCheckRange(event.GetPosition(), event.GetPosition() + 1);
+}
+
+void commonRichTextCtrl::EmojiCheckRange(long start, long end) {
+	if(gc.emoji_mode == EMOJI_MODE::OFF)
+		return;
+
+	bool needsUpdating = false;
+	auto tpg = tpanelglobal::Get();
+	EmojiParseString(
+		stdstrwx(GetRange(start, end)),
+		gc.emoji_mode,
+		tpg->emoji,
+		[&](std::string text) { },
+		[&](wxImage img, std::string altText) {
+			needsUpdating = true;
+		}
+	);
+	// At least one emoji added, for simplicitly just refresh the whole contents
+	// Set caret to end of inserted range
+	if(needsUpdating) {
+		MoveCaret(end - 1);
+		ReplaceAllEmoji();
+	}
+}
+
+void commonRichTextCtrl::ReplaceAllEmoji() {
+	Freeze();
+	long caret = GetCaretPosition();
+	std::string text = stdstrwx(GetValue());
+	Clear();
+	WriteToRichTextCtrlWithEmojis(*this, text);
+	MoveCaret(caret);
+	Thaw();
 }
 
 #if HANDLE_PRIMARY_CLIPBOARD

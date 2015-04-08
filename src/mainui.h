@@ -96,7 +96,7 @@ public:
 	DECLARE_EVENT_TABLE()
 };
 
-struct tweetpostctrlcommon : public commonRichTextCtrl {
+struct tweetpostctrlcommon : public commonRichTextCtrl, public settings_changed_notifier {
 	magic_ptr_ts<tweetpostwin> parent;
 	int lastheight = 0;
 
@@ -105,6 +105,7 @@ struct tweetpostctrlcommon : public commonRichTextCtrl {
 			int noUnitsX, int noUnitsY,
 			int xPos = 0, int yPos = 0,
 			bool noRefresh = false) override;
+	virtual void NotifySettingsChanged() override;
 };
 
 struct tweetposttextbox : public tweetpostctrlcommon {
