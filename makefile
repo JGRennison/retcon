@@ -263,9 +263,14 @@ $(ROBJS): $(OBJDIR)/%.o: src/%.png
 $(RTROBJS): $(OBJDIR)/rtres/%.o: %
 
 $(ROBJS) $(RTROBJS):
-	@echo '    Res     $<'
 	$(call EXEC,$(LINKRES))
 	$(call EXEC,$(OBJCOPYRES))
+
+$(TARGS): $(OBJDIR)/resdone
+RESCLEAN += $(OBJDIR)/resdone
+$(OBJDIR)/resdone: $(ROBJS) $(RTROBJS)
+	@echo '    Res     $(words $?) assets'
+	@touch '$@'
 
 $(EXOBJS): $(OBJDIR)/deps/%.o: %.c
 	@echo '    gcc     $<'
