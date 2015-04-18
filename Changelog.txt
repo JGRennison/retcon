@@ -1,3 +1,23 @@
+retcon 0.1.1
+------------------------------------------------------
+
+Add support for playing and saving videos (on Unix/GTK builds this will require libwxgtk-media2.8-dev and gstreamer0.10-ffmpeg).
+Add support for displaying emojis in tweets and the tweet post box.
+Add undo functionality for bulk highlight/unread state changes, tweet panel deletion and bulk filters.
+Add a limit option to the bulk filter dialog.
+Fix tweet panel display offset recalculation in edge case involving bulk pushing tweets.
+Fix connection retries for DM media downloads not setting the oAuth headers.
+Fix bug in enumerating pending new tweet operations to be saved to DB.
+Fix user location field not being saved in DB.
+Fix non-thread-safe debug logging in the DB thread.
+Fix non-thread-safe environment variable changes of TZ variable for UTC date/time handling.
+Fix actions such a "Unhighlight All" on an "All Highlighted" panel not removing the tweets from the panel, even though they are no longer highlighted.
+Fix `if retweet.flags` filter test which was being interpreted as `if tweet.flags`.
+Change tweet copy menu to have separate items for source and retweet text.
+Bulk filters on tweets not already loaded into memory are now run in the DB thread. This results in a significant performance improvement for bulk filters on large numbers of tweets.
+In Unix/GTK builds, glib logging output is now filtered and redirected to the log, instead of spewing to STDERR.
+
+
 retcon 0.1.0
 ------------------------------------------------------
 
