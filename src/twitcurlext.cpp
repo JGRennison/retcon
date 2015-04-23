@@ -113,6 +113,26 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res, std::unique_ptr<mcu
 	}
 }
 
+std::string twitcurlext::GetFailureLogInfo() {
+	auto acc = tacc.lock();
+	if(!acc)
+		return "";
+
+	std::string output;
+
+	jsonparser jp(acc, this);
+	std::string str = getLastWebResponse();
+	if(!str.empty() && jp.ParseString(std::move(str))) {
+		std::vector<TwitterErrorMsg> twitter_err_msgs;
+		jp.ProcessTwitterErrorJson(twitter_err_msgs);
+		for(auto &it : twitter_err_msgs) {
+			output += string_format(", Twitter error: (%u: %s)", it.code, cstr(it.message));
+		}
+	}
+
+	return output;
+}
+
 std::string twitcurlext::GetConnTypeName() {
 	std::string name = GetConnTypeNameBase();
 

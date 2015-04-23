@@ -39,6 +39,7 @@ struct twitcurlext;
 struct tweet;
 struct userdata;
 struct tpanelparentwin_userproplisting;
+struct TwitterErrorMsg;
 
 struct genjsonparser {
 	enum class USERPARSERESULT {
@@ -116,6 +117,7 @@ struct jsonparser : public genjsonparser {
 	void ProcessGenericUserFollowListResponse(observer_ptr<tpanelparentwin_userproplisting> win);
 	void ProcessOwnFollowerListingResponse();
 	std::string ProcessUploadMediaResponse();
+	void ProcessTwitterErrorJson(std::vector<TwitterErrorMsg> &msgs);
 };
 
 #endif

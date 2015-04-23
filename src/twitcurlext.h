@@ -41,6 +41,11 @@ struct mainframe;
 struct jsonparser;
 struct twitcurlext_upload_media_state;
 
+struct TwitterErrorMsg {
+	unsigned int code;
+	std::string message;
+};
+
 struct twitcurlext: public twitCurl, public mcurlconn {
 	enum class TCF {
 		ISSTREAM       = 1<<0,
@@ -81,6 +86,7 @@ struct twitcurlext: public twitCurl, public mcurlconn {
 	virtual void NotifyDoneSuccessHandler(const std::shared_ptr<taccount> &acc, NotifyDoneSuccessState &state) { }
 	virtual void ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) = 0;
 	virtual void HandleFailure(long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) override;
+	virtual std::string GetFailureLogInfo() override;
 	virtual void HandleFailureHandler(const std::shared_ptr<taccount> &acc, HandleFailureState &state) { }
 	virtual std::string GetConnTypeName() override;
 	virtual std::string GetConnTypeNameBase() = 0;

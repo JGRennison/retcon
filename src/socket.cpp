@@ -128,7 +128,8 @@ static void LogSocketErrorMessage(mcurlconn *mc, CURL *easy, long httpcode, CURL
 		fail_type = string_format("Socket error: %s", cstr(curl_easy_strerror(res)));
 	}
 
-	LogMsgFormat(LOGT::SOCKERR, "%s%s, type: %s, url: %s, conn ID: %u", cstr(fail_type), cstr(action), cstr(mc->GetConnTypeName()), cstr(req_url), mc->id);
+	LogMsgFormat(LOGT::SOCKERR, "%s%s%s, type: %s, url: %s, conn ID: %u",
+			cstr(fail_type), cstr(action), cstr(mc->GetFailureLogInfo()), cstr(mc->GetConnTypeName()), cstr(req_url), mc->id);
 }
 
 void mcurlconn::HandleError(CURL *easy, long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {

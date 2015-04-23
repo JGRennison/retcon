@@ -99,6 +99,7 @@ struct mcurlconn : public wxEvtHandler {
 	virtual void NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) = 0;
 	virtual void DoRetry(std::unique_ptr<mcurlconn> &&this_owner) = 0;
 	virtual void HandleFailure(long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) = 0;
+	virtual std::string GetFailureLogInfo() { return ""; }
 	virtual void AddToRetryQueueNotify() { }
 	virtual void RemoveFromRetryQueueNotify() { }
 	virtual MCC_HTTPERRTYPE CheckHTTPErrType(long httpcode);

@@ -690,6 +690,27 @@ std::string jsonparser::ProcessUploadMediaResponse() {
 	return CheckGetJsonValueDef<std::string>(dc, "media_id_string", "");
 }
 
+void jsonparser::ProcessTwitterErrorJson(std::vector<TwitterErrorMsg> &msgs) {
+	const rapidjson::Document &dc = data->doc;
+
+	if(!dc.IsObject())
+		return;
+	auto &dci = dc["errors"];
+	if(!dci.IsArray())
+		return;
+
+	for(rapidjson::SizeType i = 0; i < dci.Size(); i++) {
+		auto &err = dci[i];
+		if(err.IsObject()) {
+			TwitterErrorMsg msg;
+			if(CheckTransJsonValue(msg.code, err, "code") &&
+					CheckTransJsonValue(msg.message, err, "message")) {
+				msgs.emplace_back(std::move(msg));
+			}
+		}
+	}
+}
+
 //don't use this for perspectival attributes
 udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> umpt_flags) {
 	uint64_t id;
