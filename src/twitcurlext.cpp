@@ -506,9 +506,7 @@ bool twitcurlext_accverify::TwSyncStartupAccVerify() {
 	if(httpcode == 200) {
 		auto acc = tacc.lock();
 		jsonparser jp(acc, this);
-		std::string str;
-		getLastWebResponse(str);
-		bool res = jp.ParseString(std::move(str));
+		bool res = jp.ParseString(getLastWebResponse());
 		if(res) {
 			jp.ProcessAccVerifyResponse(); // this sets verifycredstatus to ACT_DONE in PostAccVerifyInit if successful
 			return acc->verifycredstatus == ACT_DONE;

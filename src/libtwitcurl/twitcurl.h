@@ -263,6 +263,7 @@ public:
 
     /* cURL APIs */
     bool isCurlInit();
+    const std::string& getLastWebResponse();
     void getLastWebResponse( std::string& outWebResp /* out */ );
     void getLastWebResponseMove( std::string& outWebResp /* out */ );
     void getLastCurlError( std::string& outErrResp /* out */);

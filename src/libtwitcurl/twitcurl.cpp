@@ -1718,6 +1718,23 @@ void twitCurl::SetStreamApiActivityCallback( twitCurlTypes::fpStreamApiActivityC
 *               twitcurl users need to call this method and parse the XML
 *               data returned by twitter to see what has happened.
 *
+* @input: none
+*
+* @output: const reference to string in which twitter's response is stored
+*
+*--*/
+const std::string& twitCurl::getLastWebResponse()
+{
+    return m_callbackData;
+}
+
+/*++
+* @method: twitCurl::getLastWebResponse
+*
+* @description: method to get http response for the most recent request sent.
+*               twitcurl users need to call this method and parse the XML
+*               data returned by twitter to see what has happened.
+*
 * @input: outWebResp - string in which twitter's response is supplied back to caller
 *
 * @output: none
