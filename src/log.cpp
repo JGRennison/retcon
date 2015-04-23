@@ -693,7 +693,7 @@ void dump_id_stats(LOGT logflags, const std::string &indent, const std::string &
 			if(it.second) {
 				media_entity &me = *(it.second);
 				if(me.thumbimg.IsOk()) {
-					thumb.add(static_cast<size_t>(me.thumbimg.GetWidth() * me.thumbimg.GetHeight() * 3));
+					thumb.add(static_cast<size_t>(me.thumbimg.GetWidth() * me.thumbimg.GetHeight() * me.thumbimg.GetDepth() / 8));
 				}
 				full.add(me.fulldata.size());
 			}

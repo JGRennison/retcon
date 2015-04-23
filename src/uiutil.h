@@ -28,6 +28,7 @@
 #include <wx/colour.h>
 #include <wx/string.h>
 #include <wx/menu.h>
+#include <wx/bitmap.h>
 #include <wx/richtext/richtextctrl.h>
 #include <memory>
 #include <map>
@@ -147,7 +148,10 @@ struct commonRichTextCtrl : public wxRichTextCtrl {
 	public:
 	commonRichTextCtrl(wxWindow *parent_, wxWindowID id = wxID_ANY, const wxString &text = wxEmptyString, long style = wxRE_MULTILINE);
 
-	void WriteImageAltText(const wxImage& image, const wxString &altText);
+	void WriteBitmapAltText(const wxBitmap& bmp, const wxString &altText);
+	void WriteBitmap(const wxBitmap& bmp) {
+		WriteBitmapAltText(bmp, wxEmptyString);
+	}
 	void EnableEmojiChecking(bool enabled);
 	void ReplaceAllEmoji();
 

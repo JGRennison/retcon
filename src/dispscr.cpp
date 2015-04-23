@@ -362,8 +362,8 @@ static void DoWriteSubstr(commonRichTextCtrl &td, const std::string &str, int st
 			[&](std::string text) {
 				td.WriteText(wxstrstd(text));
 			},
-			[&](wxImage img, std::string altText) {
-				td.WriteImageAltText(img, wxstrstd(altText));
+			[&](wxBitmap img, std::string altText) {
+				td.WriteBitmapAltText(img, wxstrstd(altText));
 			}
 		);
 	}
@@ -411,14 +411,14 @@ void GenUserFmt(generic_disp_base *obj, userdatacontainer *u, size_t &i, const w
 		case 'p':
 			if(u->GetUser().u_flags & userdata::userdata::UF::ISPROTECTED) {
 				GenFlush(obj, str);
-				obj->WriteImage(tpanelglobal::Get()->proticon_img);
+				obj->WriteBitmap(tpanelglobal::Get()->proticon);
 				obj->SetInsertionPointEnd();
 			}
 			break;
 		case 'v':
 			if(u->GetUser().u_flags & userdata::userdata::UF::ISVERIFIED) {
 				GenFlush(obj, str);
-				obj->WriteImage(tpanelglobal::Get()->verifiedicon_img);
+				obj->WriteBitmap(tpanelglobal::Get()->verifiedicon);
 				obj->SetInsertionPointEnd();
 			}
 			break;
@@ -426,7 +426,7 @@ void GenUserFmt(generic_disp_base *obj, userdatacontainer *u, size_t &i, const w
 			GenFlush(obj, str);
 			long curpos = obj->GetInsertionPoint();
 			obj->BeginURL(wxString::Format(wxT("Xd%" wxLongLongFmtSpec "d"), u->id));
-			obj->WriteImage(tpanelglobal::Get()->dmreplyicon_img);
+			obj->WriteBitmap(tpanelglobal::Get()->dmreplyicon);
 			obj->EndURL();
 			obj->SetInsertionPointEnd();
 			wxTextAttrEx attr(obj->GetDefaultStyleEx());
@@ -730,24 +730,24 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 				auto tpg = tpanelglobal::Get();
 				switch((wxChar) format[i]) {
 					case 'i':
-						obj->WriteImage(tpg->infoicon_img);
+						obj->WriteBitmap(tpg->infoicon);
 						imginserted = true;
 						break;
 					case 'f': {
 						if(tw.IsFavouritable()) {
-							wxImage *icon = &tpg->favicon_img;
+							wxBitmap *icon = &tpg->favicon;
 							tw.IterateTP([&](const tweet_perspective &tp) {
 								if(tp.IsFavourited()) {
-									icon = &tpg->favonicon_img;
+									icon = &tpg->favonicon;
 								}
 							});
-							obj->WriteImage(*icon);
-							imginserted=true;
+							obj->WriteBitmap(*icon);
+							imginserted = true;
 						}
 						break;
 					}
 					case 'r':
-						obj->WriteImage(tpg->replyicon_img);
+						obj->WriteBitmap(tpg->replyicon);
 						imginserted = true;
 						break;
 					case 'd': {
@@ -756,19 +756,19 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 						if(!targ || targ->udc_flags & UDC::THIS_IS_ACC_USER_HINT) targ=tw.user;
 						url = wxString::Format(wxT("Xd%" wxLongLongFmtSpec "d"), targ->id);
 						obj->BeginURL(url);
-						obj->WriteImage(tpg->dmreplyicon_img);
+						obj->WriteBitmap(tpg->dmreplyicon);
 						imginserted = true;
 						break;
 					}
 					case 't': {
 						if(tw.IsRetweetable()) {
-							wxImage *icon = &tpg->retweeticon_img;
+							wxBitmap *icon = &tpg->retweeticon;
 							tw.IterateTP([&](const tweet_perspective &tp) {
 								if(tp.IsRetweeted()) {
-									icon = &tpg->retweetonicon_img;
+									icon = &tpg->retweetonicon;
 								}
 							});
-							obj->WriteImage(*icon);
+							obj->WriteBitmap(*icon);
 							imginserted = true;
 						}
 						break;
@@ -1069,7 +1069,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 				}
 				else if(it->flags & MEF::HAVE_THUMB && !hide_thumb) {
 					long curpos = GetInsertionPoint();
-					WriteImage(it->thumbimg);
+					WriteBitmap(it->thumbimg);
 					SetInsertionPointEnd();
 					wxTextAttrEx attr(GetDefaultStyleEx());
 					attr.SetURL(url);

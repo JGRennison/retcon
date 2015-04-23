@@ -218,7 +218,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 						if(job_data->ok) {
 							LogMsgFormat(LOGT::FILEIOTRACE, "genjsonparser::DoEntitiesParse::mk_media_thumb_load_func, successfully loaded cached media thumbnail file: %s, url: %s",
 									cstr(media_entity::cached_thumb_filename(job_data->media_id)), cstr(url));
-							m.thumbimg = job_data->img;
+							m.thumbimg = wxBitmap(job_data->img);
 							m.flags |= MEF::HAVE_THUMB;
 							for(auto &jt : m.tweet_list) {
 								UpdateTweet(*jt);

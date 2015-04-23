@@ -638,21 +638,95 @@ void DestroyMenuContents(wxMenu *menu) {
 	}
 }
 
-struct AltTextRichTextImage : public wxRichTextImage {
+extern wxArrayInt g_GlobalPartialTextExtents;
+extern bool g_UseGlobalPartialTextExtents;
+
+// This is a (very) cut down copy-and-paste version of wxRichTextImage
+// It uses ref-counted wxBitmaps, instead of having ~3 representations of an image,
+// per instance, which wastes a lot of memory and time
+struct AltTextRichTextBitmap : public wxRichTextObject {
 	wxString altText;
+	wxBitmap bmp;
 
-	AltTextRichTextImage(const wxRichTextImageBlock& imageBlock, wxRichTextObject* parent, wxTextAttrEx* charStyle, const wxString &altText_)
-			: wxRichTextImage(imageBlock, parent, charStyle), altText(altText_) { }
+	AltTextRichTextBitmap(wxBitmap bmp_, wxRichTextObject* parent, wxTextAttrEx* charStyle, const wxString &altText_)
+			: wxRichTextObject(parent), altText(altText_), bmp(bmp_) {
+		if(charStyle)
+			SetAttributes(*charStyle);
+	}
 
-	AltTextRichTextImage(const AltTextRichTextImage& obj)
-			: wxRichTextImage(obj), altText(obj.altText) { }
+	AltTextRichTextBitmap(const AltTextRichTextBitmap& obj)
+			: wxRichTextObject() {
+		Copy(obj);
+		altText = obj.altText;
+		bmp = obj.bmp;
+	}
 
 	virtual wxRichTextObject* Clone() const override {
-		return new AltTextRichTextImage(*this);
+		return new AltTextRichTextBitmap(*this);
 	}
 
 	virtual wxString GetTextForRange(const wxRichTextRange& range) const override {
 		return altText;
+	}
+
+	virtual bool Draw(wxDC& dc, const wxRichTextRange& range, const wxRichTextRange& selectionRange, const wxRect& rect, int descent, int style) override {
+		if(!bmp.Ok())
+			return false;
+
+		int y = rect.y + (rect.height - bmp.GetHeight());
+		dc.DrawBitmap(bmp, rect.x, y, true);
+
+		if(selectionRange.Contains(range.GetStart())) {
+			dc.SetBrush(*wxBLACK_BRUSH);
+			dc.SetPen(*wxBLACK_PEN);
+			dc.SetLogicalFunction(wxINVERT);
+			dc.DrawRectangle(rect);
+			dc.SetLogicalFunction(wxCOPY);
+		}
+
+		return true;
+	}
+
+	virtual bool Layout(wxDC& dc, const wxRect& rect, int style) override {
+		if(bmp.Ok()) {
+			SetCachedSize(wxSize(bmp.GetWidth(), bmp.GetHeight()));
+			SetPosition(rect.GetPosition());
+		}
+		return true;
+	}
+
+	virtual bool GetRangeSize(const wxRichTextRange& range, wxSize& size, int& descent, wxDC& dc, int flags, wxPoint position = wxPoint(0,0)) const override {
+		if(!range.IsWithin(GetRange()))
+			return false;
+
+		if (g_UseGlobalPartialTextExtents)
+		{
+			// Now add this child's extents to the global extents
+			int lastExtent = 0;
+			if (g_GlobalPartialTextExtents.GetCount() > 0)
+				lastExtent = g_GlobalPartialTextExtents[g_GlobalPartialTextExtents.GetCount()-1];
+
+			int thisExtent;
+
+			if (bmp.Ok())
+				thisExtent = lastExtent + bmp.GetWidth();
+			else
+				thisExtent = lastExtent;
+
+			g_GlobalPartialTextExtents.Add(thisExtent);
+		}
+
+		if(!bmp.Ok())
+			return false;
+
+		size.x = bmp.GetWidth();
+		size.y = bmp.GetHeight();
+
+		return true;
+	}
+
+	virtual bool IsEmpty() const override {
+		return !bmp.Ok();
 	}
 };
 
@@ -667,19 +741,15 @@ commonRichTextCtrl::commonRichTextCtrl(wxWindow *parent_, wxWindowID id, const w
 	: wxRichTextCtrl(parent_, id, text, wxPoint(-1000, -1000), wxDefaultSize, style) { }
 
 // This is based on wxRichTextBuffer::InsertImageWithUndo
-void commonRichTextCtrl::WriteImageAltText(const wxImage& image, const wxString &altText) {
+void commonRichTextCtrl::WriteBitmapAltText(const wxBitmap& bmp, const wxString &altText) {
 	long pos = GetCaretPosition() + 1;
 
 	wxRichTextAction* action = new wxRichTextAction(NULL, wxT("Insert Image"), wxRICHTEXT_INSERT, &(GetBuffer()), this, false);
 
-	wxRichTextImageBlock imageBlock;
-	wxImage image2 = image;
-	imageBlock.MakeImageBlock(image2, wxBITMAP_TYPE_PNG);
-
 	wxTextAttrEx attr(GetDefaultStyle());
 	wxRichTextParagraph* newPara = new wxRichTextParagraph(&(GetBuffer()), &attr);
 
-	wxRichTextImage* imageObject = new AltTextRichTextImage(imageBlock, newPara, nullptr, altText);
+	wxRichTextObject* imageObject = new AltTextRichTextBitmap(bmp, newPara, nullptr, altText);
 	newPara->AppendChild(imageObject);
 	action->GetNewParagraphs().AppendChild(newPara);
 	action->GetNewParagraphs().UpdateRanges();
@@ -727,7 +797,7 @@ void commonRichTextCtrl::EmojiCheckRange(long start, long end) {
 		gc.emoji_mode,
 		tpg->emoji,
 		[&](std::string text) { },
-		[&](wxImage img, std::string altText) {
+		[&](wxBitmap img, std::string altText) {
 			needsUpdating = true;
 		}
 	);

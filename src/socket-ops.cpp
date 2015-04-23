@@ -384,7 +384,7 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr
 
 			if(flags & MIDC::THUMBIMG) {
 				if(job_data->thumbok) {
-					me.thumbimg = job_data->thumb;
+					me.thumbimg = wxBitmap(job_data->thumb);
 					me.flags |= MEF::HAVE_THUMB;
 					if(job_data->thumb_hash) {
 						me.thumb_img_sha1 = job_data->thumb_hash;

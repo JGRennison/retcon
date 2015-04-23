@@ -25,6 +25,7 @@
 #include <algorithm>
 #include <iterator>
 #include <wx/mstream.h>
+#include <wx/image.h>
 #include <pcre.h>
 
 //This is such that PCRE_STUDY_JIT_COMPILE can be used pre PCRE 8.20
@@ -32,17 +33,17 @@
 #define PCRE_STUDY_JIT_COMPILE 0
 #endif
 
-wxImage emoji_cache::GetEmojiImg(EMOJI_MODE mode, uint32_t first, uint32_t second) {
+wxBitmap emoji_cache::GetEmojiImg(EMOJI_MODE mode, uint32_t first, uint32_t second) {
 	cache_item &item = img_map[std::make_pair(first, second)];
 
 	// exclude emoji for (c) and (r), default fonts can do these just fine
 	if(first == 0xa9 || first == 0xae)
-		return wxImage();
+		return wxBitmap();
 
-	wxImage *img = nullptr;
+	wxBitmap *img = nullptr;
 	switch(mode) {
 		case EMOJI_MODE::OFF:
-			return wxImage();
+			return wxBitmap();
 		case EMOJI_MODE::SIZE_16:
 			img = &(item.size_16);
 			break;
@@ -73,7 +74,9 @@ wxImage emoji_cache::GetEmojiImg(EMOJI_MODE mode, uint32_t first, uint32_t secon
 
 			if(ptrs) {
 				wxMemoryInputStream memstream(ptrs->first, ptrs->second - ptrs->first);
-				img->LoadFile(memstream, wxBITMAP_TYPE_PNG);
+				wxImage image;
+				image.LoadFile(memstream, wxBITMAP_TYPE_PNG);
+				*img = wxBitmap(image);
 			}
 		}
 	}
@@ -81,7 +84,7 @@ wxImage emoji_cache::GetEmojiImg(EMOJI_MODE mode, uint32_t first, uint32_t secon
 	return *img;
 }
 
-void EmojiParseString(const std::string &input, EMOJI_MODE mode, emoji_cache &cache, std::function<void(std::string)> string_out, std::function<void(wxImage, std::string)> img_out) {
+void EmojiParseString(const std::string &input, EMOJI_MODE mode, emoji_cache &cache, std::function<void(std::string)> string_out, std::function<void(wxBitmap, std::string)> img_out) {
 	static pcre *pattern = nullptr;
 	static pcre_extra *patextra = nullptr;
 
@@ -133,7 +136,7 @@ void EmojiParseString(const std::string &input, EMOJI_MODE mode, emoji_cache &ca
 		if(second == 0xFE0F)
 			second = 0;
 
-		wxImage img;
+		wxBitmap img;
 		if(variant != 0xFE0E) {
 			img = cache.GetEmojiImg(mode, first, second);
 		}

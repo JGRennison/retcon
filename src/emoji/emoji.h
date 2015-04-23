@@ -22,20 +22,20 @@
 #include "../univdefs.h"
 #include "../cfg.h"
 #include <utility>
-#include <wx/image.h>
+#include <wx/bitmap.h>
 
 class emoji_cache {
 	struct cache_item {
-		wxImage size_16;
-		wxImage size_36;
+		wxBitmap size_16;
+		wxBitmap size_36;
 	};
 
 	std::map <std::pair<uint32_t, uint32_t>, cache_item> img_map;
 
 	public:
-	wxImage GetEmojiImg(EMOJI_MODE mode, uint32_t first, uint32_t second);
+	wxBitmap GetEmojiImg(EMOJI_MODE mode, uint32_t first, uint32_t second);
 };
 
-void EmojiParseString(const std::string &input, EMOJI_MODE mode, emoji_cache &cache, std::function<void(std::string)> string_out, std::function<void(wxImage, std::string)> img_out);
+void EmojiParseString(const std::string &input, EMOJI_MODE mode, emoji_cache &cache, std::function<void(std::string)> string_out, std::function<void(wxBitmap, std::string)> img_out);
 
 #endif

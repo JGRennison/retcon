@@ -523,7 +523,7 @@ struct media_entity {
 	media_id_type media_id; //compound type used to prevent id-clashes between media-entity images and non-media-entity images
 	std::string media_url;
 	std::string fulldata;	//the full unmodified content of the image data
-	wxImage thumbimg;
+	wxBitmap thumbimg;
 	std::forward_list<tweet_ptr> tweet_list;
 	media_display_win *win = nullptr;
 	shb_iptr full_img_sha1;
