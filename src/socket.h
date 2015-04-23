@@ -83,7 +83,7 @@ struct mcurlconn : public wxEvtHandler {
 
 	// Functions taking a std::unique_ptr<mcurlconn>&& are entitled but not required to claim the unique_ptr being referenced.
 	// This is to ensure that an mcurlconn only ever has one owner/won't leak, and that it's lifetime can be extended
-	// and owner chnaged as necessary, eg. for connection retries, async DNS etc.
+	// and owner changed as necessary, eg. for connection retries, async DNS etc.
 	// Generally if not claimed the mcurlconn will be destructed shortly after.
 
 	void NotifyDone(CURL *easy, long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner);
