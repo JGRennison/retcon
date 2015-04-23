@@ -62,8 +62,8 @@ bool parse_util::ParseStringInPlace(rapidjson::Document &dc, char *mutable_strin
 //if jw, caller should already have called jw->StartObject(), etc
 void genjsonparser::ParseTweetStatics(const rapidjson::Value &val, tweet_ptr_p tobj, Handler *jw, bool isnew, optional_observer_ptr<dbsendmsg_list> dbmsglist, bool parse_entities) {
 	CheckTransJsonValueDef(tobj->in_reply_to_status_id, val, "in_reply_to_status_id", 0, jw);
-	CheckTransJsonValueDef(tobj->retweet_count, val, "retweet_count", 0);
-	CheckTransJsonValueDef(tobj->favourite_count, val, "favorite_count", 0);
+	CheckTransJsonValue(tobj->retweet_count, val, "retweet_count");
+	CheckTransJsonValue(tobj->favourite_count, val, "favorite_count");
 	CheckTransJsonValueDef(tobj->source, val, "source", "", jw);
 	CheckTransJsonValueDef(tobj->text, val, "text", "", jw);
 
@@ -84,6 +84,9 @@ void genjsonparser::ParseTweetStatics(const rapidjson::Value &val, tweet_ptr_p t
 			entvex.Accept(*jw);
 		}
 	}
+
+	LogMsgFormat(LOGT::PARSE, "genjsonparser::ParseTweetStatics: id: %" llFmtSpec "d, RTs: %u, favs: %u",
+			tobj->id, tobj->retweet_count, tobj->favourite_count);
 }
 
 //this is paired with tweet::mkdynjson
@@ -91,7 +94,7 @@ void genjsonparser::ParseTweetDyn(const rapidjson::Value &val, tweet_ptr_p tobj)
 	const rapidjson::Value &p = val["p"];
 	if(p.IsArray()) {
 		for(rapidjson::SizeType i = 0; i < p.Size(); i++) {
-			unsigned int dbindex=CheckGetJsonValueDef<unsigned int>(p[i], "a", 0);
+			unsigned int dbindex = CheckGetJsonValueDef<unsigned int>(p[i], "a", 0);
 			for(auto &it : alist) {
 				if(it->dbindex == dbindex) {
 					tweet_perspective *tp = tobj->AddTPToTweet(it);
@@ -102,11 +105,11 @@ void genjsonparser::ParseTweetDyn(const rapidjson::Value &val, tweet_ptr_p tobj)
 		}
 	}
 
-	const rapidjson::Value &r = val["r"];
-	if(r.IsUint()) tobj->retweet_count = r.GetUint();
+	CheckTransJsonValue(tobj->retweet_count, val, "r");
+	CheckTransJsonValue(tobj->favourite_count, val, "f");
 
-	const rapidjson::Value &f = val["f"];
-	if(f.IsUint()) tobj->favourite_count = f.GetUint();
+	LogMsgFormat(LOGT::PARSE, "genjsonparser::ParseTweetDyn: id: %" llFmtSpec "d, RTs: %u, favs: %u",
+			tobj->id, tobj->retweet_count, tobj->favourite_count);
 }
 
 //returns true on success
@@ -1044,8 +1047,9 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 		tobj->flags.Set('P');
 	}
 
-	LogMsgFormat(LOGT::PARSE, "id: %" llFmtSpec "d, is_new_tweet_perspective: %d, has_just_arrived: %d, isdm: %d, sflags: 0x%X",
-			tobj->id, is_new_tweet_perspective, has_just_arrived, !!(sflags & JDTP::ISDM), sflags);
+	LogMsgFormat(LOGT::PARSE, "jsonparser::DoTweetParse: id: %" llFmtSpec "d, is_new_tweet_perspective: %d, has_just_arrived: %d, isdm: %d, sflags: 0x%X, RTs: %u, favs: %u",
+			tobj->id, is_new_tweet_perspective, has_just_arrived, !!(sflags & JDTP::ISDM), sflags,
+			tobj->retweet_count, tobj->favourite_count);
 
 	if(is_new_tweet_perspective) {	//this filters out duplicate tweets from the same account
 		if(!(sflags & JDTP::ISDM)) {

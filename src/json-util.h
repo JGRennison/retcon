@@ -51,15 +51,24 @@ namespace parse_util {
 			return val;
 	}
 
-	template <typename C, typename D> bool CheckTransJsonValueDef(C &var, const rapidjson::Value &val,
-			const char *prop, const D def, Handler *handler = nullptr) {
+	template <typename C> bool CheckTransJsonValue(C &var, const rapidjson::Value &val,
+			const char *prop, Handler *handler = nullptr) {
 		const rapidjson::Value &subval = GetSubProp(val, prop);
 		bool res = IsType<C>(subval);
-		var = res ? GetType<C>(subval) : def;
+		if(res)
+			var = GetType<C>(subval);
 		if(res && handler) {
 			handler->String(prop);
 			subval.Accept(*handler);
 		}
+		return res;
+	}
+
+	template <typename C, typename D> bool CheckTransJsonValueDef(C &var, const rapidjson::Value &val,
+			const char *prop, const D def, Handler *handler = nullptr) {
+		bool res = CheckTransJsonValue<C>(var, val, prop, handler);
+		if(!res)
+			var = def;
 		return res;
 	}
 
