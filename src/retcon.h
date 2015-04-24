@@ -59,7 +59,7 @@ class retcon: public wxApp, public magic_ptr_base {
 	public:
 	std::string datadir;
 	std::string tmpdir;
-	unsigned int popuprecursion;
+	unsigned int popuprecursion = 0;
 	magic_ptr_container<temp_file_holder> temp_file_set;
 	undo::undo_stack undo_state;
 
@@ -70,7 +70,7 @@ class retcon: public wxApp, public magic_ptr_base {
 	DECLARE_EVENT_TABLE()
 
 public:
-    unsigned int terms_requested = 0;
+	unsigned int terms_requested = 0;
 };
 
 DECLARE_APP(retcon)
