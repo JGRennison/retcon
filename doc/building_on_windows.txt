@@ -55,7 +55,7 @@ Places to start looking include:
 
 *** YOU MUST ENSURE THAT THE ANY PRE-COMPILED SSL YOU USE IS FREE OF NASTY BUGS ***
 In particular, do not use compiled versions of OpenSSL with the Heartbleed bug, which also have TLS heart-beats enabled.
-In practice this means using an old version of OpenSSL, which is OK as many of the pre-compiled versions floating around are of suitable vintage.
+In practice this means using the very latest version of OpenSSL which is available.
 
 Those with sufficiently fortified constitutions can try compiling OpenSSL, some other SSL, zlib and/or libcurl themselves.
 (Your author has so far successfully refrained from doing this).
