@@ -190,6 +190,7 @@ struct tweetdispscr : public dispscr_base, public generic_popup_wrapper_hook {
 
 	tweetdispscr(tweet_ptr_p td_, tpanel_item *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
 	~tweetdispscr();
+	bool CheckHiddenState();
 	void DisplayTweet(bool redrawimg = false);
 	void OnTweetActMenuCmd(wxCommandEvent &event);
 

@@ -954,6 +954,44 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 	flush();
 }
 
+bool tweetdispscr::CheckHiddenState() {
+	auto hideactions = [&](bool show) {
+		Show(show);
+		if(bm) bm->Show(show);
+		if(bm2) bm2->Show(show);
+	};
+
+	bool hidden;
+	bool update_subtweets = false;
+
+	if(parent_tweet && parent_tweet->tds_flags & TDSF::HIDDEN) {
+		hidden = true;
+	}
+	else {
+		hidden = (td->flags.Get('h') && !(tppw->GetTPPWFlags() & TPPWF::SHOWHIDDEN))
+				|| (td->flags.Get('X') && !(tppw->GetTPPWFlags() & TPPWF::SHOWDELETED));
+	}
+
+	if(hidden && !(tds_flags & TDSF::HIDDEN)) {
+		hideactions(false);
+		tds_flags |= TDSF::HIDDEN;
+		update_subtweets = true;
+	}
+	else if(!hidden && (tds_flags & TDSF::HIDDEN)) {
+		hideactions(true);
+		tds_flags &= ~TDSF::HIDDEN;
+		update_subtweets = true;
+	}
+	if(update_subtweets) {
+		for(auto &it : subtweets) {
+			if(it)
+				it->DisplayTweet();
+		}
+	}
+
+	return hidden;
+}
+
 void tweetdispscr::DisplayTweet(bool redrawimg) {
 	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANELTRACE, "DCL: tweetdispscr::DisplayTweet %s, START %" llFmtSpec "d, redrawimg: %d", cstr(GetThisName()), td->id, redrawimg);
@@ -982,22 +1020,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 		tds_flags &= ~TDSF::HIGHLIGHT;
 	}
 
-	auto hideactions = [&](bool show) {
-		hbox->Show(show);
-		if(bm) bm->Show(show);
-		if(bm2) bm2->Show(show);
-	};
-
-	bool hidden = (tw.flags.Get('h') && !(tppw->GetTPPWFlags() & TPPWF::SHOWHIDDEN))
-		|| (tw.flags.Get('X') && !(tppw->GetTPPWFlags() & TPPWF::SHOWDELETED));
-	if(hidden && !(tds_flags&TDSF::HIDDEN)) {
-		hideactions(false);
-		tds_flags |= TDSF::HIDDEN;
-	}
-	else if(!hidden && (tds_flags&TDSF::HIDDEN)) {
-		hideactions(true);
-		tds_flags &= ~TDSF::HIDDEN;
-	}
+	bool hidden = CheckHiddenState();
 
 	if(redrawimg) {
 		#if DISPSCR_COPIOUS_LOGGING
