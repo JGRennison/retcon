@@ -1397,7 +1397,7 @@ void dbconn::InsertUser(udc_ptr_p u, optional_observer_ptr<dbsendmsg_list> msgli
 	msg->createtime = u->user.createtime;
 	msg->lastupdate = u->lastupdate;
 	msg->cached_profile_img_hash = u->cached_profile_img_sha1;
-	msg->mentionindex = settocompressedblob_desc(u->mention_index);
+	msg->mentionindex = settocompressedblob_zigzag(u->mention_index);
 	u->lastupdate_wrotetodb = u->lastupdate;
 	msg->profile_img_last_used = u->profile_img_last_used;
 	u->profile_img_last_used_db = u->profile_img_last_used;
