@@ -36,8 +36,8 @@
 wxBitmap emoji_cache::GetEmojiImg(EMOJI_MODE mode, uint32_t first, uint32_t second) {
 	cache_item &item = img_map[std::make_pair(first, second)];
 
-	// exclude emoji for (c) and (r), default fonts can do these just fine
-	if(first == 0xa9 || first == 0xae)
+	// exclude emoji for (c), (r) and TM, default fonts can do these just fine
+	if(first == 0xa9 || first == 0xae || first == 0x2122)
 		return wxBitmap();
 
 	wxBitmap *img = nullptr;
