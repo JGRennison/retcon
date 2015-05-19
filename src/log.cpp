@@ -658,8 +658,8 @@ void dump_id_stats(LOGT logflags, const std::string &indent, const std::string &
 		count_item pendingtweets;
 		for(const auto &it : ad.userconts) {
 			if(it.second) {
-				mentionindex.add(it.second->mention_index.size());
-				mentionindex.add(it.second->pendingtweets.size());
+				mentionindex.add(it.second->mention_set.size());
+				pendingtweets.add(it.second->pendingtweets.size());
 			}
 		}
 		dline("Loaded users: mention index", mentionindex);

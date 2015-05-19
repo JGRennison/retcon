@@ -169,17 +169,10 @@ struct userdatacontainer {
 	wxBitmap cached_profile_img;
 	wxBitmap cached_profile_img_half;
 	std::deque<tweet_ptr> pendingtweets;
-	std::deque<uint64_t> mention_index;    //append only
+	tweetidset mention_set;
 
 	uint64_t profile_img_last_used = 0;
 	uint64_t profile_img_last_used_db = 0;
-
-	private:
-	struct mention_set_data {
-		tweetidset mention_set;
-		size_t added_offset = 0;
-	};
-	std::unique_ptr<mention_set_data> msd;
 
 	int refcount = 0;
 
@@ -209,7 +202,7 @@ struct userdatacontainer {
 	std::string GetPermalink(bool ssl) const;
 	void NotifyProfileImageChange();
 	void MakeProfileImageFailurePlaceholder();
-	const tweetidset &GetMentionSet();
+	const tweetidset &GetMentionSet() { return mention_set; }
 
 	void intrusive_ptr_increment() {
 		refcount++;

@@ -914,10 +914,10 @@ void dbconn::DBSelUserReturnDataHandler(std::deque<dbretuserdata> data, optional
 		u->profile_img_last_used = std::move(du.profile_img_last_used);
 		u->profile_img_last_used_db = std::move(du.profile_img_last_used_db);
 
-		// Incoming mention_index likely to be larger, old one likely to be empty or nearly empty
-		std::deque<uint64_t> old_mention_index = std::move(u->mention_index);
-		u->mention_index = std::move(du.mention_index);
-		u->mention_index.insert(u->mention_index.end(), old_mention_index.begin(), old_mention_index.end());
+		// Incoming mention_set likely to be larger, old one likely to be empty or nearly empty
+		tweetidset old_mention_set = std::move(u->mention_set);
+		u->mention_set = std::move(du.mention_set);
+		u->mention_set.insert(old_mention_set.begin(), old_mention_set.end());
 
 		if(pending_guard) {
 			pending_guard->users.push_back(std::move(u));
@@ -1397,7 +1397,7 @@ void dbconn::InsertUser(udc_ptr_p u, optional_observer_ptr<dbsendmsg_list> msgli
 	msg->createtime = u->user.createtime;
 	msg->lastupdate = u->lastupdate;
 	msg->cached_profile_img_hash = u->cached_profile_img_sha1;
-	msg->mentionindex = settocompressedblob_zigzag(u->mention_index);
+	msg->mentionindex = settocompressedblob_desc(u->mention_set);
 	u->lastupdate_wrotetodb = u->lastupdate;
 	msg->profile_img_last_used = u->profile_img_last_used;
 	u->profile_img_last_used_db = u->profile_img_last_used;
@@ -1755,7 +1755,7 @@ namespace {
 				data.lastupdate = u->lastupdate;
 				data.cached_profile_img_sha1 = u->cached_profile_img_sha1;
 
-				data.mention_blob = settocompressedblob_zigzag(u->mention_index);
+				data.mention_blob = settocompressedblob_desc(u->mention_set);
 
 				data.profile_img_last_used = u->profile_img_last_used;
 
@@ -1846,7 +1846,7 @@ template <typename UDC> static void ReadInUserObject(sqlite3_stmt *stmt, uint64_
 			TSLogMsgFormat(LOGT::DBERR, "%s user id: %" llFmtSpec "d, has invalid profile image hash length: %d", cstr(name), (sqlite3_int64) id, hashsize);
 	}
 
-	setfromcompressedblob_generic([&](uint64_t &tid) { u.mention_index.push_back(tid); }, stmt, 5);
+	setfromcompressedblob(u.mention_set, stmt, 5);
 	u.profile_img_last_used = (uint64_t) sqlite3_column_int64(stmt, 6);
 	u.profile_img_last_used_db = u.profile_img_last_used;
 }

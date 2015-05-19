@@ -636,15 +636,6 @@ bool userdatacontainer::GetUsableAccount(std::shared_ptr<taccount> &tac, bool en
 		return false;
 }
 
-const tweetidset &userdatacontainer::GetMentionSet() {
-	if(!msd) msd.reset(new mention_set_data);
-	if(msd->added_offset < mention_index.size()) {
-		msd->mention_set.insert(mention_index.begin() + msd->added_offset, mention_index.end());
-		msd->added_offset = mention_index.size();
-	}
-	return msd->mention_set;
-}
-
 void user_dm_index::AddDMId(uint64_t id) {
 	flags |= UDIF::ISDIRTY;
 	ids.insert(id);

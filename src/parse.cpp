@@ -304,7 +304,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 			en->text = "@" + en->text;
 			if(en->user->udc_flags & UDC::THIS_IS_ACC_USER_HINT) t->flags.Set('M', true);
 			if(isnew) {
-				en->user->mention_index.push_back(t->id);
+				en->user->mention_set.insert(t->id);
 				en->user->lastupdate_wrotetodb = 0;		//force flush of user to DB
 			}
 		}

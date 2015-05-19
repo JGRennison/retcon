@@ -307,12 +307,11 @@ void tpanel::RecalculateTweetSet() {
 	LogMsgFormat(LOGT::TPANELINFO, "tpanel::RecalculateTweetSet START: panel %s", cstr(name));
 
 	std::vector<observer_ptr<tweetidset>> id_sets;
-	std::vector<observer_ptr<std::deque<uint64_t>>> deque_id_sets;
 	for(auto &tpa : tpautos) {
 		auto doacc = [&](taccount *it) {
 			if(tpa.autoflags & TPF::AUTO_DM) id_sets.push_back(&(it->dm_ids));
 			if(tpa.autoflags & TPF::AUTO_TW) id_sets.push_back(&(it->tweet_ids));
-			if(tpa.autoflags & TPF::AUTO_MN) deque_id_sets.push_back(&(it->usercont->mention_index));
+			if(tpa.autoflags & TPF::AUTO_MN) id_sets.push_back(&(it->usercont->mention_set));
 		};
 
 		if(tpa.autoflags & TPF::AUTO_ALLACCS) {
@@ -355,10 +354,6 @@ void tpanel::RecalculateTweetSet() {
 		for(auto &it : id_sets) {
 			tweetlist.insert(it->begin(), it->end());
 		}
-	}
-
-	for(auto &it : deque_id_sets) {
-		tweetlist.insert(it->begin(), it->end());
 	}
 
 	LogMsgFormat(LOGT::TPANELINFO, "tpanel::RecalculateTweetSet END: %zu ids", tweetlist.size());

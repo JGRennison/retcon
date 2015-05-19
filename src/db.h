@@ -195,7 +195,7 @@ struct dbretuserdata {
 	uint64_t lastupdate_wrotetodb;
 	std::string cached_profile_img_url;
 	shb_iptr cached_profile_img_sha1;
-	std::deque<uint64_t> mention_index;
+	tweetidset mention_set;
 	uint64_t profile_img_last_used;
 	uint64_t profile_img_last_used_db;
 
