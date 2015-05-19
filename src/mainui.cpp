@@ -774,8 +774,21 @@ void tweetpostwin::SetReplyTarget(tweet_ptr_p targ) {
 		targ->IterateTP([&](const tweet_perspective &tp) {
 			if(tp.IsArrivedHere()) {
 				unsigned int score = 1;
-				if(tp.acc->enabled) score += 2;
-				if(tp.acc.get() == accc->curacc.get()) score += 1;
+				if(tp.acc->enabled)
+					score += 2;
+				if(tp.acc.get() == accc->curacc.get())
+					score += 1;
+				if(targ->flags.Get('M') && tp.acc->usercont->GetMentionSet().count(targ->id)) {
+					// account is mentioned
+					score += 4;
+				}
+				auto relation = tp.acc->user_relations.find(targ->user->id);
+				if(relation != tp.acc->user_relations.end()) {
+					if(relation->second.ur_flags & user_relationship::URF::FOLLOWSME_TRUE)
+						score += 1;
+					if(relation->second.ur_flags & user_relationship::URF::IFOLLOW_TRUE)
+						score += 1;
+				}
 				if(score > best_score) {
 					best = tp.acc.get();
 					best_score = score;
