@@ -468,10 +468,10 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 			if(res != SQLITE_DONE) {
 				TSLogMsgFormat(LOGT::DBERR, "DBSM::INSERTTWEET got error: %d (%s) for id: %" llFmtSpec "d",
 					res, cstr(sqlite3_errmsg(db)), m->id);
+				dbc->dbc_flags |= dbconn::DBCF::TWEET_ID_CACHE_INVALID;
 			}
 			else {
 				TSLogMsgFormat(LOGT::DBTRACE, "DBSM::INSERTTWEET inserted row id: %" llFmtSpec "d", (sqlite3_int64) m->id);
-				dbc->all_tweet_ids.insert(m->id);
 			}
 			sqlite3_reset(stmt);
 			break;
@@ -813,6 +813,7 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg &msg, optional_observer_ptr<db_ha
 			LogMsgFormat(LOGT::DBTRACE, "dbconn::HandleDBSelTweetMsg got tweet: id:%" llFmtSpec "d, statjson: %s, dynjson: %s", dt.id, cstr(dt.statjson), cstr(dt.dynjson));
 		#endif
 		ad.unloaded_db_tweet_ids.erase(dt.id);
+		ad.loaded_db_tweet_ids.insert(dt.id);
 		tweet_ptr t = ad.GetTweetById(dt.id);
 		t->lflags |= TLF::SAVED_IN_DB;
 		t->lflags |= TLF::LOADED_FROM_DB;
@@ -1266,7 +1267,10 @@ void dbconn::CheckPurgeTweets() {
 		}
 		else {
 			// Bin it
-			if(t->lflags & TLF::SAVED_IN_DB) ad.unloaded_db_tweet_ids.insert(id);
+			if(t->lflags & TLF::SAVED_IN_DB) {
+				ad.unloaded_db_tweet_ids.insert(id);
+				ad.loaded_db_tweet_ids.erase(id);
+			}
 			it = ad.tweetobjs.erase(it);
 			purge_count++;
 		}
@@ -1377,6 +1381,7 @@ void dbconn::InsertNewTweet(tweet_ptr_p tobj, std::string statjson, optional_obs
 	msg->flags = tobj->flags.ToULLong();
 	if(tobj->rtsrc) msg->rtid = tobj->rtsrc->id;
 	else msg->rtid = 0;
+	ad.loaded_db_tweet_ids.insert(tobj->id);
 
 	SendMessageOrAddToList(std::move(msg), msglist);
 }
@@ -1472,18 +1477,18 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 			sqlite3_bind_text(getstmt, 1, "tweetidsetcache", -1, SQLITE_STATIC);
 		},
 		[&](sqlite3_stmt *getstmt) {
-			setfromcompressedblob(all_tweet_ids, getstmt, 0);
+			setfromcompressedblob(ad.unloaded_db_tweet_ids, getstmt, 0);
 		},
 		"dbconn::SyncReadInAllTweetIDs (cache load)"
 	);
 
-	if(all_tweet_ids.empty()) {
+	if(ad.unloaded_db_tweet_ids.empty()) {
 		// Didn't find any cache
 		LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInAllTweetIDs table scan");
 
 		DBRowExec(syncdb, "SELECT id FROM tweets ORDER BY id DESC;", [&](sqlite3_stmt *getstmt) {
 			uint64_t id = (uint64_t) sqlite3_column_int64(getstmt, 0);
-			all_tweet_ids.insert(all_tweet_ids.end(), id);
+			ad.unloaded_db_tweet_ids.insert(ad.unloaded_db_tweet_ids.end(), id);
 		}, "dbconn::SyncReadInAllTweetIDs");
 	}
 
@@ -1496,23 +1501,31 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 		);
 	}
 
-	LogMsgFormat(LOGT::DBTRACE, "dbconn::SyncReadInAllTweetIDs set copy");
-	ad.unloaded_db_tweet_ids = all_tweet_ids;
-	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInAllTweetIDs end, read %u", all_tweet_ids.size());
+	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInAllTweetIDs end, read %u", ad.unloaded_db_tweet_ids.size());
 }
 
 void dbconn::SyncWriteBackTweetIDIndexCache(sqlite3 *syncdb) {
-	LogMsg(LOGT::DBINFO, "dbconn::SyncWriteBackTweetIDIndexCache start");
+	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncWriteBackTweetIDIndexCache start: unloaded: %zu, loaded: %zu",
+			ad.unloaded_db_tweet_ids.size(), ad.loaded_db_tweet_ids.size());
+
+	if(dbc_flags & DBCF::TWEET_ID_CACHE_INVALID) {
+		LogMsg(LOGT::DBINFO, "dbconn::SyncWriteBackTweetIDIndexCache not writing back as marked invalid");
+		return;
+	}
+
+	ad.unloaded_db_tweet_ids.insert(ad.loaded_db_tweet_ids.begin(), ad.loaded_db_tweet_ids.end());
+
+	LogMsg(LOGT::DBINFO, "dbconn::SyncWriteBackTweetIDIndexCache merged sets");
 
 	DBBindExec(syncdb, cache.GetStmt(syncdb, DBPSC_INSSTATICSETTING),
 		[&](sqlite3_stmt *setstmt) {
 			sqlite3_bind_text(setstmt, 1, "tweetidsetcache", -1, SQLITE_STATIC);
-			bind_compressed(setstmt, 2, settocompressedblob_desc(all_tweet_ids));
+			bind_compressed(setstmt, 2, settocompressedblob_desc(ad.unloaded_db_tweet_ids));
 		},
 		"dbconn::SyncWriteBackTweetIDIndexCache"
 	);
 
-	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncWriteBackTweetIDIndexCache end, wrote %u", all_tweet_ids.size());
+	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncWriteBackTweetIDIndexCache end, wrote %u", ad.unloaded_db_tweet_ids.size());
 }
 
 void dbconn::SyncReadInCIDSLists(sqlite3 *adb) {

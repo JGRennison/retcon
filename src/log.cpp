@@ -628,6 +628,7 @@ void dump_id_stats(LOGT logflags, const std::string &indent, const std::string &
 	line("Loaded tweets", ad.tweetobjs.size());
 	line("DB unloaded users", ad.unloaded_db_user_ids.size());
 	line("DB unloaded tweets", ad.unloaded_db_tweet_ids.size());
+	line("DB loaded tweets", ad.loaded_db_tweet_ids.size());
 	line("No acc pending users", ad.noacc_pending_userconts.size());
 	line("No acc pending tweets", ad.noacc_pending_tweetobjs.size());
 

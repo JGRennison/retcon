@@ -46,6 +46,7 @@ struct alldata {
 	container::map<uint64_t, udc_ptr> noacc_pending_userconts;
 	std::unordered_map<uint64_t, user_dm_index> user_dm_indexes;
 	tweetidset unloaded_db_tweet_ids;
+	tweetidset loaded_db_tweet_ids;
 	useridset unloaded_db_user_ids;
 	unsigned int next_media_id = 1;
 	cached_id_sets cids;
