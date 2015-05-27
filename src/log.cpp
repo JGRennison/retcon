@@ -725,7 +725,7 @@ void Redirector_wxLog::DoLog(wxLogLevel level, const wxChar *msg, time_t timesta
 }
 
 void Redirector_wxLog::DoLogString(const wxChar *msg, time_t timestamp) {
-	LogMsg(last_loglevel <= wxLOG_Message ? LOGT::WXLOG : LOGT::WXVERBOSE, stdstrwx(msg));
+	TSLogMsg(last_loglevel <= wxLOG_Message ? LOGT::WXLOG : LOGT::WXVERBOSE, stdstrwx(msg));
 }
 
 void InitWxLogger() {
