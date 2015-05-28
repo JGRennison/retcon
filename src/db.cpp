@@ -1133,10 +1133,9 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	SyncReadInRBFSs(syncdb);
 	SyncReadInHandleNewPendingOps(syncdb);
 	SyncReadInAllMediaEntities(syncdb);
-	SyncReadInCIDSLists(syncdb);
+	SyncReadInAllTweetIDs(syncdb);
 	SyncReadInTpanels(syncdb);
 	SyncReadInWindowLayout(syncdb);
-	SyncReadInAllTweetIDs(syncdb);
 	SyncReadInUserRelationships(syncdb);
 	SyncReadInUserDMIndexes(syncdb);
 	SyncPostUserLoadCompletion();
@@ -1482,14 +1481,26 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 		"dbconn::SyncReadInAllTweetIDs (cache load)"
 	);
 
+	bool done_cids = false;
 	if(ad.unloaded_db_tweet_ids.empty() || gc.rescan_tweets_table) {
 		// Didn't find any cache
 		LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInAllTweetIDs table scan");
 
-		DBRowExec(syncdb, "SELECT id FROM tweets ORDER BY id DESC;", [&](sqlite3_stmt *getstmt) {
+		cached_id_sets::IterateLists([&](const char *name, tweetidset cached_id_sets::*mptr, unsigned long long flagvalue) {
+			(ad.cids.*mptr).clear();
+		});
+
+		DBRowExec(syncdb, "SELECT id, flags FROM tweets ORDER BY id DESC;", [&](sqlite3_stmt *getstmt) {
 			uint64_t id = (uint64_t) sqlite3_column_int64(getstmt, 0);
 			ad.unloaded_db_tweet_ids.insert(ad.unloaded_db_tweet_ids.end(), id);
+
+			uint64_t flags = (uint64_t) sqlite3_column_int64(getstmt, 1);
+			cached_id_sets::IterateLists([&](const char *name, tweetidset cached_id_sets::*mptr, unsigned long long flagvalue) {
+				if(flags & flagvalue)
+					(ad.cids.*mptr).insert(id);
+			});
 		}, "dbconn::SyncReadInAllTweetIDs");
+		done_cids = true;
 	}
 
 	if(!gc.readonlymode) {
@@ -1502,6 +1513,9 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 	}
 
 	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInAllTweetIDs end, read %u", ad.unloaded_db_tweet_ids.size());
+
+	if(!done_cids)
+		SyncReadInCIDSLists(syncdb);
 }
 
 void dbconn::SyncWriteBackTweetIDIndexCache(sqlite3 *syncdb) {
@@ -1528,6 +1542,7 @@ void dbconn::SyncWriteBackTweetIDIndexCache(sqlite3 *syncdb) {
 	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncWriteBackTweetIDIndexCache end, wrote %u", ad.unloaded_db_tweet_ids.size());
 }
 
+// This is called by SyncReadInAllTweetIDs
 void dbconn::SyncReadInCIDSLists(sqlite3 *adb) {
 	LogMsg(LOGT::DBINFO, "dbconn::SyncReadInCIDSLists start");
 	const char getcidslist[] = "SELECT value FROM settings WHERE name == ?;";
