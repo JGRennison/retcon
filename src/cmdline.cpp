@@ -29,7 +29,8 @@
 
 typedef CSimpleOptTempl<wxChar> CSO;
 
-enum { OPT_LOGWIN, OPT_FILE, OPT_STDERR, OPT_FILEAUTO, OPT_DATADIR, OPT_FFLUSH, OPT_READONLY, OPT_ACCSDSBD, OPT_LOGMEMUSAGE, OPT_VERSION };
+enum { OPT_LOGWIN, OPT_FILE, OPT_STDERR, OPT_FILEAUTO, OPT_DATADIR, OPT_FFLUSH, OPT_READONLY, OPT_ACCSDSBD, OPT_LOGMEMUSAGE, OPT_VERSION,
+		OPT_RESCAN_TWEETS };
 
 CSO::SOption g_rgOptions[] =
 {
@@ -53,6 +54,7 @@ CSO::SOption g_rgOptions[] =
 #ifndef __WINDOWS__
 	{ OPT_LOGMEMUSAGE,  wxT("--log-mem-usage"),SO_NONE      },
 #endif
+	{ OPT_RESCAN_TWEETS,wxT("--rescan-tweets-table"),SO_NONE},
 	{ OPT_VERSION,      wxT("--version"),      SO_NONE      },
 
 	SO_END_OF_OPTIONS
@@ -136,9 +138,14 @@ int cmdlineproc(wxChar **argv, int argc) {
 				gc.allaccsdisabled = true;
 				break;
 			}
+			case OPT_RESCAN_TWEETS: {
+				gc.rescan_tweets_table = true;
+				break;
+			}
 			case OPT_VERSION: {
 				wxSafeShowMessage(wxT("Version"), wxString::Format(wxT("%s (%s)"), appversionname.c_str(), appbuildversion.c_str()));
 				wxGetApp().terms_requested++;
+				break;
 			}
 		}
 	}

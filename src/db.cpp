@@ -1482,7 +1482,7 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 		"dbconn::SyncReadInAllTweetIDs (cache load)"
 	);
 
-	if(ad.unloaded_db_tweet_ids.empty()) {
+	if(ad.unloaded_db_tweet_ids.empty() || gc.rescan_tweets_table) {
 		// Didn't find any cache
 		LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInAllTweetIDs table scan");
 

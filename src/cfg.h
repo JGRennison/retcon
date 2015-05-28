@@ -170,6 +170,7 @@ struct globconf : public globconf_base {
 	//Set by cmdline
 	bool readonlymode = false;
 	bool allaccsdisabled = false;
+	bool rescan_tweets_table = false;
 };
 
 struct format_set {
