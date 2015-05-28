@@ -171,7 +171,6 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_p
 	job_data->url = std::move(url);
 
 	wxGetApp().EnqueueThreadJob([job_data]() {
-		udc_ptr user = job_data->user;
 		if(!gc.readonlymode) {
 			wxFile file(job_data->filename, wxFile::write);
 			file.Write(job_data->data.data(), job_data->data.size());
@@ -180,8 +179,6 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_p
 
 		wxImage img(memstream);
 		if(!img.IsOk()) {
-			TSLogMsgFormat(LOGT::OTHERERR, "Profile image downloaded: %s for user id %" llFmtSpec "d (@%s), is not OK, possible partial download?",
-					cstr(job_data->url), user->id, cstr(user->GetUser().screen_name));
 			job_data->ok = false;
 		}
 		else {
@@ -193,6 +190,8 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_p
 		udc_ptr &user = job_data->user;
 		profimglocal::clear_dl_flags(user);
 		if(!job_data->ok) {
+			LogMsgFormat(LOGT::OTHERERR, "Profile image downloaded: %s for user id %" llFmtSpec "d (@%s), is not OK, possible partial download?",
+					cstr(job_data->url), user->id, cstr(user->GetUser().screen_name));
 			user->MakeProfileImageFailurePlaceholder();
 		}
 		else if(job_data->url != user->GetUser().profile_img_url) {
