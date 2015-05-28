@@ -1306,10 +1306,7 @@ void TweetURLHandler(wxWindow *win, wxString url, tweet_ptr_p td, panelparentwin
 				mainframe *mf = tppw->GetMainframe();
 				if(!mf && mainframelist.size()) mf = mainframelist.front();
 				if(mf) {
-					mf->tpw->SetDMTarget(ad.GetUserContainerById(userid));
-					if(td->flags.Get('D') && td->lflags & TLF::HAVEFIRSTTP) {
-						mf->tpw->accc->TrySetSel(td->first_tp.acc.get());
-					}
+					mf->tpw->SetDMTarget(ad.GetUserContainerById(userid), td);
 				}
 				break;
 			}

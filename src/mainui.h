@@ -175,7 +175,7 @@ struct tweetpostwin : public wxPanel, public magic_ptr_base {
 	void NotifyPostResult(bool success);
 	void UpdateReplyDesc();
 	void SetReplyTarget(tweet_ptr_p targ);
-	void SetDMTarget(udc_ptr_p targ);
+	void SetDMTarget(udc_ptr_p targ, optional_tweet_ptr_p src = nullptr);
 	void DoCheckFocusDisplay(bool force = false);
 	void OnCloseReplyDescBtn(wxCommandEvent &event);
 	void OnClearTextBtn(wxCommandEvent &event);

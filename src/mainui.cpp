@@ -807,10 +807,50 @@ void tweetpostwin::SetReplyTarget(tweet_ptr_p targ) {
 	textctrl->SetCursorToEnd();
 }
 
-void tweetpostwin::SetDMTarget(udc_ptr_p targ) {
-	if(dm_targ != targ) replydesc_locked = false;
+void tweetpostwin::SetDMTarget(udc_ptr_p targ, optional_tweet_ptr_p src) {
+	if(dm_targ != targ)
+		replydesc_locked = false;
 	tweet_reply_targ.reset();
 	dm_targ = targ;
+
+	if(targ && src) {
+		if(src->flags.Get('D') && src->lflags & TLF::HAVEFIRSTTP) {
+			// src is a DM, use same account
+			accc->TrySetSel(src->first_tp.acc.get());
+		}
+		else {
+			unsigned int best_score = 0;
+			const taccount *best = 0;
+			src->IterateTP([&](const tweet_perspective &tp) {
+				if(tp.IsArrivedHere()) {
+					unsigned int score = 1;
+					if(tp.acc->enabled)
+						score += 2;
+					if(tp.acc.get() == accc->curacc.get())
+						score += 1;
+					if(src->flags.Get('M') && tp.acc->usercont->GetMentionSet().count(src->id)) {
+						// account is mentioned
+						score += 4;
+					}
+					auto relation = tp.acc->user_relations.find(targ->id);
+					if(relation != tp.acc->user_relations.end()) {
+						if(relation->second.ur_flags & user_relationship::URF::FOLLOWSME_TRUE)
+							score += 4;
+						if(relation->second.ur_flags & user_relationship::URF::IFOLLOW_TRUE)
+							score += 4;
+					}
+					if(score > best_score) {
+						best = tp.acc.get();
+						best_score = score;
+					}
+				}
+			});
+			if(best && accc->curacc.get() != best) {
+				accc->TrySetSel(best);
+			}
+		}
+	}
+
 	UpdateReplyDesc();
 	textctrl->SetCursorToEnd();
 }

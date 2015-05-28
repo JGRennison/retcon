@@ -468,8 +468,12 @@ void user_window::OnFollowBtn(wxCommandEvent &event) {
 
 void user_window::OnDMBtn(wxCommandEvent &event) {
 	mainframe *win = GetMainframeAncestor(this);
-	if(!win) win = mainframelist.front();
+	if(!win)
+		win = mainframelist.front();
 	if(win) {
+		std::shared_ptr<taccount> acc = acc_hint.lock();
+		if(acc)
+			win->tpw->accc->TrySetSel(acc.get());
 		win->tpw->SetDMTarget(u);
 	}
 }

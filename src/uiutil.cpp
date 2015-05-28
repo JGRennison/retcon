@@ -272,7 +272,7 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 			break;
 		case TAMI_DM:
 			if(mainwin)
-				mainwin->tpw->SetDMTarget(map[curid].user);
+				mainwin->tpw->SetDMTarget(map[curid].user, map[curid].tw);
 			break;
 		case TAMI_RETWEET:
 			simple_action(STYPE::RT);
