@@ -735,51 +735,12 @@ void tpanel_subtweet_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF>
 
 	tp_window->GenericAction([data, t](tpanelparentwin_nt *window) {
 		tweetdispscr *tds = data->top_tds.get();
-		if(!tds) return;
+		if(!tds)
+			return;
 
 		wxBoxSizer *subhbox = new wxBoxSizer(wxHORIZONTAL);
 		data->vbox->Add(subhbox, 0, wxALL | wxEXPAND, 1);
-
-		tweetdispscr *subtd = new tweetdispscr(t, tds->tpi, window, subhbox);
-		subtd->tds_flags |= TDSF::SUBTWEET;
-
-		tds->subtweets.emplace_front(subtd);
-		subtd->parent_tweet.set(tds);
-
-		if(t->rtsrc && gc.rtdisp) {
-			t->rtsrc->user->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
-			subtd->bm = new profimg_staticbitmap(tds->tpi, t->rtsrc->user->cached_profile_img_half, t->rtsrc->user, t, window->GetMainframe(), profimg_staticbitmap::PISBF::HALF);
-		}
-		else {
-			t->user->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
-			subtd->bm = new profimg_staticbitmap(tds->tpi, t->user->cached_profile_img_half, t->user, t, window->GetMainframe(), profimg_staticbitmap::PISBF::HALF);
-		}
-		subhbox->Add(subtd->bm, 0, wxALL, 1);
-		subhbox->Add(subtd, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
-
-		wxFont newfont;
-		wxTextAttrEx tae(subtd->GetDefaultStyleEx());
-		if(tae.HasFont()) {
-			newfont = tae.GetFont();
-		}
-		else {
-			newfont = subtd->GetFont();
-		}
-		int newsize = 0;
-		if(newfont.IsOk()) newsize = ((newfont.GetPointSize() * 3) + 2) / 4;
-		if(!newsize) newsize = 7;
-
-		newfont.SetPointSize(newsize);
-		tae.SetFont(newfont);
-		subtd->SetFont(newfont);
-		subtd->SetDefaultStyle(tae);
-		subtd->PanelInsertEvt();
-		subtd->DisplayTweet();
-
-		if(!(window->pimpl()->tppw_flags & TPPWF::NOUPDATEONPUSH)) {
-			subtd->ForceRefresh();
-		}
-		else subtd->gdb_flags |= tweetdispscr::GDB_F::NEEDSREFRESH;
+		tweetdispscr *subtd = window->pimpl()->CreateSubTweetInItemHbox(t, tds, subhbox);
 
 		CheckLoadTweetReply(t, data->vbox, window, subtd, data->load_count - 1, data->top_tweet, tds);
 	});

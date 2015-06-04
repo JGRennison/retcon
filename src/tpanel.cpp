@@ -814,6 +814,68 @@ tweetdispscr *tpanelparentwin_nt_impl::CreateTweetInItem(tweet_ptr_p t, tpanel_d
 	return td;
 }
 
+static void SetSubTweetTextAttr(tweetdispscr *subtd) {
+	static bool done = false;
+	static wxFont cached_font;
+	static wxTextAttrEx cached_attr;
+
+	if(!done) {
+		cached_attr = wxTextAttrEx(subtd->GetDefaultStyleEx());
+		if(cached_attr.HasFont()) {
+			cached_font = cached_attr.GetFont();
+		}
+		else {
+			cached_font = subtd->GetFont();
+		}
+
+		int newsize = 0;
+		if(cached_font.IsOk())
+			newsize = ((cached_font.GetPointSize() * 3) + 2) / 4;
+		if(!newsize)
+			newsize = 7;
+
+		cached_font.SetPointSize(newsize);
+		cached_attr.SetFont(cached_font);
+
+		done = true;
+	}
+
+	subtd->SetFont(cached_font);
+	subtd->SetDefaultStyle(cached_attr);
+}
+
+tweetdispscr *tpanelparentwin_nt_impl::CreateSubTweetInItemHbox(tweet_ptr_p t, tweetdispscr *top_tds, wxBoxSizer *subhbox) {
+	tweetdispscr *subtd = new tweetdispscr(t, top_tds->tpi, base(), subhbox);
+	subtd->tds_flags |= TDSF::SUBTWEET;
+
+	top_tds->subtweets.emplace_front(subtd);
+	subtd->parent_tweet.set(top_tds);
+
+	if(t->rtsrc && gc.rtdisp) {
+		t->rtsrc->user->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
+		subtd->bm = new profimg_staticbitmap(top_tds->tpi, t->rtsrc->user->cached_profile_img_half, t->rtsrc->user, t, base()->GetMainframe(),
+				profimg_staticbitmap::PISBF::HALF);
+	}
+	else {
+		t->user->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
+		subtd->bm = new profimg_staticbitmap(top_tds->tpi, t->user->cached_profile_img_half, t->user, t, base()->GetMainframe(),
+				profimg_staticbitmap::PISBF::HALF);
+	}
+	subhbox->Add(subtd->bm, 0, wxALL, 1);
+	subhbox->Add(subtd, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
+
+	SetSubTweetTextAttr(subtd);
+	subtd->PanelInsertEvt();
+	subtd->DisplayTweet();
+
+	if(!(tppw_flags & TPPWF::NOUPDATEONPUSH))
+		subtd->ForceRefresh();
+	else
+		subtd->gdb_flags |= tweetdispscr::GDB_F::NEEDSREFRESH;
+
+	return subtd;
+}
+
 void tpanelparentwin_nt::RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags) {
 	pimpl()->RemoveTweet(id, pushflags);
 }
