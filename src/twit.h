@@ -239,6 +239,7 @@ class tweet_perspective {
 		TP_RECV_UT       = 1<<6,
 		TP_RECV_NORM     = 1<<7,
 		TP_RECV_RTSRC    = 1<<8,
+		TP_RECV_QUOTE    = 1<<9,
 	};
 
 	public:
@@ -263,6 +264,7 @@ class tweet_perspective {
 	void SetRecvTypeUT(bool val) { if(val) flags |= TP_RECV_UT; else flags &= ~TP_RECV_UT; }
 	void SetRecvTypeNorm(bool val) { if(val) flags |= TP_RECV_NORM; else flags &= ~TP_RECV_NORM; }
 	void SetRecvTypeRTSrc(bool val) { if(val) flags |= TP_RECV_RTSRC; else flags &= ~TP_RECV_RTSRC; }
+	void SetRecvTypeQuote(bool val) { if(val) flags |= TP_RECV_QUOTE; else flags &= ~TP_RECV_QUOTE; }
 
 	std::string GetFlagString() const;
 	std::string GetFlagStringWithName(bool always = false) const;
@@ -338,6 +340,7 @@ struct tweet_pending {
 struct tweet {
 	uint64_t id = 0;
 	uint64_t in_reply_to_status_id = 0;
+	std::vector<uint64_t> quoted_tweet_ids;
 	unsigned int retweet_count = 0;
 	unsigned int favourite_count = 0;
 	std::string source;
@@ -390,6 +393,7 @@ struct tweet {
 	std::string GetPermalink() const;
 	void MarkFlagsAsRead();
 	void MarkFlagsAsUnread();
+	void AddQuotedTweetId(uint64_t id);
 
 	//! Where F is a functor of the type: void(const tweet_perspective &tp)
 	template<typename F> void IterateTP(F f) const {

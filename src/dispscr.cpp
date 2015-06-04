@@ -233,8 +233,8 @@ BEGIN_EVENT_TABLE(dispscr_base, generic_disp_base)
 	EVT_LEAVE_WINDOW(dispscr_base::mouseleavehandler)
 END_EVENT_TABLE()
 
-dispscr_base::dispscr_base(tpanel_item *parent, panelparentwin_base *tppw_, wxBoxSizer *hbox_, wxString thisname_)
-: generic_disp_base(parent, tppw_, 0, thisname_), tpi(parent), hbox(hbox_) {
+dispscr_base::dispscr_base(wxWindow *parent, tpanel_item *item, panelparentwin_base *tppw_, wxBoxSizer *hbox_, wxString thisname_)
+: generic_disp_base(parent, tppw_, 0, thisname_), tpi(item), hbox(hbox_) {
 	GetCaret()->Hide();
 	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANELTRACE, "DCL: dispscr_base::dispscr_base constructor %s END", cstr(GetThisName()));
@@ -278,8 +278,8 @@ BEGIN_EVENT_TABLE(tweetdispscr, dispscr_base)
 	EVT_TIMER(TDS_WID_UNHIDEIMGOVERRIDETIMER, tweetdispscr::unhideimageoverridetimeouthandler)
 END_EVENT_TABLE()
 
-tweetdispscr::tweetdispscr(tweet_ptr_p td_, tpanel_item *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_)
-		: dispscr_base(parent, tppw_, hbox_, thisname_.empty() ? wxString::Format(wxT("tweetdispscr: %" wxLongLongFmtSpec "d for %s"),
+tweetdispscr::tweetdispscr(tweet_ptr_p td_, wxWindow *parent, tpanel_item *item, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_)
+		: dispscr_base(parent, item, tppw_, hbox_, thisname_.empty() ? wxString::Format(wxT("tweetdispscr: %" wxLongLongFmtSpec "d for %s"),
 			td_->id, tppw_->GetThisName().c_str()) : thisname_), td(td_), bm(0), bm2(0) {
 
 	if(td_->rtsrc) rtid = td_->rtsrc->id;
@@ -1006,17 +1006,24 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 
 	tweet &tw = *td;
 
+	auto set_background = [&](const wxColour &colour) {
+		SetBackgroundColour(colour);
+		if(get())
+			get()->SetBackgroundColour(colour);
+		for(auto &it : rounded_box_panels) {
+			it->SetBackgroundColour(colour);
+		}
+	};
+
 	bool highlight = tw.flags.Get('H');
 	if(highlight && !(tds_flags & TDSF::HIGHLIGHT)) {
 		wxColour newcolour = ColourOp(default_background_colour, gc.gcfg.highlight_colourdelta.val);
 
-		SetBackgroundColour(newcolour);
-		if(get()) get()->SetBackgroundColour(newcolour);
+		set_background(newcolour);
 		tds_flags |= TDSF::HIGHLIGHT;
 	}
 	else if(!highlight && tds_flags & TDSF::HIGHLIGHT) {
-		SetBackgroundColour(default_background_colour);
-		if(get()) get()->SetBackgroundColour(default_background_colour);
+		set_background(default_background_colour);
 		tds_flags &= ~TDSF::HIGHLIGHT;
 	}
 
@@ -1757,7 +1764,7 @@ BEGIN_EVENT_TABLE(userdispscr, dispscr_base)
 END_EVENT_TABLE()
 
 userdispscr::userdispscr(udc_ptr_p u_, tpanel_item *parent, tpanelparentwin_user *tppw_, wxBoxSizer *hbox_, wxString thisname_)
-: dispscr_base(parent, tppw_, hbox_, thisname_.empty() ? wxString::Format(wxT("userdispscr: %" wxLongLongFmtSpec "d for %s"), u_->id, tppw_->GetThisName().c_str()) : thisname_), u(u_), bm(0) {
+: dispscr_base(parent, parent, tppw_, hbox_, thisname_.empty() ? wxString::Format(wxT("userdispscr: %" wxLongLongFmtSpec "d for %s"), u_->id, tppw_->GetThisName().c_str()) : thisname_), u(u_), bm(0) {
 }
 
 userdispscr::~userdispscr() { }

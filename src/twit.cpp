@@ -669,6 +669,7 @@ std::string tweet_perspective::GetFlagString() const {
 	addchar('U');
 	addchar('N');
 	addchar('T');
+	addchar('Q');
 	return std::move(output);
 }
 
@@ -759,6 +760,11 @@ void tweet::MarkFlagsAsRead() {
 void tweet::MarkFlagsAsUnread() {
 	flags.Set('r', false);
 	flags.Set('u', true);
+}
+
+void tweet::AddQuotedTweetId(uint64_t id) {
+	if(std::find(quoted_tweet_ids.begin(), quoted_tweet_ids.end(), id) == quoted_tweet_ids.end())
+		quoted_tweet_ids.push_back(id);
 }
 
 void tweet::ClearDeadPendingOps() {

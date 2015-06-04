@@ -30,6 +30,8 @@
 #include <wx/menu.h>
 #include <wx/bitmap.h>
 #include <wx/richtext/richtextctrl.h>
+#include <wx/pen.h>
+#include <wx/brush.h>
 #include <memory>
 #include <map>
 
@@ -171,6 +173,19 @@ struct settings_changed_notifier : public magic_ptr_contained<settings_changed_n
 
 	private:
 	static magic_ptr_container<settings_changed_notifier> container;
+};
+
+struct rounded_box_panel : public wxPanel, magic_ptr_contained<rounded_box_panel> {
+	wxBrush fillBrush;
+	wxPen linePen;
+	int border_radius;
+	int horiz_margins;
+	int vert_margins;
+
+	rounded_box_panel(wxWindow* parent, int border_radius_, int horiz_margins_, int vert_margins_);
+	void OnPaint(wxPaintEvent &event);
+
+	DECLARE_EVENT_TABLE()
 };
 
 #endif

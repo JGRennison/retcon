@@ -28,6 +28,7 @@
 #include <wx/panel.h>
 #include <wx/statbmp.h>
 #include <wx/string.h>
+#include <wx/brush.h>
 #include <memory>
 
 struct mainframe;
@@ -138,20 +139,29 @@ struct tpanelscrollpane : public wxPanel, public magic_paired_ptr_ts<tpanelscrol
 };
 
 struct tpanel_subtweet_pending_op : public pending_op {
+	enum class tspo_type {
+		INLINE_REPLY,
+		QUOTE,
+	};
+
 	struct tspo_action_data {
 		wxSizer *vbox;
 		magic_ptr_ts<tpanelparentwin_nt> win;
 		magic_ptr_ts<tweetdispscr> top_tds;
+		magic_ptr_ts<tweetdispscr> source_tds;
 		unsigned int load_count = 0;
 		tweet_ptr top_tweet;
+		tspo_type type;
 	};
 	std::shared_ptr<tspo_action_data> action_data;
 
 	tpanel_subtweet_pending_op(wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *top_tds_, unsigned int load_count_,
-		tweet_ptr top_tweet_);
+		tweet_ptr top_tweet_, tweetdispscr *source_tds_, tspo_type type_);
 
 	static void CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, tpanelparentwin_nt *s,
 		tweetdispscr *tds, unsigned int load_count, tweet_ptr_p top_tweet, tweetdispscr *top_tds);
+	static void CheckLoadQuotedTweet(tweet_ptr_p quote_tweet, wxSizer *v, tpanelparentwin_nt *s,
+		tweetdispscr *source_tds, tweetdispscr *top_tds);
 
 	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags);
 	virtual std::string dump();

@@ -37,6 +37,8 @@
 #include <wx/colour.h>
 #include <wx/clipbrd.h>
 #include <wx/dataobj.h>
+#include <wx/dc.h>
+#include <wx/dcclient.h>
 #include <algorithm>
 
 tweetactmenudata tamd;
@@ -856,3 +858,21 @@ void settings_changed_notifier::NotifyAll() {
 }
 
 magic_ptr_container<settings_changed_notifier> settings_changed_notifier::container;
+
+BEGIN_EVENT_TABLE(rounded_box_panel, wxPanel)
+	EVT_PAINT(rounded_box_panel::OnPaint)
+END_EVENT_TABLE()
+
+rounded_box_panel::rounded_box_panel(wxWindow* parent, int border_radius_, int horiz_margins_, int vert_margins_)
+		: wxPanel(parent), border_radius(border_radius_), horiz_margins(horiz_margins_), vert_margins(vert_margins_) {
+	fillBrush = wxBrush(GetBackgroundColour());
+	linePen = wxPen(GetForegroundColour());
+}
+
+void rounded_box_panel::OnPaint(wxPaintEvent &event) {
+	wxPaintDC dc(this);
+	dc.SetBrush(fillBrush);
+	dc.SetPen(linePen);
+	dc.DrawRoundedRectangle(horiz_margins, vert_margins,
+			GetSize().GetWidth() - (2 * horiz_margins), GetSize().GetHeight() - (2 * vert_margins), border_radius);
+}

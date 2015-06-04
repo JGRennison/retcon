@@ -698,7 +698,8 @@ void tpanel_subtweet_pending_op::CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, 
 
 			std::shared_ptr<taccount> pacc;
 			t->GetUsableAccount(pacc, GUAF::NOERR) || t->GetUsableAccount(pacc, GUAF::NOERR | GUAF::USERENABLED);
-			subt->AddNewPendingOp(new tpanel_subtweet_pending_op(v, s, top_tds, tweet_load_count, top_tweet));
+			subt->AddNewPendingOp(new tpanel_subtweet_pending_op(v, s, top_tds, tweet_load_count, top_tweet,
+					nullptr, tspo_type::INLINE_REPLY));
 			CheckFetchPendingSingleTweet(subt, pacc);
 			TryUnmarkPendingTweet(subt, 0);
 		};
@@ -714,14 +715,32 @@ void tpanel_subtweet_pending_op::CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, 
 	}
 }
 
+void tpanel_subtweet_pending_op::CheckLoadQuotedTweet(tweet_ptr_p quote_tweet, wxSizer *v, tpanelparentwin_nt *s,
+		tweetdispscr *source_tds, tweetdispscr *top_tds) {
+	using GUAF = tweet::GUAF;
+
+	if(source_tds->td->IsArrivedHereAnyPerspective()) {	//save
+		quote_tweet->lflags |= TLF::SHOULDSAVEINDB;
+	}
+
+	std::shared_ptr<taccount> pacc;
+	source_tds->td->GetUsableAccount(pacc, GUAF::NOERR) || source_tds->td->GetUsableAccount(pacc, GUAF::NOERR | GUAF::USERENABLED);
+	quote_tweet->AddNewPendingOp(new tpanel_subtweet_pending_op(v, s, top_tds, 0, top_tds->td,
+			source_tds, tspo_type::QUOTE));
+	CheckFetchPendingSingleTweet(quote_tweet, pacc);
+	TryUnmarkPendingTweet(quote_tweet, 0);
+}
+
 tpanel_subtweet_pending_op::tpanel_subtweet_pending_op(wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *top_tds_,
-		unsigned int load_count_, tweet_ptr top_tweet_) {
+		unsigned int load_count_, tweet_ptr top_tweet_, tweetdispscr *source_tds_, tspo_type type_) {
 	action_data = std::make_shared<tspo_action_data>();
 	action_data->vbox = v;
 	action_data->win = s;
 	action_data->top_tds = top_tds_;
 	action_data->load_count = load_count_;
 	action_data->top_tweet = std::move(top_tweet_);
+	action_data->source_tds = std::move(source_tds_);
+	action_data->type = type_;
 }
 
 void tpanel_subtweet_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) {
@@ -738,16 +757,50 @@ void tpanel_subtweet_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF>
 		if(!tds)
 			return;
 
-		wxBoxSizer *subhbox = new wxBoxSizer(wxHORIZONTAL);
-		data->vbox->Add(subhbox, 0, wxALL | wxEXPAND, 1);
-		tweetdispscr *subtd = window->pimpl()->CreateSubTweetInItemHbox(t, tds, subhbox);
+		wxBoxSizer *subhbox = nullptr;
+		wxWindow *parent = nullptr;
+		switch(data->type) {
+			case tspo_type::INLINE_REPLY:
+				subhbox = new wxBoxSizer(wxHORIZONTAL);
+				data->vbox->Add(subhbox, 0, wxALL | wxEXPAND, 1);
+				parent = tds->tpi;
+				break;
+			case tspo_type::QUOTE:
+				int side_margin = 15;
+				rounded_box_panel *rbpanel = new rounded_box_panel(tds->tpi, 10, side_margin, 2);
+				wxSizer *outerhbox = new wxBoxSizer(wxHORIZONTAL);
+				subhbox = new wxBoxSizer(wxHORIZONTAL);
+				outerhbox->AddSpacer(side_margin);
+				outerhbox->Add(subhbox, 1, wxALL | wxEXPAND, 8);
+				outerhbox->AddSpacer(side_margin);
+				rbpanel->SetSizer(outerhbox);
+				data->vbox->Insert(1, rbpanel, 0, wxLEFT | wxRIGHT | wxEXPAND, 2);
+				parent = rbpanel;
 
-		CheckLoadTweetReply(t, data->vbox, window, subtd, data->load_count - 1, data->top_tweet, tds);
+				data->source_tds->rounded_box_panels.insert(rbpanel);
+				rbpanel->SetBackgroundColour(data->source_tds->GetBackgroundColour());
+				break;
+		}
+
+		tweetdispscr *subtd = window->pimpl()->CreateSubTweetInItemHbox(t, tds, subhbox, parent);
+
+		if(data->type == tspo_type::INLINE_REPLY)
+			CheckLoadTweetReply(t, data->vbox, window, subtd, data->load_count - 1, data->top_tweet, tds);
 	});
 }
 
 std::string tpanel_subtweet_pending_op::dump() {
-	return string_format("Push inline tweet reply to tpanel: win: %s, top tds: %s, top tweet: %s",
+	const char *type = "(null)";
+	switch(action_data->type) {
+		case tspo_type::INLINE_REPLY:
+			type = "inline tweet reply";
+			break;
+		case tspo_type::QUOTE:
+			type = "quoted tweet";
+			break;
+	}
+	return string_format("Push %s to tpanel: win: %s, top tds: %s, top tweet: %s",
+			type,
 			action_data->win ? cstr(action_data->win->GetThisName()) : "(null)",
 			action_data->top_tds ? cstr(action_data->top_tds->GetThisName()) : "(null)",
 			cstr(tweet_short_log_line(action_data->top_tweet->id))

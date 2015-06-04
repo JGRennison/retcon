@@ -66,6 +66,7 @@ enum class JDTP {
 	CHECKPENDINGONLY   = 1<<6,
 	POSTDBLOAD         = 1<<7,
 	ALWAYSREPARSE      = 1<<8,
+	ISQUOTE            = 1<<9,
 };
 template<> struct enum_traits<JDTP> { static constexpr bool flags = true; };
 

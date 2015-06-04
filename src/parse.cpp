@@ -67,6 +67,11 @@ void genjsonparser::ParseTweetStatics(const rapidjson::Value &val, tweet_ptr_p t
 	CheckTransJsonValueDef(tobj->source, val, "source", "", jw);
 	CheckTransJsonValueDef(tobj->text, val, "text", "", jw);
 
+	uint64_t quoted_status_id;
+	CheckTransJsonValueDef(quoted_status_id, val, "quoted_status_id", 0, jw);
+	if(quoted_status_id)
+		tobj->AddQuotedTweetId(quoted_status_id);
+
 	const rapidjson::Value &entv = val["entities"];
 	const rapidjson::Value &entvex = val["extended_entities"];
 	if(entv.IsObject()) {
@@ -1061,6 +1066,10 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 			CheckTransJsonValueDef(tobj->retweet_count, val, "retweet_count", 0);
 			CheckTransJsonValueDef(tobj->favourite_count, val, "favorite_count", 0);
 		}
+		auto &quoteval = val["quoted_status"];
+		if(quoteval.IsObject()) {
+			DoTweetParse(quoteval, sflags | JDTP::ISQUOTE);
+		}
 	}
 
 	auto &possiblysensitive = val["possibly_sensitive"];
@@ -1103,7 +1112,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 	}
 	else UpdateTweet(*tobj);
 
-	if(!(sflags & JDTP::CHECKPENDINGONLY) && !(sflags & JDTP::ISRTSRC) && !(sflags & JDTP::USERTIMELINE)) {
+	if(!(sflags & JDTP::CHECKPENDINGONLY) && !(sflags & JDTP::ISRTSRC) && !(sflags & JDTP::USERTIMELINE) && !(sflags & JDTP::ISQUOTE)) {
 		if(sflags & JDTP::ISDM) {
 			if(tobj->user_recipient.get() == tac->usercont.get()) {    //received DM
 				if(tac->max_recvdm_id < tobj->id) tac->max_recvdm_id = tobj->id;
@@ -1134,6 +1143,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 	if(tobj->lflags & TLF::SHOULDSAVEINDB) tobj->flags.Set('B');
 
 	if(sflags & JDTP::ISRTSRC) tp->SetRecvTypeRTSrc(true);
+	if(sflags & JDTP::ISQUOTE) tp->SetRecvTypeQuote(true);
 
 	bool have_checked_pending = false;
 
@@ -1141,7 +1151,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 		tp->SetRecvTypeCPO(true);
 	}
 	else if(sflags & JDTP::USERTIMELINE) {
-		if(data->rbfs_type != RBFS_NULL && !(sflags & JDTP::ISRTSRC)) {
+		if(data->rbfs_type != RBFS_NULL && !(sflags & JDTP::ISRTSRC) && !(sflags & JDTP::ISQUOTE)) {
 			tp->SetRecvTypeUT(true);
 			std::shared_ptr<tpanel> usertp = tpanelparentwin_usertweets::GetUserTweetTPanel(data->rbfs_userid, data->rbfs_type);
 			if(usertp) {
@@ -1164,7 +1174,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 		 * ID lists, in particular the timeline list, as those were not written out.
 		 * If everything was written out, we would not be loading the same timeline tweet again.
 		 */
-		if((has_just_arrived || (sflags & JDTP::POSTDBLOAD)) && !(sflags & JDTP::ISRTSRC) && !(sflags & JDTP::USERTIMELINE)) {
+		if((has_just_arrived || (sflags & JDTP::POSTDBLOAD)) && !(sflags & JDTP::ISRTSRC) && !(sflags & JDTP::USERTIMELINE) && !(sflags & JDTP::ISQUOTE)) {
 			if(gc.markowntweetsasread && !tobj->flags.Get('u') && (tobj->flags.Get('O') || tobj->flags.Get('S'))) {
 				//tweet is marked O or S, is own tweet or DM, mark read if not already unread
 				tobj->flags.Set('r');

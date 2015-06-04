@@ -47,6 +47,7 @@ struct userdatacontainer;
 struct tweetdispscr;
 struct media_entity_raii_updater;
 struct tpanel_item;
+struct rounded_box_panel;
 
 DECLARE_EVENT_TYPE(wxextGDB_Popup_Evt, -1)
 
@@ -137,7 +138,7 @@ struct dispscr_base : public generic_disp_base, public magic_paired_ptr_ts<disps
 	tpanel_item *tpi;
 	wxBoxSizer *hbox;
 
-	dispscr_base(tpanel_item *parent, panelparentwin_base *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
+	dispscr_base(wxWindow *parent, tpanel_item *item, panelparentwin_base *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
 	virtual void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
                                int noUnitsX, int noUnitsY,
                                int xPos = 0, int yPos = 0,
@@ -187,8 +188,9 @@ struct tweetdispscr : public dispscr_base, public generic_popup_wrapper_hook {
 	std::unique_ptr<wxTimer> imghideoverridetimer;
 	std::function<void()> loadmorereplies;
 	std::vector<media_entity_raii_updater> media_entity_updaters;
+	magic_ptr_container<rounded_box_panel> rounded_box_panels;
 
-	tweetdispscr(tweet_ptr_p td_, tpanel_item *parent, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
+	tweetdispscr(tweet_ptr_p td_, wxWindow *parent, tpanel_item *item, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
 	~tweetdispscr();
 	bool CheckHiddenState();
 	void DisplayTweet(bool redrawimg = false);

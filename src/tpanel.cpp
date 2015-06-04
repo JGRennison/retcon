@@ -758,7 +758,7 @@ tweetdispscr *tpanelparentwin_nt_impl::CreateTweetInItem(tweet_ptr_p t, tpanel_d
 
 	tpanel_item *item = tpdi.item;
 
-	tweetdispscr *td = new tweetdispscr(t, item, base(), item->hbox);
+	tweetdispscr *td = new tweetdispscr(t, item, item, base(), item->hbox);
 	item->vbox->Add(td, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
 	tpdi.disp = td;
 
@@ -806,6 +806,9 @@ tweetdispscr *tpanelparentwin_nt_impl::CreateTweetInItem(tweet_ptr_p t, tpanel_d
 	#endif
 
 	tpanel_subtweet_pending_op::CheckLoadTweetReply(t, item->vbox, base(), td, gc.inlinereplyloadcount, t, td);
+	for(auto &it : t->quoted_tweet_ids) {
+		tpanel_subtweet_pending_op::CheckLoadQuotedTweet(ad.GetTweetById(it), item->vbox, base(), td, td);
+	}
 
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::CreateTweetInItem %s END", cstr(GetThisName()));
@@ -844,8 +847,8 @@ static void SetSubTweetTextAttr(tweetdispscr *subtd) {
 	subtd->SetDefaultStyle(cached_attr);
 }
 
-tweetdispscr *tpanelparentwin_nt_impl::CreateSubTweetInItemHbox(tweet_ptr_p t, tweetdispscr *top_tds, wxBoxSizer *subhbox) {
-	tweetdispscr *subtd = new tweetdispscr(t, top_tds->tpi, base(), subhbox);
+tweetdispscr *tpanelparentwin_nt_impl::CreateSubTweetInItemHbox(tweet_ptr_p t, tweetdispscr *top_tds, wxBoxSizer *subhbox, wxWindow *parent) {
+	tweetdispscr *subtd = new tweetdispscr(t, parent, top_tds->tpi, base(), subhbox);
 	subtd->tds_flags |= TDSF::SUBTWEET;
 
 	top_tds->subtweets.emplace_front(subtd);
@@ -853,12 +856,12 @@ tweetdispscr *tpanelparentwin_nt_impl::CreateSubTweetInItemHbox(tweet_ptr_p t, t
 
 	if(t->rtsrc && gc.rtdisp) {
 		t->rtsrc->user->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
-		subtd->bm = new profimg_staticbitmap(top_tds->tpi, t->rtsrc->user->cached_profile_img_half, t->rtsrc->user, t, base()->GetMainframe(),
+		subtd->bm = new profimg_staticbitmap(parent, t->rtsrc->user->cached_profile_img_half, t->rtsrc->user, t, base()->GetMainframe(),
 				profimg_staticbitmap::PISBF::HALF);
 	}
 	else {
 		t->user->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
-		subtd->bm = new profimg_staticbitmap(top_tds->tpi, t->user->cached_profile_img_half, t->user, t, base()->GetMainframe(),
+		subtd->bm = new profimg_staticbitmap(parent, t->user->cached_profile_img_half, t->user, t, base()->GetMainframe(),
 				profimg_staticbitmap::PISBF::HALF);
 	}
 	subhbox->Add(subtd->bm, 0, wxALL, 1);
