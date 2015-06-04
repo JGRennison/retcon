@@ -38,6 +38,7 @@
 #include <wx/uri.h>
 #include <wx/msgdlg.h>
 #include <algorithm>
+#include <pcre.h>
 
 using namespace parse_util;
 
@@ -282,6 +283,35 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 				if(gc.disploadthumb_full) netloadmask |= MELF::DISPTIME;
 				me->check_load_thumb_func = mk_media_thumb_load_func(me->media_url, MIDC::FULLIMG | MIDC::THUMBIMG | MIDC::REDRAW_TWEETS, netloadmask);
 				me->CheckLoadThumb(MELF::LOADTIME);
+			}
+
+			if(wxuri.GetServer() == wxT("twitter.com") && !wxuri.HasQuery()) {
+				static pcre *pattern = 0;
+				static pcre_extra *patextra = 0;
+				static const char patsyntax[] = "^/[^/]+/status/(\\d+)$";
+
+				if(!pattern) {
+					const char *errptr;
+					int erroffset;
+					pattern = pcre_compile(patsyntax, PCRE_NO_UTF8_CHECK | PCRE_UTF8, &errptr, &erroffset, 0);
+					if(!pattern) {
+						LogMsgFormat(LOGT::OTHERERR, "genjsonparser::DoEntitiesParse: twitter URL: pcre_compile failed: %s (%d)\n%s", cstr(errptr), erroffset, cstr(patsyntax));
+						continue;
+					}
+					patextra = pcre_study(pattern, 0, &errptr);
+				}
+
+				std::string path = stdstrwx(wxuri.GetPath());
+
+				const int ovecsize = 9;
+				int ovector[9];
+				if(pcre_exec(pattern, patextra, path.c_str(), path.size(), 0, 0, ovector, ovecsize) >= 2) {
+					uint64_t id = 0;
+					bool ok = ownstrtonum(id, path.c_str() + ovector[2], ovector[3] - ovector[2]);
+					if(ok) {
+						t->AddQuotedTweetId(id);
+					}
+				}
 			}
 		}
 	}
