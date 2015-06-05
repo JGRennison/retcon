@@ -27,6 +27,7 @@ struct taccount;
 
 std::string truncate_tweet_text(const std::string &input);
 std::string tweet_log_line(const tweet *t);
+std::string tweet_long_log_line(const tweet *t);
 std::string user_screenname_log(uint64_t id);
 std::string user_short_log_line(uint64_t id);
 std::string tweet_short_log_line(uint64_t id);

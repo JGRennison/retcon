@@ -34,6 +34,7 @@
 #include "retcon.h"
 #include "dispscr.h"
 #include "tpg.h"
+#include "log-util.h"
 #include <wx/colour.h>
 #include <wx/clipbrd.h>
 #include <wx/dataobj.h>
@@ -243,6 +244,8 @@ void MakeDebugMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_
 	if(tw->flags.Get('T')) {
 		menuP->Append(nextid, wxT("Force reload"));
 		AppendToTAMIMenuMap(map, nextid, TAMI_DBG_FORCERELOAD, tw);
+		menuP->Append(nextid, wxT("Copy debug info"));
+		AppendToTAMIMenuMap(map, nextid, TAMI_COPY_DEBUG_INFO, tw);
 	}
 }
 
@@ -468,6 +471,13 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 			}
 			else {
 				LogMsgFormat(LOGT::OTHERERR, "TAMI_DBG_FORCERELOAD: Cannot lookup tweet: id: %" llFmtSpec "d.", map[curid].tw->id);
+			}
+			break;
+		}
+		case TAMI_COPY_DEBUG_INFO: {
+			if(wxTheClipboard->Open()) {
+				wxTheClipboard->SetData(new wxTextDataObject(wxstrstd(tweet_long_log_line(map[curid].tw.get()))));
+				wxTheClipboard->Close();
 			}
 			break;
 		}

@@ -461,6 +461,34 @@ std::string tweet_log_line(const tweet *t) {
 	return std::move(output);
 }
 
+std::string tweet_long_log_line(const tweet *t) {
+	std::string output = tweet_log_line(t) + "\n\t";
+	if(t->user_recipient) {
+		std::string sname = "???";
+		if(!t->user_recipient->GetUser().screen_name.empty())
+			sname = t->user_recipient->GetUser().screen_name;
+		output += "recipient: " + sname + ", ";
+	}
+	std::string createtime(ctime(&(t->createtime)));
+	trim(createtime);
+	output += string_format("reply to: %" llFmtSpec "u, retweets: %u, favs: %u, source: %s, create time: %s, ",
+			t->in_reply_to_status_id, t->retweet_count, t->favourite_count, cstr(t->source), cstr(createtime));
+	if(!t->quoted_tweet_ids.empty()) {
+		bool first = true;
+		for(auto &it : t->quoted_tweet_ids) {
+			if(first)
+				output += string_format("Quoted tweets: %" llFmtSpec "u", it);
+			else
+				output += string_format(", %" llFmtSpec "u", it);
+			first = false;
+		}
+	}
+	if(t->rtsrc) {
+		output += "\n\tRT source: " + tweet_long_log_line(t->rtsrc.get());
+	}
+	return std::move(output);
+}
+
 std::string user_screenname_log(uint64_t id) {
 	udc_ptr u = ad.GetExistingUserContainerById(id);
 	if(u && !u->GetUser().screen_name.empty()) {
