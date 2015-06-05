@@ -861,10 +861,13 @@ magic_ptr_container<settings_changed_notifier> settings_changed_notifier::contai
 
 BEGIN_EVENT_TABLE(rounded_box_panel, wxPanel)
 	EVT_PAINT(rounded_box_panel::OnPaint)
+	EVT_SIZE(rounded_box_panel::OnSize)
+	EVT_MOUSEWHEEL(rounded_box_panel::OnMouseWheel)
 END_EVENT_TABLE()
 
 rounded_box_panel::rounded_box_panel(wxWindow* parent, int border_radius_, int horiz_margins_, int vert_margins_)
-		: wxPanel(parent), border_radius(border_radius_), horiz_margins(horiz_margins_), vert_margins(vert_margins_) {
+		: wxPanel(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxCLIP_CHILDREN),
+		border_radius(border_radius_), horiz_margins(horiz_margins_), vert_margins(vert_margins_) {
 	fillBrush = wxBrush(GetBackgroundColour());
 	linePen = wxPen(GetForegroundColour());
 }
@@ -875,4 +878,17 @@ void rounded_box_panel::OnPaint(wxPaintEvent &event) {
 	dc.SetPen(linePen);
 	dc.DrawRoundedRectangle(horiz_margins, vert_margins,
 			GetSize().GetWidth() - (2 * horiz_margins), GetSize().GetHeight() - (2 * vert_margins), border_radius);
+}
+
+void rounded_box_panel::OnSize(wxSizeEvent &event) {
+	if(event.GetSize() != prev_size) {
+		prev_size = event.GetSize();
+		Refresh();
+	}
+	event.Skip();
+}
+
+void rounded_box_panel::OnMouseWheel(wxMouseEvent &event) {
+	event.SetEventObject(GetParent());
+	GetParent()->GetEventHandler()->ProcessEvent(event);
 }

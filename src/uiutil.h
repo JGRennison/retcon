@@ -181,9 +181,12 @@ struct rounded_box_panel : public wxPanel, magic_ptr_contained<rounded_box_panel
 	int border_radius;
 	int horiz_margins;
 	int vert_margins;
+	wxSize prev_size;
 
 	rounded_box_panel(wxWindow* parent, int border_radius_, int horiz_margins_, int vert_margins_);
 	void OnPaint(wxPaintEvent &event);
+	void OnSize(wxSizeEvent &event);
+	void OnMouseWheel(wxMouseEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };
