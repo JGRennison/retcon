@@ -75,6 +75,7 @@ typedef enum {
 	DBPSC_SELUSER,
 	DBPSC_CLEARHANDLENEWPENDINGS,
 	DBPSC_INSHANDLENEWPENDINGS,
+	DBPSC_INSINCREMENTALTWEETID,
 
 	DBPSC_NUM_STATEMENTS,
 } DBPSC_TYPE;
@@ -414,6 +415,21 @@ template <typename B, typename E, typename S, typename I, typename J> void DBRan
 
 template <typename B, typename S, typename I, typename J> void DBRangeBindExecNoError(sqlite3 *adb, S sql, I rangebegin, J rangeend, B bindfunc) {
 	DBRangeBindExec(adb, sql, rangebegin, rangeend, bindfunc, nullptr);
+};
+
+template <typename B, typename F, typename E, typename S, typename I, typename J>
+void DBRangeBindRowExec(sqlite3 *adb, S sql, I rangebegin, J rangeend, B bindfunc, F func, E errspec) {
+	auto s = DBInitialiseSql(adb, sql);
+	for(auto it = rangebegin; it != rangeend; ++it) {
+		bindfunc(s.stmt(), *it);
+		DBRowExecStmt(adb, s.stmt(), func, errspec);
+		sqlite3_reset(s.stmt());
+	}
+};
+
+template <typename B, typename F, typename S, typename I, typename J>
+void DBRangeBindExecNoError(sqlite3 *adb, S sql, I rangebegin, J rangeend, B bindfunc, F func) {
+	DBRangeBindRowExec(adb, sql, rangebegin, rangeend, bindfunc, func, nullptr);
 };
 
 db_bind_buffer<dbb_compressed> DoCompress(const void *in, size_t insize, unsigned char tag = 'Z', bool *iscompressed = nullptr);

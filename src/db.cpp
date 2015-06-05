@@ -101,6 +101,7 @@ static const char *startup_sql=
 "CREATE TABLE IF NOT EXISTS userrelationships(accid INTEGER, userid INTEGER, flags INTEGER, followmetime INTEGER, ifollowtime INTEGER);"
 "CREATE TABLE IF NOT EXISTS userdmsets(userid INTEGER PRIMARY KEY NOT NULL, dmindex BLOB);"
 "CREATE TABLE IF NOT EXISTS handlenewpending(accid INTEGER, arrivalflags INTEGER, tweetid INTEGER);"
+"CREATE TABLE IF NOT EXISTS incrementaltweetids(id INTEGER PRIMARY KEY NOT NULL);"
 "INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', 'dirtyflag', strftime('%s','now'));";
 
 static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
@@ -132,6 +133,7 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"SELECT json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex, profimglastusedtimestamp FROM users WHERE id == ?;",
 	"DELETE FROM handlenewpending;",
 	"INSERT INTO handlenewpending (accid, arrivalflags, tweetid) VALUES (?, ?, ?);",
+	"INSERT OR IGNORE INTO incrementaltweetids(id) VALUES (?);",
 };
 
 static const std::string globstr = "G";
@@ -474,6 +476,9 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 				TSLogMsgFormat(LOGT::DBTRACE, "DBSM::INSERTTWEET inserted row id: %" llFmtSpec "d", (sqlite3_int64) m->id);
 			}
 			sqlite3_reset(stmt);
+			DBBindExec(db, cache.GetStmt(db, DBPSC_INSINCREMENTALTWEETID), [&](sqlite3_stmt *incstmt) {
+				sqlite3_bind_int64(incstmt, 1, (sqlite3_int64) m->id);
+			}, "DBSM::INSERTTWEET (incrementaltweetids)");
 			break;
 		}
 		case DBSM::UPDATETWEET: {
@@ -488,6 +493,9 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 					res, cstr(sqlite3_errmsg(db)), m->id); }
 			else { TSLogMsgFormat(LOGT::DBTRACE, "DBSM::UPDATETWEET updated id: %" llFmtSpec "d", (sqlite3_int64) m->id); }
 			sqlite3_reset(stmt);
+			DBBindExec(db, cache.GetStmt(db, DBPSC_INSINCREMENTALTWEETID), [&](sqlite3_stmt *incstmt) {
+				sqlite3_bind_int64(incstmt, 1, (sqlite3_int64) m->id);
+			}, "DBSM::UPDATETWEET (incrementaltweetids)");
 			break;
 		}
 		case DBSM::SELTWEET: {
@@ -650,6 +658,9 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 				if(res != SQLITE_DONE) { TSLogMsgFormat(LOGT::DBERR, "DBSM::UPDATETWEETSETFLAGS_GROUP got error: %d (%s) for id: %" llFmtSpec "d",
 						res, cstr(sqlite3_errmsg(db)), *it); }
 				sqlite3_reset(stmt);
+				DBBindExec(db, cache.GetStmt(db, DBPSC_INSINCREMENTALTWEETID), [&](sqlite3_stmt *incstmt) {
+					sqlite3_bind_int64(incstmt, 1, (sqlite3_int64) *it);
+				}, "DBSM::UPDATETWEETSETFLAGS_GROUP (incrementaltweetids)");
 			}
 			cache.EndTransaction(db);
 			break;
@@ -667,6 +678,9 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 				if(res != SQLITE_DONE) { TSLogMsgFormat(LOGT::DBERR, "DBSM::UPDATETWEETSETFLAGS_MULTI got error: %d (%s) for id: %" llFmtSpec "d",
 						res, cstr(sqlite3_errmsg(db)), it.id); }
 				sqlite3_reset(stmt);
+				DBBindExec(db, cache.GetStmt(db, DBPSC_INSINCREMENTALTWEETID), [&](sqlite3_stmt *incstmt) {
+					sqlite3_bind_int64(incstmt, 1, (sqlite3_int64) it.id);
+				}, "DBSM::UPDATETWEETSETFLAGS_MULTI (incrementaltweetids)");
 			}
 			cache.EndTransaction(db);
 			break;
@@ -1223,7 +1237,6 @@ void dbconn::DeInit() {
 		SyncWriteBackAccountIdLists(syncdb);
 		SyncWriteOutRBFSs(syncdb);
 		SyncWriteOutHandleNewPendingOps(syncdb);
-		SyncWriteBackCIDSLists(syncdb);
 		SyncWriteBackWindowLayout(syncdb);
 		SyncWriteBackTpanels(syncdb);
 		SyncWriteBackUserRelationships(syncdb);
@@ -1339,7 +1352,6 @@ void dbconn::AsyncWriteBackState() {
 		AsyncWriteBackAccountIdLists(*msg);
 		AsyncWriteOutRBFSs(*msg);
 		AsyncWriteOutHandleNewPendingOps(*msg);
-		AsyncWriteBackCIDSLists(*msg);
 		AsyncWriteBackTpanels(*msg);
 		AsyncWriteBackUserDMIndexes(*msg);
 
@@ -1481,7 +1493,8 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 		"dbconn::SyncReadInAllTweetIDs (cache load)"
 	);
 
-	bool done_cids = false;
+	tweetidset incremental_ids;
+
 	if(ad.unloaded_db_tweet_ids.empty() || gc.rescan_tweets_table) {
 		// Didn't find any cache
 		LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInAllTweetIDs table scan");
@@ -1499,23 +1512,39 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 				if(flags & flagvalue)
 					(ad.cids.*mptr).insert(id);
 			});
-		}, "dbconn::SyncReadInAllTweetIDs");
-		done_cids = true;
+		}, "dbconn::SyncReadInAllTweetIDs (table scan)");
 	}
-
-	if(!gc.readonlymode) {
-		DBBindExec(syncdb, cache.GetStmt(syncdb, DBPSC_DELSTATICSETTING),
-			[&](sqlite3_stmt *stmt) {
-				sqlite3_bind_text(stmt, 1, "tweetidsetcache", -1, SQLITE_STATIC);
-			},
-			"dbconn::SyncReadInAllTweetIDs (delete cache)"
-		);
-	}
-
-	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInAllTweetIDs end, read %u", ad.unloaded_db_tweet_ids.size());
-
-	if(!done_cids)
+	else {
 		SyncReadInCIDSLists(syncdb);
+
+		DBRowExec(syncdb, "SELECT id FROM incrementaltweetids ORDER BY id DESC;", [&](sqlite3_stmt *getstmt) {
+			incremental_ids.insert(incremental_ids.end(), (uint64_t) sqlite3_column_int64(getstmt, 0));
+		}, "dbconn::SyncReadInAllTweetIDs (incrementaltweetids)");
+		if(!incremental_ids.empty()) {
+			DBRangeBindRowExec(
+				syncdb, "SELECT id, flags FROM tweets WHERE id == ?;", incremental_ids.begin(), incremental_ids.end(),
+				[&](sqlite3_stmt *getstmt, uint64_t id) {
+					sqlite3_bind_int64(getstmt, 1, (sqlite3_int64) id);
+				},
+				[&](sqlite3_stmt *getstmt) {
+					uint64_t id = (uint64_t) sqlite3_column_int64(getstmt, 0);
+					ad.unloaded_db_tweet_ids.insert(ad.unloaded_db_tweet_ids.end(), id);
+
+					uint64_t flags = (uint64_t) sqlite3_column_int64(getstmt, 1);
+					cached_id_sets::IterateLists([&](const char *name, tweetidset cached_id_sets::*mptr, unsigned long long flagvalue) {
+						if(flags & flagvalue)
+							(ad.cids.*mptr).insert(id);
+						else
+							(ad.cids.*mptr).erase(id);
+					});
+				},
+				"dbconn::SyncReadInAllTweetIDs (incrementaltweetids)"
+			);
+		}
+	}
+
+	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInAllTweetIDs end, read: incremental %zu, total: %zu",
+			incremental_ids.size(), ad.unloaded_db_tweet_ids.size());
 }
 
 void dbconn::SyncWriteBackTweetIDIndexCache(sqlite3 *syncdb) {
@@ -1538,6 +1567,9 @@ void dbconn::SyncWriteBackTweetIDIndexCache(sqlite3 *syncdb) {
 		},
 		"dbconn::SyncWriteBackTweetIDIndexCache"
 	);
+
+	SyncWriteBackCIDSLists(syncdb);
+	DBExec(syncdb, "DELETE FROM incrementaltweetids;", "dbconn::SyncWriteBackTweetIDIndexCache (incrementaltweetids)");
 
 	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncWriteBackTweetIDIndexCache end, wrote %u", ad.unloaded_db_tweet_ids.size());
 }
