@@ -1356,6 +1356,11 @@ void tpanelparentwin_nt_impl::OnBatchTimerModeTimer(wxTimerEvent& event) {
 	}
 	removetweetbatchqueue.clear();
 
+	for(auto &it : updatetweetbatchqueue) {
+		UpdateOwnTweet(it.first, it.second);
+	}
+	updatetweetbatchqueue.clear();
+
 	size_t post_remove_dispsize = currentdisp.size();
 
 	if(!pushtweetbatchqueue.empty()) {
@@ -1415,7 +1420,6 @@ void tpanelparentwin_nt_impl::OnBatchTimerModeTimer(wxTimerEvent& event) {
 		for(auto &it : simulation_currentdisp) {
 			if(it.pushptr) {
 				PushTweet(it.pushptr->id, it.pushptr->t, it.pushptr->pushflags);
-				updatetweetbatchqueue.erase(it.pushptr->id);  //don't bother updating items we've just pushed
 				pushcount++;
 			}
 		}
@@ -1435,11 +1439,6 @@ void tpanelparentwin_nt_impl::OnBatchTimerModeTimer(wxTimerEvent& event) {
 
 		if(clabelneedsupdating) CLabelNeedsUpdating(0);
 	}
-
-	for(auto &it : updatetweetbatchqueue) {
-		UpdateOwnTweet(it.first, it.second);
-	}
-	updatetweetbatchqueue.clear();
 
 	for(auto &it : batchedgenericactions) {
 		it(base());
