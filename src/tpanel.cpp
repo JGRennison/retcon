@@ -759,6 +759,7 @@ tweetdispscr *tpanelparentwin_nt_impl::CreateTweetInItem(tweet_ptr_p t, tpanel_d
 	tpanel_item *item = tpdi.item;
 
 	tweetdispscr *td = new tweetdispscr(t, item, item, base(), item->hbox);
+	td->vbox = item->vbox;
 	item->vbox->Add(td, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
 	tpdi.disp = td;
 
@@ -851,6 +852,7 @@ tweetdispscr *tpanelparentwin_nt_impl::CreateSubTweetInItemHbox(tweet_ptr_p t, t
 		wxBoxSizer *subhbox, wxWindow *parent) {
 	tweetdispscr *subtd = new tweetdispscr(t, parent, parent_tds->tpi, base(), subhbox);
 	subtd->tds_flags |= TDSF::SUBTWEET;
+	subtd->vbox = new wxBoxSizer(wxVERTICAL);
 
 	parent_tds->subtweets.emplace_front(subtd);
 	subtd->parent_tweet.set(parent_tds);
@@ -866,7 +868,8 @@ tweetdispscr *tpanelparentwin_nt_impl::CreateSubTweetInItemHbox(tweet_ptr_p t, t
 				profimg_staticbitmap::PISBF::HALF);
 	}
 	subhbox->Add(subtd->bm, 0, wxALL, 1);
-	subhbox->Add(subtd, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
+	subhbox->Add(subtd->vbox, 1, wxEXPAND, 0);
+	subtd->vbox->Add(subtd, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);
 
 	SetSubTweetTextAttr(subtd);
 	subtd->PanelInsertEvt();

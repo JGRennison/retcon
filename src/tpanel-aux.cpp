@@ -781,8 +781,18 @@ void tpanel_subtweet_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF>
 
 		tweetdispscr *subtd = window->pimpl()->CreateSubTweetInItemHbox(t, parent_tds, subhbox, parent);
 
-		if(data->type == tspo_type::INLINE_REPLY)
-			CheckLoadTweetReply(t, data->vbox, window, subtd, data->load_count - 1, parent_tds);
+		for(auto &it : t->quoted_tweet_ids) {
+			tpanel_subtweet_pending_op::CheckLoadQuotedTweet(ad.GetTweetById(it), subtd->vbox, window, subtd);
+		}
+
+		switch(data->type) {
+			case tspo_type::INLINE_REPLY:
+				CheckLoadTweetReply(t, data->vbox, window, subtd, data->load_count - 1, parent_tds);
+				break;
+			case tspo_type::QUOTE:
+				CheckLoadTweetReply(t, subtd->vbox, window, subtd, 0, subtd);
+				break;
+		}
 	});
 }
 

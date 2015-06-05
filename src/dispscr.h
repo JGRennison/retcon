@@ -189,6 +189,7 @@ struct tweetdispscr : public dispscr_base, public generic_popup_wrapper_hook {
 	std::function<void()> loadmorereplies;
 	std::vector<media_entity_raii_updater> media_entity_updaters;
 	magic_ptr_container<rounded_box_panel> rounded_box_panels;
+	wxBoxSizer *vbox = nullptr;
 
 	tweetdispscr(tweet_ptr_p td_, wxWindow *parent, tpanel_item *item, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
 	~tweetdispscr();
