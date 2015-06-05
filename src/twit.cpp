@@ -1637,3 +1637,46 @@ container::map<std::string, dm_conversation_map_item> GetDMConversationMap() {
 
 	return std::move(output);
 }
+
+void exec_on_ready::UserReadyInDB(udc_ptr_p u) {
+	if(CheckIfUserAlreadyInDBAndLoad(u)) {
+		refcount++;
+		auto self = shared_from_this();
+		ad.user_load_pending_funcs.emplace(u->id, [self](udc_ptr_p u) {
+			self->Unref();
+		});
+		u->udc_flags |= UDC::CHECK_STDFUNC_LIST;
+	}
+}
+
+void exec_on_ready::TweetReady(tweet_ptr_p tobj, std::shared_ptr<taccount> acc_hint, std::unique_ptr<dbseltweetmsg> *existing_dbsel,
+		flagwrapper<PENDING_REQ> preq, flagwrapper<PENDING_RESULT> presult) {
+	struct exec_on_ready_pending_op : public pending_op {
+		std::shared_ptr<exec_on_ready> parent;
+
+		exec_on_ready_pending_op(std::shared_ptr<exec_on_ready> parent_, flagwrapper<PENDING_REQ> preq_, flagwrapper<PENDING_RESULT> presult_)
+				: parent(parent_) {
+			preq = preq_;
+			presult_required = presult_;
+		}
+
+		virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) override {
+			parent->Unref();
+		}
+
+		virtual std::string dump() override {
+			return "exec_on_ready_pending_op";
+		}
+	};
+
+	refcount++;
+	tobj->AddNewPendingOp(new exec_on_ready_pending_op(shared_from_this(), preq, presult));
+	CheckFetchPendingSingleTweet(tobj, acc_hint, existing_dbsel, preq, presult);
+	TryUnmarkPendingTweet(tobj, 0);
+}
+
+void exec_on_ready::Unref() {
+	refcount--;
+	if(refcount == 0)
+		func();
+}

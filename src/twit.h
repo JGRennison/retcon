@@ -661,4 +661,26 @@ struct dm_conversation_map_item {
 };
 container::map<std::string, dm_conversation_map_item> GetDMConversationMap();
 
+struct exec_on_ready : std::enable_shared_from_this<exec_on_ready> {
+	private:
+	unsigned int refcount = 1;
+	std::function<void()> func;
+
+	public:
+	void UserReadyInDB(udc_ptr_p u);
+	void TweetReady(tweet_ptr_p tobj, std::shared_ptr<taccount> acc_hint, std::unique_ptr<dbseltweetmsg> *existing_dbsel = nullptr,
+			flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT, flagwrapper<PENDING_RESULT> presult = PENDING_RESULT::DEFAULT);
+
+	template <typename F> void Execute(F function) {
+		refcount--;
+		if(refcount == 0)
+			function();
+		else
+			func = function;
+	}
+
+	private:
+	void Unref();
+};
+
 #endif
