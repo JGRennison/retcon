@@ -338,10 +338,10 @@ void twitcurlext_rbfs::ParseHandler(const std::shared_ptr<taccount> &acc, jsonpa
 
 	switch(conntype) {
 		case CONNTYPE::TIMELINE:
-			jp.ProcessTimelineResponse(0, rbfs);
+			jp.ProcessTimelineResponse(JDTP::ARRIVED | JDTP::TIMELINERECV, rbfs);
 			break;
 		case CONNTYPE::DMTIMELINE:
-			jp.ProcessTimelineResponse(JDTP::ISDM, rbfs);
+			jp.ProcessTimelineResponse(JDTP::ARRIVED | JDTP::TIMELINERECV | JDTP::ISDM, rbfs);
 			break;
 		case CONNTYPE::USERTIMELINE:
 		case CONNTYPE::USERFAVS: {
@@ -559,10 +559,10 @@ std::unique_ptr<twitcurlext_postcontent> twitcurlext_postcontent::make_new(std::
 void twitcurlext_postcontent::ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) {
 	switch(conntype) {
 		case CONNTYPE::POSTTWEET:
-			jp.ProcessSingleTweetResponse();
+			jp.ProcessSingleTweetResponse(JDTP::ARRIVED);
 			break;
 		case CONNTYPE::SENDDM:
-			jp.ProcessSingleTweetResponse(JDTP::ISDM);
+			jp.ProcessSingleTweetResponse(JDTP::ARRIVED | JDTP::ISDM);
 			break;
 		case CONNTYPE::NONE:
 			assert(false);
@@ -872,7 +872,7 @@ void twitcurlext_simple::ParseHandler(const std::shared_ptr<taccount> &acc, json
 			jp.ProcessGenericFriendActionResponse();
 			break;
 		case CONNTYPE::RT:
-			jp.ProcessSingleTweetResponse();
+			jp.ProcessSingleTweetResponse(JDTP::ARRIVED);
 			break;
 		case CONNTYPE::FAV:
 			jp.ProcessSingleTweetResponse(JDTP::FAV);

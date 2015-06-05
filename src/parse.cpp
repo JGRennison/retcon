@@ -601,17 +601,17 @@ void jsonparser::ProcessStreamResponse() {
 		DoEventParse(dc);
 	}
 	else if(dmval.IsObject()) {
-		DoTweetParse(dmval, JDTP::ISDM);
+		DoTweetParse(dmval, JDTP::ARRIVED | JDTP::TIMELINERECV | JDTP::ISDM);
 	}
 	else if(delval.IsObject() && delval["status"].IsObject()) {
 		DoTweetParse(delval["status"], JDTP::DEL);
 	}
 	else if(ival.IsNumber() && tval.IsString() && dc["recipient"].IsObject() && dc["sender"].IsObject()) {    //assume this is a direct message
-		DoTweetParse(dc, JDTP::ISDM);
+		DoTweetParse(dc, JDTP::ARRIVED | JDTP::TIMELINERECV | JDTP::ISDM);
 	}
 	else if(ival.IsNumber() && tval.IsString() && dc["user"].IsObject()) {    //assume that this is a tweet
 		if(DoStreamTweetPreFilter(dc)) {
-			DoTweetParse(dc);
+			DoTweetParse(dc, JDTP::ARRIVED | JDTP::TIMELINERECV);
 		}
 	}
 	else {
@@ -1048,7 +1048,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 
 	if(!(sflags & JDTP::DEL)) {
 		is_new_tweet_perspective = !tp->IsReceivedHere();
-		if(!(sflags & JDTP::USERTIMELINE) && !(sflags & JDTP::CHECKPENDINGONLY) && !(sflags & JDTP::ISRTSRC)) {
+		if(sflags & JDTP::ARRIVED) {
 			has_just_arrived = !tp->IsArrivedHere();
 			tp->SetArrivedHere(true);
 
@@ -1084,7 +1084,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 			}
 			auto &rtval = val["retweeted_status"];
 			if(rtval.IsObject()) {
-				tobj->rtsrc = DoTweetParse(rtval, sflags|JDTP::ISRTSRC);
+				tobj->rtsrc = DoTweetParse(rtval, (sflags & JDTP::SAVE_MASK) | JDTP::ISRTSRC);
 				if(tobj->rtsrc) tobj->flags.Set('R');
 			}
 		}
@@ -1098,7 +1098,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 		}
 		auto &quoteval = val["quoted_status"];
 		if(quoteval.IsObject()) {
-			DoTweetParse(quoteval, sflags | JDTP::ISQUOTE);
+			DoTweetParse(quoteval, (sflags & JDTP::SAVE_MASK) | JDTP::ISQUOTE);
 		}
 	}
 
@@ -1142,7 +1142,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 	}
 	else UpdateTweet(*tobj);
 
-	if(!(sflags & JDTP::CHECKPENDINGONLY) && !(sflags & JDTP::ISRTSRC) && !(sflags & JDTP::USERTIMELINE) && !(sflags & JDTP::ISQUOTE)) {
+	if(sflags & JDTP::TIMELINERECV) {
 		if(sflags & JDTP::ISDM) {
 			if(tobj->user_recipient.get() == tac->usercont.get()) {    //received DM
 				if(tac->max_recvdm_id < tobj->id) tac->max_recvdm_id = tobj->id;
@@ -1204,7 +1204,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 		 * ID lists, in particular the timeline list, as those were not written out.
 		 * If everything was written out, we would not be loading the same timeline tweet again.
 		 */
-		if((has_just_arrived || (sflags & JDTP::POSTDBLOAD)) && !(sflags & JDTP::ISRTSRC) && !(sflags & JDTP::USERTIMELINE) && !(sflags & JDTP::ISQUOTE)) {
+		if((has_just_arrived || (sflags & JDTP::POSTDBLOAD)) && sflags & JDTP::ARRIVED) {
 			if(gc.markowntweetsasread && !tobj->flags.Get('u') && (tobj->flags.Get('O') || tobj->flags.Get('S'))) {
 				//tweet is marked O or S, is own tweet or DM, mark read if not already unread
 				tobj->flags.Set('r');

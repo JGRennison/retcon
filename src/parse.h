@@ -67,6 +67,10 @@ enum class JDTP {
 	POSTDBLOAD         = 1<<7,
 	ALWAYSREPARSE      = 1<<8,
 	ISQUOTE            = 1<<9,
+	ARRIVED            = 1<<10,
+	TIMELINERECV       = 1<<11,
+
+	SAVE_MASK          = ALWAYSREPARSE,
 };
 template<> struct enum_traits<JDTP> { static constexpr bool flags = true; };
 
@@ -102,14 +106,14 @@ struct jsonparser : public genjsonparser {
 	void DoEventParse(const rapidjson::Value& val);
 	void DoFriendLookupParse(const rapidjson::Value& val);
 	bool DoStreamTweetPreFilter(const rapidjson::Value& val);
-	tweet_ptr DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP> sflags = 0);
+	tweet_ptr DoTweetParse(const rapidjson::Value& val, flagwrapper<JDTP> sflags);
 	void RestTweetUpdateParams(const tweet &t, optional_observer_ptr<restbackfillstate> rbfs);
 	void RestTweetPreParseUpdateParams(optional_observer_ptr<restbackfillstate> rbfs);
 
 	void ProcessTimelineResponse(flagwrapper<JDTP> sflags, optional_observer_ptr<restbackfillstate> rbfs);
 	void ProcessUserTimelineResponse(optional_observer_ptr<restbackfillstate> rbfs);
 	void ProcessStreamResponse();
-	void ProcessSingleTweetResponse(flagwrapper<JDTP> sflags = 0);
+	void ProcessSingleTweetResponse(flagwrapper<JDTP> sflags);
 	void ProcessAccVerifyResponse();
 	void ProcessUserListResponse();
 	void ProcessFriendLookupResponse();
