@@ -681,7 +681,7 @@ std::string tpanelload_pending_op::dump() {
 }
 
 void tpanel_subtweet_pending_op::CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, tpanelparentwin_nt *s,
-		tweetdispscr *tds, unsigned int load_count, tweet_ptr_p top_tweet, tweetdispscr *top_tds) {
+		tweetdispscr *tds, unsigned int load_count, tweetdispscr *parent_tds) {
 	using GUAF = tweet::GUAF;
 
 	uint64_t reply_id = t->in_reply_to_status_id;
@@ -692,14 +692,13 @@ void tpanel_subtweet_pending_op::CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, 
 		std::function<void(unsigned int)> loadmorefunc = [=](unsigned int tweet_load_count) {
 			tweet_ptr subt = ad.GetTweetById(reply_id);
 
-			if(top_tweet->IsArrivedHereAnyPerspective()) {	//save
-				subt->lflags |= TLF::SHOULDSAVEINDB;
+			if(parent_tds->td->IsArrivedHereAnyPerspective() || parent_tds->td->lflags & TLF::SHOULDSAVEINDB) {
+				subt->lflags |= TLF::SHOULDSAVEINDB; //save
 			}
 
 			std::shared_ptr<taccount> pacc;
 			t->GetUsableAccount(pacc, GUAF::NOERR) || t->GetUsableAccount(pacc, GUAF::NOERR | GUAF::USERENABLED);
-			subt->AddNewPendingOp(new tpanel_subtweet_pending_op(v, s, top_tds, tweet_load_count, top_tweet,
-					nullptr, tspo_type::INLINE_REPLY));
+			subt->AddNewPendingOp(new tpanel_subtweet_pending_op(v, s, parent_tds, tweet_load_count, tspo_type::INLINE_REPLY));
 			CheckFetchPendingSingleTweet(subt, pacc);
 			TryUnmarkPendingTweet(subt, 0);
 		};
@@ -716,58 +715,56 @@ void tpanel_subtweet_pending_op::CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, 
 }
 
 void tpanel_subtweet_pending_op::CheckLoadQuotedTweet(tweet_ptr_p quote_tweet, wxSizer *v, tpanelparentwin_nt *s,
-		tweetdispscr *source_tds, tweetdispscr *top_tds) {
+		tweetdispscr *parent_tds) {
 	using GUAF = tweet::GUAF;
 
-	if(source_tds->td->IsArrivedHereAnyPerspective()) {	//save
-		quote_tweet->lflags |= TLF::SHOULDSAVEINDB;
+	if(parent_tds->td->IsArrivedHereAnyPerspective() || parent_tds->td->lflags & TLF::SHOULDSAVEINDB) {
+		quote_tweet->lflags |= TLF::SHOULDSAVEINDB; //save
 	}
 
 	std::shared_ptr<taccount> pacc;
-	source_tds->td->GetUsableAccount(pacc, GUAF::NOERR) || source_tds->td->GetUsableAccount(pacc, GUAF::NOERR | GUAF::USERENABLED);
-	quote_tweet->AddNewPendingOp(new tpanel_subtweet_pending_op(v, s, top_tds, 0, top_tds->td,
-			source_tds, tspo_type::QUOTE));
+	parent_tds->td->GetUsableAccount(pacc, GUAF::NOERR) || parent_tds->td->GetUsableAccount(pacc, GUAF::NOERR | GUAF::USERENABLED);
+	quote_tweet->AddNewPendingOp(new tpanel_subtweet_pending_op(v, s, parent_tds, 0, tspo_type::QUOTE));
 	CheckFetchPendingSingleTweet(quote_tweet, pacc);
 	TryUnmarkPendingTweet(quote_tweet, 0);
 }
 
-tpanel_subtweet_pending_op::tpanel_subtweet_pending_op(wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *top_tds_,
-		unsigned int load_count_, tweet_ptr top_tweet_, tweetdispscr *source_tds_, tspo_type type_) {
+tpanel_subtweet_pending_op::tpanel_subtweet_pending_op(wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *parent_tds_,
+		unsigned int load_count_, tspo_type type_) {
 	action_data = std::make_shared<tspo_action_data>();
 	action_data->vbox = v;
 	action_data->win = s;
-	action_data->top_tds = top_tds_;
+	action_data->parent_tds = parent_tds_;
 	action_data->load_count = load_count_;
-	action_data->top_tweet = std::move(top_tweet_);
-	action_data->source_tds = std::move(source_tds_);
 	action_data->type = type_;
 }
 
 void tpanel_subtweet_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) {
 	std::shared_ptr<tspo_action_data> data = this->action_data;
 
-	tweetdispscr *tp_tds = data->top_tds.get();
+	tweetdispscr *parent_tds = data->parent_tds.get();
 	tpanelparentwin_nt *tp_window = data->win.get();
-	if(!tp_tds || !tp_window) return;
+	if(!parent_tds || !tp_window)
+		return;
 
-	if(umpt_flags & UMPTF::TPDB_NOUPDF) tp_window->SetNoUpdateFlag();
+	if(umpt_flags & UMPTF::TPDB_NOUPDF)
+		tp_window->SetNoUpdateFlag();
 
 	tp_window->GenericAction([data, t](tpanelparentwin_nt *window) {
-		tweetdispscr *tds = data->top_tds.get();
-		if(!tds)
+		tweetdispscr *parent_tds = data->parent_tds.get();
+		if(!parent_tds)
 			return;
 
 		wxBoxSizer *subhbox = nullptr;
-		wxWindow *parent = nullptr;
+		wxWindow *parent = parent_tds->GetParent();
 		switch(data->type) {
 			case tspo_type::INLINE_REPLY:
 				subhbox = new wxBoxSizer(wxHORIZONTAL);
 				data->vbox->Add(subhbox, 0, wxALL | wxEXPAND, 1);
-				parent = tds->tpi;
 				break;
 			case tspo_type::QUOTE:
 				int side_margin = 15;
-				rounded_box_panel *rbpanel = new rounded_box_panel(tds->tpi, 10, side_margin, 2);
+				rounded_box_panel *rbpanel = new rounded_box_panel(parent, 10, side_margin, 2);
 				wxSizer *outerhbox = new wxBoxSizer(wxHORIZONTAL);
 				subhbox = new wxBoxSizer(wxHORIZONTAL);
 				outerhbox->AddSpacer(side_margin);
@@ -777,15 +774,15 @@ void tpanel_subtweet_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF>
 				data->vbox->Insert(1, rbpanel, 0, wxLEFT | wxRIGHT | wxEXPAND, 2);
 				parent = rbpanel;
 
-				data->source_tds->rounded_box_panels.insert(rbpanel);
-				rbpanel->SetBackgroundColour(data->source_tds->GetBackgroundColour());
+				parent_tds->rounded_box_panels.insert(rbpanel);
+				rbpanel->SetBackgroundColour(parent_tds->GetBackgroundColour());
 				break;
 		}
 
-		tweetdispscr *subtd = window->pimpl()->CreateSubTweetInItemHbox(t, tds, subhbox, parent);
+		tweetdispscr *subtd = window->pimpl()->CreateSubTweetInItemHbox(t, parent_tds, subhbox, parent);
 
 		if(data->type == tspo_type::INLINE_REPLY)
-			CheckLoadTweetReply(t, data->vbox, window, subtd, data->load_count - 1, data->top_tweet, tds);
+			CheckLoadTweetReply(t, data->vbox, window, subtd, data->load_count - 1, parent_tds);
 	});
 }
 
@@ -799,14 +796,14 @@ std::string tpanel_subtweet_pending_op::dump() {
 			type = "quoted tweet";
 			break;
 	}
-	return string_format("Push %s to tpanel: win: %s, top tds: %s, top tweet: %s",
+	return string_format("Push %s to tpanel: win: %s, parent tds: %s, parent tweet: %s",
 			type,
 			action_data->win ? cstr(action_data->win->GetThisName()) : "(null)",
-			action_data->top_tds ? cstr(action_data->top_tds->GetThisName()) : "(null)",
-			cstr(tweet_short_log_line(action_data->top_tweet->id))
+			action_data->parent_tds ? cstr(action_data->parent_tds->GetThisName()) : "(null)",
+			cstr(tweet_short_log_line(action_data->parent_tds->td->id))
 	);
 }
 
 bool tpanel_subtweet_pending_op::IsAlive() const {
-	return action_data->win && action_data->top_tds;
+	return action_data->win && action_data->parent_tds;
 }

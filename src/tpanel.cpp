@@ -805,9 +805,9 @@ tweetdispscr *tpanelparentwin_nt_impl::CreateTweetInItem(tweet_ptr_p t, tpanel_d
 		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::CreateTweetInItem 3");
 	#endif
 
-	tpanel_subtweet_pending_op::CheckLoadTweetReply(t, item->vbox, base(), td, gc.inlinereplyloadcount, t, td);
+	tpanel_subtweet_pending_op::CheckLoadTweetReply(t, item->vbox, base(), td, gc.inlinereplyloadcount, td);
 	for(auto &it : t->quoted_tweet_ids) {
-		tpanel_subtweet_pending_op::CheckLoadQuotedTweet(ad.GetTweetById(it), item->vbox, base(), td, td);
+		tpanel_subtweet_pending_op::CheckLoadQuotedTweet(ad.GetTweetById(it), item->vbox, base(), td);
 	}
 
 	#if TPANEL_COPIOUS_LOGGING
@@ -847,12 +847,13 @@ static void SetSubTweetTextAttr(tweetdispscr *subtd) {
 	subtd->SetDefaultStyle(cached_attr);
 }
 
-tweetdispscr *tpanelparentwin_nt_impl::CreateSubTweetInItemHbox(tweet_ptr_p t, tweetdispscr *top_tds, wxBoxSizer *subhbox, wxWindow *parent) {
-	tweetdispscr *subtd = new tweetdispscr(t, parent, top_tds->tpi, base(), subhbox);
+tweetdispscr *tpanelparentwin_nt_impl::CreateSubTweetInItemHbox(tweet_ptr_p t, tweetdispscr *parent_tds,
+		wxBoxSizer *subhbox, wxWindow *parent) {
+	tweetdispscr *subtd = new tweetdispscr(t, parent, parent_tds->tpi, base(), subhbox);
 	subtd->tds_flags |= TDSF::SUBTWEET;
 
-	top_tds->subtweets.emplace_front(subtd);
-	subtd->parent_tweet.set(top_tds);
+	parent_tds->subtweets.emplace_front(subtd);
+	subtd->parent_tweet.set(parent_tds);
 
 	if(t->rtsrc && gc.rtdisp) {
 		t->rtsrc->user->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
@@ -1249,6 +1250,15 @@ void tpanelparentwin_nt::EnumDisplayedTweets(std::function<bool (tweetdispscr *)
 	pimpl()->EnumDisplayedTweets(std::move(func), setnoupdateonpush);
 }
 
+template <typename F> void RecursiveIterateTweetDisp(tweetdispscr *tds, F func) {
+	func(tds);
+	for(auto &kt : tds->subtweets) {
+		if(kt.get()) {
+			RecursiveIterateTweetDisp(kt.get(), func);
+		}
+	}
+}
+
 void tpanelparentwin_nt_impl::EnumDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush) {
 	base()->Freeze();
 	bool checkupdateflag = false;
@@ -1256,15 +1266,15 @@ void tpanelparentwin_nt_impl::EnumDisplayedTweets(std::function<bool (tweetdisps
 		checkupdateflag = !(tppw_flags&TPPWF::NOUPDATEONPUSH);
 		SetNoUpdateFlag();
 	}
+	bool continueflag = true;
 	for(auto &jt : currentdisp) {
-		tweetdispscr *tds = static_cast<tweetdispscr *>(jt.disp);
-		bool continueflag = func(tds);
-		for(auto &kt : tds->subtweets) {
-			if(kt.get()) {
-				func(kt.get());
-			}
-		}
-		if(!continueflag) break;
+		RecursiveIterateTweetDisp(static_cast<tweetdispscr *>(jt.disp), [&](tweetdispscr *tds) {
+			if(!continueflag)
+				return;
+			continueflag = func(tds);
+		});
+		if(!continueflag)
+			break;
 	}
 	base()->Thaw();
 	if(checkupdateflag) CheckClearNoUpdateFlag();
@@ -1315,13 +1325,9 @@ void tpanelparentwin_nt_impl::HandleScrollToIDOnUpdate() {
 
 void tpanelparentwin_nt_impl::IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const {
 	for(auto &it : currentdisp) {
-		func(it.id, it.disp);
-		tweetdispscr *tds = static_cast<tweetdispscr *>(it.disp);
-		for(auto &jt : tds->subtweets) {
-			if(jt) {
-				func(jt->td->id, jt.get());
-			}
-		}
+		RecursiveIterateTweetDisp(static_cast<tweetdispscr *>(it.disp), [&](tweetdispscr *tds) {
+			func(tds->td->id, tds);
+		});
 	}
 }
 
@@ -2121,7 +2127,9 @@ void tpanelreltimeupdater::Notify() {
 	time_t nowtime = time(nullptr);
 
 	auto updatetimes = [&](tweetdispscr &td) {
-		if(!td.updatetime) return;
+		if(!td.updatetime) {
+			return;
+		}
 		else if(nowtime >= td.updatetime) {
 			wxRichTextAttr style;
 			td.GetStyle(td.reltimestart, style);
@@ -2131,17 +2139,13 @@ void tpanelreltimeupdater::Notify() {
 			td.WriteText(getreltimestr(td.td->createtime, td.updatetime));
 			td.reltimeend=td.GetInsertionPoint();
 		}
-		else return;
 	};
 
 	for(auto & it : tpanelparentwinlist) {
 		for(auto & jt: it->pimpl()->currentdisp) {
-			tweetdispscr &td = static_cast<tweetdispscr &>(*(jt.disp));
-			updatetimes(td);
-			for(auto &kt : td.subtweets) {
-				tweetdispscr *subt = kt.get();
-				if(subt) updatetimes(*subt);
-			}
+			RecursiveIterateTweetDisp(static_cast<tweetdispscr *>(jt.disp), [&](tweetdispscr *tds) {
+				updatetimes(*tds);
+			});
 		}
 	}
 }

@@ -147,21 +147,18 @@ struct tpanel_subtweet_pending_op : public pending_op {
 	struct tspo_action_data {
 		wxSizer *vbox;
 		magic_ptr_ts<tpanelparentwin_nt> win;
-		magic_ptr_ts<tweetdispscr> top_tds;
-		magic_ptr_ts<tweetdispscr> source_tds;
+		magic_ptr_ts<tweetdispscr> parent_tds;
 		unsigned int load_count = 0;
-		tweet_ptr top_tweet;
 		tspo_type type;
 	};
 	std::shared_ptr<tspo_action_data> action_data;
 
-	tpanel_subtweet_pending_op(wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *top_tds_, unsigned int load_count_,
-		tweet_ptr top_tweet_, tweetdispscr *source_tds_, tspo_type type_);
+	tpanel_subtweet_pending_op(wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *parent_tds_, unsigned int load_count_, tspo_type type_);
 
-	static void CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, tpanelparentwin_nt *s,
-		tweetdispscr *tds, unsigned int load_count, tweet_ptr_p top_tweet, tweetdispscr *top_tds);
+	static void CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *tds,
+		unsigned int load_count, tweetdispscr *parent_tds);
 	static void CheckLoadQuotedTweet(tweet_ptr_p quote_tweet, wxSizer *v, tpanelparentwin_nt *s,
-		tweetdispscr *source_tds, tweetdispscr *top_tds);
+		tweetdispscr *parent_tds);
 
 	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags);
 	virtual std::string dump();

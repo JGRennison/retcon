@@ -141,7 +141,7 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 
 	void RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
 	tweetdispscr *CreateTweetInItem(tweet_ptr_p t, tpanel_disp_item &tpdi);
-	tweetdispscr *CreateSubTweetInItemHbox(tweet_ptr_p t, tweetdispscr *top_tds, wxBoxSizer *subhbox, wxWindow *parent);
+	tweetdispscr *CreateSubTweetInItemHbox(tweet_ptr_p t, tweetdispscr *parent_tds, wxBoxSizer *subhbox, wxWindow *parent);
 	void JumpToTweetID(uint64_t id);
 	virtual void LoadMore(unsigned int n, uint64_t lessthanid = 0, uint64_t greaterthanid = 0, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT) { }
 	virtual void PageUpHandler() override;
