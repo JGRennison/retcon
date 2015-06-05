@@ -266,6 +266,8 @@ class tweet_perspective {
 	void SetRecvTypeRTSrc(bool val) { if(val) flags |= TP_RECV_RTSRC; else flags &= ~TP_RECV_RTSRC; }
 	void SetRecvTypeQuote(bool val) { if(val) flags |= TP_RECV_QUOTE; else flags &= ~TP_RECV_QUOTE; }
 
+	static bool IsFlagsArrivedHere(unsigned int fl) { return fl & TP_IAH; }
+
 	std::string GetFlagString() const;
 	std::string GetFlagStringWithName(bool always = false) const;
 
