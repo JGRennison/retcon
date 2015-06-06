@@ -1352,6 +1352,7 @@ void dbconn::AsyncWriteBackState() {
 		AsyncWriteBackAccountIdLists(*msg);
 		AsyncWriteOutRBFSs(*msg);
 		AsyncWriteOutHandleNewPendingOps(*msg);
+		AsyncWriteBackCIDSLists(*msg);
 		AsyncWriteBackTpanels(*msg);
 		AsyncWriteBackUserDMIndexes(*msg);
 
@@ -1554,6 +1555,13 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 
 			tsdp.parse(id, getstmt, 2, flags & tweet_flags::GetFlagValue('D'));
 		}, "dbconn::SyncReadInAllTweetIDs (table scan)");
+
+		if(!gc.readonlymode) {
+			cache.BeginTransaction(syncdb);
+			SyncWriteBackTweetIDIndexCache(syncdb);
+			SyncWriteBackAccountIdLists(syncdb);
+			cache.EndTransaction(syncdb);
+		}
 	}
 	else {
 		SyncReadInCIDSLists(syncdb);
