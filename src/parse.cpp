@@ -1142,6 +1142,10 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 	}
 	else UpdateTweet(*tobj);
 
+	if(sflags & JDTP::ISDM && tobj->user_recipient.get() != tac->usercont.get()) {
+		tobj->flags.Set('S');
+	}
+
 	if(sflags & JDTP::TIMELINERECV) {
 		if(sflags & JDTP::ISDM) {
 			if(tobj->user_recipient.get() == tac->usercont.get()) {    //received DM
@@ -1149,7 +1153,6 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 			}
 			else {
 				if(tac->max_sentdm_id < tobj->id) tac->max_sentdm_id = tobj->id;
-				tobj->flags.Set('S');
 			}
 		}
 		else {
