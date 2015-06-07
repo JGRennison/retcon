@@ -677,9 +677,13 @@ void tweetpostwin::ShowHideImageUploadBtns(bool alwayshide, bool enabled) {
 }
 
 void tweetpostwin::OnAddImgBtn(wxCommandEvent &event) {
-	wxString file = wxFileSelector(wxT("Upload image with tweet"), wxStandardPaths::Get().GetDocumentsDir(), wxT(""), wxT(""),
+	static wxString uploadDir;
+	if(!uploadDir || !wxDirExists(uploadDir))
+		uploadDir = wxStandardPaths::Get().GetDocumentsDir();
+	wxString file = wxFileSelector(wxT("Upload image with tweet"), uploadDir, wxT(""), wxT(""),
 			wxT("Image Files (*.jpg *.jpeg *.png *.gif)|*.jpg;*.jpeg;*.png;*.gif"), wxFD_OPEN | wxFD_FILE_MUST_EXIST, this);
 	if(!file.IsEmpty()) {
+		uploadDir = wxPathOnly(file);
 		AddImageUploadFilename(stdstrwx(file));
 	}
 }
