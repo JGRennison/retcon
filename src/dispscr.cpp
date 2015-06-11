@@ -959,6 +959,9 @@ bool tweetdispscr::CheckHiddenState() {
 		Show(show);
 		if(bm) bm->Show(show);
 		if(bm2) bm2->Show(show);
+		for(auto &it : rounded_box_panels) {
+			it->Show(show);
+		}
 	};
 
 	bool hidden;

@@ -776,6 +776,8 @@ void tpanel_subtweet_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF>
 
 				parent_tds->rounded_box_panels.insert(rbpanel);
 				rbpanel->SetBackgroundColour(parent_tds->GetBackgroundColour());
+				if(parent_tds->tds_flags & TDSF::HIDDEN)
+					rbpanel->Show(false);
 				break;
 		}
 
