@@ -107,6 +107,7 @@ struct user_window: public wxDialog, public magic_ptr_base {
 	wxButton *followbtn;
 	wxButton *refreshbtn;
 	wxButton *dmbtn;
+	wxButton *dmconversationbtn;
 	enum FOLLOWBTNMODE {
 		FBM_NONE = 0, FBM_FOLLOW = 1, FBM_UNFOLLOW, FBM_REMOVE_PENDING,
 	};
@@ -116,6 +117,7 @@ struct user_window: public wxDialog, public magic_ptr_base {
 		FOLLOWBTN_ID = 1,
 		REFRESHBTN_ID,
 		DMBTN_ID,
+		DMCONVERSATIONBTN_ID,
 		NOTESTXT_ID,
 	};
 
@@ -131,6 +133,7 @@ struct user_window: public wxDialog, public magic_ptr_base {
 	void OnRefreshBtn(wxCommandEvent &event);
 	void OnFollowBtn(wxCommandEvent &event);
 	void OnDMBtn(wxCommandEvent &event);
+	void OnDMConversationBtn(wxCommandEvent &event);
 	void OnNotesTextChange(wxCommandEvent &event);
 	void SetNotebookMinSize();
 	void SetNotesTabTitle();

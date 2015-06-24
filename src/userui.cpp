@@ -23,6 +23,7 @@
 #include "twitcurlext.h"
 #include "twit.h"
 #include "tpanel.h"
+#include "tpanel-data.h"
 #include "userui.h"
 #include "util.h"
 #include "alldata.h"
@@ -60,6 +61,7 @@ BEGIN_EVENT_TABLE(user_window, wxDialog)
 	EVT_BUTTON(FOLLOWBTN_ID, user_window::OnFollowBtn)
 	EVT_BUTTON(REFRESHBTN_ID, user_window::OnRefreshBtn)
 	EVT_BUTTON(DMBTN_ID, user_window::OnDMBtn)
+	EVT_BUTTON(DMCONVERSATIONBTN_ID, user_window::OnDMConversationBtn)
 	EVT_TEXT(NOTESTXT_ID, user_window::OnNotesTextChange)
 END_EVENT_TABLE()
 
@@ -119,9 +121,11 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	followbtn = new wxButton(this, FOLLOWBTN_ID, wxT(""));
 	refreshbtn = new wxButton(this, REFRESHBTN_ID, wxT("Refresh"));
 	dmbtn = new wxButton(this, DMBTN_ID, wxT("Send DM"));
+	dmconversationbtn = new wxButton(this, DMCONVERSATIONBTN_ID, wxT("Open DM Panel"));
 	accbuttonbox->Add(followbtn, 0, wxEXPAND | wxALIGN_TOP, 0);
 	accbuttonbox->Add(refreshbtn, 0, wxEXPAND | wxALIGN_TOP, 0);
 	accbuttonbox->Add(dmbtn, 0, wxEXPAND | wxALIGN_TOP, 0);
+	accbuttonbox->Add(dmconversationbtn, 0, wxEXPAND | wxALIGN_TOP, 0);
 	follow_btn_mode = FOLLOWBTNMODE::FBM_NONE;
 
 	nb = new wxNotebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxCLIP_CHILDREN | wxNB_TOP | wxNB_NOPAGETHEME | wxNB_MULTILINE);
@@ -237,6 +241,8 @@ void user_window::RefreshAccState() {
 	follow_grid->Show(!isownacc);
 	followbtn->Show(!isownacc);
 	dmbtn->Show(!isownacc);
+	optional_observer_ptr<user_dm_index> dm_index = ad.GetExistingUserDMIndexById(userid);
+	dmconversationbtn->Show(dm_index && !dm_index->ids.empty());
 	if(!isownacc) {
 		RefreshFollow();
 	}
@@ -475,6 +481,16 @@ void user_window::OnDMBtn(wxCommandEvent &event) {
 		if(acc)
 			win->tpw->accc->TrySetSel(acc.get());
 		win->tpw->SetDMTarget(u);
+	}
+}
+
+void user_window::OnDMConversationBtn(wxCommandEvent &event) {
+	mainframe *win = GetMainframeAncestor(this);
+	if(!win)
+		win = mainframelist.front();
+	if(win) {
+		auto tp = tpanel::MkTPanel("", "", TPF::DELETEONWINCLOSE, {}, { { TPFU::DMSET, u } });
+		tp->MkTPanelWin(win, true);
 	}
 }
 
