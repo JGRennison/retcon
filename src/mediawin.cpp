@@ -158,10 +158,13 @@ struct media_display_win_pimpl : public wxEvtHandler {
 	flagwrapper<MDZF> zoomflags = 0;
 	double zoomvalue = 1.0;
 
+	static std::vector<wxString> recent_save_paths;
+
 	media_display_win_pimpl(media_display_win *win_, media_id_type media_id_);
 	~media_display_win_pimpl();
 	void AddSaveMenu(wxMenuBar *menuBar, const wxString &title, std::function<std::string(observer_ptr<media_entity> me)> get_url,
 			std::function<void(observer_ptr<media_entity>, wxString)> save_action);
+	void AddRecentSavePath(wxString path);
 	void StartFetchImageData();
 	void UpdateImage();
 	void GetImage(wxString &message);
@@ -185,6 +188,8 @@ struct media_display_win_pimpl : public wxEvtHandler {
 
 	DECLARE_EVENT_TABLE()
 };
+
+std::vector<wxString> media_display_win_pimpl::recent_save_paths;
 
 enum {
 	MDID_TIMER_EVT       = 2,
@@ -351,17 +356,35 @@ void media_display_win_pimpl::AddSaveMenu(wxMenuBar *menuBar, const wxString &ti
 		if(url.empty())
 			return;
 
-		auto add_dyn_menu = [&](const wxString &item_name, const wxString &token) {
-			menuF->Append(next_dynmenu_id, item_name);
-
-			dynmenuhandlerlist[next_dynmenu_id] = [token, this, title, url, save_action](wxCommandEvent &e) {
-				this->SaveToDir(token, title, wxstrstd(url), save_action);
-			};
+		auto add_dyn_menu_generic = [&](wxMenu *menu, const wxString &item_name, std::function<void(wxCommandEvent &event)> func) {
+			menu->Append(next_dynmenu_id, item_name);
+			dynmenuhandlerlist[next_dynmenu_id] = std::move(func);
 			Connect(next_dynmenu_id, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(media_display_win_pimpl::dynmenudispatchhandler));
 			next_dynmenu_id++;
 		};
 
-		add_dyn_menu(wxT("&Save..."), wxT(""));
+		auto add_dyn_menu = [&](wxMenu *menu, const wxString &item_name, const wxString &token) {
+			add_dyn_menu_generic(menu, item_name, [token, this, title, url, save_action](wxCommandEvent &e) {
+				this->SaveToDir(token, title, wxstrstd(url), save_action);
+			});
+		};
+
+		add_dyn_menu(menuF, wxT("&Save..."), wxT(""));
+
+		wxMenu *recent_menu = new wxMenu();
+		if(!recent_save_paths.empty()) {
+			for(auto &it : recent_save_paths) {
+				add_dyn_menu(recent_menu, wxT("Save to: ") + it, it);
+			}
+			recent_menu->AppendSeparator();
+			add_dyn_menu_generic(recent_menu, wxT("Clear recent"), [&](wxCommandEvent &e) {
+				recent_save_paths.clear();
+			});
+		}
+		wxMenuItem *recent_menu_item = menuF->AppendSubMenu(recent_menu, wxT("Save to &recent..."));
+		if(recent_save_paths.empty()) {
+			recent_menu_item->Enable(false);
+		}
 
 		wxStringTokenizer tkn(gc.gcfg.mediasave_directorylist.val, wxT("\r\n"), wxTOKEN_STRTOK);
 
@@ -377,9 +400,16 @@ void media_display_win_pimpl::AddSaveMenu(wxMenuBar *menuBar, const wxString &ti
 				added_seperator = true;
 			}
 
-			add_dyn_menu(wxT("Save to: ") + token, token);
+			add_dyn_menu(menuF, wxT("Save to: ") + token, token);
 		}
 	});
+}
+
+void media_display_win_pimpl::AddRecentSavePath(wxString path) {
+	recent_save_paths.erase(std::remove(recent_save_paths.begin(), recent_save_paths.end(), path), recent_save_paths.end());
+	if(recent_save_paths.size() >= 10)
+		recent_save_paths.pop_back();
+	recent_save_paths.emplace(recent_save_paths.begin(), std::move(path));
 }
 
 void media_display_win_pimpl::StartFetchImageData() {
@@ -702,6 +732,7 @@ void media_display_win_pimpl::SaveToDir(const wxString &dir, const wxString &tit
 		if(hint.EndsWith(wxT(":large"), &newhint)) hint = newhint;
 		wxString filename = wxFileSelector(title, dir, hint, ext, wxT("*.*"), wxFD_SAVE | wxFD_OVERWRITE_PROMPT, win);
 		if(filename.Len()) {
+			AddRecentSavePath(wxPathOnly(filename));
 			save_action(me, filename);
 		}
 	}
