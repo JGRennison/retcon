@@ -131,7 +131,6 @@ else
 PLATFORM := UNIX
 LIBS := -lpcre -lrt `wx-config --libs std,media $(WXCFGFLAGS)` -lcurl -lsqlite3 -lz
 MCFLAGS := $(patsubst -I/%,-isystem /%,$(shell wx-config --cxxflags $(WXCFGFLAGS)))
-ARCH := native
 
 wxconf := $(shell wx-config --selected-config)
 ifeq (gtk, $(findstring gtk,$(wxconf)))
