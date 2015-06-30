@@ -812,7 +812,8 @@ std::string tpanel_subtweet_pending_op::dump() {
 			type,
 			action_data->win ? cstr(action_data->win->GetThisName()) : "(null)",
 			action_data->parent_tds ? cstr(action_data->parent_tds->GetThisName()) : "(null)",
-			cstr(tweet_short_log_line(action_data->parent_tds->td->id))
+			action_data->parent_tds && action_data->parent_tds->td
+					? cstr(tweet_short_log_line(action_data->parent_tds->td->id)) : "(null)"
 	);
 }
 
