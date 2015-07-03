@@ -721,7 +721,11 @@ void GetUsableAccountFollowingUser(std::shared_ptr<taccount> &tac, uint64_t user
 	if(!user_id)
 		return;
 
-	if(tac && tac->IsFollowingUser(user_id)) {
+	auto account_ok = [&](const std::shared_ptr<taccount> &acc) {
+		return acc->IsFollowingUser(user_id) || acc->usercont->id == user_id;
+	};
+
+	if(tac && account_ok(tac)) {
 		// account is following user, use that
 		return;
 	}
@@ -730,7 +734,7 @@ void GetUsableAccountFollowingUser(std::shared_ptr<taccount> &tac, uint64_t user
 		if(it.get() == tac.get())
 			continue;
 
-		if(it->enabled && it->IsFollowingUser(user_id)) {
+		if(it->enabled && account_ok(it)) {
 			// other account is following, use that instead
 			tac = it;
 			return;
