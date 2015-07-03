@@ -685,8 +685,11 @@ void tpanel_subtweet_pending_op::CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, 
 	using GUAF = tweet::GUAF;
 
 	uint64_t reply_id = t->in_reply_to_status_id;
-	if(!reply_id && t->rtsrc)
+	uint64_t reply_user_id = t->in_reply_to_user_id;
+	if(!reply_id && t->rtsrc) {
 		reply_id = t->rtsrc->in_reply_to_status_id;
+		reply_user_id = t->rtsrc->in_reply_to_user_id;
+	}
 
 	if(reply_id) {
 		std::function<void(unsigned int)> loadmorefunc = [=](unsigned int tweet_load_count) {
@@ -698,6 +701,10 @@ void tpanel_subtweet_pending_op::CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, 
 
 			std::shared_ptr<taccount> pacc;
 			t->GetUsableAccount(pacc, GUAF::NOERR) || t->GetUsableAccount(pacc, GUAF::NOERR | GUAF::USERENABLED);
+			if(reply_user_id) {
+				GetUsableAccountFollowingUser(pacc, reply_user_id);
+			}
+
 			subt->AddNewPendingOp(new tpanel_subtweet_pending_op(v, s, parent_tds, tweet_load_count, tspo_type::INLINE_REPLY));
 			CheckFetchPendingSingleTweet(subt, pacc);
 			TryUnmarkPendingTweet(subt, 0);

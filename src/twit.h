@@ -342,6 +342,7 @@ struct tweet_pending {
 struct tweet {
 	uint64_t id = 0;
 	uint64_t in_reply_to_status_id = 0;
+	uint64_t in_reply_to_user_id = 0;
 	std::vector<uint64_t> quoted_tweet_ids;
 	unsigned int retweet_count = 0;
 	unsigned int favourite_count = 0;
@@ -656,6 +657,8 @@ void MarkTweetIDSetCIDS(const tweetidset &ids, tpanel *exclude, tweetidset cache
 		bool remove, std::function<void(tweet_ptr_p )> existingtweetfunc = std::function<void(tweet_ptr_p)>());
 void SendTweetFlagUpdate(const tweet &tw, unsigned long long mask);
 void SpliceTweetIDSet(tweetidset &set, tweetidset &out, uint64_t highlim_inc, uint64_t lowlim_inc, bool clearspliced);
+
+void GetUsableAccountFollowingUser(std::shared_ptr<taccount> &tac, uint64_t user_id);
 
 struct dm_conversation_map_item {
 	udc_ptr u;

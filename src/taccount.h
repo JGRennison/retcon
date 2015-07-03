@@ -141,6 +141,7 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 	void ClearAllUserRelationshipsByType(user_relationship::UR_TYPE type, std::vector<uint64_t> *currentset = nullptr, std::vector<uint64_t> *pendingset = nullptr);
 	void GetSetUserRelationshipsByType(user_relationship::UR_TYPE type, std::vector<uint64_t> *currentset = nullptr, std::vector<uint64_t> *pendingset = nullptr);
 	void SetUserRelationship(uint64_t userid, flagwrapper<user_relationship::URF> flags, time_t optime);
+	bool IsFollowingUser(uint64_t userid);
 
 	void StartRestGetTweetBackfill(uint64_t start_tweet_id /*lower limit, exclusive*/, uint64_t end_tweet_id /*upper limit, inclusive*/,
 			unsigned int max_tweets_to_read, RBFS_TYPE type = RBFS_TWEETS, uint64_t userid = 0);

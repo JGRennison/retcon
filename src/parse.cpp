@@ -63,6 +63,7 @@ bool parse_util::ParseStringInPlace(rapidjson::Document &dc, char *mutable_strin
 //if jw, caller should already have called jw->StartObject(), etc
 void genjsonparser::ParseTweetStatics(const rapidjson::Value &val, tweet_ptr_p tobj, Handler *jw, bool isnew, optional_observer_ptr<dbsendmsg_list> dbmsglist, bool parse_entities) {
 	CheckTransJsonValueDef(tobj->in_reply_to_status_id, val, "in_reply_to_status_id", 0, jw);
+	CheckTransJsonValueDef(tobj->in_reply_to_user_id, val, "in_reply_to_user_id", 0, jw);
 	CheckTransJsonValue(tobj->retweet_count, val, "retweet_count");
 	CheckTransJsonValue(tobj->favourite_count, val, "favorite_count");
 	CheckTransJsonValueDef(tobj->source, val, "source", "", jw);
@@ -1304,9 +1305,10 @@ void userdatacontainer::Dump() const {
 }
 
 void tweet::Dump() const {
-	LogMsgFormat(LOGT::PARSE, "id: %" llFmtSpec "d\nreply_id: %" llFmtSpec "d\nretweet_count: %d\nfavourite_count: %d\n"
+	LogMsgFormat(LOGT::PARSE, "id: %" llFmtSpec "u\nreply_id: %" llFmtSpec "u\nreply_user_id: %" llFmtSpec "u\n"
+			"retweet_count: %u\nfavourite_count: %u\n"
 			"source: %s\ntext: %s\ncreated_at: %s",
-			id, in_reply_to_status_id, retweet_count, favourite_count, cstr(source),
+			id, in_reply_to_status_id, in_reply_to_user_id, retweet_count, favourite_count, cstr(source),
 			cstr(text), cstr(ctime(&createtime)));
 	IterateTP([&](const tweet_perspective &tp) {
 		LogMsgFormat(LOGT::PARSE, "Perspectival attributes: %s\nretweeted: %d\nfavourited: %d\nFlags: %s",

@@ -139,6 +139,17 @@ void taccount::SetUserRelationship(uint64_t userid, flagwrapper<user_relationshi
 	ur.ur_flags &= ~URF::QUERY_PENDING;
 }
 
+bool taccount::IsFollowingUser(uint64_t userid) {
+	using URF = user_relationship::URF;
+
+	auto it = user_relations.find(userid);
+	if(it == user_relations.end())
+		return false;
+
+	user_relationship &ur = it->second;
+	return (ur.ur_flags & URF::IFOLLOW_KNOWN && ur.ur_flags & URF::IFOLLOW_TRUE);
+}
+
 void taccount::LookupFriendships(uint64_t userid) {
 	using URF = user_relationship::URF;
 	std::unique_ptr<friendlookup> fl(new friendlookup);

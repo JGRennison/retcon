@@ -471,8 +471,8 @@ std::string tweet_long_log_line(const tweet *t) {
 	}
 	std::string createtime(ctime(&(t->createtime)));
 	trim(createtime);
-	output += string_format("reply to: %" llFmtSpec "u, retweets: %u, favs: %u, source: %s, create time: %s, ",
-			t->in_reply_to_status_id, t->retweet_count, t->favourite_count, cstr(t->source), cstr(createtime));
+	output += string_format("reply to: %" llFmtSpec "u (%" llFmtSpec "u), retweets: %u, favs: %u, source: %s, create time: %s, ",
+			t->in_reply_to_status_id, t->in_reply_to_user_id, t->retweet_count, t->favourite_count, cstr(t->source), cstr(createtime));
 	if(!t->quoted_tweet_ids.empty()) {
 		bool first = true;
 		for(auto &it : t->quoted_tweet_ids) {

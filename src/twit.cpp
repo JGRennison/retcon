@@ -717,6 +717,27 @@ bool tweet::GetUsableAccount(std::shared_ptr<taccount> &tac, flagwrapper<GUAF> g
 	return false;
 }
 
+void GetUsableAccountFollowingUser(std::shared_ptr<taccount> &tac, uint64_t user_id) {
+	if(!user_id)
+		return;
+
+	if(tac && tac->IsFollowingUser(user_id)) {
+		// account is following user, use that
+		return;
+	}
+
+	for(auto &it : alist) {
+		if(it.get() == tac.get())
+			continue;
+
+		if(it->enabled && it->IsFollowingUser(user_id)) {
+			// other account is following, use that instead
+			tac = it;
+			return;
+		}
+	}
+}
+
 tweet_perspective *tweet::AddTPToTweet(const std::shared_ptr<taccount> &tac, bool *isnew) {
 	if(!(lflags & TLF::HAVEFIRSTTP)) {
 		first_tp.Reset(tac);
