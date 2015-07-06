@@ -129,14 +129,16 @@ endif
 else
 #UNIX
 PLATFORM := UNIX
-LIBS := -lpcre -lrt `wx-config --libs std,media $(WXCFGFLAGS)` -lcurl -lsqlite3 -lz
+LIBS := -lpcre -lrt `wx-config --libs std $(WXCFGFLAGS)` -lcurl -lsqlite3 -lz
 MCFLAGS := $(patsubst -I/%,-isystem /%,$(shell wx-config --cxxflags $(WXCFGFLAGS)))
 
 wxconf := $(shell wx-config --selected-config)
+LIBLIST := libvlc
 ifeq (gtk, $(findstring gtk,$(wxconf)))
-LIBS += `pkg-config --libs glib-2.0` `pkg-config --libs gdk-2.0`
-MCFLAGS += `pkg-config --cflags glib-2.0` `pkg-config --cflags gdk-2.0`
+LIBLIST += glib-2.0 gdk-2.0 gtk+-2.0
 endif
+LIBS += `pkg-config --libs $(LIBLIST)`
+MCFLAGS += `pkg-config --cflags $(LIBLIST)` -D USE_LIBVLC
 
 endif
 

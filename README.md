@@ -47,6 +47,7 @@ This includes documentation for:
 * zlib  
 * libcurl v7.21.6 or later with SSL  
 * Boost.Iterator  
+* libvlc (except on Windows)  
 
 ### Building
 Should build out of the box with `make` and `make install`.  

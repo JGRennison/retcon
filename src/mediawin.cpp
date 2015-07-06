@@ -34,7 +34,6 @@
 #include <wx/file.h>
 #include <wx/filename.h>
 #include <wx/image.h>
-#include <wx/mediactrl.h>
 #include <wx/menu.h>
 #include <wx/msgdlg.h>
 #include <wx/mstream.h>
@@ -51,9 +50,20 @@
 #include <string>
 #include <vector>
 
-#if defined(__WXGTK__)
-#include <gdk-pixbuf/gdk-pixbuf.h>
+#ifdef USE_LIBVLC
+#include <vlc/vlc.h>
+#else
+#include <wx/mediactrl.h>
 #endif
+
+#ifdef __WXGTK__
+#include <gdk-pixbuf/gdk-pixbuf.h>
+#include <gdk/gdkx.h>
+#include <gtk/gtk.h>
+#include <wx/gtk/win_gtk.h>
+#define GET_XID(window) GDK_WINDOW_XWINDOW(GTK_PIZZA(window->m_wxwindow)->bin_window)
+#endif
+
 
 struct image_panel : public wxPanel {
 	wxBitmap bm;
@@ -98,6 +108,76 @@ BEGIN_EVENT_TABLE(image_panel, wxPanel)
 	EVT_SIZE(image_panel::OnResize)
 END_EVENT_TABLE()
 
+#ifdef USE_LIBVLC
+
+enum {
+	MCP_ID_ENDREACHED = 1,
+};
+
+void VLC_Log_CB(void *data, int level, const libvlc_log_t *ctx, const char *fmt, va_list args) {
+	// bin VLC log messages
+}
+
+struct media_ctrl_panel : public wxPanel, public magic_ptr_base {
+	wxWindow *player_widget = nullptr;
+	libvlc_media_player_t *media_player = nullptr;
+	libvlc_instance_t *vlc_inst = nullptr;
+	libvlc_event_manager_t *vlc_evt_man = nullptr;
+	bool vlc_inited = false;
+
+	media_ctrl_panel(wxWindow *parent, wxSize size = wxDefaultSize)
+			: wxPanel(parent, wxID_ANY, wxDefaultPosition, size) {
+
+		wxBoxSizer *vbox = new wxBoxSizer(wxVERTICAL);
+		this->SetSizer(vbox);
+
+		player_widget = new wxWindow(this, wxID_ANY);
+		player_widget->SetBackgroundColour(*wxBLACK);
+		vbox->Add(player_widget, 1, wxEXPAND | wxALIGN_TOP);
+	}
+
+	~media_ctrl_panel() {
+		if(vlc_inited) {
+			libvlc_media_player_release(media_player);
+			libvlc_release(vlc_inst);
+		}
+	}
+
+	void InitVLC() {
+		if(vlc_inited)
+			return;
+
+		vlc_inst = libvlc_new(0, nullptr);
+		libvlc_log_set(vlc_inst, VLC_Log_CB, nullptr);
+		media_player = libvlc_media_player_new(vlc_inst);
+		vlc_evt_man = libvlc_media_player_event_manager(media_player);
+		Show(true);
+#ifdef __WXGTK__
+		libvlc_media_player_set_xwindow(media_player, GET_XID(player_widget));
+#else
+		libvlc_media_player_set_hwnd(media_player, player_widget->GetHandle());
+#endif
+
+		vlc_inited = true;
+	}
+
+	bool Load(wxString path) {
+		InitVLC();
+
+		libvlc_media_t *media;
+		wxFileName filename = wxFileName::FileName(path);
+		filename.MakeRelativeTo();
+		media = libvlc_media_new_path(vlc_inst, filename.GetFullPath().mb_str());
+		libvlc_media_add_option(media, "input-repeat=-1");
+		libvlc_media_player_set_media(media_player, media);
+		libvlc_media_player_play(media_player);
+		libvlc_media_release(media);
+		return true;
+	}
+};
+
+#else
+
 struct media_ctrl_panel : public wxMediaCtrl, public magic_ptr_base {
 	media_ctrl_panel(wxWindow *parent, wxSize size = wxDefaultSize)
 			: wxMediaCtrl(parent, wxID_ANY, wxT(""), wxDefaultPosition, size) { }
@@ -117,6 +197,8 @@ BEGIN_EVENT_TABLE(media_ctrl_panel, wxMediaCtrl)
 	EVT_MEDIA_LOADED(wxID_ANY, media_ctrl_panel::OnMediaLoaded)
 	EVT_MEDIA_FINISHED(wxID_ANY, media_ctrl_panel::OnMediaFinished)
 END_EVENT_TABLE()
+
+#endif
 
 enum class MDZF {
 	ZOOMSET         = 1<<0,
