@@ -59,6 +59,7 @@ bool retcon::OnInit() {
 	raii_set rs;
 	//wxApp::OnInit();	//don't call this, it just calls the default command line processor
 	SetAppName(appname);
+	InitStdoutFilter();
 	InitWxLogger();
 	rs.add([&]() { DeInitWxLogger(); });
 

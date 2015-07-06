@@ -106,4 +106,6 @@ void InitGlibLogger();
 void DeInitGlibLogger();
 #endif
 
+void InitStdoutFilter();
+
 #endif

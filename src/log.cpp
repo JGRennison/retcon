@@ -869,3 +869,39 @@ void DeInitGlibLogger() {
 }
 
 #endif
+
+#if __GLIBC_PREREQ(2, 0)
+struct filter_cookie {
+	FILE *real_file = nullptr;
+};
+static filter_cookie stdout_cookie;
+static filter_cookie stderr_cookie;
+
+ssize_t filteroutput_write(void *c, const char *buf, size_t size) {
+	filter_cookie *cookie = static_cast<filter_cookie *>(c);
+
+	const char pattern[] = "Fontconfig warning: FcPattern object size does not accept value";
+	if(strncmp(pattern, buf, sizeof(pattern) - 1) == 0)
+		return size;
+
+	return fwrite(buf, 1, size, cookie->real_file);
+}
+
+cookie_io_functions_t filteroutput_func = {
+	.read  = nullptr,
+	.write = filteroutput_write,
+	.seek  = nullptr,
+	.close = nullptr
+};
+
+void InitStdoutFilter() {
+	stdout_cookie.real_file = stdout;
+	stderr_cookie.real_file = stderr;
+	stdout = fopencookie(&stdout_cookie, "w+", filteroutput_func);
+	stderr = fopencookie(&stderr_cookie, "w+", filteroutput_func);
+	setlinebuf(stdout);
+	setlinebuf(stderr);
+}
+#else
+void InitStdoutFilter() { }
+#endif
