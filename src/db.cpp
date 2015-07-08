@@ -1142,6 +1142,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	LogMsgFormat(LOGT::DBINFO, "dbconn::Init(): About to read in state from database");
 
 	SyncReadInAllUserIDs(syncdb);
+	SyncReadInUserDMIndexes(syncdb);
 	AccountSync(syncdb);
 	ReadAllCFGIn(syncdb, gc, alist);
 	SyncReadInRBFSs(syncdb);
@@ -1151,7 +1152,6 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	SyncReadInTpanels(syncdb);
 	SyncReadInWindowLayout(syncdb);
 	SyncReadInUserRelationships(syncdb);
-	SyncReadInUserDMIndexes(syncdb);
 	SyncPostUserLoadCompletion();
 
 	LogMsgFormat(LOGT::DBINFO, "dbconn::Init(): State read in from database complete, about to create database thread");
@@ -1586,6 +1586,8 @@ struct tweet_scan_statjson_parser {
 		}
 	}
 };
+
+// This must be called after SyncReadInUserDMIndexes
 void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 	LogMsg(LOGT::DBINFO, "dbconn::SyncReadInAllTweetIDs start");
 
@@ -1601,6 +1603,18 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 
 	tweetidset incremental_ids;
 
+	auto add_dm_index = [&](uint64_t id, sqlite3_stmt* stmt) {
+		auto exec = [&](int col_num) {
+			uint64_t user_id = (uint64_t) sqlite3_column_int64(stmt, col_num);
+			if(user_id) {
+				ad.GetUserDMIndexById(user_id).AddDMId(id);
+				SyncReadInUser(syncdb, user_id);
+			}
+		};
+		exec(4);
+		exec(5);
+	};
+
 	if(ad.unloaded_db_tweet_ids.empty() || gc.rescan_tweets_table) {
 		// Didn't find any cache
 		LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInAllTweetIDs table scan");
@@ -1612,7 +1626,7 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 		tweet_scan_dynjson_parser tsdp;
 		tweet_scan_statjson_parser tssp;
 
-		DBRowExec(syncdb, "SELECT id, flags, dynjson, statjson FROM tweets ORDER BY id DESC;", [&](sqlite3_stmt *getstmt) {
+		DBRowExec(syncdb, "SELECT id, flags, dynjson, statjson, userid, userrecipid FROM tweets ORDER BY id DESC;", [&](sqlite3_stmt *getstmt) {
 			uint64_t id = (uint64_t) sqlite3_column_int64(getstmt, 0);
 			ad.unloaded_db_tweet_ids.insert(ad.unloaded_db_tweet_ids.end(), id);
 
@@ -1624,12 +1638,15 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 
 			tsdp.parse(id, getstmt, 2, flags & tweet_flags::GetFlagValue('D'));
 			tssp.parse(id, getstmt, 3);
+			if(flags & tweet_flags::GetFlagValue('D'))
+				add_dm_index(id, getstmt);
 		}, "dbconn::SyncReadInAllTweetIDs (table scan)");
 
 		if(!gc.readonlymode) {
 			cache.BeginTransaction(syncdb);
 			SyncWriteBackTweetIDIndexCache(syncdb);
 			SyncWriteBackAccountIdLists(syncdb);
+			SyncWriteBackUserDMIndexes(syncdb);
 			cache.EndTransaction(syncdb);
 		}
 		tssp.execute(syncdb, cache);
@@ -1645,7 +1662,7 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 			tweet_scan_statjson_parser tssp;
 
 			DBRangeBindRowExec(
-				syncdb, "SELECT id, flags, dynjson, statjson FROM tweets WHERE id == ?;", incremental_ids.begin(), incremental_ids.end(),
+				syncdb, "SELECT id, flags, dynjson, statjson, userid, userrecipid FROM tweets WHERE id == ?;", incremental_ids.begin(), incremental_ids.end(),
 				[&](sqlite3_stmt *getstmt, uint64_t id) {
 					sqlite3_bind_int64(getstmt, 1, (sqlite3_int64) id);
 				},
@@ -1663,6 +1680,8 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 
 					tsdp.parse(id, getstmt, 2, flags & tweet_flags::GetFlagValue('D'));
 					tssp.parse(id, getstmt, 3);
+					if(flags & tweet_flags::GetFlagValue('D'))
+						add_dm_index(id, getstmt);
 				},
 				"dbconn::SyncReadInAllTweetIDs (incrementaltweetids)"
 			);
@@ -2161,6 +2180,7 @@ void dbconn::AsyncWriteBackUserDMIndexes(dbfunctionmsg &msg) {
 	DoGenericAsyncWriteBack(msg, WriteBackUserDMIndexes(), "dbconn::AsyncWriteBackUserDMIndexes");
 }
 
+// This must be called before SyncReadInAllTweetIDs
 void dbconn::SyncReadInUserDMIndexes(sqlite3 *adb) {
 	LogMsg(LOGT::DBINFO, "dbconn::SyncReadInUserDMIndexes start");
 
