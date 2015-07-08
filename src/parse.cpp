@@ -882,7 +882,7 @@ bool jsonparser::DoStreamTweetPreFilter(const rapidjson::Value& val) {
 	const rapidjson::Value& text = val["text"];
 
 	auto pre_bin = [&]() {
-		if(currentlogflags & LOGT::FILTERTRACE) {
+		if(currentlogflags & LOGT::FILTERTRACE || tac->stream_reply_mode == SRM::STD_REPLIES) {
 			std::string shorttext = text.IsString() ? truncate_tweet_text(text.GetString()) : std::string("???");
 			std::string screen_name = CheckGetJsonValueDef<std::string>(userobj, "screen_name", "???");
 			LogMsgFormat(LOGT::FILTERTRACE, "jsonparser::DoStreamTweetPreFilter: Binning tweet: %" llFmtSpec "d (@%s): %" llFmtSpec "d (%s)",
