@@ -110,8 +110,11 @@ END_EVENT_TABLE()
 
 #ifdef USE_LIBVLC
 
+DECLARE_EVENT_TYPE(wxextVLC_MEDIAWIN_EVT, -1)
+DEFINE_EVENT_TYPE(wxextVLC_MEDIAWIN_EVT)
+
 enum {
-	MCP_ID_ENDREACHED = 1,
+	MCP_ID_LOAD = 1,
 };
 
 void VLC_Log_CB(void *data, int level, const libvlc_log_t *ctx, const char *fmt, va_list args) {
@@ -162,19 +165,32 @@ struct media_ctrl_panel : public wxPanel, public magic_ptr_base {
 	}
 
 	bool Load(wxString path) {
+		wxCommandEvent event(wxextVLC_MEDIAWIN_EVT, MCP_ID_LOAD);
+		event.SetString(path);
+		AddPendingEvent(event);
+		return true;
+	}
+
+	private:
+	void LoadEvent(wxCommandEvent &event) {
 		InitVLC();
 
 		libvlc_media_t *media;
-		wxFileName filename = wxFileName::FileName(path);
+		wxFileName filename = wxFileName::FileName(event.GetString());
 		filename.MakeRelativeTo();
 		media = libvlc_media_new_path(vlc_inst, filename.GetFullPath().mb_str());
 		libvlc_media_add_option(media, "input-repeat=-1");
 		libvlc_media_player_set_media(media_player, media);
 		libvlc_media_player_play(media_player);
 		libvlc_media_release(media);
-		return true;
 	}
+
+	DECLARE_EVENT_TABLE()
 };
+
+BEGIN_EVENT_TABLE(media_ctrl_panel, wxPanel)
+	EVT_COMMAND(MCP_ID_LOAD, wxextVLC_MEDIAWIN_EVT, media_ctrl_panel::LoadEvent)
+END_EVENT_TABLE()
 
 #else
 
