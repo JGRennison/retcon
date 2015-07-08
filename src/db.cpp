@@ -1518,6 +1518,74 @@ struct tweet_scan_dynjson_parser {
 	}
 };
 
+struct tweet_scan_statjson_parser {
+	std::map<uint64_t, tweetidset> user_mention_insert_map;
+
+	void parse(uint64_t id, sqlite3_stmt* stmt, int col_num) {
+		using namespace parse_util;
+
+		rapidjson::Document dc;
+		db_bind_buffer<dbb_uncompressed> json = column_get_compressed_and_parse(stmt, col_num, dc);
+		if(!dc.IsObject())
+			return;
+
+		const rapidjson::Value &ent = dc["entities"];
+		if(!ent.IsObject())
+			return;
+
+		const rapidjson::Value &user_mentions = ent["user_mentions"];
+		if(!user_mentions.IsArray())
+			return;
+
+		for(rapidjson::SizeType i = 0; i < user_mentions.Size(); i++) {
+			uint64_t userid;
+			if(!CheckTransJsonValueDef(userid, user_mentions[i], "id", 0)) {
+				continue;
+			}
+			tweetidset &idset = user_mention_insert_map[userid];
+			idset.insert(id);
+		}
+	}
+
+	void execute(sqlite3 *syncdb, dbpscache &cache) {
+		auto select = DBInitialiseSql(syncdb, "SELECT mentionindex FROM users WHERE id == ?;");
+		auto update = DBInitialiseSql(syncdb, "UPDATE users SET mentionindex = ? WHERE id == ?;");
+
+		for(auto &it : user_mention_insert_map) {
+			uint64_t id = it.first;
+			optional_udc_ptr u = ad.GetExistingUserContainerById(id);
+			if(u && u->udc_flags & UDC::SAVED_IN_DB) {
+				u->mention_set.insert(it.second.begin(), it.second.end());
+				u->lastupdate_wrotetodb = 0;		//force flush of user to DB
+			}
+			else if(!gc.readonlymode) {
+				// read and write back to DB
+				cache.BeginTransaction(syncdb);
+				DBBindRowExec(syncdb, select.stmt(),
+					[&](sqlite3_stmt *getstmt) {
+						sqlite3_bind_int64(getstmt, 1, (sqlite3_int64) id);
+					},
+					[&](sqlite3_stmt *getstmt) {
+						tweetidset ids;
+						setfromcompressedblob(ids, getstmt, 0);
+
+						ids.insert(it.second.begin(), it.second.end());
+
+						DBBindExec(syncdb, update.stmt(),
+							[&](sqlite3_stmt *setstmt) {
+								sqlite3_bind_int64(setstmt, 1, (sqlite3_int64) id);
+								bind_compressed(setstmt, 2, settocompressedblob_desc(ids));
+							},
+							"tweet_scan_statjson_parser::execute (update)"
+						);
+					},
+					"tweet_scan_statjson_parser::execute (select)"
+				);
+				cache.EndTransaction(syncdb);
+			}
+		}
+	}
+};
 void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 	LogMsg(LOGT::DBINFO, "dbconn::SyncReadInAllTweetIDs start");
 
@@ -1542,8 +1610,9 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 		});
 
 		tweet_scan_dynjson_parser tsdp;
+		tweet_scan_statjson_parser tssp;
 
-		DBRowExec(syncdb, "SELECT id, flags, dynjson FROM tweets ORDER BY id DESC;", [&](sqlite3_stmt *getstmt) {
+		DBRowExec(syncdb, "SELECT id, flags, dynjson, statjson FROM tweets ORDER BY id DESC;", [&](sqlite3_stmt *getstmt) {
 			uint64_t id = (uint64_t) sqlite3_column_int64(getstmt, 0);
 			ad.unloaded_db_tweet_ids.insert(ad.unloaded_db_tweet_ids.end(), id);
 
@@ -1554,6 +1623,7 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 			});
 
 			tsdp.parse(id, getstmt, 2, flags & tweet_flags::GetFlagValue('D'));
+			tssp.parse(id, getstmt, 3);
 		}, "dbconn::SyncReadInAllTweetIDs (table scan)");
 
 		if(!gc.readonlymode) {
@@ -1562,6 +1632,7 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 			SyncWriteBackAccountIdLists(syncdb);
 			cache.EndTransaction(syncdb);
 		}
+		tssp.execute(syncdb, cache);
 	}
 	else {
 		SyncReadInCIDSLists(syncdb);
@@ -1571,9 +1642,10 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 		}, "dbconn::SyncReadInAllTweetIDs (incrementaltweetids)");
 		if(!incremental_ids.empty()) {
 			tweet_scan_dynjson_parser tsdp;
+			tweet_scan_statjson_parser tssp;
 
 			DBRangeBindRowExec(
-				syncdb, "SELECT id, flags, dynjson FROM tweets WHERE id == ?;", incremental_ids.begin(), incremental_ids.end(),
+				syncdb, "SELECT id, flags, dynjson, statjson FROM tweets WHERE id == ?;", incremental_ids.begin(), incremental_ids.end(),
 				[&](sqlite3_stmt *getstmt, uint64_t id) {
 					sqlite3_bind_int64(getstmt, 1, (sqlite3_int64) id);
 				},
@@ -1590,9 +1662,12 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 					});
 
 					tsdp.parse(id, getstmt, 2, flags & tweet_flags::GetFlagValue('D'));
+					tssp.parse(id, getstmt, 3);
 				},
 				"dbconn::SyncReadInAllTweetIDs (incrementaltweetids)"
 			);
+
+			tssp.execute(syncdb, cache);
 		}
 	}
 
