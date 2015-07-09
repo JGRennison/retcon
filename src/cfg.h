@@ -119,6 +119,7 @@ struct genoptconf {
 	CFGTEMPL_BOOL(askuseraccsettingsonnewacc) \
 	CFGTEMPL_BOOL(tweetdebugactions) \
 	CFGTEMPL(emoji_mode) \
+	CFGTEMPL_UL(tweet_quote_recursion_max_depth) \
 
 struct genoptglobconf {
 #define CFGTEMPL(x) genopt x;

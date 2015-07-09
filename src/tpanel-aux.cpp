@@ -790,8 +790,10 @@ void tpanel_subtweet_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF>
 
 		tweetdispscr *subtd = window->pimpl()->CreateSubTweetInItemHbox(t, parent_tds, subhbox, parent);
 
-		for(auto &it : t->quoted_tweet_ids) {
-			tpanel_subtweet_pending_op::CheckLoadQuotedTweet(ad.GetTweetById(it), subtd->vbox, window, subtd);
+		if(subtd->recursion_depth < gc.tweet_quote_recursion_max_depth) {
+			for(auto &it : t->quoted_tweet_ids) {
+				tpanel_subtweet_pending_op::CheckLoadQuotedTweet(ad.GetTweetById(it), subtd->vbox, window, subtd);
+			}
 		}
 
 		switch(data->type) {

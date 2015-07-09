@@ -807,8 +807,10 @@ tweetdispscr *tpanelparentwin_nt_impl::CreateTweetInItem(tweet_ptr_p t, tpanel_d
 	#endif
 
 	tpanel_subtweet_pending_op::CheckLoadTweetReply(t, item->vbox, base(), td, gc.inlinereplyloadcount, td);
-	for(auto &it : t->quoted_tweet_ids) {
-		tpanel_subtweet_pending_op::CheckLoadQuotedTweet(ad.GetTweetById(it), item->vbox, base(), td);
+	if(td->recursion_depth < gc.tweet_quote_recursion_max_depth) {
+		for(auto &it : t->quoted_tweet_ids) {
+			tpanel_subtweet_pending_op::CheckLoadQuotedTweet(ad.GetTweetById(it), item->vbox, base(), td);
+		}
 	}
 
 	#if TPANEL_COPIOUS_LOGGING
@@ -854,8 +856,7 @@ tweetdispscr *tpanelparentwin_nt_impl::CreateSubTweetInItemHbox(tweet_ptr_p t, t
 	subtd->tds_flags |= TDSF::SUBTWEET;
 	subtd->vbox = new wxBoxSizer(wxVERTICAL);
 
-	parent_tds->subtweets.emplace_front(subtd);
-	subtd->parent_tweet.set(parent_tds);
+	subtd->SetParent(parent_tds);
 
 	if(t->rtsrc && gc.rtdisp) {
 		t->rtsrc->user->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);

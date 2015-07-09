@@ -183,16 +183,18 @@ struct tweetdispscr : public dispscr_base, public generic_popup_wrapper_hook {
 	long reltimeend;
 	uint64_t rtid;
 	flagwrapper<TDSF> tds_flags = 0;
-	std::forward_list<magic_ptr_ts<tweetdispscr> > subtweets;
+	std::vector<magic_ptr_ts<tweetdispscr> > subtweets;
 	magic_ptr_ts<tweetdispscr> parent_tweet;
 	std::unique_ptr<wxTimer> imghideoverridetimer;
 	std::function<void()> loadmorereplies;
 	std::vector<media_entity_raii_updater> media_entity_updaters;
 	magic_ptr_container<rounded_box_panel> rounded_box_panels;
 	wxBoxSizer *vbox = nullptr;
+	unsigned int recursion_depth = 0;
 
 	tweetdispscr(tweet_ptr_p td_, wxWindow *parent, tpanel_item *item, tpanelparentwin_nt *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
 	~tweetdispscr();
+	void SetParent(observer_ptr<tweetdispscr> parent);
 	bool CheckHiddenState();
 	void DisplayTweet(bool redrawimg = false);
 	void OnTweetActMenuCmd(wxCommandEvent &event);

@@ -292,6 +292,12 @@ tweetdispscr::tweetdispscr(tweet_ptr_p td_, wxWindow *parent, tpanel_item *item,
 tweetdispscr::~tweetdispscr() {
 }
 
+void tweetdispscr::SetParent(observer_ptr<tweetdispscr> parent) {
+	parent->subtweets.emplace_back(this);
+	parent_tweet.set(parent.get());
+	recursion_depth = parent->recursion_depth + 1;
+}
+
 void TweetReplaceStringSeq(std::function<void(const char *, size_t)> func, const std::string &str, int start, int end, int &track_byte, int &track_index) {
 	while(str[track_byte]) {
 		if(track_index == start) break;
@@ -938,6 +944,10 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 				switch((wxChar) format[i]) {
 					case 'F':
 						str += wxstrstd(tw.GetFlagsAtPrevUpdate().GetString());
+						break;
+					case 'r':
+						if(td_obj)
+							str += wxString::Format(wxT("%u"), td_obj->recursion_depth);
 						break;
 				}
 				break;

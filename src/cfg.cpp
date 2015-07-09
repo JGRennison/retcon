@@ -89,6 +89,7 @@ genoptconf gcdefaults {
 #define CFGDEFAULT_askuseraccsettingsonnewacc               wxT("0")
 #define CFGDEFAULT_tweetdebugactions                        wxT("0")
 #define CFGDEFAULT_emoji_mode                               wxT("1")
+#define CFGDEFAULT_tweet_quote_recursion_max_depth          wxT("6")
 
 genoptglobconf gcglobdefaults {
 #define CFGTEMPL(x) { CFGDEFAULT_##x, 1},
