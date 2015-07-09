@@ -118,7 +118,32 @@ enum {
 };
 
 void VLC_Log_CB(void *data, int level, const libvlc_log_t *ctx, const char *fmt, va_list args) {
-	// bin VLC log messages
+	LOGT category = LOGT::VLCERR;
+	const char *name = "???:";
+	switch(level) {
+		case LIBVLC_DEBUG:
+			category = LOGT::VLCDEBUG;
+			name = "debug:";
+			break;
+		case LIBVLC_NOTICE :
+			name = "notice:";
+			break;
+		case LIBVLC_WARNING:
+			name = "warning:";
+			break;
+		case LIBVLC_ERROR:
+			name = "error:";
+			break;
+	}
+
+	if(!(currentlogflags & category))
+		return;
+
+	char *str = nullptr;
+	if(vasprintf(&str, fmt, args) < 0)
+		return;
+	TALogMsgFormat(category, "%-10s %s\n", name, str);
+	free(str);
 }
 
 struct media_ctrl_panel : public wxPanel, public magic_ptr_base {
