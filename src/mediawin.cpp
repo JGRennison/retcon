@@ -150,7 +150,18 @@ struct media_ctrl_panel : public wxPanel, public magic_ptr_base {
 		if(vlc_inited)
 			return;
 
-		vlc_inst = libvlc_new(0, nullptr);
+		/* This is to fix the issue:
+		 * Xlib not initialized for threads.
+		 * This process is probably using LibVLC incorrectly.
+		 * Pass "--no-xlib" to libvlc_new() to fix this.
+		 */
+		const char *vlc_args[] = {
+			"--no-xlib",
+		};
+
+		vlc_inst = libvlc_new(1, vlc_args);
+		if(!vlc_inst)
+			vlc_inst = libvlc_new(0, nullptr);
 		libvlc_log_set(vlc_inst, VLC_Log_CB, nullptr);
 		media_player = libvlc_media_player_new(vlc_inst);
 		vlc_evt_man = libvlc_media_player_event_manager(media_player);
