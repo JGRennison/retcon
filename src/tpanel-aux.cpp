@@ -764,6 +764,7 @@ void tpanel_subtweet_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF>
 
 		wxBoxSizer *subhbox = nullptr;
 		wxWindow *parent = parent_tds->GetParent();
+		rounded_box_panel *rbpanel = nullptr;
 		switch(data->type) {
 			case tspo_type::INLINE_REPLY:
 				subhbox = new wxBoxSizer(wxHORIZONTAL);
@@ -771,7 +772,7 @@ void tpanel_subtweet_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF>
 				break;
 			case tspo_type::QUOTE:
 				int side_margin = 15;
-				rounded_box_panel *rbpanel = new rounded_box_panel(parent, 10, side_margin, 2);
+				rbpanel = new rounded_box_panel(parent, 10, side_margin, 2);
 				wxSizer *outerhbox = new wxBoxSizer(wxHORIZONTAL);
 				subhbox = new wxBoxSizer(wxHORIZONTAL);
 				outerhbox->AddSpacer(side_margin);
@@ -780,15 +781,17 @@ void tpanel_subtweet_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF>
 				rbpanel->SetSizer(outerhbox);
 				data->vbox->Insert(1, rbpanel, 0, wxLEFT | wxRIGHT | wxEXPAND, 2);
 				parent = rbpanel;
-
-				parent_tds->rounded_box_panels.insert(rbpanel);
-				rbpanel->SetBackgroundColour(parent_tds->GetBackgroundColour());
-				if(parent_tds->tds_flags & TDSF::HIDDEN)
-					rbpanel->Show(false);
 				break;
 		}
 
 		tweetdispscr *subtd = window->pimpl()->CreateSubTweetInItemHbox(t, parent_tds, subhbox, parent);
+
+		if(rbpanel) {
+			subtd->rounded_box_panels.insert(rbpanel);
+			rbpanel->SetBackgroundColour(parent_tds->GetBackgroundColour());
+			if(subtd->tds_flags & TDSF::HIDDEN)
+				rbpanel->Show(false);
+		}
 
 		if(subtd->recursion_depth < gc.tweet_quote_recursion_max_depth) {
 			for(auto &it : t->quoted_tweet_ids) {
