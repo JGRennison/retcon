@@ -1189,7 +1189,7 @@ void tpanelparentwin_nt_impl::setupnavbuttonhandlers() {
 
 			//refresh any currently displayed tweets which are marked as hidden
 			IterateCurrentDisp([&](uint64_t id, dispscr_base *scr) {
-				if((tp->cids.*setptr).find(id) != (tp->cids.*setptr).end()) {
+				if((ad.cids.*setptr).find(id) != (ad.cids.*setptr).end()) {
 					#if TPANEL_COPIOUS_LOGGING
 						LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::setupnavbuttonhandlers: %s: About to refresh: %" llFmtSpec "d, items: %d",
 								cstr(logstr), id, (tp->cids.*setptr).size());
