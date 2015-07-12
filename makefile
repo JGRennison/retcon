@@ -85,7 +85,7 @@ endif
 ifdef san
 ifeq ($(san), thread)
 CFLAGS += -fPIE -pie
-AFLAGS += -fPIE -pie
+AFLAGS += -fPIE -pie -ltsan
 endif
 CFLAGS += -g -fsanitize=$(san) -fno-omit-frame-pointer
 AFLAGS += -g -fsanitize=$(san)
