@@ -281,6 +281,8 @@ struct dbconn : public wxEvtHandler {
 	void OnAsyncStateWriteTimer(wxTimerEvent& event);
 	void ResetAsyncStateWriteTimer();
 
+	void SyncClearDirtyFlag(sqlite3 *db);
+
 	DECLARE_EVENT_TABLE()
 
 	private:

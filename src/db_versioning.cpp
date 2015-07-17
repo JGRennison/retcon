@@ -24,7 +24,7 @@
 #include "twit-common.h"
 #include <wx/msgdlg.h>
 
-static const unsigned int db_version = 5;
+static const unsigned int db_version = 6;
 
 static const char *update_sql[] = {
 	"ALTER TABLE mediacache ADD COLUMN lastusedtimestamp INTEGER;"
@@ -43,6 +43,9 @@ static const char *update_sql[] = {
 	,
 	nullptr
 	// DB set compression changes
+	,
+	"INSERT OR REPLACE INTO staticsettings(name, value) SELECT name, value FROM settings WHERE name IN ('unreadids', 'highlightids', 'hiddenids', 'deletedids');"
+	// move CIDS lists to staticsettings
 };
 
 // return false if all bets are off and DB should not be read

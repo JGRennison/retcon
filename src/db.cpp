@@ -102,7 +102,7 @@ static const char *startup_sql=
 "CREATE TABLE IF NOT EXISTS userdmsets(userid INTEGER PRIMARY KEY NOT NULL, dmindex BLOB);"
 "CREATE TABLE IF NOT EXISTS handlenewpending(accid INTEGER, arrivalflags INTEGER, tweetid INTEGER);"
 "CREATE TABLE IF NOT EXISTS incrementaltweetids(id INTEGER PRIMARY KEY NOT NULL);"
-"INSERT OR REPLACE INTO settings(accid, name, value) VALUES ('G', 'dirtyflag', strftime('%s','now'));";
+"INSERT OR REPLACE INTO staticsettings(name, value) VALUES ('dirtyflag', strftime('%s','now'));";
 
 static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"INSERT OR REPLACE INTO tweets(id, statjson, dynjson, userid, userrecipid, flags, timestamp, rtid) VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
@@ -1242,6 +1242,7 @@ void dbconn::DeInit() {
 		SyncWriteBackUserRelationships(syncdb);
 		SyncWriteBackUserDMIndexes(syncdb);
 		SyncWriteBackTweetIDIndexCache(syncdb);
+		SyncClearDirtyFlag(syncdb);
 	}
 	SyncPurgeMediaEntities(syncdb); //this does a dry-run in read-only mode
 	SyncPurgeProfileImages(syncdb); //this does a dry-run in read-only mode
@@ -1724,9 +1725,7 @@ void dbconn::SyncWriteBackTweetIDIndexCache(sqlite3 *syncdb) {
 // This is called by SyncReadInAllTweetIDs
 void dbconn::SyncReadInCIDSLists(sqlite3 *adb) {
 	LogMsg(LOGT::DBINFO, "dbconn::SyncReadInCIDSLists start");
-	const char getcidslist[] = "SELECT value FROM settings WHERE name == ?;";
-	sqlite3_stmt *getstmt = nullptr;
-	sqlite3_prepare_v2(adb, getcidslist, sizeof(getcidslist), &getstmt, 0);
+	sqlite3_stmt *getstmt = cache.GetStmt(adb, DBPSC_SELSTATICSETTING);
 
 	unsigned int total = 0;
 	auto doonelist = [&](std::string name, tweetidset &tlist) {
@@ -1742,7 +1741,6 @@ void dbconn::SyncReadInCIDSLists(sqlite3 *adb) {
 		doonelist(name, ad.cids.*ptr);
 	});
 
-	sqlite3_finalize(getstmt);
 	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncReadInCIDSLists end, total: %u IDs", total);
 }
 
@@ -1800,13 +1798,12 @@ namespace {
 		template <typename F> void dbexec(sqlite3 *adb, dbpscache &cache, std::string funcname, bool TSLogging, F getfunc) const {
 			SLogMsgFormat(LOGT::DBINFO, TSLogging, "%s start", cstr(funcname));
 			cache.BeginTransaction(adb);
-			sqlite3_stmt *setstmt = cache.GetStmt(adb, DBPSC_INSSETTING);
+			sqlite3_stmt *setstmt = cache.GetStmt(adb, DBPSC_INSSTATICSETTING);
 
 			unsigned int total = 0;
 			getfunc([&](itemdata &&data) {
-				sqlite3_bind_text(setstmt, 1, globstr.c_str(), globstr.size(), SQLITE_STATIC);
-				sqlite3_bind_text(setstmt, 2, data.name, -1, SQLITE_STATIC);
-				bind_compressed(setstmt, 3, std::move(data.index));
+				sqlite3_bind_text(setstmt, 1, data.name, -1, SQLITE_STATIC);
+				bind_compressed(setstmt, 2, std::move(data.index));
 				int res = sqlite3_step(setstmt);
 				if(res != SQLITE_DONE) {
 					SLogMsgFormat(LOGT::DBERR, TSLogging, "%s got error: %d (%s), for set: %s",
@@ -2869,6 +2866,12 @@ void dbconn::ResetAsyncStateWriteTimer() {
 	if(gc.asyncstatewritebackintervalmins > 0) {
 		asyncstateflush_timer->Start(gc.asyncstatewritebackintervalmins * 1000 * 60, wxTIMER_ONE_SHOT);
 	}
+}
+
+void dbconn::SyncClearDirtyFlag(sqlite3 *db) {
+	sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_DELSTATICSETTING);
+	sqlite3_bind_text(stmt, 1, "dirtyflag", -1, SQLITE_STATIC);
+	DBExec(db, stmt, "dbconn::ClearDirtyFlag");
 }
 
 //The contents of data will be released and stashed in the event sent to the main thread
