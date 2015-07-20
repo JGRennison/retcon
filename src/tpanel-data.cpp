@@ -47,16 +47,41 @@ bool tpanel::PushTweet(uint64_t id, optional_tweet_ptr_p t, flagwrapper<PUSHFLAG
 			#endif
 			i->PushTweet(id, t, pushflags);
 		}
-	}
-	else {	//already have this in tpanel, update it
-		for(auto &i : twin) {
-			#if TPANEL_COPIOUS_LOGGING
-				LogMsgFormat(LOGT::TPANELTRACE, "TCL: Updating tpanel window tweet: id %" llFmtSpec "d", id);
-			#endif
-			i->UpdateOwnTweet(id, false);
+		for(auto &it : child_tpanels) {
+			it->ChildTpanelPushTweet(id, t, pushflags);
 		}
 	}
+	else {
+		//already have this in tpanel, update it
+		UpdateTweetIntl(id);
+	}
 	return adding_tweet;
+}
+
+void tpanel::UpdateTweetIntl(uint64_t id) {
+	for(auto &i : twin) {
+		#if TPANEL_COPIOUS_LOGGING
+			LogMsgFormat(LOGT::TPANELTRACE, "TCL: Updating tpanel window tweet: id %" llFmtSpec "d", id);
+		#endif
+		i->UpdateOwnTweet(id, false);
+	}
+	for(auto &it : child_tpanels) {
+		it->UpdateTweetIntl(id);
+	}
+}
+
+bool tpanel::ChildTpanelPushTweet(uint64_t id, optional_tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags) {
+	auto cids_should_drop = [&](tweetidset cached_id_sets::* ptr) -> bool { // return true if should be dropped
+		const tweetidset &idset = parent_tpanel->cids.*ptr;
+		return idset.count(id) == 0;
+	};
+
+	if(intersection_flags & TPF_INTERSECT::UNREAD && cids_should_drop(&cached_id_sets::unreadids))
+		return false;
+	if(intersection_flags & TPF_INTERSECT::HIGHLIGHTED && cids_should_drop(&cached_id_sets::highlightids))
+		return false;
+
+	return PushTweet(id, t, pushflags);
 }
 
 void tpanel::BulkPushTweet(tweetidset ids, flagwrapper<PUSHFLAGS> pushflags, optional_observer_ptr<tweetidset> actually_added) {
@@ -98,6 +123,9 @@ bool tpanel::RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags) {
 				LogMsgFormat(LOGT::TPANELTRACE, "TCL: Removing tweet id %" llFmtSpec "d from tpanel window", id);
 			#endif
 			i->RemoveTweet(id, pushflags);
+		}
+		for(auto &it : child_tpanels) {
+			it->RemoveTweet(id, pushflags);
 		}
 	}
 	return removing_tweet;
@@ -170,6 +198,39 @@ std::shared_ptr<tpanel> tpanel::MkTPanel(const std::string &name_, const std::st
 	std::shared_ptr<tpanel> &ref = ad.tpanels[name];
 	if(!ref) {
 		ref = std::make_shared<tpanel>(name, dispname, flags_, std::move(tpautos_), std::move(tpudcautos_));
+	}
+	return ref;
+}
+
+std::shared_ptr<tpanel> tpanel::MkTPanelIntersectionChild(std::shared_ptr<tpanel> parent, flagwrapper<TPF_INTERSECT> intersection_flags) {
+	// This is important, as it sorts after all the other panels, which start with _
+	// Parent tpanel being updated before their children is quite useful
+	// see NotifyCIDSChange_Intersection_AddRemoveIntl
+	std::string name = "~~I_";
+
+	std::string dispname;
+	std::vector<std::string> extras;
+	if(intersection_flags & TPF_INTERSECT::UNREAD) {
+		name += "%U_";
+		extras.push_back("Unread");
+	}
+	if(intersection_flags & TPF_INTERSECT::HIGHLIGHTED) {
+		name += "%H_";
+		extras.push_back("Highlighted");
+	}
+	for(auto &it : extras) {
+		if(dispname.size() > 1) dispname += ", ";
+		dispname += it;
+	}
+	name += parent->name;
+	dispname += ": " + parent->dispname;
+
+	std::shared_ptr<tpanel> &ref = ad.tpanels[name];
+	if(!ref) {
+		ref = std::make_shared<tpanel>(name, dispname, TPF::DELETEONWINCLOSE, std::vector<tpanel_auto>(), std::vector<tpanel_auto_udc>());
+		ref->intersection_flags = intersection_flags;
+		ref->SetTpanelParent(std::move(parent));
+		ref->intl_flags |= TPIF::RECALCSETSONCIDSCHANGE;
 	}
 	return ref;
 }
@@ -267,7 +328,10 @@ std::string tpanel::ManualName(std::string dispname) {
 }
 
 tpanel::~tpanel() {
-
+	if(parent_tpanel) {
+		container_unordered_remove(parent_tpanel->child_tpanels, make_observer(this));
+		parent_tpanel->CheckCloseIntl();
+	}
 }
 
 //Do not assume that *acc is non-null
@@ -356,6 +420,27 @@ void tpanel::RecalculateTweetSet() {
 		}
 	}
 
+	if(parent_tpanel) {
+		// tpanels with a parent_tpanel should not have auto sets as above, or be a manual set
+		tweetlist.clear();
+		std::vector<observer_ptr<tweetidset>> intersection_sets;
+
+		if(intersection_flags & TPF_INTERSECT::UNREAD)
+			intersection_sets.push_back(&(parent_tpanel->cids.unreadids));
+		if(intersection_flags & TPF_INTERSECT::HIGHLIGHTED)
+			intersection_sets.push_back(&(parent_tpanel->cids.highlightids));
+
+		if(!intersection_sets.empty()) {
+			tweetlist = *(intersection_sets.back());
+			intersection_sets.pop_back();
+		}
+		for(auto &it : intersection_sets) {
+			tweetidset result;
+			std::set_intersection(tweetlist.begin(), tweetlist.end(), it->begin(), it->end(), std::inserter(result, result.end()), result.key_comp());
+			tweetlist = std::move(result);
+		}
+	}
+
 	LogMsgFormat(LOGT::TPANELINFO, "tpanel::RecalculateTweetSet END: %zu ids", tweetlist.size());
 }
 
@@ -376,62 +461,95 @@ void tpanel::NotifyCIDSChange(uint64_t id, tweetidset cached_id_sets::*ptr, bool
 	NotifyCIDSChange_AddRemove(id, ptr, add, pushflags);
 }
 
-bool tpanel::NotifyCIDSChange_AddRemove_IsApplicable(tweetidset cached_id_sets::* ptr) const {
+bool tpanel::NotifyCIDSChange_AutoSource_AddRemove_IsApplicable(tweetidset cached_id_sets::* ptr) const {
 	return (intl_flags & TPIF::INCCIDS_HIGHLIGHT && ptr == &cached_id_sets::highlightids)
 			|| (intl_flags & TPIF::INCCIDS_UNREAD && ptr == &cached_id_sets::unreadids);
 }
 
-//! This only handles tpanels which includes CIDS sets as auto sources
-//! This is used by bulk CIDS operations
+bool tpanel::NotifyCIDSChange_Intersection_AddRemove_IsApplicable(tweetidset cached_id_sets::* ptr) const {
+	return (intersection_flags & TPF_INTERSECT::HIGHLIGHTED && ptr == &cached_id_sets::highlightids)
+			|| (intersection_flags & TPF_INTERSECT::UNREAD && ptr == &cached_id_sets::unreadids);
+}
+
 void tpanel::NotifyCIDSChange_AddRemoveIntl(uint64_t id, tweetidset cached_id_sets::* ptr, bool add, flagwrapper<PUSHFLAGS> pushflags) {
-	if(NotifyCIDSChange_AddRemove_IsApplicable(ptr)) {
-		if(add) {
-			PushTweet(id, nullptr, pushflags);
-		}
-		else if(tweetlist.count(id)) {
-			//we have this tweet, and may be removing it
+	if(NotifyCIDSChange_AutoSource_AddRemove_IsApplicable(ptr)) {
+		NotifyCIDSChange_AutoSource_AddRemoveIntl(id, ptr, add, pushflags);
+	}
+	if(NotifyCIDSChange_Intersection_AddRemove_IsApplicable(ptr)) {
+		NotifyCIDSChange_Intersection_AddRemoveIntl(id, ptr, add, pushflags);
+	}
+}
 
-			size_t havetweet = 0;
-			for(auto &tpa : tpautos) {
-				auto doacc = [&](taccount *it) {
-					if(tpa.autoflags & TPF::AUTO_DM) havetweet += it->dm_ids.count(id);
-					if(tpa.autoflags & TPF::AUTO_TW) havetweet += it->tweet_ids.count(id);
-					if(tpa.autoflags & TPF::AUTO_MN) {
-						const tweetidset &mentions = it->usercont->GetMentionSet();
-						havetweet += mentions.count(id);
-					}
-				};
+//! This only handles tpanels which includes CIDS sets as auto sources
+//! NotifyCIDSChange_AutoSource_AddRemove_IsApplicable must be checked first
+void tpanel::NotifyCIDSChange_AutoSource_AddRemoveIntl(uint64_t id, tweetidset cached_id_sets::* ptr, bool add, flagwrapper<PUSHFLAGS> pushflags) {
+	if(add) {
+		PushTweet(id, nullptr, pushflags);
+	}
+	else if(tweetlist.count(id)) {
+		//we have this tweet, and may be removing it
 
-				if(tpa.autoflags & TPF::AUTO_ALLACCS) {
-					for(auto &it : alist) doacc(it.get());
+		size_t havetweet = 0;
+		for(auto &tpa : tpautos) {
+			auto doacc = [&](taccount *it) {
+				if(tpa.autoflags & TPF::AUTO_DM) havetweet += it->dm_ids.count(id);
+				if(tpa.autoflags & TPF::AUTO_TW) havetweet += it->tweet_ids.count(id);
+				if(tpa.autoflags & TPF::AUTO_MN) {
+					const tweetidset &mentions = it->usercont->GetMentionSet();
+					havetweet += mentions.count(id);
 				}
-				else if(tpa.autoflags & TPF::AUTO_NOACC) {
-					if(tpa.autoflags & TPF::AUTO_HIGHLIGHTED && ptr != &cached_id_sets::highlightids) havetweet += ad.cids.highlightids.count(id);
-					if(tpa.autoflags & TPF::AUTO_UNREAD  && ptr != &cached_id_sets::unreadids) havetweet += ad.cids.unreadids.count(id);
-				}
-				else doacc(tpa.acc.get());
-				if(havetweet) break;
-			}
+			};
 
-			if(!havetweet) {
-				//we are removing the tweet
-				RemoveTweet(id, pushflags);
+			if(tpa.autoflags & TPF::AUTO_ALLACCS) {
+				for(auto &it : alist) doacc(it.get());
 			}
+			else if(tpa.autoflags & TPF::AUTO_NOACC) {
+				if(tpa.autoflags & TPF::AUTO_HIGHLIGHTED && ptr != &cached_id_sets::highlightids) havetweet += ad.cids.highlightids.count(id);
+				if(tpa.autoflags & TPF::AUTO_UNREAD  && ptr != &cached_id_sets::unreadids) havetweet += ad.cids.unreadids.count(id);
+			}
+			else doacc(tpa.acc.get());
+			if(havetweet) break;
 		}
+
+		if(!havetweet) {
+			//we are removing the tweet
+			RemoveTweet(id, pushflags);
+		}
+	}
+}
+
+//! This only handles tpanels which use CIDS intersection
+//! NotifyCIDSChange_Intersection_AddRemove_IsApplicable must be checked first
+void tpanel::NotifyCIDSChange_Intersection_AddRemoveIntl(uint64_t id, tweetidset cached_id_sets::* ptr, bool add, flagwrapper<PUSHFLAGS> pushflags) {
+	if(add) {
+		// This relies on the fact that tpanel parents are updated first
+		if(intersection_flags & TPF_INTERSECT::HIGHLIGHTED && !parent_tpanel->cids.highlightids.count(id))
+			return;
+		if(intersection_flags & TPF_INTERSECT::UNREAD && !parent_tpanel->cids.unreadids.count(id))
+			return;
+		PushTweet(id, nullptr, pushflags);
+	}
+	else if(tweetlist.count(id)) {
+		// removing from CIDS, as this is an intersection we can remove it straight away
+		RemoveTweet(id, pushflags);
 	}
 }
 
 //! This only handles tpanels which includes CIDS sets as auto sources
 //! This is used by bulk CIDS operations
 void tpanel::NotifyCIDSChange_AddRemove_Bulk(const tweetidset &ids, tweetidset cached_id_sets::* ptr, bool add) {
-	if(!NotifyCIDSChange_AddRemove_IsApplicable(ptr))
-		return;
-
 	if(!(intl_flags & tpanel::TPIF::RECALCSETSONCIDSCHANGE))
 		return;
 
-	for(auto &tweet_id : ids) {
-		NotifyCIDSChange_AddRemoveIntl(tweet_id, ptr, add, PUSHFLAGS::SETNOUPDATEFLAG);
+	if(NotifyCIDSChange_AutoSource_AddRemove_IsApplicable(ptr)) {
+		for(auto &tweet_id : ids) {
+			NotifyCIDSChange_AutoSource_AddRemoveIntl(tweet_id, ptr, add, PUSHFLAGS::SETNOUPDATEFLAG);
+		}
+	}
+	if(NotifyCIDSChange_Intersection_AddRemove_IsApplicable(ptr)) {
+		for(auto &tweet_id : ids) {
+			NotifyCIDSChange_Intersection_AddRemoveIntl(tweet_id, ptr, add, PUSHFLAGS::SETNOUPDATEFLAG);
+		}
 	}
 }
 
@@ -481,6 +599,16 @@ void tpanel::MarkSetHighlightState(tweetidset &&subset, optional_observer_ptr<un
 	}
 
 	MarkCIDSSetGenericUndoable(&cached_id_sets::highlightids, this, std::move(subset), undo_item, unhighlight, add_flags, remove_flags);
+}
+
+void tpanel::SetTpanelParent(std::shared_ptr<tpanel> parent) {
+	if(parent_tpanel) {
+		container_unordered_remove(parent_tpanel->child_tpanels, make_observer(this));
+		parent_tpanel->CheckCloseIntl();
+	}
+	parent_tpanel = std::move(parent);
+	parent_tpanel->child_tpanels.push_back(this);
+	RecalculateSets();
 }
 
 observer_ptr<undo::item> tpanel::MakeUndoItem(const std::string &prefix) {
@@ -547,11 +675,18 @@ void tpanel::MarkCIDSSetHandler(tweetidset cached_id_sets::* idsetptr, tpanel *e
 void tpanel::RecalculateSets() {
 	RecalculateTweetSet();
 	RecalculateCIDS();
+	for(auto &it : child_tpanels) {
+		it->RecalculateSets();
+	}
 }
 
 void tpanel::OnTPanelWinClose(tpanelparentwin_nt *tppw) {
 	container_unordered_remove(twin, tppw);
-	if(twin.empty() && flags&TPF::DELETEONWINCLOSE) {
+	CheckCloseIntl();
+}
+
+void tpanel::CheckCloseIntl() {
+	if(twin.empty() && flags & TPF::DELETEONWINCLOSE && child_tpanels.empty()) {
 		ad.tpanels.erase(name);
 	}
 }
@@ -561,6 +696,7 @@ tpanelparentwin *tpanel::MkTPanelWin(mainframe *parent, bool select) {
 }
 
 bool tpanel::IsSingleAccountTPanel() const {
+	if(parent_tpanel) return parent_tpanel->IsSingleAccountTPanel();
 	if(alist.size() <= 1) return true;
 	if(tpautos.size() > 1) return false;
 	else if(tpautos.size() == 1) {

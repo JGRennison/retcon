@@ -48,6 +48,12 @@ enum class TPF {
 };
 template<> struct enum_traits<TPF> { static constexpr bool flags = true; };
 
+enum class TPF_INTERSECT {
+	UNREAD                = 1<<0,
+	HIGHLIGHTED           = 1<<1,
+};
+template<> struct enum_traits<TPF_INTERSECT> { static constexpr bool flags = true; };
+
 enum {
 	TPF_AUTO_SHIFT        = 8,
 };

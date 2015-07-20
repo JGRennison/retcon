@@ -637,6 +637,7 @@ const tpanelparentwin_nt_impl *tpanelparentwin_nt::pimpl() const {
 tpanelparentwin_nt::tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWindow *parent, wxString thisname_, tpanelparentwin_nt_impl *privimpl)
 		: panelparentwin_base(parent, false, thisname_, privimpl ? privimpl : new tpanelparentwin_nt_impl(this)) {
 	pimpl()->tp = tp_;
+	pimpl()->tp_base = tp_;
 	LogMsgFormat(LOGT::TPANELTRACE, "Creating tweet panel window %s", cstr(pimpl()->tp->name));
 
 	pimpl()->tp->twin.push_back(this);
@@ -747,7 +748,10 @@ void tpanelparentwin_nt_impl::PushTweet(uint64_t id, optional_tweet_ptr t, flagw
 	else td->gdb_flags |= tweetdispscr::GDB_F::NEEDSREFRESH;
 
 	if(pushflags & PUSHFLAGS::CHECKSCROLLTOID) {
-		if(tppw_flags & TPPWF::NOUPDATEONPUSH) scrolltoid_onupdate = scrolltoid;
+		if(tppw_flags & TPPWF::NOUPDATEONPUSH) {
+			scrolltoid_onupdate = scrolltoid;
+			scrolltoid_onupdate_offset = scrolltoid_offset;
+		}
 		else scrollbar->ScrollToId(id, 0);
 	}
 
@@ -1061,18 +1065,32 @@ void tpanelparentwin_nt_impl::UpdateCLabel() {
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::UpdateCLabel %s START", cstr(GetThisName()));
 	#endif
+	wxString msg;
+	if(intersect_flags) {
+		if(intersect_flags & TPF_INTERSECT::UNREAD)
+			msg.append(wxT(", Unread"));
+		if(intersect_flags & TPF_INTERSECT::HIGHLIGHTED)
+			msg.append(wxT(", Highlighted"));
+		msg = msg.Mid(2).append(wxT(": "));
+	}
 	size_t curnum = currentdisp.size();
 	if(curnum) {
-		wxString msg = wxString::Format(wxT("%d - %d of %d"), displayoffset + 1, displayoffset + curnum, tp->tweetlist.size());
-		if(tp->cids.unreadids.size()) {
+		msg.append(wxString::Format(wxT("%d - %d of %d"), displayoffset + 1, displayoffset + curnum, tp->tweetlist.size()));
+		if(tp->parent_tpanel && tp->parent_tpanel->tweetlist.size() > tp->tweetlist.size())
+			msg.append(wxString::Format(wxT(" (%d)"), tp->parent_tpanel->tweetlist.size()));
+		if(tp->cids.unreadids.size() && !(intersect_flags & TPF_INTERSECT::UNREAD)) {
 			msg.append(wxString::Format(wxT(", %d unread"), tp->cids.unreadids.size()));
 		}
-		if(tp->cids.highlightids.size()) {
+		if(tp->cids.highlightids.size() && !(intersect_flags & TPF_INTERSECT::HIGHLIGHTED)) {
 			msg.append(wxString::Format(wxT(", %d highlighted"), tp->cids.highlightids.size()));
 		}
-		clabel->SetLabel(msg);
 	}
-	else clabel->SetLabel(wxT("No Tweets"));
+	else {
+		msg.append(wxT("No Tweets"));
+		if(tp->parent_tpanel && tp->parent_tpanel->tweetlist.size())
+			msg.append(wxString::Format(wxT(" (%d)"), tp->parent_tpanel->tweetlist.size()));
+	}
+	clabel->SetLabel(msg);
 	ShowHideButtons("unread", !tp->cids.unreadids.empty());
 	ShowHideButtons("highlight", !tp->cids.highlightids.empty());
 	ShowHideButtons("unhighlightall", gc.showunhighlightallbtn && !tp->cids.highlightids.empty());
@@ -1213,6 +1231,14 @@ void tpanelparentwin_nt_impl::setupnavbuttonhandlers() {
 		fdg->ShowModal();
 		fdg->Destroy();
 	});
+
+	auto handle_intersection_change_func = [&](int cmdid, flagwrapper<TPF_INTERSECT> flag) {
+		addhandler(cmdid, [this, flag](wxCommandEvent &event) {
+			SetTpanelIntersectionFlags(intersect_flags ^ flag);
+		});
+	};
+	handle_intersection_change_func(TPPWID_TOGGLE_INTERSECT_UNREAD, TPF_INTERSECT::UNREAD);
+	handle_intersection_change_func(TPPWID_TOGGLE_INTERSECT_HIGHLIGHTED, TPF_INTERSECT::HIGHLIGHTED);
 }
 
 void tpanelparentwin_nt_impl::morebtnhandler(wxCommandEvent &event) {
@@ -1246,6 +1272,11 @@ void tpanelparentwin_nt_impl::morebtnhandler(wxCommandEvent &event) {
 	wmith->Check(tppw_flags & TPPWF::SHOWHIDDEN);
 	wxMenuItem *wmith2 = pmenu.Append(TPPWID_TOGGLEHIDEDELETED, wxString::Format(wxT("Show Deleted Tweets (%d)"), tp->cids.deletedids.size()), wxT(""), wxITEM_CHECK);
 	wmith2->Check(tppw_flags & TPPWF::SHOWDELETED);
+	pmenu.AppendSeparator();
+	wxMenuItem *wmith3 = pmenu.Append(TPPWID_TOGGLE_INTERSECT_UNREAD, wxString::Format(wxT("Show Only Unread Tweets (%d)"), tp_base->cids.unreadids.size()), wxT(""), wxITEM_CHECK);
+	wmith3->Check(intersect_flags & TPF_INTERSECT::UNREAD);
+	wxMenuItem *wmith4 = pmenu.Append(TPPWID_TOGGLE_INTERSECT_HIGHLIGHTED, wxString::Format(wxT("Show Only Highlighted Tweets (%d)"), tp_base->cids.highlightids.size()), wxT(""), wxITEM_CHECK);
+	wmith4->Check(intersect_flags & TPF_INTERSECT::HIGHLIGHTED);
 
 	GenericPopupWrapper(base(), &pmenu, btnrect.GetLeft(), btnrect.GetBottom());
 }
@@ -1325,10 +1356,11 @@ void tpanelparentwin_nt_impl::HandleScrollToIDOnUpdate() {
 			LogMsgFormat(LOGT::TPANELTRACE, "TCL: tpanelparentwin_nt_impl::HandleScrollToIDOnUpdate() %s", cstr(GetThisName()));
 		#endif
 
-		scrollbar->ScrollToIndex(std::distance(currentdisp.begin(), it), 0);
+		scrollbar->ScrollToIndex(std::distance(currentdisp.begin(), it), scrolltoid_onupdate_offset);
 	}
 
 	scrolltoid_onupdate = 0;
+	scrolltoid_onupdate_offset = 0;
 }
 
 void tpanelparentwin_nt_impl::IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const {
@@ -1538,6 +1570,98 @@ void tpanelparentwin_nt_impl::RecalculateDisplayOffset() {
 		displayoffset = std::distance(tp->tweetlist.cbegin(), stit);
 }
 
+void tpanelparentwin_nt_impl::SetTpanelIntersectionFlags(flagwrapper<TPF_INTERSECT> intersect_flags_) {
+	if(intersect_flags == intersect_flags_)
+		return;
+
+	int offset;
+	uint64_t current_tweet = GetCurrentViewTopID(&offset);
+	intersect_flags = intersect_flags_;
+
+	std::shared_ptr<tpanel> new_tp;
+	if(!intersect_flags) {
+		new_tp = tp_base;
+	}
+	else {
+		new_tp = tpanel::MkTPanelIntersectionChild(tp_base, intersect_flags);
+	}
+
+	// add window to new tpanel before removing from old one
+
+	new_tp->twin.push_back(base());
+	tp->OnTPanelWinClose(base());
+
+	tp = std::move(new_tp);
+
+	const tweetidset &idset = tp->tweetlist;
+
+	SetNoUpdateFlag();
+	auto finaliser = scope_guard([&]() {
+		RecalculateDisplayOffset();
+		SetClabelUpdatePendingFlag();
+		CheckClearNoUpdateFlag();
+	});
+
+	displayoffset = -1;
+
+	// remove any items from currentdisp which aren't in the new tpanel
+	std::vector<uint64_t> ids_to_remove;
+	for(auto &it : currentdisp) {
+		if(idset.count(it.id) == 0) {
+			ids_to_remove.push_back(it.id);
+		}
+	}
+
+	if(idset.empty()) {
+		for(auto &it : ids_to_remove) {
+			RemoveTweet(it);
+		}
+		return;
+	}
+
+	// find a new target iterator to start around
+	auto target_iter = idset.lower_bound(current_tweet);
+	if(target_iter == idset.end()) {
+		// no tweet after target, use last
+		--target_iter;
+	}
+
+	if(*target_iter != current_tweet)
+		offset = 0;
+
+	scrolltoid = *target_iter;
+	scrolltoid_offset = offset;
+
+	auto start_iter = target_iter;
+	unsigned int added_above = 0;
+	for(unsigned int i = 0; i < ((gc.maxtweetsdisplayinpanel + 1) / 2) && start_iter != idset.begin(); i++) {
+		--start_iter;
+		added_above++;
+	}
+	auto end_iter = target_iter;
+	for(unsigned int i = 0; i < (gc.maxtweetsdisplayinpanel - added_above) && end_iter != idset.end(); i++) {
+		++end_iter;
+	}
+
+	// remove any items from currentdisp which are outside the target bounds
+	for(auto &it : currentdisp) {
+		if(it.id > *start_iter || it.id <= *end_iter) {
+			ids_to_remove.push_back(it.id);
+		}
+	}
+
+	for(auto &it : ids_to_remove) {
+		RemoveTweet(it);
+	}
+
+	for(auto it = start_iter; it != target_iter; ++it) {
+		PushTweet(*it, nullptr, PUSHFLAGS::ABOVE | PUSHFLAGS::CHECKSCROLLTOID | PUSHFLAGS::NOINCDISPOFFSET);
+	}
+	for(auto it = target_iter; it != end_iter; ++it) {
+		PushTweet(*it, nullptr, PUSHFLAGS::CHECKSCROLLTOID | PUSHFLAGS::NOINCDISPOFFSET);
+	}
+}
+
 BEGIN_EVENT_TABLE(tpanelparentwin_impl, tpanelparentwin_nt_impl)
 	EVT_MENU(TPPWID_DETACH, tpanelparentwin_impl::tabdetachhandler)
 	EVT_MENU(TPPWID_SPLIT, tpanelparentwin_impl::tabsplitcmdhandler)
@@ -1619,11 +1743,11 @@ void tpanelparentwin_impl::tabdetachhandler(wxCommandEvent &event) {
 	top->Show(true);
 }
 void tpanelparentwin_impl::tabduphandler(wxCommandEvent &event) {
-	tp->MkTPanelWin(owner);
+	tp_base->MkTPanelWin(owner);
 }
 void tpanelparentwin_impl::tabdetachedduphandler(wxCommandEvent &event) {
 	mainframe *top = new mainframe( appversionname, wxDefaultPosition, wxDefaultSize );
-	tp->MkTPanelWin(top);
+	tp_base->MkTPanelWin(top);
 	top->Show(true);
 }
 void tpanelparentwin_impl::tabclosehandler(wxCommandEvent &event) {

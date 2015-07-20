@@ -299,7 +299,7 @@ void tpanelnotebook::FillWindowLayout(unsigned int mainframeindex) {
 		twld.mainframeindex = mainframeindex;
 		twld.splitindex = splitindex;
 		twld.tabindex = tabindex;
-		auto tp = tppw->pimpl()->tp;
+		auto tp = tppw->pimpl()->tp_base;
 		twld.tpautos = tp->tpautos;
 		twld.tpudcautos = tp->tpudcautos;
 		twld.name = tp->name;

@@ -101,6 +101,8 @@ struct panelparentwin_base_impl : public bindwxevt {
 	wxBoxSizer* headersizer = nullptr;
 	uint64_t scrolltoid = 0;
 	uint64_t scrolltoid_onupdate = 0;
+	int scrolltoid_offset = 0;
+	int scrolltoid_onupdate_offset = 0;
 	std::multimap<std::string, wxButton *> showhidemap;
 	tpanel_disp_item_list currentdisp;
 	wxString thisname;
@@ -118,6 +120,8 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 			: panelparentwin_base_impl(base_) { }
 
 	std::shared_ptr<tpanel> tp;
+	std::shared_ptr<tpanel> tp_base;
+	flagwrapper<TPF_INTERSECT> intersect_flags;
 	magic_ptr_ts<tweetdispscr_mouseoverwin> mouseoverwin;
 
 	struct tweetbatchqueue_item {
@@ -160,6 +164,7 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 	tweetdispscr_mouseoverwin *MakeMouseOverWin();
 	void GenericAction(std::function<void(tpanelparentwin_nt *)> func);
 	void RecalculateDisplayOffset();
+	void SetTpanelIntersectionFlags(flagwrapper<TPF_INTERSECT> intersect_flags_);
 
 	DECLARE_EVENT_TABLE()
 };
