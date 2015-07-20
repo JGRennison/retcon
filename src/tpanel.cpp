@@ -548,15 +548,19 @@ void panelparentwin_base_impl::UpdateBatchTimer() {
 	if(!(tppw_flags & TPPWF::NOUPDATEONPUSH)) ResetBatchTimer();
 }
 
-uint64_t panelparentwin_base::GetCurrentViewTopID() const {
+uint64_t panelparentwin_base::GetCurrentViewTopID(optional_observer_ptr<int> offset) const {
 	return pimpl()->GetCurrentViewTopID();
 }
 
-uint64_t panelparentwin_base_impl::GetCurrentViewTopID() const {
+uint64_t panelparentwin_base_impl::GetCurrentViewTopID(optional_observer_ptr<int> offset) const {
 	for(auto &it : currentdisp) {
-		int y;
-		it.item->GetPosition(0, &y);
-		if(y >= 0) return it.id;
+		wxPoint p = it.item->GetPosition();
+		wxSize s = it.item->GetSize();
+		if(p.x == 0 && p.y + s.y > 0 && p.y <= 0) {
+			if(offset)
+				*offset = p.y;
+			return it.id;
+		}
 	}
 	return 0;
 }
@@ -635,7 +639,7 @@ tpanelparentwin_nt::tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWin
 	pimpl()->tp = tp_;
 	LogMsgFormat(LOGT::TPANELTRACE, "Creating tweet panel window %s", cstr(pimpl()->tp->name));
 
-	pimpl()->tp->twin.push_front(this);
+	pimpl()->tp->twin.push_back(this);
 	tpanelparentwinlist.push_front(this);
 
 	pimpl()->clabel->SetLabel(wxT("No Tweets"));

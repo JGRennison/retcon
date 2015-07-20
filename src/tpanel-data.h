@@ -38,7 +38,7 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	std::string name;
 	std::string dispname;
 	tweetidset tweetlist;
-	std::forward_list<tpanelparentwin_nt*> twin;
+	std::vector<tpanelparentwin_nt*> twin;
 	flagwrapper<TPF> flags;
 	cached_id_sets cids;
 	std::vector<tpanel_auto> tpautos;

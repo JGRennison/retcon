@@ -69,7 +69,7 @@ struct panelparentwin_base_impl : public bindwxevt {
 	void CheckClearNoUpdateFlag();
 	virtual void UpdateCLabel() { }
 	void CLabelNeedsUpdating(flagwrapper<PUSHFLAGS> pushflags);
-	uint64_t GetCurrentViewTopID() const;
+	uint64_t GetCurrentViewTopID(optional_observer_ptr<int> offset = nullptr) const;
 	virtual void IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const;
 	int IDToCurrentDispIndex(uint64_t id) const;
 	wxString GetThisName() const;

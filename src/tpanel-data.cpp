@@ -550,7 +550,7 @@ void tpanel::RecalculateSets() {
 }
 
 void tpanel::OnTPanelWinClose(tpanelparentwin_nt *tppw) {
-	twin.remove(tppw);
+	container_unordered_remove(twin, tppw);
 	if(twin.empty() && flags&TPF::DELETEONWINCLOSE) {
 		ad.tpanels.erase(name);
 	}

@@ -78,7 +78,7 @@ struct panelparentwin_base : public wxPanel, public magic_ptr_base {
 	virtual bool IsSingleAccountWin() const;
 	virtual void NotifyRequestFailed() { }
 	wxString GetThisName() const;
-	uint64_t GetCurrentViewTopID() const;
+	uint64_t GetCurrentViewTopID(optional_observer_ptr<int> offset = nullptr) const;
 	void IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const;
 	int IDToCurrentDispIndex(uint64_t id) const;
 	const tpanel_disp_item_list &GetCurrentDisp() const;
