@@ -49,6 +49,7 @@ static const char *update_sql[] = {
 	,
 	"ALTER TABLE tpanelwins ADD COLUMN intersect_flags INTEGER;"
 	"ALTER TABLE tpanelwins ADD COLUMN tppw_flags INTEGER;"
+	"UPDATE OR IGNORE tpanelwins SET tppw_flags = 1;" // mark as not valid
 	// add extra columns to tpanelwins
 };
 

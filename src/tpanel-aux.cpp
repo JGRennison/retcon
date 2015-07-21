@@ -314,7 +314,13 @@ tpanelparentwin *CreateTpanelWinFromWindowLayout(mainframe *mf, const twin_layou
 	auto tp = tpanel::MkTPanel(twld.name, twld.dispname, twld.flags, twld.tpautos, twld.tpudcautos);
 	tpanelparentwin *tpw = tp->MkTPanelWin(mf, (twld.splitindex > lastsplitindex));
 	tpw->pimpl()->SetTpanelIntersectionFlags(twld.intersect_flags);
-	tpw->pimpl()->tppw_flags |= twld.tppw_flags & TPPWF::DB_SAVE_MASK;
+	if(!(twld.tppw_flags & static_cast<TPPWF>(1))) {
+		// see db_versioning.cpp
+		// initial value is set to 1 to mark it as not valid
+
+		tpw->pimpl()->tppw_flags &= ~TPPWF::DB_SAVE_MASK;
+		tpw->pimpl()->tppw_flags |= twld.tppw_flags & TPPWF::DB_SAVE_MASK;
+	}
 	tpw->Init();
 	return tpw;
 }
