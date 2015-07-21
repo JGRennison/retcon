@@ -1619,11 +1619,18 @@ void tpanelparentwin_nt_impl::SetTpanelIntersectionFlags(flagwrapper<TPF_INTERSE
 		return;
 	}
 
-	// find a new target iterator to start around
-	auto target_iter = idset.lower_bound(current_tweet);
-	if(target_iter == idset.end()) {
-		// no tweet after target, use last
-		--target_iter;
+	tweetidset::const_iterator target_iter;
+	if(current_tweet) {
+		// find a new target iterator to start around
+		target_iter = idset.lower_bound(current_tweet);
+		if(target_iter == idset.end()) {
+			// no tweet after target, use last
+			--target_iter;
+		}
+	}
+	else {
+		// no current tweet, jump to start
+		target_iter = idset.begin();
 	}
 
 	if(*target_iter != current_tweet)
