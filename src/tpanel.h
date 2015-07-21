@@ -120,7 +120,9 @@ struct tpanelparentwin : public tpanelparentwin_nt {
 	const tpanelparentwin_impl *pimpl() const;
 	tpanelparentwin_impl *pimpl() { return const_cast<tpanelparentwin_impl *>(const_cast<const tpanelparentwin*>(this)->pimpl()); }
 
-	tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select = false, wxString thisname_ = wxT(""), tpanelparentwin_impl *privimpl = nullptr);
+	tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select = false, wxString thisname_ = wxT(""),
+			tpanelparentwin_impl *privimpl = nullptr, bool init_now = true);
+	void Init();
 };
 struct tpanelparentwin_usertweets_impl;
 

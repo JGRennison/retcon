@@ -73,17 +73,6 @@ struct tpanel_auto_udc {
 	udc_ptr u;
 };
 
-struct twin_layout_desc {
-	unsigned int mainframeindex;
-	unsigned int splitindex;
-	unsigned int tabindex;
-	std::vector<tpanel_auto> tpautos;
-	std::vector<tpanel_auto_udc> tpudcautos;
-	std::string name;
-	std::string dispname;
-	flagwrapper<TPF> flags;
-};
-
 struct mf_layout_desc {
 	unsigned int mainframeindex;
 	wxPoint pos;
@@ -110,8 +99,23 @@ enum class TPPWF {	//for tppw_flags
 	SHOWDELETED           = 1<<4,
 	FROZEN                = 1<<5,
 	BATCHTIMERMODE        = 1<<6,
+
+	DB_SAVE_MASK          = SHOWHIDDEN | SHOWDELETED,
 };
 template<> struct enum_traits<TPPWF> { static constexpr bool flags = true; };
+
+struct twin_layout_desc {
+	unsigned int mainframeindex;
+	unsigned int splitindex;
+	unsigned int tabindex;
+	std::vector<tpanel_auto> tpautos;
+	std::vector<tpanel_auto_udc> tpudcautos;
+	std::string name;
+	std::string dispname;
+	flagwrapper<TPF> flags;
+	flagwrapper<TPF_INTERSECT> intersect_flags;
+	flagwrapper<TPPWF> tppw_flags;
+};
 
 void UpdateTweet(const tweet &t, bool redrawimg = false);
 void UpdateTweet(uint64_t id, bool redrawimg = false);

@@ -305,7 +305,18 @@ void tpanelnotebook::FillWindowLayout(unsigned int mainframeindex) {
 		twld.name = tp->name;
 		twld.dispname = tp->dispname;
 		twld.flags = tp->flags;
+		twld.intersect_flags = tppw->pimpl()->intersect_flags;
+		twld.tppw_flags = tppw->pimpl()->tppw_flags & TPPWF::DB_SAVE_MASK;
 	}
+}
+
+tpanelparentwin *CreateTpanelWinFromWindowLayout(mainframe *mf, const twin_layout_desc &twld, unsigned int lastsplitindex) {
+	auto tp = tpanel::MkTPanel(twld.name, twld.dispname, twld.flags, twld.tpautos, twld.tpudcautos);
+	tpanelparentwin *tpw = tp->MkTPanelWin(mf, (twld.splitindex > lastsplitindex));
+	tpw->pimpl()->SetTpanelIntersectionFlags(twld.intersect_flags);
+	tpw->pimpl()->tppw_flags |= twld.tppw_flags & TPPWF::DB_SAVE_MASK;
+	tpw->Init();
+	return tpw;
 }
 
 BEGIN_EVENT_TABLE(profimg_staticbitmap, wxStaticBitmap)

@@ -92,7 +92,7 @@ static const char *startup_sql=
 "CREATE TABLE IF NOT EXISTS settings(accid BLOB, name TEXT, value BLOB, PRIMARY KEY (accid, name));"
 "CREATE TABLE IF NOT EXISTS rbfspending(accid INTEGER, type INTEGER, startid INTEGER, endid INTEGER, maxleft INTEGER);"
 "CREATE TABLE IF NOT EXISTS mediacache(mid INTEGER, tid INTEGER, url BLOB, fullchecksum BLOB, thumbchecksum BLOB, flags INTEGER, lastusedtimestamp INTEGER, PRIMARY KEY (mid, tid));"
-"CREATE TABLE IF NOT EXISTS tpanelwins(mainframeindex INTEGER, splitindex INTEGER, tabindex INTEGER, name TEXT, dispname TEXT, flags INTEGER);"
+"CREATE TABLE IF NOT EXISTS tpanelwins(mainframeindex INTEGER, splitindex INTEGER, tabindex INTEGER, name TEXT, dispname TEXT, flags INTEGER, intersect_flags INTEGER, tppw_flags INTEGER);"
 "CREATE TABLE IF NOT EXISTS tpanelwinautos(tpw INTEGER, accid INTEGER, autoflags INTEGER);"
 "CREATE TABLE IF NOT EXISTS tpanelwinudcautos(tpw INTEGER, userid INTEGER, autoflags INTEGER);"
 "CREATE TABLE IF NOT EXISTS mainframewins(mainframeindex INTEGER, x INTEGER, y INTEGER, w INTEGER, h INTEGER, maximised INTEGER);"
@@ -2446,7 +2446,7 @@ void dbconn::SyncReadInWindowLayout(sqlite3 *adb) {
 	);
 
 	auto winssel = DBInitialiseSql(adb,
-		"SELECT mainframeindex, splitindex, tabindex, name, dispname, flags, rowid FROM tpanelwins ORDER BY mainframeindex ASC, splitindex ASC, tabindex ASC;");
+		"SELECT mainframeindex, splitindex, tabindex, name, dispname, flags, rowid, intersect_flags, tppw_flags FROM tpanelwins ORDER BY mainframeindex ASC, splitindex ASC, tabindex ASC;");
 	auto winautossel = DBInitialiseSql(adb, "SELECT accid, autoflags FROM tpanelwinautos WHERE tpw == ?;");
 	auto winudcautossel = DBInitialiseSql(adb, "SELECT userid, autoflags FROM tpanelwinudcautos WHERE tpw == ?;");
 
@@ -2461,6 +2461,8 @@ void dbconn::SyncReadInWindowLayout(sqlite3 *adb) {
 			twld.dispname = (const char *) sqlite3_column_text(stmt, 4);
 			twld.flags = static_cast<TPF>(sqlite3_column_int(stmt, 5));
 			sqlite3_int64 rowid = sqlite3_column_int(stmt, 6);
+			twld.intersect_flags = static_cast<TPF_INTERSECT>(sqlite3_column_int(stmt, 7));
+			twld.tppw_flags = static_cast<TPPWF>(sqlite3_column_int(stmt, 8));
 
 			DBBindRowExec(adb, winautossel.stmt(),
 				[&](sqlite3_stmt *stmt2) {
@@ -2535,7 +2537,7 @@ void dbconn::SyncWriteBackWindowLayout(sqlite3 *adb) {
 	DBExec(adb, "DELETE FROM tpanelwins", errspec);
 	DBExec(adb, "DELETE FROM tpanelwinautos", errspec);
 	DBExec(adb, "DELETE FROM tpanelwinudcautos", errspec);
-	auto winsins = DBInitialiseSql(adb, "INSERT INTO tpanelwins (mainframeindex, splitindex, tabindex, name, dispname, flags) VALUES (?, ?, ?, ?, ?, ?);");
+	auto winsins = DBInitialiseSql(adb, "INSERT INTO tpanelwins (mainframeindex, splitindex, tabindex, name, dispname, flags, intersect_flags, tppw_flags) VALUES (?, ?, ?, ?, ?, ?, ?, ?);");
 	auto winautosins = DBInitialiseSql(adb, "INSERT INTO tpanelwinautos (tpw, accid, autoflags) VALUES (?, ?, ?);");
 	auto winudcautosins = DBInitialiseSql(adb, "INSERT INTO tpanelwinudcautos (tpw, userid, autoflags) VALUES (?, ?, ?);");
 
@@ -2548,6 +2550,8 @@ void dbconn::SyncWriteBackWindowLayout(sqlite3 *adb) {
 				sqlite3_bind_text(stmt, 4, twld.name.c_str(), twld.name.size(), SQLITE_STATIC);
 				sqlite3_bind_text(stmt, 5, twld.dispname.c_str(), twld.dispname.size(), SQLITE_STATIC);
 				sqlite3_bind_int(stmt, 6, flag_unwrap<TPF>(twld.flags));
+				sqlite3_bind_int(stmt, 7, flag_unwrap<TPF_INTERSECT>(twld.intersect_flags));
+				sqlite3_bind_int(stmt, 8, flag_unwrap<TPPWF>(twld.tppw_flags));
 			},
 			"dbconn::SyncWriteOutWindowLayout (tpanelwins)"
 		);

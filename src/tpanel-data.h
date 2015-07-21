@@ -67,7 +67,7 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 			optional_observer_ptr<tweetidset> actually_added = nullptr);
 
 	bool RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
-	tpanelparentwin *MkTPanelWin(mainframe *parent, bool select = false);
+	tpanelparentwin *MkTPanelWin(mainframe *parent, bool select = false, bool init_now = true);
 	void OnTPanelWinClose(tpanelparentwin_nt *tppw);
 	bool IsSingleAccountTPanel() const;
 	void SetNoUpdateFlag_TP() const;

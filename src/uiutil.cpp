@@ -76,8 +76,7 @@ void RestoreWindowLayout() {
 			lastsplitindex = 0;
 		}
 		mainframe *mf = mainframelist[twld.mainframeindex];
-		auto tp=tpanel::MkTPanel(twld.name, twld.dispname, twld.flags, twld.tpautos, twld.tpudcautos);
-		tpanelparentwin *tpw = tp->MkTPanelWin(mf, (twld.splitindex > lastsplitindex));
+		tpanelparentwin *tpw = CreateTpanelWinFromWindowLayout(mf, twld, lastsplitindex);
 
 		if(twld.splitindex > lastsplitindex) {
 			mf->auib->Split(mf->auib->GetPageIndex(tpw), wxRIGHT);
@@ -86,8 +85,6 @@ void RestoreWindowLayout() {
 	}
 	ThawAll();
 }
-
-
 
 media_id_type ParseMediaID(wxString url) {
 	unsigned int i = 1;

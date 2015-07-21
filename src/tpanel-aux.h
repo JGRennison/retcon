@@ -35,6 +35,7 @@ struct mainframe;
 struct panelparentwin_base;
 struct tpanelscrollwin;
 struct tpanelscrollpane;
+struct tpanelparentwin;
 
 struct profimg_staticbitmap : public wxStaticBitmap {
 	udc_ptr udc;
@@ -73,6 +74,8 @@ struct tpanelnotebook : public wxAuiNotebook {
 
 	DECLARE_EVENT_TABLE()
 };
+
+tpanelparentwin *CreateTpanelWinFromWindowLayout(mainframe *mf, const twin_layout_desc &twld, unsigned int lastsplitindex);
 
 struct tpanel_item : public wxPanel {
 	// Outermost: horizontal box sizer

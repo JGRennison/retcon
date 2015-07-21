@@ -691,8 +691,8 @@ void tpanel::CheckCloseIntl() {
 	}
 }
 
-tpanelparentwin *tpanel::MkTPanelWin(mainframe *parent, bool select) {
-	return new tpanelparentwin(shared_from_this(), parent, select);
+tpanelparentwin *tpanel::MkTPanelWin(mainframe *parent, bool select, bool init_now) {
+	return new tpanelparentwin(shared_from_this(), parent, select, wxT(""), nullptr, init_now);
 }
 
 bool tpanel::IsSingleAccountTPanel() const {

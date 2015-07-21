@@ -1674,10 +1674,16 @@ const tpanelparentwin_impl *tpanelparentwin::pimpl() const {
 	return static_cast<const tpanelparentwin_impl *>(pimpl_ptr.get());
 }
 
-tpanelparentwin::tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select, wxString thisname_, tpanelparentwin_impl *privimpl)
+tpanelparentwin::tpanelparentwin(const std::shared_ptr<tpanel> &tp_, mainframe *parent, bool select, wxString thisname_, tpanelparentwin_impl *privimpl, bool init_now)
 : tpanelparentwin_nt(tp_, parent, thisname_.empty() ? wxT("tpanelparentwin for ") + wxstrstd(tp_->name) : thisname_, privimpl ? privimpl : new tpanelparentwin_impl(this)) {
 	pimpl()->owner = parent;
 	parent->auib->AddPage(this, wxstrstd(pimpl()->tp->dispname), select);
+	if(init_now)
+		Init();
+}
+
+// This is to allow setting additional flags before the first load
+void tpanelparentwin::Init() {
 	pimpl()->LoadMore(gc.maxtweetsdisplayinpanel);
 }
 
