@@ -28,6 +28,7 @@
 
 class wxImage;
 
+bool LoadFromFile(const wxString &filename, std::string &out);
 bool LoadImageFromFileAndCheckHash(const wxString &filename, shb_iptr hash, wxImage &img);
 bool LoadFromFileAndCheckHash(const wxString &filename, shb_iptr hash, std::string &out);
 

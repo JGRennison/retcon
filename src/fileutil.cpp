@@ -29,8 +29,7 @@
 #include <random>
 
 
-bool LoadFromFileAndCheckHash(const wxString &filename, shb_iptr hash, std::string &out) {
-	if(!hash) return false;
+bool LoadFromFile(const wxString &filename, std::string &out) {
 	wxFile file;
 	bool opened = file.Open(filename);
 	if(opened) {
@@ -39,15 +38,24 @@ bool LoadFromFileAndCheckHash(const wxString &filename, shb_iptr hash, std::stri
 			out.resize(len);
 			size_t size = file.Read(&out[0], len);
 			if(size == (size_t) len) {
-				CSHA1 hashblk;
-				hashblk.Update(reinterpret_cast<const unsigned char*>(out.data()), len);
-				hashblk.Final();
-				if(memcmp(hashblk.GetHashPtr(), hash->hash_sha1, 20) == 0) {
-					return true;
-				}
+				return true;
 			}
 			out.clear();
 		}
+	}
+	return false;
+}
+
+bool LoadFromFileAndCheckHash(const wxString &filename, shb_iptr hash, std::string &out) {
+	if(!hash) return false;
+	if(LoadFromFile(filename, out)) {
+		CSHA1 hashblk;
+		hashblk.Update(reinterpret_cast<const unsigned char*>(out.data()), out.size());
+		hashblk.Final();
+		if(memcmp(hashblk.GetHashPtr(), hash->hash_sha1, 20) == 0) {
+			return true;
+		}
+		out.clear();
 	}
 	return false;
 }
