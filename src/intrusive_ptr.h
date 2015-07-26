@@ -145,5 +145,23 @@ namespace std {
 
 //This is the same as intrusive_ptr, intended as a documentation hint that the value is optional
 template <class T> using optional_intrusive_ptr = intrusive_ptr<T>;
+template <class T> using optional_cref_intrusive_ptr = cref_intrusive_ptr<T>;
+
+struct intrusive_ptr_target_base {
+	private:
+	int refcount = 0;
+
+	public:
+	void intrusive_ptr_increment() {
+		refcount++;
+	}
+	void intrusive_ptr_decrement() {
+		refcount--;
+		if(refcount == 0) delete this;
+	}
+	int GetRefcount() const {
+		return refcount;
+	}
+};
 
 #endif

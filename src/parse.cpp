@@ -452,7 +452,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 	}
 }
 
-flagwrapper<genjsonparser::USERPARSERESULT> genjsonparser::ParseUserContents(const rapidjson::Value &val, userdata &userobj, bool is_ssl, bool is_db_load) {
+flagwrapper<genjsonparser::USERPARSERESULT> genjsonparser::ParseUserContents(const rapidjson::Value &val, userdata &userobj, flagwrapper<genjsonparser::USERPARSEFLAGS> flags) {
 	bool changed = false;
 	bool img_changed = false;
 	CheckTransJsonValueDefTrackChanges(changed, userobj.name, val, "name", "");
@@ -460,7 +460,7 @@ flagwrapper<genjsonparser::USERPARSERESULT> genjsonparser::ParseUserContents(con
 	CheckTransJsonValueDefTrackChanges(changed, userobj.description, val, "description", "");
 	CheckTransJsonValueDefTrackChanges(changed, userobj.location, val, "location", "");
 	CheckTransJsonValueDefTrackChanges(changed, userobj.userurl, val, "url", "");
-	if(is_ssl) {
+	if(flags & USERPARSEFLAGS::IS_SSL) {
 		if(!CheckTransJsonValueDefTrackChanges(img_changed, userobj.profile_img_url, val, "profile_image_url_https", "")) {
 			CheckTransJsonValueDefTrackChanges(img_changed, userobj.profile_img_url, val, "profile_img_url", "");
 		}
@@ -476,7 +476,7 @@ flagwrapper<genjsonparser::USERPARSERESULT> genjsonparser::ParseUserContents(con
 	CheckTransJsonValueDefTrackChanges(changed, userobj.statuses_count, val, "statuses_count", userobj.statuses_count);
 	CheckTransJsonValueDefTrackChanges(changed, userobj.friends_count, val, "friends_count", userobj.friends_count);
 	CheckTransJsonValueDefTrackChanges(changed, userobj.favourites_count, val, "favourites_count", userobj.favourites_count);
-	if(is_db_load) {
+	if(flags & USERPARSEFLAGS::IS_DB_LOAD) {
 		CheckTransJsonValueDefTrackChanges(changed, userobj.notes, val, "retcon_notes", "");
 	}
 	flagwrapper<USERPARSERESULT> result = 0;
@@ -573,7 +573,7 @@ void jsonparser::ProcessUserTimelineResponse(optional_observer_ptr<restbackfills
 	CheckClearNoUpdateFlag_All();
 }
 
-void jsonparser::ProcessStreamResponse() {
+void jsonparser::ProcessStreamResponse(bool out_of_date_parse) {
 	const rapidjson::Document &dc = data->doc;
 	const rapidjson::Value &fval = dc["friends"];
 	const rapidjson::Value &eval = dc["event"];
@@ -581,7 +581,17 @@ void jsonparser::ProcessStreamResponse() {
 	const rapidjson::Value &tval = dc["text"];
 	const rapidjson::Value &dmval = dc["direct_message"];
 	const rapidjson::Value &delval = dc["delete"];
+
+	intrusive_ptr<out_of_date_data> out_of_date_state;
+	if(out_of_date_parse) {
+		out_of_date_state.reset(new out_of_date_data());
+		out_of_date_state->CheckEventToplevelJson(dc);
+	}
+
 	if(fval.IsArray()) {
+		if(out_of_date_parse)
+			return;
+
 		tac->ta_flags |= taccount::TAF::STREAM_UP;
 		tac->last_stream_start_time = time(nullptr);
 
@@ -599,20 +609,26 @@ void jsonparser::ProcessStreamResponse() {
 		tac->GetUsersFollowingMeList();
 	}
 	else if(eval.IsString()) {
+		if(out_of_date_parse)
+			return;
+
 		DoEventParse(dc);
 	}
 	else if(dmval.IsObject()) {
-		DoTweetParse(dmval, JDTP::ARRIVED | JDTP::TIMELINERECV | JDTP::ISDM);
+		DoTweetParse(dmval, JDTP::ARRIVED | JDTP::TIMELINERECV | JDTP::ISDM, out_of_date_state);
 	}
 	else if(delval.IsObject() && delval["status"].IsObject()) {
-		DoTweetParse(delval["status"], JDTP::DEL);
+		if(out_of_date_parse) {
+			out_of_date_state->CheckEventToplevelJson(delval); // delete events seem to have the timestamp_ms inside the delete object, instead of at the top level
+		}
+		DoTweetParse(delval["status"], JDTP::DEL, out_of_date_state);
 	}
 	else if(ival.IsNumber() && tval.IsString() && dc["recipient"].IsObject() && dc["sender"].IsObject()) {    //assume this is a direct message
-		DoTweetParse(dc, JDTP::ARRIVED | JDTP::TIMELINERECV | JDTP::ISDM);
+		DoTweetParse(dc, JDTP::ARRIVED | JDTP::TIMELINERECV | JDTP::ISDM, out_of_date_state);
 	}
 	else if(ival.IsNumber() && tval.IsString() && dc["user"].IsObject()) {    //assume that this is a tweet
 		if(DoStreamTweetPreFilter(dc)) {
-			DoTweetParse(dc, JDTP::ARRIVED | JDTP::TIMELINERECV);
+			DoTweetParse(dc, JDTP::ARRIVED | JDTP::TIMELINERECV, out_of_date_state);
 		}
 	}
 	else {
@@ -748,7 +764,7 @@ void jsonparser::ProcessTwitterErrorJson(std::vector<TwitterErrorMsg> &msgs) {
 }
 
 //don't use this for perspectival attributes
-udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> umpt_flags) {
+udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> umpt_flags, optional_cref_intrusive_ptr<out_of_date_data> out_of_date_state) {
 	uint64_t id;
 	CheckTransJsonValueDef(id, val, "id", 0);
 	auto userdatacont = ad.GetUserContainerById(id);
@@ -774,6 +790,7 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> 
 			std::shared_ptr<jsonparser::parse_data> jp_data;
 			const rapidjson::Value *val;
 			flagwrapper<UMPTF> umpt_flags;
+			optional_intrusive_ptr<out_of_date_data> out_of_date_state;
 		};
 		std::shared_ptr<funcdata> pdata = std::make_shared<funcdata>();
 		pdata->udc = userdatacont;
@@ -781,6 +798,7 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> 
 		pdata->jp_data = this->data;
 		pdata->val = &val;
 		pdata->umpt_flags = umpt_flags;
+		pdata->out_of_date_state = out_of_date_state;
 
 		if(!this->data->db_pending_guard)
 			this->data->db_pending_guard.reset(new db_handle_msg_pending_guard());
@@ -796,7 +814,7 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> 
 			if(acc) {
 				jsonparser jp(acc);
 				jp.SetData(pdata->jp_data);
-				jp.DoUserParse(*(pdata->val), pdata->umpt_flags);
+				jp.DoUserParse(*(pdata->val), pdata->umpt_flags, pdata->out_of_date_state);
 			}
 			else {
 				LogMsgFormat(LOGT::PARSEERR | LOGT::DBERR, "jsonparser::DoUserParse: User id: %" llFmtSpec "d, deferred parse failed as account no longer exists.", pdata->udc->id);
@@ -807,7 +825,16 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> 
 	}
 
 	userdata &userobj = userdatacont->GetUser();
-	auto parseresult = ParseUserContents(val, userobj, tac->ssl, false);
+
+	if(out_of_date_state && userobj.createtime && out_of_date_state->time_estimate < (time_t) userdatacont->lastupdate) {
+		// info appears to be too out of date, don't bother parsing
+		return userdatacont;
+	}
+
+	flagwrapper<genjsonparser::USERPARSEFLAGS> parseflags;
+	if(tac->ssl)
+		parseflags |= genjsonparser::USERPARSEFLAGS::IS_SSL;
+	auto parseresult = ParseUserContents(val, userobj, parseflags);
 	if(parseresult & genjsonparser::USERPARSERESULT::PROFIMG_UPDATED) {
 		if(userdatacont->udc_flags & UDC::PROFILE_IMAGE_DL_FAILED) {
 			// Profile image was previously marked as failed
@@ -823,7 +850,10 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> 
 		DBC_InsertUser(userdatacont, make_observer(dbmsglist));
 	}
 
-	userdatacont->MarkUpdated();
+	if(out_of_date_state)
+		userdatacont->lastupdate = out_of_date_state->time_estimate;
+	else
+		userdatacont->MarkUpdated();
 	userdatacont->CheckPendingTweets(umpt_flags);
 
 	if(userdatacont->udc_flags & UDC::WINDOWOPEN) user_window::CheckRefresh(id, false);
@@ -841,9 +871,10 @@ void ParsePerspectivalTweetProps(const rapidjson::Value &val, tweet_perspective 
 		tp->SetFavourited(propvalue);
 }
 
-inline udc_ptr CheckParseUserObj(uint64_t id, const rapidjson::Value &val, jsonparser &jp) {
+inline udc_ptr CheckParseUserObj(uint64_t id, const rapidjson::Value &val, jsonparser &jp,
+		optional_cref_intrusive_ptr<jsonparser::out_of_date_data> out_of_date_state) {
 	if(val.HasMember("screen_name")) {    //check to see if this is a trimmed user object
-		return jp.DoUserParse(val);
+		return jp.DoUserParse(val, 0, out_of_date_state);
 	}
 	else {
 		return ad.GetUserContainerById(id);
@@ -954,7 +985,7 @@ bool jsonparser::DoStreamTweetPreFilter(const rapidjson::Value& val) {
 	return false;
 }
 
-tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP> sflags) {
+tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP> sflags, optional_cref_intrusive_ptr<out_of_date_data> out_of_date_state) {
 	uint64_t tweetid;
 	if(!CheckTransJsonValueDef(tweetid, val, "id", 0, 0)) {
 		LogMsgFormat(LOGT::PARSEERR, "jsonparser::DoTweetParse: No ID present in document.");
@@ -987,6 +1018,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 			const rapidjson::Value *val;
 			flagwrapper<JDTP> sflags;
 			uint64_t tweetid;
+			optional_intrusive_ptr<out_of_date_data> out_of_date_state;
 		};
 		std::shared_ptr<funcdata> pdata = std::make_shared<funcdata>();
 		pdata->acc = tac;
@@ -994,6 +1026,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 		pdata->val = &val;
 		pdata->sflags = sflags;
 		pdata->tweetid = tweetid;
+		pdata->out_of_date_state = out_of_date_state;
 
 		if(!this->data->db_pending_guard)
 			this->data->db_pending_guard.reset(new db_handle_msg_pending_guard());
@@ -1009,7 +1042,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 			if(acc) {
 				jsonparser jp(acc);
 				jp.SetData(pdata->jp_data);
-				jp.DoTweetParse(*(pdata->val), pdata->sflags | JDTP::POSTDBLOAD);
+				jp.DoTweetParse(*(pdata->val), pdata->sflags | JDTP::POSTDBLOAD, pdata->out_of_date_state);
 			}
 			else {
 				LogMsgFormat(LOGT::PARSEERR | LOGT::DBERR, "jsonparser::DoTweetParse: Tweet id: %" llFmtSpec "d, deferred parse failed as account no longer exists.", pdata->tweetid);
@@ -1085,7 +1118,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 			}
 			auto &rtval = val["retweeted_status"];
 			if(rtval.IsObject()) {
-				tobj->rtsrc = DoTweetParse(rtval, (sflags & JDTP::SAVE_MASK) | JDTP::ISRTSRC);
+				tobj->rtsrc = DoTweetParse(rtval, (sflags & JDTP::SAVE_MASK) | JDTP::ISRTSRC, out_of_date_state);
 				if(tobj->rtsrc) tobj->flags.Set('R');
 			}
 		}
@@ -1094,12 +1127,19 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 			//Previous versions stored the retweet count in the DB static string
 			//so these should not be removed from there, as otherwise old tweets
 			//in the DB will lose their retweet count info when loaded.
-			CheckTransJsonValueDef(tobj->retweet_count, val, "retweet_count", 0);
-			CheckTransJsonValueDef(tobj->favourite_count, val, "favorite_count", 0);
+
+			//Don't update these if out of date, and we have the values already
+			if(!out_of_date_state) {
+				CheckTransJsonValueDef(tobj->retweet_count, val, "retweet_count", 0);
+				CheckTransJsonValueDef(tobj->favourite_count, val, "favorite_count", 0);
+			}
+		}
+		if(out_of_date_state && !(out_of_date_state->flags & OODPEF::HAVE_REAL_TIME) && tobj->createtime > out_of_date_state->time_estimate) {
+			out_of_date_state->time_estimate = tobj->createtime;
 		}
 		auto &quoteval = val["quoted_status"];
 		if(quoteval.IsObject()) {
-			DoTweetParse(quoteval, (sflags & JDTP::SAVE_MASK) | JDTP::ISQUOTE);
+			DoTweetParse(quoteval, (sflags & JDTP::SAVE_MASK) | JDTP::ISQUOTE, out_of_date_state);
 		}
 	}
 
@@ -1119,7 +1159,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 				const rapidjson::Value& useridval = userobj["id"];
 				if(useridval.IsUint64()) {
 					uint64_t userid = useridval.GetUint64();
-					tobj->user = CheckParseUserObj(userid, userobj, *this);
+					tobj->user = CheckParseUserObj(userid, userobj, *this, out_of_date_state);
 					if(tobj->user->udc_flags & UDC::THIS_IS_ACC_USER_HINT) tobj->flags.Set('O', true);
 				}
 			}
@@ -1131,12 +1171,12 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 			};
 			if(val["sender_id"].IsUint64() && val["sender"].IsObject()) {
 				uint64_t senderid = val["sender_id"].GetUint64();
-				tobj->user = CheckParseUserObj(senderid, val["sender"], *this);
+				tobj->user = CheckParseUserObj(senderid, val["sender"], *this, out_of_date_state);
 				adduserdmindex(tobj->user);
 			}
 			if(val["recipient_id"].IsUint64() && val["recipient"].IsObject()) {
 				uint64_t recipientid = val["recipient_id"].GetUint64();
-				tobj->user_recipient = CheckParseUserObj(recipientid, val["recipient"], *this);
+				tobj->user_recipient = CheckParseUserObj(recipientid, val["recipient"], *this, out_of_date_state);
 				adduserdmindex(tobj->user_recipient);
 			}
 		}
@@ -1292,6 +1332,15 @@ void jsonparser::DoEventParse(const rapidjson::Value &val) {
 	}
 	else if(str == "unfavorite") {
 		favourite_update(false);
+	}
+}
+
+void jsonparser::out_of_date_data::CheckEventToplevelJson(const rapidjson::Value& val) {
+	uint64_t timestamp_ms = 0;
+	bool found = CheckTransJsonValue(timestamp_ms, val, "timestamp_ms");
+	if(found && timestamp_ms > 0) {
+		time_estimate = timestamp_ms / 1000;
+		flags |= OODPEF::HAVE_REAL_TIME;
 	}
 }
 
