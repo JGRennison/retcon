@@ -35,6 +35,7 @@
 #include "retcon.h"
 #include "version.h"
 #include "undo.h"
+#include "import_stream.h"
 #include <wx/msgdlg.h>
 #include <wx/app.h>
 #include <wx/filedlg.h>
@@ -62,6 +63,7 @@ BEGIN_EVENT_TABLE(mainframe, wxFrame)
 	EVT_MENU(ID_Viewlog, mainframe::OnViewlog)
 	EVT_MENU(ID_UserLookup, mainframe::OnLookupUser)
 	EVT_MENU(ID_Undo, mainframe::OnUndoCmd)
+	EVT_MENU(ID_ImportStream, mainframe::OnImportStream)
 	EVT_CLOSE(mainframe::OnClose)
 	EVT_MOUSEWHEEL(mainframe::OnMouseWheel)
 	EVT_MENU_OPEN(mainframe::OnMenuOpen)
@@ -209,6 +211,9 @@ void mainframe::OnMenuOpen(wxMenuEvent &event) {
 		}
 		filemenu->AppendSeparator();
 
+		if(gc.show_import_stream_menu_item) {
+			filemenu->Append(ID_ImportStream, wxT("&Import Stream File"));
+		}
 		filemenu->Append(ID_Viewlog, wxT("View &Log"));
 		filemenu->Append(ID_Close, wxT("&Close Window"));
 		filemenu->Append(ID_Quit, wxT("E&xit"));
@@ -253,6 +258,10 @@ void mainframe::OnLookupUser(wxCommandEvent &event) {
 
 void mainframe::OnUndoCmd(wxCommandEvent &event) {
 	wxGetApp().undo_state.ExecuteTopItem();
+}
+
+void mainframe::OnImportStream(wxCommandEvent &event) {
+	StreamImportUserAction(this);
 }
 
 void mainframe::OnSize(wxSizeEvent &event) {

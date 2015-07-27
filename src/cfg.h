@@ -120,6 +120,7 @@ struct genoptconf {
 	CFGTEMPL_BOOL(tweetdebugactions) \
 	CFGTEMPL(emoji_mode) \
 	CFGTEMPL_UL(tweet_quote_recursion_max_depth) \
+	CFGTEMPL_BOOL(show_import_stream_menu_item) \
 
 struct genoptglobconf {
 #define CFGTEMPL(x) genopt x;

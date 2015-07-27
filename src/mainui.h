@@ -53,6 +53,7 @@ enum
     ID_Viewlog,
     ID_UserLookup,
     ID_Undo,
+    ID_ImportStream,
 };
 
 class mainframe: public wxFrame
@@ -86,6 +87,7 @@ public:
 	void OnTPanelMenuCmd(wxCommandEvent &event);
 	void OnLookupUser(wxCommandEvent &event);
 	void OnUndoCmd(wxCommandEvent &event);
+	void OnImportStream(wxCommandEvent &event);
 	void OnSize(wxSizeEvent &event);
 	void OnMove(wxMoveEvent &event);
 	static wxString DecorateTitle(wxString basetitle);
