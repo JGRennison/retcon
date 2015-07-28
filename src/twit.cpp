@@ -277,6 +277,7 @@ bool userdatacontainer::NeedsUpdating(flagwrapper<PENDING_REQ> preq, time_t time
 	if(!lastupdate) return true;
 	if(!GetUser().screen_name.size()) return true;
 	if(!timevalue) timevalue = time(nullptr);
+	if(GetUser().u_flags & userdata::UF::ISDEAD) return false;
 	if(preq & PENDING_REQ::USEREXPIRE) {
 		if((uint64_t) timevalue > (lastupdate + gc.userexpiretime)) return true;
 		else return false;
