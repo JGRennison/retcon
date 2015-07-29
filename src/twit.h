@@ -280,11 +280,14 @@ struct pending_op {
 	flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT;
 	flagwrapper<PENDING_RESULT> presult_required = PENDING_RESULT::DEFAULT;
 
+	optional_observer_ptr<tweet> parent_tweet = nullptr; // this is assigned when the op is appended to the tweet
+
 	virtual ~pending_op() { }
 
 	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) = 0;
 	virtual std::string dump() = 0;
 	virtual bool IsAlive() const { return true; }
+	void RemoveFromTweet();
 };
 
 struct rt_pending_op : public pending_op {
@@ -301,6 +304,7 @@ struct tpanelload_pending_op : public pending_op {
 	flagwrapper<PUSHFLAGS> pushflags;
 
 	tpanelload_pending_op(tpanelparentwin_nt* win_, flagwrapper<PUSHFLAGS> pushflags_ = PUSHFLAGS::DEFAULT, std::shared_ptr<tpanel> *pushtpanel_ = nullptr);
+	~tpanelload_pending_op();
 
 	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags);
 	virtual std::string dump();
@@ -438,8 +442,9 @@ struct tweet {
 
 	tweet_flags GetFlagsAtPrevUpdate() const { return flags_at_prev_update; }
 
-	void AddNewPendingOp(pending_op *op) {
-		pending_ops.emplace_back(op);
+	void AddNewPendingOp(std::unique_ptr<pending_op> op) {
+		op->parent_tweet = this;
+		pending_ops.emplace_back(std::move(op));
 	}
 	bool HasPendingOps() const {
 		return !pending_ops.empty();

@@ -321,7 +321,7 @@ void filter_dlg::ExecFilter() {
 			FilterOneTweet(fdg->shared_state->apply_filter, tobj);
 		}
 		else {
-			tobj->AddNewPendingOp(new applyfilter_pending_op(fdg->shared_state));
+			tobj->AddNewPendingOp(std::unique_ptr<pending_op>(new applyfilter_pending_op(fdg->shared_state)));
 		}
 	}
 	if(loadmsg) {

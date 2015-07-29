@@ -445,6 +445,15 @@ void userdatacontainer::MarkTweetPending(tweet_ptr_p t) {
 	LogMsgFormat(LOGT::PENDTRACE, "Mark Pending: User: %" llFmtSpec "d (@%s) --> %s", id, cstr(GetUser().screen_name), cstr(tweet_log_line(t.get())));
 }
 
+// note that this has the effect of deleting this
+void pending_op::RemoveFromTweet() {
+	if(parent_tweet) {
+		container_unordered_remove_if(parent_tweet->pending_ops, [&](const std::unique_ptr<pending_op> &op) {
+			return op.get() == this;
+		});
+	}
+}
+
 void rt_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) {
 	TryUnmarkPendingTweet(target_retweet, umpt_flags);
 }
@@ -898,7 +907,7 @@ namespace pending_detail {
 					break;
 				}
 			}
-			if(insertnewrtpo) t->rtsrc->AddNewPendingOp(new rt_pending_op(t));
+			if(insertnewrtpo) t->rtsrc->AddNewPendingOp(std::unique_ptr<pending_op>(new rt_pending_op(t)));
 		}
 	}
 
@@ -1029,7 +1038,7 @@ bool MarkPending_TPanelMap(tweet_ptr_p tobj, tpanelparentwin_nt* win_, PUSHFLAGS
 		break;
 	}
 	if(!found)
-		tobj->AddNewPendingOp(new tpanelload_pending_op(win_, pushflags, pushtpanel_));
+		tobj->AddNewPendingOp(std::unique_ptr<pending_op>(new tpanelload_pending_op(win_, pushflags, pushtpanel_)));
 	return found;
 }
 
@@ -1140,7 +1149,7 @@ bool taccount::MarkPendingOrHandle(tweet_ptr_p t, flagwrapper<ARRIVAL> arr) {
 		if(isready)
 			HandleNewTweet(t, shared_from_this(), arr);
 		else
-			t->AddNewPendingOp(new handlenew_pending_op(shared_from_this(), arr, t->id));
+			t->AddNewPendingOp(std::unique_ptr<pending_op>(new handlenew_pending_op(shared_from_this(), arr, t->id)));
 	}
 	return isready;
 }
@@ -1696,7 +1705,7 @@ void exec_on_ready::TweetReady(tweet_ptr_p tobj, std::shared_ptr<taccount> acc_h
 	};
 
 	refcount++;
-	tobj->AddNewPendingOp(new exec_on_ready_pending_op(shared_from_this(), preq, presult));
+	tobj->AddNewPendingOp(std::unique_ptr<pending_op>(new exec_on_ready_pending_op(shared_from_this(), preq, presult)));
 	CheckFetchPendingSingleTweet(tobj, acc_hint, existing_dbsel, preq, presult);
 	TryUnmarkPendingTweet(tobj, 0);
 }

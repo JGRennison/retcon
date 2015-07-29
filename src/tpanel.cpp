@@ -1612,6 +1612,23 @@ void tpanelparentwin_nt_impl::SetTpanelIntersectionFlags(flagwrapper<TPF_INTERSE
 		}
 	}
 
+	// remove any items from pushtweetbatchqueue which aren't in the new tpanel
+	// this is to avoid them being pushed, even though they no longer belong in the panel
+	pushtweetbatchqueue.erase(std::remove_if(pushtweetbatchqueue.begin(), pushtweetbatchqueue.end(), [&](const tweetbatchqueue_item &it) {
+		return idset.count(it.id) == 0;
+	}), pushtweetbatchqueue.end());
+
+	// remove any pending tpanel push operations
+	std::vector<tpanelload_pending_op *> pending_ops_to_remove;
+	for(auto &it : load_pending_ops) {
+		if(it->parent_tweet && idset.count(it->parent_tweet->id) == 0) {
+			pending_ops_to_remove.push_back(it);
+		}
+	}
+	for(auto &it : pending_ops_to_remove) {
+		it->RemoveFromTweet();
+	}
+
 	if(idset.empty()) {
 		for(auto &it : ids_to_remove) {
 			RemoveTweet(it);

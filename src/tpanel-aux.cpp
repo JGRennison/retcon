@@ -312,7 +312,7 @@ void tpanelnotebook::FillWindowLayout(unsigned int mainframeindex) {
 
 tpanelparentwin *CreateTpanelWinFromWindowLayout(mainframe *mf, const twin_layout_desc &twld, unsigned int lastsplitindex) {
 	auto tp = tpanel::MkTPanel(twld.name, twld.dispname, twld.flags, twld.tpautos, twld.tpudcautos);
-	tpanelparentwin *tpw = tp->MkTPanelWin(mf, (twld.splitindex > lastsplitindex));
+	tpanelparentwin *tpw = tp->MkTPanelWin(mf, (twld.splitindex > lastsplitindex), false);
 	tpw->pimpl()->SetTpanelIntersectionFlags(twld.intersect_flags);
 	if(!(twld.tppw_flags & static_cast<TPPWF>(1))) {
 		// see db_versioning.cpp
@@ -679,6 +679,11 @@ void tpanelscrollpane::mousewheelhandler(wxMouseEvent &event) {
 tpanelload_pending_op::tpanelload_pending_op(tpanelparentwin_nt* win_, flagwrapper<PUSHFLAGS> pushflags_, std::shared_ptr<tpanel> *pushtpanel_)
 		: win(win_), pushflags(pushflags_) {
 	if(pushtpanel_) pushtpanel = *pushtpanel_;
+	if(win) win->pimpl()->load_pending_ops.push_back(this);
+}
+
+tpanelload_pending_op::~tpanelload_pending_op() {
+	if(win) container_unordered_remove(win->pimpl()->load_pending_ops, this);
 }
 
 void tpanelload_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) {
@@ -722,7 +727,7 @@ void tpanel_subtweet_pending_op::CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, 
 				GetUsableAccountFollowingUser(pacc, reply_user_id);
 			}
 
-			subt->AddNewPendingOp(new tpanel_subtweet_pending_op(v, s, parent_tds, tweet_load_count, tspo_type::INLINE_REPLY));
+			subt->AddNewPendingOp(std::unique_ptr<pending_op>(new tpanel_subtweet_pending_op(v, s, parent_tds, tweet_load_count, tspo_type::INLINE_REPLY)));
 			CheckFetchPendingSingleTweet(subt, pacc);
 			TryUnmarkPendingTweet(subt, 0);
 		};
@@ -748,7 +753,7 @@ void tpanel_subtweet_pending_op::CheckLoadQuotedTweet(tweet_ptr_p quote_tweet, w
 
 	std::shared_ptr<taccount> pacc;
 	parent_tds->td->GetUsableAccount(pacc, GUAF::NOERR) || parent_tds->td->GetUsableAccount(pacc, GUAF::NOERR | GUAF::USERENABLED);
-	quote_tweet->AddNewPendingOp(new tpanel_subtweet_pending_op(v, s, parent_tds, 0, tspo_type::QUOTE));
+	quote_tweet->AddNewPendingOp(std::unique_ptr<pending_op>(new tpanel_subtweet_pending_op(v, s, parent_tds, 0, tspo_type::QUOTE)));
 	CheckFetchPendingSingleTweet(quote_tweet, pacc);
 	TryUnmarkPendingTweet(quote_tweet, 0);
 }

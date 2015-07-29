@@ -134,6 +134,8 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 	container::map<uint64_t, bool> updatetweetbatchqueue;
 	std::deque<std::function<void(tpanelparentwin_nt *)> > batchedgenericactions;
 
+	std::vector<tpanelload_pending_op *> load_pending_ops;
+
 	//These hold tweet IDs and retweet source IDs
 	container::map<uint64_t, unsigned int> tweetid_count_map;
 	static container::map<uint64_t, unsigned int> all_tweetid_count_map;
