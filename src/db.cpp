@@ -102,6 +102,7 @@ static const char *startup_sql=
 "CREATE TABLE IF NOT EXISTS userdmsets(userid INTEGER PRIMARY KEY NOT NULL, dmindex BLOB);"
 "CREATE TABLE IF NOT EXISTS handlenewpending(accid INTEGER, arrivalflags INTEGER, tweetid INTEGER);"
 "CREATE TABLE IF NOT EXISTS incrementaltweetids(id INTEGER PRIMARY KEY NOT NULL);"
+"CREATE TABLE IF NOT EXISTS eventlog(id INTEGER PRIMARY KEY NOT NULL, accid INTEGER, type INTEGER, flags INTEGER, obj INTEGER, timestamp INTEGER, extrajson BLOB);"
 "INSERT OR REPLACE INTO staticsettings(name, value) VALUES ('dirtyflag', strftime('%s','now'));";
 
 static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
@@ -134,6 +135,7 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"DELETE FROM handlenewpending;",
 	"INSERT INTO handlenewpending (accid, arrivalflags, tweetid) VALUES (?, ?, ?);",
 	"INSERT OR IGNORE INTO incrementaltweetids(id) VALUES (?);",
+	"INSERT INTO eventlog(accid, type, flags, obj, timestamp, extrajson) VALUES (?, ?, ?, ?, ?, ?);",
 };
 
 static const std::string globstr = "G";
@@ -683,6 +685,31 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 				}, "DBSM::UPDATETWEETSETFLAGS_MULTI (incrementaltweetids)");
 			}
 			cache.EndTransaction(db);
+			break;
+		}
+		case DBSM::INSERTEVENTLOGENTRY: {
+			if(gc.readonlymode) break;
+			dbinserteventlogentrymsg *m = static_cast<dbinserteventlogentrymsg*>(msg);
+			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_INSEVENTLOGENTRY);
+			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->accid);
+			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->type);
+			sqlite3_bind_int64(stmt, 3, (sqlite3_int64) m->flags.get());
+			sqlite3_bind_int64(stmt, 4, (sqlite3_int64) m->obj);
+			sqlite3_bind_int64(stmt, 5, (sqlite3_int64) m->eventtime);
+			if (!m->extrajson.empty()) {
+				bind_compressed(stmt, 6, m->extrajson, 'J');
+			} else {
+				sqlite3_bind_null(stmt, 6);
+			}
+			int res = sqlite3_step(stmt);
+			if(res != SQLITE_DONE) {
+				TSLogMsgFormat(LOGT::DBERR, "DBSM::INSERTEVENTLOGENTRY got error: %d (%s)",
+					res, cstr(sqlite3_errmsg(db)));
+			}
+			else {
+				TSLogMsgFormat(LOGT::DBTRACE, "DBSM::INSERTEVENTLOGENTRY inserted entry");
+			}
+			sqlite3_reset(stmt);
 			break;
 		}
 		case DBSM::MSGLIST: {
@@ -1453,6 +1480,28 @@ void dbconn::UpdateMedia(media_entity &me, DBUMMT update_type, optional_observer
 			break;
 
 	}
+	SendMessageOrAddToList(std::move(msg), msglist);
+}
+
+void dbconn::InsertNewEventLogEntry(optional_observer_ptr<dbsendmsg_list> msglist, optional_observer_ptr<taccount> acc, DB_EVENTLOG_TYPE type,
+		flagwrapper<DBELF> flags, uint64_t obj, time_t eventtime, std::string extrajson) {
+	std::unique_ptr<dbinserteventlogentrymsg> msg(new dbinserteventlogentrymsg());
+	if (acc) {
+		msg->accid = acc->dbindex;
+	}
+	else {
+		msg->accid = -1;
+	}
+	msg->type = type;
+	msg->flags = flags;
+	msg->obj = obj;
+	if (eventtime) {
+		msg->eventtime = eventtime;
+	}
+	else {
+		msg->eventtime = time(nullptr);
+	}
+	msg->extrajson = std::move(extrajson);
 	SendMessageOrAddToList(std::move(msg), msglist);
 }
 
@@ -3069,6 +3118,11 @@ void DBC_InsertMedia(media_entity &me, optional_observer_ptr<dbsendmsg_list> msg
 
 void DBC_UpdateMedia(media_entity &me, DBUMMT update_type, optional_observer_ptr<dbsendmsg_list> msglist) {
 	dbc.UpdateMedia(me, update_type, msglist);
+}
+
+void DBC_InsertNewEventLogEntry(optional_observer_ptr<dbsendmsg_list> msglist, optional_observer_ptr<taccount> acc, DB_EVENTLOG_TYPE type,
+		flagwrapper<DBELF> flags, uint64_t obj, time_t eventtime, std::string extrajson) {
+	dbc.InsertNewEventLogEntry(msglist, acc, type, flags, obj, eventtime, extrajson);
 }
 
 void DBC_InsertNewTweet(tweet_ptr_p tobj, std::string statjson, optional_observer_ptr<dbsendmsg_list> msglist) {

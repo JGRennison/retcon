@@ -28,6 +28,7 @@
 #include "log-util.h"
 #include "optui.h"
 #include "raii.h"
+#include "db.h"
 #include "libtwitcurl/oauthlib.h"
 #include <wx/timer.h>
 #include <wx/dialog.h>
@@ -282,6 +283,22 @@ void taccount::NotifyUserRelationshipChange(uint64_t userid, user_relationship::
 		LogMsgFormat(LOGT::NOTIFYEVT, "taccount::NotifyUserRelationshipChange: %s: %s%s",
 				cstr(acc->dispname), cstr(user_short_log_line(userid)), cstr(evttype));
 	});
+
+	using URF = user_relationship::URF;
+	if(flags & URF::FOLLOWSME_KNOWN) {
+		DB_EVENTLOG_TYPE type;
+		if(flags & URF::FOLLOWSME_TRUE) type = DB_EVENTLOG_TYPE::FOLLOWED_ME;
+		else if(flags & URF::FOLLOWSME_PENDING) type = DB_EVENTLOG_TYPE::FOLLOWED_ME_PENDING;
+		else type = DB_EVENTLOG_TYPE::UNFOLLOWED_ME;
+		DBC_InsertNewEventLogEntry(DBC_GetMessageBatchQueue(), this, type, 0, userid);
+	}
+	if(flags & URF::IFOLLOW_KNOWN) {
+		DB_EVENTLOG_TYPE type;
+		if(flags & URF::IFOLLOW_TRUE) type = DB_EVENTLOG_TYPE::I_FOLLOWED;
+		else if(flags & URF::IFOLLOW_PENDING) type = DB_EVENTLOG_TYPE::I_FOLLOWED_PENDING;
+		else type = DB_EVENTLOG_TYPE::I_UNFOLLOWED;
+		DBC_InsertNewEventLogEntry(DBC_GetMessageBatchQueue(), this, type, 0, userid);
+	}
 }
 
 void taccount::NotifyTweetFavouriteEvent(uint64_t tweetid, uint64_t userid, bool unfavourite) {

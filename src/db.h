@@ -61,6 +61,7 @@ enum class DBSM {
 	FUNCTION_CALLBACK,
 	SELUSER,
 	NOTIFYUSERSPURGED,
+	INSERTEVENTLOGENTRY,
 };
 
 struct dbb_compressed { };
@@ -302,6 +303,32 @@ struct dbnotifyuserspurgedmsg : public dbsendmsg {
 	useridset ids;
 };
 
+enum class DB_EVENTLOG_TYPE {
+	FOLLOWED_ME,
+	FOLLOWED_ME_PENDING,
+	UNFOLLOWED_ME,
+	I_FOLLOWED,
+	I_FOLLOWED_PENDING,
+	I_UNFOLLOWED,
+};
+
+// DB event log flags, not used yet
+enum class DBELF {
+};
+template<> struct enum_traits<DBELF> { static constexpr bool flags = true; };
+
+struct dbinserteventlogentrymsg : public dbsendmsg {
+	dbinserteventlogentrymsg() : dbsendmsg(DBSM::INSERTEVENTLOGENTRY) { }
+
+	int accid;
+	DB_EVENTLOG_TYPE type;
+	flagwrapper<DBELF> flags;
+	uint64_t obj;
+	time_t eventtime;
+	std::string extrajson;
+};
+
+
 struct db_handle_msg_pending_guard {
 	std::deque<tweet_ptr> tweets;
 	std::deque<udc_ptr> users;
@@ -321,6 +348,8 @@ void DBC_SendBatchedTweetFlagUpdate(uint64_t id, uint64_t setmask, uint64_t unse
 void DBC_SendAccDBUpdate(std::unique_ptr<dbinsertaccmsg> insmsg);
 void DBC_InsertMedia(media_entity &me, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
 void DBC_UpdateMedia(media_entity &me, DBUMMT update_type, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
+void DBC_InsertNewEventLogEntry(optional_observer_ptr<dbsendmsg_list> msglist, optional_observer_ptr<taccount> acc, DB_EVENTLOG_TYPE type,
+		flagwrapper<DBELF> flags, uint64_t obj, time_t eventtime = 0, std::string extrajson = "");
 void DBC_InsertNewTweet(tweet_ptr_p tobj, std::string statjson, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
 void DBC_UpdateTweetDyn(tweet_ptr_p tobj, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
 void DBC_InsertUser(udc_ptr_p u, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);

@@ -76,6 +76,7 @@ typedef enum {
 	DBPSC_CLEARHANDLENEWPENDINGS,
 	DBPSC_INSHANDLENEWPENDINGS,
 	DBPSC_INSINCREMENTALTWEETID,
+	DBPSC_INSEVENTLOGENTRY,
 
 	DBPSC_NUM_STATEMENTS,
 } DBPSC_TYPE;
@@ -213,6 +214,9 @@ struct dbconn : public wxEvtHandler {
 
 	void InsertMedia(media_entity &me, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
 	void UpdateMedia(media_entity &me, DBUMMT update_type, optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
+
+	void InsertNewEventLogEntry(optional_observer_ptr<dbsendmsg_list> msglist, optional_observer_ptr<taccount> acc, DB_EVENTLOG_TYPE type,
+			flagwrapper<DBELF> flags, uint64_t obj, time_t eventtime, std::string extrajson);
 
 	void SyncWriteBackUserDMIndexes(sqlite3 *adb);
 	void AsyncWriteBackUserDMIndexes(dbfunctionmsg &msg);
