@@ -345,15 +345,15 @@ inline scoped_stmt_holder DBInitialiseSql(sqlite3 *adb, const char *sql) {
 template <typename F, typename E> void DBRowExecStmt(sqlite3 *adb, sqlite3_stmt *stmt, F func, E errspec) {
 	do {
 		int res = sqlite3_step(stmt);
-		if(res == SQLITE_ROW) {
+		if (res == SQLITE_ROW) {
 			func(stmt);
-		}
-		else if(res != SQLITE_DONE) {
+		} else if (res != SQLITE_DONE) {
 			DBDoErr(errspec, adb, stmt, res);
 			break;
+		} else {
+			break;
 		}
-		else break;
-	} while(true);
+	} while (true);
 }
 
 template <typename F> void DBRowExecStmtNoError(sqlite3 *adb, sqlite3_stmt *stmt, F func) {
@@ -383,7 +383,7 @@ template <typename F, typename S> void DBRowExecNoError(sqlite3 *adb, S sql, F f
 
 template <typename E> void DBExecStmt(sqlite3 *adb, sqlite3_stmt *stmt, E errspec) {
 	int res = sqlite3_step(stmt);
-	if(res != SQLITE_DONE) {
+	if (res != SQLITE_DONE) {
 		DBDoErr(errspec, adb, stmt, res);
 	}
 }
@@ -412,7 +412,7 @@ template <typename B, typename S> void DBBindExecNoError(sqlite3 *adb, S sql, B 
 
 template <typename B, typename E, typename S, typename I, typename J> void DBRangeBindExec(sqlite3 *adb, S sql, I rangebegin, J rangeend, B bindfunc, E errspec) {
 	auto s = DBInitialiseSql(adb, sql);
-	for(auto it = rangebegin; it != rangeend; ++it) {
+	for (auto it = rangebegin; it != rangeend; ++it) {
 		bindfunc(s.stmt(), *it);
 		DBExecStmt(adb, s.stmt(), errspec);
 		sqlite3_reset(s.stmt());
@@ -426,7 +426,7 @@ template <typename B, typename S, typename I, typename J> void DBRangeBindExecNo
 template <typename B, typename F, typename E, typename S, typename I, typename J>
 void DBRangeBindRowExec(sqlite3 *adb, S sql, I rangebegin, J rangeend, B bindfunc, F func, E errspec) {
 	auto s = DBInitialiseSql(adb, sql);
-	for(auto it = rangebegin; it != rangeend; ++it) {
+	for (auto it = rangebegin; it != rangeend; ++it) {
 		bindfunc(s.stmt(), *it);
 		DBRowExecStmt(adb, s.stmt(), func, errspec);
 		sqlite3_reset(s.stmt());
@@ -452,22 +452,20 @@ inline db_bind_buffer<dbb_compressed> DoCompress(const db_bind_buffer<dbb_uncomp
 }
 
 inline void store_packed_uint64(unsigned char *&curdata, uint64_t diff) {
-	if(diff < (static_cast<uint64_t>(1) << 30)) {
+	if (diff < (static_cast<uint64_t>(1) << 30)) {
 		curdata[0] = (diff >> 24) & 0x3F;
 		curdata[1] = (diff >> 16) & 0xFF;
 		curdata[2] = (diff >> 8) & 0xFF;
 		curdata[3] = (diff) & 0xFF;
 		curdata += 4;
-	}
-	else if(diff < (static_cast<uint64_t>(1) << 38)) {
+	} else if (diff < (static_cast<uint64_t>(1) << 38)) {
 		curdata[0] = ((diff >> 32) & 0x3F) | 0x40;
 		curdata[1] = (diff >> 24) & 0xFF;
 		curdata[2] = (diff >> 16) & 0xFF;
 		curdata[3] = (diff >> 8) & 0xFF;
 		curdata[4] = (diff) & 0xFF;
 		curdata += 5;
-	}
-	else if(diff < (static_cast<uint64_t>(1) << 46)) {
+	} else if (diff < (static_cast<uint64_t>(1) << 46)) {
 		curdata[0] = ((diff >> 40) & 0x3F) | 0x80;
 		curdata[1] = (diff >> 32) & 0xFF;
 		curdata[2] = (diff >> 24) & 0xFF;
@@ -475,8 +473,7 @@ inline void store_packed_uint64(unsigned char *&curdata, uint64_t diff) {
 		curdata[4] = (diff >> 8) & 0xFF;
 		curdata[5] = (diff) & 0xFF;
 		curdata += 6;
-	}
-	else {
+	} else {
 		curdata[0] = 0xC0;
 		curdata[1] = (diff >> 56) & 0xFF;
 		curdata[2] = (diff >> 48) & 0xFF;
@@ -492,13 +489,13 @@ inline void store_packed_uint64(unsigned char *&curdata, uint64_t diff) {
 
 template <typename C, typename F> db_bind_buffer<dbb_compressed> settocompressedblob_intpack_generic(const C &set, unsigned char tag, F encoder) {
 	db_bind_buffer<dbb_compressed> out;
-	if(set.size()) {
+	if (set.size()) {
 		out.allocate(1 + (set.size() * 9));
 		unsigned char *curdata = reinterpret_cast<unsigned char *>(out.mutable_data());
 		curdata[0] = tag;
 		curdata++;
 
-		for(uint64_t id : set) {
+		for (uint64_t id : set) {
 			store_packed_uint64(curdata, encoder(id));
 		}
 		out.data_size = curdata - reinterpret_cast<unsigned char *>(out.mutable_data());
@@ -535,7 +532,7 @@ template <typename C> db_bind_buffer<dbb_compressed> settocompressedblob_zigzag(
 inline uint64_t fetch_packed_uint64(const unsigned char *&input) {
 	unsigned char tag = input[0] & 0xC0;
 	uint64_t output = 0;
-	switch(tag) {
+	switch (tag) {
 		case 0x00:
 			output = static_cast<uint64_t>(input[0] & 0x3F) << 24 |
 				static_cast<uint64_t>(input[1]) << 16 |
@@ -543,6 +540,7 @@ inline uint64_t fetch_packed_uint64(const unsigned char *&input) {
 				static_cast<uint64_t>(input[3]);
 				input += 4;
 			break;
+
 		case 0x40:
 			output = static_cast<uint64_t>(input[0] & 0x3F) << 32 |
 				static_cast<uint64_t>(input[1]) << 24 |
@@ -551,6 +549,7 @@ inline uint64_t fetch_packed_uint64(const unsigned char *&input) {
 				static_cast<uint64_t>(input[4]);
 				input += 5;
 			break;
+
 		case 0x80:
 			output = static_cast<uint64_t>(input[0] & 0x3F) << 40 |
 				static_cast<uint64_t>(input[1]) << 32 |
@@ -560,6 +559,7 @@ inline uint64_t fetch_packed_uint64(const unsigned char *&input) {
 				static_cast<uint64_t>(input[5]);
 				input += 6;
 			break;
+
 		case 0xC0:
 			output = static_cast<uint64_t>(input[1]) << 56 |
 				static_cast<uint64_t>(input[2]) << 48 |
@@ -580,41 +580,43 @@ template <typename C> void setfromcompressedblob_generic(C func, sqlite3_stmt *s
 	src.data = static_cast<const char *>(sqlite3_column_blob(stmt, columnid));
 	src.data_size = sqlite3_column_bytes(stmt, columnid);
 
-	if(!src.data_size)
+	if (!src.data_size) {
 		return;
+	}
 
-	if(src.data[0] == 'B') {
+	if (src.data[0] == 'B') {
 		const unsigned char *curdata = reinterpret_cast<const unsigned char *>(src.data);
 		const unsigned char *enddata = curdata + src.data_size;
 		curdata++;
 		uint64_t last = 0;
-		while(curdata < enddata) {
+		while (curdata < enddata) {
 			last -= fetch_packed_uint64(curdata);
 			func(last);
 		}
-	}
-	else if(src.data[0] == 'C') {
+	} else if (src.data[0] == 'C') {
 		const unsigned char *curdata = reinterpret_cast<const unsigned char *>(src.data);
 		const unsigned char *enddata = curdata + src.data_size;
 		curdata++;
 		uint64_t last = 0;
-		while(curdata < enddata) {
+		while (curdata < enddata) {
 			uint64_t zigzag = fetch_packed_uint64(curdata);
 			uint64_t diff = (zigzag >> 1) ^ (-(zigzag & 1));
 			last += diff;
 			func(last);
 		}
-	}
-	else {
+	} else {
 		// legacy format
 		db_bind_buffer<dbb_uncompressed> blblob = DoDecompress(std::move(src));
 
 		unsigned char *blarray = (unsigned char*) blblob.data;
 		size_t blarraysize = blblob.data_size & ~7;
 
-		for(unsigned int i = 0; i < blarraysize; i += 8) {    //stored in big endian format
+		for (unsigned int i = 0; i < blarraysize; i += 8) {    //stored in big endian format
 			uint64_t id = 0;
-			for(unsigned int j = 0; j < 8; j++) id <<= 8, id |= blarray[i + j];
+			for (unsigned int j = 0; j < 8; j++) {
+				id <<= 8;
+				id |= blarray[i + j];
+			}
 			func(id);
 		}
 	}

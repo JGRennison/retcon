@@ -89,7 +89,7 @@ struct db_bind_buffer {
 	}
 
 	void make_persistent() {
-		if(!membuffer && data_size) {
+		if (!membuffer && data_size) {
 			membuffer.reset(malloc(data_size + 1));
 			memcpy(membuffer.get(), data, data_size);
 			static_cast<char *>(membuffer.get())[data_size] = 0;
@@ -98,12 +98,12 @@ struct db_bind_buffer {
 	}
 
 	void align() {
-		if(!data_size)
+		if (!data_size) {
 			return;
-		if(!membuffer) {
-			make_persistent();
 		}
-		else if(data != membuffer.get()) {
+		if (!membuffer) {
+			make_persistent();
+		} else if (data != membuffer.get()) {
 			memmove(membuffer.get(), data, data_size);
 			static_cast<char *>(membuffer.get())[data_size] = 0;
 			data = static_cast<const char *>(membuffer.get());

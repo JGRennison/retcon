@@ -65,8 +65,11 @@ struct TabArtReverseVideoDC : public wxMirrorDC {
 		double factor = 0.35;
 		auto trans = [&](double &b, double p) {
 			double delta = b - p;
-			if(b > p) delta *= p / (255 - p);
-			else delta *= (255 - p) / p;
+			if (b > p) {
+				delta *= p / (255 - p);
+			} else {
+				delta *= (255 - p) / p;
+			}
 			delta *= factor;
 			b = p - delta;
 		};
@@ -82,11 +85,13 @@ struct TabArtReverseVideoDC : public wxMirrorDC {
 		newbrush.SetColour(PivotColour(brush.GetColour()));
 		wxMirrorDC::SetBrush(newbrush);
 	}
+
 	virtual void SetPen(const wxPen& pen) override {
 		wxPen newpen = pen;
 		newpen.SetColour(PivotColour(pen.GetColour()));
 		wxMirrorDC::SetPen(newpen);
 	}
+
 	virtual void DoGradientFillLinear(const wxRect& rect, const wxColour& initialColour, const wxColour& destColour, wxDirection nDirection) override {
 		targdc.GradientFillLinear(rect, PivotColour(initialColour), PivotColour(destColour), nDirection);
 	}
@@ -110,20 +115,13 @@ struct customTabArt : public wxAuiDefaultTabArt {
 		return new customTabArt(textcolour, background,reverse_video);
 	}
 
-	virtual void DrawTab(wxDC& dc,
-                         wxWindow* wnd,
-                         const wxAuiNotebookPage& pane,
-                         const wxRect& in_rect,
-                         int close_button_state,
-                         wxRect* out_tab_rect,
-                         wxRect* out_button_rect,
-                         int* x_extent) override {
+	virtual void DrawTab(wxDC& dc, wxWindow* wnd, const wxAuiNotebookPage& pane, const wxRect& in_rect, int close_button_state,
+			wxRect* out_tab_rect, wxRect* out_button_rect, int* x_extent) override {
 		dc.SetTextForeground(textcolour);
-		if(reverse_video) {
+		if (reverse_video) {
 			TabArtReverseVideoDC revdc(dc, background);
 			wxAuiDefaultTabArt::DrawTab(revdc, wnd, pane, in_rect, close_button_state, out_tab_rect, out_button_rect, x_extent);
-		}
-		else {
+		} else {
 			wxAuiDefaultTabArt::DrawTab(dc, wnd, pane, in_rect, close_button_state, out_tab_rect, out_button_rect, x_extent);
 		}
 	}
@@ -155,29 +153,34 @@ tpanelnotebook::tpanelnotebook(mainframe *owner_, wxWindow *parent)
 
 void tpanelnotebook::dragdrophandler(wxAuiNotebookEvent& event) {
 	wxAuiNotebook* note = (wxAuiNotebook *) event.GetEventObject();
-	if(note) {
+	if (note) {
 		tpanelparentwin *tppw = static_cast<tpanelparentwin *>(note->GetPage(event.GetSelection()));
-		if(tppw) tppw->pimpl()->owner = owner;
+		if (tppw) {
+			tppw->pimpl()->owner = owner;
+		}
 	}
 	event.Allow();
 }
+
 void tpanelnotebook::dragdonehandler(wxAuiNotebookEvent& event) {
 	PostSplitSizeCorrect();
 	tabnumcheck();
 }
+
 void tpanelnotebook::tabclosedhandler(wxAuiNotebookEvent& event) {
 	PostSplitSizeCorrect();
 	tabnumcheck();
 }
+
 void tpanelnotebook::tabnumcheck() {
-	if(GetPageCount() == 0 && !(mainframelist.empty() || (++mainframelist.begin()) == mainframelist.end())) {
+	if (GetPageCount() == 0 && !(mainframelist.empty() || (++mainframelist.begin()) == mainframelist.end())) {
 		owner->Close();
 	}
 }
 
 void tpanelnotebook::tabrightclickhandler(wxAuiNotebookEvent& event) {
 	tpanelparentwin *tppw = static_cast<tpanelparentwin *>(GetPage(event.GetSelection()));
-	if(tppw) {
+	if (tppw) {
 		wxMenu menu;
 		menu.SetTitle(wxstrstd(tppw->pimpl()->tp->dispname));
 		menu.Append(TPPWID_SPLIT, wxT("Split"));
@@ -204,8 +207,8 @@ void tpanelnotebook::PostSplitSizeCorrect() {
 	size_t pane_count = all_panes.GetCount();
 	size_t tabctrl_count = 0;
 	std::forward_list<wxAuiPaneInfo *> tabctrlarray;
-	for(size_t i = 0; i < pane_count; ++i) {
-		if(all_panes.Item(i).name != wxT("dummy")) {
+	for (size_t i = 0; i < pane_count; ++i) {
+		if (all_panes.Item(i).name != wxT("dummy")) {
 			tabctrl_count++;
 			tabctrlarray.push_front(&(all_panes.Item(i)));
 			#if TPANEL_COPIOUS_LOGGING
@@ -214,39 +217,43 @@ void tpanelnotebook::PostSplitSizeCorrect() {
 			#endif
 		}
 	}
-	for(auto &it : tabctrlarray) {
+	for (auto &it : tabctrlarray) {
 		wxAuiPaneInfo &pane = *it;
 		pane.BestSize(totalsize.GetWidth() / tabctrl_count, totalsize.GetHeight());
 		pane.MaxSize(totalsize.GetWidth() / tabctrl_count, totalsize.GetHeight());
 		pane.DockFixed();
-		if(pane.dock_direction != wxAUI_DOCK_LEFT && pane.dock_direction != wxAUI_DOCK_RIGHT && pane.dock_direction != wxAUI_DOCK_CENTRE) {
+		if (pane.dock_direction != wxAUI_DOCK_LEFT && pane.dock_direction != wxAUI_DOCK_RIGHT && pane.dock_direction != wxAUI_DOCK_CENTRE) {
 			pane.Right();
 			pane.dock_row = 0;
 			pane.dock_pos = 1;    //trigger code below
 		}
-		if(pane.dock_pos > 0) {    //make a new row, bumping up any others to make room
-			if(pane.dock_direction == wxAUI_DOCK_LEFT) {
-				for(auto &jt : tabctrlarray) {
-					if(jt->dock_direction == pane.dock_direction && jt->dock_row > pane.dock_row && jt->dock_layer == pane.dock_layer) jt->dock_row++;
+		if (pane.dock_pos > 0) {    //make a new row, bumping up any others to make room
+			if (pane.dock_direction == wxAUI_DOCK_LEFT) {
+				for (auto &jt : tabctrlarray) {
+					if (jt->dock_direction == pane.dock_direction && jt->dock_row > pane.dock_row && jt->dock_layer == pane.dock_layer) {
+						jt->dock_row++;
+					}
 				}
 				pane.dock_pos = 0;
 				pane.dock_row++;
-			}
-			else {
-				for(auto &jt : tabctrlarray) {
-					if(jt->dock_direction == pane.dock_direction && jt->dock_row >= pane.dock_row && jt->dock_layer == pane.dock_layer && jt->dock_pos == 0) jt->dock_row++;
+			} else {
+				for (auto &jt : tabctrlarray) {
+					if (jt->dock_direction == pane.dock_direction && jt->dock_row >= pane.dock_row &&
+							jt->dock_layer == pane.dock_layer && jt->dock_pos == 0) {
+						jt->dock_row++;
+					}
 				}
 				pane.dock_pos = 0;
 			}
 		}
 	}
-	for(auto &it : tabctrlarray) {
+	for (auto &it : tabctrlarray) {
 		m_mgr.InsertPane(it->window, *it, wxAUI_INSERT_ROW);
 	}
 	m_mgr.Update();
 
-	for(size_t i = 0; i < pane_count; ++i) {
-		if(all_panes.Item(i).name != wxT("dummy")) {
+	for (size_t i = 0; i < pane_count; ++i) {
+		if (all_panes.Item(i).name != wxT("dummy")) {
 			#if TPANEL_COPIOUS_LOGGING
 				LogMsgFormat(LOGT::TPANELTRACE, "TCL: PostSplitSizeCorrect2 %d %d %d %d", all_panes.Item(i).dock_direction, all_panes.Item(i).dock_layer,
 						all_panes.Item(i).dock_row, all_panes.Item(i).dock_pos);
@@ -271,28 +278,31 @@ void tpanelnotebook::FillWindowLayout(unsigned int mainframeindex) {
 	size_t pane_count = all_panes.GetCount();
 
 	size_t pagecount = GetPageCount();
-	for(size_t i = 0; i < pagecount; ++i) {
+	for (size_t i = 0; i < pagecount; ++i) {
 		tpanelparentwin_nt *tppw = dynamic_cast<tpanelparentwin_nt*>(GetPage(i));
-		if(!tppw) continue;
+		if (!tppw) continue;
 
 		wxAuiTabCtrl* tc;
 		int tabindex;
-		if(!FindTab(tppw, &tc, &tabindex)) continue;
+		if (!FindTab(tppw, &tc, &tabindex)) continue;
 
 		wxWindow *tabframe = GetTabFrameFromTabCtrl(tc);
-		if(!tabframe) continue;
+		if (!tabframe) continue;
 
 		unsigned int splitindex = 0;
 		bool found = false;
-		for(size_t j = 0; j < pane_count; ++j) {
-			if(all_panes.Item(j).name == wxT("dummy")) continue;
-			if(all_panes.Item(j).window == tabframe) {
+		for (size_t j = 0; j < pane_count; ++j) {
+			if (all_panes.Item(j).name == wxT("dummy")) {
+				continue;
+			}
+			if (all_panes.Item(j).window == tabframe) {
 				found = true;
 				break;
+			} else {
+				splitindex++;
 			}
-			else splitindex++;
 		}
-		if(!found) continue;
+		if (!found) continue;
 
 		ad.twinlayout.emplace_back();
 		twin_layout_desc &twld = ad.twinlayout.back();
@@ -314,7 +324,7 @@ tpanelparentwin *CreateTpanelWinFromWindowLayout(mainframe *mf, const twin_layou
 	auto tp = tpanel::MkTPanel(twld.name, twld.dispname, twld.flags, twld.tpautos, twld.tpudcautos);
 	tpanelparentwin *tpw = tp->MkTPanelWin(mf, (twld.splitindex > lastsplitindex), false);
 	tpw->pimpl()->SetTpanelIntersectionFlags(twld.intersect_flags);
-	if(!(twld.tppw_flags & static_cast<TPPWF>(1))) {
+	if (!(twld.tppw_flags & static_cast<TPPWF>(1))) {
 		// see db_versioning.cpp
 		// initial value is set to 1 to mark it as not valid
 
@@ -342,12 +352,14 @@ profimg_staticbitmap::~profimg_staticbitmap() {
 
 void profimg_staticbitmap::ClickHandler(wxMouseEvent &event) {
 	std::shared_ptr<taccount> acc_hint;
-	if(t) t->GetUsableAccount(acc_hint);
+	if (t) {
+		t->GetUsableAccount(acc_hint);
+	}
 	user_window::MkWin(udc->id, acc_hint);
 }
 
 void profimg_staticbitmap::RightClickHandler(wxMouseEvent &event) {
-	if(owner || !(pisb_flags & PISBF::DONTUSEDEFAULTMF)) {
+	if (owner || !(pisb_flags & PISBF::DONTUSEDEFAULTMF)) {
 		wxMenu menu;
 		int nextid = tweetactmenustartid;
 		tamd.clear();
@@ -358,17 +370,20 @@ void profimg_staticbitmap::RightClickHandler(wxMouseEvent &event) {
 
 void profimg_staticbitmap::OnTweetActMenuCmd(wxCommandEvent &event) {
 	mainframe *mf = owner;
-	if(!mf && mainframelist.size() && !(pisb_flags&PISBF::DONTUSEDEFAULTMF)) mf = mainframelist.front();
+	if (!mf && mainframelist.size() && !(pisb_flags&PISBF::DONTUSEDEFAULTMF)) {
+		mf = mainframelist.front();
+	}
 	TweetActMenuAction(tamd, event.GetId(), mf);
 }
 
 std::shared_ptr<tpanelglobal> tpanelglobal::Get() {
-	if(tpg_glob.expired()) {
+	if (tpg_glob.expired()) {
 		std::shared_ptr<tpanelglobal> tmp = std::make_shared<tpanelglobal>();
 		tpg_glob = tmp;
 		return tmp;
+	} else {
+		return tpg_glob.lock();
 	}
-	else return tpg_glob.lock();
 }
 
 std::weak_ptr<tpanelglobal> tpanelglobal::tpg_glob;
@@ -414,7 +429,7 @@ void tpanel_item::NotifySizeChange() {
 	wxSize bestsize = DoGetBestSize();
 	SetSize(clientsize.x, bestsize.y);
 
-	if(!parent->resize_update_pending) {
+	if (!parent->resize_update_pending) {
 		parent->resize_update_pending = true;
 		parent->Freeze();
 		wxCommandEvent event(wxextRESIZE_UPDATE_EVENT, GetId());
@@ -487,12 +502,12 @@ void tpanelscrollbar::OnScrollHandlerCommon(bool upok, bool downok, int threshol
 	#endif
 	bool scrollup = (y <= threshold && upok);
 	bool scrolldown = (endpos >= (scroll_virtual_size - threshold) && downok);
-	if(scrollup && !scrolldown && !page_scroll_blocked) {
+	if (scrollup && !scrolldown && !page_scroll_blocked) {
 		wxCommandEvent evt(wxextTP_PAGEUP_EVENT);
 		parent->GetEventHandler()->AddPendingEvent(evt);
 		page_scroll_blocked = true;
 	}
-	if(!scrollup && scrolldown && !page_scroll_blocked) {
+	if (!scrollup && scrolldown && !page_scroll_blocked) {
 		wxCommandEvent evt(wxextTP_PAGEDOWN_EVENT);
 		parent->GetEventHandler()->AddPendingEvent(evt);
 		page_scroll_blocked = true;
@@ -505,19 +520,20 @@ void tpanelscrollbar::OnScrollHandler(wxScrollEvent &event) {
 	bool downok = (type == wxEVT_SCROLL_BOTTOM || type == wxEVT_SCROLL_LINEDOWN || type == wxEVT_SCROLL_PAGEDOWN || type == wxEVT_SCROLL_THUMBRELEASE || type == wxEVT_SCROLL_CHANGED);
 
 	int y;
-	if(type == wxEVT_SCROLL_LINEUP || type == wxEVT_SCROLL_LINEDOWN) {
+	if (type == wxEVT_SCROLL_LINEUP || type == wxEVT_SCROLL_LINEDOWN) {
 		y = GetThumbPosition();
-		if(type == wxEVT_SCROLL_LINEUP) y -= gc.linescrollspeed;
-		else y += gc.linescrollspeed;
+		if (type == wxEVT_SCROLL_LINEUP) {
+			y -= gc.linescrollspeed;
+		} else {
+			y += gc.linescrollspeed;
+		}
 		SetThumbPosition(std::max(0, y));
 		ScrollItems();
-	}
-	else {
-		if(type == wxEVT_SCROLLWIN_THUMBRELEASE || type == wxEVT_SCROLL_CHANGED) {
+	} else {
+		if (type == wxEVT_SCROLLWIN_THUMBRELEASE || type == wxEVT_SCROLL_CHANGED) {
 			y = event.GetPosition();
 			SetThumbPosition(y);
-		}
-		else {
+		} else {
 			y = GetThumbPosition();
 		}
 		ScrollItemsForPosition(y);
@@ -531,7 +547,7 @@ void tpanelscrollbar::OnScrollHandler(wxScrollEvent &event) {
 // the item at the top of the visible screen is unmoved
 void tpanelscrollbar::RepositionItems() {
 	tpanelscrollpane *tsp = get();
-	if(!tsp) return;
+	if (!tsp) return;
 
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANELTRACE, "TSCL: tpanelscrollbar::RepositionItems %s, START %d %d", cstr(GetThisName()),
@@ -542,13 +558,13 @@ void tpanelscrollbar::RepositionItems() {
 	bool have_scroll_offset = false;
 	int scroll_offset = 0;
 
-	for(auto &disp : parent->GetCurrentDisp()) {
+	for (auto &disp : parent->GetCurrentDisp()) {
 		wxPoint p = disp.item->GetPosition();
 		wxSize s = disp.item->GetSize();
 
 		scroll_virtual_size += s.y;
 
-		if(p.x == 0 && p.y + s.y > 0 && p.y <= 0) {
+		if (p.x == 0 && p.y + s.y > 0 && p.y <= 0) {
 			// This is an item which is visible at the top of the list
 			// We should use the *last* matching item, this is as earlier items may grow in size to overlap the top of the screen
 
@@ -560,7 +576,7 @@ void tpanelscrollbar::RepositionItems() {
 		cumul_size += s.y;
 	}
 
-	if(parent->pimpl()->displayoffset == 0 && GetThumbPosition() == 0 &&
+	if (parent->pimpl()->displayoffset == 0 && GetThumbPosition() == 0 &&
 			have_scroll_offset && !scroll_always_freeze) {
 		// We were at the very top, we would normally be scrolling down as something has been inserted above
 		// Scroll back to the top instead
@@ -569,7 +585,7 @@ void tpanelscrollbar::RepositionItems() {
 	}
 	scroll_always_freeze = false;
 
-	if(!have_scroll_offset) {
+	if (!have_scroll_offset) {
 		scroll_offset = GetThumbPosition();
 	}
 
@@ -596,7 +612,7 @@ void tpanelscrollbar::ScrollItemsForPosition(int current_position) {
 	#endif
 	int y = -current_position;
 
-	for(auto &disp : parent->GetCurrentDisp()) {
+	for (auto &disp : parent->GetCurrentDisp()) {
 		wxSize s = disp.item->GetSize();
 
 		// Note that Move() cannot be used as it special-cases the value of -1, which randomly breaks scrolling >:(
@@ -609,13 +625,14 @@ void tpanelscrollbar::ScrollItemsForPosition(int current_position) {
 void tpanelscrollbar::ScrollToIndex(unsigned int index, int offset) {
 	int scroll_offset = 0;
 
-	for(auto &disp : parent->GetCurrentDisp()) {
-		if(index == 0) {
+	for (auto &disp : parent->GetCurrentDisp()) {
+		if (index == 0) {
 			SetThumbPosition(scroll_offset - offset);
 			ScrollItems();
 			return;
+		} else {
+			index--;
 		}
-		else index--;
 
 		wxSize s = disp.item->GetSize();
 		scroll_offset += s.y;
@@ -625,11 +642,10 @@ void tpanelscrollbar::ScrollToIndex(unsigned int index, int offset) {
 // Returns true if successful (id is present)
 bool tpanelscrollbar::ScrollToId(uint64_t id, int offset) {
 	int index = parent->IDToCurrentDispIndex(id);
-	if(index >= 0) {
+	if (index >= 0) {
 		ScrollToIndex(index, offset);
 		return true;
-	}
-	else {
+	} else {
 		return false;
 	}
 }
@@ -651,7 +667,7 @@ void tpanelscrollpane::resizehandler(wxSizeEvent &event) {
 		LogMsgFormat(LOGT::TPANELTRACE, "TSCL: tpanelscrollpane::resizehandler: %s, %d, %d", cstr(GetThisName()), event.GetSize().GetWidth(), event.GetSize().GetHeight());
 	#endif
 
-	for(auto &disp : parent->GetCurrentDisp()) {
+	for (auto &disp : parent->GetCurrentDisp()) {
 		disp.item->NotifySizeChange();
 	}
 }
@@ -660,7 +676,7 @@ void tpanelscrollpane::resizemsghandler(wxCommandEvent &event) {
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANELTRACE, "TSCL: tpanelscrollpane::resizemsghandler %s", cstr(GetThisName()));
 	#endif
-	if(tpanelscrollbar *tsb = get()) {
+	if (tpanelscrollbar *tsb = get()) {
 		tsb->RepositionItems();
 	}
 	resize_update_pending = false;
@@ -670,7 +686,7 @@ void tpanelscrollpane::resizemsghandler(wxCommandEvent &event) {
 }
 
 void tpanelscrollpane::mousewheelhandler(wxMouseEvent &event) {
-	if(tpanelscrollbar *tsb = get()) {
+	if (tpanelscrollbar *tsb = get()) {
 		event.SetEventObject(tsb);
 		tsb->GetEventHandler()->ProcessEvent(event);
 	}
@@ -678,20 +694,30 @@ void tpanelscrollpane::mousewheelhandler(wxMouseEvent &event) {
 
 tpanelload_pending_op::tpanelload_pending_op(tpanelparentwin_nt* win_, flagwrapper<PUSHFLAGS> pushflags_, std::shared_ptr<tpanel> *pushtpanel_)
 		: win(win_), pushflags(pushflags_) {
-	if(pushtpanel_) pushtpanel = *pushtpanel_;
-	if(win) win->pimpl()->load_pending_ops.push_back(this);
+	if (pushtpanel_) {
+		pushtpanel = *pushtpanel_;
+	}
+	if (win) {
+		win->pimpl()->load_pending_ops.push_back(this);
+	}
 }
 
 tpanelload_pending_op::~tpanelload_pending_op() {
-	if(win) container_unordered_remove(win->pimpl()->load_pending_ops, this);
+	if (win) {
+		container_unordered_remove(win->pimpl()->load_pending_ops, this);
+	}
 }
 
 void tpanelload_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags) {
 	std::shared_ptr<tpanel> tp=pushtpanel.lock();
-	if(tp) tp->PushTweet(t, pushflags);
+	if (tp) {
+		tp->PushTweet(t, pushflags);
+	}
 	tpanelparentwin_nt *window=win.get();
-	if(window) {
-		if(umpt_flags&UMPTF::TPDB_NOUPDF) window->SetNoUpdateFlag();
+	if (window) {
+		if (umpt_flags&UMPTF::TPDB_NOUPDF) {
+			window->SetNoUpdateFlag();
+		}
 		window->PushTweet(t, pushflags);
 	}
 }
@@ -708,22 +734,22 @@ void tpanel_subtweet_pending_op::CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, 
 
 	uint64_t reply_id = t->in_reply_to_status_id;
 	uint64_t reply_user_id = t->in_reply_to_user_id;
-	if(!reply_id && t->rtsrc) {
+	if (!reply_id && t->rtsrc) {
 		reply_id = t->rtsrc->in_reply_to_status_id;
 		reply_user_id = t->rtsrc->in_reply_to_user_id;
 	}
 
-	if(reply_id) {
+	if (reply_id) {
 		std::function<void(unsigned int)> loadmorefunc = [=](unsigned int tweet_load_count) {
 			tweet_ptr subt = ad.GetTweetById(reply_id);
 
-			if(parent_tds->td->IsArrivedHereAnyPerspective() || parent_tds->td->lflags & TLF::SHOULDSAVEINDB) {
+			if (parent_tds->td->IsArrivedHereAnyPerspective() || parent_tds->td->lflags & TLF::SHOULDSAVEINDB) {
 				subt->lflags |= TLF::SHOULDSAVEINDB; //save
 			}
 
 			std::shared_ptr<taccount> pacc;
 			t->GetUsableAccount(pacc, GUAF::NOERR) || t->GetUsableAccount(pacc, GUAF::NOERR | GUAF::USERENABLED);
-			if(reply_user_id) {
+			if (reply_user_id) {
 				GetUsableAccountFollowingUser(pacc, reply_user_id);
 			}
 
@@ -732,7 +758,7 @@ void tpanel_subtweet_pending_op::CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, 
 			TryUnmarkPendingTweet(subt, 0);
 		};
 
-		if(load_count == 0) {
+		if (load_count == 0) {
 			tds->tds_flags |= TDSF::CANLOADMOREREPLIES;
 			tds->loadmorereplies = [=]() {
 				loadmorefunc(gc.inlinereplyloadmorecount);
@@ -747,7 +773,7 @@ void tpanel_subtweet_pending_op::CheckLoadQuotedTweet(tweet_ptr_p quote_tweet, w
 		tweetdispscr *parent_tds) {
 	using GUAF = tweet::GUAF;
 
-	if(parent_tds->td->IsArrivedHereAnyPerspective() || parent_tds->td->lflags & TLF::SHOULDSAVEINDB) {
+	if (parent_tds->td->IsArrivedHereAnyPerspective() || parent_tds->td->lflags & TLF::SHOULDSAVEINDB) {
 		quote_tweet->lflags |= TLF::SHOULDSAVEINDB; //save
 	}
 
@@ -773,25 +799,29 @@ void tpanel_subtweet_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF>
 
 	tweetdispscr *parent_tds = data->parent_tds.get();
 	tpanelparentwin_nt *tp_window = data->win.get();
-	if(!parent_tds || !tp_window)
+	if (!parent_tds || !tp_window) {
 		return;
+	}
 
-	if(umpt_flags & UMPTF::TPDB_NOUPDF)
+	if (umpt_flags & UMPTF::TPDB_NOUPDF) {
 		tp_window->SetNoUpdateFlag();
+	}
 
 	tp_window->GenericAction([data, t](tpanelparentwin_nt *window) {
 		tweetdispscr *parent_tds = data->parent_tds.get();
-		if(!parent_tds)
+		if (!parent_tds) {
 			return;
+		}
 
 		wxBoxSizer *subhbox = nullptr;
 		wxWindow *parent = parent_tds->GetParent();
 		rounded_box_panel *rbpanel = nullptr;
-		switch(data->type) {
+		switch (data->type) {
 			case tspo_type::INLINE_REPLY:
 				subhbox = new wxBoxSizer(wxHORIZONTAL);
 				data->vbox->Add(subhbox, 0, wxALL | wxEXPAND, 1);
 				break;
+
 			case tspo_type::QUOTE:
 				int side_margin = 15;
 				rbpanel = new rounded_box_panel(parent, 10, side_margin, 2);
@@ -808,23 +838,25 @@ void tpanel_subtweet_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF>
 
 		tweetdispscr *subtd = window->pimpl()->CreateSubTweetInItemHbox(t, parent_tds, subhbox, parent);
 
-		if(rbpanel) {
+		if (rbpanel) {
 			subtd->rounded_box_panels.insert(rbpanel);
 			rbpanel->SetBackgroundColour(parent_tds->GetBackgroundColour());
-			if(subtd->tds_flags & TDSF::HIDDEN)
+			if (subtd->tds_flags & TDSF::HIDDEN) {
 				rbpanel->Show(false);
+			}
 		}
 
-		if(subtd->recursion_depth < gc.tweet_quote_recursion_max_depth) {
-			for(auto &it : t->quoted_tweet_ids) {
+		if (subtd->recursion_depth < gc.tweet_quote_recursion_max_depth) {
+			for (auto &it : t->quoted_tweet_ids) {
 				tpanel_subtweet_pending_op::CheckLoadQuotedTweet(ad.GetTweetById(it), subtd->vbox, window, subtd);
 			}
 		}
 
-		switch(data->type) {
+		switch (data->type) {
 			case tspo_type::INLINE_REPLY:
 				CheckLoadTweetReply(t, data->vbox, window, subtd, data->load_count - 1, parent_tds);
 				break;
+
 			case tspo_type::QUOTE:
 				CheckLoadTweetReply(t, subtd->vbox, window, subtd, 0, subtd);
 				break;
@@ -834,14 +866,16 @@ void tpanel_subtweet_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF>
 
 std::string tpanel_subtweet_pending_op::dump() {
 	const char *type = "(null)";
-	switch(action_data->type) {
+	switch (action_data->type) {
 		case tspo_type::INLINE_REPLY:
 			type = "inline tweet reply";
 			break;
+
 		case tspo_type::QUOTE:
 			type = "quoted tweet";
 			break;
 	}
+
 	return string_format("Push %s to tpanel: win: %s, parent tds: %s, parent tweet: %s",
 			type,
 			action_data->win ? cstr(action_data->win->GetThisName()) : "(null)",

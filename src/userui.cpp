@@ -38,14 +38,14 @@ END_EVENT_TABLE()
 
 void notebook_event_prehandler::OnPageChange(wxNotebookEvent &event) {
 	int i = event.GetSelection();
-	if(i >= 0) {
-		for(auto &it : timeline_pane_list) {
-			if(nb->GetPage(i) == it) {
+	if (i >= 0) {
+		for (auto &it : timeline_pane_list) {
+			if (nb->GetPage(i) == it) {
 				it->InitLoading();
 			}
 		}
-		for(auto &it : userlist_pane_list) {
-			if(nb->GetPage(i) == it) {
+		for (auto &it : userlist_pane_list) {
+			if (nb->GetPage(i) == it) {
 				it->InitLoading();
 			}
 		}
@@ -85,7 +85,7 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	CheckIfUserAlreadyInDBAndLoad(u);
 
 	std::shared_ptr<taccount> acc = acc_hint.lock();
-	if(acc && acc->enabled && u->NeedsUpdating(0) && !(u->udc_flags & UDC::LOOKUP_IN_PROGRESS) && !(u->udc_flags & UDC::BEING_LOADED_FROM_DB)) {
+	if (acc && acc->enabled && u->NeedsUpdating(0) && !(u->udc_flags & UDC::LOOKUP_IN_PROGRESS) && !(u->udc_flags & UDC::BEING_LOADED_FROM_DB)) {
 		acc->MarkUserPending(u);
 		acc->StartRestQueryPendings();
 	}
@@ -165,7 +165,9 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	std::function<std::shared_ptr<taccount>()> getacc = [safe_win_ptr]() -> std::shared_ptr<taccount> {
 		std::shared_ptr<taccount> uw_acc;
 		user_window *uw = safe_win_ptr.get();
-		if(uw) uw_acc = uw->acc_hint.lock();
+		if (uw) {
+			uw_acc = uw->acc_hint.lock();
+		}
 		return uw_acc;
 	};
 	auto getacc_tw = [getacc](tpanelparentwin_usertweets &src) -> std::shared_ptr<taccount> { return getacc(); };
@@ -203,12 +205,11 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	Refresh(false);
 	Thaw();
 
-	if(uwt_common.expired()) {
+	if (uwt_common.expired()) {
 		uwt = std::make_shared<user_window_timer>();
 		uwt_common = uwt;
 		uwt->Start(90000, false);
-	}
-	else {
+	} else {
 		uwt = uwt_common.lock();
 	}
 
@@ -218,10 +219,10 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 void user_window::OnSelChange(wxCommandEvent &event) {
 	int selection = accchoice->GetSelection();
 	acc_hint.reset();
-	if(selection != wxNOT_FOUND) {
+	if (selection != wxNOT_FOUND) {
 		taccount *acc = static_cast<taccount *>(accchoice->GetClientData(selection));
-		for(auto it = alist.begin(); it != alist.end(); it++) {
-			if((*it).get() == acc) {
+		for (auto it = alist.begin(); it != alist.end(); it++) {
+			if ((*it).get() == acc) {
 				acc_hint = *it;
 				break;
 			}
@@ -229,8 +230,7 @@ void user_window::OnSelChange(wxCommandEvent &event) {
 		RefreshAccState();
 		wxNotebookEvent evt(wxEVT_NULL, nb->GetId(), nb->GetSelection(), nb->GetSelection());
 		nb_prehndlr.OnPageChange(evt);
-	}
-	else {
+	} else {
 		RefreshAccState();
 	}
 }
@@ -243,19 +243,19 @@ void user_window::RefreshAccState() {
 	dmbtn->Show(!isownacc);
 	optional_observer_ptr<user_dm_index> dm_index = ad.GetExistingUserDMIndexById(userid);
 	dmconversationbtn->Show(dm_index && !dm_index->ids.empty());
-	if(!isownacc) {
+	if (!isownacc) {
 		RefreshFollow();
 	}
 
 	bool should_have_incoming_pane = isownacc && u->GetUser().u_flags & userdata::UF::ISPROTECTED;
 	bool should_have_outgoing_pane = isownacc;
 
-	if(should_have_incoming_pane && !incoming_pane) {
+	if (should_have_incoming_pane && !incoming_pane) {
 		incoming_pane = new tpanelparentwin_userproplisting(u, nb, [acc](tpanelparentwin_userproplisting &) { return acc; }, tpanelparentwin_userproplisting::TYPE::OWNINCOMINGFOLLOWLISTING);
 		nb->InsertPage(nb_tab_insertion_point, incoming_pane, wxT("Incoming"), false);
 		nb_prehndlr.userlist_pane_list.push_front(incoming_pane);
 	}
-	if(should_have_outgoing_pane && !outgoing_pane) {
+	if (should_have_outgoing_pane && !outgoing_pane) {
 		outgoing_pane = new tpanelparentwin_userproplisting(u, nb, [acc](tpanelparentwin_userproplisting &) { return acc; }, tpanelparentwin_userproplisting::TYPE::OWNOUTGOINGFOLLOWLISTING);
 		nb->InsertPage(nb_tab_insertion_point, outgoing_pane, wxT("Outgoing"), false);
 		nb_prehndlr.userlist_pane_list.push_front(outgoing_pane);
@@ -263,18 +263,18 @@ void user_window::RefreshAccState() {
 
 	auto remove_page = [&](tpanelparentwin_userproplisting *&ptr) {
 		nb_prehndlr.userlist_pane_list.remove(ptr);
-		for(size_t i = 0; i < nb->GetPageCount(); i++) {
-			if(nb->GetPage(i) == ptr) {
+		for (size_t i = 0; i < nb->GetPageCount(); i++) {
+			if (nb->GetPage(i) == ptr) {
 				nb->DeletePage(i);
 				ptr = nullptr;
 				break;
 			}
 		}
 	};
-	if(!should_have_incoming_pane && incoming_pane) {
+	if (!should_have_incoming_pane && incoming_pane) {
 		remove_page(incoming_pane);
 	}
-	if(!should_have_outgoing_pane && outgoing_pane) {
+	if (!should_have_outgoing_pane && outgoing_pane) {
 		remove_page(outgoing_pane);
 	}
 	SetNotebookMinSize();
@@ -284,23 +284,26 @@ void user_window::RefreshAccState() {
 
 void user_window::fill_accchoice() {
 	std::shared_ptr<taccount> acc = acc_hint.lock();
-	for(auto &it : alist) {
+	for (auto &it : alist) {
 		wxString accname = it->dispname;
-		if(!it->enabled) accname += wxT(" [disabled]");
+		if (!it->enabled) {
+			accname += wxT(" [disabled]");
+		}
 		accchoice->Append(accname, it.get());
-		if(it.get() == acc.get()) {
+		if (it.get() == acc.get()) {
 			accchoice->SetSelection(accchoice->GetCount() - 1);
 		}
 	}
 }
 
 static void set_uw_time_val(wxStaticText *st, const time_t &input) {
-	if(input) {
+	if (input) {
 		time_t updatetime;	//not used
 		wxString val = wxString::Format(wxT("%s (%s)"), getreltimestr(input, updatetime).c_str(), cfg_strftime(input).c_str());
 		st->SetLabel(val);
+	} else {
+		st->SetLabel(wxT(""));
 	}
-	else st->SetLabel(wxT(""));
 }
 
 void user_window::RefreshFollow(bool forcerefresh) {
@@ -311,43 +314,45 @@ void user_window::RefreshFollow(bool forcerefresh) {
 
 	auto fill_follow_field = [&](wxStaticText *st, bool ifollow) {
 		wxString value;
-		if(acc) {
+		if (acc) {
 			bool known = false;
 			auto it = acc->user_relations.find(userid);
-			if(it != acc->user_relations.end()) {
+			if (it != acc->user_relations.end()) {
 				user_relationship &ur = it->second;
-				if(ur.ur_flags & (ifollow ? URF::IFOLLOW_KNOWN : URF::FOLLOWSME_KNOWN)) {
+				if (ur.ur_flags & (ifollow ? URF::IFOLLOW_KNOWN : URF::FOLLOWSME_KNOWN)) {
 					known=true;
-					if(ur.ur_flags&(ifollow ? URF::IFOLLOW_TRUE : URF::FOLLOWSME_TRUE)) {
-						if(ifollow) fbm = FOLLOWBTNMODE::FBM_UNFOLLOW;
+					if (ur.ur_flags&(ifollow ? URF::IFOLLOW_TRUE : URF::FOLLOWSME_TRUE)) {
+						if (ifollow) fbm = FOLLOWBTNMODE::FBM_UNFOLLOW;
 						value = wxT("Yes");
-					}
-					else if(ur.ur_flags&(ifollow ? URF::IFOLLOW_PENDING : URF::FOLLOWSME_PENDING)) {
-						if(ifollow) fbm = FOLLOWBTNMODE::FBM_REMOVE_PENDING;
+					} else if (ur.ur_flags&(ifollow ? URF::IFOLLOW_PENDING : URF::FOLLOWSME_PENDING)) {
+						if (ifollow) fbm = FOLLOWBTNMODE::FBM_REMOVE_PENDING;
 						value = wxT("Pending");
-					}
-					else {
-						if(ifollow) fbm = FOLLOWBTNMODE::FBM_FOLLOW;
+					} else {
+						if (ifollow) fbm = FOLLOWBTNMODE::FBM_FOLLOW;
 						value = wxT("No");
 					}
 
 					time_t updtime = ifollow ? ur.ifollow_updtime : ur.followsme_updtime;
-					if(updtime && (time(nullptr) - updtime) > 180) {
+					if (updtime && (time(nullptr) - updtime) > 180) {
 						time_t updatetime;	//not used
 						value = wxString::Format(wxT("%s as of %s (%s)"), value.c_str(), getreltimestr(updtime, updatetime).c_str(), cfg_strftime(updtime).c_str());
 					}
-					if(updtime && forcerefresh) needupdate=true;
+					if (updtime && forcerefresh) {
+						needupdate = true;
+					}
 					st->SetLabel(value);
 				}
 			}
-			if(!known) {
-				if(acc->ta_flags & taccount::TAF::STREAM_UP && ifollow) st->SetLabel(wxT("No or Pending"));
-				else st->SetLabel(wxT("Unknown"));
+			if (!known) {
+				if (acc->ta_flags & taccount::TAF::STREAM_UP && ifollow) {
+					st->SetLabel(wxT("No or Pending"));
+				} else {
+					st->SetLabel(wxT("Unknown"));
+				}
 				fbm = FOLLOWBTNMODE::FBM_NONE;
 				needupdate = true;
 			}
-		}
-		else {
+		} else {
 			st->SetLabel(wxT("No Account"));
 			needupdate = true;
 		}
@@ -357,10 +362,11 @@ void user_window::RefreshFollow(bool forcerefresh) {
 	fill_follow_field(ifollow, true);
 	fill_follow_field(followsme, false);
 
-	switch(fbm) {
+	switch (fbm) {
 		case FOLLOWBTNMODE::FBM_UNFOLLOW:
 			followbtn->SetLabel(wxT("Unfollow"));
 			break;
+
 		case FOLLOWBTNMODE::FBM_REMOVE_PENDING:
 			//followbtn->SetLabel(wxT("Cancel Follow Request"));
 			//break;	//not implemented in twitter API
@@ -375,7 +381,7 @@ void user_window::RefreshFollow(bool forcerefresh) {
 	dmbtn->Enable(acc && acc->enabled);
 	follow_btn_mode = fbm;
 
-	if(needupdate && acc && acc->enabled) {
+	if (needupdate && acc && acc->enabled) {
 		acc->LookupFriendships(userid);
 	}
 
@@ -404,13 +410,12 @@ void user_window::Refresh(bool refreshimg) {
 	SetNotesTabTitle();
 
 	bool showurl = !u->GetUser().userurl.empty();
-	if(showurl) {
+	if (showurl) {
 		wxString wurl = wxstrstd(u->GetUser().userurl);
 		url->SetLabel(wurl);
 		url->SetURL(wurl);
 
-	}
-	else {
+	} else {
 		url->SetLabel(wxT("<empty>"));
 		url->SetURL(wxT("<empty>"));
 	}
@@ -423,7 +428,9 @@ void user_window::Refresh(bool refreshimg) {
 	set_uw_time_val(createtime, u->GetUser().createtime);
 	set_uw_time_val(lastupdate, (time_t) u->lastupdate);
 	id_str->SetLabel(wxString::Format(wxT("%" wxLongLongFmtSpec "d"), u->id));
-	if(refreshimg) usericon->SetBitmap(u->cached_profile_img);
+	if (refreshimg) {
+		usericon->SetBitmap(u->cached_profile_img);
+	}
 
 	RefreshAccState();
 	Layout();
@@ -448,7 +455,7 @@ void user_window::OnClose(wxCloseEvent &event) {
 
 void user_window::OnRefreshBtn(wxCommandEvent &event) {
 	std::shared_ptr<taccount> acc = acc_hint.lock();
-	if(acc && acc->enabled && !(u->udc_flags & UDC::LOOKUP_IN_PROGRESS) && !(u->udc_flags & UDC::BEING_LOADED_FROM_DB)) {
+	if (acc && acc->enabled && !(u->udc_flags & UDC::LOOKUP_IN_PROGRESS) && !(u->udc_flags & UDC::BEING_LOADED_FROM_DB)) {
 		acc->MarkUserPending(u);
 		u->udc_flags |= UDC::FORCE_REFRESH;
 		acc->StartRestQueryPendings();
@@ -458,14 +465,15 @@ void user_window::OnRefreshBtn(wxCommandEvent &event) {
 
 void user_window::OnFollowBtn(wxCommandEvent &event) {
 	std::shared_ptr<taccount> acc=acc_hint.lock();
-	if(follow_btn_mode != FOLLOWBTNMODE::FBM_NONE && acc && acc->enabled && !(u->udc_flags & UDC::FRIENDACT_IN_PROGRESS)) {
+	if (follow_btn_mode != FOLLOWBTNMODE::FBM_NONE && acc && acc->enabled && !(u->udc_flags & UDC::FRIENDACT_IN_PROGRESS)) {
 		u->udc_flags |= UDC::FRIENDACT_IN_PROGRESS;
 		followbtn->Enable(false);
 		twitcurlext_simple::CONNTYPE type;
-		if(follow_btn_mode == FOLLOWBTNMODE::FBM_FOLLOW)
+		if (follow_btn_mode == FOLLOWBTNMODE::FBM_FOLLOW) {
 			type = twitcurlext_simple::CONNTYPE::FRIENDACTION_FOLLOW;
-		else
+		} else {
 			type = twitcurlext_simple::CONNTYPE::FRIENDACTION_UNFOLLOW;
+		}
 		std::unique_ptr<twitcurlext_simple> twit = twitcurlext_simple::make_new(acc, type);
 		twit->extra_id = userid;
 		twitcurlext::QueueAsyncExec(std::move(twit));
@@ -474,21 +482,24 @@ void user_window::OnFollowBtn(wxCommandEvent &event) {
 
 void user_window::OnDMBtn(wxCommandEvent &event) {
 	mainframe *win = GetMainframeAncestor(this);
-	if(!win)
+	if (!win) {
 		win = mainframelist.front();
-	if(win) {
+	}
+	if (win) {
 		std::shared_ptr<taccount> acc = acc_hint.lock();
-		if(acc)
+		if (acc) {
 			win->tpw->accc->TrySetSel(acc.get());
+		}
 		win->tpw->SetDMTarget(u);
 	}
 }
 
 void user_window::OnDMConversationBtn(wxCommandEvent &event) {
 	mainframe *win = GetMainframeAncestor(this);
-	if(!win)
+	if (!win) {
 		win = mainframelist.front();
-	if(win) {
+	}
+	if (win) {
 		auto tp = tpanel::MkTPanel("", "", TPF::DELETEONWINCLOSE, {}, { { TPFU::DMSET, u } });
 		tp->MkTPanelWin(win, true);
 	}
@@ -502,7 +513,7 @@ void user_window::OnNotesTextChange(wxCommandEvent &event) {
 	u->GetUser().revision_number++;
 	u->lastupdate_wrotetodb = 0;
 
-	if(u->GetUser().notes.empty() != old_notes.empty()) {
+	if (u->GetUser().notes.empty() != old_notes.empty()) {
 		SetNotesTabTitle();
 		SetNotebookMinSize();
 		Layout();
@@ -511,12 +522,11 @@ void user_window::OnNotesTextChange(wxCommandEvent &event) {
 }
 
 void user_window::SetNotesTabTitle() {
-	for(size_t i = 0; i < nb->GetPageCount(); i++) {
-		if(nb->GetPage(i) == notes_tab) {
-			if(u->GetUser().notes.empty()) {
+	for (size_t i = 0; i < nb->GetPageCount(); i++) {
+		if (nb->GetPage(i) == notes_tab) {
+			if (u->GetUser().notes.empty()) {
 				nb->SetPageText(i, wxT("Notes"));
-			}
-			else {
+			} else {
 				nb->SetPageText(i, wxT("Notes*"));
 			}
 			break;
@@ -527,7 +537,7 @@ void user_window::SetNotesTabTitle() {
 // This makes sure that the window is wide enough that all of the notebook tabs fit
 void user_window::SetNotebookMinSize() {
 	int total_width = 0;
-	for(size_t i = 0; i < nb->GetPageCount(); i++) {
+	for (size_t i = 0; i < nb->GetPageCount(); i++) {
 		auto win = nb->GetPage(i);
 		int x;
 		win->GetTextExtent(nb->GetPageText(i), &x, nullptr);
@@ -539,22 +549,26 @@ void user_window::SetNotebookMinSize() {
 
 user_window *user_window::GetWin(uint64_t userid_) {
 	auto it = userwinmap.find(userid_);
-	if(it != userwinmap.end()) return it->second;
-	else return 0;
+	if (it != userwinmap.end()) {
+		return it->second;
+	} else {
+		return 0;
+	}
 }
 
 user_window *user_window::MkWin(uint64_t userid_, const std::shared_ptr<taccount> &acc_hint_) {
 	user_window *cur = GetWin(userid_);
-	if(cur) {
+	if (cur) {
 		cur->Show();
 		cur->Raise();
 		return cur;
+	} else {
+		return new user_window(userid_, acc_hint_);
 	}
-	else return new user_window(userid_, acc_hint_);
 }
 
 void user_window::RefreshAllAcc() {
-	for(auto it = userwinmap.begin(); it != userwinmap.end(); ++it) {
+	for (auto it = userwinmap.begin(); it != userwinmap.end(); ++it) {
 		it->second->CheckAccHint();
 		it->second->fill_accchoice();
 		it->second->RefreshFollow();
@@ -562,26 +576,26 @@ void user_window::RefreshAllAcc() {
 }
 
 void user_window::RefreshAllFollow() {
-	for(auto it = userwinmap.begin(); it != userwinmap.end(); ++it) {
+	for (auto it = userwinmap.begin(); it != userwinmap.end(); ++it) {
 		it->second->Refresh();
 	}
 }
 
 void user_window::RefreshAll() {
-	for(auto it = userwinmap.begin(); it != userwinmap.end(); ++it) {
+	for (auto it = userwinmap.begin(); it != userwinmap.end(); ++it) {
 		it->second->Refresh();
 	}
 }
 
 void user_window::CloseAll() {
-	for(auto it = userwinmap.begin(); it != userwinmap.end(); ++it) {
+	for (auto it = userwinmap.begin(); it != userwinmap.end(); ++it) {
 		it->second->Destroy();
 	}
 }
 
 void user_window::CheckRefresh(uint64_t userid_, bool refreshimg) {
 	user_window *cur = GetWin(userid_);
-	if(cur) {
+	if (cur) {
 		cur->Refresh(refreshimg);
 	}
 }
@@ -597,7 +611,7 @@ EVT_TEXT_ENTER(wxID_FILE2, user_lookup_dlg::OnTCEnter)
 END_EVENT_TABLE()
 
 user_lookup_dlg::user_lookup_dlg(wxWindow *parent, int *type, wxString *value, std::shared_ptr<taccount> &acc)
-	: wxDialog(parent, wxID_ANY, wxT("Enter user name or ID to look up"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE), curacc(acc) {
+		: wxDialog(parent, wxID_ANY, wxT("Enter user name or ID to look up"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE), curacc(acc) {
 
 	const wxString opts[2] = {wxT("User screen name"), wxT("User numeric identifier")};
 	*type = 0;
@@ -635,10 +649,10 @@ END_EVENT_TABLE()
 
 acc_choice::acc_choice(wxWindow *parent, std::shared_ptr<taccount> &acc, flagwrapper<ACCCF> flags_, int winid, acc_choice_callback callbck, void *extra)
 	: wxChoice(parent, winid, wxDefaultPosition, wxDefaultSize, 0, 0), curacc(acc), flags(flags_), fnptr(callbck), fnextra(extra) {
-	if(!acc.get()) {
-		for(auto &it : alist) {
+	if (!acc.get()) {
+		for (auto &it : alist) {
 			acc = it;
-			if(it->enabled) break;
+			if (it->enabled) break;
 		}
 	}
 	fill_acc();
@@ -646,14 +660,18 @@ acc_choice::acc_choice(wxWindow *parent, std::shared_ptr<taccount> &acc, flagwra
 
 void acc_choice::fill_acc() {
 	Clear();
-	for(auto &it : alist) {
+	for (auto &it : alist) {
 		wxString accname = it->dispname;
 		wxString status = it->GetStatusString(true);
-		if(status.size()) accname += wxT(" [") + status + wxT("]");
+		if (status.size()) {
+			accname += wxT(" [") + status + wxT("]");
+		}
 		int index = Append(accname, it.get());
-		if(it.get() == curacc.get()) SetSelection(index);
+		if (it.get() == curacc.get()) {
+			SetSelection(index);
+		}
 	}
-	if((GetCount() == 0) && (flags & ACCCF::NOACCITEM)) {
+	if ((GetCount() == 0) && (flags & ACCCF::NOACCITEM)) {
 		int index = Append(wxT("[No Accounts]"), (void *) 0);
 		SetSelection(index);
 	}
@@ -668,38 +686,45 @@ void acc_choice::UpdateSel() {
 	bool havegoodacc = false;
 	bool haveanyacc = false;
 	int selection = GetSelection();
-	if(selection != wxNOT_FOUND) {
+	if (selection != wxNOT_FOUND) {
 		taccount *accptr = static_cast<taccount *>(GetClientData(selection));
-		for(auto &it : alist) {
-			if(it.get() == accptr) {
+		for (auto &it : alist) {
+			if (it.get() == accptr) {
 				haveanyacc = true;
 				curacc = it;
-				if(it->enabled) havegoodacc = true;
+				if (it->enabled) {
+					havegoodacc = true;
+				}
 				break;
 			}
 		}
 	}
-	if(!haveanyacc) {
+	if (!haveanyacc) {
 		curacc.reset();
 	}
-	if(flags & ACCCF::OKBTNCTRL) {
+	if (flags & ACCCF::OKBTNCTRL) {
 		wxWindow *topparent = this;
-		while(topparent) {
-			if(topparent->IsTopLevel()) break;
-			else topparent = topparent->GetParent();
+		while (topparent) {
+			if (topparent->IsTopLevel()) {
+				break;
+			} else {
+				topparent = topparent->GetParent();
+			}
 		}
 		wxWindow *okbtn = wxWindow::FindWindowById(wxID_OK, topparent);
-		if(okbtn) {
+		if (okbtn) {
 			okbtn->Enable(havegoodacc);
 		}
 	}
-	if(fnptr) (*fnptr)(fnextra, this, havegoodacc);
+	if (fnptr) {
+		(*fnptr)(fnextra, this, havegoodacc);
+	}
 }
 
 void acc_choice::TrySetSel(const taccount *tac) {
-	for(unsigned int i = 0; i < GetCount(); i++) {
-		if(GetClientData(i) == tac) {
-			if((int) i != GetSelection()) {
+	for (unsigned int i = 0; i < GetCount(); i++) {
+		if (GetClientData(i) == tac) {
+			if ((int) i != GetSelection()) {
 				SetSelection(i);
 				UpdateSel();
 			}

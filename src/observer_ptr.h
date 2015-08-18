@@ -68,11 +68,13 @@ class observer_ptr {
 	reference operator*() const noexcept { return *ptr; }
 	pointer operator->() const noexcept { return ptr; }
 	explicit operator bool() const noexcept { return ptr; }
+
 	pointer release() noexcept {
 		pointer old = ptr;
 		ptr = nullptr;
 		return old;
 	}
+
 	void reset(pointer p = nullptr) noexcept { ptr = p; }
 	void swap(observer_ptr<T> &o) noexcept { std::swap(o.ptr, ptr); }
 };

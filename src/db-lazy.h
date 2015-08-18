@@ -67,8 +67,9 @@ class db_lazy_tweet {
 	flagwrapper<LF> loaded_flags = 0;
 
 	bool NeedsLoading(flagwrapper<LF> flag) {
-		if(loaded_flags & flag)
+		if (loaded_flags & flag) {
 			return false;
+		}
 		loaded_flags |= flag;
 		return true;
 	}
@@ -159,8 +160,9 @@ class db_lazy_user {
 	flagwrapper<LF> loaded_flags = 0;
 
 	bool NeedsLoading(flagwrapper<LF> flag) {
-		if(loaded_flags & flag)
+		if (loaded_flags & flag) {
 			return false;
+		}
 		loaded_flags |= flag;
 		return true;
 	}

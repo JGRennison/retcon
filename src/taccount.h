@@ -93,7 +93,7 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 	unsigned long restinterval;    //seconds
 
 	uint64_t &GetMaxId(RBFS_TYPE type) {
-		switch(type) {
+		switch (type) {
 			case RBFS_TWEETS: return max_tweet_id;
 			case RBFS_MENTIONS: return (gc.assumementionistweet) ? max_tweet_id : max_mention_id;
 			case RBFS_RECVDM: return max_recvdm_id;

@@ -30,7 +30,7 @@
 // Do not run this at any point other than at termination after writing all state to DB and closing DB connection
 void DebugFinalChecks() {
 	#ifndef __WINDOWS__
-	if(logimpl_flags & LOGIMPLF::LOGMEMUSAGE && currentlogflags & (LOGT::OTHERTRACE | LOGT::USERREQ)) {
+	if (logimpl_flags & LOGIMPLF::LOGMEMUSAGE && currentlogflags & (LOGT::OTHERTRACE | LOGT::USERREQ)) {
 		DebugDestructAlldata();
 	}
 	#endif

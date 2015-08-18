@@ -46,7 +46,7 @@ struct tweet_flags {
 
 	static constexpr ssize_t GetFlagNum(char in) {
 		return (in >= '0' && in <= '9')
-			? in-'0'
+			? in - '0'
 			: ((in >= 'a' && in <= 'z')
 				? 10 + in - 'a'
 				: ((in >= 'A' && in <= 'Z')
@@ -56,7 +56,7 @@ struct tweet_flags {
 			  );
 	}
 	static constexpr char GetFlagChar(size_t in) {
-		return (in<10)
+		return (in < 10)
 			? in + '0'
 			: ((in >= 10 && in < 36)
 				? in + 'a' - 10
@@ -68,7 +68,7 @@ struct tweet_flags {
 
 	static unsigned long long GetFlagStringValue(const std::string &in) {
 		unsigned long long out = 0;
-		for(auto &it : in) {
+		for (auto &it : in) {
 			out |= GetFlagValue(it);
 		}
 		return out;
@@ -77,22 +77,28 @@ struct tweet_flags {
 
 	bool Get(char in) const {
 		ssize_t num = GetFlagNum(in);
-		if(num >= 0) return bits.test(num);
-		else return 0;
+		if (num >= 0) {
+			return bits.test(num);
+		} else {
+			return 0;
+		}
 	}
 
 	void Set(char in, bool value = true) {
 		ssize_t num = GetFlagNum(in);
-		if(num >= 0) bits.set(num, value);
+		if (num >= 0) {
+			bits.set(num, value);
+		}
 	}
 
 	bool Toggle(char in) {
 		ssize_t num = GetFlagNum(in);
-		if(num >= 0) {
+		if (num >= 0) {
 			bits.flip(num);
 			return bits.test(num);
+		} else {
+			return 0;
 		}
-		else return 0;
 	}
 
 	unsigned long long ToULLong() const {

@@ -24,7 +24,7 @@ alldata ad;
 udc_ptr alldata::GetUserContainerById(uint64_t id) {
 	auto it = userconts.insert(std::make_pair(id, udc_ptr()));
 	udc_ptr &usercont = it.first->second;
-	if(it.second) {
+	if (it.second) {
 		//new user
 		usercont.reset(new userdatacontainer());
 		usercont->id = id;
@@ -34,19 +34,18 @@ udc_ptr alldata::GetUserContainerById(uint64_t id) {
 
 optional_udc_ptr alldata::GetExistingUserContainerById(uint64_t id) {
 	auto it = userconts.find(id);
-	if(it != userconts.end()) {
+	if (it != userconts.end()) {
 		return it->second;
-	}
-	else {
+	} else {
 		return nullptr;
 	}
 }
 
 tweet_ptr alldata::GetTweetById(uint64_t id, bool *isnew) {
 	auto it = tweetobjs.insert(std::make_pair(id, tweet_ptr()));
-	if(isnew) *isnew = it.second;
+	if (isnew) *isnew = it.second;
 	tweet_ptr &t = it.first->second;
-	if(it.second) {
+	if (it.second) {
 		//new tweet
 		t.reset(new tweet());
 		t->id = id;
@@ -56,10 +55,9 @@ tweet_ptr alldata::GetTweetById(uint64_t id, bool *isnew) {
 
 optional_tweet_ptr alldata::GetExistingTweetById(uint64_t id) {
 	auto it = tweetobjs.find(id);
-	if(it != tweetobjs.end()) {
+	if (it != tweetobjs.end()) {
 		return it->second;
-	}
-	else {
+	} else {
 		return nullptr;
 	}
 }
@@ -70,7 +68,7 @@ void alldata::UnlinkTweetById(uint64_t id) {
 
 optional_observer_ptr<user_dm_index> alldata::GetExistingUserDMIndexById(uint64_t id) {
 	auto it = user_dm_indexes.find(id);
-	if(it != user_dm_indexes.end()) {
+	if (it != user_dm_indexes.end()) {
 		return &(it->second);
 	}
 	return nullptr;

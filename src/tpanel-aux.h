@@ -159,9 +159,9 @@ struct tpanel_subtweet_pending_op : public pending_op {
 	tpanel_subtweet_pending_op(wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *parent_tds_, unsigned int load_count_, tspo_type type_);
 
 	static void CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, tpanelparentwin_nt *s, tweetdispscr *tds,
-		unsigned int load_count, tweetdispscr *parent_tds);
+			unsigned int load_count, tweetdispscr *parent_tds);
 	static void CheckLoadQuotedTweet(tweet_ptr_p quote_tweet, wxSizer *v, tpanelparentwin_nt *s,
-		tweetdispscr *parent_tds);
+			tweetdispscr *parent_tds);
 
 	virtual void MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags);
 	virtual std::string dump();

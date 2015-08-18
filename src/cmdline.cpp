@@ -89,15 +89,16 @@ int cmdlineproc(wxChar **argv, int argc) {
 		switch(args.OptionId()) {
 			case OPT_LOGWIN: {
 				LOGT flagmask = StrToLogFlags(stdstrwx(args.OptionArg()));
-				if(!globallogwindow) new log_window(nullptr, flagmask, true);
-				else {
+				if (!globallogwindow) {
+					new log_window(nullptr, flagmask, true);
+				} else {
 					globallogwindow->lo_flags = flagmask;
 					Update_currentlogflags();
 				}
 				break;
 			}
 			case OPT_FILE: {
-				if(args.m_nNextOption + 1 > args.m_nLastArg) {
+				if (args.m_nNextOption + 1 > args.m_nLastArg) {
 					wxLogError(wxT("Command line processing error: -f/--log-file requires filename argument, arg: %s"), args.OptionText());
 					return 1;
 				}

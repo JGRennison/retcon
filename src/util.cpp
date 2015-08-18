@@ -30,7 +30,7 @@ void hexify_char(std::string &out, unsigned char c) {
 std::string hexify(const char *in, size_t len) {
 	std::string out;
 	out.reserve(2 * len);
-	for(size_t i = 0; i < len; i++) {
+	for (size_t i = 0; i < len; i++) {
 		const unsigned char c = (const unsigned char) in[i];
 		hexify_char(out, c);
 	}
@@ -41,7 +41,7 @@ wxString hexify_wx(const char *in, size_t len) {
 	const wxChar hex[] = wxT("0123456789ABCDEF");
 	wxString out;
 	out.Alloc(2 * len);
-	for(size_t i = 0; i < len; i++) {
+	for (size_t i = 0; i < len; i++) {
 		const unsigned char c = (const unsigned char) in[i];
 		out.Append(hex[c >> 4]);
 		out.Append(hex[c & 15]);
@@ -72,42 +72,36 @@ std::string rc_strftime(const std::string &format, const struct tm *tm, time_t t
 	std::string &real_format = newfmt;
 	const char *ch = format.c_str();
 	const char *cur = ch;
-	while(*ch) {
-		if(ch[0] == '%') {
+	while (*ch) {
+		if (ch[0] == '%') {
 			std::string insert;
-			if(ch[1] == 'z') {
+			if (ch[1] == 'z') {
 				int hh;
 				int mm;
-				if(localtime) {
+				if (localtime) {
 					TIME_ZONE_INFORMATION info;
 					DWORD res = GetTimeZoneInformation(&info);
 					int bias = - info.Bias;
-					if(res == TIME_ZONE_ID_DAYLIGHT) bias -= info.DaylightBias;
+					if (res == TIME_ZONE_ID_DAYLIGHT) bias -= info.DaylightBias;
 					hh = bias / 60;
-					if(bias < 0) bias =- bias;
+					if (bias < 0) bias =- bias;
 					mm = bias % 60;
-				}
-				else {
+				} else {
 					hh = mm = 0;
 				}
 				insert = string_format("%+03d%02d", hh, mm);
-			}
-			else if(ch[1] == 'F') {
+			} else if (ch[1] == 'F') {
 				insert = "%Y-%m-%d";
-			}
-			else if(ch[1] == 'R') {
+			} else if (ch[1] == 'R') {
 				insert = "%H:%M";
-			}
-			else if(ch[1] == 'T') {
+			} else if (ch[1] == 'T') {
 				insert = "%H:%M:%S";
-			}
-			else if(ch[1] == 's') {
+			} else if (ch[1] == 's') {
 				insert = string_format("%" llFmtSpec "d", (long long int) timestamp);
-			}
-			else if(ch[1]) {
+			} else if (ch[1]) {
 				ch++;
 			}
-			if(insert.length()) {
+			if (insert.length()) {
 				real_format.insert(real_format.end(), cur, ch); // Add up to current point
 				real_format += insert;
 				cur = ch + 2; // Update point where next add will start from

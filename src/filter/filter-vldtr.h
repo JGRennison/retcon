@@ -29,31 +29,38 @@ struct FilterTextValidator : public wxTextValidator {
 	filter_set &fs;
 	wxString *valPtr;
 	std::shared_ptr<filter_set> ownfilter;
+
 	FilterTextValidator(filter_set &fs_, wxString *valPtr_ = nullptr)
 			: wxTextValidator((long) wxFILTER_NONE, valPtr_), fs(fs_), valPtr(valPtr_) {
 	}
+
 	virtual wxObject *Clone() const {
 		FilterTextValidator *newfv = new FilterTextValidator(fs, valPtr);
 		newfv->ownfilter = ownfilter;
 		return newfv;
 	}
+
 	virtual bool TransferFromWindow() {
 		bool result = wxTextValidator::TransferFromWindow();
-		if(result && ownfilter) {
+		if (result && ownfilter) {
 			fs = std::move(*ownfilter);
 		}
 		return result;
 	}
+
 	virtual bool Validate(wxWindow *parent) {
 		wxTextCtrl *win = (wxTextCtrl *) GetWindow();
 
-		if(!ownfilter) ownfilter = std::make_shared<filter_set>();
+		if (!ownfilter) {
+			ownfilter = std::make_shared<filter_set>();
+		}
+
 		std::string errmsg;
 		ParseFilter(stdstrwx(win->GetValue()), *ownfilter, errmsg);
-		if(errmsg.empty()) {
+
+		if (errmsg.empty()) {
 			return true;
-		}
-		else {
+		} else {
 			::wxMessageBox(wxT("Filter is not valid, please correct errors.\n") + wxstrstd(errmsg),
 					wxT("Filter Validation Failed"), wxOK | wxICON_EXCLAMATION, parent);
 			return false;

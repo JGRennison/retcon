@@ -28,17 +28,16 @@ db_lazy_stmt::db_lazy_stmt(sqlite3 *db, DBPSC_TYPE type) {
 
 sqlite3_stmt *db_lazy_stmt::LookupID(sqlite3 *db, uint64_t id, bool &refreshed) {
 	sqlite3_stmt *s = stmt.stmt();
-	if(id != current_id) {
+	if (id != current_id) {
 		sqlite3_reset(s);
 		sqlite3_bind_int64(s, 1, (sqlite3_int64) id);
 		int res = sqlite3_step(s);
-		if(res != SQLITE_ROW) {
+		if (res != SQLITE_ROW) {
 			DBDoErr("db_lazy_stmt::LookupID", db, s, res);
 		}
 		current_id = id;
 		refreshed = true;
-	}
-	else {
+	} else {
 		refreshed = false;
 	}
 	return s;
@@ -50,18 +49,19 @@ db_lazy_tweet::db_lazy_tweet(sqlite3 *db_)
 void db_lazy_tweet::LoadTweetID(uint64_t id) {
 	bool refreshed;
 	lstmt.LookupID(db, id, refreshed);
-	if(refreshed)
+	if (refreshed) {
 		loaded_flags = 0;
+	}
 }
 
 void db_lazy_tweet::GetStatJson() {
-	if(NeedsLoading(LF::STATJSON)) {
+	if (NeedsLoading(LF::STATJSON)) {
 		statjson_buffer = column_get_compressed_and_parse(lstmt.GetCurrentStmt(), 0, statjson);
 	}
 }
 
 uint64_t db_lazy_tweet::GetUint64Generic(flagwrapper<LF> flag, uint64_t &value, int column) {
-	if(NeedsLoading(flag)) {
+	if (NeedsLoading(flag)) {
 		value = (uint64_t) sqlite3_column_int64(lstmt.GetCurrentStmt(), column);
 	}
 
@@ -69,7 +69,7 @@ uint64_t db_lazy_tweet::GetUint64Generic(flagwrapper<LF> flag, uint64_t &value, 
 }
 
 const std::string &db_lazy_tweet::GetJsonStringGeneric(flagwrapper<LF> flag, std::string &value, const char *key) {
-	if(NeedsLoading(flag)) {
+	if (NeedsLoading(flag)) {
 		GetStatJson();
 		parse_util::CheckTransJsonValueDef(value, statjson, key, "");
 	}
@@ -106,18 +106,19 @@ db_lazy_user::db_lazy_user(sqlite3 *db_)
 void db_lazy_user::LoadUserID(uint64_t id) {
 	bool refreshed;
 	lstmt.LookupID(db, id, refreshed);
-	if(refreshed)
+	if (refreshed) {
 		loaded_flags = 0;
+	}
 }
 
 void db_lazy_user::GetUserJson() {
-	if(NeedsLoading(LF::USERJSON)) {
+	if (NeedsLoading(LF::USERJSON)) {
 		userjson_buffer = column_get_compressed_and_parse(lstmt.GetCurrentStmt(), 0, userjson);
 	}
 }
 
 const std::string &db_lazy_user::GetJsonStringGeneric(flagwrapper<LF> flag, std::string &value, const char *key) {
-	if(NeedsLoading(flag)) {
+	if (NeedsLoading(flag)) {
 		GetUserJson();
 		parse_util::CheckTransJsonValueDef(value, userjson, key, "");
 	}

@@ -71,25 +71,25 @@ void LogMsgRaw(LOGT logflags, const std::string &str);
 void LogMsgProcess(LOGT logflags, const std::string &str);
 void Update_currentlogflags();
 
-#define LogMsg(l, s) if( currentlogflags & (l) ) LogMsgProcess(l, s)
-#define LogMsgFormat(l, ...) if( currentlogflags & (l) ) LogMsgProcess(l, string_format(__VA_ARGS__))
+#define LogMsg(l, s) if (currentlogflags & (l)) LogMsgProcess(l, s)
+#define LogMsgFormat(l, ...) if (currentlogflags & (l)) LogMsgProcess(l, string_format(__VA_ARGS__))
 
 void ThreadSafeLogMsg(LOGT logflags, const std::string &str);
 
-#define TSLogMsgFormat(l, ...) if( currentlogflags & (l) ) ThreadSafeLogMsg(l, string_format(__VA_ARGS__))
-#define TSLogMsg(l, s) if( currentlogflags & (l) ) ThreadSafeLogMsg(l, s)
+#define TSLogMsgFormat(l, ...) if (currentlogflags & (l)) ThreadSafeLogMsg(l, string_format(__VA_ARGS__))
+#define TSLogMsg(l, s) if (currentlogflags & (l)) ThreadSafeLogMsg(l, s)
 
 void ThreadAlwaysLogMsg(LOGT logflags, const std::string &str);
 
-#define TALogMsgFormat(l, ...) if( currentlogflags & (l) ) ThreadAlwaysLogMsg(l, string_format(__VA_ARGS__))
-#define TALogMsg(l, s) if( currentlogflags & (l) ) ThreadAlwaysLogMsg(l, s)
+#define TALogMsgFormat(l, ...) if (currentlogflags & (l)) ThreadAlwaysLogMsg(l, string_format(__VA_ARGS__))
+#define TALogMsg(l, s) if (currentlogflags & (l)) ThreadAlwaysLogMsg(l, s)
 
 inline void SwitchableLogMsg(LOGT logflags, bool threadsafe, const std::string &str) {
-	if(threadsafe) ThreadSafeLogMsg(logflags, str);
+	if (threadsafe) ThreadSafeLogMsg(logflags, str);
 	else LogMsgProcess(logflags, str);
 }
 
-#define SLogMsgFormat(l, ts, ...) if( currentlogflags & (l) ) SwitchableLogMsg(l, ts, string_format(__VA_ARGS__))
-#define SLogMsg(l, ts, s) if( currentlogflags & (l) ) SwitchableLogMsg(l, ts, s)
+#define SLogMsgFormat(l, ts, ...) if (currentlogflags & (l)) SwitchableLogMsg(l, ts, string_format(__VA_ARGS__))
+#define SLogMsg(l, ts, s) if (currentlogflags & (l)) SwitchableLogMsg(l, ts, s)
 
 #endif

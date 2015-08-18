@@ -59,12 +59,16 @@ class intrusive_ptr : public intrusive_ptr_common<T> {
 
 	private:
 	void initptr(pointer newptr) {
-		if(newptr) newptr->intrusive_ptr_increment();
+		if (newptr) {
+			newptr->intrusive_ptr_increment();
+		}
 		this->ptr = newptr;
 	}
 
 	void unsetptr() {
-		if(this->ptr) this->ptr->intrusive_ptr_decrement();
+		if (this->ptr) {
+			this->ptr->intrusive_ptr_decrement();
+		}
 		this->ptr = nullptr;
 	}
 
@@ -157,7 +161,9 @@ struct intrusive_ptr_target_base {
 	}
 	void intrusive_ptr_decrement() {
 		refcount--;
-		if(refcount == 0) delete this;
+		if (refcount == 0) {
+			delete this;
+		}
 	}
 	int GetRefcount() const {
 		return refcount;

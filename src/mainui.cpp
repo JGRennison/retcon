@@ -77,7 +77,9 @@ mainframe::mainframe(const wxString& title, const wxPoint& pos, const wxSize& si
 		: wxFrame(nullptr, -1, DecorateTitle(title), pos, size), origtitle(title) {
 	nominal_pos = pos;
 	nominal_size = size;
-	if(maximise) Maximize(true);
+	if (maximise) {
+		Maximize(true);
+	}
 
 	mainframelist.push_back(this);
 
@@ -124,7 +126,7 @@ void mainframe::OnQuit(wxCommandEvent &event) {
 	SaveWindowLayout();
 	ad.twinlayout_final = true;
 	std::vector<mainframe *> tempmf = mainframelist;
-	for(auto &mf : tempmf) {
+	for (auto &mf : tempmf) {
 		mf->Close(true);
 	}
 }
@@ -142,14 +144,18 @@ void mainframe::OnAccounts(wxCommandEvent &event) {
 	acc->Destroy();
 }
 void mainframe::OnViewlog(wxCommandEvent &event) {
-	if(globallogwindow) globallogwindow->LWShow(true);
+	if (globallogwindow) {
+		globallogwindow->LWShow(true);
+	}
 }
 void mainframe::OnClose(wxCloseEvent &event) {
 	LogMsgFormat(LOGT::OTHERTRACE, "mainframe::OnClose: %p, %d mainframes", this, mainframelist.size());
 	SaveWindowLayout();
 	mainframelist.erase(std::remove(mainframelist.begin(), mainframelist.end(), this), mainframelist.end());
-	if(mainframelist.empty()) {
-		if(globallogwindow) globallogwindow->Destroy();
+	if (mainframelist.empty()) {
+		if (globallogwindow) {
+			globallogwindow->Destroy();
+		}
 		user_window::CloseAll();
 	}
 	Destroy();
@@ -159,7 +165,7 @@ mainframe::~mainframe() {
 	//OK to try this twice, must definitely happen at least once though
 	mainframelist.erase(std::remove(mainframelist.begin(), mainframelist.end(), this), mainframelist.end());
 
-	if(tpw) {
+	if (tpw) {
 		tpw->mparentwin = nullptr;
 		tpw->AUIMNoLongerValid();
 	}
@@ -169,8 +175,10 @@ mainframe::~mainframe() {
 
 	LogMsgFormat(LOGT::OTHERTRACE, "Deleting mainframe: %p, %d mainframes, top win: %p, popup recursion: %d", this, mainframelist.size(), wxGetApp().GetTopWindow(), wxGetApp().popuprecursion);
 
-	if(mainframelist.empty()) {
-		if(globallogwindow) globallogwindow->Destroy();
+	if (mainframelist.empty()) {
+		if (globallogwindow) {
+			globallogwindow->Destroy();
+		}
 		user_window::CloseAll();
 		wxExit(); // Be a bit more aggressive in terminating program, no point hanging around at this point
 	}
@@ -183,35 +191,32 @@ void mainframe::OnMouseWheel(wxMouseEvent &event) {
 void mainframe::OnMenuOpen(wxMenuEvent &event) {
 	last_menu_opened_mainframe = this;
 
-	if(event.GetMenu() == tpmenu) {
+	if (event.GetMenu() == tpmenu) {
 		MakeTPanelMenu(tpmenu, tpm);
-	}
-	else if(event.GetMenu() == lookupmenu) {
+	} else if (event.GetMenu() == lookupmenu) {
 		DestroyMenuContents(lookupmenu);
 		proflookupidmap.clear();
 
 		int nextid = lookupprofilestartid;
 		lookupmenu->Append(ID_UserLookup, wxT("&Lookup User"));
 		wxMenu *profmenu = new wxMenu;
-		for(auto &it : alist) {
+		for (auto &it : alist) {
 			profmenu->Append(nextid, it->dispname);
 			proflookupidmap[nextid] = it->dbindex;
 			nextid++;
 		}
 		lookupmenu->AppendSubMenu(profmenu, wxT("&Own Profile"));
-	}
-	else if(event.GetMenu() == filemenu) {
+	} else if (event.GetMenu() == filemenu) {
 		DestroyMenuContents(filemenu);
 		undo::undo_stack &us = wxGetApp().undo_state;
-		if(us.GetTopItem()) {
+		if (us.GetTopItem()) {
 			filemenu->Append(ID_Undo, wxString::Format(wxT("&Undo %s"), wxstrstd(us.GetTopItem()->GetName()).c_str()));
-		}
-		else {
+		} else {
 			filemenu->Append(ID_Undo, wxT("&Undo"))->Enable(false);
 		}
 		filemenu->AppendSeparator();
 
-		if(gc.show_import_stream_menu_item) {
+		if (gc.show_import_stream_menu_item) {
 			filemenu->Append(ID_ImportStream, wxT("&Import Stream File"));
 		}
 		filemenu->Append(ID_Viewlog, wxT("View &Log"));
@@ -222,8 +227,10 @@ void mainframe::OnMenuOpen(wxMenuEvent &event) {
 
 void mainframe::OnOwnProfileMenuCmd(wxCommandEvent &event) {
 	std::shared_ptr<taccount> acc;
-	if(GetAccByDBIndex(proflookupidmap[event.GetId()], acc)) {
-		if(acc->usercont) user_window::MkWin(acc->usercont->id, acc);
+	if (GetAccByDBIndex(proflookupidmap[event.GetId()], acc)) {
+		if (acc->usercont) {
+			user_window::MkWin(acc->usercont->id, acc);
+		}
 	}
 }
 
@@ -237,16 +244,16 @@ void mainframe::OnLookupUser(wxCommandEvent &event) {
 	std::shared_ptr<taccount> acctouse;
 	user_lookup_dlg uld(this, &type, &value, acctouse);
 	int res = uld.ShowModal();
-	if(res == wxID_OK && acctouse && type >= 0 && type <= 1) {
+	if (res == wxID_OK && acctouse && type >= 0 && type <= 1) {
 		std::string search_string = std::string(value.ToUTF8());
 		std::unique_ptr<twitcurlext_userlookupwin> twit = twitcurlext_userlookupwin::make_new(acctouse,
 				type == 1 ? twitcurlext_userlookupwin::LOOKUPMODE::ID : twitcurlext_userlookupwin::LOOKUPMODE::SCREENNAME, search_string);
 
-		if(type == 1) {
+		if (type == 1) {
 			uint64_t id = 0;
-			if(ownstrtonum(id, search_string.data(), search_string.size())) {
+			if (ownstrtonum(id, search_string.data(), search_string.size())) {
 				udc_ptr u = ad.GetExistingUserContainerById(id);
-				if(u && !u->GetUser().screen_name.empty()) {
+				if (u && !u->GetUser().screen_name.empty()) {
 					user_window::MkWin(u->id, acctouse);
 				}
 			}
@@ -265,23 +272,25 @@ void mainframe::OnImportStream(wxCommandEvent &event) {
 }
 
 void mainframe::OnSize(wxSizeEvent &event) {
-	if(!IsMaximized()) {
+	if (!IsMaximized()) {
 		nominal_size = event.GetSize();
 		nominal_pos = GetPosition();
 	}
 }
 
 void mainframe::OnMove(wxMoveEvent &event) {
-	if(!IsMaximized()) nominal_pos = event.GetPosition();
+	if (!IsMaximized()) {
+		nominal_pos = event.GetPosition();
+	}
 }
 
 wxString mainframe::DecorateTitle(wxString basetitle) {
 #ifdef __WXDEBUG__
-	if(basetitle == appversionname) basetitle = wxT("Retcon ") + appbuildversion;
+	if (basetitle == appversionname) basetitle = wxT("Retcon ") + appbuildversion;
 	basetitle += wxT("  (debug build)");
 #endif
-	if(gc.readonlymode) basetitle += wxT("  -*- READ-ONLY MODE -*-");
-	if(gc.allaccsdisabled) basetitle += wxT("  =#= All Accounts Disabled =#=");
+	if (gc.readonlymode) basetitle += wxT("  -*- READ-ONLY MODE -*-");
+	if (gc.allaccsdisabled) basetitle += wxT("  =#= All Accounts Disabled =#=");
 	return std::move(basetitle);
 }
 
@@ -290,40 +299,52 @@ void mainframe::ResetTitle() {
 }
 
 void mainframe::ResetAllTitles() {
-	for(auto &it : mainframelist) {
+	for (auto &it : mainframelist) {
 		it->ResetTitle();
 	}
 }
 
 optional_observer_ptr<mainframe> mainframe::GetLastMenuOpenedMainframe() {
-	if(!last_menu_opened_mainframe)
+	if (!last_menu_opened_mainframe) {
 		return nullptr;
+	}
 
-	for(auto &it : mainframelist) {
-		if(it == last_menu_opened_mainframe)
+	for (auto &it : mainframelist) {
+		if (it == last_menu_opened_mainframe) {
 			return last_menu_opened_mainframe;
+		}
 	}
 
 	return nullptr;
 }
 
 void AccountUpdateAllMainframes() {
-	for(auto it=mainframelist.begin(); it!=mainframelist.end(); ++it) {
-		if((*it)->tpw) (*it)->tpw->UpdateAccount();
+	for (auto &it : mainframelist) {
+		if (it->tpw) {
+			it->tpw->UpdateAccount();
+		}
 	}
 }
 
 void FreezeAll() {
-	for(auto &it : mainframelist) it->Freeze();
+	for (auto &it : mainframelist) {
+		it->Freeze();
+	}
 }
 void ThawAll() {
-	for(auto &it : mainframelist) it->Thaw();
+	for (auto &it : mainframelist) {
+		it->Thaw();
+	}
 }
 
 mainframe *GetMainframeAncestor(wxWindow *in, bool passtoplevels) {
-	while(in) {
-		if(std::count(mainframelist.begin(), mainframelist.end(), in)) return static_cast<mainframe *>(in);
-		if((passtoplevels == false) && in->IsTopLevel()) return nullptr;
+	while (in) {
+		if (std::count(mainframelist.begin(), mainframelist.end(), in)) {
+			return static_cast<mainframe *>(in);
+		}
+		if ((passtoplevels == false) && in->IsTopLevel()) {
+			return nullptr;
+		}
 		in = in->GetParent();
 	}
 	return nullptr;
@@ -336,19 +357,17 @@ tweetpostctrlcommon::tweetpostctrlcommon(tweetpostwin *parent_, wxWindowID id, c
 		: commonRichTextCtrl(parent_, id, text, style), parent(parent_) { }
 
 void tweetpostctrlcommon::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
-		int noUnitsX, int noUnitsY,
-		int xPos, int yPos,
-		bool noRefresh) {
+		int noUnitsX, int noUnitsY, int xPos, int yPos, bool noRefresh) {
 	wxRichTextCtrl::SetScrollbars(0, 0, 0, 0, 0, 0, noRefresh);
 	int newheight = (pixelsPerUnitY * noUnitsY) + 4;
 	int curheight;
 	int curwidth;
 	GetSize(&curwidth, &curheight);
 
-	if(parent && curheight != newheight && lastheight != newheight) {
+	if (parent && curheight != newheight && lastheight != newheight) {
 		parent->vbox->SetItemMinSize(this, 10, newheight);
 		lastheight = newheight;
-		if(!parent->resize_update_pending) {
+		if (!parent->resize_update_pending) {
 			parent->resize_update_pending = true;
 			parent->Freeze();
 			wxCommandEvent event(wxextTPRESIZE_UPDATE_EVENT, GetId());
@@ -373,14 +392,16 @@ tweetposttextbox::tweetposttextbox(tweetpostwin *parent_, wxWindowID id, const w
 void tweetposttextbox::OnTCChar(wxRichTextEvent &event) { }
 
 void tweetposttextbox::OnTCUpdate(wxCommandEvent &event) {
-	if(parent) parent->OnTCChange();
+	if (parent) parent->OnTCChange();
 }
 
 void tweetposttextbox::SetCursorToEnd() {
 	MoveCaret(GetLastPosition());
 	SetInsertionPoint(GetLastPosition());
 	SetFocus();
-	if(parent && parent->mparentwin) parent->mparentwin->Raise();
+	if (parent && parent->mparentwin) {
+		parent->mparentwin->Raise();
+	}
 }
 
 tweetreplydescbox::tweetreplydescbox(tweetpostwin *parent_, wxWindowID id, const wxString &text)
@@ -471,7 +492,7 @@ tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *p
 }
 
 tweetpostwin::~tweetpostwin() {
-	if(mparentwin) {
+	if (mparentwin) {
 		mparentwin->tpw = nullptr;
 	}
 }
@@ -482,24 +503,24 @@ bool tweetpostwin::okToSend() {
 
 void tweetpostwin::OnSendBtn(wxCommandEvent &event) {
 	std::string curtext = stdstrwx(textctrl->GetValue());
-	if(okToSend()) {
-		if(tweet_reply_targ && !IsUserMentioned(curtext, tweet_reply_targ->user)) {
+	if (okToSend()) {
+		if (tweet_reply_targ && !IsUserMentioned(curtext, tweet_reply_targ->user)) {
 			int res = ::wxMessageBox(wxString::Format(wxT("User: @%s is not mentioned in this tweet. Reply anyway?"),
 					wxstrstd(tweet_reply_targ->user->GetUser().screen_name).c_str()), wxT("Confirm"), wxYES_NO | wxICON_QUESTION, this);
-			if(res != wxYES) return;
+			if (res != wxYES) return;
 		}
 		currently_posting = true;
 		OnTCChange();
 
 		std::unique_ptr<twitcurlext_postcontent> twit;
-		if(dm_targ) {
+		if (dm_targ) {
 			twit = twitcurlext_postcontent::make_new(curacc, twitcurlext_postcontent::CONNTYPE::SENDDM);
 			twit->dmtarg_id = dm_targ->id;
-		}
-		else {
+		} else {
 			twit = twitcurlext_postcontent::make_new(curacc, twitcurlext_postcontent::CONNTYPE::POSTTWEET);
-			if(tweet_reply_targ)
+			if (tweet_reply_targ) {
 				twit->replyto_id = tweet_reply_targ->id;
+			}
 			twit->SetImageUploads(image_upload_filenames);
 		}
 		twit->text = curtext;
@@ -515,7 +536,7 @@ void tweetpostwin::DoShowHide(bool show) {
 	sendbtn->Show(show);
 	infost->Show(show);
 	ShowHideImageUploadBtns(!show);
-	if(pauim) {
+	if (pauim) {
 		wxAuiPaneInfo pi = pauim->GetPane(this);
 		pauim->DetachPane(this);
 		pi.floating_size = wxDefaultSize;
@@ -525,8 +546,7 @@ void tweetpostwin::DoShowHide(bool show) {
 		Fit();
 		pauim->AddPane(this, pi);
 		pauim->Update();
-	}
-	else {
+	} else {
 		textctrl->SetCursorToEnd();
 		Fit();
 	}
@@ -541,12 +561,13 @@ void tweetpostwin::OnTCFocus(wxFocusEvent &event) {
 void tweetpostwin::OnTCUnFocus(wxFocusEvent &event) {
 	tc_has_focus--;
 	wxWindow *checkwin = event.GetWindow();
-	while(true) {
-		if(!checkwin) {
+	while (true) {
+		if (!checkwin) {
 			DoCheckFocusDisplay();
 			break;
+		} else if (checkwin == this) {
+			break;
 		}
-		else if(checkwin == this) break;
 		checkwin = checkwin->GetParent();
 	}
 	event.Skip();
@@ -554,24 +575,23 @@ void tweetpostwin::OnTCUnFocus(wxFocusEvent &event) {
 
 void tweetpostwin::DoCheckFocusDisplay(bool force) {
 	bool shouldshow = false;
-	if(!textctrl->IsEmpty()) shouldshow = true;
-	if(!image_upload_filenames.empty()) shouldshow = true;
-	if(dm_targ || tweet_reply_targ) shouldshow = true;
-	if(tc_has_focus > 0) shouldshow = true;
-	if(isshown != shouldshow || force) DoShowHide(shouldshow);
+	if (!textctrl->IsEmpty()) shouldshow = true;
+	if (!image_upload_filenames.empty()) shouldshow = true;
+	if (dm_targ || tweet_reply_targ) shouldshow = true;
+	if (tc_has_focus > 0) shouldshow = true;
+	if (isshown != shouldshow || force) DoShowHide(shouldshow);
 }
 
 void tweetpostwin::OnTCChange() {
 	current_length = TwitterCharCount(std::string(textctrl->GetValue().ToUTF8()), image_upload_filenames.empty() ? 0 : 1);
-	if(current_length > 140) {
-		if(!length_oob) {
+	if (current_length > 140) {
+		if (!length_oob) {
 			infost_colout = infost->GetForegroundColour();
 			infost->SetOwnForegroundColour(*wxRED);
 			length_oob = true;
 		}
-	}
-	else {
-		if(length_oob) {
+	} else {
+		if (length_oob) {
 			infost->SetOwnForegroundColour(infost_colout);
 			length_oob = false;
 		}
@@ -600,10 +620,10 @@ void tweetpostwin::resizemsghandler(wxCommandEvent &event) {
 }
 
 void tweetpostwin::NotifyPostResult(bool success) {
-	if(success) {
+	if (success) {
 		textctrl->Clear();
 		ClearImageUploadFilenames();
-		if(!replydesc_locked) {
+		if (!replydesc_locked) {
 			tweet_reply_targ.reset();
 			dm_targ.reset();
 		}
@@ -618,7 +638,7 @@ void tweetpostwin::UpdateReplyDesc() {
 	wxWindowUpdateLocker thislock(this);
 	wxWindowUpdateLocker desclock(replydesc);
 	wxWindowUpdateLocker postlock(textctrl);
-	if(tweet_reply_targ) {
+	if (tweet_reply_targ) {
 		replydesc->SetValue(wxT("Reply to: @") + wxstrstd(tweet_reply_targ->user->GetUser().screen_name) + wxT(": "));
 		replydesc->SetInsertionPointEnd();
 		WriteToRichTextCtrlWithEmojis(*replydesc, tweet_reply_targ->text);
@@ -626,17 +646,15 @@ void tweetpostwin::UpdateReplyDesc() {
 		replydesclosebtn->Show(true);
 		replydeslockbtn->Show(true);
 		sendbtn->SetLabel(wxT("Reply"));
-	}
-	else if(dm_targ) {
+	} else if (dm_targ) {
 		replydesc->SetValue(wxT("Direct Message: @") + wxstrstd(dm_targ->GetUser().screen_name));
 		replydesc->Show(true);
 		replydesclosebtn->Show(true);
 		replydeslockbtn->Show(true);
 		sendbtn->SetLabel(wxT("Send DM"));
 		ClearImageUploadFilenames(); // Images can't be uploaded with DMs at present
-	}
-	else {
-		if(replydesc_locked) {
+	} else {
+		if (replydesc_locked) {
 			replydesc_locked = false;
 		}
 		replydesc->Show(false);
@@ -667,14 +685,12 @@ void tweetpostwin::ShowHideImageUploadBtns(bool alwayshide, bool enabled) {
 	bool show_add;
 	bool show_existing = !image_upload_filenames.empty();
 
-	if(dm_targ || alwayshide) {
+	if (dm_targ || alwayshide) {
 		show_add = false;
 		show_existing = false;
-	}
-	else if(image_upload_filenames.size() < MAX_IMAGE_ATTACHMENTS_PER_TWEET) {
+	} else if (image_upload_filenames.size() < MAX_IMAGE_ATTACHMENTS_PER_TWEET) {
 		show_add = true;
-	}
-	else {
+	} else {
 		show_add = false;
 	}
 
@@ -687,11 +703,12 @@ void tweetpostwin::ShowHideImageUploadBtns(bool alwayshide, bool enabled) {
 
 void tweetpostwin::OnAddImgBtn(wxCommandEvent &event) {
 	static wxString uploadDir;
-	if(!uploadDir || !wxDirExists(uploadDir))
+	if (!uploadDir || !wxDirExists(uploadDir)) {
 		uploadDir = wxStandardPaths::Get().GetDocumentsDir();
+	}
 	wxString file = wxFileSelector(wxT("Upload image with tweet"), uploadDir, wxT(""), wxT(""),
 			wxT("Image Files (*.jpg *.jpeg *.png *.gif)|*.jpg;*.jpeg;*.png;*.gif"), wxFD_OPEN | wxFD_FILE_MUST_EXIST, this);
-	if(!file.IsEmpty()) {
+	if (!file.IsEmpty()) {
 		uploadDir = wxPathOnly(file);
 		AddImageUploadFilename(stdstrwx(file));
 	}
@@ -721,7 +738,7 @@ wxBitmap &tweetpostwin::GetReplyDescLockBtnBitmap() {
 }
 
 void CheckUserMentioned(bool &changed, udc_ptr_p user, tweetposttextbox *textctrl, std::unique_ptr<is_user_mentioned_cache> *cache = 0) {
-	if(user && !IsUserMentioned(stdstrwx(textctrl->GetValue()), user, cache)) {
+	if (user && !IsUserMentioned(stdstrwx(textctrl->GetValue()), user, cache)) {
 		textctrl->WriteText(wxT("@") + wxstrstd(user->GetUser().screen_name) + wxT(" "));
 		changed=true;
 	}
@@ -730,13 +747,13 @@ void CheckUserMentioned(bool &changed, udc_ptr_p user, tweetposttextbox *textctr
 template <typename F> void IterateUserNames(tweet_ptr_p targ, F func) {
 	tweet_ptr checktweet = targ;
 	func(targ->user);
-	if(targ->rtsrc) {
+	if (targ->rtsrc) {
 		checktweet = targ->rtsrc;
 		func(targ->rtsrc->user);
 	}
-	for(auto &it : checktweet->entlist) {
-		if(it.type == ENT_MENTION) {
-			if(! (it.user->udc_flags & UDC::THIS_IS_ACC_USER_HINT)) {
+	for (auto &it : checktweet->entlist) {
+		if (it.type == ENT_MENTION) {
+			if (! (it.user->udc_flags & UDC::THIS_IS_ACC_USER_HINT)) {
 				func(it.user);
 			}
 		}
@@ -745,10 +762,10 @@ template <typename F> void IterateUserNames(tweet_ptr_p targ, F func) {
 
 void tweetpostwin::CheckAddNamesBtn() {
 	bool missing_name = false;
-	if(tweet_reply_targ) {
+	if (tweet_reply_targ) {
 		std::string txt = stdstrwx(textctrl->GetValue());
 		IterateUserNames(tweet_reply_targ, [&](udc_ptr u) {
-			if(u && !IsUserMentioned(txt, u, &iumc)) {
+			if (u && !IsUserMentioned(txt, u, &iumc)) {
 				missing_name = true;
 			}
 		});
@@ -757,7 +774,7 @@ void tweetpostwin::CheckAddNamesBtn() {
 }
 
 void tweetpostwin::OnAddNamesBtn(wxCommandEvent &event) {
-	if(tweet_reply_targ) {
+	if (tweet_reply_targ) {
 		wxWindowUpdateLocker thislock(this);
 		wxWindowUpdateLocker postlock(textctrl);
 		textctrl->SetInsertionPoint(0);
@@ -765,7 +782,9 @@ void tweetpostwin::OnAddNamesBtn(wxCommandEvent &event) {
 		IterateUserNames(tweet_reply_targ, [&](udc_ptr u) {
 			CheckUserMentioned(changed, u, textctrl, &iumc);
 		});
-		if(changed) OnTCChange();
+		if (changed) {
+			OnTCChange();
+		}
 		textctrl->SetCursorToEnd();
 	}
 }
@@ -774,10 +793,12 @@ void tweetpostwin::SetReplyTarget(tweet_ptr_p targ) {
 	wxWindowUpdateLocker thislock(this);
 	wxWindowUpdateLocker desclock(replydesc);
 	wxWindowUpdateLocker postlock(textctrl);
-	if(tweet_reply_targ != targ) replydesc_locked = false;
+	if (tweet_reply_targ != targ) {
+		replydesc_locked = false;
+	}
 	textctrl->SetInsertionPoint(0);
 	bool changed = false;
-	if(targ) {
+	if (targ) {
 		IterateUserNames(targ, [&](udc_ptr u) {
 			CheckUserMentioned(changed, u, textctrl, &iumc);
 		});
@@ -785,49 +806,54 @@ void tweetpostwin::SetReplyTarget(tweet_ptr_p targ) {
 		unsigned int best_score = 0;
 		const taccount *best = 0;
 		targ->IterateTP([&](const tweet_perspective &tp) {
-			if(tp.IsArrivedHere()) {
+			if (tp.IsArrivedHere()) {
 				unsigned int score = 1;
-				if(tp.acc->enabled)
+				if (tp.acc->enabled) {
 					score += 2;
-				if(tp.acc.get() == accc->curacc.get())
+				}
+				if (tp.acc.get() == accc->curacc.get()) {
 					score += 1;
-				if(targ->flags.Get('M') && tp.acc->usercont->GetMentionSet().count(targ->id)) {
+				}
+				if (targ->flags.Get('M') && tp.acc->usercont->GetMentionSet().count(targ->id)) {
 					// account is mentioned
 					score += 4;
 				}
 				auto relation = tp.acc->user_relations.find(targ->user->id);
-				if(relation != tp.acc->user_relations.end()) {
-					if(relation->second.ur_flags & user_relationship::URF::FOLLOWSME_TRUE)
+				if (relation != tp.acc->user_relations.end()) {
+					if (relation->second.ur_flags & user_relationship::URF::FOLLOWSME_TRUE) {
 						score += 1;
-					if(relation->second.ur_flags & user_relationship::URF::IFOLLOW_TRUE)
+					}
+					if (relation->second.ur_flags & user_relationship::URF::IFOLLOW_TRUE) {
 						score += 1;
+					}
 				}
-				if(score > best_score) {
+				if (score > best_score) {
 					best = tp.acc.get();
 					best_score = score;
 				}
 			}
 		});
-		if(best && accc->curacc.get() != best) {
+		if (best && accc->curacc.get() != best) {
 			accc->TrySetSel(best);
 		}
 	}
 	tweet_reply_targ = targ;
 	dm_targ.reset();
 	UpdateReplyDesc();
-	if(changed)
+	if (changed) {
 		OnTCChange();
+	}
 	textctrl->SetCursorToEnd();
 }
 
 void tweetpostwin::SetDMTarget(udc_ptr_p targ, optional_tweet_ptr_p src) {
-	if(dm_targ != targ)
+	if (dm_targ != targ)
 		replydesc_locked = false;
 	tweet_reply_targ.reset();
 	dm_targ = targ;
 
-	if(targ && src) {
-		if(src->flags.Get('D') && src->lflags & TLF::HAVEFIRSTTP) {
+	if (targ && src) {
+		if (src->flags.Get('D') && src->lflags & TLF::HAVEFIRSTTP) {
 			// src is a DM, use same account
 			accc->TrySetSel(src->first_tp.acc.get());
 		}
@@ -835,30 +861,34 @@ void tweetpostwin::SetDMTarget(udc_ptr_p targ, optional_tweet_ptr_p src) {
 			unsigned int best_score = 0;
 			const taccount *best = 0;
 			src->IterateTP([&](const tweet_perspective &tp) {
-				if(tp.IsArrivedHere()) {
+				if (tp.IsArrivedHere()) {
 					unsigned int score = 1;
-					if(tp.acc->enabled)
+					if (tp.acc->enabled) {
 						score += 2;
-					if(tp.acc.get() == accc->curacc.get())
+					}
+					if (tp.acc.get() == accc->curacc.get()) {
 						score += 1;
-					if(src->flags.Get('M') && tp.acc->usercont->GetMentionSet().count(src->id)) {
+					}
+					if (src->flags.Get('M') && tp.acc->usercont->GetMentionSet().count(src->id)) {
 						// account is mentioned
 						score += 4;
 					}
 					auto relation = tp.acc->user_relations.find(targ->id);
-					if(relation != tp.acc->user_relations.end()) {
-						if(relation->second.ur_flags & user_relationship::URF::FOLLOWSME_TRUE)
+					if (relation != tp.acc->user_relations.end()) {
+						if (relation->second.ur_flags & user_relationship::URF::FOLLOWSME_TRUE) {
 							score += 4;
-						if(relation->second.ur_flags & user_relationship::URF::IFOLLOW_TRUE)
+						}
+						if (relation->second.ur_flags & user_relationship::URF::IFOLLOW_TRUE) {
 							score += 4;
+						}
 					}
-					if(score > best_score) {
+					if (score > best_score) {
 						best = tp.acc.get();
 						best_score = score;
 					}
 				}
 			});
-			if(best && accc->curacc.get() != best) {
+			if (best && accc->curacc.get() != best) {
 				accc->TrySetSel(best);
 			}
 		}

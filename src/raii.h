@@ -45,7 +45,7 @@ class scope_exit_obj {
 	}
 
 	void exec() {
-		if(shouldexec) {
+		if (shouldexec) {
 			f();
 			shouldexec = false;
 		}
@@ -66,18 +66,24 @@ class raii_set {
 
 	public:
 	raii_set() { }
+
 	void add(std::function<void()> func) {
 		f_set.emplace_back(std::move(func));
 	}
+
 	void cancel() {
 		f_set.clear();
 	}
+
 	void exec() {
-		for(auto f = f_set.rbegin(); f != f_set.rend(); ++f) {
-			if(*f) (*f)();
+		for (auto f = f_set.rbegin(); f != f_set.rend(); ++f) {
+			if (*f) {
+				(*f)();
+			}
 		}
 		f_set.clear();
 	}
+
 	~raii_set() {
 		exec();
 	}

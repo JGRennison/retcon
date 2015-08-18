@@ -106,7 +106,7 @@ template<> struct enum_traits<generic_disp_base::GDB_FF> { static constexpr bool
 template<> struct enum_traits<generic_disp_base::GDB_F> { static constexpr bool flags = true; };
 
 inline void generic_disp_base::CheckRefresh() {
-	if(gdb_flags & GDB_F::NEEDSREFRESH) {
+	if (gdb_flags & GDB_F::NEEDSREFRESH) {
 		gdb_flags &= ~GDB_F::NEEDSREFRESH;
 		ForceRefresh();
 	}
@@ -122,10 +122,8 @@ struct dispscr_mouseoverwin : generic_disp_base, public magic_paired_ptr_ts<disp
 	void Position(wxWindow *targ, const wxSize &targ_size);
 	void targsizehandler(wxSizeEvent &event);
 	virtual bool RefreshContent() { return false; }
-	virtual void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
-                               int noUnitsX, int noUnitsY,
-                               int xPos = 0, int yPos = 0,
-                               bool noRefresh = false ) override;
+	virtual void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY, int noUnitsX, int noUnitsY,
+			int xPos = 0, int yPos = 0, bool noRefresh = false ) override;
 	void mouseenterhandler(wxMouseEvent &event);
 	void mouseleavehandler(wxMouseEvent &event);
 	void MouseEnterLeaveEvent(bool enter);
@@ -139,10 +137,8 @@ struct dispscr_base : public generic_disp_base, public magic_paired_ptr_ts<disps
 	wxBoxSizer *hbox;
 
 	dispscr_base(wxWindow *parent, tpanel_item *item, panelparentwin_base *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
-	virtual void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
-                               int noUnitsX, int noUnitsY,
-                               int xPos = 0, int yPos = 0,
-                               bool noRefresh = false ) override;
+	virtual void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY, int noUnitsX, int noUnitsY,
+			int xPos = 0, int yPos = 0, bool noRefresh = false ) override;
 	void mouseenterhandler(wxMouseEvent &event);
 	void mouseleavehandler(wxMouseEvent &event);
 	virtual dispscr_mouseoverwin *MakeMouseOverWin() { return 0; }

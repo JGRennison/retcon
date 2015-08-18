@@ -39,12 +39,15 @@ extern flagwrapper<LOGIMPLF> logimpl_flags;
 
 struct log_object {
 	LOGT lo_flags;
+
 	virtual void log_str(LOGT logflags, const std::string &str) = 0;
 	log_object(LOGT flagmask);
 	virtual ~log_object();
+
 	virtual bool IsFlushable() const {
 		return false;
 	}
+
 	virtual void Flush() { }
 };
 
@@ -78,13 +81,16 @@ struct log_window : public log_object, public wxFrame {
 struct log_file : public log_object {
 	FILE *fp;
 	bool closefpondel;
+
 	log_file(LOGT flagmask, const char *filename);
 	log_file(LOGT flagmask, FILE *fp_, bool closefpondel_ = false);
 	~log_file();
 	void log_str(LOGT logflags, const std::string &str);
+
 	virtual bool IsFlushable() const override {
 		return true;
 	}
+
 	virtual void Flush() override;
 };
 

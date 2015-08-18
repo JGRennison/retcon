@@ -73,30 +73,44 @@ bool retcon::OnInit() {
 	datadir = stdstrwx(wxStandardPaths::Get().GetUserDataDir());
 	tmpdir = make_temp_dir("retcon-");
 	cmdlineproc(argv, argc);
-	if(terms_requested) return false;
-	if(!globallogwindow) new log_window(nullptr, LOGT::GROUP_LOGWINDEF, false);
-	if(!datadir.empty() && datadir.back() == '/') datadir.pop_back();
+	if (terms_requested) {
+		return false;
+	}
+	if (!globallogwindow) {
+		new log_window(nullptr, LOGT::GROUP_LOGWINDEF, false);
+	}
+	if (!datadir.empty() && datadir.back() == '/') {
+		datadir.pop_back();
+	}
 	wxString wxdatadir = wxstrstd(datadir);
-	if(!::wxDirExists(wxdatadir)) {
+	if (!::wxDirExists(wxdatadir)) {
 		::wxMkdir(wxdatadir, 0700);
 	}
 	InitCFGDefaults();
 	SetTermSigHandler();
 	sm.InitMultiIOHandler();
-	rs.add([&]() { sm.DeInitMultiIOHandler(); });
+	rs.add([&]() {
+		sm.DeInitMultiIOHandler();
+	});
 	bool res = DBC_Init(datadir + "/retcondb.sqlite3");
-	if(!res) return false;
-	rs.add([&]() { DBC_DeInit(); });
-	if(terms_requested) return false;
+	if (!res) {
+		return false;
+	}
+	rs.add([&]() {
+		DBC_DeInit();
+	});
+	if (terms_requested) {
+		return false;
+	}
 	pool.reset(new ThreadPool::Pool(gc.threadpoollimit));
 
 	InitGlobalFilters();
 
 	RestoreWindowLayout();
-	if(mainframelist.empty()) {
+	if (mainframelist.empty()) {
 		mainframe *mf = new mainframe( appversionname, wxPoint(50, 50), wxSize(450, 340));
 
-		if(alist.empty() && ad.tpanels.empty()) {
+		if (alist.empty() && ad.tpanels.empty()) {
 			//everything is empty, maybe new user
 			//make 3 basic auto tpanels to make things more obvious
 			auto flags = TPF::AUTO_ALLACCS | TPF::DELETEONWINCLOSE;
@@ -109,16 +123,16 @@ bool retcon::OnInit() {
 		}
 	}
 
-	if(terms_requested) return false;
+	if (terms_requested) return false;
 
 	mainframelist[0]->Show(true);
-	for(auto it=alist.begin(); it!=alist.end(); ++it) {
-		(*it)->Setup();
-		(*it)->CalcEnabled();
-		(*it)->Exec();
+	for (auto &it : alist) {
+		it->Setup();
+		it->CalcEnabled();
+		it->Exec();
 	}
 
-	if(terms_requested) return false;
+	if (terms_requested) return false;
 
 	rs.cancel();
 	return true;
@@ -129,11 +143,11 @@ int retcon::OnExit() {
 	sm.DeInitMultiIOHandler();
 	pool.reset();
 	DBC_DeInit();
-	for(const observer_ptr<temp_file_holder> &it : temp_file_set) {
+	for (const observer_ptr<temp_file_holder> &it : temp_file_set) {
 		LogMsgFormat(LOGT::FILEIOTRACE, "retcon::OnExit, resetting: %s", cstr(it->GetFilename()));
 		it->Reset();
 	}
-	if(!::wxRmdir(wxstrstd(tmpdir))) {
+	if (!::wxRmdir(wxstrstd(tmpdir))) {
 		LogMsgFormat(LOGT::FILEIOERR, "retcon::OnExit, could not remove temp dir: %s", cstr(tmpdir));
 	}
 	DebugFinalChecks();
@@ -143,13 +157,15 @@ int retcon::OnExit() {
 
 int retcon::FilterEvent(wxEvent& event) {
 	static unsigned int antirecursion = 0;
-	if(antirecursion) return -1;
+	if (antirecursion) {
+		return -1;
+	}
 
 	antirecursion++;
 	#ifdef __WINDOWS__
-	if(event.GetEventType() == wxEVT_MOUSEWHEEL) {
-		if(GetMainframeAncestor((wxWindow *) event.GetEventObject())) {
-			if(RedirectMouseWheelEvent((wxMouseEvent &) event)) {
+	if (event.GetEventType() == wxEVT_MOUSEWHEEL) {
+		if (GetMainframeAncestor((wxWindow *) event.GetEventObject())) {
+			if (RedirectMouseWheelEvent((wxMouseEvent &) event)) {
 				antirecursion--;
 				return 1;
 			}
@@ -171,7 +187,7 @@ void retcon::OnExecPendingsMsg(wxCommandEvent &event) {
 	auto current_pendings = std::move(pendings);
 	pendings.clear();
 
-	for(auto &it : current_pendings) {
+	for (auto &it : current_pendings) {
 		it();
 	}
 }
@@ -185,14 +201,14 @@ void retcon::EnqueuePending(std::function<void()> &&f) {
 void retcon::OnExecThreadPoolMsg(wxCommandEvent &event) {
 	long jobnum = event.GetExtraLong();
 	auto it = pool_post_jobs.find(jobnum);
-	if(it != pool_post_jobs.end()) {
+	if (it != pool_post_jobs.end()) {
 		it->second();
 		pool_post_jobs.erase(it);
 	}
 }
 
 void retcon::EnqueueThreadJob(std::function<void()> &&worker_thread_job, std::function<void()> &&main_thread_post_job) {
-	if(!pool->GetThreadLimit()) {
+	if (!pool->GetThreadLimit()) {
 		worker_thread_job();
 		main_thread_post_job();
 		return;
@@ -220,7 +236,7 @@ void retcon::EnqueueThreadJob(std::function<void()> &&worker_thread_job, std::fu
 }
 
 void retcon::EnqueueThreadJob(std::function<void()> &&worker_thread_job) {
-	if(!pool->GetThreadLimit()) {
+	if (!pool->GetThreadLimit()) {
 		worker_thread_job();
 		return;
 	}

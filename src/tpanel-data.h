@@ -123,7 +123,7 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 template<> struct enum_traits<tpanel::TPIF> { static constexpr bool flags = true; };
 
 inline void tpanel::NotifyCIDSChange_AddRemove(uint64_t id, tweetidset cached_id_sets::*ptr, bool add, flagwrapper<PUSHFLAGS> pushflags) {
-	if(intl_flags & tpanel::TPIF::RECALCSETSONCIDSCHANGE) {
+	if (intl_flags & tpanel::TPIF::RECALCSETSONCIDSCHANGE) {
 		NotifyCIDSChange_AddRemoveIntl(id, ptr, add, pushflags);
 	}
 }

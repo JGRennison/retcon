@@ -46,11 +46,12 @@ bool bindwxevt::ProcessEvent(wxEvent& event) {
 
 bool bindwxevt::TryDynProcessEvent(wxEvent& event) {
 	auto it = evt_handlers.find(std::make_pair(event.GetEventType(), event.GetId()));
-	if(it != evt_handlers.end()) {
+	if (it != evt_handlers.end()) {
 		(*it->second)(event);
 		return !event.GetSkipped();
+	} else {
+		return false;
 	}
-	else return false;
 }
 
 bindwxevt_win::bindwxevt_win(wxWindow *win_) : win(win_) {

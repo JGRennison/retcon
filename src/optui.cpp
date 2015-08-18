@@ -82,7 +82,7 @@ acc_window::acc_window(wxWindow* parent, wxWindowID id, const wxString &title, c
 	vboxr->Add(reauthbtn, 0, wxALIGN_TOP | wxEXPAND, 0);
 	hbox2->Add(newbtn, 0, wxALIGN_LEFT, 0);
 
-	if(gc.allaccsdisabled) {
+	if (gc.allaccsdisabled) {
 		reenableallbtns = new wxButton(panel, ACCWID_REENABLEALL, wxT("*Enable All*"));
 		hbox2->Add(reenableallbtns, 0, wxALIGN_LEFT, 0);
 	}
@@ -116,7 +116,7 @@ void acc_window::UpdateButtons() {
 	endisbtn->Enable(selection!=wxNOT_FOUND);
 	reauthbtn->Enable(selection!=wxNOT_FOUND);
 	delbtn->Enable(selection!=wxNOT_FOUND);
-	if(selection != wxNOT_FOUND) {
+	if (selection != wxNOT_FOUND) {
 		taccount *acc = static_cast<taccount *>(lb->GetClientData(selection));
 		endisbtn->SetLabel(acc->userenabled ? wxT("Disable") : wxT("Enable"));
 	}
@@ -126,18 +126,20 @@ void acc_window::UpdateButtons() {
 void acc_window::UpdateLB() {
 	int selection = lb->GetSelection();
 	taccount *acc = nullptr;
-	if(selection != wxNOT_FOUND) acc = static_cast<taccount *>(lb->GetClientData(selection));
+	if (selection != wxNOT_FOUND) {
+		acc = static_cast<taccount *>(lb->GetClientData(selection));
+	}
 	lb->Clear();
-	for(auto &it : alist) {
+	for (auto &it : alist) {
 		wxString accname = it->dispname + wxT(" [") + it->GetStatusString(false) + wxT("]");;
 		int index = lb->Append(accname, it.get());
-		if(it.get() == acc) lb->SetSelection(index);
+		if (it.get() == acc) lb->SetSelection(index);
 	}
 }
 
 void acc_window::AccEdit(wxCommandEvent &event) {
 	int sel = lb->GetSelection();
-	if(sel == wxNOT_FOUND) return;
+	if (sel == wxNOT_FOUND) return;
 	taccount *acc = static_cast<taccount *>(lb->GetClientData(sel));
 	settings_window *sw = new settings_window(this, -1, wxT("Settings"), wxDefaultPosition, wxDefaultSize,
 			wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER, wxT("dialogBox"), acc);
@@ -147,18 +149,18 @@ void acc_window::AccEdit(wxCommandEvent &event) {
 
 void acc_window::AccDel(wxCommandEvent &event) {
 	int sel = lb->GetSelection();
-	if(sel == wxNOT_FOUND) return;
+	if (sel == wxNOT_FOUND) return;
 	taccount *acc = static_cast<taccount *>(lb->GetClientData(sel));
-	if(!acc->dbindex) return;
+	if (!acc->dbindex) return;
 	int answer = wxMessageBox(wxT("Are you sure that you want to delete account: ") + acc->dispname + wxT(".\nThis cannot be undone."),
 			wxT("Confirm Account Deletion"), wxYES_NO | wxICON_EXCLAMATION, this);
-	if(answer == wxYES) {
+	if (answer == wxYES) {
 		acc->enabled=acc->userenabled=0;
 		acc->Exec();
 		std::unique_ptr<dbdelaccmsg> delmsg(new dbdelaccmsg);
 		delmsg->dbindex = acc->dbindex;
 		DBC_SendMessage(std::move(delmsg));
-		alist.remove_if([&](const std::shared_ptr<taccount> &a) { return a.get() == acc; });
+		alist.remove_if ([&](const std::shared_ptr<taccount> &a) { return a.get() == acc; });
 		lb->SetSelection(wxNOT_FOUND);
 		UpdateLB();
 	}
@@ -170,22 +172,23 @@ void acc_window::AccNew(wxCommandEvent &event) {
 	ta->dispname = wxT("<new account>");
 
 	int answer = wxNO;
-	if(gc.askuseraccsettingsonnewacc) {
+	if (gc.askuseraccsettingsonnewacc) {
 		answer = wxMessageBox(wxT("Would you like to review the account settings before authenticating?"), wxT("Account Creation"),
 				wxYES_NO | wxCANCEL | wxICON_QUESTION | wxNO_DEFAULT, this);
 
-		if(answer == wxYES) {
+		if (answer == wxYES) {
 			settings_window *sw=new settings_window(this, -1, wxT("New Account Settings"), wxDefaultPosition, wxDefaultSize,
 					wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER, wxT("dialogBox"), ta.get());
 			sw->ShowModal();
 			sw->Destroy();
+		} else if (answer == wxCANCEL) {
+			return;
 		}
-		else if(answer == wxCANCEL) return;
 	}
 
 	std::unique_ptr<twitcurlext_accverify> twit = twitcurlext_accverify::make_new(ta);
-	if(ta->TwDoOAuth(this, *twit)) {
-		if(twit->TwSyncStartupAccVerify()) {
+	if (ta->TwDoOAuth(this, *twit)) {
+		if (twit->TwSyncStartupAccVerify()) {
 			ta->userenabled = true;
 			ta->beinginsertedintodb = true;
 			ta->name = wxString::Format(wxT("%" wxLongLongFmtSpec "d-%d"), ta->usercont->id, time(nullptr));
@@ -206,7 +209,7 @@ void acc_window::AccClose(wxCommandEvent &event) {
 
 void acc_window::EnDisable(wxCommandEvent &event) {
 	int sel = lb->GetSelection();
-	if(sel == wxNOT_FOUND) return;
+	if (sel == wxNOT_FOUND) return;
 	taccount *acc = static_cast<taccount *>(lb->GetClientData(sel));
 	acc->userenabled=!acc->userenabled;
 	acc->CalcEnabled();
@@ -217,14 +220,14 @@ void acc_window::EnDisable(wxCommandEvent &event) {
 
 void acc_window::ReAuth(wxCommandEvent &event) {
 	int sel = lb->GetSelection();
-	if(sel == wxNOT_FOUND) return;
+	if (sel == wxNOT_FOUND) return;
 	taccount *acc = static_cast<taccount *>(lb->GetClientData(sel));
 	acc->enabled = 0;
 	acc->Exec();
 	std::unique_ptr<twitcurlext_accverify> twit = twitcurlext_accverify::make_new(acc->shared_from_this());
 	twit->getOAuth().setOAuthTokenKey("");		//remove existing oauth tokens
 	twit->getOAuth().setOAuthTokenSecret("");
-	if(acc->TwDoOAuth(this, *twit)) {
+	if (acc->TwDoOAuth(this, *twit)) {
 		twit->TwSyncStartupAccVerify();
 	}
 	UpdateLB();
@@ -235,12 +238,12 @@ void acc_window::ReAuth(wxCommandEvent &event) {
 
 void acc_window::ReEnableAll(wxCommandEvent &event) {
 	gc.allaccsdisabled = false;
-	for(auto &it : alist) {
+	for (auto &it : alist) {
 		it->CalcEnabled();
 		it->Exec();
 	}
 	mainframe::ResetAllTitles();
-	if(reenableallbtns) {
+	if (reenableallbtns) {
 		// Hide the button, it's single-use not a toggle
 		reenableallbtns->Show(false);
 	}
@@ -250,26 +253,31 @@ struct DefaultChkBoxValidatorCommon : public wxValidator {
 	genopt &val;
 	genopt &parentval;
 
-	DefaultChkBoxValidatorCommon(genopt &val_, genopt &parentval_) : val(val_), parentval(parentval_) { }
+	DefaultChkBoxValidatorCommon(genopt &val_, genopt &parentval_)
+			: val(val_), parentval(parentval_) { }
 
 	virtual bool TransferFromWindow() override {
 		wxCheckBox *chk = (wxCheckBox*) GetWindow();
 		val.enable = chk->GetValue();
 		return true;
 	}
+
 	virtual bool TransferToWindow() override {
 		wxCheckBox *chk = (wxCheckBox*) GetWindow();
 		chk->SetValue(val.enable);
 		statechange();
 		return true;
 	}
+
 	virtual bool Validate(wxWindow* parent) override {
 		statechange();
 		return true;
 	}
+
 	void checkboxchange(wxCommandEvent &event) {
 		statechange();
 	}
+
 	virtual void statechange() = 0;
 
 	DECLARE_EVENT_TABLE()
@@ -298,20 +306,24 @@ struct DefaultChkBoxValidator : public DefaultChkBoxValidatorCommon {
 	virtual wxObject* Clone() const override { return new DefaultChkBoxValidator(val, parentval, flags, txtctrl, chkbox); }
 	virtual void statechange() override {
 		wxCheckBox *chk=(wxCheckBox*) GetWindow();
-		if(txtctrl) {
+		if (txtctrl) {
 			txtctrl->Enable(chk->GetValue());
-			if(!chk->GetValue()) {
-				if(flags & DBCV::HIDDENDEFAULT) {
-					if(flags & DBCV::ISGLOBALCFG) txtctrl->ChangeValue(wxT(""));
-					else if(parentval.enable) txtctrl->ChangeValue(parentval.val);
-					else txtctrl->ChangeValue(wxT(""));
+			if (!chk->GetValue()) {
+				if (flags & DBCV::HIDDENDEFAULT) {
+					if (flags & DBCV::ISGLOBALCFG) {
+						txtctrl->ChangeValue(wxT(""));
+					} else if (parentval.enable) {
+						txtctrl->ChangeValue(parentval.val);
+					} else {
+						txtctrl->ChangeValue(wxT(""));
+					}
+				} else {
+					txtctrl->ChangeValue(parentval.val);
 				}
-				else txtctrl->ChangeValue(parentval.val);
 			}
-		}
-		else if(chkbox) {
+		} else if (chkbox) {
 			chkbox->Enable(chk->GetValue());
-			if(!chk->GetValue()) {
+			if (!chk->GetValue()) {
 				chkbox->SetValue((parentval.val == wxT("1")));
 			}
 		}
@@ -321,17 +333,22 @@ struct DefaultChkBoxValidator : public DefaultChkBoxValidatorCommon {
 struct FormatChoiceDefaultChkBoxValidator : public DefaultChkBoxValidatorCommon {
 	settings_window *sw;
 
-	FormatChoiceDefaultChkBoxValidator(genopt &val_, genopt &parentval_, settings_window *sw_) : DefaultChkBoxValidatorCommon(val_, parentval_), sw(sw_) { }
-	virtual wxObject* Clone() const override { return new FormatChoiceDefaultChkBoxValidator(val, parentval, sw); }
+	FormatChoiceDefaultChkBoxValidator(genopt &val_, genopt &parentval_, settings_window *sw_)
+			: DefaultChkBoxValidatorCommon(val_, parentval_), sw(sw_) { }
+
+	virtual wxObject* Clone() const override {
+		return new FormatChoiceDefaultChkBoxValidator(val, parentval, sw);
+	}
+
 	virtual void statechange() override {
 		wxCheckBox *chk = (wxCheckBox*) GetWindow();
 		sw->formatdef_lb->Enable(chk->GetValue());
-		if(!chk->GetValue()) {
+		if (!chk->GetValue()) {
 			unsigned long value;
 			parentval.val.ToULong(&value);
 			sw->formatdef_lb->SetSelection(value);
 		}
-		if(sw->current_format_set_id != sw->formatdef_lb->GetSelection()) {
+		if (sw->current_format_set_id != sw->formatdef_lb->GetSelection()) {
 			sw->current_format_set_id = sw->formatdef_lb->GetSelection();
 			sw->current_format_set = IndexToFormatSet(sw->current_format_set_id);
 			sw->Validate(); // NB: partially recursive
@@ -344,10 +361,11 @@ struct GenericChoiceDefaultChkBoxValidator : public DefaultChkBoxValidatorCommon
 
 	GenericChoiceDefaultChkBoxValidator(genopt &val_, genopt &parentval_, wxChoice *choice_) : DefaultChkBoxValidatorCommon(val_, parentval_), choice(choice_) { }
 	virtual wxObject* Clone() const override { return new GenericChoiceDefaultChkBoxValidator(val, parentval, choice); }
+
 	virtual void statechange() override {
 		wxCheckBox *chk = (wxCheckBox*) GetWindow();
 		choice->Enable(chk->GetValue());
-		if(!chk->GetValue()) {
+		if (!chk->GetValue()) {
 			unsigned long value;
 			parentval.val.ToULong(&value);
 			choice->SetSelection(value);
@@ -357,19 +375,26 @@ struct GenericChoiceDefaultChkBoxValidator : public DefaultChkBoxValidatorCommon
 
 struct ValueChkBoxValidator : public wxValidator {
 	genopt &val;
+
 	ValueChkBoxValidator(genopt &val_)
 			: wxValidator(), val(val_) { }
-	virtual wxObject* Clone() const override { return new ValueChkBoxValidator(val); }
+
+	virtual wxObject* Clone() const override {
+		return new ValueChkBoxValidator(val);
+	}
+
 	virtual bool TransferFromWindow() override {
 		wxCheckBox *chk = (wxCheckBox*) GetWindow();
 		val.val = ((chk->GetValue()) ? wxT("1") : wxT("0"));
 		return true;
 	}
+
 	virtual bool TransferToWindow() override {
 		wxCheckBox *chk = (wxCheckBox*) GetWindow();
 		chk->SetValue((val.val == wxT("1")));
 		return true;
 	}
+
 	virtual bool Validate(wxWindow* parent) override {
 		return true;
 	}
@@ -377,13 +402,20 @@ struct ValueChkBoxValidator : public wxValidator {
 
 struct GenericChoiceValidator : public wxValidator {
 	genopt &val;
-	GenericChoiceValidator(genopt &val_) : wxValidator(), val(val_) { }
-	virtual wxObject* Clone() const { return new GenericChoiceValidator(val); }
+
+	GenericChoiceValidator(genopt &val_)
+			: wxValidator(), val(val_) { }
+
+	virtual wxObject* Clone() const {
+		return new GenericChoiceValidator(val);
+	}
+
 	virtual bool TransferFromWindow() {
 		wxChoice *choice = (wxChoice*) GetWindow();
 		val.val = wxString::Format(wxT("%d"), choice->GetSelection());
 		return true;
 	}
+
 	virtual bool TransferToWindow() {
 		wxChoice *choice = (wxChoice*) GetWindow();
 		unsigned long value;
@@ -391,6 +423,7 @@ struct GenericChoiceValidator : public wxValidator {
 		choice->SetSelection(value);
 		return true;
 	}
+
 	virtual bool Validate(wxWindow* parent) {
 		return true;
 	}
@@ -429,7 +462,9 @@ void settings_window::AddSettingRow_Common(unsigned int win, wxWindow *parent, w
 void settings_window::AddSettingRow_String(unsigned int win, wxWindow *parent, wxSizer *sizer, const wxString &name,
 		flagwrapper<DBCV> flags, genopt &val, genopt &parentval, long style, wxValidator *textctrlvalidator) {
 	wxTextValidator deftv(style, &val.val);
-	if(!textctrlvalidator) textctrlvalidator = &deftv;
+	if (!textctrlvalidator) {
+		textctrlvalidator = &deftv;
+	}
 	wxTextCtrl *tc = new wxTextCtrl(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize,
 			(flags & DBCV::MULTILINE) ? wxTE_MULTILINE : 0, *textctrlvalidator);
 	DefaultChkBoxValidator dcbv(val, parentval, flags, tc);
@@ -526,7 +561,9 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	auto addbtn = [&](unsigned int btnid, const wxString &btnname) {
 		wxToggleButton *btn = new wxToggleButton(panel, SWID_CATRANGE_START + btnid, btnname);
 		btnbox->Add(btn, 0, wxALL, 2);
-		if(btnid == currentcat) btn->SetValue(true);
+		if (btnid == currentcat) {
+			btn->SetValue(true);
+		}
 		cat_buttons[btnid] = btn;
 	};
 	addbtn(OPTWIN_DISPLAY, wxT("Display"));
@@ -667,19 +704,18 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	lb->Append(wxT("[Defaults for All Accounts]"), (void *) 0);
 	lb->SetSelection(0);
 
-	for(auto &it : alist) {
+	for (auto &it : alist) {
 		wxStaticBoxSizer *sbox = AddGenoptconfSettingBlock(panel, vbox, it->dispname, it->cfg, gc.cfg, 0);
 		accmap[it.get()] = sbox;
 		lb->Append(it->dispname, it.get());
-		if(it.get() == defshow) {
+		if (it.get() == defshow) {
 			current = defshow;
 			lb->SetSelection(lb->GetCount() - 1);
-		}
-		else {
+		} else {
 			vbox->Hide(sbox);
 		}
 	}
-	if(defshow && current != defshow) {	//for (new) accounts not (yet) in alist
+	if (defshow && current != defshow) {	//for (new) accounts not (yet) in alist
 		wxStaticBoxSizer *sbox = AddGenoptconfSettingBlock(panel, vbox, defshow->dispname, defshow->cfg, gc.cfg, 0);
 		accmap[defshow] = sbox;
 		lb->Append(defshow->dispname, defshow);
@@ -687,7 +723,9 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 		current = defshow;
 	}
 
-	if(current) vbox->Hide(defsbox);
+	if (current) {
+		vbox->Hide(defsbox);
+	}
 
 	vbox->Add(hboxfooter, 0, wxALL | wxALIGN_BOTTOM | wxEXPAND, 0);
 
@@ -709,7 +747,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 settings_window::~settings_window() {
 	UpdateAllTweets(false, true);
 	tpanelparentwin_nt::UpdateAllCLabels();
-	for(auto &it : alist) {
+	for (auto &it : alist) {
 		it->Exec();
 		it->SetupRestBackfillTimer();
 	}
@@ -730,7 +768,7 @@ void settings_window::ChoiceCtrlChange(wxCommandEvent &event) {
 void settings_window::ShowAdvCtrlChange(wxCommandEvent &event) {
 	Freeze();
 	SetSizeHints(GetSize().GetWidth(), 1);
-	if(!event.IsChecked()) {
+	if (!event.IsChecked()) {
 		veryadvoptchkbox->SetValue(false);
 	}
 	OptShowHide((event.IsChecked() ? DBCV::ADVOPTION : static_cast<DBCV>(0)) | (veryadvoptchkbox->IsChecked() ? DBCV::VERYADVOPTION : static_cast<DBCV>(0)));
@@ -746,7 +784,9 @@ void settings_window::ShowVeryAdvCtrlChange(wxCommandEvent &event) {
 }
 
 void settings_window::FormatChoiceCtrlChange(wxCommandEvent &event) {
-	if(event.GetSelection() == current_format_set_id) return;
+	if (event.GetSelection() == current_format_set_id) {
+		return;
+	}
 	Freeze();
 	current_format_set_id = event.GetSelection();
 	current_format_set = IndexToFormatSet(current_format_set_id);
@@ -759,49 +799,66 @@ void settings_window::OptShowHide(flagwrapper<DBCV> setmask) {
 	std::unordered_set<wxSizer *> nonempty_sizerset;
 	std::vector<std::function<void()> > ops;
 	std::vector<unsigned int> showcount(OPTWIN_LAST, 0);
-	for(auto &it : opts) {
+	for (auto &it : opts) {
 		flagwrapper<DBCV> allmask = DBCV::ADVOPTION | DBCV::VERYADVOPTION;
 		flagwrapper<DBCV> maskedflags = it.flags & allmask;
 		bool show;
-		if(!maskedflags) show = true;
-		else show = (bool) (maskedflags & setmask);
-		if(show) showcount[it.cat]++;
-		if(it.cat && currentcat && it.cat != currentcat) show = false;
+		if (!maskedflags) {
+			show = true;
+		} else {
+			show = (bool) (maskedflags & setmask);
+		}
+		if (show) {
+			showcount[it.cat]++;
+		}
+		if (it.cat && currentcat && it.cat != currentcat) {
+			show = false;
+		}
 		ops.push_back([=] { it.sizer->Show(it.win, show); });
-		if(show) nonempty_sizerset.insert(it.sizer);
+		if (show) {
+			nonempty_sizerset.insert(it.sizer);
+		}
 		sizerset.insert(it.sizer);
 	}
-	for(auto &it : sizerset) {
+	for (auto &it : sizerset) {
 		bool isnonempty = nonempty_sizerset.count(it);
-		for(auto &jt : cat_empty_sizer_op) {
-			if(it == jt.first) {
+		for (auto &jt : cat_empty_sizer_op) {
+			if (it == jt.first) {
 				jt.second(isnonempty);
 			}
 		}
 	}
-	for(auto &it : ops) {
+	for (auto &it : ops) {
 		it();
 	}
-	for(auto &it : sizerset) it->Layout();
+	for (auto &it : sizerset) it->Layout();
 	unsigned int i = OPTWIN_LAST;
 	do {
 		i--;
 		bool show = (bool) showcount[i];
-		if(cat_buttons[i]) btnbox->Show(cat_buttons[i], show);
-		if(!show && i && i == currentcat) {
+		if (cat_buttons[i]) {
+			btnbox->Show(cat_buttons[i], show);
+		}
+		if (!show && i && i == currentcat) {
 			currentcat--;
-			if(cat_buttons[i]) cat_buttons[i]->SetValue(false);
-			if(cat_buttons[currentcat]) cat_buttons[currentcat]->SetValue(true);
+			if (cat_buttons[i]) {
+				cat_buttons[i]->SetValue(false);
+			}
+			if (cat_buttons[currentcat]) {
+				cat_buttons[currentcat]->SetValue(true);
+			}
 			OptShowHide(setmask);
 			return;
 		}
-	} while(i > 0);
+	} while (i > 0);
 	btnbox->Layout();
 }
 
 void settings_window::PostOptShowHide() {
-	for(auto &it : accmap) {
-		if(it.first != current) vbox->Hide(it.second);
+	for (auto &it : accmap) {
+		if (it.first != current) {
+			vbox->Hide(it.second);
+		}
 	}
 	vbox->Layout();
 	GetSizer()->Fit(this);
@@ -811,22 +868,27 @@ void settings_window::PostOptShowHide() {
 
 bool settings_window::TransferDataFromWindow() {
 	bool retval = wxWindow::TransferDataFromWindow();
-	if(retval) {
+	if (retval) {
 		AllUsersInheritFromParentIfUnset();
 		gc.CFGParamConv();
-		for(auto &it : alist) it->CFGParamConv();
+		for (auto &it : alist) {
+			it->CFGParamConv();
+		}
 	}
 	return retval;
 }
 
 void settings_window::CategoryButtonClick(wxCommandEvent &event) {
 	Freeze();
-	if(cat_buttons[currentcat]) cat_buttons[currentcat]->SetValue(false);
+	if (cat_buttons[currentcat]) {
+		cat_buttons[currentcat]->SetValue(false);
+	}
 	currentcat = event.GetId() - SWID_CATRANGE_START;
 	cat_buttons[currentcat]->SetValue(true);
 
 	SetSizeHints(GetSize().GetWidth(), 1);
-	OptShowHide((advoptchkbox->IsChecked() ? DBCV::ADVOPTION : static_cast<DBCV>(0)) | (veryadvoptchkbox->IsChecked() ? DBCV::VERYADVOPTION : static_cast<DBCV>(0)));
+	OptShowHide((advoptchkbox->IsChecked() ? DBCV::ADVOPTION : static_cast<DBCV>(0)) |
+			(veryadvoptchkbox->IsChecked() ? DBCV::VERYADVOPTION : static_cast<DBCV>(0)));
 	PostOptShowHide();
 	Thaw();
 }

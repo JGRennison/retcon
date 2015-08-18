@@ -82,7 +82,7 @@ struct image_panel : public wxPanel {
 	}
 
 	void UpdateBitmap() {
-		if(GetSize().GetWidth() == img.GetWidth() && GetSize().GetHeight() == img.GetHeight()) {
+		if (GetSize().GetWidth() == img.GetWidth() && GetSize().GetHeight() == img.GetHeight()) {
 			bm = wxBitmap(img);
 		}
 		else {
@@ -91,9 +91,9 @@ struct image_panel : public wxPanel {
 			double targratio = std::min(wratio, hratio);
 			int targheight = targratio * img.GetHeight();
 			int targwidth = targratio * img.GetWidth();
-			if(targheight < 1)
+			if (targheight < 1)
 				targheight = 1;
-			if(targwidth < 1)
+			if (targwidth < 1)
 				targwidth = 1;
 			bm = wxBitmap(img.Scale(targwidth, targheight, wxIMAGE_QUALITY_HIGH));
 		}
@@ -120,7 +120,7 @@ enum {
 void VLC_Log_CB(void *data, int level, const libvlc_log_t *ctx, const char *fmt, va_list args) {
 	LOGT category = LOGT::VLCERR;
 	const char *name = "???:";
-	switch(level) {
+	switch (level) {
 		case LIBVLC_DEBUG:
 			category = LOGT::VLCDEBUG;
 			name = "debug:";
@@ -136,11 +136,11 @@ void VLC_Log_CB(void *data, int level, const libvlc_log_t *ctx, const char *fmt,
 			break;
 	}
 
-	if(!(currentlogflags & category))
+	if (!(currentlogflags & category))
 		return;
 
 	char *str = nullptr;
-	if(vasprintf(&str, fmt, args) < 0)
+	if (vasprintf(&str, fmt, args) < 0)
 		return;
 	TALogMsgFormat(category, "%-10s %s\n", name, str);
 	free(str);
@@ -165,14 +165,14 @@ struct media_ctrl_panel : public wxPanel, public magic_ptr_base {
 	}
 
 	~media_ctrl_panel() {
-		if(vlc_inited) {
+		if (vlc_inited) {
 			libvlc_media_player_release(media_player);
 			libvlc_release(vlc_inst);
 		}
 	}
 
 	void InitVLC() {
-		if(vlc_inited)
+		if (vlc_inited)
 			return;
 
 		/* This is to fix the issue:
@@ -185,7 +185,7 @@ struct media_ctrl_panel : public wxPanel, public magic_ptr_base {
 		};
 
 		vlc_inst = libvlc_new(1, vlc_args);
-		if(!vlc_inst)
+		if (!vlc_inst)
 			vlc_inst = libvlc_new(0, nullptr);
 		libvlc_log_set(vlc_inst, VLC_Log_CB, nullptr);
 		media_player = libvlc_media_player_new(vlc_inst);
@@ -356,44 +356,45 @@ media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_
 	media_entity *me = ad.media_list[media_id_].get();
 	me->win = win;
 
-	if(me->video && me->video->variants.size() > 0) {
+	if (me->video && me->video->variants.size() > 0) {
 		// This is a video
 		// Don't request static image
 		is_video = true;
 
 		video_entity::video_variant *mp4 = nullptr;
 		video_entity::video_variant *webm = nullptr;
-		for(auto &vv : me->video->variants) {
+		for (auto &vv : me->video->variants) {
 			LogMsgFormat(LOGT::OTHERTRACE, "media_display_win_pimpl: found video variant: %s (%u)", cstr(vv.content_type), vv.bitrate);
-			if(vv.content_type == "video/mp4") {
-				if(!mp4 || vv.bitrate > mp4->bitrate)
+			if (vv.content_type == "video/mp4") {
+				if (!mp4 || vv.bitrate > mp4->bitrate) {
 					mp4 = &vv;
+				}
 			}
-			if(vv.content_type == "video/webm") {
-				if(!webm || vv.bitrate > webm->bitrate)
+			if (vv.content_type == "video/webm") {
+				if (!webm || vv.bitrate > webm->bitrate) {
 					webm = &vv;
+				}
 			}
 		}
 
 		// Highest priority last
-		if(webm) {
+		if (webm) {
 			video_variants.push_back(*webm);
 			webm_save_url = webm->url;
 		}
-		if(mp4) {
+		if (mp4) {
 			video_variants.push_back(*mp4);
 			mp4_save_url = mp4->url;
 		}
 		LogMsgFormat(LOGT::OTHERTRACE, "media_display_win_pimpl: using %d video variants", video_variants.size());
-	}
-	else {
+	} else {
 		win->SetTitle(wxstrstd(me->media_url));
 		StartFetchImageData();
 	}
 
 	wxMenuBar *menuBar = new wxMenuBar;
 
-	if(is_video) {
+	if (is_video) {
 		setsavemenuenablestate = [](bool enable) { };
 
 		auto add_video_save_menu = [&](const std::string &url, const wxString &title) {
@@ -403,17 +404,19 @@ media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_
 				media_entity::pending_video_save_requests.insert(std::make_pair(url, filename));
 				me->CheckVideoLoadSaveActions(url);
 				auto vc = me->video_file_cache.find(url);
-				if(vc == me->video_file_cache.end()) {
+				if (vc == me->video_file_cache.end()) {
 					// Start download if not already in progress/done
 					std::shared_ptr<taccount> acc = me->dm_media_acc.lock();
 					mediaimgdlconn::NewConnWithOptAccOAuth(url, me->media_id, MIDC::VIDEO, acc.get());
 				}
 			});
 		};
-		if(!mp4_save_url.empty())
+		if (!mp4_save_url.empty()) {
 			add_video_save_menu(mp4_save_url, wxT("Save MP4"));
-		if(!webm_save_url.empty())
+		}
+		if (!webm_save_url.empty()) {
 			add_video_save_menu(webm_save_url, wxT("Save WebM"));
+		}
 	}
 	else {
 		int menubarcount = menuBar->GetMenuCount();
@@ -430,12 +433,14 @@ media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_
 		zoom_menu = new wxMenu;
 
 		menuopenhandlers.push_back([this](wxMenuEvent &event) {
-			if(event.GetMenu() != zoom_menu) return;
+			if (event.GetMenu() != zoom_menu) {
+				return;
+			}
 
 			DestroyMenuContents(zoom_menu);
 
 #if defined(__WXGTK__)
-			if(using_anim_ctrl) {
+			if (using_anim_ctrl) {
 				wxMenuItem *wmi = zoom_menu->Append(MDID_ZOOM_ORIG, wxT("&Original Size"), wxT(""), wxITEM_CHECK);
 				wmi->Check(true);
 				wmi->Enable(false);
@@ -464,8 +469,9 @@ media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_
 
 media_display_win::~media_display_win() {
 	observer_ptr<media_entity> me = pimpl->GetMediaEntity();
-	if(me)
+	if (me) {
 		me->win = nullptr;
+	}
 }
 
 media_display_win_pimpl::~media_display_win_pimpl() {
@@ -478,17 +484,19 @@ void media_display_win_pimpl::AddSaveMenu(wxMenuBar *menuBar, const wxString &ti
 	menuBar->Append(menuF, title);
 
 	menuopenhandlers.push_back([this, menuF, get_url, title, save_action](wxMenuEvent &event) {
-		if(event.GetMenu() != menuF) return;
+		if (event.GetMenu() != menuF) return;
 
 		DestroyMenuContents(menuF);
 
 		observer_ptr<media_entity> me = this->GetMediaEntity();
-		if(!me)
+		if (!me) {
 			return;
+		}
 
 		std::string url = get_url(me);
-		if(url.empty())
+		if (url.empty()) {
 			return;
+		}
 
 		auto add_dyn_menu_generic = [&](wxMenu *menu, const wxString &item_name, std::function<void(wxCommandEvent &event)> func) {
 			menu->Append(next_dynmenu_id, item_name);
@@ -506,8 +514,8 @@ void media_display_win_pimpl::AddSaveMenu(wxMenuBar *menuBar, const wxString &ti
 		add_dyn_menu(menuF, wxT("&Save..."), wxT(""));
 
 		wxMenu *recent_menu = new wxMenu();
-		if(!recent_save_paths.empty()) {
-			for(auto &it : recent_save_paths) {
+		if (!recent_save_paths.empty()) {
+			for (auto &it : recent_save_paths) {
 				add_dyn_menu(recent_menu, wxT("Save to: ") + it, it);
 			}
 			recent_menu->AppendSeparator();
@@ -516,7 +524,7 @@ void media_display_win_pimpl::AddSaveMenu(wxMenuBar *menuBar, const wxString &ti
 			});
 		}
 		wxMenuItem *recent_menu_item = menuF->AppendSubMenu(recent_menu, wxT("Save to &recent..."));
-		if(recent_save_paths.empty()) {
+		if (recent_save_paths.empty()) {
 			recent_menu_item->Enable(false);
 		}
 
@@ -524,12 +532,12 @@ void media_display_win_pimpl::AddSaveMenu(wxMenuBar *menuBar, const wxString &ti
 
 		bool added_seperator = false;
 
-		while(tkn.HasMoreTokens()) {
+		while (tkn.HasMoreTokens()) {
 			wxString token = tkn.GetNextToken();
 
-			if(!wxFileName::DirExists(token)) continue;
+			if (!wxFileName::DirExists(token)) continue;
 
-			if(!added_seperator) {
+			if (!added_seperator) {
 				menuF->AppendSeparator();
 				added_seperator = true;
 			}
@@ -541,25 +549,27 @@ void media_display_win_pimpl::AddSaveMenu(wxMenuBar *menuBar, const wxString &ti
 
 void media_display_win_pimpl::AddRecentSavePath(wxString path) {
 	recent_save_paths.erase(std::remove(recent_save_paths.begin(), recent_save_paths.end(), path), recent_save_paths.end());
-	if(recent_save_paths.size() >= 10)
+	if (recent_save_paths.size() >= 10) {
 		recent_save_paths.pop_back();
+	}
 	recent_save_paths.emplace(recent_save_paths.begin(), std::move(path));
 }
 
 void media_display_win_pimpl::StartFetchImageData() {
 	observer_ptr<media_entity> me = GetMediaEntity();
-	if(!me)
+	if (!me) {
 		return;
+	}
 
-	if(me->flags & MEF::LOAD_FULL && !(me->flags & MEF::HAVE_FULL)) {
+	if (me->flags & MEF::LOAD_FULL && !(me->flags & MEF::HAVE_FULL)) {
 		//try to load from file
 		std::string data;
-		if(LoadFromFileAndCheckHash(me->cached_full_filename(), me->full_img_sha1, data)) {
+		if (LoadFromFileAndCheckHash(me->cached_full_filename(), me->full_img_sha1, data)) {
 			me->flags |= MEF::HAVE_FULL;
 			me->fulldata = std::move(data);
 		}
 	}
-	if(!(me->flags & MEF::FULL_NET_INPROGRESS) && !(me->flags & MEF::HAVE_FULL) && me->media_url.size()) {
+	if (!(me->flags & MEF::FULL_NET_INPROGRESS) && !(me->flags & MEF::HAVE_FULL) && me->media_url.size()) {
 		flagwrapper<MIDC> flags = MIDC::FULLIMG | MIDC::OPPORTUNIST_THUMB | MIDC::OPPORTUNIST_REDRAW_TWEETS;
 		std::shared_ptr<taccount> acc = me->dm_media_acc.lock();
 		mediaimgdlconn::NewConnWithOptAccOAuth(me->media_url, media_id, flags, acc.get());
@@ -571,7 +581,7 @@ void media_display_win_pimpl::dynmenudispatchhandler(wxCommandEvent &event) {
 }
 
 void media_display_win_pimpl::OnMenuOpen(wxMenuEvent &event) {
-	for(auto &it : menuopenhandlers) {
+	for (auto &it : menuopenhandlers) {
 		it(event);
 	}
 }
@@ -581,19 +591,19 @@ void media_display_win::UpdateImage() {
 }
 
 void media_display_win_pimpl::UpdateImage() {
-	if(is_video) {
+	if (is_video) {
 		TryLoadVideo();
 		return;
 	}
 
 	wxString message;
 	GetImage(message);
-	if(img_ok) {
+	if (img_ok) {
 		setsavemenuenablestate(true);
 		ClearAllUnlessShowingImage();
 
 		#if defined(__WXGTK__)
-		if(using_anim_ctrl) {
+		if (using_anim_ctrl) {
 			wxSize imgsize(current_img.GetWidth(), current_img.GetHeight());
 			wxSize origwinsize = win->ClientToWindowSize(imgsize);
 			sz->Add(&anim_ctrl, 1, wxEXPAND | wxALIGN_CENTRE);
@@ -606,40 +616,41 @@ void media_display_win_pimpl::UpdateImage() {
 		#endif
 
 		DoSizerLayout();
-		if(is_animated)
+		if (is_animated) {
 			DelayLoadNextAnimFrame();
-	}
-	else {
+		}
+	} else {
 		ShowErrorMessage(message);
 	}
 }
 
 void media_display_win_pimpl::ClearAllUnlessShowingImage() {
-	if(!sb)
+	if (!sb) {
 		ClearAll();
+	}
 }
 
 void media_display_win_pimpl::ClearAll() {
-	if(st_sizer) {
+	if (st_sizer) {
 		sz->Remove(st_sizer);
 		st_sizer = nullptr;
 	}
-	if(st) {
+	if (st) {
 		sz->Detach(st);
 		st->Destroy();
 		st = nullptr;
 	}
-	if(media_ctrl) {
+	if (media_ctrl) {
 		sz->Detach(media_ctrl.get());
 		media_ctrl->Destroy();
 		media_ctrl = nullptr;
 	}
-	if(sb) {
+	if (sb) {
 		sz->Detach(sb);
 		sb->Destroy();
 		sb = nullptr;
 	}
-	if(scrollwin) {
+	if (scrollwin) {
 		sz->Detach(scrollwin);
 		scrollwin->Destroy();
 		scrollwin = nullptr;
@@ -675,24 +686,27 @@ void media_display_win_pimpl::CalcSizes(wxSize imgsize, wxSize &winsize, wxSize 
 	wxClientDisplayRect(0, 0, &scrwidth, &scrheight);
 	scrwidth -= gc.mediawinscreensizewidthreduction;
 	scrheight -= gc.mediawinscreensizeheightreduction;
-	if(scrwidth < 1) scrwidth = 1;
-	if(scrheight < 1) scrheight = 1;
+	if (scrwidth < 1) scrwidth = 1;
+	if (scrheight < 1) scrheight = 1;
 
-	if(zoomflags & MDZF::ZOOMSET) {
+	if (zoomflags & MDZF::ZOOMSET) {
 		targimgsize.SetWidth(imgsize.GetWidth() * zoomvalue);
 		targimgsize.SetHeight(imgsize.GetHeight() * zoomvalue);
 
 		winsize = win->ClientToWindowSize(targimgsize);
-		if(winsize.GetWidth() > scrwidth) winsize.SetWidth(scrwidth);
-		if(winsize.GetHeight() > scrheight) winsize.SetHeight(scrheight);
-	}
-	else {
+		if (winsize.GetWidth() > scrwidth) {
+			winsize.SetWidth(scrwidth);
+		}
+		if (winsize.GetHeight() > scrheight) {
+			winsize.SetHeight(scrheight);
+		}
+	} else {
 		winsize = win->ClientToWindowSize(imgsize);
-		if(winsize.GetWidth() > scrwidth) {
+		if (winsize.GetWidth() > scrwidth) {
 			double scale = (((double) scrwidth) / ((double) winsize.GetWidth()));
 			winsize.Scale(scale, scale);
 		}
-		if(winsize.GetHeight() > scrheight) {
+		if (winsize.GetHeight() > scrheight) {
 			double scale = (((double) scrheight) / ((double) winsize.GetHeight()));
 			winsize.Scale(scale, scale);
 		}
@@ -702,10 +716,11 @@ void media_display_win_pimpl::CalcSizes(wxSize imgsize, wxSize &winsize, wxSize 
 
 void media_display_win_pimpl::DoSizerLayout() {
 	wxSize imgsize;
-	if(is_video) {
+	if (is_video) {
 		observer_ptr<media_entity> me = GetMediaEntity();
-		if(!me || !me->video)
+		if (!me || !me->video) {
 			return;
+		}
 
 		unsigned int w = me->video->size_w;
 		unsigned int h = me->video->size_h;
@@ -714,10 +729,10 @@ void media_display_win_pimpl::DoSizerLayout() {
 		h = std::max<unsigned int>({ h, (w * me->video->aspect_h) / me->video->aspect_w, 1 });
 
 		imgsize = wxSize(w, h);
-	}
-	else {
-		if(!img_ok)
+	} else {
+		if (!img_ok) {
 			return;
+		}
 		imgsize = wxSize(current_img.GetWidth(), current_img.GetHeight());
 	}
 
@@ -726,30 +741,29 @@ void media_display_win_pimpl::DoSizerLayout() {
 
 	wxWindow *item = nullptr;
 	int flag;
-	if(is_video) {
+	if (is_video) {
 		flag = wxSHAPED;
-		if(media_ctrl) {
+		if (media_ctrl) {
 			item = media_ctrl.get();
 			sz->Detach(item);
 		}
-	}
-	else {
+	} else {
 		flag = wxEXPAND;
-		if(!sb) {
+		if (!sb) {
 			sb = new image_panel(win, targsize);
 			sb->img = current_img;
-		}
-		else {
+		} else {
 			sz->Detach(sb);
 		}
 		item = sb;
 	}
 
-	if(!item)
+	if (!item) {
 		return;
+	}
 
-	if(zoomflags & MDZF::ZOOMSET) {
-		if(!scrollwin) {
+	if (zoomflags & MDZF::ZOOMSET) {
+		if (!scrollwin) {
 			scrollwin = new wxScrolledWindow(win);
 			scrollwin->SetScrollRate(1, 1);
 			sz->Add(scrollwin, 1, flag | wxALIGN_CENTRE | wxALIGN_CENTRE_VERTICAL);
@@ -763,9 +777,8 @@ void media_display_win_pimpl::DoSizerLayout() {
 		win->SetSize(winsizeinc);    //This is to encourage scrollbars to disappear
 		win->Layout();
 		win->SetSize(winsize);
-	}
-	else {
-		if(scrollwin) {
+	} else {
+		if (scrollwin) {
 			item->Reparent(win);
 			sz->Detach(scrollwin);
 			scrollwin->Destroy();
@@ -777,7 +790,7 @@ void media_display_win_pimpl::DoSizerLayout() {
 		sz->Add(item, 1, flag | wxALIGN_CENTRE | wxALIGN_CENTRE_VERTICAL);
 	}
 
-	if(!is_video) {
+	if (!is_video) {
 		sb->UpdateBitmap();
 	}
 
@@ -786,18 +799,18 @@ void media_display_win_pimpl::DoSizerLayout() {
 
 void media_display_win_pimpl::GetImage(wxString &message) {
 	observer_ptr<media_entity> me = GetMediaEntity();
-	if(me) {
-		if(me->flags & MEF::HAVE_FULL) {
+	if (me) {
+		if (me->flags & MEF::HAVE_FULL) {
 			is_animated = false;
 
 			wxMemoryInputStream memstream2(me->fulldata.data(), me->fulldata.size());
 			current_img.LoadFile(memstream2, wxBITMAP_TYPE_ANY);
 			img_ok = current_img.IsOk();
 
-			if(img_ok) {
+			if (img_ok) {
 				wxMemoryInputStream memstream(me->fulldata.data(), me->fulldata.size());
-				if(anim.Load(memstream, wxANIMATION_TYPE_ANY)) {
-					if(anim.GetFrameCount() > 1) {
+				if (anim.Load(memstream, wxANIMATION_TYPE_ANY)) {
+					if (anim.GetFrameCount() > 1) {
 						LogMsgFormat(LOGT::OTHERTRACE, "media_display_win_pimpl::GetImage found animation: %d frames", anim.GetFrameCount());
 						is_animated = true;
 						current_img = anim.GetFrame(0);
@@ -806,27 +819,23 @@ void media_display_win_pimpl::GetImage(wxString &message) {
 					}
 					#if defined(__WXGTK__)
 					else {
-						if(!using_anim_ctrl && !gdk_pixbuf_animation_is_static_image(anim.GetPixbuf())) {
+						if (!using_anim_ctrl && !gdk_pixbuf_animation_is_static_image(anim.GetPixbuf())) {
 							using_anim_ctrl = true;
 							anim_ctrl.Create(win, wxID_ANY, anim);
 						}
 					}
 					#endif
 				}
-			}
-			else {
+			} else {
 				LogMsgFormat(LOGT::OTHERERR, "media_display_win_pimpl::GetImage: Image is not OK, corrupted or partial download?");
 			}
 			return;
-		}
-		else if(me->flags & MEF::FULL_FAILED) {
+		} else if (me->flags & MEF::FULL_FAILED) {
 			message = wxT("Failed to Load Image");
-		}
-		else {
+		} else {
 			message = wxT("Loading Image");
 		}
-	}
-	else {
+	} else {
 		message = wxT("No Image");
 	}
 	img_ok = false;
@@ -835,13 +844,15 @@ void media_display_win_pimpl::GetImage(wxString &message) {
 
 void media_display_win_pimpl::DelayLoadNextAnimFrame() {
 	int delay = anim.GetDelay(current_frame_index);
-	if(delay >= 0) animation_timer.Start(delay, wxTIMER_ONE_SHOT);
+	if (delay >= 0) animation_timer.Start(delay, wxTIMER_ONE_SHOT);
 }
 
 void media_display_win_pimpl::OnAnimationTimer(wxTimerEvent& event) {
-	if(!sb) return;
+	if (!sb) return;
 	current_frame_index++;
-	if(current_frame_index >= anim.GetFrameCount()) current_frame_index = 0;
+	if (current_frame_index >= anim.GetFrameCount()) {
+		current_frame_index = 0;
+	}
 	current_img = anim.GetFrame(current_frame_index);
 	sb->img = current_img;
 	sb->UpdateBitmap();
@@ -856,16 +867,20 @@ observer_ptr<media_entity> media_display_win_pimpl::GetMediaEntity() {
 void media_display_win_pimpl::SaveToDir(const wxString &dir, const wxString &title, const wxString &url,
 		std::function<void(observer_ptr<media_entity>, wxString)> save_action) {
 	observer_ptr<media_entity> me = GetMediaEntity();
-	if(me) {
+	if (me) {
 		wxString hint;
 		wxString ext;
 		bool hasext;
 		wxFileName::SplitPath(url, 0, 0, &hint, &ext, &hasext, wxPATH_UNIX);
-		if(hasext) hint += wxT(".") + ext;
+		if (hasext) {
+			hint += wxT(".") + ext;
+		}
 		wxString newhint;
-		if(hint.EndsWith(wxT(":large"), &newhint)) hint = newhint;
+		if (hint.EndsWith(wxT(":large"), &newhint)) {
+			hint = newhint;
+		}
 		wxString filename = wxFileSelector(title, dir, hint, ext, wxT("*.*"), wxFD_SAVE | wxFD_OVERWRITE_PROMPT, win);
-		if(filename.Len()) {
+		if (filename.Len()) {
 			AddRecentSavePath(wxPathOnly(filename));
 			save_action(me, filename);
 		}
@@ -885,11 +900,11 @@ void media_display_win_pimpl::OnMenuZoomOrig(wxCommandEvent &event) {
 
 void media_display_win_pimpl::OnMenuZoomSet(wxCommandEvent &event) {
 	wxString str = ::wxGetTextFromUser(wxT("Enter zoom value in percent (%)"), wxT("Input Number"), wxT(""), win);
-	if(!str.IsEmpty()) {
+	if (!str.IsEmpty()) {
 		std::string stdstr = stdstrwx(str);
 		char *pos = nullptr;
 		double value = strtod(stdstr.c_str(), &pos);
-		if((pos && *pos != 0) || (!std::isnormal(value)) || value <= 0) {
+		if ((pos && *pos != 0) || (!std::isnormal(value)) || value <= 0) {
 			::wxMessageBox(wxString::Format(wxT("'%s' does not appear to be a positive finite number"), str.c_str()), wxT("Invalid Input"), wxOK | wxICON_EXCLAMATION, win);
 			return;
 		}
@@ -900,24 +915,24 @@ void media_display_win_pimpl::OnMenuZoomSet(wxCommandEvent &event) {
 }
 
 void media_display_win_pimpl::TryLoadVideo() {
-	if(video_variants.empty())
+	if (video_variants.empty()) {
 		return;
+	}
 
 	video_entity::video_variant &vv = video_variants.back();
 	win->SetTitle(wxstrstd(vv.url));
 
 	observer_ptr<media_entity> me = GetMediaEntity();
-	if(!me) {
+	if (!me) {
 		NotifyVideoLoadFailure(vv.url);
 		return;
 	}
 
 	auto vc = me->video_file_cache.find(vv.url);
-	if(vc == me->video_file_cache.end()) {
+	if (vc == me->video_file_cache.end()) {
 		std::shared_ptr<taccount> acc = me->dm_media_acc.lock();
 		mediaimgdlconn::NewConnWithOptAccOAuth(vv.url, media_id, MIDC::VIDEO, acc.get());
-	}
-	else if(vc->second.IsValid()) {
+	} else if (vc->second.IsValid()) {
 		// Already loaded
 		NotifyVideoLoadSuccess(vv.url);
 		return;
@@ -934,17 +949,18 @@ void media_display_win::NotifyVideoLoadSuccess(const std::string &url) {
 void media_display_win_pimpl::NotifyVideoLoadSuccess(const std::string &url) {
 	LogMsgFormat(LOGT::OTHERTRACE, "media_display_win_pimpl::NotifyVideoLoadSuccess");
 
-	if(video_variants.empty() || url != video_variants.back().url)
+	if (video_variants.empty() || url != video_variants.back().url) {
 		return;
+	}
 
 	observer_ptr<media_entity> me = GetMediaEntity();
-	if(!me) {
+	if (!me) {
 		NotifyVideoLoadFailure(url);
 		return;
 	}
 
 	auto vc = me->video_file_cache.find(url);
-	if(vc == me->video_file_cache.end() || !vc->second.IsValid()) {
+	if (vc == me->video_file_cache.end() || !vc->second.IsValid()) {
 		NotifyVideoLoadFailure(url);
 		return;
 	}
@@ -953,9 +969,9 @@ void media_display_win_pimpl::NotifyVideoLoadSuccess(const std::string &url) {
 	media_ctrl = new media_ctrl_panel(win);
 	sz->Add(media_ctrl.get(), 1, wxSHAPED | wxALIGN_CENTRE);
 	bool video_ok = media_ctrl->Load(wxstrstd(vc->second.GetFilename()));
-	if(!video_ok)
+	if (!video_ok) {
 		NotifyVideoLoadFailure(url);
-	else {
+	} else {
 		LogMsgFormat(LOGT::OTHERTRACE, "media_display_win_pimpl::NotifyVideoLoadSuccess: appeared to load successfully");
 		DoSizerLayout();
 	}
@@ -968,15 +984,15 @@ void media_display_win::NotifyVideoLoadFailure(const std::string &url) {
 void media_display_win_pimpl::NotifyVideoLoadFailure(const std::string &url) {
 	LogMsgFormat(LOGT::OTHERTRACE, "media_display_win_pimpl::NotifyVideoLoadFailure");
 
-	if(video_variants.empty())
+	if (video_variants.empty()) {
 		return;
+	}
 
 	video_variants.pop_back();
-	if(video_variants.empty()) {
+	if (video_variants.empty()) {
 		win->SetTitle(wxT("Loading video failed"));
 		ShowErrorMessage(wxT("Loading video failed"));
-	}
-	else {
+	} else {
 		TryLoadVideo();
 	}
 }

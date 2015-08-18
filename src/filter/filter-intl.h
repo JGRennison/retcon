@@ -57,7 +57,7 @@ struct filter_db_lazy_state {
 	filter_bulk_action bulk_action;
 
 	filter_db_lazy_state(sqlite3 *db)
-		: dl_tweet(db), dl_rtsrc(db), dl_user1(db), dl_user2(db) { }
+			: dl_tweet(db), dl_rtsrc(db), dl_user1(db), dl_user2(db) { }
 };
 
 struct generic_tweet_access_loaded {
@@ -69,6 +69,7 @@ struct generic_tweet_access_loaded {
 	bool HasRT() const {
 		return (bool) tw.rtsrc;
 	}
+
 	bool HasRecipUser() const {
 		return (bool) tw.user_recipient;
 	}
@@ -76,15 +77,19 @@ struct generic_tweet_access_loaded {
 	db_lazy_tweet_compat_accessor GetTweet() {
 		return db_lazy_tweet_compat_accessor(tw);
 	}
+
 	db_lazy_tweet_compat_accessor GetRetweet() {
 		return db_lazy_tweet_compat_accessor(*tw.rtsrc);
 	}
+
 	db_lazy_user_compat_accessor GetUser() {
 		return db_lazy_user_compat_accessor(tw.user.get());
 	}
+
 	db_lazy_user_compat_accessor GetRTUser() {
 		return db_lazy_user_compat_accessor(tw.rtsrc->user.get());
 	}
+
 	db_lazy_user_compat_accessor GetRecipUser() {
 		return db_lazy_user_compat_accessor(tw.user_recipient.get());
 	}
@@ -105,6 +110,7 @@ struct generic_tweet_access_dblazy {
 		LoadTweet();
 		return state.dl_tweet.GetRtid();
 	}
+
 	bool HasRecipUser() {
 		LoadTweet();
 		return state.dl_tweet.GetUserRecipient();
@@ -114,20 +120,24 @@ struct generic_tweet_access_dblazy {
 		LoadTweet();
 		return &state.dl_tweet;
 	}
+
 	db_lazy_tweet *GetRetweet() {
 		LoadTweet();
 		state.dl_rtsrc.LoadTweetID(state.dl_tweet.GetRtid());
 		return &state.dl_rtsrc;
 	}
+
 	db_lazy_user *GetUser() {
 		LoadTweet();
 		state.dl_user1.LoadUserID(state.dl_tweet.GetUser());
 		return &state.dl_user1;
 	}
+
 	db_lazy_user *GetRTUser() {
 		state.dl_user2.LoadUserID(GetRetweet()->GetUser());
 		return &state.dl_user2;
 	}
+
 	db_lazy_user *GetRecipUser() {
 		LoadTweet();
 		state.dl_user2.LoadUserID(state.dl_tweet.GetUserRecipient());

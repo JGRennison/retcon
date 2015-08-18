@@ -37,42 +37,47 @@ wxBitmap emoji_cache::GetEmojiImg(EMOJI_MODE mode, uint32_t first, uint32_t seco
 	cache_item &item = img_map[std::make_pair(first, second)];
 
 	// exclude emoji for (c), (r) and TM, default fonts can do these just fine
-	if(first == 0xa9 || first == 0xae || first == 0x2122)
+	if (first == 0xa9 || first == 0xae || first == 0x2122) {
 		return wxBitmap();
+	}
 
 	wxBitmap *img = nullptr;
-	switch(mode) {
+	switch (mode) {
 		case EMOJI_MODE::OFF:
 			return wxBitmap();
+
 		case EMOJI_MODE::SIZE_16:
 			img = &(item.size_16);
 			break;
+
 		case EMOJI_MODE::SIZE_36:
 			img = &(item.size_36);
 			break;
 	}
 
-	if(!img->IsOk()) {
+	if (!img->IsOk()) {
 		auto cmp = [&](const emoji_item &item, const std::pair<uint32_t, uint32_t> &needle) {
 			return std::make_pair(item.first, item.second) < needle;
 		};
 		auto it = std::lower_bound(emoji_map, emoji_map + emoji_map_size, std::make_pair(first, second), cmp);
-		if(it != (emoji_map + emoji_map_size) && !cmp(*it, std::make_pair(first, second))) {
+		if (it != (emoji_map + emoji_map_size) && !cmp(*it, std::make_pair(first, second))) {
 			// found emoji entry
 
 			const std::pair<const unsigned char *, const unsigned char *> *ptrs = nullptr;
-			switch(mode) {
+			switch (mode) {
 				case EMOJI_MODE::OFF:
 					break;
+
 				case EMOJI_MODE::SIZE_16:
 					ptrs = &(it->ptrs_16);
 					break;
+
 				case EMOJI_MODE::SIZE_36:
 					ptrs = &(it->ptrs_36);
 					break;
 			}
 
-			if(ptrs) {
+			if (ptrs) {
 				wxMemoryInputStream memstream(ptrs->first, ptrs->second - ptrs->first);
 				wxImage image;
 				image.LoadFile(memstream, wxBITMAP_TYPE_PNG);
@@ -88,16 +93,16 @@ void EmojiParseString(const std::string &input, EMOJI_MODE mode, emoji_cache &ca
 	static pcre *pattern = nullptr;
 	static pcre_extra *patextra = nullptr;
 
-	if(mode == EMOJI_MODE::OFF) {
+	if (mode == EMOJI_MODE::OFF) {
 		string_out(input);
 		return;
 	}
 
-	if(!pattern) {
+	if (!pattern) {
 		const char *errptr;
 		int erroffset;
 		pattern = pcre_compile(emoji_regex.c_str(), PCRE_NO_UTF8_CHECK | PCRE_UTF8, &errptr, &erroffset, 0);
-		if(!pattern) {
+		if (!pattern) {
 			LogMsgFormat(LOGT::OTHERERR, "EmojiParseString: pcre_compile failed: %s (%d)\n%s", cstr(errptr), erroffset, cstr(emoji_regex));
 			return;
 		}
@@ -105,47 +110,54 @@ void EmojiParseString(const std::string &input, EMOJI_MODE mode, emoji_cache &ca
 	}
 
 	auto output_string = [&](std::string out) {
-		if(!out.empty())
+		if (!out.empty()) {
 			string_out(std::move(out));
+		}
 	};
 
 	int startoffset = 0;
-	while(true) {
+	while (true) {
 		int ovector[30];
 		int rc = pcre_exec(pattern, patextra, input.data(), input.size(), startoffset, 0, ovector, 30);
-		if(rc <= 0)
+		if (rc <= 0) {
 			break;
+		}
 		output_string(std::string(input.data() + startoffset, input.data() + ovector[0]));
 		startoffset = ovector[1];
 
 		uint32_t first = 0;
 		uint32_t second = 0;
 		uint32_t variant = 0;
-		if(rc >= 2) {
+		if (rc >= 2) {
 			const char *str = input.data() + ovector[2];
-			if(str < input.data() + ovector[3])
+			if (str < input.data() + ovector[3]) {
 				first = getcharfromstr_utf8_ret(&str);
-			if(str < input.data() + ovector[3])
+			}
+			if (str < input.data() + ovector[3]) {
 				second = getcharfromstr_utf8_ret(&str);
+			}
 		}
-		if(rc >= 3) {
-			if(ovector[4] < ovector[5])
+		if (rc >= 3) {
+			if (ovector[4] < ovector[5]) {
 				variant = getcharfromstr_utf8(input.data() + ovector[4]);
+			}
 		}
 
-		if(second == 0xFE0F)
+		if (second == 0xFE0F) {
 			second = 0;
+		}
 
 		wxBitmap img;
-		if(variant != 0xFE0E) {
+		if (variant != 0xFE0E) {
 			img = cache.GetEmojiImg(mode, first, second);
 		}
 
 		std::string out_text(input.data() + ovector[0], input.data() + ovector[1]);
-		if(img.IsOk())
+		if (img.IsOk()) {
 			img_out(std::move(img), std::move(out_text));
-		else
+		} else {
 			output_string(std::move(out_text));
+		}
 	}
 	output_string(std::string(input.data() + startoffset, input.data() + input.size()));
 }

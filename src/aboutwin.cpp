@@ -27,7 +27,9 @@ void OpenAboutWindow() {
 	wxAboutDialogInfo info;
 	info.SetName(appname);
 	wxString version = wxString(wxT("v")) + wxString(wxT(RETCON_VERSION_STR));
-	if(appbuildversion != version) version += wxString::Format(wxT(" (%s)"), appbuildversion.c_str());
+	if (appbuildversion != version) {
+		version += wxString::Format(wxT(" (%s)"), appbuildversion.c_str());
+	}
 	info.SetVersion(version);
 	info.SetDescription(wxT("A Twitter client."));
 	info.AddDeveloper(wxT("Jonathan Rennison <j.g.rennison@gmail.com>"));

@@ -53,7 +53,7 @@ void parse_util::DisplayParseErrorMsg(rapidjson::Document &dc, const std::string
 }
 
 bool parse_util::ParseStringInPlace(rapidjson::Document &dc, char *mutable_string, const std::string &name) {
-	if(dc.ParseInsitu<0>(mutable_string).HasParseError()) {
+	if (dc.ParseInsitu<0>(mutable_string).HasParseError()) {
 		DisplayParseErrorMsg(dc, name, mutable_string);
 		return false;
 	}
@@ -71,22 +71,23 @@ void genjsonparser::ParseTweetStatics(const rapidjson::Value &val, tweet_ptr_p t
 
 	uint64_t quoted_status_id;
 	CheckTransJsonValueDef(quoted_status_id, val, "quoted_status_id", 0, jw);
-	if(quoted_status_id)
+	if (quoted_status_id) {
 		tobj->AddQuotedTweetId(quoted_status_id);
+	}
 
 	const rapidjson::Value &entv = val["entities"];
 	const rapidjson::Value &entvex = val["extended_entities"];
-	if(entv.IsObject()) {
-		if(parse_entities) {
+	if (entv.IsObject()) {
+		if (parse_entities) {
 			DoEntitiesParse(entv, entvex.IsObject() ? &entvex : nullptr, tobj, isnew, dbmsglist);
 		}
-		if(jw) {
+		if (jw) {
 			jw->String("entities");
 			entv.Accept(*jw);
 		}
 	}
-	if(entvex.IsObject()) {
-		if(jw) {
+	if (entvex.IsObject()) {
+		if (jw) {
 			jw->String("extended_entities");
 			entvex.Accept(*jw);
 		}
@@ -99,11 +100,11 @@ void genjsonparser::ParseTweetStatics(const rapidjson::Value &val, tweet_ptr_p t
 //this is paired with tweet::mkdynjson
 void genjsonparser::ParseTweetDyn(const rapidjson::Value &val, tweet_ptr_p tobj) {
 	const rapidjson::Value &p = val["p"];
-	if(p.IsArray()) {
-		for(rapidjson::SizeType i = 0; i < p.Size(); i++) {
+	if (p.IsArray()) {
+		for (rapidjson::SizeType i = 0; i < p.Size(); i++) {
 			unsigned int dbindex = CheckGetJsonValueDef<unsigned int>(p[i], "a", 0);
-			for(auto &it : alist) {
-				if(it->dbindex == dbindex) {
+			for (auto &it : alist) {
+				if (it->dbindex == dbindex) {
 					tweet_perspective *tp = tobj->AddTPToTweet(it);
 					tp->Load(CheckGetJsonValueDef<unsigned int>(p[i], "f", 0));
 					break;
@@ -122,8 +123,8 @@ void genjsonparser::ParseTweetDyn(const rapidjson::Value &val, tweet_ptr_p tobj)
 //returns true on success
 static bool ReadEntityIndices(int &start, int &end, const rapidjson::Value &val) {
 	auto &ar = val["indices"];
-	if(ar.IsArray() && ar.Size() == 2) {
-		if(ar[(rapidjson::SizeType) 0].IsInt() && ar[1].IsInt()) {
+	if (ar.IsArray() && ar.Size() == 2) {
+		if (ar[(rapidjson::SizeType) 0].IsInt() && ar[1].IsInt()) {
 			start = ar[(rapidjson::SizeType) 0].GetInt();
 			end = ar[1].GetInt();
 			return true;
@@ -137,11 +138,11 @@ static bool ReadEntityIndices(entity &en, const rapidjson::Value &val) {
 }
 
 static std::string ProcessMediaURL(std::string url, const wxURI &wxuri) {
-	if(!wxuri.HasServer()) return url;
+	if (!wxuri.HasServer()) return url;
 
 	wxString host = wxuri.GetServer();
-	if(host == wxT("dropbox.com") || host.EndsWith(wxT(".dropbox.com"), nullptr)) {
-		if(wxuri.GetPath().StartsWith(wxT("/s/")) && !wxuri.HasQuery()) {
+	if (host == wxT("dropbox.com") || host.EndsWith(wxT(".dropbox.com"), nullptr)) {
+		if (wxuri.GetPath().StartsWith(wxT("/s/")) && !wxuri.HasQuery()) {
 			return url + "?dl=1";
 		}
 	}
@@ -157,27 +158,45 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 
 	optional_observer_ptr<const rapidjson::Value> media_array = nullptr;
 	auto &media_std = val["media"];
-	if(media_std.IsArray()) media_array = &media_std;
-	if(val_ex) {
+	if (media_std.IsArray()) {
+		media_array = &media_std;
+	}
+	if (val_ex) {
 		auto &media_ex = (*val_ex)["media"];
-		if(media_ex.IsArray()) media_array = &media_ex;
+		if (media_ex.IsArray()) {
+			media_array = &media_ex;
+		}
 	}
 
 	t->entlist.clear();
 
 	unsigned int entity_count = 0;
-	if(hashtags.IsArray()) entity_count += hashtags.Size();
-	if(urls.IsArray()) entity_count += urls.Size();
-	if(user_mentions.IsArray()) entity_count += user_mentions.Size();
-	if(media_array) entity_count += media_array->Size();
+	if (hashtags.IsArray()) {
+		entity_count += hashtags.Size();
+	}
+	if (urls.IsArray()) {
+		entity_count += urls.Size();
+	}
+	if (user_mentions.IsArray()) {
+		entity_count += user_mentions.Size();
+	}
+	if (media_array) {
+		entity_count += media_array->Size();
+	}
 	t->entlist.reserve(entity_count);
 
-	if(hashtags.IsArray()) {
-		for(rapidjson::SizeType i = 0; i < hashtags.Size(); i++) {
+	if (hashtags.IsArray()) {
+		for (rapidjson::SizeType i = 0; i < hashtags.Size(); i++) {
 			t->entlist.emplace_back(ENT_HASHTAG);
 			entity *en = &t->entlist.back();
-			if(!ReadEntityIndices(*en, hashtags[i])) { t->entlist.pop_back(); continue; }
-			if(!CheckTransJsonValueDef(en->text, hashtags[i], "text", "")) { t->entlist.pop_back(); continue; }
+			if (!ReadEntityIndices(*en, hashtags[i])) {
+				t->entlist.pop_back();
+				continue;
+			}
+			if (!CheckTransJsonValueDef(en->text, hashtags[i], "text", "")) {
+				t->entlist.pop_back();
+				continue;
+			}
 			en->text = "#" + en->text;
 		}
 	}
@@ -187,17 +206,18 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 		return [url, net_flags, netloadmask](media_entity *me, flagwrapper<MELF> mel_flags) {
 			struct local {
 				static void try_net_dl(media_entity *me, std::string url, flagwrapper<MIDC> net_flags, flagwrapper<MELF> netloadmask, flagwrapper<MELF> mel_flags) {
-					if(mel_flags & MELF::NONETLOAD) return;
-					if(!(me->flags & MEF::HAVE_THUMB) && !(url.empty()) && (netloadmask & mel_flags) && !(me->flags & MEF::THUMB_NET_INPROGRESS) && !(me->flags & MEF::THUMB_FAILED)) {
+					if (mel_flags & MELF::NONETLOAD) return;
+					if (!(me->flags & MEF::HAVE_THUMB) && !(url.empty()) && (netloadmask & mel_flags) &&
+							!(me->flags & MEF::THUMB_NET_INPROGRESS) && !(me->flags & MEF::THUMB_FAILED)) {
 						std::shared_ptr<taccount> acc = me->dm_media_acc.lock();
 						mediaimgdlconn::NewConnWithOptAccOAuth(url, me->media_id, net_flags, acc.get());
 					}
 				};
 			};
 
-			if(me->flags & MEF::LOAD_THUMB && !(me->flags & MEF::HAVE_THUMB)) {
+			if (me->flags & MEF::LOAD_THUMB && !(me->flags & MEF::HAVE_THUMB)) {
 				//Don't bother loading a cached thumb now, that can wait
-				if(mel_flags & MELF::LOADTIME) return;
+				if (mel_flags & MELF::LOADTIME) return;
 
 				//try to load from file
 				me->flags |= MEF::THUMB_NET_INPROGRESS;
@@ -218,20 +238,19 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 				},
 				[job_data, url, net_flags, netloadmask, mel_flags]() {
 					observer_ptr<media_entity> me = media_entity::GetExisting(job_data->media_id);
-					if(me) {
+					if (me) {
 						media_entity &m = *me;
 
 						m.flags &= ~MEF::THUMB_NET_INPROGRESS;
-						if(job_data->ok) {
+						if (job_data->ok) {
 							LogMsgFormat(LOGT::FILEIOTRACE, "genjsonparser::DoEntitiesParse::mk_media_thumb_load_func, successfully loaded cached media thumbnail file: %s, url: %s",
 									cstr(media_entity::cached_thumb_filename(job_data->media_id)), cstr(url));
 							m.thumbimg = wxBitmap(job_data->img);
 							m.flags |= MEF::HAVE_THUMB;
-							for(auto &jt : m.tweet_list) {
+							for (auto &jt : m.tweet_list) {
 								UpdateTweet(*jt);
 							}
-						}
-						else {
+						} else {
 							LogMsgFormat(LOGT::FILEIOERR, "genjsonparser::DoEntitiesParse::mk_media_thumb_load_func, cached media thumbnail file: %s, url: %s, missing, invalid or failed hash check",
 									cstr(media_entity::cached_thumb_filename(job_data->media_id)), cstr(url));
 							m.flags &= ~MEF::LOAD_THUMB;
@@ -239,16 +258,17 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 						}
 					}
 				});
+			} else {
+				local::try_net_dl(me, url, net_flags, netloadmask, mel_flags);
 			}
-			else local::try_net_dl(me, url, net_flags, netloadmask, mel_flags);
 		};
 	};
 
-	if(urls.IsArray()) {
-		for(rapidjson::SizeType i = 0; i < urls.Size(); i++) {
+	if (urls.IsArray()) {
+		for (rapidjson::SizeType i = 0; i < urls.Size(); i++) {
 			t->entlist.emplace_back(ENT_URL);
 			entity *en = &t->entlist.back();
-			if(!ReadEntityIndices(*en, urls[i])) {
+			if (!ReadEntityIndices(*en, urls[i])) {
 				t->entlist.pop_back();
 				continue;
 			}
@@ -257,46 +277,53 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 
 			wxURI wxuri(wxstrstd(en->fullurl));
 			wxString end = wxuri.GetPath();
-			if(end.EndsWith(wxT(".jpg")) || end.EndsWith(wxT(".png")) || end.EndsWith(wxT(".jpeg")) || end.EndsWith(wxT(".gif"))) {
+			if (end.EndsWith(wxT(".jpg")) || end.EndsWith(wxT(".png")) || end.EndsWith(wxT(".jpeg")) || end.EndsWith(wxT(".gif"))) {
 				en->type = ENT_URL_IMG;
 				t->flags.Set('I');
 
 				std::string url = ProcessMediaURL(en->fullurl, wxuri);
 
 				observer_ptr<media_entity> me = ad.img_media_map[url];
-				if(!me) {
+				if (!me) {
 					media_id_type media_id;
 					media_id.m_id = ad.next_media_id;
 					ad.next_media_id++;
 					media_id.t_id = t->id;
 					me = media_entity::MakeNew(media_id, url);
-					if(gc.cachethumbs || gc.cachemedia) DBC_InsertMedia(*me, dbmsglist);
+					if (gc.cachethumbs || gc.cachemedia) {
+						DBC_InsertMedia(*me, dbmsglist);
+					}
 				}
-				auto res = std::find_if(me->tweet_list.begin(), me->tweet_list.end(), [&](tweet_ptr_p tt) {
+				auto res = std::find_if (me->tweet_list.begin(), me->tweet_list.end(), [&](tweet_ptr_p tt) {
 					return tt->id == t->id;
 				});
-				if(res == me->tweet_list.end()) {
+				if (res == me->tweet_list.end()) {
 					me->tweet_list.push_front(t);
 				}
 
 				flagwrapper<MELF> netloadmask = 0;
-				if(gc.autoloadthumb_full) netloadmask |= MELF::LOADTIME;
-				if(gc.disploadthumb_full) netloadmask |= MELF::DISPTIME;
+				if (gc.autoloadthumb_full) {
+					netloadmask |= MELF::LOADTIME;
+				}
+				if (gc.disploadthumb_full) {
+					netloadmask |= MELF::DISPTIME;
+				}
 				me->check_load_thumb_func = mk_media_thumb_load_func(me->media_url, MIDC::FULLIMG | MIDC::THUMBIMG | MIDC::REDRAW_TWEETS, netloadmask);
 				me->CheckLoadThumb(MELF::LOADTIME);
 			}
 
-			if(wxuri.GetServer() == wxT("twitter.com") && !wxuri.HasQuery()) {
+			if (wxuri.GetServer() == wxT("twitter.com") && !wxuri.HasQuery()) {
 				static pcre *pattern = 0;
 				static pcre_extra *patextra = 0;
 				static const char patsyntax[] = "^/[^/]+/status/(\\d+)$";
 
-				if(!pattern) {
+				if (!pattern) {
 					const char *errptr;
 					int erroffset;
 					pattern = pcre_compile(patsyntax, PCRE_NO_UTF8_CHECK | PCRE_UTF8, &errptr, &erroffset, 0);
-					if(!pattern) {
-						LogMsgFormat(LOGT::OTHERERR, "genjsonparser::DoEntitiesParse: twitter URL: pcre_compile failed: %s (%d)\n%s", cstr(errptr), erroffset, cstr(patsyntax));
+					if (!pattern) {
+						LogMsgFormat(LOGT::OTHERERR, "genjsonparser::DoEntitiesParse: twitter URL: pcre_compile failed: %s (%d)\n%s",
+								cstr(errptr), erroffset, cstr(patsyntax));
 						continue;
 					}
 					patextra = pcre_study(pattern, 0, &errptr);
@@ -306,10 +333,10 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 
 				const int ovecsize = 9;
 				int ovector[9];
-				if(pcre_exec(pattern, patextra, path.c_str(), path.size(), 0, 0, ovector, ovecsize) >= 2) {
+				if (pcre_exec(pattern, patextra, path.c_str(), path.size(), 0, 0, ovector, ovecsize) >= 2) {
 					uint64_t id = 0;
 					bool ok = ownstrtonum(id, path.c_str() + ovector[2], ovector[3] - ovector[2]);
-					if(ok) {
+					if (ok) {
 						t->AddQuotedTweetId(id);
 					}
 				}
@@ -318,85 +345,91 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 	}
 
 	t->flags.Set('M', false);
-	if(user_mentions.IsArray()) {
-		for(rapidjson::SizeType i = 0; i < user_mentions.Size(); i++) {
+	if (user_mentions.IsArray()) {
+		for (rapidjson::SizeType i = 0; i < user_mentions.Size(); i++) {
 			t->entlist.emplace_back(ENT_MENTION);
 			entity *en = &t->entlist.back();
-			if(!ReadEntityIndices(*en, user_mentions[i])) {
+			if (!ReadEntityIndices(*en, user_mentions[i])) {
 				t->entlist.pop_back();
 				continue;
 			}
 			uint64_t userid;
-			if(!CheckTransJsonValueDef(userid, user_mentions[i], "id", 0)) {
+			if (!CheckTransJsonValueDef(userid, user_mentions[i], "id", 0)) {
 				t->entlist.pop_back();
 				continue;
 			}
-			if(!CheckTransJsonValueDef(en->text, user_mentions[i], "screen_name", "")) {
+			if (!CheckTransJsonValueDef(en->text, user_mentions[i], "screen_name", "")) {
 				t->entlist.pop_back();
 				continue;
 			}
 			en->user = ad.GetUserContainerById(userid);
-			if(en->user->GetUser().screen_name.empty()) en->user->GetUser().screen_name = en->text;
+			if (en->user->GetUser().screen_name.empty()) {
+				en->user->GetUser().screen_name = en->text;
+			}
 			en->text = "@" + en->text;
-			if(en->user->udc_flags & UDC::THIS_IS_ACC_USER_HINT) t->flags.Set('M', true);
-			if(isnew) {
+			if (en->user->udc_flags & UDC::THIS_IS_ACC_USER_HINT) {
+				t->flags.Set('M', true);
+			}
+			if (isnew) {
 				en->user->mention_set.insert(t->id);
 				en->user->lastupdate_wrotetodb = 0;		//force flush of user to DB
 			}
 		}
 	}
 
-	if(media_array) {
+	if (media_array) {
 		auto &media = *media_array;
-		for(rapidjson::SizeType i = 0; i < media.Size(); i++) {
+		for (rapidjson::SizeType i = 0; i < media.Size(); i++) {
 			t->flags.Set('I');
 			t->entlist.emplace_back(ENT_MEDIA);
 			entity *en = &t->entlist.back();
-			if(!ReadEntityIndices(*en, media[i])) {
+			if (!ReadEntityIndices(*en, media[i])) {
 				t->entlist.pop_back();
 				continue;
 			}
 			CheckTransJsonValueDef(en->text, media[i], "display_url", t->text.substr(en->start, en->end-en->start));
 			CheckTransJsonValueDef(en->fullurl, media[i], "expanded_url", en->text);
-			if(!CheckTransJsonValueDef(en->media_id.m_id, media[i], "id", 0)) {
+			if (!CheckTransJsonValueDef(en->media_id.m_id, media[i], "id", 0)) {
 				t->entlist.pop_back();
 				continue;
 			}
 			en->media_id.t_id = 0;
 
 			observer_ptr<media_entity> me = media_entity::GetExisting(en->media_id);
-			if(!me) {
+			if (!me) {
 				std::string url;
-				if(t->flags.Get('s')) {
-					if(!CheckTransJsonValueDef(url, media[i], "media_url_https", "")) {
+				if (t->flags.Get('s')) {
+					if (!CheckTransJsonValueDef(url, media[i], "media_url_https", "")) {
 						CheckTransJsonValueDef(url, media[i], "media_url", "");
 					}
-				}
-				else {
-					if(!CheckTransJsonValueDef(url, media[i], "media_url", "")) {
+				} else {
+					if (!CheckTransJsonValueDef(url, media[i], "media_url", "")) {
 						CheckTransJsonValueDef(url, media[i], "media_url_https", "");
 					}
 				}
 				url += ":large";
 				me = media_entity::MakeNew(en->media_id, url);
-				if(gc.cachethumbs || gc.cachemedia) DBC_InsertMedia(*me, dbmsglist);
+				if (gc.cachethumbs || gc.cachemedia) {
+					DBC_InsertMedia(*me, dbmsglist);
+				}
 			}
 
 			const rapidjson::Value &videoinfo = media[i]["video_info"];
-			if(videoinfo.IsObject()) {
+			if (videoinfo.IsObject()) {
 				std::unique_ptr<video_entity> ve(new video_entity());
 				const rapidjson::Value &aspect = videoinfo["aspect_ratio"];
-				if(aspect.IsArray() && aspect.Size() == 2) {
+				if (aspect.IsArray() && aspect.Size() == 2) {
 					CheckTransJsonValueDef(ve->aspect_w, aspect[static_cast<rapidjson::SizeType>(0)], nullptr, 0);
 					CheckTransJsonValueDef(ve->aspect_h, aspect[static_cast<rapidjson::SizeType>(1)], nullptr, 0);
 				}
 				CheckTransJsonValueDef(ve->duration_ms, videoinfo, "duration_millis", 0);
 				const rapidjson::Value &variants = videoinfo["variants"];
-				if(variants.IsArray()) {
-					for(rapidjson::SizeType j = 0; j < variants.Size(); j++) {
+				if (variants.IsArray()) {
+					for (rapidjson::SizeType j = 0; j < variants.Size(); j++) {
 						const rapidjson::Value &var = variants[j];
-						if(!var.IsObject())
+						if (!var.IsObject()) {
 							continue;
+						}
 						ve->variants.emplace_back();
 						auto &v = ve->variants.back();
 						CheckTransJsonValueDef(v.content_type, var, "content_type", "");
@@ -405,9 +438,9 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 					}
 				}
 				const rapidjson::Value &sizes = media[i]["sizes"];
-				if(sizes.IsObject()) {
+				if (sizes.IsObject()) {
 					const rapidjson::Value &size_large = sizes["large"];
-					if(size_large.IsObject()) {
+					if (size_large.IsObject()) {
 						CheckTransJsonValueDef(ve->size_w, size_large, "w", 0);
 						CheckTransJsonValueDef(ve->size_h, size_large, "h", 0);
 					}
@@ -416,15 +449,15 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 				me->video = std::move(ve);
 			}
 
-			auto res = std::find_if(me->tweet_list.begin(), me->tweet_list.end(), [&](tweet_ptr_p tt) {
+			auto res = std::find_if (me->tweet_list.begin(), me->tweet_list.end(), [&](tweet_ptr_p tt) {
 				return tt->id == t->id;
 			});
-			if(res == me->tweet_list.end()) {
+			if (res == me->tweet_list.end()) {
 				me->tweet_list.push_front(t);
 			}
 
 			// Test this here as well as in TweetFormatProc as we may want to load the thumbnail immediately below
-			if(t->flags.Get('D')) {
+			if (t->flags.Get('D')) {
 				// This is a media entity in a DM
 				// This requires an oAuth token to access
 				// Set the media entity dm_media_acc field to something sensible
@@ -434,21 +467,25 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 			}
 
 			std::string thumburl;
-			if(me->media_url.size() > 6) {
+			if (me->media_url.size() > 6) {
 				thumburl = me->media_url.substr(0, me->media_url.size() - 6) + ":thumb";
 			}
 			flagwrapper<MELF> netloadmask = 0;
-			if(gc.autoloadthumb_thumb) netloadmask |= MELF::LOADTIME;
-			if(gc.disploadthumb_thumb) netloadmask |= MELF::DISPTIME;
+			if (gc.autoloadthumb_thumb) {
+				netloadmask |= MELF::LOADTIME;
+			}
+			if (gc.disploadthumb_thumb) {
+				netloadmask |= MELF::DISPTIME;
+			}
 			me->check_load_thumb_func = mk_media_thumb_load_func(thumburl, MIDC::THUMBIMG | MIDC::REDRAW_TWEETS, netloadmask);
 			me->CheckLoadThumb(MELF::LOADTIME);
 		}
 	}
 
 	std::sort(t->entlist.begin(), t->entlist.end(), [](const entity &a, const entity &b) { return a.start < b.start; });
-	for(auto &src_it : t->entlist) {
+	for (auto &src_it : t->entlist) {
 		LogMsgFormat(LOGT::PARSE, "Tweet %" llFmtSpec "d, have entity from %d to %d: %s", t->id, src_it.start,
-			src_it.end, cstr(src_it.text));
+				src_it.end, cstr(src_it.text));
 	}
 }
 
@@ -460,13 +497,12 @@ flagwrapper<genjsonparser::USERPARSERESULT> genjsonparser::ParseUserContents(con
 	CheckTransJsonValueDefTrackChanges(changed, userobj.description, val, "description", "");
 	CheckTransJsonValueDefTrackChanges(changed, userobj.location, val, "location", "");
 	CheckTransJsonValueDefTrackChanges(changed, userobj.userurl, val, "url", "");
-	if(flags & USERPARSEFLAGS::IS_SSL) {
-		if(!CheckTransJsonValueDefTrackChanges(img_changed, userobj.profile_img_url, val, "profile_image_url_https", "")) {
+	if (flags & USERPARSEFLAGS::IS_SSL) {
+		if (!CheckTransJsonValueDefTrackChanges(img_changed, userobj.profile_img_url, val, "profile_image_url_https", "")) {
 			CheckTransJsonValueDefTrackChanges(img_changed, userobj.profile_img_url, val, "profile_img_url", "");
 		}
-	}
-	else {
-		if(!CheckTransJsonValueDefTrackChanges(img_changed, userobj.profile_img_url, val, "profile_img_url", "")) {
+	} else {
+		if (!CheckTransJsonValueDefTrackChanges(img_changed, userobj.profile_img_url, val, "profile_img_url", "")) {
 			CheckTransJsonValueDefTrackChanges(img_changed, userobj.profile_img_url, val, "profile_image_url_https", "");
 		}
 	}
@@ -476,16 +512,19 @@ flagwrapper<genjsonparser::USERPARSERESULT> genjsonparser::ParseUserContents(con
 	CheckTransJsonValueDefTrackChanges(changed, userobj.statuses_count, val, "statuses_count", userobj.statuses_count);
 	CheckTransJsonValueDefTrackChanges(changed, userobj.friends_count, val, "friends_count", userobj.friends_count);
 	CheckTransJsonValueDefTrackChanges(changed, userobj.favourites_count, val, "favourites_count", userobj.favourites_count);
-	if(flags & USERPARSEFLAGS::IS_DB_LOAD) {
+	if (flags & USERPARSEFLAGS::IS_DB_LOAD) {
 		CheckTransJsonValueDefTrackChanges(changed, userobj.notes, val, "retcon_notes", "");
 	}
 	flagwrapper<USERPARSERESULT> result = 0;
-	if(changed)
+	if (changed) {
 		result |= USERPARSERESULT::OTHER_UPDATED;
-	if(img_changed)
+	}
+	if (img_changed) {
 		result |= USERPARSERESULT::PROFIMG_UPDATED;
-	if(changed || img_changed)
+	}
+	if (changed || img_changed) {
 		userobj.revision_number++;
+	}
 	return result;
 }
 
@@ -493,43 +532,51 @@ jsonparser::jsonparser(std::shared_ptr<taccount> a, optional_observer_ptr<twitcu
 		: tac(a), twit(tw) { }
 
 jsonparser::~jsonparser() {
-	if(dbmsglist && !dbmsglist->msglist.empty())
+	if (dbmsglist && !dbmsglist->msglist.empty()) {
 		DBC_SendMessage(std::move(dbmsglist));
+	}
 }
 
 void jsonparser::RestTweetUpdateParams(const tweet &t, optional_observer_ptr<restbackfillstate> rbfs) {
-	if(rbfs) {
-		if(rbfs->max_tweets_left)
+	if (rbfs) {
+		if (rbfs->max_tweets_left) {
 			rbfs->max_tweets_left--;
-		if(!rbfs->end_tweet_id || rbfs->end_tweet_id >= t.id)
+		}
+		if (!rbfs->end_tweet_id || rbfs->end_tweet_id >= t.id) {
 			rbfs->end_tweet_id = t.id - 1;
+		}
 		rbfs->read_again = true;
 		rbfs->lastop_recvcount++;
 	}
 }
 
 void jsonparser::RestTweetPreParseUpdateParams(optional_observer_ptr<restbackfillstate> rbfs) {
-	if(rbfs)
+	if (rbfs) {
 		rbfs->read_again = false;
+	}
 }
 
 void jsonparser::DoFriendLookupParse(const rapidjson::Value &val) {
 	using URF = user_relationship::URF;
 	time_t optime = (tac->ta_flags & taccount::TAF::STREAM_UP) ? 0 : time(nullptr);
-	if(val.IsArray()) {
-		for(rapidjson::SizeType i = 0; i < val.Size(); i++) {
+	if (val.IsArray()) {
+		for (rapidjson::SizeType i = 0; i < val.Size(); i++) {
 			uint64_t userid = CheckGetJsonValueDef<uint64_t>(val[i], "id", 0);
-			if(userid) {
+			if (userid) {
 				const rapidjson::Value& cons = val[i]["connections"];
-				if(cons.IsArray()) {
+				if (cons.IsArray()) {
 					tac->SetUserRelationship(userid, URF::IFOLLOW_KNOWN | URF::FOLLOWSME_KNOWN, optime);
-					for(rapidjson::SizeType j = 0; j < cons.Size(); j++) {
-						if(cons[j].IsString()) {
+					for (rapidjson::SizeType j = 0; j < cons.Size(); j++) {
+						if (cons[j].IsString()) {
 							std::string conn_type = cons[j].GetString();
-							if(conn_type == "following") tac->SetUserRelationship(userid, URF::IFOLLOW_KNOWN | URF::IFOLLOW_TRUE, optime);
-							else if(conn_type == "following_requested") tac->SetUserRelationship(userid, URF::IFOLLOW_KNOWN | URF::IFOLLOW_PENDING, optime);
-							else if(conn_type == "followed_by") tac->SetUserRelationship(userid, URF::FOLLOWSME_KNOWN | URF::FOLLOWSME_TRUE, optime);
-							//else if(conn_type == "none") tac->SetUserRelationship(userid, URF::IFOLLOW_KNOWN | URF::FOLLOWSME_KNOWN, optime);
+							if (conn_type == "following") {
+								tac->SetUserRelationship(userid, URF::IFOLLOW_KNOWN | URF::IFOLLOW_TRUE, optime);
+							} else if (conn_type == "following_requested") {
+								tac->SetUserRelationship(userid, URF::IFOLLOW_KNOWN | URF::IFOLLOW_PENDING, optime);
+							} else if (conn_type == "followed_by") {
+								tac->SetUserRelationship(userid, URF::FOLLOWSME_KNOWN | URF::FOLLOWSME_TRUE, optime);
+							}
+							//else if (conn_type == "none") tac->SetUserRelationship(userid, URF::IFOLLOW_KNOWN | URF::FOLLOWSME_KNOWN, optime);
 							//This last line is redundant, as we initialise to that value anyway
 						}
 					}
@@ -552,24 +599,26 @@ bool jsonparser::ParseString(std::string str) {
 void jsonparser::ProcessTimelineResponse(flagwrapper<JDTP> sflags, optional_observer_ptr<restbackfillstate> rbfs) {
 	const rapidjson::Document &dc = data->doc;
 	RestTweetPreParseUpdateParams(rbfs);
-	if(dc.IsArray()) {
+	if (dc.IsArray()) {
 		dbmsglist.reset(new dbsendmsg_list());
-		for(rapidjson::SizeType i = 0; i < dc.Size(); i++)
+		for (rapidjson::SizeType i = 0; i < dc.Size(); i++) {
 			RestTweetUpdateParams(*DoTweetParse(dc[i], sflags), rbfs);
-	}
-	else
+		}
+	} else {
 		RestTweetUpdateParams(*DoTweetParse(dc, sflags), rbfs);
+	}
 }
 
 void jsonparser::ProcessUserTimelineResponse(optional_observer_ptr<restbackfillstate> rbfs) {
 	const rapidjson::Document &dc = data->doc;
 	RestTweetPreParseUpdateParams(rbfs);
-	if(dc.IsArray()) {
-		for(rapidjson::SizeType i = 0; i < dc.Size(); i++)
+	if (dc.IsArray()) {
+		for (rapidjson::SizeType i = 0; i < dc.Size(); i++) {
 			DoTweetParse(dc[i], JDTP::USERTIMELINE);
-	}
-	else
+		}
+	} else {
 		DoTweetParse(dc, JDTP::USERTIMELINE);
+	}
 	CheckClearNoUpdateFlag_All();
 }
 
@@ -583,55 +632,52 @@ void jsonparser::ProcessStreamResponse(bool out_of_date_parse) {
 	const rapidjson::Value &delval = dc["delete"];
 
 	intrusive_ptr<out_of_date_data> out_of_date_state;
-	if(out_of_date_parse) {
+	if (out_of_date_parse) {
 		out_of_date_state.reset(new out_of_date_data());
 		out_of_date_state->CheckEventToplevelJson(dc);
 	}
 
-	if(fval.IsArray()) {
-		if(out_of_date_parse)
+	if (fval.IsArray()) {
+		if (out_of_date_parse) {
 			return;
+		}
 
 		tac->ta_flags |= taccount::TAF::STREAM_UP;
 		tac->last_stream_start_time = time(nullptr);
 
 		std::vector<uint64_t> following;
 		following.reserve(fval.Size());
-		for(rapidjson::SizeType i = 0; i < fval.Size(); i++) {
+		for (rapidjson::SizeType i = 0; i < fval.Size(); i++) {
 			following.push_back(fval[i].GetUint64());
 		}
 		tac->HandleUserIFollowList(std::move(following), true);
 
-		if(twit && (twit->post_action_flags & PAF::STREAM_CONN_READ_BACKFILL)) {
+		if (twit && (twit->post_action_flags & PAF::STREAM_CONN_READ_BACKFILL)) {
 			tac->GetRestBackfill();
 		}
 		user_window::RefreshAllFollow();
 		tac->GetUsersFollowingMeList();
-	}
-	else if(eval.IsString()) {
-		if(out_of_date_parse)
+	} else if (eval.IsString()) {
+		if (out_of_date_parse) {
 			return;
+		}
 
 		DoEventParse(dc);
-	}
-	else if(dmval.IsObject()) {
+	} else if (dmval.IsObject()) {
 		DoTweetParse(dmval, JDTP::ARRIVED | JDTP::TIMELINERECV | JDTP::ISDM, out_of_date_state);
-	}
-	else if(delval.IsObject() && delval["status"].IsObject()) {
-		if(out_of_date_parse) {
-			out_of_date_state->CheckEventToplevelJson(delval); // delete events seem to have the timestamp_ms inside the delete object, instead of at the top level
+	} else if (delval.IsObject() && delval["status"].IsObject()) {
+		if (out_of_date_parse) {
+			// delete events seem to have the timestamp_ms inside the delete object, instead of at the top level
+			out_of_date_state->CheckEventToplevelJson(delval);
 		}
 		DoTweetParse(delval["status"], JDTP::DEL, out_of_date_state);
-	}
-	else if(ival.IsNumber() && tval.IsString() && dc["recipient"].IsObject() && dc["sender"].IsObject()) {    //assume this is a direct message
+	} else if (ival.IsNumber() && tval.IsString() && dc["recipient"].IsObject() && dc["sender"].IsObject()) {    //assume this is a direct message
 		DoTweetParse(dc, JDTP::ARRIVED | JDTP::TIMELINERECV | JDTP::ISDM, out_of_date_state);
-	}
-	else if(ival.IsNumber() && tval.IsString() && dc["user"].IsObject()) {    //assume that this is a tweet
-		if(DoStreamTweetPreFilter(dc)) {
+	} else if (ival.IsNumber() && tval.IsString() && dc["user"].IsObject()) {    //assume that this is a tweet
+		if (DoStreamTweetPreFilter(dc)) {
 			DoTweetParse(dc, JDTP::ARRIVED | JDTP::TIMELINERECV, out_of_date_state);
 		}
-	}
-	else {
+	} else {
 		LogMsgFormat(LOGT::PARSEERR, "Stream Event Parser: Can't identify event: %s", cstr(data->source_str));
 	}
 }
@@ -642,12 +688,13 @@ void jsonparser::ProcessSingleTweetResponse(flagwrapper<JDTP> sflags) {
 
 void jsonparser::ProcessAccVerifyResponse() {
 	udc_ptr auser = DoUserParse(data->doc);
-	for(auto &it : alist) {
-		if(it == tac) continue;
-		if(auser->id == it->usercont->id) {
-			wxString message = wxString::Format(wxT("Error, attempted to assign more than one account to the same twitter account: %s, @%s, id: %" wxLongLongFmtSpec "d.\n"
-					"This account will be disabled, or not created. Re-authenticate or delete the offending account(s)."),
-				wxstrstd(auser->GetUser().name).c_str(), wxstrstd(auser->GetUser().screen_name).c_str(), auser->id);
+	for (auto &it : alist) {
+		if (it == tac) continue;
+		if (auser->id == it->usercont->id) {
+			wxString message = wxString::Format(wxT("Error, attempted to assign more than one account to the same twitter account: %s, @%s"
+						", id: %" wxLongLongFmtSpec "d.\n"
+						"This account will be disabled, or not created. Re-authenticate or delete the offending account(s)."),
+					wxstrstd(auser->GetUser().name).c_str(), wxstrstd(auser->GetUser().screen_name).c_str(), auser->id);
 			LogMsg(LOGT::OTHERERR, stdstrwx(message));
 			wxMessageBox(message, wxT("Authentication Error"), wxOK | wxICON_ERROR);
 			tac->userenabled = false;
@@ -655,12 +702,12 @@ void jsonparser::ProcessAccVerifyResponse() {
 		}
 	}
 
-	if(tac->usercont && tac->usercont->id && tac->usercont->id != auser->id) {
+	if (tac->usercont && tac->usercont->id && tac->usercont->id != auser->id) {
 		wxString message = wxString::Format(wxT("Error, attempted to re-assign account to a different twitter account.\n"
-				"Attempted to assign to: %s, @%s, id: %" wxLongLongFmtSpec "d\nInstead of: %s, @%s, id: %" wxLongLongFmtSpec "d\n"
-				"This account will be disabled. Re-authenticate the account to the correct twitter account."),
-			wxstrstd(auser->GetUser().name).c_str(), wxstrstd(auser->GetUser().screen_name).c_str(), auser->id,
-			wxstrstd(tac->usercont->GetUser().name).c_str(), wxstrstd(tac->usercont->GetUser().screen_name).c_str(), tac->usercont->id);
+					"Attempted to assign to: %s, @%s, id: %" wxLongLongFmtSpec "d\nInstead of: %s, @%s, id: %" wxLongLongFmtSpec "d\n"
+					"This account will be disabled. Re-authenticate the account to the correct twitter account."),
+				wxstrstd(auser->GetUser().name).c_str(), wxstrstd(auser->GetUser().screen_name).c_str(), auser->id,
+				wxstrstd(tac->usercont->GetUser().name).c_str(), wxstrstd(tac->usercont->GetUser().screen_name).c_str(), tac->usercont->id);
 		LogMsg(LOGT::OTHERERR, stdstrwx(message));
 		wxMessageBox(message, wxT("Authentication Error"), wxOK | wxICON_ERROR);
 		tac->userenabled = false;
@@ -675,13 +722,15 @@ void jsonparser::ProcessAccVerifyResponse() {
 
 void jsonparser::ProcessUserListResponse() {
 	const rapidjson::Document &dc = data->doc;
-	if(dc.IsArray()) {
+	if (dc.IsArray()) {
 		dbmsglist.reset(new dbsendmsg_list());
-		for(rapidjson::SizeType i = 0; i < dc.Size(); i++)
+		for (rapidjson::SizeType i = 0; i < dc.Size(); i++) {
 			DoUserParse(dc[i], UMPTF::TPDB_NOUPDF | UMPTF::RMV_LKPINPRGFLG);
+		}
 		CheckClearNoUpdateFlag_All();
+	} else {
+		DoUserParse(dc);
 	}
-	else DoUserParse(dc);
 }
 
 void jsonparser::ProcessFriendLookupResponse() {
@@ -700,15 +749,17 @@ void jsonparser::ProcessGenericFriendActionResponse() {
 }
 
 void jsonparser::ProcessGenericUserFollowListResponse(observer_ptr<tpanelparentwin_userproplisting> win) {
-	if(!win)
+	if (!win) {
 		return;
+	}
 
 	const rapidjson::Document &dc = data->doc;
-	if(dc.IsObject()) {
+	if (dc.IsObject()) {
 		auto &dci = dc["ids"];
-		if(dci.IsArray()) {
-			for(rapidjson::SizeType i = 0; i < dci.Size(); i++)
+		if (dci.IsArray()) {
+			for (rapidjson::SizeType i = 0; i < dci.Size(); i++) {
 				win->PushUserIDToBack(dci[i].GetUint64());
+			}
 		}
 	}
 	win->LoadMoreToBack(gc.maxtweetsdisplayinpanel);
@@ -717,15 +768,17 @@ void jsonparser::ProcessGenericUserFollowListResponse(observer_ptr<tpanelparentw
 void jsonparser::ProcessOwnFollowerListingResponse() {
 	const rapidjson::Document &dc = data->doc;
 
-	if(!dc.IsObject())
+	if (!dc.IsObject()) {
 		return;
+	}
 	auto &dci = dc["ids"];
-	if(!dci.IsArray())
+	if (!dci.IsArray()) {
 		return;
+	}
 
 	std::vector<uint64_t> followers;
 	followers.reserve(dci.Size());
-	for(rapidjson::SizeType i = 0; i < dci.Size(); i++) {
+	for (rapidjson::SizeType i = 0; i < dci.Size(); i++) {
 		followers.push_back(dci[i].GetUint64());
 	}
 	int64_t nextcursor = CheckGetJsonValueDef<int64_t>(dc, "next_cursor", -1);
@@ -736,8 +789,9 @@ void jsonparser::ProcessOwnFollowerListingResponse() {
 std::string jsonparser::ProcessUploadMediaResponse() {
 	const rapidjson::Document &dc = data->doc;
 
-	if(!dc.IsObject())
+	if (!dc.IsObject()) {
 		return "";
+	}
 
 	return CheckGetJsonValueDef<std::string>(dc, "media_id_string", "");
 }
@@ -745,17 +799,19 @@ std::string jsonparser::ProcessUploadMediaResponse() {
 void jsonparser::ProcessTwitterErrorJson(std::vector<TwitterErrorMsg> &msgs) {
 	const rapidjson::Document &dc = data->doc;
 
-	if(!dc.IsObject())
+	if (!dc.IsObject()) {
 		return;
+	}
 	auto &dci = dc["errors"];
-	if(!dci.IsArray())
+	if (!dci.IsArray()) {
 		return;
+	}
 
-	for(rapidjson::SizeType i = 0; i < dci.Size(); i++) {
+	for (rapidjson::SizeType i = 0; i < dci.Size(); i++) {
 		auto &err = dci[i];
-		if(err.IsObject()) {
+		if (err.IsObject()) {
 			TwitterErrorMsg msg;
-			if(CheckTransJsonValue(msg.code, err, "code") &&
+			if (CheckTransJsonValue(msg.code, err, "code") &&
 					CheckTransJsonValue(msg.message, err, "message")) {
 				msgs.emplace_back(std::move(msg));
 			}
@@ -768,13 +824,13 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> 
 	uint64_t id;
 	CheckTransJsonValueDef(id, val, "id", 0);
 	auto userdatacont = ad.GetUserContainerById(id);
-	if(umpt_flags & UMPTF::RMV_LKPINPRGFLG) {
+	if (umpt_flags & UMPTF::RMV_LKPINPRGFLG) {
 		userdatacont->udc_flags &= ~UDC::LOOKUP_IN_PROGRESS;
 	}
 
 	userdatacont->udc_flags &= ~UDC::ISDEAD;
 
-	if(ad.unloaded_db_user_ids.find(id) != ad.unloaded_db_user_ids.end()) {
+	if (ad.unloaded_db_user_ids.find(id) != ad.unloaded_db_user_ids.end()) {
 		// See equivalent section in DoTweetParse for rationale
 
 		LogMsgFormat(LOGT::PARSE | LOGT::DBTRACE, "jsonparser::DoUserParse: User id: %" llFmtSpec "d, is in DB but not loaded. Loading and deferring parse.", id);
@@ -800,8 +856,9 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> 
 		pdata->umpt_flags = umpt_flags;
 		pdata->out_of_date_state = out_of_date_state;
 
-		if(!this->data->db_pending_guard)
+		if (!this->data->db_pending_guard) {
 			this->data->db_pending_guard.reset(new db_handle_msg_pending_guard());
+		}
 
 		DBC_SetDBSelUserMsgHandler(*msg, [pdata](dbselusermsg &pmsg, dbconn *dbc) {
 			//Do not use *this, it will have long since gone out of scope
@@ -811,12 +868,11 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> 
 			DBC_DBSelUserReturnDataHandler(std::move(pmsg.data), pdata->jp_data->db_pending_guard.get());
 
 			std::shared_ptr<taccount> acc = pdata->acc.lock();
-			if(acc) {
+			if (acc) {
 				jsonparser jp(acc);
 				jp.SetData(pdata->jp_data);
 				jp.DoUserParse(*(pdata->val), pdata->umpt_flags, pdata->out_of_date_state);
-			}
-			else {
+			} else {
 				LogMsgFormat(LOGT::PARSEERR | LOGT::DBERR, "jsonparser::DoUserParse: User id: %" llFmtSpec "d, deferred parse failed as account no longer exists.", pdata->udc->id);
 			}
 		});
@@ -826,72 +882,78 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> 
 
 	userdata &userobj = userdatacont->GetUser();
 
-	if(out_of_date_state && userobj.createtime && out_of_date_state->time_estimate < (time_t) userdatacont->lastupdate) {
+	if (out_of_date_state && userobj.createtime && out_of_date_state->time_estimate < (time_t) userdatacont->lastupdate) {
 		// info appears to be too out of date, don't bother parsing
 		return userdatacont;
 	}
 
 	flagwrapper<genjsonparser::USERPARSEFLAGS> parseflags;
-	if(tac->ssl)
+	if (tac->ssl)
 		parseflags |= genjsonparser::USERPARSEFLAGS::IS_SSL;
 	auto parseresult = ParseUserContents(val, userobj, parseflags);
-	if(parseresult & genjsonparser::USERPARSERESULT::PROFIMG_UPDATED) {
-		if(userdatacont->udc_flags & UDC::PROFILE_IMAGE_DL_FAILED) {
+	if (parseresult & genjsonparser::USERPARSERESULT::PROFIMG_UPDATED) {
+		if (userdatacont->udc_flags & UDC::PROFILE_IMAGE_DL_FAILED) {
 			// Profile image was previously marked as failed
 			// The URL has changed, so download the new one now
 			userdatacont->udc_flags &= ~UDC::PROFILE_IMAGE_DL_FAILED;
 			userdatacont->ImgIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
 		}
 	}
-	if(!userobj.createtime) {				//this means that the object is new
+	if (!userobj.createtime) {				//this means that the object is new
 		std::string created_at;
 		CheckTransJsonValueDef(created_at, val, "created_at", "");
 		ParseTwitterDate(0, &userobj.createtime, created_at);
 		DBC_InsertUser(userdatacont, make_observer(dbmsglist));
 	}
 
-	if(out_of_date_state)
+	if (out_of_date_state) {
 		userdatacont->lastupdate = out_of_date_state->time_estimate;
-	else
+	} else {
 		userdatacont->MarkUpdated();
+	}
 	userdatacont->CheckPendingTweets(umpt_flags);
 
-	if(userdatacont->udc_flags & UDC::WINDOWOPEN) user_window::CheckRefresh(id, false);
+	if (userdatacont->udc_flags & UDC::WINDOWOPEN) {
+		user_window::CheckRefresh(id, false);
+	}
 
-	if(currentlogflags & LOGT::PARSE) userdatacont->Dump();
+	if (currentlogflags & LOGT::PARSE) {
+		userdatacont->Dump();
+	}
 
 	return userdatacont;
 }
 
 void ParsePerspectivalTweetProps(const rapidjson::Value &val, tweet_perspective *tp, Handler *handler) {
 	bool propvalue;
-	if(CheckTransJsonValueDef<bool>(propvalue, val, "retweeted", false, handler))
+	if (CheckTransJsonValueDef<bool>(propvalue, val, "retweeted", false, handler)) {
 		tp->SetRetweeted(propvalue);
-	if(CheckTransJsonValueDef<bool>(propvalue, val, "favorited", false, handler))
+	}
+	if (CheckTransJsonValueDef<bool>(propvalue, val, "favorited", false, handler)) {
 		tp->SetFavourited(propvalue);
+	}
 }
 
 inline udc_ptr CheckParseUserObj(uint64_t id, const rapidjson::Value &val, jsonparser &jp,
 		optional_cref_intrusive_ptr<jsonparser::out_of_date_data> out_of_date_state) {
-	if(val.HasMember("screen_name")) {    //check to see if this is a trimmed user object
+	if (val.HasMember("screen_name")) {    //check to see if this is a trimmed user object
 		return jp.DoUserParse(val, 0, out_of_date_state);
-	}
-	else {
+	} else {
 		return ad.GetUserContainerById(id);
 	}
 }
 
 // Returns true if tweet is OK to be used
 bool jsonparser::DoStreamTweetPreFilter(const rapidjson::Value& val) {
-	if(tac->stream_reply_mode == SRM::ALL_REPLIES) return true;
+	if (tac->stream_reply_mode == SRM::ALL_REPLIES) return true;
 
 	uint64_t tweetid;
 	CheckTransJsonValueDef(tweetid, val, "id", 0, 0);
 
 	const rapidjson::Value& userobj = val["user"];
-	if(!userobj.IsObject()) return false;
+	if (!userobj.IsObject()) return false;
 	const rapidjson::Value& useridval = userobj["id"];
-	if(!useridval.IsUint64()) return false;
+	if (!useridval.IsUint64()) return false;
 	uint64_t uid = useridval.GetUint64();
 
 	auto is_userid_own_account = [&](uint64_t id) -> bool {
@@ -901,9 +963,9 @@ bool jsonparser::DoStreamTweetPreFilter(const rapidjson::Value& val) {
 
 	auto do_i_follow_userid = [&](uint64_t id) -> bool {
 		auto it = tac->user_relations.find(id);
-		if(it != tac->user_relations.end()) {
+		if (it != tac->user_relations.end()) {
 			user_relationship &ur = it->second;
-			if((ur.ur_flags & user_relationship::URF::IFOLLOW_KNOWN) && (ur.ur_flags & user_relationship::URF::IFOLLOW_TRUE)) {
+			if ((ur.ur_flags & user_relationship::URF::IFOLLOW_KNOWN) && (ur.ur_flags & user_relationship::URF::IFOLLOW_TRUE)) {
 				return true;
 			}
 		}
@@ -913,12 +975,12 @@ bool jsonparser::DoStreamTweetPreFilter(const rapidjson::Value& val) {
 	const rapidjson::Value& text = val["text"];
 
 	auto pre_bin = [&]() {
-		if(currentlogflags & LOGT::FILTERTRACE || tac->stream_reply_mode == SRM::STD_REPLIES) {
+		if (currentlogflags & LOGT::FILTERTRACE || tac->stream_reply_mode == SRM::STD_REPLIES) {
 			std::string shorttext = text.IsString() ? truncate_tweet_text(text.GetString()) : std::string("???");
 			std::string screen_name = CheckGetJsonValueDef<std::string>(userobj, "screen_name", "???");
 			LogMsgFormat(LOGT::FILTERTRACE, "jsonparser::DoStreamTweetPreFilter: Binning tweet: %" llFmtSpec "d (@%s): %" llFmtSpec "d (%s)",
 					uid, cstr(screen_name), tweetid, cstr(shorttext));
-			if(tac->stream_reply_mode == SRM::STD_REPLIES) {
+			if (tac->stream_reply_mode == SRM::STD_REPLIES) {
 				LogMsgFormat(LOGT::FILTERERR, "jsonparser::DoStreamTweetPreFilter: Warning: Binning tweet: %" llFmtSpec "d (@%s): %" llFmtSpec "d (%s), "
 						"even though we are in standard replies mode, this may (or may not) be a bug.",
 						uid, cstr(screen_name), tweetid, cstr(shorttext));
@@ -926,7 +988,7 @@ bool jsonparser::DoStreamTweetPreFilter(const rapidjson::Value& val) {
 		}
 	};
 
-	if(is_userid_own_account(uid)) {
+	if (is_userid_own_account(uid)) {
 		// This is one of our own tweets
 		return true;
 	}
@@ -935,27 +997,27 @@ bool jsonparser::DoStreamTweetPreFilter(const rapidjson::Value& val) {
 	int first_reply_offset = std::numeric_limits<int>::max();
 	uint64_t first_reply_uid = 0;
 
-	if(is_reply || tac->stream_reply_mode == SRM::ALL_MENTIONS) {
+	if (is_reply || tac->stream_reply_mode == SRM::ALL_MENTIONS) {
 		//Check user mentions
 		const rapidjson::Value &entv = val["entities"];
-		if(entv.IsObject()) {
+		if (entv.IsObject()) {
 			const rapidjson::Value &um = entv["user_mentions"];
-			if(um.IsArray()) {
-				for(rapidjson::SizeType i = 0; i < um.Size(); i++) {
+			if (um.IsArray()) {
+				for (rapidjson::SizeType i = 0; i < um.Size(); i++) {
 					const rapidjson::Value &umi = um[i];
-					if(umi.IsObject()) {
+					if (umi.IsObject()) {
 						const rapidjson::Value &umid = umi["id"];
-						if(umid.IsUint64()) {
-							if(tac->stream_reply_mode != SRM::STD_REPLIES) {
-								if(is_userid_own_account(umid.GetUint64())) {
+						if (umid.IsUint64()) {
+							if (tac->stream_reply_mode != SRM::STD_REPLIES) {
+								if (is_userid_own_account(umid.GetUint64())) {
 									// This tweet mentions us, and we're in all mentions mode
 									return true;
 								}
 							}
-							if(is_reply) {
+							if (is_reply) {
 								int start, end;
-								if(ReadEntityIndices(start, end, umi)) {
-									if(start < first_reply_offset) {
+								if (ReadEntityIndices(start, end, umi)) {
+									if (start < first_reply_offset) {
 										first_reply_offset = start;
 										first_reply_uid = umid.GetUint64();
 									}
@@ -964,8 +1026,8 @@ bool jsonparser::DoStreamTweetPreFilter(const rapidjson::Value& val) {
 						}
 					}
 				}
-				if(is_reply && first_reply_uid && tac->stream_reply_mode != SRM::ALL_MENTIONS_FOLLOWS) {
-					if(!is_userid_own_account(first_reply_uid) && !do_i_follow_userid(first_reply_uid)) {
+				if (is_reply && first_reply_uid && tac->stream_reply_mode != SRM::ALL_MENTIONS_FOLLOWS) {
+					if (!is_userid_own_account(first_reply_uid) && !do_i_follow_userid(first_reply_uid)) {
 						// This is a reply to someone else who we don't follow
 						pre_bin();
 						return false;
@@ -975,7 +1037,7 @@ bool jsonparser::DoStreamTweetPreFilter(const rapidjson::Value& val) {
 		}
 	}
 
-	if(do_i_follow_userid(uid)) {
+	if (do_i_follow_userid(uid)) {
 		// This account follows the tweet author
 		return true;
 	}
@@ -987,14 +1049,14 @@ bool jsonparser::DoStreamTweetPreFilter(const rapidjson::Value& val) {
 
 tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP> sflags, optional_cref_intrusive_ptr<out_of_date_data> out_of_date_state) {
 	uint64_t tweetid;
-	if(!CheckTransJsonValueDef(tweetid, val, "id", 0, 0)) {
+	if (!CheckTransJsonValueDef(tweetid, val, "id", 0, 0)) {
 		LogMsgFormat(LOGT::PARSEERR, "jsonparser::DoTweetParse: No ID present in document.");
 		return tweet_ptr();
 	}
 
 	tweet_ptr tobj = ad.GetTweetById(tweetid);
 
-	if(ad.unloaded_db_tweet_ids.find(tweetid) != ad.unloaded_db_tweet_ids.end()) {
+	if (ad.unloaded_db_tweet_ids.find(tweetid) != ad.unloaded_db_tweet_ids.end()) {
 		/* Oops, we're about to parse a received tweet which is already in the database,
 		 * but not loaded in memory.
 		 * This is bad news as the two versions of the tweet will likely diverge.
@@ -1028,7 +1090,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 		pdata->tweetid = tweetid;
 		pdata->out_of_date_state = out_of_date_state;
 
-		if(!this->data->db_pending_guard)
+		if (!this->data->db_pending_guard)
 			this->data->db_pending_guard.reset(new db_handle_msg_pending_guard());
 
 		DBC_SetDBSelTweetMsgHandler(*msg, [pdata](dbseltweetmsg &pmsg, dbconn *dbc) {
@@ -1039,7 +1101,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 			DBC_HandleDBSelTweetMsg(pmsg, pdata->jp_data->db_pending_guard.get());
 
 			std::shared_ptr<taccount> acc = pdata->acc.lock();
-			if(acc) {
+			if (acc) {
 				jsonparser jp(acc);
 				jp.SetData(pdata->jp_data);
 				jp.DoTweetParse(*(pdata->val), pdata->sflags | JDTP::POSTDBLOAD, pdata->out_of_date_state);
@@ -1054,18 +1116,23 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 
 	sflags |= data->base_sflags;
 
-	if(sflags & JDTP::ISDM) tobj->flags.Set('D');
-	else tobj->flags.Set('T');
-	if(tac->ssl) tobj->flags.Set('s');
-	if(sflags & JDTP::DEL) {
+	if (sflags & JDTP::ISDM) {
+		tobj->flags.Set('D');
+	} else {
+		tobj->flags.Set('T');
+	}
+	if (tac->ssl) {
+		tobj->flags.Set('s');
+	}
+	if (sflags & JDTP::DEL) {
 		tobj->flags.Set('X');
-		if(gc.markdeletedtweetsasread) {
+		if (gc.markdeletedtweetsasread) {
 			tobj->flags.Set('r');
 			tobj->flags.Set('u', false);
 		}
 		tobj->CheckFlagsUpdated(tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
 
-		if(!tobj->user || tobj->createtime == 0) {
+		if (!tobj->user || tobj->createtime == 0) {
 			//delete received where tweet incomplete or not in memory before
 			return tweet_ptr();
 		}
@@ -1080,28 +1147,38 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 	bool has_just_arrived = false;
 	flagwrapper<ARRIVAL> arr = 0;
 
-	if(!(sflags & JDTP::DEL)) {
+	if (!(sflags & JDTP::DEL)) {
 		is_new_tweet_perspective = !tp->IsReceivedHere();
-		if(sflags & JDTP::ARRIVED) {
+		if (sflags & JDTP::ARRIVED) {
 			has_just_arrived = !tp->IsArrivedHere();
 			tp->SetArrivedHere(true);
 
-			if(!(sflags & JDTP::ISDM)) tac->tweet_ids.insert(tweetid);
-			else tac->dm_ids.insert(tweetid);
+			if (!(sflags & JDTP::ISDM)) {
+				tac->tweet_ids.insert(tweetid);
+			} else {
+				tac->dm_ids.insert(tweetid);
+			}
 		}
 		tp->SetReceivedHere(true);
 		ParsePerspectivalTweetProps(val, tp, 0);
+	} else {
+		tp->SetRecvTypeDel(true);
 	}
-	else tp->SetRecvTypeDel(true);
 
-	if(is_new_tweet_perspective) arr |= ARRIVAL::RECV;
+	if (is_new_tweet_perspective) {
+		arr |= ARRIVAL::RECV;
+	}
 
-	if(sflags & JDTP::FAV) tp->SetFavourited(true);
-	if(sflags & JDTP::UNFAV) tp->SetFavourited(false);
+	if (sflags & JDTP::FAV) {
+		tp->SetFavourited(true);
+	}
+	if (sflags & JDTP::UNFAV) {
+		tp->SetFavourited(false);
+	}
 
 	std::string json;
-	if(!(sflags & JDTP::DEL)) {
-		if((tobj->createtime == 0) || (sflags & JDTP::ALWAYSREPARSE)) {
+	if (!(sflags & JDTP::DEL)) {
+		if ((tobj->createtime == 0) || (sflags & JDTP::ALWAYSREPARSE)) {
 			// this is a better test than merely whether the tweet object is new
 
 			writestream wr(json);
@@ -1110,41 +1187,41 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 			ParseTweetStatics(val, tobj, &jw, true, make_observer(dbmsglist));
 			jw.EndObject();
 			std::string created_at;
-			if(CheckTransJsonValueDef(created_at, val, "created_at", "", 0)) {
+			if (CheckTransJsonValueDef(created_at, val, "created_at", "", 0)) {
 				ParseTwitterDate(0, &tobj->createtime, created_at);
-			}
-			else {
+			} else {
 				tobj->createtime = time(nullptr);
 			}
 			auto &rtval = val["retweeted_status"];
-			if(rtval.IsObject()) {
+			if (rtval.IsObject()) {
 				tobj->rtsrc = DoTweetParse(rtval, (sflags & JDTP::SAVE_MASK) | JDTP::ISRTSRC, out_of_date_state);
-				if(tobj->rtsrc) tobj->flags.Set('R');
+				if (tobj->rtsrc) {
+					tobj->flags.Set('R');
+				}
 			}
-		}
-		else {
+		} else {
 			//These properties are also checked in ParseTweetStatics.
 			//Previous versions stored the retweet count in the DB static string
 			//so these should not be removed from there, as otherwise old tweets
 			//in the DB will lose their retweet count info when loaded.
 
 			//Don't update these if out of date, and we have the values already
-			if(!out_of_date_state) {
+			if (!out_of_date_state) {
 				CheckTransJsonValueDef(tobj->retweet_count, val, "retweet_count", 0);
 				CheckTransJsonValueDef(tobj->favourite_count, val, "favorite_count", 0);
 			}
 		}
-		if(out_of_date_state && !(out_of_date_state->flags & OODPEF::HAVE_REAL_TIME) && tobj->createtime > out_of_date_state->time_estimate) {
+		if (out_of_date_state && !(out_of_date_state->flags & OODPEF::HAVE_REAL_TIME) && tobj->createtime > out_of_date_state->time_estimate) {
 			out_of_date_state->time_estimate = tobj->createtime;
 		}
 		auto &quoteval = val["quoted_status"];
-		if(quoteval.IsObject()) {
+		if (quoteval.IsObject()) {
 			DoTweetParse(quoteval, (sflags & JDTP::SAVE_MASK) | JDTP::ISQUOTE, out_of_date_state);
 		}
 	}
 
 	auto &possiblysensitive = val["possibly_sensitive"];
-	if(possiblysensitive.IsBool() && possiblysensitive.GetBool()) {
+	if (possiblysensitive.IsBool() && possiblysensitive.GetBool()) {
 		tobj->flags.Set('P');
 	}
 
@@ -1152,93 +1229,111 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 			tobj->id, is_new_tweet_perspective, has_just_arrived, !!(sflags & JDTP::ISDM), sflags,
 			tobj->retweet_count, tobj->favourite_count);
 
-	if(is_new_tweet_perspective) {	//this filters out duplicate tweets from the same account
-		if(!(sflags & JDTP::ISDM)) {
+	if (is_new_tweet_perspective) {	//this filters out duplicate tweets from the same account
+		if (!(sflags & JDTP::ISDM)) {
 			const rapidjson::Value& userobj = val["user"];
-			if(userobj.IsObject()) {
+			if (userobj.IsObject()) {
 				const rapidjson::Value& useridval = userobj["id"];
-				if(useridval.IsUint64()) {
+				if (useridval.IsUint64()) {
 					uint64_t userid = useridval.GetUint64();
 					tobj->user = CheckParseUserObj(userid, userobj, *this, out_of_date_state);
-					if(tobj->user->udc_flags & UDC::THIS_IS_ACC_USER_HINT) tobj->flags.Set('O', true);
+					if (tobj->user->udc_flags & UDC::THIS_IS_ACC_USER_HINT) {
+						tobj->flags.Set('O', true);
+					}
 				}
 			}
-		}
-		else {	//direct message
+		} else {	//direct message
 			auto adduserdmindex = [&](udc_ptr_p u) {
 				ad.GetUserDMIndexById(u->id).AddDMId(tweetid);
 				u->udc_flags |= UDC::NON_PURGABLE;
 			};
-			if(val["sender_id"].IsUint64() && val["sender"].IsObject()) {
+			if (val["sender_id"].IsUint64() && val["sender"].IsObject()) {
 				uint64_t senderid = val["sender_id"].GetUint64();
 				tobj->user = CheckParseUserObj(senderid, val["sender"], *this, out_of_date_state);
 				adduserdmindex(tobj->user);
 			}
-			if(val["recipient_id"].IsUint64() && val["recipient"].IsObject()) {
+			if (val["recipient_id"].IsUint64() && val["recipient"].IsObject()) {
 				uint64_t recipientid = val["recipient_id"].GetUint64();
 				tobj->user_recipient = CheckParseUserObj(recipientid, val["recipient"], *this, out_of_date_state);
 				adduserdmindex(tobj->user_recipient);
 			}
 		}
+	} else {
+		UpdateTweet(*tobj);
 	}
-	else UpdateTweet(*tobj);
 
-	if(sflags & JDTP::ISDM && tobj->user_recipient.get() != tac->usercont.get()) {
+	if (sflags & JDTP::ISDM && tobj->user_recipient.get() != tac->usercont.get()) {
 		tobj->flags.Set('S');
 	}
 
-	if(sflags & JDTP::TIMELINERECV) {
-		if(sflags & JDTP::ISDM) {
-			if(tobj->user_recipient.get() == tac->usercont.get()) {    //received DM
-				if(tac->max_recvdm_id < tobj->id) tac->max_recvdm_id = tobj->id;
-			}
-			else {
-				if(tac->max_sentdm_id < tobj->id) tac->max_sentdm_id = tobj->id;
-			}
-		}
-		else {
-			if(data->rbfs_type != RBFS_NULL) {
-				if(data->rbfs_type == RBFS_TWEETS) {
-					if(tac->max_tweet_id < tobj->id) tac->max_tweet_id = tobj->id;
+	if (sflags & JDTP::TIMELINERECV) {
+		if (sflags & JDTP::ISDM) {
+			if (tobj->user_recipient.get() == tac->usercont.get()) {    //received DM
+				if (tac->max_recvdm_id < tobj->id) {
+					tac->max_recvdm_id = tobj->id;
 				}
-				else if(data->rbfs_type == RBFS_MENTIONS) {
-					if(tac->max_mention_id < tobj->id) tac->max_mention_id = tobj->id;
+			} else {
+				if (tac->max_sentdm_id < tobj->id) {
+					tac->max_sentdm_id = tobj->id;
+				}
+			}
+		} else {
+			if (data->rbfs_type != RBFS_NULL) {
+				if (data->rbfs_type == RBFS_TWEETS) {
+					if (tac->max_tweet_id < tobj->id) {
+						tac->max_tweet_id = tobj->id;
+					}
+				} else if (data->rbfs_type == RBFS_MENTIONS) {
+					if (tac->max_mention_id < tobj->id) {
+						tac->max_mention_id = tobj->id;
+					}
 				}
 			}
 			else {	//streaming mode
-				if(tac->max_tweet_id < tobj->id) tac->max_tweet_id = tobj->id;
-				if(tac->max_mention_id < tobj->id) tac->max_mention_id = tobj->id;
+				if (tac->max_tweet_id < tobj->id) {
+					tac->max_tweet_id = tobj->id;
+				}
+				if (tac->max_mention_id < tobj->id) {
+					tac->max_mention_id = tobj->id;
+				}
 			}
 		}
 	}
 
-	if(currentlogflags & LOGT::PARSE) tobj->Dump();
+	if (currentlogflags & LOGT::PARSE) {
+		tobj->Dump();
+	}
 
-	if(tobj->lflags & TLF::SHOULDSAVEINDB) tobj->flags.Set('B');
+	if (tobj->lflags & TLF::SHOULDSAVEINDB) {
+		tobj->flags.Set('B');
+	}
 
-	if(sflags & JDTP::ISRTSRC) tp->SetRecvTypeRTSrc(true);
-	if(sflags & JDTP::ISQUOTE) tp->SetRecvTypeQuote(true);
+	if (sflags & JDTP::ISRTSRC) {
+		tp->SetRecvTypeRTSrc(true);
+	}
+	if (sflags & JDTP::ISQUOTE) {
+		tp->SetRecvTypeQuote(true);
+	}
 
 	bool have_checked_pending = false;
 
-	if(sflags & JDTP::CHECKPENDINGONLY) {
+	if (sflags & JDTP::CHECKPENDINGONLY) {
 		tp->SetRecvTypeCPO(true);
-	}
-	else if(sflags & JDTP::USERTIMELINE) {
-		if(data->rbfs_type != RBFS_NULL && !(sflags & JDTP::ISRTSRC) && !(sflags & JDTP::ISQUOTE)) {
+	} else if (sflags & JDTP::USERTIMELINE) {
+		if (data->rbfs_type != RBFS_NULL && !(sflags & JDTP::ISRTSRC) && !(sflags & JDTP::ISQUOTE)) {
 			tp->SetRecvTypeUT(true);
 			std::shared_ptr<tpanel> usertp = tpanelparentwin_usertweets::GetUserTweetTPanel(data->rbfs_userid, data->rbfs_type);
-			if(usertp) {
+			if (usertp) {
 				have_checked_pending = true;
 				bool is_ready = tac->MarkPendingOrHandle(tobj, arr);
-				if(is_ready)
+				if (is_ready) {
 					usertp->PushTweet(tobj, PUSHFLAGS::USERTL | PUSHFLAGS::BELOW);
-				else
+				} else {
 					MarkPending_TPanelMap(tobj, 0, PUSHFLAGS::USERTL | PUSHFLAGS::BELOW, &usertp);
+				}
 			}
 		}
-	}
-	else if(!(sflags & JDTP::DEL)) {
+	} else if (!(sflags & JDTP::DEL)) {
 		tp->SetRecvTypeNorm(true);
 		tobj->lflags |= TLF::SHOULDSAVEINDB;
 		tobj->flags.Set('B');
@@ -1248,24 +1343,27 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 		 * ID lists, in particular the timeline list, as those were not written out.
 		 * If everything was written out, we would not be loading the same timeline tweet again.
 		 */
-		if((has_just_arrived || (sflags & JDTP::POSTDBLOAD)) && sflags & JDTP::ARRIVED) {
-			if(gc.markowntweetsasread && !tobj->flags.Get('u') && (tobj->flags.Get('O') || tobj->flags.Get('S'))) {
+		if ((has_just_arrived || (sflags & JDTP::POSTDBLOAD)) && sflags & JDTP::ARRIVED) {
+			if (gc.markowntweetsasread && !tobj->flags.Get('u') && (tobj->flags.Get('O') || tobj->flags.Get('S'))) {
 				//tweet is marked O or S, is own tweet or DM, mark read if not already unread
 				tobj->flags.Set('r');
 			}
-			if(!tobj->flags.Get('r')) tobj->flags.Set('u');
+			if (!tobj->flags.Get('r')) {
+				tobj->flags.Set('u');
+			}
 			have_checked_pending = true;
 			tac->MarkPendingOrHandle(tobj, arr | ARRIVAL::NEW);
 		}
 	}
 
-	if(!have_checked_pending)
+	if (!have_checked_pending) {
 		tac->MarkPendingOrHandle(tobj, arr);
+	}
 	TryUnmarkPendingTweet(tobj, 0);
 
-	if(tobj->lflags & TLF::SHOULDSAVEINDB || tobj->lflags & TLF::SAVED_IN_DB) {
-		if(!(tobj->lflags & TLF::SAVED_IN_DB) || (sflags & JDTP::ALWAYSREPARSE)) {
-			if(json.empty()) {
+	if (tobj->lflags & TLF::SHOULDSAVEINDB || tobj->lflags & TLF::SAVED_IN_DB) {
+		if (!(tobj->lflags & TLF::SAVED_IN_DB) || (sflags & JDTP::ALWAYSREPARSE)) {
+			if (json.empty()) {
 				writestream wr(json);
 				Handler jw(wr);
 				jw.StartObject();
@@ -1274,8 +1372,9 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 			}
 			DBC_InsertNewTweet(tobj, std::move(json), make_observer(dbmsglist));
 			tobj->lflags |= TLF::SAVED_IN_DB;
+		} else {
+			DBC_UpdateTweetDyn(tobj, make_observer(dbmsglist));
 		}
-		else DBC_UpdateTweetDyn(tobj, make_observer(dbmsglist));
 	}
 
 	return tobj;
@@ -1288,12 +1387,12 @@ void jsonparser::DoEventParse(const rapidjson::Value &val) {
 		auto targ = DoUserParse(val["target"]);
 		auto src = DoUserParse(val["source"]);
 
-		if(src->id == tac->usercont->id) {
+		if (src->id == tac->usercont->id) {
 			URF flags = SetOrClearBits(URF::IFOLLOW_KNOWN, URF::IFOLLOW_TRUE, nowfollowing);
 			tac->SetUserRelationship(targ->id, flags, 0);
 			tac->NotifyUserRelationshipChange(targ->id, flags);
 		}
-		if(targ->id == tac->usercont->id) {
+		if (targ->id == tac->usercont->id) {
 			URF flags = SetOrClearBits(URF::FOLLOWSME_KNOWN, URF::FOLLOWSME_TRUE, nowfollowing);
 			tac->SetUserRelationship(src->id, flags, 0);
 			tac->NotifyUserRelationshipChange(src->id, flags);
@@ -1305,32 +1404,32 @@ void jsonparser::DoEventParse(const rapidjson::Value &val) {
 		auto src = DoUserParse(val["source"]);
 
 		flagwrapper<JDTP> sflags = JDTP::CHECKPENDINGONLY;
-		if(src->id == tac->usercont->id) {
+		if (src->id == tac->usercont->id) {
 			// This user (un)favourited the tweet
 			sflags |= nowfavourited ? JDTP::FAV : JDTP::UNFAV;
 		}
 		auto targ_tweet = DoTweetParse(val["target_object"], sflags);
 
-		if(targ->id == tac->usercont->id && targ_tweet) {
+		if (targ->id == tac->usercont->id && targ_tweet) {
 			// Someone (un)favourited one of the user's tweets
 			tac->NotifyTweetFavouriteEvent(targ_tweet->id, src->id, !nowfavourited);
 		}
 	};
 
 	std::string str = val["event"].GetString();
-	if(str == "user_update") {
+	if (str == "user_update") {
 		DoUserParse(val["target"]);
 	}
-	else if(str == "follow") {
+	else if (str == "follow") {
 		follow_update(true);
 	}
-	else if(str == "unfollow") {
+	else if (str == "unfollow") {
 		follow_update(false);
 	}
-	else if(str == "favorite") {
+	else if (str == "favorite") {
 		favourite_update(true);
 	}
-	else if(str == "unfavorite") {
+	else if (str == "unfavorite") {
 		favourite_update(false);
 	}
 }
@@ -1338,7 +1437,7 @@ void jsonparser::DoEventParse(const rapidjson::Value &val) {
 void jsonparser::out_of_date_data::CheckEventToplevelJson(const rapidjson::Value& val) {
 	uint64_t timestamp_ms = 0;
 	bool found = CheckTransJsonValue(timestamp_ms, val, "timestamp_ms");
-	if(found && timestamp_ms > 0) {
+	if (found && timestamp_ms > 0) {
 		time_estimate = timestamp_ms / 1000;
 		flags |= OODPEF::HAVE_REAL_TIME;
 	}

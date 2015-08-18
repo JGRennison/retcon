@@ -45,7 +45,7 @@ namespace parse_util {
 	template <> inline std::string GetType<std::string>(const rapidjson::Value &val) { return val.GetString(); }
 
 	inline const rapidjson::Value &GetSubProp(const rapidjson::Value &val, const char *prop) {
-		if(prop)
+		if (prop)
 			return val[prop];
 		else
 			return val;
@@ -55,9 +55,10 @@ namespace parse_util {
 			const char *prop, Handler *handler = nullptr) {
 		const rapidjson::Value &subval = GetSubProp(val, prop);
 		bool res = IsType<C>(subval);
-		if(res)
+		if (res) {
 			var = GetType<C>(subval);
-		if(res && handler) {
+		}
+		if (res && handler) {
 			handler->String(prop);
 			subval.Accept(*handler);
 		}
@@ -67,8 +68,9 @@ namespace parse_util {
 	template <typename C, typename D> bool CheckTransJsonValueDef(C &var, const rapidjson::Value &val,
 			const char *prop, const D def, Handler *handler = nullptr) {
 		bool res = CheckTransJsonValue<C>(var, val, prop, handler);
-		if(!res)
+		if (!res) {
 			var = def;
+		}
 		return res;
 	}
 
@@ -77,9 +79,12 @@ namespace parse_util {
 		const rapidjson::Value &subval = GetSubProp(val, prop);
 		bool res = IsType<bool>(subval);
 		bool flagval = res ? GetType<bool>(subval):def;
-		if(flagval) var |= flagmask;
-		else var &= ~flagmask;
-		if(res && handler) {
+		if (flagval) {
+			var |= flagmask;
+		} else {
+			var &= ~flagmask;
+		}
+		if (res && handler) {
 			handler->String(prop);
 			subval.Accept(*handler);
 		}
@@ -90,7 +95,9 @@ namespace parse_util {
 			const char *prop, const D def, Handler *handler = nullptr) {
 		C oldvar = var;
 		bool result = CheckTransJsonValueDef(var, val, prop, def, handler);
-		if(var != oldvar) changeflag = true;
+		if (var != oldvar) {
+			changeflag = true;
+		}
 		return result;
 	}
 
@@ -98,7 +105,9 @@ namespace parse_util {
 			const char *prop, bool def, Handler *handler = nullptr) {
 		C oldvar = var;
 		bool result = CheckTransJsonValueDefFlag(var, flagmask, val, prop, def, handler);
-		if((var & flagmask) != (oldvar & flagmask)) changeflag = true;
+		if ((var & flagmask) != (oldvar & flagmask)) {
+			changeflag = true;
+		}
 		return result;
 	}
 
@@ -106,11 +115,13 @@ namespace parse_util {
 			Handler *handler = nullptr, bool *hadval = nullptr) {
 		const rapidjson::Value &subval = GetSubProp(val, prop);
 		bool res = IsType<C>(subval);
-		if(res && handler) {
+		if (res && handler) {
 			handler->String(prop);
 			subval.Accept(*handler);
 		}
-		if(hadval) *hadval = res;
+		if (hadval) {
+			*hadval = res;
+		}
 		return res ? GetType<C>(subval) : def;
 	}
 

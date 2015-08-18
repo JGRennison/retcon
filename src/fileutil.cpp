@@ -32,12 +32,12 @@
 bool LoadFromFile(const wxString &filename, std::string &out) {
 	wxFile file;
 	bool opened = file.Open(filename);
-	if(opened) {
+	if (opened) {
 		wxFileOffset len = file.Length();
-		if(len >= 0 && len < (50 << 20)) {    //don't load empty or absurdly large files
+		if (len >= 0 && len < (50 << 20)) {    //don't load empty or absurdly large files
 			out.resize(len);
 			size_t size = file.Read(&out[0], len);
-			if(size == (size_t) len) {
+			if (size == (size_t) len) {
 				return true;
 			}
 			out.clear();
@@ -47,12 +47,12 @@ bool LoadFromFile(const wxString &filename, std::string &out) {
 }
 
 bool LoadFromFileAndCheckHash(const wxString &filename, shb_iptr hash, std::string &out) {
-	if(!hash) return false;
-	if(LoadFromFile(filename, out)) {
+	if (!hash) return false;
+	if (LoadFromFile(filename, out)) {
 		CSHA1 hashblk;
 		hashblk.Update(reinterpret_cast<const unsigned char*>(out.data()), out.size());
 		hashblk.Final();
-		if(memcmp(hashblk.GetHashPtr(), hash->hash_sha1, 20) == 0) {
+		if (memcmp(hashblk.GetHashPtr(), hash->hash_sha1, 20) == 0) {
 			return true;
 		}
 		out.clear();
@@ -61,12 +61,12 @@ bool LoadFromFileAndCheckHash(const wxString &filename, shb_iptr hash, std::stri
 }
 
 bool LoadImageFromFileAndCheckHash(const wxString &filename, shb_iptr hash, wxImage &img) {
-	if(!hash) return false;
+	if (!hash) return false;
 	std::string data;
 	bool success = false;
-	if(LoadFromFileAndCheckHash(filename, hash, data)) {
+	if (LoadFromFileAndCheckHash(filename, hash, data)) {
 		wxMemoryInputStream memstream(data.data(), data.size());
-		if(img.LoadFile(memstream, wxBITMAP_TYPE_ANY)) {
+		if (img.LoadFile(memstream, wxBITMAP_TYPE_ANY)) {
 			success = true;
 		}
 	}
@@ -105,7 +105,7 @@ void temp_file_holder::Init(const std::string &name) {
 }
 
 void temp_file_holder::Reset() {
-	if(!filename.empty()) {
+	if (!filename.empty()) {
 		remove(filename.c_str());
 	}
 }
@@ -115,17 +115,19 @@ std::string make_temp_dir(const std::string &prefix) {
 	std::mt19937 gen(rd());
 	std::uniform_int_distribution<> dis(0, 255);
 
-	for(unsigned int i = 0; i < 256; i++) {
+	for (unsigned int i = 0; i < 256; i++) {
 		std::string lastpart = prefix;
-		for (int n = 0; n < 15; n++)
+		for (int n = 0; n < 15; n++) {
 			hexify_char(lastpart, (unsigned char) dis(gen));
+		}
 
 		wxFileName filename;
 		filename.AssignDir(wxFileName::GetTempDir());
 		filename.AppendDir(wxstrstd(lastpart));
 		filename.MakeAbsolute();
-		if(filename.Mkdir(0700))
+		if (filename.Mkdir(0700)) {
 			return stdstrwx(filename.GetFullPath());
+		}
 	}
 	return stdstrwx(wxFileName::GetTempDir());
 }

@@ -91,9 +91,11 @@ struct mcurlconn : public wxEvtHandler {
 	void HandleError(CURL *easy, long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner);
 	void KillConn();
 	std::unique_ptr<mcurlconn> RemoveConn();
+
 	mcurlconn() {
 		id = ++lastid;
 	}
+
 	virtual ~mcurlconn() { }
 
 	virtual void NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) = 0;
@@ -155,9 +157,9 @@ struct wxextSocketNotifyEvent : public wxEvent {
 typedef void (wxEvtHandler::*wxextSocketNotifyEventFunction)(wxextSocketNotifyEvent&);
 
 #define EVT_EXTSOCKETNOTIFY(id, fn) \
-    DECLARE_EVENT_TABLE_ENTRY( wxextSOCK_NOTIFY, id, -1, \
-    (wxObjectEventFunction) (wxEventFunction) \
-    wxStaticCastEvent( wxextSocketNotifyEventFunction, & fn ), (wxObject *) NULL ),
+	DECLARE_EVENT_TABLE_ENTRY( wxextSOCK_NOTIFY, id, -1, \
+	(wxObjectEventFunction) (wxEventFunction) \
+	wxStaticCastEvent( wxextSocketNotifyEventFunction, & fn ), (wxObject *) NULL ),
 
 #endif
 
@@ -216,14 +218,14 @@ struct socketmanager : public wxEvtHandler {
 	void DNSResolutionEvent(wxCommandEvent &event);
 
 	template<typename F> static void IterateConns(F func) {
-		for(auto &it : sm.connlist) {
-			if(it.cs) {
-				if(func(*(it.cs))) return;
+		for (auto &it : sm.connlist) {
+			if (it.cs) {
+				if (func(*(it.cs))) return;
 			}
 		};
-		for(auto &it : sm.retry_conns) {
-			if(it) {
-				if(func(*it)) return;
+		for (auto &it : sm.retry_conns) {
+			if (it) {
+				if (func(*it)) return;
 			}
 		};
 	}

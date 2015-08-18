@@ -125,8 +125,11 @@ const format_set format_set_long {
 
 const format_set &IndexToFormatSet(unsigned long fdn) {
 	const format_set *current = &format_set_short;
-	if(fdn == 1) current = &format_set_medium;
-	else if(fdn == 2) current = &format_set_long;
+	if (fdn == 1) {
+		current = &format_set_medium;
+	} else if (fdn == 2) {
+		current = &format_set_long;
+	}
 
 	return *current;
 }
@@ -221,8 +224,11 @@ void globconf::CFGParamConv() {
 	bool add_comma = false;
 	while(tkn.HasMoreTokens()) {
 		wxString token = tkn.GetNextToken();
-		if(add_comma) noproxylist += ",";
-		else add_comma = true;
+		if (add_comma) {
+			noproxylist += ",";
+		} else {
+			add_comma = true;
+		}
 		noproxylist += stdstrwx(token);
 	}
 
@@ -230,7 +236,7 @@ void globconf::CFGParamConv() {
 
 	const format_set &current_format_set = IndexToFormatSet(format_default_num);
 	auto do_format_param = [&](genopt &targ, const genopt &def) {
-		if(targ.val.IsEmpty() || !targ.enable) {
+		if (targ.val.IsEmpty() || !targ.enable) {
 			targ = def;
 		}
 	};
@@ -307,19 +313,23 @@ void genoptglobconf::UnShareStrings() {
 }
 
 void genopt::CFGWriteOutCurDir(DBWriteConfig &twfc, const char *name) const {
-	if(enable) twfc.WriteWX(name, val);
-	else twfc.Delete(name);
+	if (enable) {
+		twfc.WriteWX(name, val);
+	} else {
+		twfc.Delete(name);
+	}
 }
 void genopt::CFGReadInCurDir(DBReadConfig &twfc, const char *name, const wxString &parent) {
 	enable = twfc.Read(name, &val, parent);
-	if(val.IsEmpty()) {
+	if (val.IsEmpty()) {
 		val = parent;
 		enable = false;
 	}
 }
 void genopt::InheritFromParent(genopt &parent, bool ifunset) {
-	if(ifunset && enable) return;
-	else {
+	if (ifunset && enable) {
+		return;
+	} else {
 		enable = false;
 		val = parent.val;
 	}
@@ -330,7 +340,9 @@ void ReadAllCFGIn(sqlite3 *db, globconf &lgc, std::list<std::shared_ptr<taccount
 	DBReadConfig twfc(db);
 	lgc.CFGReadIn(twfc);
 
-	for(auto &it : lalist) it->CFGReadIn(twfc);
+	for (auto &it : lalist) {
+		it->CFGReadIn(twfc);
+	}
 	LogMsg(LOGT::DBINFO, "dbconn::ReadAllCFGIn end");
 }
 
@@ -343,15 +355,15 @@ std::function<void(DBWriteConfig &)> WriteAllCFGOutClosure(const globconf &lgc, 
 		globconf_base lgc;
 	};
 	auto data = std::make_shared<cfgdata>();
-	for(auto &it : lalist) {
+	for (auto &it : lalist) {
 		data->taccs.emplace_back(*it);
-		if(unshare_strings) {
+		if (unshare_strings) {
 			data->taccs.back().UnShareStrings();
 		}
 	}
 	data->now = (int64_t) time(nullptr);
 	data->lgc = lgc;
-	if(unshare_strings) {
+	if (unshare_strings) {
 		data->lgc.UnShareStrings();
 	}
 
@@ -360,7 +372,7 @@ std::function<void(DBWriteConfig &)> WriteAllCFGOutClosure(const globconf &lgc, 
 		data->lgc.CFGWriteOut(twfc);
 		twfc.SetDBIndexGlobal();
 		twfc.WriteInt64("LastUpdate", data->now);
-		for(auto &it : data->taccs) {
+		for (auto &it : data->taccs) {
 			it.CFGWriteOut(twfc);
 		}
 	};
@@ -375,7 +387,9 @@ void WriteAllCFGOut(sqlite3 *db, const globconf &lgc, const std::list<std::share
 
 void AllUsersInheritFromParentIfUnset() {
 	gc.cfg.InheritFromParent(gcdefaults, true);
-	for(auto &it : alist) it->cfg.InheritFromParent(gc.cfg, true);
+	for (auto &it : alist) {
+		it->cfg.InheritFromParent(gc.cfg, true);
+	}
 }
 
 void InitCFGDefaults() {

@@ -54,8 +54,11 @@ struct selection_category {
 	const tweetidset *output_other = nullptr;
 
 	const tweetidset &GetOutputSet() const {
-		if(output_other) return *output_other;
-		else return output;
+		if (output_other) {
+			return *output_other;
+		} else {
+			return output;
+		}
 	}
 };
 
@@ -73,8 +76,9 @@ struct filter_dlg_shared_state {
 	}
 
 	~filter_dlg_shared_state() {
-		if(!app)
+		if (!app) {
 			return;
+		}
 
 		observer_ptr<undo::item> undo_item = app->undo_state.NewItem(string_format("apply filter: %s", cstr(srcname)));
 		undo_item->AppendAction(apply_filter.GetUndoAction());
@@ -104,7 +108,7 @@ filter_dlg::filter_dlg(wxWindow *parent, wxWindowID id, std::function<const twee
 
 	fdg->hbox->Add(fdg->vbox, 1, wxALL | wxEXPAND, 0);
 
-	if(!srcname.empty()) {
+	if (!srcname.empty()) {
 		wxStaticText *srcname_label = new wxStaticText(this, wxID_ANY, wxstrstd(srcname));
 		wxBoxSizer *hs = new wxBoxSizer(wxHORIZONTAL);
 		hs->AddStretchSpacer();
@@ -204,9 +208,9 @@ void filter_dlg::CheckBoxUpdate(wxCommandEvent &event) {
 
 void filter_dlg::RefreshSelection() {
 	fdg->selectedset.clear();
-	for(auto &it : checkboxmap) {
+	for (auto &it : checkboxmap) {
 		selection_category &sc = it.second;
-		if(sc.chk->IsChecked()) {
+		if (sc.chk->IsChecked()) {
 			const tweetidset &output = sc.GetOutputSet();
 			fdg->selectedset.insert(output.begin(), output.end());
 		}
@@ -218,12 +222,13 @@ size_t filter_dlg::GetCount() {
 	size_t count = fdg->selectedset.size();
 	bool limit_count_set = fdg->limit_count_chk->GetValue();
 	fdg->limit_count_txt->Enable(limit_count_set);
-	if(limit_count_set) {
+	if (limit_count_set) {
 		// Limit enabled
 		size_t limit = 0;
-		if(ownstrtonum(limit, cstr(fdg->limit_count_txt->GetValue()), -1)) {
-			if(count > limit)
+		if (ownstrtonum(limit, cstr(fdg->limit_count_txt->GetValue()), -1)) {
+			if (count > limit) {
 				count = limit;
+			}
 		}
 	}
 	return count;
@@ -242,7 +247,7 @@ void filter_dlg::OnLimitCountUpdate(wxCommandEvent &event) {
 
 void filter_dlg::ReCalculateCategories() {
 	const tweetidset *current = getidset();
-	for(auto &it : checkboxmap) {
+	for (auto &it : checkboxmap) {
 		selection_category &sc = it.second;
 		sc.func(*current, it.second);
 		sc.stattext->SetLabel(wxString::Format(wxT("%d"), sc.GetOutputSet().size()));
@@ -252,20 +257,19 @@ void filter_dlg::ReCalculateCategories() {
 
 void filter_dlg::ApplyLimit() {
 	size_t count = GetCount();
-	if(count < fdg->selectedset.size()) {
+	if (count < fdg->selectedset.size()) {
 		tweetidset orig = std::move(fdg->selectedset);
 		std::copy_n(orig.begin(), count, std::inserter(fdg->selectedset, fdg->selectedset.end()));
 	}
 }
 
 void filter_dlg::OnOK(wxCommandEvent &event) {
-	if(Validate() && TransferDataFromWindow()) {
+	if (Validate() && TransferDataFromWindow()) {
 		ApplyLimit();
 		ExecFilter();
-		if(IsModal()) {
+		if (IsModal()) {
 			EndModal(wxID_OK);
-		}
-		else {
+		} else {
 			SetReturnCode(wxID_OK);
 			Show(false);
 		}
@@ -304,10 +308,10 @@ void filter_dlg::ExecFilter() {
 
 	tweetidset dbset;
 
-	for(auto id : fdg->selectedset) {
+	for (auto id : fdg->selectedset) {
 		optional_tweet_ptr tobj = ad.GetExistingTweetById(id);
-		if(!tobj) {
-			if(ad.unloaded_db_tweet_ids.find(id) != ad.unloaded_db_tweet_ids.end()) {
+		if (!tobj) {
+			if (ad.unloaded_db_tweet_ids.find(id) != ad.unloaded_db_tweet_ids.end()) {
 				// This is in DB
 				dbset.insert(id);
 				continue;
@@ -317,21 +321,21 @@ void filter_dlg::ExecFilter() {
 			tobj = ad.GetTweetById(id);
 		}
 
-		if(CheckFetchPendingSingleTweet(tobj, std::shared_ptr<taccount>(), &loadmsg, PENDING_REQ::USEREXPIRE, PENDING_RESULT::CONTENT_READY)) {
+		if (CheckFetchPendingSingleTweet(tobj, std::shared_ptr<taccount>(), &loadmsg, PENDING_REQ::USEREXPIRE, PENDING_RESULT::CONTENT_READY)) {
 			FilterOneTweet(fdg->shared_state->apply_filter, tobj);
-		}
-		else {
+		} else {
 			tobj->AddNewPendingOp(std::unique_ptr<pending_op>(new applyfilter_pending_op(fdg->shared_state)));
 		}
 	}
-	if(loadmsg) {
+	if (loadmsg) {
 		loadmsg->flags |= DBSTMF::CLEARNOUPDF;
 		DBC_PrepareStdTweetLoadMsg(*loadmsg);
 		DBC_SendMessage(std::move(loadmsg));
+	} else {
+		CheckClearNoUpdateFlag_All();
 	}
-	else CheckClearNoUpdateFlag_All();
 
-	if(!dbset.empty()) {
+	if (!dbset.empty()) {
 		filter_set fs;
 		LoadFilter(fdg->shared_state->apply_filter.filter_text, fs);
 
@@ -347,12 +351,11 @@ void filter_dlg::ExecFilter() {
 
 		filter_set::DBFilterTweetIDs(std::move(fs), std::move(dbset), true, [this_id](std::unique_ptr<undo::action> undo) {
 			auto it = pending_db_filters.find(this_id);
-			if(it != pending_db_filters.end()) {
+			if (it != pending_db_filters.end()) {
 				it->second->db_undo_action = std::move(undo);
 				pending_db_filters.erase(it);
 				LogMsgFormat(LOGT::FILTERTRACE, "filter_dlg::ExecFilter: DB filter complete, %zu pending", pending_db_filters.size());
-			}
-			else {
+			} else {
 				LogMsgFormat(LOGT::FILTERERR, "filter_dlg::ExecFilter: DB filter completion: item missing from pending_db_filters!");
 			}
 		});

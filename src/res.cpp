@@ -22,18 +22,19 @@
 #include <algorithm>
 
 wxBitmap MkScaledBitmap(const wxImage &img, int maxx, int maxy) {
-	if(img.GetHeight() > maxy || img.GetWidth() > maxx) {
+	if (img.GetHeight() > maxy || img.GetWidth() > maxx) {
 		double scalefactor = std::min((double) maxx / (double) img.GetWidth(), (double) maxy / (double) img.GetHeight());
 		int newwidth = (double) img.GetWidth() * scalefactor;
 		int newheight = (double) img.GetHeight() * scalefactor;
 		return wxBitmap(img.Scale(std::lround(newwidth), std::lround(newheight), wxIMAGE_QUALITY_HIGH));
+	} else {
+		return wxBitmap(img);
 	}
-	else return wxBitmap(img);
 }
 
 void MkImgBitmap(const wxImage &inimg, wxBitmap *bmp, wxImage *img) {
-	if(img) *img = inimg;
-	if(bmp) *bmp = wxBitmap(inimg);
+	if (img) *img = inimg;
+	if (bmp) *bmp = wxBitmap(inimg);
 }
 
 wxImage MkImage(unsigned char *data, size_t len) {

@@ -65,25 +65,24 @@ bool dbconn::SyncDoUpdates(sqlite3 *adb) {
 		current_db_version = (unsigned int) sqlite3_column_int64(stmt, 0);
 	}, "dbconn::DoUpdates (get DB version)");
 
-	if(current_db_version < db_version) {
+	if (current_db_version < db_version) {
 		cache.BeginTransaction(adb);
 		LogMsgFormat(LOGT::DBINFO, "dbconn::DoUpdates updating from %u to %u", current_db_version, db_version);
-		for(unsigned int i = current_db_version; i < db_version; i++) {
+		for (unsigned int i = current_db_version; i < db_version; i++) {
 			const char *sql = update_sql[i];
-			if(!sql) continue;
+			if (!sql) continue;
 
 			int res = sqlite3_exec(adb, sql, 0, 0, 0);
-			if(res != SQLITE_OK) {
+			if (res != SQLITE_OK) {
 				LogMsgFormat(LOGT::DBERR, "dbconn::DoUpdates %u got error: %d (%s)", i, res, cstr(sqlite3_errmsg(adb)));
 			}
-			if(i == 3) {
+			if (i == 3) {
 				SyncDoUpdates_FillUserDMIndexes(adb);
 			}
 		}
 		SyncWriteDBVersion(adb);
 		cache.EndTransaction(adb);
-	}
-	else if(current_db_version > db_version) {
+	} else if (current_db_version > db_version) {
 		LogMsgFormat(LOGT::DBERR, "dbconn::DoUpdates current DB version %u > %u", current_db_version, db_version);
 
 		wxMessageDialog(0, wxString::Format(wxT("Sorry, this database cannot be read.\nIt is version %u, this program can only read up to version %u, please upgrade.\n"),

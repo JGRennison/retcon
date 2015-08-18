@@ -24,28 +24,31 @@ namespace undo {
 	const unsigned int undo_state_size = 10;
 
 	void item::execute() {
-		for(auto &it : actions) {
+		for (auto &it : actions) {
 			it->execute();
 		}
 	}
 
 	observer_ptr<item> undo_stack::NewItem(std::string name) {
 		items.push_back(undo::item(std::move(name)));
-		if(items.size() > undo_state_size)
+		if (items.size() > undo_state_size) {
 			items.pop_front();
+		}
 		return &(items.back());
 	}
 
 	optional_observer_ptr<const item> undo_stack::GetTopItem() const {
-		if(items.empty())
+		if (items.empty()) {
 			return nullptr;
-		else
+		} else {
 			return &(items.back());
+		}
 	}
 
 	void undo_stack::ExecuteTopItem() {
-		if(items.empty())
+		if (items.empty()) {
 			return;
+		}
 
 		items.back().execute();
 		items.pop_back();

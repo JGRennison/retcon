@@ -122,6 +122,7 @@ struct generic_popup_wrapper_hook {
 };
 
 void GenericPopupWrapper(wxWindow *win, wxMenu *menu, const wxPoint &pos = wxDefaultPosition);
+
 inline void GenericPopupWrapper(wxWindow *win, wxMenu *menu, int x, int y) {
 	GenericPopupWrapper(win, menu, wxPoint(x, y));
 }
@@ -152,9 +153,11 @@ struct commonRichTextCtrl : public wxRichTextCtrl {
 	commonRichTextCtrl(wxWindow *parent_, wxWindowID id = wxID_ANY, const wxString &text = wxEmptyString, long style = wxRE_MULTILINE);
 
 	void WriteBitmapAltText(const wxBitmap& bmp, const wxString &altText);
+
 	void WriteBitmap(const wxBitmap& bmp) {
 		WriteBitmapAltText(bmp, wxEmptyString);
 	}
+
 	void EnableEmojiChecking(bool enabled);
 	void ReplaceAllEmoji();
 

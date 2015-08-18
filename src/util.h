@@ -69,13 +69,11 @@ inline decltype(wxString().ToUTF8()) cstr_wrap(const wxString &in) {
 
 namespace std
 {
-    template <typename T>
-    string to_string(const T & value)
-    {
-        stringstream stream;
-        stream << value;
-        return stream.str();
-    }
+	template <typename T> string to_string(const T & value) {
+		stringstream stream;
+		stream << value;
+		return stream.str();
+	}
 }
 
 #endif
@@ -87,20 +85,22 @@ namespace std
 // len can be negative to signal string is null-terminated
 // returns true if whole input string is valid
 template <typename C, typename D> inline bool ownstrtonum(C &val, D *str, ssize_t len) {
-	if(len == 0)
+	if (len == 0) {
 		return false;
-	if(str[0] == 0)
+	}
+	if (str[0] == 0) {
 		return false;
+	}
 	val = 0;
-	for(ssize_t i = 0; len < 0 || i < len; i++) {
-		if(str[i] >= '0' && str[i] <= '9') {
+	for (ssize_t i = 0; len < 0 || i < len; i++) {
+		if (str[i] >= '0' && str[i] <= '9') {
 			val *= 10;
 			val += str[i] - '0';
-		}
-		else if(str[i] == 0) {
+		} else if (str[i] == 0) {
 			return len < 0;
+		} else {
+			return false;
 		}
-		else return false;
 	}
 	return true;
 }
@@ -118,41 +118,47 @@ inline void UnShare(wxString &str) {
 
 template <typename I> I swap_single_bits(I in, I bit1, I bit2) {
 	bool rev = !(in & bit1) != !(in & bit2);
-	if(rev) return in ^ (bit1 | bit2);
-	else return in;
+	if (rev) {
+		return in ^ (bit1 | bit2);
+	} else {
+		return in;
+	}
 }
 
 template <typename I> I SetOrClearBits(I in, I bits, bool set) {
-	if(set) return in | bits;
-	else in &= ~bits;
-	return in;
+	if (set) {
+		return in | bits;
+	} else {
+		in &= ~bits;
+		return in;
+	}
 }
 
 template <typename I> void SetOrClearBitsRef(I &in, I bits, bool set) {
 	in = SetOrClearBits(in, bits, set);
 }
 
-template <typename C, typename UP> unsigned int container_unordered_remove_if(C &container, UP predicate) {
+template <typename C, typename UP> unsigned int container_unordered_remove_if (C &container, UP predicate) {
 	unsigned int removecount = 0;
-	for(auto it = container.begin(); it != container.end();) {
-		if(predicate(*it)) {
+	for (auto it = container.begin(); it != container.end();) {
+		if (predicate(*it)) {
 			removecount++;
-			if(std::next(it) != container.end()) {
+			if (std::next(it) != container.end()) {
 				*it = std::move(container.back());
 				container.pop_back();
-			}
-			else {
+			} else {
 				container.pop_back();
 				break;
 			}
+		} else {
+			++it;
 		}
-		else ++it;
 	}
 	return removecount;
 }
 
 template <typename C, typename V> unsigned int container_unordered_remove(C &container, const V &value) {
-	return container_unordered_remove_if(container, [&](const typename C::value_type &v) {
+	return container_unordered_remove_if (container, [&](const typename C::value_type &v) {
 		return v == value;
 	});
 }
@@ -164,13 +170,15 @@ template <typename Tout, typename Tin> std::unique_ptr<Tout> static_pointer_cast
 template <typename C, typename F> std::string string_join(const C &container, std::string delimiter, F appender) {
 	std::string out = "";
 	auto it = container.begin();
-	if(it == container.end())
+	if (it == container.end()) {
 		return out;
-	while(true) {
+	}
+	while (true) {
 		appender(out, *it);
 		it++;
-		if(it == container.end())
+		if (it == container.end()) {
 			break;
+		}
 		out += delimiter;
 	}
 	return out;

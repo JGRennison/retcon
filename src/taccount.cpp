@@ -44,14 +44,14 @@ BEGIN_EVENT_TABLE(taccount, wxEvtHandler)
 END_EVENT_TABLE()
 
 taccount::taccount(genoptconf *incfg) {
-	if(incfg) {
+	if (incfg) {
 		cfg.InheritFromParent(*incfg);
 		CFGParamConv();
 	}
 }
 
 void taccount::Setup() {
-	if(dispname.Trim(false).Trim(true).IsEmpty()) {
+	if (dispname.Trim(false).Trim(true).IsEmpty()) {
 		SetName();
 		LogMsgFormat(LOGT::OTHERTRACE, "taccount::Setup: dispname is missing for account: %s, setting to new value: %s", cstr(name), cstr(dispname));
 	}
@@ -60,7 +60,7 @@ void taccount::Setup() {
 void taccount::SetName() {
 	auto checkstr = [&](wxString str) -> bool {
 		str.Trim(false).Trim(true);
-		if(str.IsEmpty()) return false;
+		if (str.IsEmpty()) return false;
 
 		dispname = str;
 		return true;
@@ -77,11 +77,11 @@ void taccount::ClearAllUserRelationshipsByType(user_relationship::UR_TYPE type, 
 	using URF = user_relationship::URF;
 
 	auto exec = [&](URF knownflag, URF trueflag, URF pendingflag, time_t user_relationship::* timeptr) {
-		for(auto &it : user_relations) {
-			if(currentset && it.second.ur_flags & knownflag && it.second.ur_flags & trueflag) {
+		for (auto &it : user_relations) {
+			if (currentset && it.second.ur_flags & knownflag && it.second.ur_flags & trueflag) {
 				currentset->push_back(it.first);
 			}
-			if(pendingset && it.second.ur_flags & knownflag && it.second.ur_flags & pendingflag) {
+			if (pendingset && it.second.ur_flags & knownflag && it.second.ur_flags & pendingflag) {
 				pendingset->push_back(it.first);
 			}
 			it.second.ur_flags |= knownflag;
@@ -90,10 +90,11 @@ void taccount::ClearAllUserRelationshipsByType(user_relationship::UR_TYPE type, 
 		}
 	};
 
-	switch(type) {
+	switch (type) {
 		case user_relationship::UR_TYPE::IFOLLOW:
 			exec(URF::IFOLLOW_KNOWN, URF::IFOLLOW_TRUE, URF::IFOLLOW_PENDING, &user_relationship::ifollow_updtime);
 			break;
+
 		case user_relationship::UR_TYPE::FOLLOWSME:
 			exec(URF::FOLLOWSME_KNOWN, URF::FOLLOWSME_TRUE, URF::FOLLOWSME_PENDING, &user_relationship::followsme_updtime);
 			break;
@@ -104,20 +105,21 @@ void taccount::GetSetUserRelationshipsByType(user_relationship::UR_TYPE type, st
 	using URF = user_relationship::URF;
 
 	auto exec = [&](URF knownflag, URF trueflag, URF pendingflag) {
-		for(auto &it : user_relations) {
-			if(currentset && it.second.ur_flags & knownflag && it.second.ur_flags & trueflag) {
+		for (auto &it : user_relations) {
+			if (currentset && it.second.ur_flags & knownflag && it.second.ur_flags & trueflag) {
 				currentset->push_back(it.first);
 			}
-			if(pendingset && it.second.ur_flags & knownflag && it.second.ur_flags & pendingflag) {
+			if (pendingset && it.second.ur_flags & knownflag && it.second.ur_flags & pendingflag) {
 				pendingset->push_back(it.first);
 			}
 		}
 	};
 
-	switch(type) {
+	switch (type) {
 		case user_relationship::UR_TYPE::IFOLLOW:
 			exec(URF::IFOLLOW_KNOWN, URF::IFOLLOW_TRUE, URF::IFOLLOW_PENDING);
 			break;
+
 		case user_relationship::UR_TYPE::FOLLOWSME:
 			exec(URF::FOLLOWSME_KNOWN, URF::FOLLOWSME_TRUE, URF::FOLLOWSME_PENDING);
 			break;
@@ -127,12 +129,12 @@ void taccount::GetSetUserRelationshipsByType(user_relationship::UR_TYPE type, st
 void taccount::SetUserRelationship(uint64_t userid, flagwrapper<user_relationship::URF> flags, time_t optime) {
 	using URF = user_relationship::URF;
 	user_relationship &ur = user_relations[userid];
-	if(flags & URF::FOLLOWSME_KNOWN) {
+	if (flags & URF::FOLLOWSME_KNOWN) {
 		ur.ur_flags &= ~(URF::FOLLOWSME_PENDING | URF::FOLLOWSME_TRUE);
 		ur.ur_flags |= URF::FOLLOWSME_KNOWN | (flags & (URF::FOLLOWSME_TRUE | URF::FOLLOWSME_PENDING));
 		ur.followsme_updtime = optime;
 	}
-	if(flags & URF::IFOLLOW_KNOWN) {
+	if (flags & URF::IFOLLOW_KNOWN) {
 		ur.ur_flags &= ~(URF::IFOLLOW_PENDING | URF::IFOLLOW_TRUE);
 		ur.ur_flags |= URF::IFOLLOW_KNOWN | (flags&(URF::IFOLLOW_TRUE | URF::IFOLLOW_PENDING));
 		ur.ifollow_updtime = optime;
@@ -144,8 +146,9 @@ bool taccount::IsFollowingUser(uint64_t userid) {
 	using URF = user_relationship::URF;
 
 	auto it = user_relations.find(userid);
-	if(it == user_relations.end())
+	if (it == user_relations.end()) {
 		return false;
+	}
 
 	user_relationship &ur = it->second;
 	return (ur.ur_flags & URF::IFOLLOW_KNOWN && ur.ur_flags & URF::IFOLLOW_TRUE);
@@ -154,20 +157,24 @@ bool taccount::IsFollowingUser(uint64_t userid) {
 void taccount::LookupFriendships(uint64_t userid) {
 	using URF = user_relationship::URF;
 	std::unique_ptr<friendlookup> fl(new friendlookup);
-	if(userid) {
-		if(user_relations[userid].ur_flags & URF::QUERY_PENDING) return;	//already being looked up, don't repeat query
+	if (userid) {
+		if (user_relations[userid].ur_flags & URF::QUERY_PENDING) {
+			return;	//already being looked up, don't repeat query
+		}
 		fl->ids.insert(userid);
 	}
 
 	bool opportunist = true;
 
-	if(opportunist) {
+	if (opportunist) {
 		//find out more if users are followed by us or otherwise have a relationship with us
-		for(auto it = user_relations.begin(); it != user_relations.end() && fl->ids.size() < 100; ++it) {
-			if(it->second.ur_flags & URF::QUERY_PENDING) continue;
-			if(!(it->second.ur_flags & URF::FOLLOWSME_KNOWN) || !(it->second.ur_flags & URF::IFOLLOW_KNOWN)) {
+		for (auto it = user_relations.begin(); it != user_relations.end() && fl->ids.size() < 100; ++it) {
+			if (it->second.ur_flags & URF::QUERY_PENDING) {
+				continue;
+			}
+			if (!(it->second.ur_flags & URF::FOLLOWSME_KNOWN) || !(it->second.ur_flags & URF::IFOLLOW_KNOWN)) {
 				udc_ptr usp = ad.GetExistingUserContainerById(it->first);
-				if(!(usp && usp->GetUser().u_flags & userdata::UF::ISDEAD)) {
+				if (!(usp && usp->GetUser().u_flags & userdata::UF::ISDEAD)) {
 					fl->ids.insert(it->first);
 					it->second.ur_flags |= URF::QUERY_PENDING;
 				}
@@ -175,14 +182,20 @@ void taccount::LookupFriendships(uint64_t userid) {
 		}
 
 		//fill up the rest of the query with users who we don't know if we have a relationship with
-		for(auto it = ad.userconts.begin(); it != ad.userconts.end() && fl->ids.size() < 100; ++it) {
-			if(it->second->GetUser().u_flags & userdata::UF::ISDEAD) continue;
-			if(user_relations.find(it->first) == user_relations.end()) fl->ids.insert(it->first);
+		for (auto it = ad.userconts.begin(); it != ad.userconts.end() && fl->ids.size() < 100; ++it) {
+			if (it->second->GetUser().u_flags & userdata::UF::ISDEAD) {
+				continue;
+			}
+			if (user_relations.find(it->first) == user_relations.end()) {
+				fl->ids.insert(it->first);
+			}
 			user_relations[it->first].ur_flags |= URF::QUERY_PENDING;
 		}
 	}
 
-	if(fl->ids.empty()) return;
+	if (fl->ids.empty()) {
+		return;
+	}
 
 	std::unique_ptr<twitcurlext_friendlookup> twit = twitcurlext_friendlookup::make_new(shared_from_this(), std::move(fl));
 	twitcurlext::QueueAsyncExec(std::move(twit));
@@ -205,20 +218,19 @@ void taccount::HandleUserIFollowList(std::vector<uint64_t> userids, bool complet
 
 void taccount::HandleUserRelationshipListCommon(std::vector<uint64_t> userids, bool complete, user_relationship::UR_TYPE type, bool &listvalid, user_relationship::URF setto) {
 	std::vector<uint64_t> oldset, oldpending;
-	if(complete) {
+	if (complete) {
 		ClearAllUserRelationshipsByType(type, &oldset, &oldpending);
-	}
-	else {
+	} else {
 		GetSetUserRelationshipsByType(type, &oldset, &oldpending);
 	}
 
-	for(uint64_t id : userids) {
+	for (uint64_t id : userids) {
 		SetUserRelationship(id, setto, 0);
 	}
 
 	// Don't notify if this is the first time
 	// No point telling the user that they're suddenly following/followed by umpteen users if they add a new account with existing follows/followers
-	if(listvalid) {
+	if (listvalid) {
 		NotifyDiffUserRelationshipList(type, oldset, oldpending);
 	}
 	listvalid = true;
@@ -244,18 +256,19 @@ void taccount::NotifyDiffUserRelationshipList(user_relationship::UR_TYPE type, c
 			symdiffset.begin(), symdiffset.end(),
 			symdiffpending.begin(), symdiffpending.end(),
 			std::back_inserter(symdiff));
-		for(uint64_t id : symdiff) {
+		for (uint64_t id : symdiff) {
 			user_relationship &ur = user_relations[id];
-			if(ur.ur_flags & knownflag) {
+			if (ur.ur_flags & knownflag) {
 				NotifyUserRelationshipChange(id, knownflag | (ur.ur_flags & (trueflag | pendingflag)));
 			}
 		}
 	};
 
-	switch(type) {
+	switch (type) {
 		case user_relationship::UR_TYPE::IFOLLOW:
 			exec(URF::IFOLLOW_KNOWN, URF::IFOLLOW_TRUE, URF::IFOLLOW_PENDING);
 			break;
+
 		case user_relationship::UR_TYPE::FOLLOWSME:
 			exec(URF::FOLLOWSME_KNOWN, URF::FOLLOWSME_TRUE, URF::FOLLOWSME_PENDING);
 			break;
@@ -270,33 +283,49 @@ void taccount::NotifyUserRelationshipChange(uint64_t userid, user_relationship::
 	ready->Execute([userid, flags, acc, u]() {
 		using URF = user_relationship::URF;
 		std::string evttype;
-		if(flags & URF::FOLLOWSME_KNOWN) {
-			if(flags & URF::FOLLOWSME_TRUE) evttype += ", Followed you";
-			else if(flags & URF::FOLLOWSME_PENDING) evttype += ", Followed you (pending)";
-			else evttype += ", Unfollowed you";
+		if (flags & URF::FOLLOWSME_KNOWN) {
+			if (flags & URF::FOLLOWSME_TRUE) {
+				evttype += ", Followed you";
+			} else if (flags & URF::FOLLOWSME_PENDING) {
+				evttype += ", Followed you (pending)";
+			} else {
+				evttype += ", Unfollowed you";
+			}
 		}
-		if(flags & URF::IFOLLOW_KNOWN) {
-			if(flags & URF::IFOLLOW_TRUE) evttype += ", You followed";
-			else if(flags & URF::IFOLLOW_PENDING) evttype += ", You followed (pending)";
-			else evttype += ", You unfollowed";
+		if (flags & URF::IFOLLOW_KNOWN) {
+			if (flags & URF::IFOLLOW_TRUE) {
+				evttype += ", You followed";
+			} else if (flags & URF::IFOLLOW_PENDING) {
+				evttype += ", You followed (pending)";
+			} else {
+				evttype += ", You unfollowed";
+			}
 		}
 		LogMsgFormat(LOGT::NOTIFYEVT, "taccount::NotifyUserRelationshipChange: %s: %s%s",
 				cstr(acc->dispname), cstr(user_short_log_line(userid)), cstr(evttype));
 	});
 
 	using URF = user_relationship::URF;
-	if(flags & URF::FOLLOWSME_KNOWN) {
+	if (flags & URF::FOLLOWSME_KNOWN) {
 		DB_EVENTLOG_TYPE type;
-		if(flags & URF::FOLLOWSME_TRUE) type = DB_EVENTLOG_TYPE::FOLLOWED_ME;
-		else if(flags & URF::FOLLOWSME_PENDING) type = DB_EVENTLOG_TYPE::FOLLOWED_ME_PENDING;
-		else type = DB_EVENTLOG_TYPE::UNFOLLOWED_ME;
+		if (flags & URF::FOLLOWSME_TRUE) {
+			type = DB_EVENTLOG_TYPE::FOLLOWED_ME;
+		} else if (flags & URF::FOLLOWSME_PENDING) {
+			type = DB_EVENTLOG_TYPE::FOLLOWED_ME_PENDING;
+		} else {
+			type = DB_EVENTLOG_TYPE::UNFOLLOWED_ME;
+		}
 		DBC_InsertNewEventLogEntry(DBC_GetMessageBatchQueue(), this, type, 0, userid);
 	}
-	if(flags & URF::IFOLLOW_KNOWN) {
+	if (flags & URF::IFOLLOW_KNOWN) {
 		DB_EVENTLOG_TYPE type;
-		if(flags & URF::IFOLLOW_TRUE) type = DB_EVENTLOG_TYPE::I_FOLLOWED;
-		else if(flags & URF::IFOLLOW_PENDING) type = DB_EVENTLOG_TYPE::I_FOLLOWED_PENDING;
-		else type = DB_EVENTLOG_TYPE::I_UNFOLLOWED;
+		if (flags & URF::IFOLLOW_TRUE) {
+			type = DB_EVENTLOG_TYPE::I_FOLLOWED;
+		} else if (flags & URF::IFOLLOW_PENDING) {
+			type = DB_EVENTLOG_TYPE::I_FOLLOWED_PENDING;
+		} else {
+			type = DB_EVENTLOG_TYPE::I_UNFOLLOWED;
+		}
 		DBC_InsertNewEventLogEntry(DBC_GetMessageBatchQueue(), this, type, 0, userid);
 	}
 }
@@ -318,16 +347,17 @@ void taccount::OnRestTimer(wxTimerEvent& event) {
 }
 
 void taccount::SetupRestBackfillTimer() {
-	if(!rest_on) return;
-	if(!rest_timer) rest_timer.reset(new wxTimer(this, TAF_WINID_RESTTIMER));
+	if (!rest_on) return;
+	if (!rest_timer) {
+		rest_timer.reset(new wxTimer(this, TAF_WINID_RESTTIMER));
+	}
 	time_t now = time(nullptr);
 	time_t targettime = last_rest_backfill + restinterval;
 	int timeleft;
-	if(targettime <= (now + 10)) {    //10s of error margin
+	if (targettime <= (now + 10)) {    //10s of error margin
 		GetRestBackfill();
 		timeleft = restinterval;
-	}
-	else {
+	} else {
 		timeleft = targettime - now;
 	}
 	LogMsgFormat(LOGT::OTHERTRACE, "Setting REST timer for %d seconds (%s)", timeleft, cstr(dispname));
@@ -335,7 +365,7 @@ void taccount::SetupRestBackfillTimer() {
 }
 
 void taccount::DeleteRestBackfillTimer() {
-	if(rest_timer) {
+	if (rest_timer) {
 		LogMsgFormat(LOGT::OTHERTRACE, "Deleting REST timer (%s)", cstr(dispname));
 		rest_timer.reset();
 	}
@@ -345,7 +375,7 @@ void taccount::GetRestBackfill() {
 	auto oktostart = [&](RBFS_TYPE type) {
 		bool result = true;
 		twitcurlext::IterateConnsByAcc<twitcurlext_rbfs>(shared_from_this(), [&](const twitcurlext_rbfs &it) {
-			if(it.rbfs && it.rbfs->type == type && it.rbfs->end_tweet_id == 0) {
+			if (it.rbfs && it.rbfs->type == type && it.rbfs->end_tweet_id == 0) {
 				result = false;    //already present
 				return true;
 			}
@@ -355,11 +385,17 @@ void taccount::GetRestBackfill() {
 	};
 
 	last_rest_backfill = time(nullptr);
-	if(oktostart(RBFS_TWEETS)) StartRestGetTweetBackfill(GetMaxId(RBFS_TWEETS), 0, 800, RBFS_TWEETS);
-	if(oktostart(RBFS_RECVDM)) StartRestGetTweetBackfill(GetMaxId(RBFS_RECVDM), 0, 800, RBFS_RECVDM);
-	if(oktostart(RBFS_SENTDM)) StartRestGetTweetBackfill(GetMaxId(RBFS_SENTDM), 0, 800, RBFS_SENTDM);
-	if(!gc.assumementionistweet) {
-		if(oktostart(RBFS_MENTIONS)) StartRestGetTweetBackfill(GetMaxId(RBFS_MENTIONS), 0, 800, RBFS_MENTIONS);
+	if (oktostart(RBFS_TWEETS)) {
+		StartRestGetTweetBackfill(GetMaxId(RBFS_TWEETS), 0, 800, RBFS_TWEETS);
+	}
+	if (oktostart(RBFS_RECVDM)) {
+		StartRestGetTweetBackfill(GetMaxId(RBFS_RECVDM), 0, 800, RBFS_RECVDM);
+	}
+	if (oktostart(RBFS_SENTDM)) {
+		StartRestGetTweetBackfill(GetMaxId(RBFS_SENTDM), 0, 800, RBFS_SENTDM);
+	}
+	if (!gc.assumementionistweet) {
+		if (oktostart(RBFS_MENTIONS)) StartRestGetTweetBackfill(GetMaxId(RBFS_MENTIONS), 0, 800, RBFS_MENTIONS);
 	}
 }
 
@@ -379,8 +415,9 @@ void taccount::StartRestGetTweetBackfill(uint64_t start_tweet_id, uint64_t end_t
 }
 
 void taccount::ExecRBFS(observer_ptr<restbackfillstate> rbfs) {
-	if(rbfs->started)
+	if (rbfs->started) {
 		return;
+	}
 	std::unique_ptr<twitcurlext_rbfs> twit = twitcurlext_rbfs::make_new(shared_from_this(), rbfs);
 	twit->post_action_flags = PAF::RESOLVE_PENDINGS;
 	twitcurlext::QueueAsyncExec(std::move(twit));
@@ -388,47 +425,50 @@ void taccount::ExecRBFS(observer_ptr<restbackfillstate> rbfs) {
 
 void taccount::StartRestQueryPendings() {
 	LogMsgFormat(LOGT::PENDTRACE, "taccount::StartRestQueryPendings: pending users: %d, (%s)", pendingusers.size(), cstr(dispname));
-	if(pendingusers.empty()) return;
+	if (pendingusers.empty()) return;
 
 	std::unique_ptr<userlookup> ul;
 
 	auto it = pendingusers.begin();
-	while(it != pendingusers.end()) {
+	while (it != pendingusers.end()) {
 		unsigned int numusers = 0;
-		while(it != pendingusers.end() && numusers < 100) {
+		while (it != pendingusers.end() && numusers < 100) {
 			auto curit = it;
 			udc_ptr curobj = curit->second;
 			it++;
-			if(curobj->udc_flags & UDC::LOOKUP_IN_PROGRESS) ;	//do nothing
-			else if(curobj->udc_flags & UDC::BEING_LOADED_FROM_DB) ;	//do nothing
-			else if(curobj->udc_flags & UDC::ISDEAD) ;	//do nothing
-			else {
+			if (curobj->udc_flags & UDC::LOOKUP_IN_PROGRESS) {
+				//do nothing
+			} else if (curobj->udc_flags & UDC::BEING_LOADED_FROM_DB) {
+				//do nothing
+			} else if (curobj->udc_flags & UDC::ISDEAD) {
+				//do nothing
+			} else {
 				bool ok = false;
-				if(curobj->NeedsUpdating(PENDING_REQ::USEREXPIRE) || curobj->udc_flags & UDC::FORCE_REFRESH) {
+				if (curobj->NeedsUpdating(PENDING_REQ::USEREXPIRE) || curobj->udc_flags & UDC::FORCE_REFRESH) {
 					ok = true;
-				}
-				else {
+				} else {
 					// user probably not pending, remove from list for now
 					pendingusers.erase(curit);
 
 					// properly check
 					curobj->CheckPendingTweets(0, this);
 
-					if(pendingusers.find(curobj->id) != pendingusers.end()) {
+					if (pendingusers.find(curobj->id) != pendingusers.end()) {
 						// CheckPendingTweets re-added it to the list
 						ok = true;
 					}
 				}
-				if(ok) {
-					if(!ul)
+				if (ok) {
+					if (!ul) {
 						ul.reset(new userlookup());
+					}
 					ul->Mark(curobj);
 					numusers++;
 				}
 			}
 			curobj->udc_flags &= ~UDC::FORCE_REFRESH;
 		}
-		if(numusers && ul) {
+		if (numusers && ul) {
 			std::unique_ptr<twitcurlext_userlist> twit = twitcurlext_userlist::make_new(shared_from_this(), std::move(ul));
 			twit->post_action_flags = PAF::RESOLVE_PENDINGS;
 			twitcurlext::QueueAsyncExec(std::move(twit));
@@ -441,7 +481,7 @@ void taccount::DoPostAction(twitcurlext &lasttce) {
 }
 
 void taccount::DoPostAction(flagwrapper<PAF> postflags) {
-	if(postflags & PAF::RESOLVE_PENDINGS) {
+	if (postflags & PAF::RESOLVE_PENDINGS) {
 		StartRestQueryPendings();
 	}
 }
@@ -489,13 +529,13 @@ namespace {
 		}
 
 		void OnOK(wxCommandEvent& event) {
-			if(Validate() && TransferDataFromWindow()) {
+			if (Validate() && TransferDataFromWindow()) {
 				EndModal(wxID_OK);
 			}
 		}
 
 		void OnCopyToClipboard(wxCommandEvent& event) {
-			if(wxTheClipboard->Open()) {
+			if (wxTheClipboard->Open()) {
 				wxTheClipboard->SetData(new wxTextDataObject(authurl));
 				wxTheClipboard->Close();
 			}
@@ -520,15 +560,15 @@ bool taccount::TwDoOAuth(wxWindow *pf, twitcurlext &twit) {
 	std::string authUrl;
 	twit.SetNoPerformFlag(false);
 	twit.oAuthRequestToken(authUrl);
-	wxString authUrlWx=wxString::FromUTF8(authUrl.c_str());
+	wxString authUrlWx = wxString::FromUTF8(authUrl.c_str());
 	LogMsgFormat(LOGT::OTHERTRACE, "taccount::TwDoOAuth: %s, %s, %s", cstr(cfg.tokenk.val), cstr(cfg.tokens.val), cstr(authUrlWx));
 	wxLaunchDefaultBrowser(authUrlWx);
 	wxString pin;
 	OAuthPinDialog *ted = new OAuthPinDialog(pf, authUrlWx, pin);
 	int res = ted->ShowModal();
 	ted->Destroy();
-	if(res!=wxID_OK) return false;
-	if(pin.IsEmpty()) return false;
+	if (res != wxID_OK) return false;
+	if (pin.IsEmpty()) return false;
 	twit.getOAuth().setOAuthPin((const char*) pin.utf8_str());
 	twit.oAuthAccessToken();
 	std::string stdconk;
@@ -557,14 +597,14 @@ std::string taccount::DumpStateString() const {
 
 void taccount::LogStateChange(const std::string &tag, raii_set *finaliser) {
 	LogMsgFormat(LOGT::OTHERTRACE, "%s (account: %s). State:            %s", cstr(tag), cstr(dispname), cstr(DumpStateString()));
-	if((currentlogflags & LOGT::OTHERTRACE) && finaliser) {
+	if ((currentlogflags & LOGT::OTHERTRACE) && finaliser) {
 		auto state = [this]() {
 			return std::make_tuple(enabled, userenabled, init, active, streaming_on, stream_fail_count, rest_on,
 			verifycredstatus, beinginsertedintodb, last_rest_backfill, ssl, userstreams, stream_reply_mode, stream_currently_reply_all);
 		};
 		auto oldstate = state();
 		finaliser->add([=]() {
-			if(oldstate != state()) {
+			if (oldstate != state()) {
 				LogMsgFormat(LOGT::OTHERTRACE, "%s (account: %s). State changed to: %s", cstr(tag), cstr(dispname), cstr(DumpStateString()));
 			}
 		});
@@ -575,28 +615,28 @@ void taccount::Exec() {
 	raii_set finalisers;
 	LogStateChange("taccount::Exec", &finalisers);
 
-	if(init) {
-		if(verifycredstatus != ACT_DONE) {
+	if (init) {
+		if (verifycredstatus != ACT_DONE) {
 			streaming_on = false;
 			rest_on = false;
 			active = false;
-			if(verifycredstatus == ACT_INPROGRESS)
+			if (verifycredstatus == ACT_INPROGRESS) {
 				return;
+			}
 			std::unique_ptr<twitcurlext_accverify> twit = twitcurlext_accverify::make_new(shared_from_this());
 			twitcurlext::QueueAsyncExec(std::move(twit));
 		}
 	}
-	else if(enabled) {
+	else if (enabled) {
 		bool target_streaming = userstreams && !stream_fail_count;
-		if(!active) {
-			for(auto &it : pending_rbfs_list) {
+		if (!active) {
+			for (auto &it : pending_rbfs_list) {
 				ExecRBFS(&it);
 			}
 			NoAccPendingContentCheck();
-		}
-		else {
+		} else {
 			bool stream_should_reply_all = (stream_reply_mode != SRM::STD_REPLIES);
-			if(!target_streaming || stream_currently_reply_all != stream_should_reply_all) {
+			if (!target_streaming || stream_currently_reply_all != stream_should_reply_all) {
 				twitcurlext::IterateConnsByAcc<twitcurlext_stream>(shared_from_this(), [&](twitcurlext_stream &conn) {
 					LogMsgFormat(LOGT::SOCKTRACE, "taccount::Exec(): Closing stream connection: type: %s, conn ID: %d, url: %s",
 							cstr(conn.GetConnTypeName()), conn.id, cstr(conn.url));
@@ -605,24 +645,23 @@ void taccount::Exec() {
 				});
 				streaming_on = false;
 			}
-			if(target_streaming && rest_on) {
+			if (target_streaming && rest_on) {
 				DeleteRestBackfillTimer();
 				rest_on = false;
 			}
 		}
 		active = true;
 
-		if(target_streaming && !streaming_on) {
+		if (target_streaming && !streaming_on) {
 			streaming_on = true;
 			std::unique_ptr<twitcurlext> twit_stream = PrepareNewStreamConn();
 			twitcurlext::QueueAsyncExec(std::move(twit_stream));
 		}
-		if(!target_streaming && !rest_on) {
+		if (!target_streaming && !rest_on) {
 			rest_on = true;
 			SetupRestBackfillTimer();
 		}
-	}
-	else if(!enabled && (active || (verifycredstatus == ACT_INPROGRESS))) {
+	} else if (!enabled && (active || (verifycredstatus == ACT_INPROGRESS))) {
 		active = false;
 		verifycredstatus = ACT_NOTDONE;
 		streaming_on = false;
@@ -636,7 +675,7 @@ void taccount::Exec() {
 			killlist.push_back(&conn);
 			return false;
 		});
-		for(auto &it : killlist) {
+		for (auto &it : killlist) {
 			it->KillConn();
 		}
 	}
@@ -654,52 +693,62 @@ void taccount::CalcEnabled() {
 
 	bool oldenabled = enabled;
 	bool oldinit = init;
-	if(userenabled && !beinginsertedintodb && !gc.allaccsdisabled) {
+	if (userenabled && !beinginsertedintodb && !gc.allaccsdisabled) {
 		enabled = (verifycredstatus == ACT_DONE);
 		init = !enabled;
-	}
-	else {
+	} else {
 		enabled = false;
 		init = false;
 	}
 
-	if(oldenabled != enabled || oldinit != init) {
+	if (oldenabled != enabled || oldinit != init) {
 		AccountChangeTrigger();
 	}
 }
 
 void taccount::MarkUserPending(udc_ptr_p user) {
 	auto retval = pendingusers.insert(std::make_pair(user->id, user));
-	if(retval.second) {
+	if (retval.second) {
 		LogMsgFormat(LOGT::PENDTRACE, "Mark Pending: User: %" llFmtSpec "d (@%s) for account: %s (%s)", user->id, cstr(user->GetUser().screen_name), cstr(name), cstr(dispname));
 	}
 }
 
 wxString taccount::GetStatusString(bool notextifok) {
-	if(init) {
-		if(verifycredstatus == ACT_FAILED) return wxT("authentication failed");
-		else return wxT("authenticating");
+	if (init) {
+		if (verifycredstatus == ACT_FAILED) {
+			return wxT("authentication failed");
+		} else {
+			return wxT("authenticating");
+		}
+	} else if (!userenabled) {
+		return wxT("disabled");
+	} else if (!enabled) {
+		return wxT("not active");
+	} else if (!notextifok) {
+		return wxT("active");
+	} else {
+		return wxT("");
 	}
-	else if(!userenabled) return wxT("disabled");
-	else if(!enabled) return wxT("not active");
-	else if(!notextifok) return wxT("active");
-	else return wxT("");
 }
 
 void taccount::CheckFailedPendingConns() {
-	if(!failed_pending_conns.empty()) {
+	if (!failed_pending_conns.empty()) {
 		// only try one, to avoid excessive connection cycling
 		// if it is successful the remainder will be successively queued
 		std::unique_ptr<twitcurlext> conn = std::move(failed_pending_conns.front());
 		failed_pending_conns.pop_front();
 		twitcurlext::QueueAsyncExec(std::move(conn));
 	}
-	if(pending_failed_conn_retry_timer) pending_failed_conn_retry_timer->Stop();
+	if (pending_failed_conn_retry_timer) {
+		pending_failed_conn_retry_timer->Stop();
+	}
 	LogMsgFormat(LOGT::SOCKTRACE, "taccount::CheckFailedPendingConns(), stream_fail_count: %d, enabled: %d, userstreams: %d, streaming_on: %d, for account: %s",
 			stream_fail_count, enabled, userstreams, streaming_on, cstr(dispname));
-	if(CanRestartStreamingConn()) {
-		if(!stream_restart_timer) stream_restart_timer.reset(new wxTimer(this, TAF_STREAM_RESTART_TIMER));
-		if(!stream_restart_timer->IsRunning()) {
+	if (CanRestartStreamingConn()) {
+		if (!stream_restart_timer) {
+			stream_restart_timer.reset(new wxTimer(this, TAF_STREAM_RESTART_TIMER));
+		}
+		if (!stream_restart_timer->IsRunning()) {
 			LogMsgFormat(LOGT::SOCKTRACE, "taccount::CheckFailedPendingConns(), starting stream retry timer");
 			stream_restart_timer->Start(90 * 1000, wxTIMER_ONE_SHOT);    //give a little time for any other operations to try to connect first
 		}
@@ -714,8 +763,12 @@ void taccount::AddFailedPendingConn(std::unique_ptr<twitcurlext> conn) {
 	LogMsgFormat(LOGT::SOCKTRACE, "Connection failed (account: %s). Next reconnection attempt in 512 seconds, or upon successful network activity on this account (whichever is first).",
 			cstr(dispname));
 	failed_pending_conns.push_back(std::move(conn));
-	if(!pending_failed_conn_retry_timer) pending_failed_conn_retry_timer.reset(new wxTimer(this, TAF_FAILED_PENDING_CONN_RETRY_TIMER));
-	if(!pending_failed_conn_retry_timer->IsRunning()) pending_failed_conn_retry_timer->Start(512 * 1000, wxTIMER_ONE_SHOT);
+	if (!pending_failed_conn_retry_timer) {
+		pending_failed_conn_retry_timer.reset(new wxTimer(this, TAF_FAILED_PENDING_CONN_RETRY_TIMER));
+	}
+	if (!pending_failed_conn_retry_timer->IsRunning()) {
+		pending_failed_conn_retry_timer->Start(512 * 1000, wxTIMER_ONE_SHOT);
+	}
 }
 
 void taccount::OnFailedPendingConnRetryTimer(wxTimerEvent& event) {
@@ -730,8 +783,9 @@ void taccount::TryRestartStreamingConnNow() {
 	LogMsgFormat(LOGT::SOCKTRACE, "taccount::TryRestartStreamingConnNow(), stream_fail_count: %d, enabled: %d, userstreams: %d, streaming_on: %d, for account: %s",
 			stream_fail_count, enabled, userstreams, streaming_on, cstr(dispname));
 
-	if(stream_restart_timer)
+	if (stream_restart_timer) {
 		stream_restart_timer->Stop();
+	}
 
 	bool have_stream = false;
 	twitcurlext::IterateConnsByAcc<twitcurlext_stream>(shared_from_this(), [&](twitcurlext_stream &conn) {
@@ -740,9 +794,9 @@ void taccount::TryRestartStreamingConnNow() {
 		have_stream = true;
 		return true;
 	});
-	if(have_stream) return;
+	if (have_stream) return;
 
-	if(CanRestartStreamingConn()) {
+	if (CanRestartStreamingConn()) {
 		std::unique_ptr<twitcurlext> twit_stream = PrepareNewStreamConn();
 		twit_stream->errorcount = 255;    //disable retry attempts
 		twit_stream->mcflags |= mcurlconn::MCF::RETRY_NOW_ON_SUCCESS;
@@ -751,8 +805,9 @@ void taccount::TryRestartStreamingConnNow() {
 }
 
 void taccount::ApplyNewTwitCurlExtHook(observer_ptr<twitcurlext> tce) {
-	if(TwitCurlExtHook)
+	if (TwitCurlExtHook) {
 		TwitCurlExtHook(tce);
+	}
 }
 
 void taccount::SetNewTwitCurlExtHook(std::function<void(observer_ptr<twitcurlext>)> func) {
@@ -768,23 +823,24 @@ void taccount::OnNoAccPendingContentTimer(wxTimerEvent& event) {
 }
 
 void taccount::NoAccPendingContentEvent() {
-	if(ad.noacc_pending_tweetobjs.empty() && ad.noacc_pending_userconts.empty()) return;
+	if (ad.noacc_pending_tweetobjs.empty() && ad.noacc_pending_userconts.empty()) {
+		return;
+	}
 	LogMsgFormat(LOGT::PENDTRACE, "taccount::NoAccPendingContentEvent: account: %s, About to process %d tweets and %d users",
 			cstr(dispname), ad.noacc_pending_tweetobjs.size(), ad.noacc_pending_userconts.size());
 
 	container::map<uint64_t, tweet_ptr> unhandled_tweets;
 	container::map<uint64_t, udc_ptr> unhandled_users;
 
-	for(auto &it : ad.noacc_pending_tweetobjs) {
+	for (auto &it : ad.noacc_pending_tweetobjs) {
 		tweet_ptr t = it.second;
 		std::shared_ptr<taccount> curacc;
-		if(t->GetUsableAccount(curacc, tweet::GUAF::NOERR)) {
+		if (t->GetUsableAccount(curacc, tweet::GUAF::NOERR)) {
 			t->lflags |= TLF::BEINGLOADEDOVERNET;
 			std::unique_ptr<twitcurlext_simple> twit = twitcurlext_simple::make_new(curacc, twitcurlext_simple::CONNTYPE::SINGLETWEET);
 			twit->extra_id = t->id;
 			twitcurlext::QueueAsyncExec(std::move(twit));
-		}
-		else {
+		} else {
 			unhandled_tweets[t->id] = t;
 		}
 	}
@@ -792,62 +848,70 @@ void taccount::NoAccPendingContentEvent() {
 
 	std::map<unsigned int, taccount *> queried_accs;
 
-	for(auto &it : ad.noacc_pending_userconts) {
+	for (auto &it : ad.noacc_pending_userconts) {
 		udc_ptr &u = it.second;
 		std::shared_ptr<taccount> curacc;
-		if(u->GetUsableAccount(curacc, true)) {
+		if (u->GetUsableAccount(curacc, true)) {
 			curacc->MarkUserPending(u);
 			queried_accs[curacc->dbindex] = curacc.get();
-		}
-		else {
+		} else {
 			unhandled_users[u->id] = u;
 		}
 	}
 	ad.noacc_pending_userconts = std::move(unhandled_users);
 
-	for(auto &it : queried_accs) {
+	for (auto &it : queried_accs) {
 		it.second->StartRestQueryPendings();
 	}
 
-	if(ad.noacc_pending_tweetobjs.empty() && ad.noacc_pending_userconts.empty()) return;
+	if (ad.noacc_pending_tweetobjs.empty() && ad.noacc_pending_userconts.empty()) {
+		return;
+	}
 	LogMsgFormat(LOGT::PENDTRACE, "taccount::NoAccPendingContentEvent: account: %s, %d tweets and %d users remain unprocessed",
 			cstr(dispname), ad.noacc_pending_tweetobjs.size(), ad.noacc_pending_userconts.size());
 }
 
 void taccount::NoAccPendingContentCheck() {
-	if(ad.noacc_pending_tweetobjs.empty() && ad.noacc_pending_userconts.empty()) return;
+	if (ad.noacc_pending_tweetobjs.empty() && ad.noacc_pending_userconts.empty()) {
+		return;
+	}
 
 	//check if there are other accounts waiting to become enabled
 	bool otheracc = false;
-	for(auto &it : alist) {
-		if(it.get() == this) continue;
-		if(it->userenabled && !it->enabled) {
+	for (auto &it : alist) {
+		if (it.get() == this) {
+			continue;
+		}
+		if (it->userenabled && !it->enabled) {
 			otheracc = true;
 			break;
 		}
 	}
 
-	if(otheracc) {
+	if (otheracc) {
 		//delay action to give other accounts a chance to catch up
-		if(!noacc_pending_content_timer) noacc_pending_content_timer.reset(new wxTimer(this, TAF_NOACC_PENDING_CONTENT_TIMER));
+		if (!noacc_pending_content_timer) {
+			noacc_pending_content_timer.reset(new wxTimer(this, TAF_NOACC_PENDING_CONTENT_TIMER));
+		}
 		noacc_pending_content_timer->Start(90 * 1000, wxTIMER_ONE_SHOT);
+	} else {
+		NoAccPendingContentEvent();
 	}
-	else NoAccPendingContentEvent();
 }
 
 void taccount::setOAuthParameters(oAuth &auth) const {
 	auth.setConsumerKey((const char*) cfg.tokenk.val.utf8_str());
 	auth.setConsumerSecret((const char*) cfg.tokens.val.utf8_str());
 
-	if(conk.size() && cons.size()) {
+	if (conk.size() && cons.size()) {
 		auth.setOAuthTokenKey((const char*) conk.utf8_str());
 		auth.setOAuthTokenSecret((const char*) cons.utf8_str());
 	}
 }
 
 bool GetAccByDBIndex(unsigned int dbindex, std::shared_ptr<taccount> &acc) {
-	for(auto &it : alist) {
-		if(it->dbindex == dbindex) {
+	for (auto &it : alist) {
+		if (it->dbindex == dbindex) {
 			acc = it;
 			return true;
 		}
@@ -858,7 +922,7 @@ bool GetAccByDBIndex(unsigned int dbindex, std::shared_ptr<taccount> &acc) {
 void AccountChangeTrigger() {
 	user_window::RefreshAll();
 	AccountUpdateAllMainframes();
-	for(auto &it : acc_window::currentset) {
+	for (auto &it : acc_window::currentset) {
 		it->UpdateLB();
 	}
 }

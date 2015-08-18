@@ -110,8 +110,8 @@ struct twitcurlext: public twitCurl, public mcurlconn {
 	template<typename T, typename F> static void IterateConnsByAcc(const std::shared_ptr<taccount> &acc, F func) {
 		static_assert(std::is_base_of<twitcurlext, T>::value, "T not derived from twitcurlext");
 		socketmanager::IterateConns([&](mcurlconn &c) {
-			if(T *t = dynamic_cast<T *>(&c)) {
-				if(t->tacc.lock() == acc) {
+			if (T *t = dynamic_cast<T *>(&c)) {
+				if (t->tacc.lock() == acc) {
 					return func(*t);
 				}
 			}

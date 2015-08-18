@@ -43,9 +43,13 @@ bool socketmanager::AddConn(std::unique_ptr<twitcurlext> cs) {
 }
 
 dlconn::~dlconn() {
-	if(curlHandle) curl_easy_cleanup(curlHandle);
+	if (curlHandle) {
+		curl_easy_cleanup(curlHandle);
+	}
 	curlHandle = nullptr;
-	if(extra_headers) curl_slist_free_all(extra_headers);
+	if (extra_headers) {
+		curl_slist_free_all(extra_headers);
+	}
 	extra_headers = nullptr;
 }
 
@@ -54,9 +58,14 @@ void dlconn::Init(std::unique_ptr<mcurlconn> &&this_owner, const std::string &ur
 	url = url_;
 	auth_obj = std::move(auth_obj_);
 
-	if(!curlHandle) curlHandle = curl_easy_init();
-	else curl_easy_reset(curlHandle);
-	if(extra_headers) curl_slist_free_all(extra_headers);
+	if (!curlHandle) {
+		curlHandle = curl_easy_init();
+	} else {
+		curl_easy_reset(curlHandle);
+	}
+	if (extra_headers) {
+		curl_slist_free_all(extra_headers);
+	}
 	extra_headers = nullptr;
 	data.clear();
 
@@ -68,15 +77,17 @@ void dlconn::Init(std::unique_ptr<mcurlconn> &&this_owner, const std::string &ur
 	curl_easy_setopt(curlHandle, CURLOPT_WRITEDATA, this );
 	curl_easy_setopt(curlHandle, CURLOPT_FOLLOWLOCATION, 1);
 	curl_easy_setopt(curlHandle, CURLOPT_MAXREDIRS, 5);
-	if(auth_obj) {
+	if (auth_obj) {
 		std::string oAuthHttpHeader;
 		std::string dataStrDummy;
 		auth_obj->getOAuthHeader(eOAuthHttpGet, url, dataStrDummy, oAuthHttpHeader);
-		if(!oAuthHttpHeader.empty()) extra_headers = curl_slist_append(extra_headers, oAuthHttpHeader.c_str());
+		if (!oAuthHttpHeader.empty()) {
+			extra_headers = curl_slist_append(extra_headers, oAuthHttpHeader.c_str());
+		}
 	}
 	curl_easy_setopt(curlHandle, CURLOPT_HTTPHEADER, extra_headers);
 
-	if(this_owner) {
+	if (this_owner) {
 		assert(this_owner.get() == this);
 		sm.AddConn(curlHandle, std::move(this_owner));
 	}
@@ -84,7 +95,7 @@ void dlconn::Init(std::unique_ptr<mcurlconn> &&this_owner, const std::string &ur
 
 int dlconn::curlCallback(char* data, size_t size, size_t nmemb, dlconn *obj) {
 	int writtenSize = 0;
-	if( obj && data ) {
+	if (obj && data) {
 		writtenSize = size * nmemb;
 		obj->data.append(data, writtenSize);
 	}
@@ -116,26 +127,27 @@ void profileimgdlconn::Init(std::unique_ptr<mcurlconn> &&this_owner, const std::
 }
 
 void profileimgdlconn::DoRetry(std::unique_ptr<mcurlconn> &&this_owner) {
-	if(url == user->GetUser().profile_img_url) Init(std::move(this_owner), url, user);
+	if (url == user->GetUser().profile_img_url) {
+		Init(std::move(this_owner), url, user);
+	}
 }
 
 void profileimgdlconn::HandleFailure(long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
-	if(url == user->GetUser().profile_img_url) {
+	if (url == user->GetUser().profile_img_url) {
 		user->MakeProfileImageFailurePlaceholder();
-		if(user->NeedsUpdating(PENDING_REQ::USEREXPIRE)) {
+		if (user->NeedsUpdating(PENDING_REQ::USEREXPIRE)) {
 			// Might have failed because user obj is too old
 			// Trigger an update
 			LogMsgFormat(LOGT::PENDTRACE, "Downloading profile image for user id %" llFmtSpec "d (@%s) failed, triggering profile update attempt",
 					user->id, cstr(user->GetUser().screen_name));
 			std::shared_ptr<taccount> acc;
 			user->GetUsableAccount(acc, true);
-			if(acc) {
+			if (acc) {
 				acc->MarkUserPending(user);
 				acc->StartRestQueryPendings();
 			}
 		}
-	}
-	else { //URL changed, try again
+	} else { //URL changed, try again
 		profimglocal::bad_url_handler(url, user);
 	}
 }
@@ -150,7 +162,7 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_p
 	LogMsgFormat(LOGT::NETACT, "Profile image downloaded: %s for user id %" llFmtSpec "d (@%s), conn ID: %d", cstr(url), user->id, cstr(user->GetUser().screen_name), id);
 
 	//URL changed, abort
-	if(url != user->GetUser().profile_img_url) {
+	if (url != user->GetUser().profile_img_url) {
 		profimglocal::bad_url_handler(url, user);
 		return;
 	}
@@ -171,17 +183,16 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_p
 	job_data->url = std::move(url);
 
 	wxGetApp().EnqueueThreadJob([job_data]() {
-		if(!gc.readonlymode) {
+		if (!gc.readonlymode) {
 			wxFile file(job_data->filename, wxFile::write);
 			file.Write(job_data->data.data(), job_data->data.size());
 		}
 		wxMemoryInputStream memstream(job_data->data.data(), job_data->data.size());
 
 		wxImage img(memstream);
-		if(!img.IsOk()) {
+		if (!img.IsOk()) {
 			job_data->ok = false;
-		}
-		else {
+		} else {
 			job_data->img = userdatacontainer::ScaleImageToProfileSize(img);
 			job_data->hash = hash_block(job_data->data.data(), job_data->data.size());
 		}
@@ -189,16 +200,14 @@ void profileimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_p
 	[job_data]() {
 		udc_ptr &user = job_data->user;
 		profimglocal::clear_dl_flags(user);
-		if(!job_data->ok) {
+		if (!job_data->ok) {
 			LogMsgFormat(LOGT::OTHERERR, "Profile image downloaded: %s for user id %" llFmtSpec "d (@%s), is not OK, possible partial download?",
 					cstr(job_data->url), user->id, cstr(user->GetUser().screen_name));
 			user->MakeProfileImageFailurePlaceholder();
-		}
-		else if(job_data->url != user->GetUser().profile_img_url) {
+		} else if (job_data->url != user->GetUser().profile_img_url) {
 			//Doesn't seem likely, but check again that URL hasn't changed
 			profimglocal::bad_url_handler(job_data->url, user);
-		}
-		else {
+		} else {
 			//Must do the bitmap stuff in the main thread, wxBitmaps are not thread safe at all
 			user->SetProfileBitmap(wxBitmap(job_data->img));
 
@@ -220,15 +229,15 @@ void mediaimgdlconn::Init(std::unique_ptr<mcurlconn> &&this_owner, const std::st
 	media_id = media_id_;
 	flags = flags_;
 	observer_ptr<media_entity> m = media_entity::GetExisting(media_id);
-	if(m) {
+	if (m) {
 		media_entity &me = *m;
-		if(flags & MIDC::FULLIMG) {
+		if (flags & MIDC::FULLIMG) {
 			me.flags |= MEF::FULL_NET_INPROGRESS;
 		}
-		if(flags & MIDC::THUMBIMG) {
+		if (flags & MIDC::THUMBIMG) {
 			me.flags |= MEF::THUMB_NET_INPROGRESS;
 		}
-		if(flags & MIDC::VIDEO) {
+		if (flags & MIDC::VIDEO) {
 			me.NotifyVideoLoadStarted(imgurl_);
 		}
 	}
@@ -238,13 +247,12 @@ void mediaimgdlconn::Init(std::unique_ptr<mcurlconn> &&this_owner, const std::st
 }
 
 mediaimgdlconn *mediaimgdlconn::new_with_opt_acc_oauth(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_, const taccount *acc) {
-	if(acc && acc->active) {
+	if (acc && acc->active) {
 		// Set oAuth parameters for this media download
 		std::unique_ptr<oAuth> auth(new oAuth());
 		acc->setOAuthParameters(*auth);
 		return new mediaimgdlconn(imgurl_, media_id_, flags_, std::move(auth));
-	}
-	else {
+	} else {
 		return new mediaimgdlconn(imgurl_, media_id_, flags_);
 	}
 }
@@ -261,23 +269,23 @@ void mediaimgdlconn::DoRetry(std::unique_ptr<mcurlconn> &&this_owner) {
 
 void mediaimgdlconn::HandleFailure(long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
 	observer_ptr<media_entity> m = media_entity::GetExisting(media_id);
-	if(m) {
+	if (m) {
 		media_entity &me = *m;
-		if(flags & MIDC::FULLIMG) {
+		if (flags & MIDC::FULLIMG) {
 			me.flags |= MEF::FULL_FAILED;
 			me.flags &= ~MEF::FULL_NET_INPROGRESS;
-			if(me.win) me.win->UpdateImage();
+			if (me.win) me.win->UpdateImage();
 		}
-		if(flags & MIDC::THUMBIMG) {
+		if (flags & MIDC::THUMBIMG) {
 			me.flags |= MEF::THUMB_FAILED;
 			me.flags &= ~MEF::THUMB_NET_INPROGRESS;
 		}
-		if(flags & MIDC::REDRAW_TWEETS) {
-			for(auto &jt : me.tweet_list) {
+		if (flags & MIDC::REDRAW_TWEETS) {
+			for (auto &jt : me.tweet_list) {
 				UpdateTweet(*jt);
 			}
 		}
-		if(flags & MIDC::VIDEO) {
+		if (flags & MIDC::VIDEO) {
 			me.NotifyVideoLoadFailure(url);
 		}
 	}
@@ -287,10 +295,11 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr
 	LogMsgFormat(LOGT::NETACT, "Media image downloaded: %s, id: %" llFmtSpec "d/%" llFmtSpec "d, flags: %X, conn ID: %d",
 			cstr(url), media_id.m_id, media_id.t_id, flags, id);
 
-	if(flags & MIDC::VIDEO) {
+	if (flags & MIDC::VIDEO) {
 		observer_ptr<media_entity> me = media_entity::GetExisting(media_id);
-		if(!me)
+		if (!me) {
 			return;
+		}
 
 		struct video_job_data {
 			std::string fulldata;
@@ -309,8 +318,9 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr
 		},
 		[job_data]() {
 			observer_ptr<media_entity> m = media_entity::GetExisting(job_data->media_id);
-			if(m)
+			if (m) {
 				m->NotifyVideoLoadSuccess(job_data->url, std::move(job_data->video_file));
+			}
 		});
 		return;
 	}
@@ -334,25 +344,27 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr
 	wxGetApp().EnqueueThreadJob([job_data]() {
 		MIDC &flags = job_data->flags;
 
-		if(flags & MIDC::OPPORTUNIST_THUMB && !(flags & MIDC::THUMBIMG)) {
+		if (flags & MIDC::OPPORTUNIST_THUMB && !(flags & MIDC::THUMBIMG)) {
 			flags |= MIDC::THUMBIMG;
-			if(flags & MIDC::OPPORTUNIST_REDRAW_TWEETS) flags |= MIDC::REDRAW_TWEETS;
+			if (flags & MIDC::OPPORTUNIST_REDRAW_TWEETS) {
+				flags |= MIDC::REDRAW_TWEETS;
+			}
 		}
 
-		if(flags & MIDC::THUMBIMG) {
+		if (flags & MIDC::THUMBIMG) {
 			wxMemoryInputStream memstream(job_data->fulldata.data(), job_data->fulldata.size());
 			wxImage img(memstream);
 			job_data->thumbok = img.IsOk();
-			if(job_data->thumbok) {
+			if (job_data->thumbok) {
 				const int maxdim = 64;
-				if(img.GetHeight() > maxdim || img.GetWidth() > maxdim) {
-					double scalefactor=(double) maxdim / (double) std::max(img.GetHeight(), img.GetWidth());
+				if (img.GetHeight() > maxdim || img.GetWidth() > maxdim) {
+					double scalefactor = (double) maxdim / (double) std::max(img.GetHeight(), img.GetWidth());
 					int newwidth = (double) img.GetWidth() * scalefactor;
 					int newheight = (double) img.GetHeight() * scalefactor;
 					job_data->thumb = img.Scale(std::lround(newwidth), std::lround(newheight), wxIMAGE_QUALITY_HIGH);
 				}
 				else job_data->thumb = img;
-				if(gc.cachethumbs && !gc.readonlymode) {
+				if (gc.cachethumbs && !gc.readonlymode) {
 					wxMemoryOutputStream memstr;
 					job_data->thumb.SaveFile(memstr, wxBITMAP_TYPE_PNG);
 					const unsigned char *data = (const unsigned char *) memstr.GetOutputStreamBuffer()->GetBufferStart();
@@ -365,8 +377,8 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr
 			}
 		}
 
-		if(flags & MIDC::FULLIMG) {
-			if(gc.cachemedia && !gc.readonlymode) {
+		if (flags & MIDC::FULLIMG) {
+			if (gc.cachemedia && !gc.readonlymode) {
 				wxFile file(media_entity::cached_full_filename(job_data->media_id), wxFile::write);
 				file.Write(job_data->fulldata.data(), job_data->fulldata.size());
 				job_data->full_hash = hash_block(job_data->fulldata.data(), job_data->fulldata.size());
@@ -376,21 +388,20 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr
 	[job_data]() {
 		MIDC &flags = job_data->flags;
 		observer_ptr<media_entity> m = media_entity::GetExisting(job_data->media_id);
-		if(m) {
+		if (m) {
 			media_entity &me = *m;
 
 			me.ClearPurgeFlag();
 
-			if(flags & MIDC::THUMBIMG) {
-				if(job_data->thumbok) {
+			if (flags & MIDC::THUMBIMG) {
+				if (job_data->thumbok) {
 					me.thumbimg = wxBitmap(job_data->thumb);
 					me.flags |= MEF::HAVE_THUMB;
-					if(job_data->thumb_hash) {
+					if (job_data->thumb_hash) {
 						me.thumb_img_sha1 = job_data->thumb_hash;
 						DBC_UpdateMedia(me, DBUMMT::THUMBCHECKSUM);
 					}
-				}
-				else {
+				} else {
 					LogMsgFormat(LOGT::OTHERERR, "Media image downloaded: %s, id: %" llFmtSpec "d/%" llFmtSpec "d, flags: %X, is not OK, possible partial download?",
 							cstr(job_data->url), job_data->media_id.m_id, job_data->media_id.t_id, flags);
 					me.flags |= MEF::THUMB_FAILED;
@@ -398,19 +409,21 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr
 				me.flags &= ~MEF::THUMB_NET_INPROGRESS;
 			}
 
-			if(flags & MIDC::FULLIMG) {
+			if (flags & MIDC::FULLIMG) {
 				me.flags |= MEF::HAVE_FULL;
 				me.flags &= ~MEF::FULL_NET_INPROGRESS;
 				me.fulldata = std::move(job_data->fulldata);
-				if(job_data->full_hash) {
+				if (job_data->full_hash) {
 					me.full_img_sha1 = job_data->full_hash;
 					DBC_UpdateMedia(me, DBUMMT::FULLCHECKSUM);
 				}
-				if(me.win) me.win->UpdateImage();
+				if (me.win) {
+					me.win->UpdateImage();
+				}
 			}
 
-			if(flags & MIDC::REDRAW_TWEETS) {
-				for(auto &jt : me.tweet_list) {
+			if (flags & MIDC::REDRAW_TWEETS) {
+				for (auto &jt : me.tweet_list) {
 					UpdateTweet(*jt);
 				}
 			}

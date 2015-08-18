@@ -72,7 +72,8 @@ struct mediaimgdlconn : public dlconn {
 	media_id_type media_id;
 	flagwrapper<MIDC> flags;
 
-	void Init(std::unique_ptr<mcurlconn> &&this_owner, const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_ = 0, std::unique_ptr<oAuth> auth_obj_ = nullptr);
+	void Init(std::unique_ptr<mcurlconn> &&this_owner, const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_ = 0,
+			std::unique_ptr<oAuth> auth_obj_ = nullptr);
 
 	void NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) override;
 	void DoRetry(std::unique_ptr<mcurlconn> &&this_owner);
@@ -85,7 +86,9 @@ struct mediaimgdlconn : public dlconn {
 	mediaimgdlconn(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_ = 0, std::unique_ptr<oAuth> auth_obj_ = nullptr) {
 		Init(nullptr, imgurl_, media_id_, flags_, std::move(auth_obj_));
 	}
-	static mediaimgdlconn *new_with_opt_acc_oauth(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_ = 0, const taccount *acc = nullptr);
+
+	static mediaimgdlconn *new_with_opt_acc_oauth(const std::string &imgurl_, media_id_type media_id_, flagwrapper<MIDC> flags_ = 0,
+			const taccount *acc = nullptr);
 };
 
 #endif

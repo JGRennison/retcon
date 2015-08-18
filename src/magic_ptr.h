@@ -55,46 +55,66 @@ struct magic_ptr /*final*/ {
 
 	public:
 	magic_ptr() : ptr(nullptr) { }
+
 	~magic_ptr() {
-		if(ptr) ptr->Unmark(this);
+		if (ptr) {
+			ptr->Unmark(this);
+		}
 	}
+
 	void set(magic_ptr_base *t) {
-		if(ptr) ptr->Unmark(this);
+		if (ptr) {
+			ptr->Unmark(this);
+		}
 		ptr = t;
-		if(t) t->Mark(this);
+		if (t) {
+			t->Mark(this);
+		}
 	}
+
 	magic_ptr_base *get() const {
 		return ptr;
 	}
+
 	magic_ptr_base *operator->() const {
 		return ptr;
 	}
+
 	magic_ptr_base &operator*() const {
 		return *ptr;
 	}
+
 	magic_ptr(const magic_ptr &p) {
 		ptr = p.get();
-		if(ptr) ptr->Mark(this);
+		if (ptr) {
+			ptr->Mark(this);
+		}
 	}
+
 	magic_ptr(magic_ptr_base *t) {
 		ptr = t;
-		if(ptr) ptr->Mark(this);
+		if (ptr) {
+			ptr->Mark(this);
+		}
 	}
+
 	magic_ptr & operator=(const magic_ptr &p) {
 		set(p.ptr);
 		return *this;
 	}
+
 	magic_ptr & operator=(magic_ptr_base *t) {
 		set(t);
 		return *this;
 	}
+
 	operator bool() const {
 		return ptr;
 	}
 };
 
 inline unsigned int magic_ptr_base::ResetAllMagicPtrs() {
-	for(auto &it : list) {
+	for (auto &it : list) {
 		it->ptr = nullptr;
 	}
 	unsigned int count = list.size();
@@ -124,28 +144,37 @@ template <typename C> struct magic_ptr_ts {
 
 	public:
 	magic_ptr_ts() : ptr() { }
+
 	void set(C *t) {
 		ptr.set(t);
 	}
+
 	C *get() const {
 		return static_cast<C*>(ptr.get());
 	}
+
 	C *operator->() const {
 		return get();
 	}
+
 	C &operator*() const {
 		return *get();
 	}
+
 	magic_ptr_ts(const magic_ptr_ts<C> &p) : ptr(p.get()) { }
+
 	magic_ptr_ts(C *t) : ptr(t) { }
+
 	magic_ptr_ts & operator=(const magic_ptr_ts<C> &p) {
 		set(p.get());
 		return *this;
 	}
+
 	magic_ptr_ts & operator=(C *in) {
 		set(in);
 		return *this;
 	}
+
 	operator bool() const {
 		return (bool) ptr;
 	}
@@ -226,7 +255,9 @@ template <typename C, typename D> struct magic_paired_ptr_ts {
 
 	private:
 	void halfset(C* targ, bool updateprevtarg, bool targdestructing = false) {
-		if(other && updateprevtarg) static_cast<magic_paired_ptr_ts<D, C> *>(other)->halfset(0, false);
+		if (other && updateprevtarg) {
+			static_cast<magic_paired_ptr_ts<D, C> *>(other)->halfset(0, false);
+		}
 		C* prev = other;
 		other = targ;
 		OnMagicPairedPtrChange(targ, prev, targdestructing);
@@ -234,26 +265,37 @@ template <typename C, typename D> struct magic_paired_ptr_ts {
 
 	public:
 	virtual ~magic_paired_ptr_ts() {
-		if(other) static_cast<magic_paired_ptr_ts<D, C> *>(other)->halfset(0, false, true);
+		if (other) {
+			static_cast<magic_paired_ptr_ts<D, C> *>(other)->halfset(0, false, true);
+		}
 	}
+
 	C *get() const {
 		return other;
 	}
+
 	void set(C *targ, bool triggerlocalchange = false) {
-		if(other != targ) {
-			if(other) static_cast<magic_paired_ptr_ts<D, C> *>(other)->halfset(0, false);
+		if (other != targ) {
+			if (other) static_cast<magic_paired_ptr_ts<D, C> *>(other)->halfset(0, false);
 			C * prev = other;
 			other = targ;
-			if(triggerlocalchange) OnMagicPairedPtrChange(other, prev, false);
-			if(other) static_cast<magic_paired_ptr_ts<D, C> *>(other)->halfset(static_cast<D*>(this), true);
+			if (triggerlocalchange) {
+				OnMagicPairedPtrChange(other, prev, false);
+			}
+			if (other) {
+				static_cast<magic_paired_ptr_ts<D, C> *>(other)->halfset(static_cast<D*>(this), true);
+			}
 		}
 	}
+
 	C *operator->() const {
 		return get();
 	}
+
 	C &operator*() const {
 		return *get();
 	}
+
 	operator bool() const {
 		return (bool) other;
 	}

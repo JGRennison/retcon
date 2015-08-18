@@ -46,14 +46,16 @@ BEGIN_EVENT_TABLE( mcurlconn, wxEvtHandler )
 END_EVENT_TABLE()
 
 int curl_debug_func(CURL *cl, curl_infotype ci, char *txt, size_t len, void *extra) {
-	if(ci == CURLINFO_TEXT) {
+	if (ci == CURLINFO_TEXT) {
 		LogMsgProcess(LOGT::CURLVERB, std::string(txt, len));
 	}
 	return 0;
 }
 
 void SetCurlHandleVerboseState(CURL *easy, bool verbose) {
-	if(verbose) curl_easy_setopt(easy, CURLOPT_DEBUGFUNCTION, &curl_debug_func);
+	if (verbose) {
+		curl_easy_setopt(easy, CURLOPT_DEBUGFUNCTION, &curl_debug_func);
+	}
 	curl_easy_setopt(easy, CURLOPT_VERBOSE, verbose);
 }
 
@@ -68,13 +70,13 @@ std::unique_ptr<mcurlconn> mcurlconn::RemoveConn() {
 // This checks both the retry list and the active list for removal
 std::unique_ptr<mcurlconn> mcurlconn::RemoveConnCommon(const char *logprefix) {
 	std::unique_ptr<mcurlconn> conn = sm.UnregisterRetryConn(*this);
-	if(conn) {
+	if (conn) {
 		LogMsgFormat(LOGT::SOCKTRACE, "%s (retry list): conn ID: %d", logprefix, id);
 		return std::move(conn);
 	}
 
 	conn = sm.RemoveConn(GenGetCurlHandle());
-	if(conn) {
+	if (conn) {
 		LogMsgFormat(LOGT::SOCKTRACE, "%s: conn ID: %d", logprefix, id);
 		return std::move(conn);
 	}
@@ -84,10 +86,9 @@ std::unique_ptr<mcurlconn> mcurlconn::RemoveConnCommon(const char *logprefix) {
 }
 
 void mcurlconn::NotifyDone(CURL *easy, long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
-	if(httpcode != 200 || res != CURLE_OK) {
+	if (httpcode != 200 || res != CURLE_OK) {
 		HandleError(easy, httpcode, res, std::move(this_owner));    //this may re-add the connection
-	}
-	else {
+	} else {
 		CheckRetryNowOnSuccessFlag();
 		errorcount = 0;
 		NotifyDoneSuccess(easy, res, std::move(this_owner));
@@ -95,7 +96,7 @@ void mcurlconn::NotifyDone(CURL *easy, long httpcode, CURLcode res, std::unique_
 }
 
 bool mcurlconn::CheckRetryNowOnSuccessFlag() {
-	if(mcflags & MCF::RETRY_NOW_ON_SUCCESS) {
+	if (mcflags & MCF::RETRY_NOW_ON_SUCCESS) {
 		mcflags &= ~MCF::RETRY_NOW_ON_SUCCESS;
 		sm.RetryConnNow();
 		return true;
@@ -104,14 +105,16 @@ bool mcurlconn::CheckRetryNowOnSuccessFlag() {
 }
 
 static void LogSocketErrorMessage(mcurlconn *mc, CURL *easy, long httpcode, CURLcode res, MCC_HTTPERRTYPE err) {
-	if(!(currentlogflags & LOGT::SOCKERR))
+	if (!(currentlogflags & LOGT::SOCKERR)) {
 		return;
+	}
 
 	const char *action = nullptr;
-	switch(err) {
+	switch (err) {
 		case MCC_RETRY:
 			action = " (retrying)";
 			break;
+
 		case MCC_FAILED:
 			action = "";
 			break;
@@ -121,10 +124,9 @@ static void LogSocketErrorMessage(mcurlconn *mc, CURL *easy, long httpcode, CURL
 	curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &req_url);
 
 	std::string fail_type;
-	if(res == CURLE_OK) {
+	if (res == CURLE_OK) {
 		fail_type = string_format("Request failed: HTTP code: %ld", httpcode);
-	}
-	else {
+	} else {
 		fail_type = string_format("Socket error: %s", cstr(curl_easy_strerror(res)));
 	}
 
@@ -135,19 +137,20 @@ static void LogSocketErrorMessage(mcurlconn *mc, CURL *easy, long httpcode, CURL
 void mcurlconn::HandleError(CURL *easy, long httpcode, CURLcode res, std::unique_ptr<mcurlconn> &&this_owner) {
 	errorcount++;
 	MCC_HTTPERRTYPE err = MCC_RETRY;
-	if(res == CURLE_OK) {	//http error, not socket error
+	if (res == CURLE_OK) {	//http error, not socket error
 		err = CheckHTTPErrType(httpcode);
 	}
-	if(errorcount >= 3 && err < MCC_FAILED) {
+	if (errorcount >= 3 && err < MCC_FAILED) {
 		err = MCC_FAILED;
 	}
 
 	LogSocketErrorMessage(this, easy, httpcode, res, err);
 
-	switch(err) {
+	switch (err) {
 		case MCC_RETRY:
 			sm.RetryConn(std::move(this_owner));
 			break;
+
 		case MCC_FAILED:
 			HandleFailure(httpcode, res, std::move(this_owner));
 			break;
@@ -155,7 +158,9 @@ void mcurlconn::HandleError(CURL *easy, long httpcode, CURLcode res, std::unique
 }
 
 MCC_HTTPERRTYPE mcurlconn::CheckHTTPErrType(long httpcode) {
-	if(httpcode >= 400 && httpcode < 420) return MCC_FAILED;
+	if (httpcode >= 400 && httpcode < 420) {
+		return MCC_FAILED;
+	}
 	return MCC_RETRY;
 }
 
@@ -163,8 +168,8 @@ unsigned int mcurlconn::lastid = 0;
 
 static void check_multi_info(socketmanager *smp) {
 	int msgs_left;
-	while(CURLMsg *msg = curl_multi_info_read(smp->curlmulti, &msgs_left)) {
-		if(msg->msg == CURLMSG_DONE) {
+	while (CURLMsg *msg = curl_multi_info_read(smp->curlmulti, &msgs_left)) {
+		if (msg->msg == CURLMSG_DONE) {
 			CURL *easy = msg->easy_handle;
 			CURLcode res = msg->data.result;
 
@@ -175,11 +180,10 @@ static void check_multi_info(socketmanager *smp) {
 			// We then hold onto it here, it will be destructed when the scope ends unless NotifyDone claims it
 			std::unique_ptr<mcurlconn> cs = sm.RemoveConn(easy);
 
-			if(cs) {
+			if (cs) {
 				LogMsgFormat(LOGT::SOCKTRACE, "Socket Done, conn ID: %d, res: %d, http: %d", cs->id, res, httpcode);
 				cs->NotifyDone(easy, httpcode, res, std::move(cs));
-			}
-			else {
+			} else {
 				// Getting here is a severe bug
 				mcurlconn *conn;
 				curl_easy_getinfo(easy, CURLINFO_PRIVATE, &conn);
@@ -187,7 +191,7 @@ static void check_multi_info(socketmanager *smp) {
 			}
 		}
 	}
-	if(sm.curnumsocks == 0) {
+	if (sm.curnumsocks == 0) {
 		LogMsgFormat(LOGT::SOCKTRACE, "No Sockets Left, Stopping Timer");
 		smp->st->Stop();
 	}
@@ -195,8 +199,8 @@ static void check_multi_info(socketmanager *smp) {
 
 static int sock_cb(CURL *e, curl_socket_t s, int what, socketmanager *smp, mcurlconn *cs) {
 	LogMsgFormat(LOGT::SOCKTRACE, "Socket Interest Change Callback: %d, %d, conn ID: %d", s, what, cs ? cs->id : -1);
-	if(what != CURL_POLL_REMOVE) {
-		if(!cs) {
+	if (what != CURL_POLL_REMOVE) {
+		if (!cs) {
 			curl_easy_getinfo(e, CURLINFO_PRIVATE, &cs);
 			curl_multi_assign(smp->curlmulti, s, cs);
 		}
@@ -208,9 +212,14 @@ static int sock_cb(CURL *e, curl_socket_t s, int what, socketmanager *smp, mcurl
 static int multi_timer_cb(CURLM *multi, long timeout_ms, socketmanager *smp) {
 	LogMsgFormat(LOGT::SOCKTRACE, "Socket Timer Callback: %d ms", timeout_ms);
 
-	if(timeout_ms>0) smp->st->Start(timeout_ms,wxTIMER_ONE_SHOT);
-	else smp->st->Stop();
-	if(!timeout_ms) smp->st->Notify();
+	if (timeout_ms > 0) {
+		smp->st->Start(timeout_ms,wxTIMER_ONE_SHOT);
+	} else {
+		smp->st->Stop();
+	}
+	if (!timeout_ms) {
+		smp->st->Notify();
+	}
 
 	return 0;
 }
@@ -230,33 +239,33 @@ curl_socket_t pre_connect_func(void *clientp, curl_socket_t curlfd, curlsocktype
 }
 
 bool socketmanager::AddConn(CURL* ch, std::unique_ptr<mcurlconn> cs) {
-	if(asyncdns) {
+	if (asyncdns) {
 		// This can conditionally steal cs, if it does it returns true and we stop here
-		if(asyncdns->CheckAsync(ch, std::move(cs))) return true;
+		if (asyncdns->CheckAsync(ch, std::move(cs))) {
+			return true;
+		}
 	}
 
 	SetCurlHandleVerboseState(ch, currentlogflags & LOGT::CURLVERB);
 	curl_easy_setopt(ch, CURLOPT_TIMEOUT, (cs->mcflags & mcurlconn::MCF::NOTIMEOUT) ? 0 : 180);
 	curl_easy_setopt(ch, CURLOPT_PRIVATE, cs.get());
 	curl_easy_setopt(ch, CURLOPT_ACCEPT_ENCODING, ""); //accept all enabled encodings
-	if(currentlogflags & LOGT::SOCKTRACE) {
+	if (currentlogflags & LOGT::SOCKTRACE) {
 		curl_easy_setopt(ch, CURLOPT_SOCKOPTFUNCTION, &pre_connect_func);
 		curl_easy_setopt(ch, CURLOPT_SOCKOPTDATA, cs.get());
 	}
-	if(gc.setproxy) {
+	if (gc.setproxy) {
 		curl_easy_setopt(ch, CURLOPT_PROXY, gc.proxyurl.c_str());
 		curl_easy_setopt(ch, CURLOPT_NOPROXY, gc.noproxylist.c_str());
 		curl_easy_setopt(ch, CURLOPT_HTTPPROXYTUNNEL, gc.proxyhttptunnel ? 1 : 0);
-	}
-	else {
+	} else {
 		curl_easy_setopt(ch, CURLOPT_PROXY, nullptr);
 		curl_easy_setopt(ch, CURLOPT_NOPROXY, nullptr);
 		curl_easy_setopt(ch, CURLOPT_HTTPPROXYTUNNEL, 0);
 	}
-	if(!gc.netiface.empty()) {
+	if (!gc.netiface.empty()) {
 		curl_easy_setopt(ch, CURLOPT_INTERFACE, gc.netiface.c_str());
-	}
-	else {
+	} else {
 		curl_easy_setopt(ch, CURLOPT_INTERFACE, nullptr);
 	}
 
@@ -274,12 +283,15 @@ bool socketmanager::AddConn(CURL* ch, std::unique_ptr<mcurlconn> cs) {
 std::unique_ptr<mcurlconn> socketmanager::RemoveConn(CURL *ch) {
 	std::unique_ptr<mcurlconn> conn;
 	curl_multi_remove_handle(curlmulti, ch);
-	container_unordered_remove_if(connlist, [&](conninfo &p) {
-		if(p.ch == ch) {
-			if(p.cs) conn = std::move(p.cs);
+	container_unordered_remove_if (connlist, [&](conninfo &p) {
+		if (p.ch == ch) {
+			if (p.cs) {
+				conn = std::move(p.cs);
+			}
 			return true;
+		} else {
+			return false;
 		}
-		else return false;
 	});
 	curl_multi_socket_action(curlmulti, 0, 0, &curnumsocks);
 	return std::move(conn);
@@ -303,9 +315,9 @@ adns::adns(socketmanager *sm_) : sm(sm_) {
 
 adns::~adns() {
 	size_t n = std::distance(dns_threads.begin(), dns_threads.end());
-	if(n) {
+	if (n) {
 		size_t i = 0;
-		for(auto &it : dns_threads) {
+		for (auto &it : dns_threads) {
 			LogMsgFormat(LOGT::SOCKTRACE, "Waiting for all DNS threads to terminate: %d of %d", i, n);
 			it.second.Wait();
 			i++;
@@ -343,7 +355,7 @@ void adns::NewShareHndl() {
 }
 
 void adns::RemoveShareHndl() {
-	if(sharehndl) {
+	if (sharehndl) {
 		curl_share_cleanup(sharehndl);
 		sharehndl = 0;
 	}
@@ -356,23 +368,30 @@ bool adns::CheckAsync(CURL *ch, std::unique_ptr<mcurlconn> &&cs) {
 	curl_easy_setopt(ch, CURLOPT_SHARE, GetHndl());
 
 	const std::string &url = cs->url;
-	if(url.empty()) return false;
+	if (url.empty()) {
+		return false;
+	}
 
 	std::string::size_type proto_start = url.find("://");
 	std::string::size_type name_start;
-	if(proto_start == std::string::npos) name_start = 0;
-	else name_start = proto_start + 3;
+	if (proto_start == std::string::npos) {
+		name_start = 0;
+	} else {
+		name_start = proto_start + 3;
+	}
 	std::string::size_type name_end = url.find('/', name_start);
 
 	std::string name = url.substr(name_start, (name_end == std::string::npos) ? std::string::npos : name_end - name_start);
 
-	if(cached_names.count(name)) return false;	// name already in cache, can go now
+	if (cached_names.count(name)) {
+		return false;	// name already in cache, can go now
+	}
 
 	dns_pending_conns.push_front({ name, ch, std::move(cs) });
 	// cs is now null, don't use again
 
-	for(auto &it : dns_threads) {
-		if(it.first == name) {
+	for (auto &it : dns_threads) {
+		if (it.first == name) {
 			LogMsgFormat(LOGT::SOCKTRACE, "DNS lookup thread already exists: %s, %s", cstr(url), cstr(name));
 			return true;
 		}
@@ -394,39 +413,38 @@ bool adns::CheckAsync(CURL *ch, std::unique_ptr<mcurlconn> &&cs) {
 
 void adns::DNSResolutionEvent(wxCommandEvent &event) {
 	adns_thread *at = static_cast<adns_thread*>(event.GetClientData());
-	if(!at) return;
+	if (!at) return;
 
 	at->Wait();
 
-	if(at->success) {
+	if (at->success) {
 		LogMsgFormat(LOGT::SOCKTRACE, "Asynchronous DNS lookup succeeded: %s, %s, time: %fs", cstr(at->hostname), cstr(at->url), at->lookuptime);
 		cached_names.insert(at->hostname);
-	}
-	else {
+	} else {
 		LogMsgFormat(LOGT::SOCKERR, "Asynchronous DNS lookup failed: %s, (%s), error: %s (%d), time: %fs", cstr(at->hostname), cstr(at->url), cstr(curl_easy_strerror(at->result)), at->result, at->lookuptime);
 	}
 
 	std::vector<dns_pending_conn> current_dns_pending_conns;
-	dns_pending_conns.remove_if([&](dns_pending_conn &a) -> bool {
-		if(a.hostname == at->hostname) {
+	dns_pending_conns.remove_if ([&](dns_pending_conn &a) -> bool {
+		if (a.hostname == at->hostname) {
 			current_dns_pending_conns.emplace_back(std::move(a));
 			return true;
+		} else {
+			return false;
 		}
-		else return false;
 	});
 
-	dns_threads.remove_if([&](const std::pair<std::string, adns_thread> &a) {
+	dns_threads.remove_if ([&](const std::pair<std::string, adns_thread> &a) {
 		return at == &(a.second);
 	});
 
-	for(auto &it : current_dns_pending_conns) {
+	for (auto &it : current_dns_pending_conns) {
 		CURL *ch = it.ch;
 		std::unique_ptr<mcurlconn> mc = std::move(it.cs);
-		if(at->success) {
+		if (at->success) {
 			LogMsgFormat(LOGT::SOCKTRACE, "Launching request as DNS lookup succeeded: type: %s, conn ID: %d, url: %s", cstr(mc->GetConnTypeName()), mc->id, cstr(mc->url));
 			sm->AddConn(ch, std::move(mc));
-		}
-		else {
+		} else {
 			LogMsgFormat(LOGT::SOCKERR, "Request failed due to asynchronous DNS lookup failure: type: %s, conn ID: %d, url: %s", cstr(mc->GetConnTypeName()), mc->id, cstr(mc->url));
 			mc->HandleError(ch, 0, CURLE_COULDNT_RESOLVE_HOST, std::move(mc));
 		}
@@ -438,7 +456,7 @@ curl_socket_t stub_socket_func(void *clientp, curlsocktype purpose, struct curl_
 }
 
 adns_thread::adns_thread(std::string url_, std::string hostname_, socketmanager *sm_, CURLSH *sharehndl)
-	: wxThread(wxTHREAD_JOINABLE), url(url_.c_str(), url_.length()), hostname(hostname_.c_str(), hostname_.length()), sm(sm_) {
+		: wxThread(wxTHREAD_JOINABLE), url(url_.c_str(), url_.length()), hostname(hostname_.c_str(), hostname_.length()), sm(sm_) {
 	eh = curl_easy_init();
 	long val = 1;
 	curl_easy_setopt(eh, CURLOPT_URL, url_.c_str());
@@ -451,7 +469,7 @@ wxThread::ExitCode adns_thread::Entry() {
 	result = curl_easy_perform(eh);
 	curl_easy_getinfo(eh, CURLINFO_NAMELOOKUP_TIME, &lookuptime);
 	curl_easy_cleanup(eh);
-	if(result == CURLE_COULDNT_CONNECT) {
+	if (result == CURLE_COULDNT_CONNECT) {
 		success = true;
 	}
 	wxCommandEvent ev(wxextDNS_RESOLUTION_EVENT);
@@ -480,7 +498,7 @@ void socketmanager::InitMultiIOHandlerCommon() {
 	curl_multi_setopt(curlmulti, CURLMOPT_TIMERDATA, this);
 
 	curl_version_info_data *data = curl_version_info(CURLVERSION_NOW);
-	if(!(data->features & CURL_VERSION_ASYNCHDNS)) {
+	if (!(data->features & CURL_VERSION_ASYNCHDNS)) {
 		LogMsg(LOGT::SOCKTRACE, "This version of libcurl does not support asynchronous DNS resolution, using a workaround.");
 		asyncdns.reset(new adns(this));
 	}
@@ -489,13 +507,15 @@ void socketmanager::InitMultiIOHandlerCommon() {
 
 void socketmanager::DeInitMultiIOHandlerCommon() {
 	LogMsg(LOGT::SOCKTRACE, "socketmanager::DeInitMultiIOHandlerCommon: START");
-	if(asyncdns) asyncdns.reset();
+	if (asyncdns) {
+		asyncdns.reset();
+	}
 	curl_multi_cleanup(curlmulti);
 	LogMsg(LOGT::SOCKTRACE, "socketmanager::DeInitMultiIOHandlerCommon: END");
 }
 
 void socketmanager::RetryConn(std::unique_ptr<mcurlconn> cs) {
-	if(cs->mcflags & mcurlconn::MCF::IN_RETRY_QUEUE) {
+	if (cs->mcflags & mcurlconn::MCF::IN_RETRY_QUEUE) {
 		LogMsgFormat(LOGT::SOCKERR, "socketmanager::RetryConn: Attempt to add mcurlconn to retry queue which is marked as already in queue, this is a bug: type: %s, conn ID: %d, url: %s",
 				cstr(cs->GetConnTypeName()), cs->id, cstr(cs->url));
 		return;
@@ -508,29 +528,30 @@ void socketmanager::RetryConn(std::unique_ptr<mcurlconn> cs) {
 }
 
 std::unique_ptr<mcurlconn> socketmanager::UnregisterRetryConn(mcurlconn &cs) {
-	if(!(cs.mcflags & mcurlconn::MCF::IN_RETRY_QUEUE)) return nullptr;
+	if (!(cs.mcflags & mcurlconn::MCF::IN_RETRY_QUEUE)) return nullptr;
 
 	std::unique_ptr<mcurlconn> csptr;
-	container_unordered_remove_if(retry_conns, [&](std::unique_ptr<mcurlconn> &it) {
-		if(it.get() == &cs) {
+	container_unordered_remove_if (retry_conns, [&](std::unique_ptr<mcurlconn> &it) {
+		if (it.get() == &cs) {
 			LogMsgFormat(LOGT::SOCKTRACE, "socketmanager::UnregisterRetryConn: Unregistered from retry queue: type: %s, conn ID: %d, url: %s", cstr(cs.GetConnTypeName()), cs.id, cstr(cs.url));
 			csptr = std::move(it);
 			csptr->mcflags &= ~mcurlconn::MCF::IN_RETRY_QUEUE;
 			csptr->RemoveFromRetryQueueNotify();
 			return true;
+		} else {
+			return false;
 		}
-		else return false;
 	});
 	return std::move(csptr);
 }
 
 void socketmanager::RetryConnNow() {
 	std::unique_ptr<mcurlconn> cs;
-	while(true) {
-		if(retry_conns.empty()) return;
+	while (true) {
+		if (retry_conns.empty()) return;
 		cs = std::move(retry_conns.front());
 		retry_conns.pop_front();
-		if(cs) break;
+		if (cs) break;
 	}
 	cs->mcflags &= ~mcurlconn::MCF::IN_RETRY_QUEUE;
 	cs->mcflags |= mcurlconn::MCF::RETRY_NOW_ON_SUCCESS;
@@ -543,15 +564,17 @@ void socketmanager::RetryConnLater() {
 
 	// This gets the first non-null connection without removing it
 	mcurlconn *cs = nullptr;
-	while(true) {
-		if(retry_conns.empty()) return;
+	while (true) {
+		if (retry_conns.empty()) return;
 		cs = retry_conns.front().get();
-		if(cs) break;
+		if (cs) break;
 		else retry_conns.pop_front();
 	}
 
-	if(!retry) retry.reset(new wxTimer(this, MCCT_RETRY));
-	if(!retry->IsRunning()) {
+	if (!retry) {
+		retry.reset(new wxTimer(this, MCCT_RETRY));
+	}
+	if (!retry->IsRunning()) {
 		uint64_t ms = 5000 * (1 << cs->errorcount);
 		ms += (ms * ((uint64_t) rand())) / RAND_MAX;
 		retry->Start((int) ms, wxTIMER_ONE_SHOT);
@@ -571,7 +594,9 @@ void socketmanager::RetryNotify(wxTimerEvent& event) {
 }
 
 void socketmanager::DNSResolutionEvent(wxCommandEvent &event) {
-	if(asyncdns) asyncdns->DNSResolutionEvent(event);
+	if (asyncdns) {
+		asyncdns->DNSResolutionEvent(event);
+	}
 }
 
 #ifdef RCS_WSAASYNCSELMODE
@@ -584,15 +609,17 @@ LRESULT CALLBACK wndproc(
 		WPARAM wParam,	// first message parameter
 		LPARAM lParam 	// second message parameter
 		) {
-	if(uMsg == WM_USER) {
+	if (uMsg == WM_USER) {
 		int sendbitmask;
-		switch(lParam) {
+		switch (lParam) {
 			case FD_READ:
 				sendbitmask = CURL_CSELECT_IN;
 				break;
+
 			case FD_WRITE:
 				sendbitmask = CURL_CSELECT_OUT;
 				break;
+
 			default:
 				sendbitmask = 0;
 				break;
@@ -603,7 +630,7 @@ LRESULT CALLBACK wndproc(
 }
 
 void socketmanager::InitMultiIOHandler() {
-	if(MultiIOHandlerInited) return;
+	if (MultiIOHandlerInited) return;
 	InitMultiIOHandlerCommon();
 	WNDCLASSA wc = {
 		0, &wndproc, 0, 0,
@@ -613,32 +640,35 @@ void socketmanager::InitMultiIOHandler() {
 	};
 	RegisterClassA(&wc);
 	wind = CreateWindowA(tclassname, tclassname, 0, 0, 0, 0, 0, 0, 0, (HINSTANCE) GetModuleHandle(0), 0);
-	MultiIOHandlerInited=true;
+	MultiIOHandlerInited = true;
 }
 
 void socketmanager::DeInitMultiIOHandler() {
-	if(!MultiIOHandlerInited) return;
+	if (!MultiIOHandlerInited) return;
 	DestroyWindow(wind);
 	wind = 0;
 	DeInitMultiIOHandlerCommon();
-	MultiIOHandlerInited=false;
+	MultiIOHandlerInited = false;
 }
 
 void socketmanager::RegisterSockInterest(CURL *e, curl_socket_t s, int what) {
 	long lEvent;
 	const long common = FD_OOB | FD_ACCEPT | FD_CONNECT | FD_CLOSE;
-	switch(what) {
+	switch (what) {
 		case CURL_POLL_NONE:
 		case CURL_POLL_REMOVE:
 		default:
 			lEvent = 0;
 			break;
+
 		case CURL_POLL_IN:
 			lEvent = FD_READ | common;
 			break;
+
 		case CURL_POLL_OUT:
 			lEvent = FD_WRITE | common;
 			break;
+
 		case CURL_POLL_INOUT:
 			lEvent = FD_READ | FD_WRITE | common;
 			break;
@@ -655,14 +685,14 @@ struct sock_gsource : public GSource {
 };
 
 gboolean gs_prepare(GSource *source, gint *timeout) {
-	*timeout=-1;
+	*timeout = -1;
 	return false;
 }
 
 gboolean gs_check(GSource *source) {
 	sock_gsource *gs = (sock_gsource*) source;
-	for(auto &it : gs->sm->sockpollmap) {
-		if(it.second.revents) return true;
+	for (auto &it : gs->sm->sockpollmap) {
+		if (it.second.revents) return true;
 	}
 	return false;
 }
@@ -670,16 +700,22 @@ gboolean gs_check(GSource *source) {
 gboolean gs_dispatch(GSource *source, GSourceFunc callback, gpointer user_data) {
 	sock_gsource *gs = (sock_gsource*) source;
 	std::forward_list<std::pair<curl_socket_t,int>> actlist;
-	for(auto &it : gs->sm->sockpollmap) {
-		if(it.second.revents) {
+	for (auto &it : gs->sm->sockpollmap) {
+		if (it.second.revents) {
 			int sendbitmask = 0;
-			if(it.second.revents&(G_IO_IN|G_IO_PRI)) sendbitmask |= CURL_CSELECT_IN;
-			if(it.second.revents&G_IO_OUT) sendbitmask |= CURL_CSELECT_OUT;
-			if(it.second.revents&(G_IO_ERR|G_IO_HUP)) sendbitmask |= CURL_CSELECT_ERR;
+			if (it.second.revents&(G_IO_IN|G_IO_PRI)) {
+				sendbitmask |= CURL_CSELECT_IN;
+			}
+			if (it.second.revents&G_IO_OUT) {
+				sendbitmask |= CURL_CSELECT_OUT;
+			}
+			if (it.second.revents&(G_IO_ERR|G_IO_HUP)) {
+				sendbitmask |= CURL_CSELECT_ERR;
+			}
 			actlist.push_front(std::make_pair(it.first, sendbitmask));    //NotifySockEvent is entitled to modify the set of monitored sockets
 		}
 	}
-	for(auto &it : actlist) {
+	for (auto &it : actlist) {
 		gs->sm->NotifySockEvent(it.first, it.second);
 	}
 	return true;
@@ -688,7 +724,7 @@ gboolean gs_dispatch(GSource *source, GSourceFunc callback, gpointer user_data) 
 GSourceFuncs gsf;
 
 void socketmanager::InitMultiIOHandler() {
-	if(MultiIOHandlerInited) return;
+	if (MultiIOHandlerInited) return;
 	InitMultiIOHandlerCommon();
 
 	memset(&gsf, 0, sizeof(gsf));
@@ -705,7 +741,7 @@ void socketmanager::InitMultiIOHandler() {
 }
 
 void socketmanager::DeInitMultiIOHandler() {
-	if(!MultiIOHandlerInited) return;
+	if (!MultiIOHandlerInited) return;
 
 	g_source_destroy((sock_gsource*) gs);
 
@@ -716,31 +752,37 @@ void socketmanager::DeInitMultiIOHandler() {
 void socketmanager::RegisterSockInterest(CURL *e, curl_socket_t s, int what) {
 	sock_gsource *sgs = (sock_gsource *) gs;
 	short events = 0;
-	switch(what) {
+	switch (what) {
 		case CURL_POLL_NONE:
 		case CURL_POLL_REMOVE:
 		default:
 			events = 0;
 			break;
+
 		case CURL_POLL_IN:
 			events = G_IO_IN | G_IO_PRI | G_IO_ERR;
 			break;
+
 		case CURL_POLL_OUT:
 			events = G_IO_OUT | G_IO_ERR;
 			break;
+
 		case CURL_POLL_INOUT:
 			events = G_IO_IN | G_IO_PRI | G_IO_OUT | G_IO_ERR;
 			break;
 	}
 	auto egp = sgs->sm->sockpollmap.find(s);
 	GPollFD *gpfd = nullptr;
-	if(egp != sgs->sm->sockpollmap.end()) {
+	if (egp != sgs->sm->sockpollmap.end()) {
 		gpfd = &(egp->second);
 		g_source_remove_poll(sgs, gpfd);
-		if(!events) sgs->sm->sockpollmap.erase(egp);
+		if (!events) {
+			sgs->sm->sockpollmap.erase(egp);
+		}
+	} else if (events) {
+		gpfd = &sgs->sm->sockpollmap[s];
 	}
-	else if(events) gpfd = &sgs->sm->sockpollmap[s];
-	if(events) {
+	if (events) {
 		gpfd->fd = s;
 		gpfd->events = events;
 		gpfd->revents = 0;
@@ -772,7 +814,7 @@ wxEvent *wxextSocketNotifyEvent::Clone() const {
 
 void socketmanager::NotifySockEventCmd(wxextSocketNotifyEvent &event) {
 	NotifySockEvent((curl_socket_t) event.fd, event.curlbitmask);
-	if(event.reenable) {
+	if (event.reenable) {
 		socketpollmessage spm;
 		spm.type = SPM_ENABLE;
 		spm.fd = event.fd;
@@ -781,12 +823,18 @@ void socketmanager::NotifySockEventCmd(wxextSocketNotifyEvent &event) {
 }
 
 static void AddPendingEventForSocketPollEvent(int fd, short revents, bool reenable=false) {
-	if(!sm.MultiIOHandlerInited) return;
+	if (!sm.MultiIOHandlerInited) return;
 
 	int sendbitmask = 0;
-	if(revents & (POLLIN | POLLPRI)) sendbitmask |= CURL_CSELECT_IN;
-	if(revents & POLLOUT) sendbitmask |= CURL_CSELECT_OUT;
-	if(revents & (POLLERR|POLLHUP)) sendbitmask |= CURL_CSELECT_ERR;
+	if (revents & (POLLIN | POLLPRI)) {
+		sendbitmask |= CURL_CSELECT_IN;
+	}
+	if (revents & POLLOUT) {
+		sendbitmask |= CURL_CSELECT_OUT;
+	}
+	if (revents & (POLLERR|POLLHUP)) {
+		sendbitmask |= CURL_CSELECT_ERR;
+	}
 
 	wxextSocketNotifyEvent event;
 	event.curlbitmask = sendbitmask;
@@ -797,7 +845,7 @@ static void AddPendingEventForSocketPollEvent(int fd, short revents, bool reenab
 }
 
 void socketmanager::InitMultiIOHandler() {
-	if(MultiIOHandlerInited) return;
+	if (MultiIOHandlerInited) return;
 	InitMultiIOHandlerCommon();
 
 	int pipefd[2];
@@ -813,7 +861,7 @@ void socketmanager::InitMultiIOHandler() {
 }
 
 void socketmanager::DeInitMultiIOHandler() {
-	if(!MultiIOHandlerInited) return;
+	if (!MultiIOHandlerInited) return;
 
 	socketpollmessage spm;
 	spm.type = SPM_QUIT;
@@ -829,18 +877,21 @@ void socketmanager::RegisterSockInterest(CURL *e, curl_socket_t s, int what) {
 	spm.type = SPM_FDCHANGE;
 	spm.fd = s;
 	short events = 0;
-	switch(what) {
+	switch (what) {
 		case CURL_POLL_NONE:
 		case CURL_POLL_REMOVE:
 		default:
 			events = 0;
 			break;
+
 		case CURL_POLL_IN:
 			events = POLLIN | POLLPRI;
 			break;
+
 		case CURL_POLL_OUT:
 			events = POLLOUT;
 			break;
+
 		case CURL_POLL_INOUT:
 			events = POLLOUT | POLLIN | POLLPRI;
 			break;
@@ -850,8 +901,10 @@ void socketmanager::RegisterSockInterest(CURL *e, curl_socket_t s, int what) {
 }
 
 static struct pollfd *getexistpollsetoffsetfromfd(int fd, std::vector<struct pollfd> &pollset) {
-	for(size_t i = 0; i < pollset.size(); i++) {
-		if(pollset[i].fd == fd) return &pollset[i];
+	for (size_t i = 0; i < pollset.size(); i++) {
+		if (pollset[i].fd == fd) {
+			return &pollset[i];
+		}
 	}
 	return nullptr;
 }
@@ -865,16 +918,18 @@ static size_t insertatendofpollset(int fd, std::vector<struct pollfd> &pollset) 
 }
 
 static size_t getpollsetoffsetfromfd(int fd, std::vector<struct pollfd> &pollset) {
-	for(size_t i = 0; i < pollset.size(); i++) {
-		if(pollset[i].fd == fd) return i;
+	for (size_t i = 0; i < pollset.size(); i++) {
+		if (pollset[i].fd == fd) {
+			return i;
+		}
 	}
 	return insertatendofpollset(fd, pollset);
 }
 
 static void removefdfrompollset(int fd, std::vector<struct pollfd> &pollset) {
-	for(size_t i = 0; i < pollset.size(); i++) {
-		if(pollset[i].fd == fd) {
-			if(i != pollset.size() - 1) {
+	for (size_t i = 0; i < pollset.size(); i++) {
+		if (pollset[i].fd == fd) {
+			if (i != pollset.size() - 1) {
 				pollset[i] = pollset[pollset.size() - 1];
 			}
 			pollset.pop_back();
@@ -891,16 +946,16 @@ wxThread::ExitCode socketpollthread::Entry() {
 	pollset[0].fd = pipefd;
 	pollset[0].events = POLLIN;
 
-	while(true) {
+	while (true) {
 		poll(pollset.data(), pollset.size(), -1);
 
-		for(size_t i = 1; i < pollset.size(); i++) {
-			if(pollset[i].revents) {
+		for (size_t i = 1; i < pollset.size(); i++) {
+			if (pollset[i].revents) {
 				AddPendingEventForSocketPollEvent(pollset[i].fd, pollset[i].revents, true);
 
 				//remove fd from pollset temporarily to stop it repeatedly re-firing
 				disabled_pollset.push_front(pollset[i]);
-				if(i != pollset.size() - 1) {
+				if (i != pollset.size() - 1) {
 					pollset[i] = pollset[pollset.size() - 1];
 				}
 				pollset.pop_back();
@@ -908,45 +963,47 @@ wxThread::ExitCode socketpollthread::Entry() {
 			}
 		}
 
-		if(pollset[0].revents & POLLIN) {
+		if (pollset[0].revents & POLLIN) {
 			socketpollmessage spm;
 			size_t bytes_to_read = sizeof(spm);
 			size_t bytes_read = 0;
-			while(bytes_to_read) {
+			while (bytes_to_read) {
 				ssize_t l_bytes_read = read(pipefd, ((char *) &spm) + bytes_read, bytes_to_read);
-				if(l_bytes_read >= 0) {
+				if (l_bytes_read >= 0) {
 					bytes_read += l_bytes_read;
 					bytes_to_read -= l_bytes_read;
-				}
-				else {
-					if(l_bytes_read == EINTR) continue;
-					else {
+				} else {
+					if (l_bytes_read == EINTR) {
+						continue;
+					} else {
 						close(pipefd);
 						return 0;
 					}
 				}
 			}
-			switch(spm.type) {
+			switch (spm.type) {
 				case SPM_QUIT:
 					close(pipefd);
 					return 0;
+
 				case SPM_FDCHANGE:
-					disabled_pollset.remove_if([&](const struct pollfd &pfd) { return pfd.fd == spm.fd; });
-					if(spm.events) {
+					disabled_pollset.remove_if ([&](const struct pollfd &pfd) { return pfd.fd == spm.fd; });
+					if (spm.events) {
 						size_t offset = getpollsetoffsetfromfd(spm.fd, pollset);
 						pollset[offset].events = spm.events;
-					}
-					else {
+					} else {
 						removefdfrompollset(spm.fd, pollset);
 					}
 					break;
+
 				case SPM_ENABLE:
-					disabled_pollset.remove_if([&](const struct pollfd &pfd) {
-						if(pfd.fd == spm.fd) {
+					disabled_pollset.remove_if ([&](const struct pollfd &pfd) {
+						if (pfd.fd == spm.fd) {
 							pollset.push_back(pfd);
 							return true;
+						} else {
+							return false;
 						}
-						else return false;
 					});
 					break;
 			}
@@ -962,13 +1019,12 @@ extern "C" unsigned char cacert_end[] asm("_binary_cacert_pem_zlib_end");
 
 void SetCacerts(CURL *handle) {
 	static std::string cacertpath;
-	if(cacertpath.empty()) {
+	if (cacertpath.empty()) {
 		cacertpath = "./cacert.pem";
-		if(wxFile::Exists(wxstrstd(cacertpath))) {
+		if (wxFile::Exists(wxstrstd(cacertpath))) {
 			LogMsgFormat(LOGT::SOCKTRACE, "SetCacerts: found existing ./cacert.pem");
 			// There is an existing cacert.pem we can use, no need to create one
-		}
-		else {
+		} else {
 			cacertpath = wxGetApp().datadir + "/cacert.pem";
 			LogMsgFormat(LOGT::SOCKTRACE, "SetCacerts: Writing out cacert.pem to: %s", cstr(cacertpath));
 			wxFFileOutputStream output(wxstrstd(cacertpath));

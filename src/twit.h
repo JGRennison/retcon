@@ -206,11 +206,11 @@ struct userdatacontainer {
 
 	void intrusive_ptr_increment() {
 		refcount++;
-		if(refcount > 1) udc_flags |= UDC::REFCOUNT_WENT_GT1;
+		if (refcount > 1) udc_flags |= UDC::REFCOUNT_WENT_GT1;
 	};
 	void intrusive_ptr_decrement() {
 		refcount--;
-		if(refcount == 0) delete this;
+		if (refcount == 0) delete this;
 	};
 	int GetRefcount() const {
 		return refcount;
@@ -255,16 +255,16 @@ class tweet_perspective {
 	bool IsFavourited() const { return flags & TP_FAV; }
 	bool IsRetweeted() const { return flags & TP_RET; }
 	bool IsReceivedHere() const { return flags & TP_RECV; }
-	void SetArrivedHere(bool val) { if(val) flags |= TP_IAH; else flags &= ~TP_IAH; }
-	void SetFavourited(bool val) { if(val) flags |= TP_FAV; else flags &= ~TP_FAV; }
-	void SetRetweeted(bool val) { if(val) flags |= TP_RET; else flags &= ~TP_RET; }
-	void SetReceivedHere(bool val) { if(val) flags |= TP_RECV; else flags &= ~TP_RECV; }
-	void SetRecvTypeDel(bool val) { if(val) flags |= TP_RECV_DEL; else flags &= ~TP_RECV_DEL; }
-	void SetRecvTypeCPO(bool val) { if(val) flags |= TP_RECV_CPO; else flags &= ~TP_RECV_CPO; }
-	void SetRecvTypeUT(bool val) { if(val) flags |= TP_RECV_UT; else flags &= ~TP_RECV_UT; }
-	void SetRecvTypeNorm(bool val) { if(val) flags |= TP_RECV_NORM; else flags &= ~TP_RECV_NORM; }
-	void SetRecvTypeRTSrc(bool val) { if(val) flags |= TP_RECV_RTSRC; else flags &= ~TP_RECV_RTSRC; }
-	void SetRecvTypeQuote(bool val) { if(val) flags |= TP_RECV_QUOTE; else flags &= ~TP_RECV_QUOTE; }
+	void SetArrivedHere(bool val) { if (val) flags |= TP_IAH; else flags &= ~TP_IAH; }
+	void SetFavourited(bool val) { if (val) flags |= TP_FAV; else flags &= ~TP_FAV; }
+	void SetRetweeted(bool val) { if (val) flags |= TP_RET; else flags &= ~TP_RET; }
+	void SetReceivedHere(bool val) { if (val) flags |= TP_RECV; else flags &= ~TP_RECV; }
+	void SetRecvTypeDel(bool val) { if (val) flags |= TP_RECV_DEL; else flags &= ~TP_RECV_DEL; }
+	void SetRecvTypeCPO(bool val) { if (val) flags |= TP_RECV_CPO; else flags &= ~TP_RECV_CPO; }
+	void SetRecvTypeUT(bool val) { if (val) flags |= TP_RECV_UT; else flags &= ~TP_RECV_UT; }
+	void SetRecvTypeNorm(bool val) { if (val) flags |= TP_RECV_NORM; else flags &= ~TP_RECV_NORM; }
+	void SetRecvTypeRTSrc(bool val) { if (val) flags |= TP_RECV_RTSRC; else flags &= ~TP_RECV_RTSRC; }
+	void SetRecvTypeQuote(bool val) { if (val) flags |= TP_RECV_QUOTE; else flags &= ~TP_RECV_QUOTE; }
 
 	static bool IsFlagsArrivedHere(unsigned int fl) { return fl & TP_IAH; }
 
@@ -373,11 +373,15 @@ struct tweet {
 	public:
 	void intrusive_ptr_increment() {
 		refcount++;
-		if(refcount > 1) lflags |= TLF::REFCOUNT_WENT_GT1;
+		if (refcount > 1) {
+			lflags |= TLF::REFCOUNT_WENT_GT1;
+		}
 	};
 	void intrusive_ptr_decrement() {
 		refcount--;
-		if(refcount == 0) delete this;
+		if (refcount == 0) {
+			delete this;
+		}
 	};
 
 	tweet() { }
@@ -405,10 +409,10 @@ struct tweet {
 
 	//! Where F is a functor of the type: void(const tweet_perspective &tp)
 	template<typename F> void IterateTP(F f) const {
-		if(lflags & TLF::HAVEFIRSTTP) {
+		if (lflags & TLF::HAVEFIRSTTP) {
 			f(first_tp);
 		}
-		for(auto &it : tp_extra_list) {
+		for (auto &it : tp_extra_list) {
 			f(it);
 		}
 	}
@@ -565,7 +569,9 @@ struct media_entity {
 	std::string cached_video_filename(const std::string &url) const { return cached_video_filename(media_id, url); }
 
 	void CheckLoadThumb(flagwrapper<MELF> melf) {
-		if(check_load_thumb_func) check_load_thumb_func(this, melf);
+		if (check_load_thumb_func) {
+			check_load_thumb_func(this, melf);
+		}
 	}
 
 	void PurgeCache(observer_ptr<dbsendmsg_list> msglist = nullptr);
@@ -611,6 +617,7 @@ struct friendlookup {
 void ParseTwitterDate(struct tm *createtm, time_t *createtm_t, const std::string &created_at);
 
 unsigned int TwitterCharCount(const char *in, size_t inlen, unsigned int img_uploads = 0);
+
 inline unsigned int TwitterCharCount(const std::string &str, unsigned int img_uploads = 0) {
 	return TwitterCharCount(str.c_str(), str.size(), img_uploads);
 }
@@ -625,10 +632,13 @@ struct is_user_mentioned_cache {
 };
 
 bool IsUserMentioned(const char *in, size_t inlen, udc_ptr_p u, std::unique_ptr<is_user_mentioned_cache> *cache = nullptr);
+
 inline bool IsUserMentioned(const std::string &str, udc_ptr_p u, std::unique_ptr<is_user_mentioned_cache> *cache = nullptr) {
 	return IsUserMentioned(str.c_str(), str.size(), u, cache);
 }
+
 bool IsTweetAReply(const char *in, size_t inlen);
+
 inline bool IsTweetAReply(const std::string &str) {
 	return IsTweetAReply(str.c_str(), str.size());
 }
@@ -651,6 +661,7 @@ struct tweet_pending_bits_guard {
 	tweet_pending_bits_guard(tweet_pending_bits_guard &&other);
 	~tweet_pending_bits_guard();
 	void reset();
+
 	explicit operator bool() {
 		return t && bits;
 	}
@@ -697,10 +708,11 @@ struct exec_on_ready : std::enable_shared_from_this<exec_on_ready> {
 
 	template <typename F> void Execute(F function) {
 		refcount--;
-		if(refcount == 0)
+		if (refcount == 0) {
 			function();
-		else
+		} else {
 			func = function;
+		}
 	}
 
 	private:
