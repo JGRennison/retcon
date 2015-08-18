@@ -856,6 +856,7 @@ void dbconn::HandleDBSelTweetMsg(dbseltweetmsg &msg, optional_observer_ptr<db_ha
 		//This sets flags_at_prev_update to the new value of flags
 		//This prevents subsequent flag changes being missed without needing to do an update
 		t->IgnoreChangeToFlagsByMask(~static_cast<unsigned long long>(0));
+		t->SetFlagsInDBNow(t->flags);
 
 		if(dt.rtid) {
 			t->rtsrc = ad.GetTweetById(dt.rtid);
@@ -1397,6 +1398,7 @@ void dbconn::InsertNewTweet(tweet_ptr_p tobj, std::string statjson, optional_obs
 	ad.loaded_db_tweet_ids.insert(tobj->id);
 
 	SendMessageOrAddToList(std::move(msg), msglist);
+	tobj->SetFlagsInDBNow(tobj->flags);
 }
 
 void dbconn::UpdateTweetDyn(tweet_ptr_p tobj, optional_observer_ptr<dbsendmsg_list> msglist) {
@@ -1405,6 +1407,7 @@ void dbconn::UpdateTweetDyn(tweet_ptr_p tobj, optional_observer_ptr<dbsendmsg_li
 	msg->id = tobj->id;
 	msg->flags = tobj->flags.ToULLong();
 	SendMessageOrAddToList(std::move(msg), msglist);
+	tobj->SetFlagsInDBNow(tobj->flags);
 }
 
 void dbconn::InsertUser(udc_ptr_p u, optional_observer_ptr<dbsendmsg_list> msglist) {

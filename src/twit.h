@@ -366,6 +366,7 @@ struct tweet {
 
 	private:
 	tweet_flags flags_at_prev_update;
+	tweet_flags flags_in_db_now;
 
 	int refcount = 0;
 
@@ -428,7 +429,7 @@ struct tweet {
 		UPDATE_TWEET               = 1<<2,
 	};
 	void CheckFlagsUpdated(flagwrapper<CFUF> cfuflags = 0);
-	static void HandleFlagChange(uint64_t id, unsigned long long changemask, unsigned long long newvalue);
+	static void HandleFlagChangeCids(uint64_t id, unsigned long long changemask, unsigned long long newvalue);
 	static void ChangeFlagsById(uint64_t id, unsigned long long setflags, unsigned long long unsetflags, flagwrapper<CFUF> cfuflags = 0);
 
 	//! Use with caution
@@ -440,7 +441,20 @@ struct tweet {
 		flags_at_prev_update |= flags & tmask;
 	}
 
+	//! Use with caution
+	void SetFlagsInDBNow(tweet_flags new_flags) {
+		flags_in_db_now = new_flags;
+	}
+
+	//! Use with caution
+	void SetFlagsInDBNowByMask(unsigned long long mask) {
+		tweet_flags tmask(mask);
+		flags_in_db_now &= ~tmask;
+		flags_in_db_now |= flags & tmask;
+	}
+
 	tweet_flags GetFlagsAtPrevUpdate() const { return flags_at_prev_update; }
+	tweet_flags GetFlagsInDBNow() const { return flags_in_db_now; }
 
 	void AddNewPendingOp(std::unique_ptr<pending_op> op) {
 		op->parent_tweet = this;
@@ -660,7 +674,7 @@ bool CheckLoadSingleTweet(tweet_ptr_p t, std::shared_ptr<taccount> &acc_hint);
 
 void MarkTweetIDSetCIDS(const tweetidset &ids, tpanel *exclude, tweetidset cached_id_sets::* idsetptr,
 		bool remove, std::function<void(tweet_ptr_p )> existingtweetfunc = std::function<void(tweet_ptr_p)>());
-void SendTweetFlagUpdate(const tweet &tw, unsigned long long mask);
+void SendTweetFlagUpdate(tweet &tw, unsigned long long mask);
 void SpliceTweetIDSet(tweetidset &set, tweetidset &out, uint64_t highlim_inc, uint64_t lowlim_inc, bool clearspliced);
 
 void GetUsableAccountFollowingUser(std::shared_ptr<taccount> &tac, uint64_t user_id);

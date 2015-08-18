@@ -633,6 +633,7 @@ void tpanel::MarkCIDSSetGenericUndoable(tweetidset cached_id_sets::* idsetptr, t
 			tw->flags |= add_flags;
 			tw->flags &= ~remove_flags;
 			tw->IgnoreChangeToFlagsByMask(all_flags.ToULLong());
+			tw->SetFlagsInDBNowByMask(all_flags.ToULLong());
 			UpdateTweet(*tw, false);
 		},
 		cached_ids,

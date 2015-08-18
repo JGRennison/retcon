@@ -887,10 +887,11 @@ void MarkTweetIDSetCIDS(const tweetidset &ids, tpanel *exclude, tweetidset cache
 	}
 }
 
-void SendTweetFlagUpdate(const tweet &tw, unsigned long long mask) {
+void SendTweetFlagUpdate(tweet &tw, unsigned long long mask) {
 	unsigned long long setmask = mask & tw.flags.ToULLong();
 	unsigned long long unsetmask = mask & (~tw.flags.ToULLong());
 	DBC_SendBatchedTweetFlagUpdate(tw.id, setmask, unsetmask);
+	tw.SetFlagsInDBNowByMask(mask);
 }
 
 namespace pending_detail {
@@ -1198,21 +1199,28 @@ void tweet::GetMediaEntities(std::vector<media_entity *> &out, flagwrapper<MEF> 
 }
 
 void tweet::CheckFlagsUpdated(flagwrapper<tweet::CFUF> cfuflags) {
-	unsigned long long changemask = flags_at_prev_update.ToULLong() ^ flags.ToULLong();
-	if(!changemask) return;
+	unsigned long long local_changemask = flags_at_prev_update.ToULLong() ^ flags.ToULLong();
+	if(local_changemask) {
+		flags_at_prev_update = flags;
+		HandleFlagChangeCids(id, local_changemask, flags.ToULLong());
+		if(cfuflags & CFUF::UPDATE_TWEET) UpdateTweet(*this, false);
+	}
 
-	flags_at_prev_update = flags;
-
-	HandleFlagChange(id, changemask, flags.ToULLong());
-
-	if(cfuflags & CFUF::UPDATE_TWEET) UpdateTweet(*this, false);
-	if(cfuflags & CFUF::SEND_DB_UPDATE_ALWAYS) SendTweetFlagUpdate(*this, changemask);
-	else if(cfuflags & CFUF::SEND_DB_UPDATE) {
-		if(lflags & TLF::SAVED_IN_DB) SendTweetFlagUpdate(*this, changemask);
+	unsigned long long db_changemask = flags_in_db_now.ToULLong() ^ flags.ToULLong();
+	if (db_changemask) {
+		if(cfuflags & CFUF::SEND_DB_UPDATE_ALWAYS) {
+			SendTweetFlagUpdate(*this, db_changemask);
+		}
+		else if(cfuflags & CFUF::SEND_DB_UPDATE) {
+			if(lflags & TLF::SAVED_IN_DB) {
+				SendTweetFlagUpdate(*this, db_changemask);
+			}
+		}
+		// do not change flags_in_db_now in here, it is done in SendTweetFlagUpdate
 	}
 }
 
-void tweet::HandleFlagChange(uint64_t id, unsigned long long changemask, unsigned long long newvalue) {
+void tweet::HandleFlagChangeCids(uint64_t id, unsigned long long changemask, unsigned long long newvalue) {
 	cached_id_sets::IterateLists([&](const char *name, tweetidset cached_id_sets::*mptr, unsigned long long flagvalue) {
 		if(changemask & flagvalue) {
 			if(newvalue & flagvalue) {
@@ -1245,7 +1253,7 @@ void tweet::ChangeFlagsById(uint64_t id, unsigned long long setflags, unsigned l
 	}
 	else if(cfuflags & CFUF::SEND_DB_UPDATE_ALWAYS || cfuflags & CFUF::SEND_DB_UPDATE) {
 		DBC_SendBatchedTweetFlagUpdate(id, setflags, unsetflags);
-		HandleFlagChange(id, setflags | unsetflags, setflags);
+		HandleFlagChangeCids(id, setflags | unsetflags, setflags);
 	}
 }
 

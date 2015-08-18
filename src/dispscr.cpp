@@ -945,6 +945,9 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 					case 'F':
 						str += wxstrstd(tw.GetFlagsAtPrevUpdate().GetString());
 						break;
+					case 'D':
+						str += wxstrstd(tw.GetFlagsInDBNow().GetString());
+						break;
 					case 'r':
 						if(td_obj)
 							str += wxString::Format(wxT("%u"), td_obj->recursion_depth);
