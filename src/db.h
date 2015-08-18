@@ -277,7 +277,7 @@ struct dbupdatemediamsg : public dbsendmsg {
 
 struct dbupdatetweetsetflagsmsg_group : public dbsendmsg {
 	dbupdatetweetsetflagsmsg_group(tweetidset &&ids_, uint64_t setmask_, uint64_t unsetmask_)
-			: dbsendmsg(DBSM::UPDATETWEETSETFLAGS_GROUP), ids(ids_), setmask(setmask_), unsetmask(unsetmask_) { }
+			: dbsendmsg(DBSM::UPDATETWEETSETFLAGS_GROUP), ids(std::move(ids_)), setmask(setmask_), unsetmask(unsetmask_) { }
 
 	tweetidset ids;
 	uint64_t setmask;
@@ -297,7 +297,7 @@ struct dbupdatetweetsetflagsmsg_multi : public dbsendmsg {
 };
 
 struct dbnotifyuserspurgedmsg : public dbsendmsg {
-	dbnotifyuserspurgedmsg(useridset &&ids_) : dbsendmsg(DBSM::NOTIFYUSERSPURGED), ids(ids_) { }
+	dbnotifyuserspurgedmsg(useridset &&ids_) : dbsendmsg(DBSM::NOTIFYUSERSPURGED), ids(std::move(ids_)) { }
 
 	useridset ids;
 };
