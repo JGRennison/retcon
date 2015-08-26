@@ -96,7 +96,7 @@ namespace ThreadPool {
 				lock.lock();
 			}
 		});
-#if defined(_GNU_SOURCE)
+#if defined(__GLIBC__)
 #if __GLIBC_PREREQ(2, 12)
 		pthread_setname_np(thread.native_handle(), string_format("retcon-pw-%d", id).c_str());
 #endif

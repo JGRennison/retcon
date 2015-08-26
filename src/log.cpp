@@ -934,6 +934,7 @@ void DeInitGlibLogger() {
 
 #endif
 
+#if defined(__GLIBC__)
 #if __GLIBC_PREREQ(2, 0)
 struct filter_cookie {
 	FILE *real_file = nullptr;
@@ -967,6 +968,9 @@ void InitStdoutFilter() {
 	setlinebuf(stdout);
 	setlinebuf(stderr);
 }
+#else
+void InitStdoutFilter() { }
+#endif
 #else
 void InitStdoutFilter() { }
 #endif

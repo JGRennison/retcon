@@ -1292,7 +1292,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	this->pipefd = pipepair[1];
 #endif
 	th->Create();
-#if defined(_GNU_SOURCE)
+#if defined(__GLIBC__)
 #if __GLIBC_PREREQ(2, 12)
 	pthread_setname_np(th->GetId(), "retcon-sqlite3");
 #endif
