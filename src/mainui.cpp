@@ -498,7 +498,7 @@ tweetpostwin::~tweetpostwin() {
 }
 
 bool tweetpostwin::okToSend() {
-	return isgoodacc && !currently_posting && !(textctrl->IsEmpty() && image_upload_filenames.empty()) && current_length <= 140;
+	return isgoodacc && !currently_posting && !(textctrl->IsEmpty() && image_upload_filenames.empty()) && current_length <= (dm_targ ? 10000 : 140);
 }
 
 void tweetpostwin::OnSendBtn(wxCommandEvent &event) {
@@ -584,19 +584,24 @@ void tweetpostwin::DoCheckFocusDisplay(bool force) {
 
 void tweetpostwin::OnTCChange() {
 	current_length = TwitterCharCount(std::string(textctrl->GetValue().ToUTF8()), image_upload_filenames.empty() ? 0 : 1);
-	if (current_length > 140) {
-		if (!length_oob) {
-			infost_colout = infost->GetForegroundColour();
-			infost->SetOwnForegroundColour(*wxRED);
-			length_oob = true;
+	unsigned int max_length = dm_targ ? 10000 : 140;
+	if (current_length + 1000 > max_length) {
+		if (current_length > max_length) {
+			if (!length_oob) {
+				infost_colout = infost->GetForegroundColour();
+				infost->SetOwnForegroundColour(*wxRED);
+				length_oob = true;
+			}
+		} else {
+			if (length_oob) {
+				infost->SetOwnForegroundColour(infost_colout);
+				length_oob = false;
+			}
 		}
+		infost->SetLabel(wxString::Format(wxT("%s%u/%u"), currently_posting ? wxT("Posting - ") : wxT(""), current_length, max_length));
 	} else {
-		if (length_oob) {
-			infost->SetOwnForegroundColour(infost_colout);
-			length_oob = false;
-		}
+		infost->SetLabel(currently_posting ? wxT("Posting") : wxT(""));
 	}
-	infost->SetLabel(wxString::Format(wxT("%s%d/140"), currently_posting ? wxT("Posting - ") : wxT(""), current_length));
 	CheckEnableSendBtn();
 	textctrl->Enable(!currently_posting);
 	cleartextbtn->Show(!textctrl->IsEmpty());
