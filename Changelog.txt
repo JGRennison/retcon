@@ -1,3 +1,26 @@
+retcon 0.1.2
+------------------------------------------------------
+
+Add support for 10k character limit DMs.
+Add support for inline display of quoted tweets.
+Add functionality to remember directory last used for attaching images to tweets.
+Add functionality to remember most recent 10 media save directories.
+Add support for showing only the unread and/or highlighted tweets of a panel.
+Add button to user window to open DM conversation panel, if non-empty.
+Fix posted DMs sometimes being marked as unread instead of as read.
+Fix various thread-safety issues and bugs in error and diagnostics logging code.
+Fix inline replies sometimes not being hidden when the parent tweet was hidden.
+Fix race conditions affecting writes of tweet flag changes to the DB.
+Use libVLC for video playback on non-Windows platforms, this vastly improves the reliability of video playback.
+Improve algorithm to choose the account to use when replying or sending a DM, and when fetching inline replies.
+Add command line option to unconditionally re-scan tweets table.
+Tweet table scans now also regenerate the unread, highlighted, etc. lists, mentions, DM indexes, and re-adds tweets to the correct accounts.
+Significantly improve DB crash recovery speed and completeness.
+Add debug menu item to copy debug info of tweet to clipboard.
+Filter logging output sent to stdout/stderr (on glibc/unixy platforms).
+Add support for importing streaming API recording files.
+
+
 retcon 0.1.1
 ------------------------------------------------------
 
