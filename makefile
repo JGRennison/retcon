@@ -166,16 +166,19 @@ ifeq (4.7.0, $(GCCVER))
 $(error GCC 4.7.0 has a nasty bug in std::unordered_multimap, this will cause problems)
 endif
 
-ifeq (4.7.1, $(GCCVER))
+ifneq (, $(filter 4.7.%, $(GCCVER)))
 CXXFLAGS += -Wno-type-limits -Wno-uninitialized -Wno-maybe-uninitialized
 #these cannot be feasibly suppressed at the local level in gcc 4.7
 endif
 
+GCC_MAJOR := $(shell $(GCC) -dumpversion | cut -d'.' -f1)
+GCC_MINOR := $(shell $(GCC) -dumpversion | cut -d'.' -f2)
+
 ifdef debug
-ifeq (, $(filter 4.7.%, $(GCCVER)))
-OPTIMISE_FLAGS += -Og
+OPTIMISE_FLAGS += $(shell [ $(GCC_MAJOR) -gt 4 -o \( $(GCC_MAJOR) -eq 4 -a $(GCC_MINOR) -ge 8 \) ] && echo -Og)
 endif
-endif
+
+CFLAGS += $(shell [ -t 0 ] && [ $(GCC_MAJOR) -gt 4 -o \( $(GCC_MAJOR) -eq 4 -a $(GCC_MINOR) -ge 9 \) ] && echo -fdiagnostics-color)
 
 TARGS := $(OUTNAME)$(SUFFIX)
 
