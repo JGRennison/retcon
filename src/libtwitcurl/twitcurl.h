@@ -71,6 +71,7 @@ namespace twitCurlDefaults
     const std::string TWITCURL_LOCATIONS = "locations=";
     const std::string TWITCURL_REPLYSTATUSID = "in_reply_to_status_id=";
     const std::string TWITCURL_MEDIAIDS = "media_ids=";
+    const std::string TWITCURL_DMFULLTEXT = "full_text=true";
 
     const std::string TWITCURL_USERAGENT = "libcurl " LIBCURL_VERSION;
 

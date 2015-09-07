@@ -824,6 +824,7 @@ bool twitCurl::directMessageGet( const struct timelineparams &tmps )
 
     std::string URLext;
     UtilTimelineProcessParams(tmps, URLext);
+    URLext += twitCurlDefaults::TWITCURL_URL_SEP_AMP + twitCurlDefaults::TWITCURL_DMFULLTEXT;
     if( URLext.size() )
     {
         buildUrl += twitCurlDefaults::TWITCURL_URL_SEP_QUES;
@@ -888,6 +889,7 @@ bool twitCurl::directMessageGetSent(  const struct timelineparams &tmps )
 
     std::string URLext;
     UtilTimelineProcessParams(tmps, URLext);
+    URLext += twitCurlDefaults::TWITCURL_URL_SEP_AMP + twitCurlDefaults::TWITCURL_DMFULLTEXT;
     if( URLext.size() )
     {
         buildUrl += twitCurlDefaults::TWITCURL_URL_SEP_QUES;
