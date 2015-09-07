@@ -248,12 +248,10 @@ void MakeImageMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_
 }
 
 void MakeDebugMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw) {
-	if (tw->flags.Get('T')) {
-		menuP->Append(nextid, wxT("Force reload"));
-		AppendToTAMIMenuMap(map, nextid, TAMI_DBG_FORCERELOAD, tw);
-		menuP->Append(nextid, wxT("Copy debug info"));
-		AppendToTAMIMenuMap(map, nextid, TAMI_COPY_DEBUG_INFO, tw);
-	}
+	menuP->Append(nextid, wxT("Force reload"));
+	AppendToTAMIMenuMap(map, nextid, TAMI_DBG_FORCERELOAD, tw);
+	menuP->Append(nextid, wxT("Copy debug info"));
+	AppendToTAMIMenuMap(map, nextid, TAMI_COPY_DEBUG_INFO, tw);
 }
 
 void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
@@ -523,12 +521,13 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 				acc_hint = *acc;
 			}
 			if (map[curid].tw->GetUsableAccount(acc_hint, tweet::GUAF::CHECKEXISTING)) {
-				std::unique_ptr<twitcurlext_simple> twit = twitcurlext_simple::make_new(acc_hint, STYPE::SINGLETWEET);
+				STYPE stype = map[curid].tw->flags.Get('D') ? STYPE::SINGLEDM : STYPE::SINGLETWEET;
+				std::unique_ptr<twitcurlext_simple> twit = twitcurlext_simple::make_new(acc_hint, stype);
 				twit->extra_id = map[curid].tw->id;
 				twit->tc_flags |= twitcurlext::TCF::ALWAYSREPARSE;
 				twitcurlext::QueueAsyncExec(std::move(twit));
 			} else {
-				LogMsgFormat(LOGT::OTHERERR, "TAMI_DBG_FORCERELOAD: Cannot lookup tweet: id: %" llFmtSpec "d.", map[curid].tw->id);
+				LogMsgFormat(LOGT::OTHERERR, "TAMI_DBG_FORCERELOAD: Cannot lookup tweet/DM: id: %" llFmtSpec "d.", map[curid].tw->id);
 			}
 			break;
 		}

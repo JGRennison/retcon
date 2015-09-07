@@ -901,6 +901,36 @@ bool twitCurl::directMessageGetSent(  const struct timelineparams &tmps )
 }
 
 /*++
+* @method: twitCurl::directMessageShowById
+*
+* @description: method to get a direct message by its id
+*
+* @input: statusId - a number in std::string format
+*
+* @output: true if GET is success, otherwise false. This does not check http
+*          response by twitter. Use getLastWebResponse() for that.
+*
+*--*/
+bool twitCurl::directMessageShowById( const std::string& statusId )
+{
+    bool retVal = false;
+    if( statusId.length() )
+    {
+        /* Prepare URL */
+        std::string buildUrl = twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
+                               twitterDefaults::TWITCURL_DIRECTMESSAGESSHOW_URL + twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType] +
+                               twitCurlDefaults::TWITCURL_URL_SEP_QUES +
+                               twitCurlDefaults::TWITCURL_ID + statusId +
+                               twitCurlDefaults::TWITCURL_URL_SEP_AMP + twitCurlDefaults::TWITCURL_DMFULLTEXT;
+
+        /* Perform GET */
+        retVal = performGet( buildUrl );
+    }
+    return retVal;
+}
+
+
+/*++
 * @method: twitCurl::directMessageDestroyById
 *
 * @description: method to delete direct messages by its id

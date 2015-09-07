@@ -72,6 +72,7 @@ namespace twitCurlDefaults
     const std::string TWITCURL_REPLYSTATUSID = "in_reply_to_status_id=";
     const std::string TWITCURL_MEDIAIDS = "media_ids=";
     const std::string TWITCURL_DMFULLTEXT = "full_text=true";
+    const std::string TWITCURL_ID = "id=";
 
     const std::string TWITCURL_USERAGENT = "libcurl " LIBCURL_VERSION;
 
@@ -110,6 +111,7 @@ namespace twitterDefaults
 
     /* Direct messages URLs */
     const std::string TWITCURL_DIRECTMESSAGES_URL = "api.twitter.com/1.1/direct_messages";
+    const std::string TWITCURL_DIRECTMESSAGESSHOW_URL = "api.twitter.com/1.1/direct_messages/show";
     const std::string TWITCURL_DIRECTMESSAGENEW_URL = "api.twitter.com/1.1/direct_messages/new";
     const std::string TWITCURL_DIRECTMESSAGESSENT_URL = "api.twitter.com/1.1/direct_messages/sent";
     const std::string TWITCURL_DIRECTMESSAGEDESTROY_URL = "api.twitter.com/1.1/direct_messages/destroy";
@@ -223,6 +225,7 @@ public:
     bool directMessageGet( const struct timelineparams &tmps );
     bool directMessageSend( const std::string& userInfo, const std::string& dMsg, bool isUserId = false );  /* all parameters in */
     bool directMessageGetSent( const struct timelineparams &tmps );
+    bool directMessageShowById( const std::string& statusId );
     bool directMessageDestroyById( const std::string& dMsgId /* in */ );
 
     /* Twitter friendships APIs */

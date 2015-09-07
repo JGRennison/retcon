@@ -952,6 +952,10 @@ void twitcurlext_simple::ParseHandler(const std::shared_ptr<taccount> &acc, json
 			jp.ProcessSingleTweetResponse(JDTP::CHECKPENDINGONLY);
 			break;
 
+		case CONNTYPE::SINGLEDM:
+			jp.ProcessSingleTweetResponse(JDTP::ISDM | JDTP::CHECKPENDINGONLY);
+			break;
+
 		case CONNTYPE::USERFOLLOWING:
 		case CONNTYPE::USERFOLLOWERS:
 		case CONNTYPE::OWNINCOMINGFOLLOWLISTING:
@@ -1009,6 +1013,7 @@ std::string twitcurlext_simple::GetConnTypeNameBase() {
 		case CONNTYPE::OWNINCOMINGFOLLOWLISTING: name = "Retrieving incoming follower request list"; break;
 		case CONNTYPE::OWNOUTGOINGFOLLOWLISTING: name = "Retrieving outgoing following request list"; break;
 		case CONNTYPE::SINGLETWEET: name = "Retrieving single tweet"; break;
+		case CONNTYPE::SINGLEDM: name = "Retrieving single DM"; break;
 		case CONNTYPE::OWNFOLLOWERLISTING: name = "Retrieving own followers listing"; break;
 		case CONNTYPE::NONE: assert(false); break;
 	}
@@ -1055,6 +1060,10 @@ void twitcurlext_simple::HandleQueueAsyncExec(const std::shared_ptr<taccount> &a
 
 		case CONNTYPE::SINGLETWEET:
 			statusShowById(std::to_string(extra_id));
+			break;
+
+		case CONNTYPE::SINGLEDM:
+			directMessageShowById(std::to_string(extra_id));
 			break;
 
 		case CONNTYPE::OWNFOLLOWERLISTING:
