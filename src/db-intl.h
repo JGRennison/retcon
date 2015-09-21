@@ -608,7 +608,7 @@ template <typename C> void setfromcompressedblob_generic(C func, sqlite3_stmt *s
 		// legacy format
 		db_bind_buffer<dbb_uncompressed> blblob = DoDecompress(std::move(src));
 
-		unsigned char *blarray = (unsigned char*) blblob.data;
+		const unsigned char *blarray = (const unsigned char*) blblob.data;
 		size_t blarraysize = blblob.data_size & ~7;
 
 		for (unsigned int i = 0; i < blarraysize; i += 8) {    //stored in big endian format

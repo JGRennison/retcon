@@ -29,6 +29,7 @@ RTROBJS_SRC :=
 
 OUTNAME := retcon
 COMMONCFLAGS := -Wall -Wextra -Wshadow -Wno-unused-parameter -Ideps
+MCFLAGS := -Wcast-qual
 COBJS_CFLAGS := -Wno-missing-field-initializers -Wno-sign-compare
 OPTIMISE_FLAGS := -O3
 CFLAGS = $(OPTIMISE_FLAGS) $(COMMONCFLAGS)
@@ -105,7 +106,7 @@ GFLAGS := -mthreads
 CFLAGS += -D CURL_STATICLIB
 SUFFIX := .exe
 LIBS := -lpcre -lcurl -lwxmsw28u_richtext -lwxmsw28u_aui -lwxbase28u_xml -lwxexpat -lwxmsw28u_html -lwxmsw28u_adv -lwxmsw28u_media -lwxmsw28u_core -lwxbase28u -lwxjpeg -lwxpng -lwxtiff -lrtmp -lssh2 -lidn -lssl -lz -lcrypto -leay32 -lwldap32 -lws2_32 -lgdi32 -lshell32 -lole32 -luuid -lcomdlg32 -lwinspool -lcomctl32 -loleaut32 -lwinmm
-MCFLAGS := -Icurl -isystem wxinclude -Isqlite -Izlib -Isrc -I.
+MCFLAGS += -Icurl -isystem wxinclude -Isqlite -Izlib -Isrc -I.
 TCFLAGS += -Icurl
 HDEPS :=
 EXCOBJS_SRC += sqlite/sqlite3.c
@@ -130,7 +131,7 @@ else
 #UNIX
 PLATFORM := UNIX
 LIBS := -lpcre -lrt `wx-config --libs std $(WXCFGFLAGS)` -lcurl -lsqlite3 -lz
-MCFLAGS := $(patsubst -I/%,-isystem /%,$(shell wx-config --cxxflags $(WXCFGFLAGS)))
+MCFLAGS += $(patsubst -I/%,-isystem /%,$(shell wx-config --cxxflags $(WXCFGFLAGS)))
 
 wxconf := $(shell wx-config --selected-config)
 LIBLIST := libvlc
@@ -138,7 +139,7 @@ ifeq (gtk, $(findstring gtk,$(wxconf)))
 LIBLIST += glib-2.0 gdk-2.0 gtk+-2.0
 endif
 LIBS += `pkg-config --libs $(LIBLIST)`
-MCFLAGS += `pkg-config --cflags $(LIBLIST)` -D USE_LIBVLC
+MCFLAGS += $(patsubst -I/%,-isystem /%,$(shell pkg-config --cflags $(LIBLIST))) -D USE_LIBVLC
 
 endif
 

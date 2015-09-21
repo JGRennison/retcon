@@ -127,7 +127,7 @@ std::string string_format(const std::string &fmt, ...) {
 	while (1) {
 		str.resize(size);
 		va_start(ap, fmt);
-		int n = vsnprintf((char *)str.c_str(), size, fmt.c_str(), ap);
+		int n = vsnprintf(const_cast<char *>(str.c_str()), size, fmt.c_str(), ap);
 		va_end(ap);
 		if (n > -1 && n < size) {
 			str.resize(n);
