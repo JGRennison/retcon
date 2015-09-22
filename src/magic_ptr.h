@@ -182,9 +182,6 @@ template <typename C> struct magic_ptr_ts {
 
 template<typename T> struct magic_ptr_contained : private magic_ptr {
 	friend magic_ptr_container<T>;
-
-	private:
-	magic_ptr ptr;
 };
 
 template<typename T> struct magic_ptr_container {
