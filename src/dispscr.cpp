@@ -1063,8 +1063,8 @@ bool tweetdispscr::CheckHiddenState() {
 		if (bm2) {
 			bm2->Show(show);
 		}
-		for (auto &it : rounded_box_panels) {
-			it->Show(show);
+		if (parent_rounded_box_panel) {
+			parent_rounded_box_panel->Show(show);
 		}
 	};
 
@@ -1117,7 +1117,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 		if (get()) {
 			get()->SetBackgroundColour(colour);
 		}
-		for (auto &it : rounded_box_panels) {
+		for (auto &it : child_rounded_box_panels) {
 			it->SetBackgroundColour(colour);
 		}
 	};

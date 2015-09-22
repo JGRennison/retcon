@@ -839,7 +839,8 @@ void tpanel_subtweet_pending_op::MarkUnpending(tweet_ptr_p t, flagwrapper<UMPTF>
 		tweetdispscr *subtd = window->pimpl()->CreateSubTweetInItemHbox(t, parent_tds, subhbox, parent);
 
 		if (rbpanel) {
-			subtd->rounded_box_panels.insert(rbpanel);
+			parent_tds->child_rounded_box_panels.insert(rbpanel);
+			subtd->parent_rounded_box_panel = rbpanel;
 			rbpanel->SetBackgroundColour(parent_tds->GetBackgroundColour());
 			if (subtd->tds_flags & TDSF::HIDDEN) {
 				rbpanel->Show(false);

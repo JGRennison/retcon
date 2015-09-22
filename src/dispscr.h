@@ -184,7 +184,8 @@ struct tweetdispscr : public dispscr_base, public generic_popup_wrapper_hook {
 	std::unique_ptr<wxTimer> imghideoverridetimer;
 	std::function<void()> loadmorereplies;
 	std::vector<media_entity_raii_updater> media_entity_updaters;
-	magic_ptr_container<rounded_box_panel> rounded_box_panels;
+	magic_ptr_container<rounded_box_panel> child_rounded_box_panels;
+	observer_ptr<rounded_box_panel> parent_rounded_box_panel;
 	wxBoxSizer *vbox = nullptr;
 	unsigned int recursion_depth = 0;
 
