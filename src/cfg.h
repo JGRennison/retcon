@@ -58,6 +58,8 @@ struct genoptconf {
 	genopt userstreams;
 	genopt restinterval;
 	genopt stream_reply_mode;
+	genopt stream_drop_blocked;
+	genopt stream_drop_muted;
 	void CFGWriteOutCurDir(DBWriteConfig &twfc) const;
 	void CFGReadInCurDir(DBReadConfig &twfc, const genoptconf &parent);
 	void InheritFromParent(genoptconf &parent, bool ifunset = false);

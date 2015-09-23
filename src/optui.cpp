@@ -503,6 +503,9 @@ wxStaticBoxSizer *settings_window::AddGenoptconfSettingBlock(wxWindow* parent, w
 	replychoice->Append(wxT("Show *all* stream replies"), (void *) nullptr);
 	AddSettingRow_Common(OPTWIN_TWITTER, parent, fgs, wxT("Streaming mode replies"), flags|DBCV::ADVOPTION, replychoice, GenericChoiceDefaultChkBoxValidator(goc.stream_reply_mode, parentgoc.stream_reply_mode, replychoice));
 
+	AddSettingRow_Bool(OPTWIN_TWITTER, parent, fgs,  wxT("Drop streamed tweets from blocked users"), flags | DBCV::ADVOPTION, goc.stream_drop_blocked, parentgoc.stream_drop_blocked);
+	AddSettingRow_Bool(OPTWIN_TWITTER, parent, fgs,  wxT("Drop streamed tweets from muted users"), flags | DBCV::ADVOPTION, goc.stream_drop_muted, parentgoc.stream_drop_muted);
+
 	AddSettingRow_Bool(OPTWIN_TWITTER, parent, fgs,  wxT("Use SSL\n(Very strongly recommended)"), flags|DBCV::VERYADVOPTION, goc.ssl, parentgoc.ssl);
 	AddSettingRow_String(OPTWIN_TWITTER, parent, fgs, wxT("Twitter API Consumer Key Override"), flags|DBCV::HIDDENDEFAULT|DBCV::VERYADVOPTION, goc.tokenk, parentgoc.tokenk);
 	AddSettingRow_String(OPTWIN_TWITTER, parent, fgs, wxT("Twitter API Consumer Secret Override"), flags|DBCV::HIDDENDEFAULT|DBCV::VERYADVOPTION, goc.tokens, parentgoc.tokens);

@@ -975,8 +975,6 @@ inline udc_ptr CheckParseUserObj(uint64_t id, const rapidjson::Value &val, jsonp
 
 // Returns true if tweet is OK to be used
 bool jsonparser::DoStreamTweetPreFilter(const rapidjson::Value& val) {
-	if (tac->stream_reply_mode == SRM::ALL_REPLIES) return true;
-
 	uint64_t tweetid;
 	CheckTransJsonValueDef(tweetid, val, "id", 0, 0);
 
@@ -1002,6 +1000,12 @@ bool jsonparser::DoStreamTweetPreFilter(const rapidjson::Value& val) {
 		return false;
 	};
 
+	auto is_blocked_userid = [&](uint64_t id) -> bool {
+		if (tac->stream_drop_blocked && tac->blocked_users.count(id)) return true;
+		if (tac->stream_drop_muted && tac->muted_users.count(id)) return true;
+		return false;
+	};
+
 	const rapidjson::Value& text = val["text"];
 
 	auto pre_bin = [&]() {
@@ -1022,6 +1026,28 @@ bool jsonparser::DoStreamTweetPreFilter(const rapidjson::Value& val) {
 		// This is one of our own tweets
 		return true;
 	}
+
+	if (is_blocked_userid(uid)) {
+		// user is blocked/muted
+		pre_bin();
+		return false;
+	}
+	auto &rtval = val["retweeted_status"];
+	if (rtval.IsObject()) {
+		const rapidjson::Value& rtuserobj = rtval["user"];
+		if (rtuserobj.IsObject()) {
+			const rapidjson::Value& rtuseridval = rtuserobj["id"];
+			if (rtuseridval.IsUint64()) {
+				if (is_blocked_userid(rtuseridval.GetUint64())) {
+					// retweet source user is blocked/muted
+					pre_bin();
+					return false;
+				}
+			}
+		}
+	}
+
+	if (tac->stream_reply_mode == SRM::ALL_REPLIES) return true;
 
 	bool is_reply = (text.IsString() && IsTweetAReply(text.GetString()));
 	int first_reply_offset = std::numeric_limits<int>::max();
