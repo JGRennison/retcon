@@ -943,7 +943,7 @@ void settings_changed_notifier::NotifyAll() {
 	}
 }
 
-magic_ptr_container<settings_changed_notifier> settings_changed_notifier::container;
+safe_observer_ptr_container<settings_changed_notifier> settings_changed_notifier::container;
 
 BEGIN_EVENT_TABLE(rounded_box_panel, wxPanel)
 	EVT_PAINT(rounded_box_panel::OnPaint)

@@ -24,7 +24,7 @@
 #include "tpg.h"
 #include "log-impl.h"
 #include "twit.h"
-#include "magic_ptr.h"
+#include "safe_observer_ptr.h"
 #include "dispscr.h"
 #include "optui.h"
 #include "alldata.h"

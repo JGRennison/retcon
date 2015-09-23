@@ -24,7 +24,7 @@
 #include "twit-common.h"
 #include "rbfs.h"
 #include "uiutil.h"
-#include "magic_ptr.h"
+#include "safe_observer_ptr.h"
 #include "flags.h"
 #include "undo.h"
 #include <wx/panel.h>
@@ -60,7 +60,7 @@ typedef std::list<tpanel_disp_item> tpanel_disp_item_list;
 
 struct panelparentwin_base_impl;
 
-struct panelparentwin_base : public wxPanel, public magic_ptr_base {
+struct panelparentwin_base : public wxPanel, public safe_observer_ptr_target {
 	std::unique_ptr<panelparentwin_base_impl> pimpl_ptr;
 
 	std::unique_ptr<bindwxevt_win> evtbinder;

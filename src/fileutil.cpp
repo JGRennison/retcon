@@ -95,7 +95,7 @@ temp_file_holder& temp_file_holder::operator=(temp_file_holder &&other) {
 	return *this;
 }
 
-void temp_file_holder::AddToSet(magic_ptr_container<temp_file_holder> &fileset) {
+void temp_file_holder::AddToSet(safe_observer_ptr_container<temp_file_holder> &fileset) {
 	fileset.insert(this);
 }
 

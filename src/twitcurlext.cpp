@@ -97,7 +97,7 @@ void twitcurlext::HandleFailure(long httpcode, CURLcode res, std::unique_ptr<mcu
 		return;
 	}
 
-	auto win = MagicWindowCast<panelparentwin_base>(mp);
+	auto win = dynamic_cast<panelparentwin_base *>(mp.get());
 	if (win) {
 		win->NotifyRequestFailed();
 	}
@@ -373,7 +373,7 @@ void twitcurlext_rbfs::ParseHandler(const std::shared_ptr<taccount> &acc, jsonpa
 
 		case CONNTYPE::USERTIMELINE:
 		case CONNTYPE::USERFAVS: {
-			auto win = MagicWindowCast<tpanelparentwin_usertweets>(mp);
+			auto win = dynamic_cast<tpanelparentwin_usertweets *>(mp.get());
 			if (win)
 				win->NotifyRequestSuccess();
 			jp.ProcessUserTimelineResponse(rbfs);
@@ -964,7 +964,7 @@ void twitcurlext_simple::ParseHandler(const std::shared_ptr<taccount> &acc, json
 		case CONNTYPE::USERFOLLOWERS:
 		case CONNTYPE::OWNINCOMINGFOLLOWLISTING:
 		case CONNTYPE::OWNOUTGOINGFOLLOWLISTING: {
-			auto win = MagicWindowCast<tpanelparentwin_userproplisting>(mp);
+			auto win = dynamic_cast<tpanelparentwin_userproplisting *>(mp.get());
 			if (win) {
 				jp.ProcessGenericUserFollowListResponse(win);
 			}

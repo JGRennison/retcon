@@ -122,7 +122,7 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 	std::shared_ptr<tpanel> tp;
 	std::shared_ptr<tpanel> tp_base;
 	flagwrapper<TPF_INTERSECT> intersect_flags;
-	magic_ptr_ts<tweetdispscr_mouseoverwin> mouseoverwin;
+	safe_observer_ptr<tweetdispscr_mouseoverwin> mouseoverwin;
 
 	struct tweetbatchqueue_item {
 		uint64_t id;

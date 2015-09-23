@@ -139,7 +139,7 @@ dispscr_mouseoverwin::dispscr_mouseoverwin(wxWindow *parent, panelparentwin_base
 	GetCaret()->Hide();
 }
 
-void dispscr_mouseoverwin::OnMagicPairedPtrChange(dispscr_base *targ, dispscr_base *prevtarg, bool targdestructing) {
+void dispscr_mouseoverwin::OnPairedPtrChange(dispscr_base *targ, dispscr_base *prevtarg, bool targdestructing) {
 	mouse_refcount = 0;
 	if (prevtarg && !targdestructing) {
 		prevtarg->Disconnect(wxEVT_SIZE, wxSizeEventHandler(dispscr_mouseoverwin::targsizehandler), 0, this);
@@ -168,8 +168,8 @@ void dispscr_mouseoverwin::OnMagicPairedPtrChange(dispscr_base *targ, dispscr_ba
 }
 
 void dispscr_mouseoverwin::targsizehandler(wxSizeEvent &event) {
-	if (get()) {
-		Position(get(), event.GetSize());
+	if (get_paired_ptr()) {
+		Position(get_paired_ptr(), event.GetSize());
 	}
 }
 
@@ -229,8 +229,8 @@ void dispscr_mouseoverwin::MouseEnterLeaveEvent(bool enter) {
 }
 
 void dispscr_mouseoverwin::OnMouseEventTimer(wxTimerEvent& event) {
-	if (get() && mouse_refcount == 0) {
-		set(0, true);
+	if (get_paired_ptr() && mouse_refcount == 0) {
+		set_paired_ptr(nullptr, true);
 	}
 }
 
@@ -265,11 +265,11 @@ void dispscr_base::mouseenterhandler(wxMouseEvent &event) {
 	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANELTRACE, "DCL: dispscr_base::mouseenterhandler: %s", cstr(GetThisName()));
 	#endif
-	if (!get()) {
-		set(MakeMouseOverWin());
+	if (!get_paired_ptr()) {
+		set_paired_ptr(MakeMouseOverWin());
 	}
-	if (get()) {
-		get()->MouseEnterLeaveEvent(true);
+	if (get_paired_ptr()) {
+		get_paired_ptr()->MouseEnterLeaveEvent(true);
 	}
 }
 
@@ -277,8 +277,8 @@ void dispscr_base::mouseleavehandler(wxMouseEvent &event) {
 	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANELTRACE, "DCL: dispscr_base::mouseleavehandler: %s", cstr(GetThisName()));
 	#endif
-	if (get()) {
-		get()->MouseEnterLeaveEvent(false);
+	if (get_paired_ptr()) {
+		get_paired_ptr()->MouseEnterLeaveEvent(false);
 	}
 }
 
@@ -1114,8 +1114,8 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 
 	auto set_background = [&](const wxColour &colour) {
 		SetBackgroundColour(colour);
-		if (get()) {
-			get()->SetBackgroundColour(colour);
+		if (get_paired_ptr()) {
+			get_paired_ptr()->SetBackgroundColour(colour);
 		}
 		for (auto &it : child_rounded_box_panels) {
 			it->SetBackgroundColour(colour);
@@ -1304,7 +1304,7 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 	EndAllStyles();
 	EndSuppressUndo();
 
-	dispscr_mouseoverwin *mouseover = get();
+	dispscr_mouseoverwin *mouseover = get_paired_ptr();
 	if (mouseover) {
 		mouseover->RefreshContent();
 	}
@@ -1836,12 +1836,12 @@ void tweetdispscr::OnTweetActMenuCmd(wxCommandEvent &event) {
 
 // These are to stop the mouseover disappearing during a popup on Windows
 void tweetdispscr::BeforePopup() {
-	if (dispscr_mouseoverwin *m = get()) {
+	if (dispscr_mouseoverwin *m = get_paired_ptr()) {
 		m->MouseEnterLeaveEvent(true);
 	}
 }
 void tweetdispscr::AfterPopup() {
-	if (dispscr_mouseoverwin *m = get()) {
+	if (dispscr_mouseoverwin *m = get_paired_ptr()) {
 		m->MouseEnterLeaveEvent(false);
 	}
 }
@@ -1870,7 +1870,7 @@ bool tweetdispscr_mouseoverwin::RefreshContent() {
 	SetDefaultStyle(attr);
 	Clear();
 
-	dispscr_base *targwin = get();
+	dispscr_base *targwin = get_paired_ptr();
 	if (targwin) {
 		SetBackgroundColour(targwin->GetBackgroundColour());
 	}

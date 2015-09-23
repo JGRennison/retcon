@@ -24,7 +24,7 @@
 #include "twit-common.h"
 #include "libtwitcurl/twitcurl.h"
 #include "socket.h"
-#include "magic_ptr.h"
+#include "safe_observer_ptr.h"
 #include "flags.h"
 #include "observer_ptr.h"
 #include "util.h"
@@ -57,7 +57,7 @@ struct twitcurlext: public twitCurl, public mcurlconn {
 	flagwrapper<TCF> tc_flags = 0;
 	flagwrapper<PAF> post_action_flags = 0;
 	observer_ptr<mainframe> ownermainframe;
-	magic_ptr mp;
+	safe_observer_untyped_ptr mp;
 
 	struct NotifyDoneSuccessState {
 		bool do_post_actions = true;

@@ -20,7 +20,7 @@
 #define HGUARD_SRC_TWIT
 
 #include "univdefs.h"
-#include "magic_ptr.h"
+#include "safe_observer_ptr.h"
 #include "twit-common.h"
 #include "twitcurlext-common.h"
 #include "tpanel-common.h"
@@ -299,7 +299,7 @@ struct rt_pending_op : public pending_op {
 };
 
 struct tpanelload_pending_op : public pending_op {
-	magic_ptr_ts<tpanelparentwin_nt> win;
+	safe_observer_ptr<tpanelparentwin_nt> win;
 	std::weak_ptr<tpanel> pushtpanel;
 	flagwrapper<PUSHFLAGS> pushflags;
 
@@ -311,7 +311,7 @@ struct tpanelload_pending_op : public pending_op {
 };
 
 // Note that this adds itself to ad.handlenew_pending_ops
-struct handlenew_pending_op : public pending_op, public magic_ptr_contained<handlenew_pending_op> {
+struct handlenew_pending_op : public pending_op, public safe_observer_ptr_contained<handlenew_pending_op> {
 	std::weak_ptr<taccount> tac;
 	flagwrapper<ARRIVAL> arr;
 	uint64_t tweet_id;

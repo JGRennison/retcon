@@ -174,7 +174,7 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 
 	nb->AddPage(infopanel, wxT("Info"), true);
 
-	magic_ptr_ts<user_window> safe_win_ptr(this);
+	safe_observer_ptr<user_window> safe_win_ptr(this);
 	std::function<std::shared_ptr<taccount>()> getacc = [safe_win_ptr]() -> std::shared_ptr<taccount> {
 		std::shared_ptr<taccount> uw_acc;
 		user_window *uw = safe_win_ptr.get();

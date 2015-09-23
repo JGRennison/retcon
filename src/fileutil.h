@@ -21,7 +21,7 @@
 
 #include "univdefs.h"
 #include "hash.h"
-#include "magic_ptr.h"
+#include "safe_observer_ptr.h"
 #include <wx/string.h>
 #include <string>
 #include <memory>
@@ -32,7 +32,7 @@ bool LoadFromFile(const wxString &filename, std::string &out);
 bool LoadImageFromFileAndCheckHash(const wxString &filename, shb_iptr hash, wxImage &img);
 bool LoadFromFileAndCheckHash(const wxString &filename, shb_iptr hash, std::string &out);
 
-struct temp_file_holder : public magic_ptr_contained<temp_file_holder> {
+struct temp_file_holder : public safe_observer_ptr_contained<temp_file_holder> {
 	private:
 	std::string filename;
 
@@ -44,7 +44,7 @@ struct temp_file_holder : public magic_ptr_contained<temp_file_holder> {
 	~temp_file_holder();
 	temp_file_holder& operator=(temp_file_holder &&other);
 	temp_file_holder& operator=(const temp_file_holder &other) = delete;
-	void AddToSet(magic_ptr_container<temp_file_holder> &fileset);
+	void AddToSet(safe_observer_ptr_container<temp_file_holder> &fileset);
 	void Init(const std::string &name);
 	void Reset();
 	const std::string &GetFilename() { return filename; }

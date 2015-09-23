@@ -21,7 +21,7 @@
 
 #include "univdefs.h"
 #include "uiutil.h"
-#include "magic_ptr.h"
+#include "safe_observer_ptr.h"
 #include <wx/menu.h>
 #include <wx/event.h>
 #include <wx/aui/aui.h>
@@ -99,7 +99,7 @@ public:
 };
 
 struct tweetpostctrlcommon : public commonRichTextCtrl, public settings_changed_notifier {
-	magic_ptr_ts<tweetpostwin> parent;
+	safe_observer_ptr<tweetpostwin> parent;
 	int lastheight = 0;
 
 	tweetpostctrlcommon(tweetpostwin *parent_, wxWindowID id = wxID_ANY, const wxString &text = wxEmptyString, long style = wxRE_MULTILINE);
@@ -134,7 +134,7 @@ enum {
 	TPWID_DELIMG,
 };
 
-struct tweetpostwin : public wxPanel, public magic_ptr_base {
+struct tweetpostwin : public wxPanel, public safe_observer_ptr_target {
 	tweetposttextbox *textctrl = nullptr;
 	wxWindow *parentwin = nullptr;
 	mainframe *mparentwin = nullptr;

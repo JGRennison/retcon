@@ -27,7 +27,7 @@
 #include "../twit.h"
 #include "../tpanel.h"
 #include "../retcon.h"
-#include "../magic_ptr.h"
+#include "../safe_observer_ptr.h"
 #include <wx/stattext.h>
 #include <wx/checkbox.h>
 #include <wx/textctrl.h>
@@ -69,7 +69,7 @@ struct filter_dlg_shared_state {
 
 	// This is to handle the case where the filter_dlg_shared_state is destructed after the app,
 	// This can happen if the last shared_ptr was held by an object destructed at exit (e.g. a tweet with a pending filter op).
-	magic_ptr_ts<retcon> app;
+	safe_observer_ptr<retcon> app;
 
 	filter_dlg_shared_state() {
 		app = &(wxGetApp());

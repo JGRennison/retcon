@@ -20,10 +20,9 @@
 #define HGUARD_SRC_RETCON
 
 #include "univdefs.h"
-#include "magic_ptr.h"
+#include "safe_observer_ptr.h"
 #include "fileutil.h"
 #include "undo.h"
-#include "magic_ptr.h"
 #include <wx/app.h>
 #include <wx/event.h>
 #include <string>
@@ -42,7 +41,7 @@ namespace ThreadPool {
 	class Pool;
 }
 
-class retcon: public wxApp, public magic_ptr_base {
+class retcon: public wxApp, public safe_observer_ptr_target {
 	virtual bool OnInit();
 	virtual int OnExit();
 	int FilterEvent(wxEvent &event);
@@ -60,7 +59,7 @@ class retcon: public wxApp, public magic_ptr_base {
 	std::string datadir;
 	std::string tmpdir;
 	unsigned int popuprecursion = 0;
-	magic_ptr_container<temp_file_holder> temp_file_set;
+	safe_observer_ptr_container<temp_file_holder> temp_file_set;
 	undo::undo_stack undo_state;
 
 	void EnqueuePending(std::function<void()> &&f);

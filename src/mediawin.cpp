@@ -146,7 +146,7 @@ void VLC_Log_CB(void *data, int level, const libvlc_log_t *ctx, const char *fmt,
 	free(str);
 }
 
-struct media_ctrl_panel : public wxPanel, public magic_ptr_base {
+struct media_ctrl_panel : public wxPanel, public safe_observer_ptr_target {
 	wxWindow *player_widget = nullptr;
 	libvlc_media_player_t *media_player = nullptr;
 	libvlc_instance_t *vlc_inst = nullptr;
@@ -230,7 +230,7 @@ END_EVENT_TABLE()
 
 #else
 
-struct media_ctrl_panel : public wxMediaCtrl, public magic_ptr_base {
+struct media_ctrl_panel : public wxMediaCtrl, public safe_observer_ptr_target {
 	media_ctrl_panel(wxWindow *parent, wxSize size = wxDefaultSize)
 			: wxMediaCtrl(parent, wxID_ANY, wxT(""), wxDefaultPosition, size) { }
 
@@ -278,7 +278,7 @@ struct media_display_win_pimpl : public wxEvtHandler {
 	bool using_anim_ctrl = false;
 #endif
 
-	magic_ptr_ts<media_ctrl_panel> media_ctrl;
+	safe_observer_ptr<media_ctrl_panel> media_ctrl;
 	bool using_media_ctrl = false;
 	bool is_video = false;
 	std::vector<video_entity::video_variant> video_variants;

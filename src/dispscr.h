@@ -20,7 +20,7 @@
 #define HGUARD_SRC_DISPSCR
 
 #include "univdefs.h"
-#include "magic_ptr.h"
+#include "safe_observer_ptr.h"
 #include "uiutil.h"
 #include "flags.h"
 #include <wx/colour.h>
@@ -61,7 +61,7 @@ enum class TDSF {    //for tweetdispscr.tds_flags
 };
 template<> struct enum_traits<TDSF> { static constexpr bool flags = true; };
 
-struct generic_disp_base : public commonRichTextCtrl, public magic_ptr_base {
+struct generic_disp_base : public commonRichTextCtrl, public safe_observer_ptr_target {
 	panelparentwin_base *tppw;
 	wxColour default_background_colour;
 	wxColour default_foreground_colour;
@@ -112,13 +112,13 @@ inline void generic_disp_base::CheckRefresh() {
 	}
 }
 
-struct dispscr_mouseoverwin : generic_disp_base, public magic_paired_ptr_ts<dispscr_base, dispscr_mouseoverwin> {
+struct dispscr_mouseoverwin : generic_disp_base, public safe_paired_observer_ptr<dispscr_base, dispscr_mouseoverwin> {
 	unsigned int mouse_refcount = 0;
 	wxTimer mouseevttimer;
 	wxWindow *orig_parent = nullptr;
 
 	dispscr_mouseoverwin(wxWindow *parent, panelparentwin_base *tppw_, wxString thisname_ = wxT(""));
-	virtual void OnMagicPairedPtrChange(dispscr_base *targ, dispscr_base *prevtarg, bool targdestructing) override;
+	virtual void OnPairedPtrChange(dispscr_base *targ, dispscr_base *prevtarg, bool targdestructing) override;
 	void Position(wxWindow *targ, const wxSize &targ_size);
 	void targsizehandler(wxSizeEvent &event);
 	virtual bool RefreshContent() { return false; }
@@ -132,7 +132,7 @@ struct dispscr_mouseoverwin : generic_disp_base, public magic_paired_ptr_ts<disp
 	DECLARE_EVENT_TABLE()
 };
 
-struct dispscr_base : public generic_disp_base, public magic_paired_ptr_ts<dispscr_mouseoverwin, dispscr_base> {
+struct dispscr_base : public generic_disp_base, public safe_paired_observer_ptr<dispscr_mouseoverwin, dispscr_base> {
 	tpanel_item *tpi;
 	wxBoxSizer *hbox;
 
@@ -151,7 +151,7 @@ struct dispscr_base : public generic_disp_base, public magic_paired_ptr_ts<disps
 struct tweetdispscr_mouseoverwin : public dispscr_mouseoverwin {
 	tweet_ptr td;
 	flagwrapper<TDSF> tds_flags = 0;
-	magic_ptr_ts<tweetdispscr> current_tds;
+	safe_observer_ptr<tweetdispscr> current_tds;
 
 	tweetdispscr_mouseoverwin(wxWindow *parent, panelparentwin_base *tppw_, wxString thisname_ = wxT(""));
 	virtual bool RefreshContent() override;
@@ -179,12 +179,12 @@ struct tweetdispscr : public dispscr_base, public generic_popup_wrapper_hook {
 	long reltimeend;
 	uint64_t rtid;
 	flagwrapper<TDSF> tds_flags = 0;
-	std::vector<magic_ptr_ts<tweetdispscr> > subtweets;
-	magic_ptr_ts<tweetdispscr> parent_tweet;
+	std::vector<safe_observer_ptr<tweetdispscr> > subtweets;
+	safe_observer_ptr<tweetdispscr> parent_tweet;
 	std::unique_ptr<wxTimer> imghideoverridetimer;
 	std::function<void()> loadmorereplies;
 	std::vector<media_entity_raii_updater> media_entity_updaters;
-	magic_ptr_container<rounded_box_panel> child_rounded_box_panels;
+	safe_observer_ptr_container<rounded_box_panel> child_rounded_box_panels;
 	observer_ptr<rounded_box_panel> parent_rounded_box_panel;
 	wxBoxSizer *vbox = nullptr;
 	unsigned int recursion_depth = 0;

@@ -22,7 +22,7 @@
 #include "univdefs.h"
 #include "twit.h"
 #include "flags.h"
-#include "magic_ptr.h"
+#include "safe_observer_ptr.h"
 #include <wx/aui/auibook.h>
 #include <wx/scrolbar.h>
 #include <wx/panel.h>
@@ -101,7 +101,7 @@ struct tpanel_item : public wxPanel {
 	DECLARE_EVENT_TABLE()
 };
 
-struct tpanelscrollbar : public wxScrollBar, public magic_paired_ptr_ts<tpanelscrollpane, tpanelscrollbar> {
+struct tpanelscrollbar : public wxScrollBar, public safe_paired_observer_ptr<tpanelscrollpane, tpanelscrollbar> {
 	panelparentwin_base *parent;
 	bool page_scroll_blocked;
 	wxString thisname;
@@ -127,7 +127,7 @@ struct tpanelscrollbar : public wxScrollBar, public magic_paired_ptr_ts<tpanelsc
 	DECLARE_EVENT_TABLE()
 };
 
-struct tpanelscrollpane : public wxPanel, public magic_paired_ptr_ts<tpanelscrollbar, tpanelscrollpane> {
+struct tpanelscrollpane : public wxPanel, public safe_paired_observer_ptr<tpanelscrollbar, tpanelscrollpane> {
 	panelparentwin_base *parent;
 	wxString thisname;
 	bool resize_update_pending;
@@ -149,8 +149,8 @@ struct tpanel_subtweet_pending_op : public pending_op {
 
 	struct tspo_action_data {
 		wxSizer *vbox;
-		magic_ptr_ts<tpanelparentwin_nt> win;
-		magic_ptr_ts<tweetdispscr> parent_tds;
+		safe_observer_ptr<tpanelparentwin_nt> win;
+		safe_observer_ptr<tweetdispscr> parent_tds;
 		unsigned int load_count = 0;
 		tspo_type type;
 	};

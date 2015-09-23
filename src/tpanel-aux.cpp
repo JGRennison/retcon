@@ -546,7 +546,7 @@ void tpanelscrollbar::OnScrollHandler(wxScrollEvent &event) {
 // This determines the scrollbar size and position such that, where possible
 // the item at the top of the visible screen is unmoved
 void tpanelscrollbar::RepositionItems() {
-	tpanelscrollpane *tsp = get();
+	tpanelscrollpane *tsp = get_paired_ptr();
 	if (!tsp) return;
 
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
@@ -676,7 +676,7 @@ void tpanelscrollpane::resizemsghandler(wxCommandEvent &event) {
 	#if TPANEL_SCROLLING_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANELTRACE, "TSCL: tpanelscrollpane::resizemsghandler %s", cstr(GetThisName()));
 	#endif
-	if (tpanelscrollbar *tsb = get()) {
+	if (tpanelscrollbar *tsb = get_paired_ptr()) {
 		tsb->RepositionItems();
 	}
 	resize_update_pending = false;
@@ -686,7 +686,7 @@ void tpanelscrollpane::resizemsghandler(wxCommandEvent &event) {
 }
 
 void tpanelscrollpane::mousewheelhandler(wxMouseEvent &event) {
-	if (tpanelscrollbar *tsb = get()) {
+	if (tpanelscrollbar *tsb = get_paired_ptr()) {
 		event.SetEventObject(tsb);
 		tsb->GetEventHandler()->ProcessEvent(event);
 	}

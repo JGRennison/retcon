@@ -382,7 +382,7 @@ panelparentwin_base::panelparentwin_base(wxWindow *parent, bool fitnow, wxString
 
 	pimpl()->scrollbar = new tpanelscrollbar(this);
 	pimpl()->scrollpane = new tpanelscrollpane(this);
-	pimpl()->scrollbar->set(pimpl()->scrollpane);
+	pimpl()->scrollbar->set_paired_ptr(pimpl()->scrollpane);
 	wxBoxSizer* lowerhsizer = new wxBoxSizer(wxHORIZONTAL);
 	lowerhsizer->Add(pimpl()->scrollpane, 1, wxEXPAND, 0);
 	lowerhsizer->Add(pimpl()->scrollbar, 0, wxEXPAND, 0);

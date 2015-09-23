@@ -20,7 +20,7 @@
 #define HGUARD_SRC_USERUI
 
 #include "univdefs.h"
-#include "magic_ptr.h"
+#include "safe_observer_ptr.h"
 #include "flags.h"
 #include "ptr_types.h"
 #include <wx/hyperlink.h>
@@ -62,7 +62,7 @@ struct user_window_timer: public wxTimer {
 	void Notify();
 };
 
-struct user_window: public wxDialog, public magic_ptr_base {
+struct user_window: public wxDialog, public safe_observer_ptr_target {
 	uint64_t userid;
 	udc_ptr u;
 	std::weak_ptr<taccount> acc_hint;
