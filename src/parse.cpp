@@ -1446,21 +1446,32 @@ void jsonparser::DoEventParse(const rapidjson::Value &val) {
 		}
 	};
 
+	auto block_update = [&](BLOCKTYPE type, bool now_blocked) {
+		auto targ = DoUserParse(val["target"]);
+		if (targ->id != tac->usercont->id) {
+			tac->SetUserIdBlockedState(targ->id, type, now_blocked);
+		}
+	};
+
 	std::string str = val["event"].GetString();
 	if (str == "user_update") {
 		DoUserParse(val["target"]);
-	}
-	else if (str == "follow") {
+	} else if (str == "follow") {
 		follow_update(true);
-	}
-	else if (str == "unfollow") {
+	} else if (str == "unfollow") {
 		follow_update(false);
-	}
-	else if (str == "favorite") {
+	} else if (str == "favorite") {
 		favourite_update(true);
-	}
-	else if (str == "unfavorite") {
+	} else if (str == "unfavorite") {
 		favourite_update(false);
+	} else if (str == "block") {
+		block_update(BLOCKTYPE::BLOCK, true);
+	} else if (str == "unblock") {
+		block_update(BLOCKTYPE::BLOCK, false);
+	} else if (str == "mute") {
+		block_update(BLOCKTYPE::MUTE, true);
+	} else if (str == "unmute") {
+		block_update(BLOCKTYPE::MUTE, false);
 	}
 }
 
