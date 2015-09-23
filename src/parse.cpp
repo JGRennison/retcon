@@ -566,6 +566,8 @@ void jsonparser::DoFriendLookupParse(const rapidjson::Value &val) {
 				const rapidjson::Value& cons = val[i]["connections"];
 				if (cons.IsArray()) {
 					tac->SetUserRelationship(userid, URF::IFOLLOW_KNOWN | URF::FOLLOWSME_KNOWN, optime);
+					bool is_muting = false;
+					bool is_blocked = false;
 					for (rapidjson::SizeType j = 0; j < cons.Size(); j++) {
 						if (cons[j].IsString()) {
 							std::string conn_type = cons[j].GetString();
@@ -575,11 +577,20 @@ void jsonparser::DoFriendLookupParse(const rapidjson::Value &val) {
 								tac->SetUserRelationship(userid, URF::IFOLLOW_KNOWN | URF::IFOLLOW_PENDING, optime);
 							} else if (conn_type == "followed_by") {
 								tac->SetUserRelationship(userid, URF::FOLLOWSME_KNOWN | URF::FOLLOWSME_TRUE, optime);
+							} else if (conn_type == "none") {
+								// no action, as we initialise to this value anyway
+							} else if (conn_type == "muting") {
+								is_muting = true;
+							} else if (conn_type == "blocking") {
+								is_blocked = true;
+							} else {
+								LogMsgFormat(LOGT::PARSEERR, "taccount::DoFriendLookupParse: %s: %s: unexpected friendship type: '%s'",
+										cstr(tac->dispname), cstr(user_short_log_line(userid)), cstr(conn_type));
 							}
-							//else if (conn_type == "none") tac->SetUserRelationship(userid, URF::IFOLLOW_KNOWN | URF::FOLLOWSME_KNOWN, optime);
-							//This last line is redundant, as we initialise to that value anyway
 						}
 					}
+					tac->SetUserIdBlockedState(userid, BLOCKTYPE::MUTE, is_muting);
+					tac->SetUserIdBlockedState(userid, BLOCKTYPE::BLOCK, is_blocked);
 				}
 			}
 		}
@@ -654,6 +665,7 @@ void jsonparser::ProcessStreamResponse(bool out_of_date_parse) {
 
 		if (twit && (twit->post_action_flags & PAF::STREAM_CONN_READ_BACKFILL)) {
 			tac->GetRestBackfill();
+			tac->CheckUpdateBlockLists();
 		}
 		user_window::RefreshAllFollow();
 		tac->GetUsersFollowingMeList();
@@ -817,6 +829,24 @@ void jsonparser::ProcessTwitterErrorJson(std::vector<TwitterErrorMsg> &msgs) {
 			}
 		}
 	}
+}
+
+int64_t jsonparser::ProcessGetBlockListCursoredResponse(useridset &block_id_list) {
+	const rapidjson::Document &dc = data->doc;
+
+	if (!dc.IsObject()) {
+		return 0;
+	}
+	auto &dci = dc["ids"];
+	if (!dci.IsArray()) {
+		return 0;
+	}
+
+	for (rapidjson::SizeType i = 0; i < dci.Size(); i++) {
+		block_id_list.insert(dci[i].GetUint64());
+	}
+
+	return CheckGetJsonValueDef<int64_t>(dc, "next_cursor", 0);
 }
 
 //don't use this for perspectival attributes

@@ -147,6 +147,8 @@ void taccount_cfg::CFGWriteOut(DBWriteConfig &twfc) const {
 	twfc.WriteWX("dispname", dispname);
 	twfc.WriteInt64("ur_ifollow_have_list", ur_ifollow_have_list);
 	twfc.WriteInt64("ur_followsme_have_list", ur_followsme_have_list);
+	twfc.WriteInt64("last_block_fetch_time", last_block_fetch_time);
+	twfc.WriteInt64("last_mute_fetch_time", last_mute_fetch_time);
 }
 
 void taccount_cfg::CFGReadInBase(DBReadConfig &twfc) {
@@ -162,6 +164,8 @@ void taccount_cfg::CFGReadInBase(DBReadConfig &twfc) {
 	twfc.Read("dispname", &dispname, wxT(""));
 	twfc.ReadBool("ur_ifollow_have_list", &ur_ifollow_have_list, false);
 	twfc.ReadBool("ur_followsme_have_list", &ur_followsme_have_list, false);
+	twfc.ReadUInt64("last_block_fetch_time", &last_block_fetch_time, 0);
+	twfc.ReadUInt64("last_mute_fetch_time", &last_mute_fetch_time, 0);
 }
 
 void taccount_cfg::UnShareStrings() {

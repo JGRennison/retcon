@@ -29,4 +29,9 @@ enum class PAF {
 };
 template<> struct enum_traits<PAF> { static constexpr bool flags = true; };
 
+enum class BLOCKTYPE {
+	BLOCK,
+	MUTE,
+};
+
 #endif

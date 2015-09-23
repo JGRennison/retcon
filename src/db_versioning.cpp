@@ -24,7 +24,7 @@
 #include "twit-common.h"
 #include <wx/msgdlg.h>
 
-static const unsigned int db_version = 7;
+static const unsigned int db_version = 8;
 
 static const char *update_sql[] = {
 	"ALTER TABLE mediacache ADD COLUMN lastusedtimestamp INTEGER;"
@@ -51,6 +51,10 @@ static const char *update_sql[] = {
 	"ALTER TABLE tpanelwins ADD COLUMN tppw_flags INTEGER;"
 	"UPDATE OR IGNORE tpanelwins SET tppw_flags = 1;" // mark as not valid
 	// add extra columns to tpanelwins
+	,
+	"ALTER TABLE acc ADD COLUMN blockedids BLOB;"
+	"ALTER TABLE acc ADD COLUMN mutedids BLOB;"
+	// add blocked and muted columns to acc table
 };
 
 // return false if all bets are off and DB should not be read

@@ -342,6 +342,76 @@ void taccount::NotifyTweetFavouriteEvent(uint64_t tweetid, uint64_t userid, bool
 	});
 }
 
+void taccount::NotifyBlockListChange(BLOCKTYPE type, uint64_t userid, bool now_blocked) {
+	std::string evttype;
+	switch (type) {
+		case BLOCKTYPE::BLOCK:
+			evttype = now_blocked ? "has been blocked" : "has been unblocked";
+			break;
+
+		case BLOCKTYPE::MUTE:
+			evttype = now_blocked ? "has been muted" : "has been unmuted";
+			break;
+	}
+	LogMsgFormat(LOGT::NOTIFYEVT, "taccount::NotifyBlockListChange: %s: %s %s",
+			cstr(dispname), cstr(user_short_log_line(userid)), cstr(evttype));
+
+	optional_udc_ptr udc = ad.GetExistingUserContainerById(userid);
+	if (udc && udc->udc_flags & UDC::WINDOWOPEN) {
+		user_window::CheckRefresh(userid, false);
+	}
+}
+
+useridset &taccount::GetBlockList(BLOCKTYPE type) {
+	switch (type) {
+		case BLOCKTYPE::BLOCK:
+			return blocked_users;
+
+		case BLOCKTYPE::MUTE:
+			return muted_users;
+	}
+	__builtin_unreachable();
+}
+
+void taccount::UpdateBlockListFetchTime(BLOCKTYPE type) {
+	switch (type) {
+		case BLOCKTYPE::BLOCK:
+			last_block_fetch_time = time(nullptr);
+			break;
+
+		case BLOCKTYPE::MUTE:
+			last_mute_fetch_time = time(nullptr);
+			break;
+	}
+}
+
+void taccount::ReplaceBlockList(BLOCKTYPE type, useridset new_ids) {
+	useridset &current_ids = GetBlockList(type);
+	std::vector<uint64_t> symdiff;
+	std::set_symmetric_difference(
+			current_ids.begin(), current_ids.end(),
+			new_ids.begin(), new_ids.end(),
+			std::back_inserter(symdiff));
+	current_ids = std::move(new_ids);
+
+	for (uint64_t id : symdiff) {
+		NotifyBlockListChange(type, id, current_ids.count(id));
+	}
+}
+
+void taccount::SetUserIdBlockedState(uint64_t user_id, BLOCKTYPE type, bool blocked) {
+	useridset &current_ids = GetBlockList(type);
+	if (blocked) {
+		if (current_ids.insert(user_id).second) {
+			NotifyBlockListChange(type, user_id, true);
+		}
+	} else {
+		if (current_ids.erase(user_id)) {
+			NotifyBlockListChange(type, user_id, false);
+		}
+	}
+}
+
 void taccount::OnRestTimer(wxTimerEvent& event) {
 	SetupRestBackfillTimer();
 }
@@ -356,6 +426,7 @@ void taccount::SetupRestBackfillTimer() {
 	int timeleft;
 	if (targettime <= (now + 10)) {    //10s of error margin
 		GetRestBackfill();
+		CheckUpdateBlockLists();
 		timeleft = restinterval;
 	} else {
 		timeleft = targettime - now;
@@ -397,6 +468,29 @@ void taccount::GetRestBackfill() {
 	if (!gc.assumementionistweet) {
 		if (oktostart(RBFS_MENTIONS)) StartRestGetTweetBackfill(GetMaxId(RBFS_MENTIONS), 0, 800, RBFS_MENTIONS);
 	}
+}
+
+void taccount::CheckUpdateBlockLists() {
+	auto oktostart = [&](BLOCKTYPE type) {
+		bool result = true;
+		twitcurlext::IterateConnsByAcc<twitcurlext_block_list>(shared_from_this(), [&](const twitcurlext_block_list &it) {
+			if (it.blocktype == type) {
+				result = false;    //already present
+				return true;
+			}
+			return false;
+		});
+		return result;
+	};
+
+	auto trytostart = [&](BLOCKTYPE type, uint64_t last_update_time) {
+		if (time(nullptr) > (time_t) (last_update_time + (4 * 60 * 60)) && oktostart(type)) {
+			twitcurlext::QueueAsyncExec(twitcurlext_block_list::make_new(shared_from_this(), type));
+		}
+	};
+
+	trytostart(BLOCKTYPE::BLOCK, last_block_fetch_time);
+	trytostart(BLOCKTYPE::MUTE, last_mute_fetch_time);
 }
 
 //limits are inclusive

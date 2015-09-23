@@ -308,4 +308,17 @@ struct twitcurlext_simple: public twitcurlext {
 	virtual void HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) override;
 };
 
+struct twitcurlext_block_list: public twitcurlext {
+	BLOCKTYPE blocktype;
+	useridset block_id_list;
+	int64_t current_cursor = -1;
+
+	static std::unique_ptr<twitcurlext_block_list> make_new(std::shared_ptr<taccount> acc, BLOCKTYPE type);
+
+	virtual void NotifyDoneSuccessHandler(const std::shared_ptr<taccount> &acc, NotifyDoneSuccessState &state) override;
+	virtual void ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) override;
+	virtual std::string GetConnTypeNameBase() override;
+	virtual void HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) override;
+};
+
 #endif

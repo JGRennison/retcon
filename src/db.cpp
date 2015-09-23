@@ -88,7 +88,7 @@ static const char *startup_sql=
 "PRAGMA locking_mode = EXCLUSIVE;"
 "CREATE TABLE IF NOT EXISTS tweets(id INTEGER PRIMARY KEY NOT NULL, statjson BLOB, dynjson BLOB, userid INTEGER, userrecipid INTEGER, flags INTEGER, timestamp INTEGER, rtid INTEGER);"
 "CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY NOT NULL, json BLOB, cachedprofimgurl BLOB, createtimestamp INTEGER, lastupdatetimestamp INTEGER, cachedprofileimgchecksum BLOB, mentionindex BLOB, profimglastusedtimestamp INTEGER);"
-"CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, dispname TEXT, json BLOB, tweetids BLOB, dmids BLOB, userid INTEGER);"
+"CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, dispname TEXT, json BLOB, tweetids BLOB, dmids BLOB, blockedids BLOB, mutedids BLOB, userid INTEGER);"
 "CREATE TABLE IF NOT EXISTS settings(accid BLOB, name TEXT, value BLOB, PRIMARY KEY (accid, name));"
 "CREATE TABLE IF NOT EXISTS rbfspending(accid INTEGER, type INTEGER, startid INTEGER, endid INTEGER, maxleft INTEGER);"
 "CREATE TABLE IF NOT EXISTS mediacache(mid INTEGER, tid INTEGER, url BLOB, fullchecksum BLOB, thumbchecksum BLOB, flags INTEGER, lastusedtimestamp INTEGER, PRIMARY KEY (mid, tid));"
@@ -112,7 +112,7 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"COMMIT;",
 	"INSERT OR REPLACE INTO users(id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex, profimglastusedtimestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
 	"INSERT INTO acc(name, dispname, userid) VALUES (?, ?, ?);",
-	"UPDATE acc SET tweetids = ?, dmids = ?, dispname = ? WHERE id == ?;",
+	"UPDATE acc SET tweetids = ?, dmids = ?, blockedids = ?, mutedids = ?, dispname = ? WHERE id == ?;",
 	"SELECT statjson, dynjson, userid, userrecipid, flags, timestamp, rtid FROM tweets WHERE id == ?;",
 	"INSERT INTO rbfspending(accid, type, startid, endid, maxleft) VALUES (?, ?, ?, ?, ?);",
 	"SELECT url, fullchecksum, thumbchecksum, flags, lastusedtimestamp FROM mediacache WHERE (mid == ? AND tid == ?);",
@@ -1585,12 +1585,11 @@ void dbconn::InsertNewEventLogEntry(optional_observer_ptr<dbsendmsg_list> msglis
 	SendMessageOrAddToList(std::move(msg), msglist);
 }
 
-//tweetids, dmids are big endian in database
 void dbconn::AccountSync(sqlite3 *adb) {
 	LogMsg(LOGT::DBINFO, "dbconn::AccountSync start");
 
 	unsigned int total = 0;
-	DBRowExecNoError(adb, "SELECT id, name, tweetids, dmids, userid, dispname FROM acc;", [&](sqlite3_stmt *getstmt) {
+	DBRowExecNoError(adb, "SELECT id, name, tweetids, dmids, userid, dispname, blockedids, mutedids FROM acc;", [&](sqlite3_stmt *getstmt) {
 		unsigned int id = (unsigned int) sqlite3_column_int(getstmt, 0);
 		wxString name = wxString::FromUTF8((const char*) sqlite3_column_text(getstmt, 1));
 
@@ -1601,15 +1600,20 @@ void dbconn::AccountSync(sqlite3 *adb) {
 
 		setfromcompressedblob(ta->tweet_ids, getstmt, 2);
 		setfromcompressedblob(ta->dm_ids, getstmt, 3);
+		setfromcompressedblob(ta->blocked_users, getstmt, 6);
+		setfromcompressedblob(ta->muted_users, getstmt, 7);
 		total += ta->tweet_ids.size();
 		total += ta->dm_ids.size();
+		total += ta->blocked_users.size();
+		total += ta->muted_users.size();
 
 		uint64_t userid = (uint64_t) sqlite3_column_int64(getstmt, 4);
 		ta->usercont = SyncReadInUser(adb, userid);
 		ta->dispname = wxString::FromUTF8((const char*) sqlite3_column_text(getstmt, 5));
 
-		LogMsgFormat(LOGT::DBINFO, "dbconn::AccountSync: Found account: dbindex: %d, name: %s, tweet IDs: %u, DM IDs: %u",
-				id, cstr(name), ta->tweet_ids.size(), ta->dm_ids.size());
+		LogMsgFormat(LOGT::DBINFO, "dbconn::AccountSync: Found account: dbindex: %d, "
+				"name: %s, tweet IDs: %u, DM IDs: %u, blocked IDs: %u, muted IDs: %u",
+				id, cstr(name), ta->tweet_ids.size(), ta->dm_ids.size(), ta->blocked_users.size(), ta->muted_users.size());
 	});
 	LogMsgFormat(LOGT::DBINFO, "dbconn::AccountSync end, total: %u IDs", total);
 }
@@ -1977,6 +1981,12 @@ namespace {
 
 			db_bind_buffer_persistent<dbb_compressed> dm_blob;
 			size_t dm_count;
+
+			db_bind_buffer_persistent<dbb_compressed> blocked_blob;
+			size_t blocked_count;
+
+			db_bind_buffer_persistent<dbb_compressed> muted_blob;
+			size_t muted_count;
 		};
 
 		//Where F is a functor of the form void(itemdata &&)
@@ -1990,6 +2000,12 @@ namespace {
 
 				data.dm_count = it->dm_ids.size();
 				data.dm_blob = settocompressedblob_desc(it->dm_ids);
+
+				data.blocked_count = it->blocked_users.size();
+				data.blocked_blob = settocompressedblob_desc(it->blocked_users);
+
+				data.muted_count = it->muted_users.size();
+				data.muted_blob = settocompressedblob_desc(it->muted_users);
 
 				data.dispname = stdstrwx(it->dispname);
 				data.dbindex = it->dbindex;
@@ -2008,18 +2024,21 @@ namespace {
 			getfunc([&](itemdata &&data) {
 				bind_compressed(setstmt, 1, std::move(data.tweet_blob), 'Z');
 				bind_compressed(setstmt, 2, std::move(data.dm_blob), 'Z');
-				sqlite3_bind_text(setstmt, 3, data.dispname.c_str(), data.dispname.size(), SQLITE_TRANSIENT);
-				sqlite3_bind_int(setstmt, 4, data.dbindex);
+				bind_compressed(setstmt, 3, std::move(data.blocked_blob), 'Z');
+				bind_compressed(setstmt, 4, std::move(data.muted_blob), 'Z');
+				sqlite3_bind_text(setstmt, 5, data.dispname.c_str(), data.dispname.size(), SQLITE_TRANSIENT);
+				sqlite3_bind_int(setstmt, 6, data.dbindex);
 
-				total += data.tweet_count + data.dm_count;
+				total += data.tweet_count + data.dm_count + data.blocked_count + data.muted_count;
 
 				int res = sqlite3_step(setstmt);
 				if (res != SQLITE_DONE) {
 					SLogMsgFormat(LOGT::DBERR, TSLogging, "%s got error: %d (%s) for user dbindex: %d, name: %s",
 							cstr(funcname), res, cstr(sqlite3_errmsg(adb)), data.dbindex, cstr(data.dispname));
 				} else {
-					SLogMsgFormat(LOGT::DBINFO, TSLogging, "%s inserted account: dbindex: %d, name: %s, tweet IDs: %u, DM IDs: %u",
-							cstr(funcname), data.dbindex, cstr(data.dispname), data.tweet_count, data.dm_count);
+					SLogMsgFormat(LOGT::DBINFO, TSLogging, "%s inserted account: dbindex: %d, name: %s, "
+							"tweet IDs: %u, DM IDs: %u, blocked IDs: %u, muted IDs: %u",
+							cstr(funcname), data.dbindex, cstr(data.dispname), data.tweet_count, data.dm_count, data.blocked_count, data.muted_count);
 				}
 				sqlite3_reset(setstmt);
 			});

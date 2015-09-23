@@ -72,6 +72,8 @@ struct taccount_cfg {
 	wxString dispname;
 	bool ur_ifollow_have_list = false;
 	bool ur_followsme_have_list = false;
+	uint64_t last_block_fetch_time = 0;
+	uint64_t last_mute_fetch_time = 0;
 
 	void CFGWriteOut(DBWriteConfig &twfc) const;
 	void CFGReadInBase(DBReadConfig &twfc);
@@ -110,6 +112,9 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 	//any tweet or DM in this list *must* be either in ad.tweetobjs, or in the database
 	tweetidset tweet_ids;
 	tweetidset dm_ids;
+
+	useridset blocked_users;
+	useridset muted_users;
 
 	std::unordered_map<uint64_t,udc_ptr> pendingusers;
 	std::forward_list<restbackfillstate> pending_rbfs_list;
@@ -150,6 +155,7 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 	void DoPostAction(twitcurlext &lasttce);
 	void DoPostAction(flagwrapper<PAF> postflags);
 	void GetRestBackfill();
+	void CheckUpdateBlockLists();
 	void LookupFriendships(uint64_t userid);
 	void GetUsersFollowingMeList();
 	void HandleUsersFollowingMeList(std::vector<uint64_t> userids, bool complete);
@@ -158,6 +164,11 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 	void NotifyDiffUserRelationshipList(user_relationship::UR_TYPE type, const std::vector<uint64_t> &oldset, const std::vector<uint64_t> &oldpending);
 	void NotifyUserRelationshipChange(uint64_t userid, user_relationship::URF flags);
 	void NotifyTweetFavouriteEvent(uint64_t tweetid, uint64_t userid, bool unfavourite);
+	void NotifyBlockListChange(BLOCKTYPE type, uint64_t userid, bool now_blocked);
+	useridset &GetBlockList(BLOCKTYPE type);
+	void UpdateBlockListFetchTime(BLOCKTYPE type);
+	void ReplaceBlockList(BLOCKTYPE type, useridset new_ids);
+	void SetUserIdBlockedState(uint64_t user_id, BLOCKTYPE type, bool blocked);
 
 	void MarkUserPending(udc_ptr_p user);
 	bool MarkPendingOrHandle(tweet_ptr_p t, flagwrapper<ARRIVAL> arr);

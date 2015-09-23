@@ -139,6 +139,7 @@ struct jsonparser : public genjsonparser {
 	void ProcessOwnFollowerListingResponse();
 	std::string ProcessUploadMediaResponse();
 	void ProcessTwitterErrorJson(std::vector<TwitterErrorMsg> &msgs);
+	int64_t ProcessGetBlockListCursoredResponse(useridset &block_id_list);
 };
 template<> struct enum_traits<jsonparser::OODPEF> { static constexpr bool flags = true; };
 
