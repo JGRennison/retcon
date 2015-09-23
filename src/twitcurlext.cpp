@@ -925,6 +925,10 @@ void twitcurlext_simple::ParseHandler(const std::shared_ptr<taccount> &acc, json
 	switch (conntype) {
 		case CONNTYPE::FRIENDACTION_FOLLOW:
 		case CONNTYPE::FRIENDACTION_UNFOLLOW:
+		case CONNTYPE::BLOCK:
+		case CONNTYPE::UNBLOCK:
+		case CONNTYPE::MUTE:
+		case CONNTYPE::UNMUTE:
 			jp.ProcessGenericFriendActionResponse();
 			break;
 
@@ -986,6 +990,10 @@ void twitcurlext_simple::HandleFailureHandler(const std::shared_ptr<taccount> &a
 		case CONNTYPE::UNFAV:
 		case CONNTYPE::DELETETWEET:
 		case CONNTYPE::DELETEDM:
+		case CONNTYPE::BLOCK:
+		case CONNTYPE::UNBLOCK:
+		case CONNTYPE::MUTE:
+		case CONNTYPE::UNMUTE:
 			state.msgbox = true;
 			break;
 
@@ -1015,6 +1023,10 @@ std::string twitcurlext_simple::GetConnTypeNameBase() {
 		case CONNTYPE::SINGLETWEET: name = "Retrieving single tweet"; break;
 		case CONNTYPE::SINGLEDM: name = "Retrieving single DM"; break;
 		case CONNTYPE::OWNFOLLOWERLISTING: name = "Retrieving own followers listing"; break;
+		case CONNTYPE::BLOCK: name = "Block user"; break;
+		case CONNTYPE::UNBLOCK: name = "Unblock user"; break;
+		case CONNTYPE::MUTE: name = "Mute user"; break;
+		case CONNTYPE::UNMUTE: name = "Unmute user"; break;
 		case CONNTYPE::NONE: assert(false); break;
 	}
 	return name;
@@ -1075,6 +1087,22 @@ void twitcurlext_simple::HandleQueueAsyncExec(const std::shared_ptr<taccount> &a
 
 		case CONNTYPE::OWNOUTGOINGFOLLOWLISTING:
 			friendsOutgoingIdsGet();
+			break;
+
+		case CONNTYPE::BLOCK:
+			blockCreate(std::to_string(extra_id), true);
+			break;
+
+		case CONNTYPE::UNBLOCK:
+			blockDestroy(std::to_string(extra_id), true);
+			break;
+
+		case CONNTYPE::MUTE:
+			muteCreate(std::to_string(extra_id), true);
+			break;
+
+		case CONNTYPE::UNMUTE:
+			muteDestroy(std::to_string(extra_id), true);
 			break;
 
 		case CONNTYPE::NONE:

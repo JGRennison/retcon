@@ -1269,25 +1269,24 @@ bool twitCurl::favoriteDestroy( const std::string& statusId )
 *
 * @description: method to block a user
 *
-* @input: userInfo - user id or screen name
+* @input: userInfo - user id or screen name of a user
+*         isUserId - true if userInfo contains a user id instead of screen name
 *
 * @output: true if POST is success, otherwise false. This does not check http
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::blockCreate( const std::string& userInfo )
+bool twitCurl::blockCreate( const std::string& userInfo, bool isUserId )
 {
-        /* Prepare URL */
-        std::string buildUrl = twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
-                               twitterDefaults::TWITCURL_BLOCKSCREATE_URL + userInfo +
-                               twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType];
+    /* Prepare URL */
+    std::string buildUrl;
+    utilMakeUrlForUser( buildUrl, twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
+                        twitterDefaults::TWITCURL_BLOCKSCREATE_URL +
+                        twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType],
+                        userInfo, isUserId );
 
-        /* Send some dummy data in POST */
-        std::string dummyData = twitCurlDefaults::TWITCURL_TEXTSTRING +
-                                urlencode( std::string( "dummy" ) );
-
-        /* Perform POST */
-        return performPost( buildUrl, dummyData );
+    /* Perform POST */
+    return performPost( buildUrl, "" );
 }
 
 /*++
@@ -1295,21 +1294,74 @@ bool twitCurl::blockCreate( const std::string& userInfo )
 *
 * @description: method to unblock a user
 *
-* @input: userInfo - user id or screen name
+* @input: userInfo - user id or screen name of a user
+*         isUserId - true if userInfo contains a user id instead of screen name
 *
 * @output: true if DELETE is success, otherwise false. This does not check http
 *          response by twitter. Use getLastWebResponse() for that.
 *
 *--*/
-bool twitCurl::blockDestroy( const std::string& userInfo )
+bool twitCurl::blockDestroy( const std::string& userInfo, bool isUserId )
 {
     /* Prepare URL */
-    std::string buildUrl = twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
-                           twitterDefaults::TWITCURL_BLOCKSDESTROY_URL + userInfo +
-                           twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType];
+    std::string buildUrl;
+    utilMakeUrlForUser( buildUrl, twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
+                        twitterDefaults::TWITCURL_BLOCKSDESTROY_URL +
+                        twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType],
+                        userInfo, isUserId );
 
-    /* Perform DELETE */
-    return performPost( buildUrl );
+    /* Perform POST */
+    return performPost( buildUrl, "" );
+}
+
+/*++
+* @method: twitCurl::muteCreate
+*
+* @description: method to mute a user
+*
+* @input: userInfo - user id or screen name of a user
+*         isUserId - true if userInfo contains a user id instead of screen name
+*
+* @output: true if POST is success, otherwise false. This does not check http
+*          response by twitter. Use getLastWebResponse() for that.
+*
+*--*/
+bool twitCurl::muteCreate( const std::string& userInfo, bool isUserId )
+{
+    /* Prepare URL */
+    std::string buildUrl;
+    utilMakeUrlForUser( buildUrl, twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
+                        twitterDefaults::TWITCURL_MUTESCREATE_URL +
+                        twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType],
+                        userInfo, isUserId );
+
+    /* Perform POST */
+    return performPost( buildUrl, "" );
+}
+
+/*++
+* @method: twitCurl::muteDestroy
+*
+* @description: method to unblock a user
+*
+* @input: userInfo - user id or screen name of a user
+*         isUserId - true if userInfo contains a user id instead of screen name
+*
+* @output: true if DELETE is success, otherwise false. This does not check http
+*          response by twitter. Use getLastWebResponse() for that.
+*
+*--*/
+bool twitCurl::muteDestroy( const std::string& userInfo, bool isUserId )
+{
+    /* Prepare URL */
+    std::string buildUrl;
+    utilMakeUrlForUser( buildUrl, twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
+                        twitterDefaults::TWITCURL_MUTESDESTROY_URL +
+                        twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType],
+                        userInfo, isUserId );
+
+    /* Perform POST */
+    return performPost( buildUrl, "" );
 }
 
 /*++

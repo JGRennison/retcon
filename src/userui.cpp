@@ -28,7 +28,9 @@
 #include "util.h"
 #include "alldata.h"
 #include "log.h"
+#include "bind_wxevt.h"
 #include <wx/textctrl.h>
+#include <wx/msgdlg.h>
 
 std::unordered_map<uint64_t, user_window*> userwinmap;
 
@@ -59,9 +61,10 @@ BEGIN_EVENT_TABLE(user_window, wxDialog)
 	EVT_CLOSE(user_window::OnClose)
 	EVT_CHOICE(wxID_FILE1, user_window::OnSelChange)
 	EVT_BUTTON(FOLLOWBTN_ID, user_window::OnFollowBtn)
-	EVT_BUTTON(REFRESHBTN_ID, user_window::OnRefreshBtn)
+	EVT_MENU(REFRESHBTN_ID, user_window::OnRefreshBtn)
+	EVT_BUTTON(MOREBTN_ID, user_window::OnMoreBtn)
 	EVT_BUTTON(DMBTN_ID, user_window::OnDMBtn)
-	EVT_BUTTON(DMCONVERSATIONBTN_ID, user_window::OnDMConversationBtn)
+	EVT_MENU(DMCONVERSATIONBTN_ID, user_window::OnDMConversationBtn)
 	EVT_TEXT(NOTESTXT_ID, user_window::OnNotesTextChange)
 END_EVENT_TABLE()
 
@@ -73,8 +76,18 @@ static void insert_uw_row(wxWindow *parent, wxSizer *sz, const wxString &label, 
 	targ = data;
 }
 
+static void insert_block_state_text(wxWindow *parent, wxSizer *sz, const wxString &label, wxStaticText *&targ) {
+	wxStaticText *name = new wxStaticText(parent, wxID_ANY, label);
+	wxFont font = name->GetFont();
+	font.SetWeight(wxFONTWEIGHT_BOLD);
+	name->SetFont(font);
+	sz->Add(name, 0, wxALL, 4);
+	targ = name;
+}
+
 user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_hint_)
 		: wxDialog(0, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxDIALOG_NO_PARENT), userid(userid_), acc_hint(acc_hint_) {
+	evtbinder.reset(new bindwxevt_win(this));
 	userwinmap[userid_] = this;
 	u = ad.GetUserContainerById(userid_);
 	u->udc_flags |= UDC::WINDOWOPEN;
@@ -115,17 +128,17 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	sbvbox->Add(follow_grid, 0, wxALL, 2);
 	insert_uw_row(this, follow_grid, wxT("Following:"), ifollow);
 	insert_uw_row(this, follow_grid, wxT("Followed By:"), followsme);
+	insert_block_state_text(this, sbvbox, wxT("This user is blocked"), is_blocked);
+	insert_block_state_text(this, sbvbox, wxT("This user is muted"), is_muted);
 	sb->AddStretchSpacer();
 	wxBoxSizer *accbuttonbox = new wxBoxSizer(wxVERTICAL);
 	sb->Add(accbuttonbox, 0, wxALIGN_RIGHT | wxALIGN_TOP, 0);
 	followbtn = new wxButton(this, FOLLOWBTN_ID, wxT(""));
-	refreshbtn = new wxButton(this, REFRESHBTN_ID, wxT("Refresh"));
 	dmbtn = new wxButton(this, DMBTN_ID, wxT("Send DM"));
-	dmconversationbtn = new wxButton(this, DMCONVERSATIONBTN_ID, wxT("Open DM Panel"));
+	morebtn = new wxButton(this, MOREBTN_ID, wxT("More \x25BC"));
 	accbuttonbox->Add(followbtn, 0, wxEXPAND | wxALIGN_TOP, 0);
-	accbuttonbox->Add(refreshbtn, 0, wxEXPAND | wxALIGN_TOP, 0);
 	accbuttonbox->Add(dmbtn, 0, wxEXPAND | wxALIGN_TOP, 0);
-	accbuttonbox->Add(dmconversationbtn, 0, wxEXPAND | wxALIGN_TOP, 0);
+	accbuttonbox->Add(morebtn, 0, wxEXPAND | wxALIGN_TOP, 0);
 	follow_btn_mode = FOLLOWBTNMODE::FBM_NONE;
 
 	nb = new wxNotebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxCLIP_CHILDREN | wxNB_TOP | wxNB_NOPAGETHEME | wxNB_MULTILINE);
@@ -241,8 +254,6 @@ void user_window::RefreshAccState() {
 	follow_grid->Show(!isownacc);
 	followbtn->Show(!isownacc);
 	dmbtn->Show(!isownacc);
-	optional_observer_ptr<user_dm_index> dm_index = ad.GetExistingUserDMIndexById(userid);
-	dmconversationbtn->Show(dm_index && !dm_index->ids.empty());
 	if (!isownacc) {
 		RefreshFollow();
 	}
@@ -309,7 +320,7 @@ static void set_uw_time_val(wxStaticText *st, const time_t &input) {
 void user_window::RefreshFollow(bool forcerefresh) {
 	using URF = user_relationship::URF;
 	std::shared_ptr<taccount> acc = acc_hint.lock();
-	bool needupdate = false;
+	bool needupdate = forcerefresh;
 	FOLLOWBTNMODE fbm = FOLLOWBTNMODE::FBM_NONE;
 
 	auto fill_follow_field = [&](wxStaticText *st, bool ifollow) {
@@ -320,7 +331,7 @@ void user_window::RefreshFollow(bool forcerefresh) {
 			if (it != acc->user_relations.end()) {
 				user_relationship &ur = it->second;
 				if (ur.ur_flags & (ifollow ? URF::IFOLLOW_KNOWN : URF::FOLLOWSME_KNOWN)) {
-					known=true;
+					known = true;
 					if (ur.ur_flags&(ifollow ? URF::IFOLLOW_TRUE : URF::FOLLOWSME_TRUE)) {
 						if (ifollow) fbm = FOLLOWBTNMODE::FBM_UNFOLLOW;
 						value = wxT("Yes");
@@ -336,9 +347,6 @@ void user_window::RefreshFollow(bool forcerefresh) {
 					if (updtime && (time(nullptr) - updtime) > 180) {
 						time_t updatetime;	//not used
 						value = wxString::Format(wxT("%s as of %s (%s)"), value.c_str(), getreltimestr(updtime, updatetime).c_str(), cfg_strftime(updtime).c_str());
-					}
-					if (updtime && forcerefresh) {
-						needupdate = true;
 					}
 					st->SetLabel(value);
 				}
@@ -362,6 +370,9 @@ void user_window::RefreshFollow(bool forcerefresh) {
 	fill_follow_field(ifollow, true);
 	fill_follow_field(followsme, false);
 
+	is_blocked->Show(acc->blocked_users.count(userid));
+	is_muted->Show(acc->muted_users.count(userid));
+
 	switch (fbm) {
 		case FOLLOWBTNMODE::FBM_UNFOLLOW:
 			followbtn->SetLabel(wxT("Unfollow"));
@@ -377,7 +388,6 @@ void user_window::RefreshFollow(bool forcerefresh) {
 	}
 
 	followbtn->Enable(acc && acc->enabled && fbm != FOLLOWBTNMODE::FBM_NONE && fbm != FOLLOWBTNMODE::FBM_REMOVE_PENDING && !(u->udc_flags & UDC::FRIENDACT_IN_PROGRESS));
-	refreshbtn->Enable(acc && acc->enabled);
 	dmbtn->Enable(acc && acc->enabled);
 	follow_btn_mode = fbm;
 
@@ -463,8 +473,77 @@ void user_window::OnRefreshBtn(wxCommandEvent &event) {
 	}
 }
 
+void user_window::OnMoreBtn(wxCommandEvent &event) {
+	std::shared_ptr<taccount> acc = acc_hint.lock();
+	wxRect btnrect = morebtn->GetRect();
+	wxMenu pmenu;
+
+	wxMenuItem *refresh_item = pmenu.Append(REFRESHBTN_ID, wxT("&Refresh"));
+	refresh_item->Enable(acc && acc->enabled);
+
+	optional_observer_ptr<user_dm_index> dm_index = ad.GetExistingUserDMIndexById(userid);
+	if (dm_index && !dm_index->ids.empty()) {
+		pmenu.Append(DMCONVERSATIONBTN_ID, wxT("Open &DM Panel"));
+	}
+
+	int next_id = wxID_HIGHEST + 1;
+	auto add_block_handler = [&](BLOCKTYPE type, bool unblock, twitcurlext_simple::CONNTYPE conntype) -> int {
+		int id = next_id;
+		next_id++;
+		auto f = [=](wxCommandEvent &event) {
+			if (!unblock) {
+				wxString type_str;
+				switch (type) {
+					case BLOCKTYPE::BLOCK: type_str = wxT("block"); break;
+					case BLOCKTYPE::MUTE: type_str = wxT("mute"); break;
+				}
+				int result = ::wxMessageBox(wxString::Format(wxT("Are you sure that you want to %s @%s?"), type_str.c_str(), wxstrstd(u->GetUser().screen_name).c_str()),
+						wxT("Confirm ") + type_str, wxYES_NO | wxNO_DEFAULT | wxICON_EXCLAMATION, this);
+				if (result != wxYES) {
+					return;
+				}
+			}
+
+			if (u->udc_flags & UDC::FRIENDACT_IN_PROGRESS) {
+				return;
+			}
+
+			u->udc_flags |= UDC::FRIENDACT_IN_PROGRESS;
+			std::unique_ptr<twitcurlext_simple> twit = twitcurlext_simple::make_new(acc, conntype);
+			twit->extra_id = userid;
+			twitcurlext::QueueAsyncExec(std::move(twit));
+		};
+		auto handler = evtbinder->MakeSharedEvtHandlerSC<wxCommandEvent>(f);
+		evtbinder->BindEvtHandler(wxEVT_COMMAND_MENU_SELECTED, id, handler);
+		return id;
+	};
+
+	bool isownacc = (acc && acc->usercont == u);
+	if (!isownacc) {
+		pmenu.AppendSeparator();
+		wxMenuItem *block_item;
+		wxMenuItem *mute_item;
+		if (acc->blocked_users.count(userid)) {
+			block_item = pmenu.Append(add_block_handler(BLOCKTYPE::BLOCK, true, twitcurlext_simple::CONNTYPE::UNBLOCK), wxT("Unblock"));
+		} else {
+			block_item = pmenu.Append(add_block_handler(BLOCKTYPE::BLOCK, false, twitcurlext_simple::CONNTYPE::BLOCK), wxT("Block"));
+		}
+		if (acc->muted_users.count(userid)) {
+			mute_item = pmenu.Append(add_block_handler(BLOCKTYPE::MUTE, true, twitcurlext_simple::CONNTYPE::UNMUTE), wxT("Unmute"));
+		} else {
+			mute_item = pmenu.Append(add_block_handler(BLOCKTYPE::MUTE, false, twitcurlext_simple::CONNTYPE::MUTE), wxT("Mute"));
+		}
+		if (u->udc_flags & UDC::FRIENDACT_IN_PROGRESS) {
+			block_item->Enable(false);
+			mute_item->Enable(false);
+		}
+	}
+
+	GenericPopupWrapper(this, &pmenu, btnrect.GetLeft(), btnrect.GetBottom());
+}
+
 void user_window::OnFollowBtn(wxCommandEvent &event) {
-	std::shared_ptr<taccount> acc=acc_hint.lock();
+	std::shared_ptr<taccount> acc = acc_hint.lock();
 	if (follow_btn_mode != FOLLOWBTNMODE::FBM_NONE && acc && acc->enabled && !(u->udc_flags & UDC::FRIENDACT_IN_PROGRESS)) {
 		u->udc_flags |= UDC::FRIENDACT_IN_PROGRESS;
 		followbtn->Enable(false);

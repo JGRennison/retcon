@@ -46,6 +46,7 @@ struct taccount;
 struct user_window;
 struct wxPanel;
 struct wxTextCtrl;
+struct bindwxevt_win;
 
 struct notebook_event_prehandler : public wxEvtHandler {
 	void OnPageChange(wxNotebookEvent &event);
@@ -102,20 +103,24 @@ struct user_window: public wxDialog, public magic_ptr_base {
 
 	wxStaticText *ifollow;
 	wxStaticText *followsme;
+	wxStaticText *is_blocked;
+	wxStaticText *is_muted;
 	wxChoice *accchoice;
 
 	wxButton *followbtn;
-	wxButton *refreshbtn;
 	wxButton *dmbtn;
-	wxButton *dmconversationbtn;
+	wxButton *morebtn;
 	enum FOLLOWBTNMODE {
 		FBM_NONE = 0, FBM_FOLLOW = 1, FBM_UNFOLLOW, FBM_REMOVE_PENDING,
 	};
 	FOLLOWBTNMODE follow_btn_mode;
 
+	std::unique_ptr<bindwxevt_win> evtbinder;
+
 	enum {
 		FOLLOWBTN_ID = 1,
 		REFRESHBTN_ID,
+		MOREBTN_ID,
 		DMBTN_ID,
 		DMCONVERSATIONBTN_ID,
 		NOTESTXT_ID,
@@ -131,6 +136,7 @@ struct user_window: public wxDialog, public magic_ptr_base {
 	void OnClose(wxCloseEvent &event);
 	void OnSelChange(wxCommandEvent &event);
 	void OnRefreshBtn(wxCommandEvent &event);
+	void OnMoreBtn(wxCommandEvent &event);
 	void OnFollowBtn(wxCommandEvent &event);
 	void OnDMBtn(wxCommandEvent &event);
 	void OnDMConversationBtn(wxCommandEvent &event);

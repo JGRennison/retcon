@@ -295,6 +295,10 @@ struct twitcurlext_simple: public twitcurlext {
 		OWNFOLLOWERLISTING,
 		OWNINCOMINGFOLLOWLISTING,
 		OWNOUTGOINGFOLLOWLISTING,
+		BLOCK,
+		UNBLOCK,
+		MUTE,
+		UNMUTE,
 	};
 
 	CONNTYPE conntype;

@@ -137,8 +137,12 @@ namespace twitterDefaults
     const std::string TWITCURL_FAVORITEDESTROY_URL = "api.twitter.com/1.1/favorites/destroy";
 
     /* Block URLs */
-    const std::string TWITCURL_BLOCKSCREATE_URL = "api.twitter.com/1.1/blocks/create/";
-    const std::string TWITCURL_BLOCKSDESTROY_URL = "api.twitter.com/1.1/blocks/destroy/";
+    const std::string TWITCURL_BLOCKSCREATE_URL = "api.twitter.com/1.1/blocks/create";
+    const std::string TWITCURL_BLOCKSDESTROY_URL = "api.twitter.com/1.1/blocks/destroy";
+
+    /* Mute URLs */
+    const std::string TWITCURL_MUTESCREATE_URL = "api.twitter.com/1.1/mutes/users/create";
+    const std::string TWITCURL_MUTESDESTROY_URL = "api.twitter.com/1.1/mutes/users/destroy";
 
     /* Saved Search URLs */
     const std::string TWITCURL_SAVEDSEARCHGET_URL = "api.twitter.com/1.1/saved_searches";
@@ -249,8 +253,12 @@ public:
     bool favoriteDestroy( const std::string& statusId /* in */ );
 
     /* Twitter block APIs */
-    bool blockCreate( const std::string& userInfo /* in */ );
-    bool blockDestroy( const std::string& userInfo /* in */ );
+    bool blockCreate( const std::string& userInfo /* in */, bool isUserId = false /* in */  );
+    bool blockDestroy( const std::string& userInfo /* in */, bool isUserId = false /* in */  );
+
+    /* Twitter mute APIs */
+    bool muteCreate( const std::string& userInfo /* in */, bool isUserId = false /* in */  );
+    bool muteDestroy( const std::string& userInfo /* in */, bool isUserId = false /* in */  );
 
     /* Twitter search APIs */
     bool savedSearchGet();
