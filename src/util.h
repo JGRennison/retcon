@@ -110,7 +110,7 @@ inline wxString rc_wx_strftime(const wxString &format, const struct tm *tm, time
 	return wxstrstd(rc_strftime(stdstrwx(format), tm, timestamp, localtime));
 }
 
-std::string string_format(const std::string &fmt, ...);
+std::string string_format(const char *fmt, ...);
 
 inline void UnShare(wxString &str) {
 	str = wxString(str.c_str(), str.size());

@@ -120,14 +120,14 @@ std::string rc_strftime(const std::string &format, const struct tm *tm, time_t t
 }
 
 //from http://stackoverflow.com/questions/2342162/stdstring-formatting-like-sprintf#2342176
-std::string string_format(const std::string &fmt, ...) {
+std::string string_format(const char *fmt, ...) {
 	int size = 100;
 	std::string str;
 	va_list ap;
 	while (1) {
 		str.resize(size);
 		va_start(ap, fmt);
-		int n = vsnprintf(const_cast<char *>(str.c_str()), size, fmt.c_str(), ap);
+		int n = vsnprintf(const_cast<char *>(str.c_str()), size, fmt, ap);
 		va_end(ap);
 		if (n > -1 && n < size) {
 			str.resize(n);
