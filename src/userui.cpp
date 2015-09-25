@@ -256,6 +256,9 @@ void user_window::RefreshAccState() {
 	dmbtn->Show(!isownacc);
 	if (!isownacc) {
 		RefreshFollow();
+	} else {
+		is_blocked->Show(false);
+		is_muted->Show(false);
 	}
 
 	bool should_have_incoming_pane = isownacc && u->GetUser().u_flags & userdata::UF::ISPROTECTED;
