@@ -87,7 +87,7 @@ const std::string logflagsstrings[] = {
 	"tpanelinfo",
 	"glib",
 	"vlcdebug",
-	"vlcerr",
+	"vlcwarn",
 };
 
 void Update_currentlogflags() {

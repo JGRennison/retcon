@@ -118,7 +118,7 @@ enum {
 };
 
 void VLC_Log_CB(void *data, int level, const libvlc_log_t *ctx, const char *fmt, va_list args) {
-	LOGT category = LOGT::VLCERR;
+	LOGT category = LOGT::VLCWARN;
 	const char *name = "???:";
 	switch (level) {
 		case LIBVLC_DEBUG:
