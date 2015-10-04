@@ -562,6 +562,10 @@ void tpanelscrollbar::RepositionItems() {
 		wxPoint p = disp.item->GetPosition();
 		wxSize s = disp.item->GetSize();
 
+		if (!disp.item->IsShown()) {
+			s.y = 0;
+		}
+
 		scroll_virtual_size += s.y;
 
 		if (p.x == 0 && p.y + s.y > 0 && p.y <= 0) {
@@ -614,6 +618,10 @@ void tpanelscrollbar::ScrollItemsForPosition(int current_position) {
 
 	for (auto &disp : parent->GetCurrentDisp()) {
 		wxSize s = disp.item->GetSize();
+
+		if (!disp.item->IsShown()) {
+			s.y = 0;
+		}
 
 		// Note that Move() cannot be used as it special-cases the value of -1, which randomly breaks scrolling >:(
 		disp.item->SetSize(0, y, s.x, s.y, wxSIZE_ALLOW_MINUS_ONE);

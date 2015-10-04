@@ -1056,6 +1056,9 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 
 bool tweetdispscr::CheckHiddenState() {
 	auto hideactions = [&](bool show) {
+		if (tpi && !(tds_flags & TDSF::SUBTWEET)) {
+			tpi->Show(show);
+		}
 		Show(show);
 		if (bm) {
 			bm->Show(show);
