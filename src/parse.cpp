@@ -577,6 +577,8 @@ void jsonparser::DoFriendLookupParse(const rapidjson::Value &val) {
 								tac->SetUserRelationship(userid, URF::IFOLLOW_KNOWN | URF::IFOLLOW_PENDING, optime);
 							} else if (conn_type == "followed_by") {
 								tac->SetUserRelationship(userid, URF::FOLLOWSME_KNOWN | URF::FOLLOWSME_TRUE, optime);
+							} else if (conn_type == "following_received") {
+								tac->SetUserRelationship(userid, URF::FOLLOWSME_KNOWN | URF::FOLLOWSME_PENDING, optime);
 							} else if (conn_type == "none") {
 								// no action, as we initialise to this value anyway
 							} else if (conn_type == "muting") {
