@@ -386,6 +386,7 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 
 		case TAMI_TOGGLEHIGHLIGHT: {
 			map[curid].tw->flags.Toggle('H');
+			map[curid].tw->SaveToDB();
 			map[curid].tw->CheckFlagsUpdated(tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
 			break;
 		}
@@ -398,6 +399,7 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 
 		case TAMI_MARKUNREAD: {
 			map[curid].tw->MarkFlagsAsUnread();
+			map[curid].tw->SaveToDB();
 			map[curid].tw->CheckFlagsUpdated(tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
 			break;
 		}
@@ -494,6 +496,8 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 		case TAMI_ADDTOPANEL: {
 			std::shared_ptr<tpanel> tp = ad.tpanels[stdstrwx(map[curid].extra)];
 			if (tp) {
+				map[curid].tw->SaveToDB();
+				map[curid].tw->CheckFlagsUpdated(tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
 				tp->PushTweet(map[curid].tw);
 			}
 			break;

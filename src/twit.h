@@ -343,6 +343,10 @@ struct tweet_pending {
 	}
 };
 
+struct tweet_db_json {
+	std::string json;
+};
+
 struct tweet {
 	uint64_t id = 0;
 	uint64_t in_reply_to_status_id = 0;
@@ -360,6 +364,7 @@ struct tweet {
 	std::vector<tweet_perspective> tp_extra_list;
 	tweet_ptr rtsrc;                 //for retweets, this is the source tweet
 	std::vector<std::unique_ptr<pending_op> > pending_ops;
+	std::unique_ptr<tweet_db_json> uninserted_db_json;
 
 	tweet_flags flags;
 	flagwrapper<TLF> lflags = 0;
@@ -406,6 +411,7 @@ struct tweet {
 	void MarkFlagsAsRead();
 	void MarkFlagsAsUnread();
 	void AddQuotedTweetId(uint64_t id);
+	void SaveToDB(optional_observer_ptr<dbsendmsg_list> msglist = nullptr);
 
 	//! Where F is a functor of the type: void(const tweet_perspective &tp)
 	template<typename F> void IterateTP(F f) const {

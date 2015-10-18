@@ -855,6 +855,16 @@ void tweet::AddQuotedTweetId(uint64_t id) {
 	}
 }
 
+void tweet::SaveToDB(optional_observer_ptr<dbsendmsg_list> msglist) {
+	lflags |= TLF::SHOULDSAVEINDB;
+	if (uninserted_db_json && !(lflags & TLF::SAVED_IN_DB)) {
+		flags.Set('B');
+		DBC_InsertNewTweet(tweet_ptr_p(this), std::move(uninserted_db_json->json), msglist);
+		uninserted_db_json.reset();
+		lflags |= TLF::SAVED_IN_DB;
+	}
+}
+
 void tweet::ClearDeadPendingOps() {
 	container_unordered_remove_if (pending_ops, [](const std::unique_ptr<pending_op> &op) {
 		return !op->IsAlive();

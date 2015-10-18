@@ -1433,6 +1433,10 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 		} else {
 			DBC_UpdateTweetDyn(tobj, make_observer(dbmsglist));
 		}
+		tobj->uninserted_db_json.reset();
+	} else if (!json.empty()) {
+		if (!tobj->uninserted_db_json) tobj->uninserted_db_json.reset(new tweet_db_json());
+		tobj->uninserted_db_json->json = std::move(json);
 	}
 
 	return tobj;

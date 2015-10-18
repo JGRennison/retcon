@@ -752,7 +752,7 @@ void tpanel_subtweet_pending_op::CheckLoadTweetReply(tweet_ptr_p t, wxSizer *v, 
 			tweet_ptr subt = ad.GetTweetById(reply_id);
 
 			if (parent_tds->td->IsArrivedHereAnyPerspective() || parent_tds->td->lflags & TLF::SHOULDSAVEINDB) {
-				subt->lflags |= TLF::SHOULDSAVEINDB; //save
+				subt->SaveToDB();
 			}
 
 			std::shared_ptr<taccount> pacc;
@@ -782,7 +782,7 @@ void tpanel_subtweet_pending_op::CheckLoadQuotedTweet(tweet_ptr_p quote_tweet, w
 	using GUAF = tweet::GUAF;
 
 	if (parent_tds->td->IsArrivedHereAnyPerspective() || parent_tds->td->lflags & TLF::SHOULDSAVEINDB) {
-		quote_tweet->lflags |= TLF::SHOULDSAVEINDB; //save
+		quote_tweet->SaveToDB();
 	}
 
 	std::shared_ptr<taccount> pacc;
