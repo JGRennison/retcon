@@ -371,6 +371,8 @@ static void DoWriteSubstr(commonRichTextCtrl &td, const std::string &str, int st
 
 	auto tpg = tpanelglobal::Get();
 	if (!output.empty()) {
+		bool prev_supress_insert_check = td.supress_insert_check;
+		td.supress_insert_check = true;
 		EmojiParseString(
 			output,
 			gc.emoji_mode,
@@ -382,6 +384,7 @@ static void DoWriteSubstr(commonRichTextCtrl &td, const std::string &str, int st
 				td.WriteBitmapAltText(img, wxstrstd(altText));
 			}
 		);
+		td.supress_insert_check = prev_supress_insert_check;
 	}
 }
 

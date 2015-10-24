@@ -870,8 +870,9 @@ void commonRichTextCtrl::EnableEmojiChecking(bool enabled) {
 }
 
 void commonRichTextCtrl::EmojiCheckContentInsertionEventHandler(wxRichTextEvent &event) {
+	if (supress_insert_check) return;
 	wxRichTextRange range = event.GetRange();
-	EmojiCheckRange(range.GetStart(), range.GetEnd());
+	EmojiCheckRange(range.GetStart(), range.GetEnd() + 1);
 }
 
 void commonRichTextCtrl::EmojiCheckCharEventHandler(wxRichTextEvent &event) {
@@ -909,6 +910,8 @@ void commonRichTextCtrl::ReplaceAllEmoji() {
 	Clear();
 	WriteToRichTextCtrlWithEmojis(*this, text);
 	MoveCaret(caret);
+	wxCommandEvent evt(wxEVT_COMMAND_TEXT_UPDATED);
+	ProcessEvent(evt);
 	Thaw();
 }
 

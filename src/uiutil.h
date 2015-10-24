@@ -150,6 +150,8 @@ struct commonRichTextCtrl : public wxRichTextCtrl {
 	void EmojiCheckRange(long start, long end);
 
 	public:
+	bool supress_insert_check = false;
+
 	commonRichTextCtrl(wxWindow *parent_, wxWindowID id = wxID_ANY, const wxString &text = wxEmptyString, long style = wxRE_MULTILINE);
 
 	void WriteBitmapAltText(const wxBitmap& bmp, const wxString &altText);
