@@ -815,7 +815,11 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 						obj->EndURL();
 						udc_ptr targ = tw.user_recipient;
 						if (!targ || targ->udc_flags & UDC::THIS_IS_ACC_USER_HINT) {
-							targ = tw.user;
+							if (tw.rtsrc && tw.rtsrc->user && !(tw.rtsrc->user->udc_flags & UDC::THIS_IS_ACC_USER_HINT)) {
+								targ = tw.rtsrc->user;
+							} else {
+								targ = tw.user;
+							}
 						}
 						url = wxString::Format(wxT("Xd%" wxLongLongFmtSpec "d"), targ->id);
 						obj->BeginURL(url);
