@@ -21,6 +21,7 @@
 #include "fileutil.h"
 #include "parse.h"
 #include "taccount.h"
+#include "db.h"
 #include <wx/msgdlg.h>
 #include <wx/filedlg.h>
 #include <wx/filename.h>
@@ -90,16 +91,20 @@ void StreamImport(std::shared_ptr<taccount> acc, const wxString &filename) {
 		return;
 	}
 
+	std::unique_ptr<dbsendmsg_list> dbmsglist(new dbsendmsg_list());
+
 	auto do_line = [&](size_t start, size_t end) {
 		if (start == end) {
 			return;
 		}
 
 		jsonparser jp(acc, nullptr);
+		jp.dbmsglist = std::move(dbmsglist);
 		bool ok = jp.ParseString(std::string(data.begin() + start, data.begin() + end));
 		if (ok) {
 			jp.ProcessStreamResponse(true);
 		}
+		dbmsglist = std::move(jp.dbmsglist);
 	};
 
 	size_t line_start = 0;
@@ -110,8 +115,12 @@ void StreamImport(std::shared_ptr<taccount> acc, const wxString &filename) {
 			// found an EOL
 			// cut here
 			do_line(line_start, line_end);
-			line_start = line_end;
+			line_start = line_end + 1;
 		}
 	}
 	do_line(line_start, max_size);
+
+	if (dbmsglist && !dbmsglist->msglist.empty()) {
+		DBC_SendMessage(std::move(dbmsglist));
+	}
 }

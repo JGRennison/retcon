@@ -613,7 +613,7 @@ void jsonparser::ProcessTimelineResponse(flagwrapper<JDTP> sflags, optional_obse
 	const rapidjson::Document &dc = data->doc;
 	RestTweetPreParseUpdateParams(rbfs);
 	if (dc.IsArray()) {
-		dbmsglist.reset(new dbsendmsg_list());
+		if (!dbmsglist) dbmsglist.reset(new dbsendmsg_list());
 		for (rapidjson::SizeType i = 0; i < dc.Size(); i++) {
 			RestTweetUpdateParams(*DoTweetParse(dc[i], sflags), rbfs);
 		}
@@ -737,7 +737,7 @@ void jsonparser::ProcessAccVerifyResponse() {
 void jsonparser::ProcessUserListResponse() {
 	const rapidjson::Document &dc = data->doc;
 	if (dc.IsArray()) {
-		dbmsglist.reset(new dbsendmsg_list());
+		if (!dbmsglist) dbmsglist.reset(new dbsendmsg_list());
 		for (rapidjson::SizeType i = 0; i < dc.Size(); i++) {
 			DoUserParse(dc[i], UMPTF::TPDB_NOUPDF | UMPTF::RMV_LKPINPRGFLG);
 		}
@@ -1148,8 +1148,9 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 		pdata->tweetid = tweetid;
 		pdata->out_of_date_state = out_of_date_state;
 
-		if (!this->data->db_pending_guard)
+		if (!this->data->db_pending_guard) {
 			this->data->db_pending_guard.reset(new db_handle_msg_pending_guard());
+		}
 
 		DBC_SetDBSelTweetMsgHandler(*msg, [pdata](dbseltweetmsg &pmsg, dbconn *dbc) {
 			//Do not use *this, it will have long since gone out of scope
@@ -1163,8 +1164,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 				jsonparser jp(acc);
 				jp.SetData(pdata->jp_data);
 				jp.DoTweetParse(*(pdata->val), pdata->sflags | JDTP::POSTDBLOAD, pdata->out_of_date_state);
-			}
-			else {
+			} else {
 				LogMsgFormat(LOGT::PARSEERR | LOGT::DBERR, "jsonparser::DoTweetParse: Tweet id: %" llFmtSpec "d, deferred parse failed as account no longer exists.", pdata->tweetid);
 			}
 		});
