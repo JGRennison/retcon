@@ -190,7 +190,7 @@ struct dbconn : public wxEvtHandler {
 	void AsyncWriteBackStateMinimal();
 
 	void SendMessage(std::unique_ptr<dbsendmsg> msg);
-	void SendMessageOrAddToList(std::unique_ptr<dbsendmsg> msg, optional_observer_ptr<dbsendmsg_list> msglist);
+	void SendMessageBatchedOrAddToList(std::unique_ptr<dbsendmsg> msg, optional_observer_ptr<dbsendmsg_list> msglist);
 	void SendMessageBatched(std::unique_ptr<dbsendmsg> msg);
 	void FlushBatchQueue();
 	observer_ptr<dbsendmsg_list> GetMessageBatchQueue();

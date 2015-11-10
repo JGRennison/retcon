@@ -341,7 +341,7 @@ void DBC_DeInit();
 void DBC_AsyncWriteBackState();
 void DBC_AsyncWriteBackStateMinimal();
 void DBC_SendMessage(std::unique_ptr<dbsendmsg> msg);
-void DBC_SendMessageOrAddToList(std::unique_ptr<dbsendmsg> msg, optional_observer_ptr<dbsendmsg_list> msglist);
+void DBC_SendMessageBatchedOrAddToList(std::unique_ptr<dbsendmsg> msg, optional_observer_ptr<dbsendmsg_list> msglist);
 void DBC_SendMessageBatched(std::unique_ptr<dbsendmsg> msg);
 observer_ptr<dbsendmsg_list> DBC_GetMessageBatchQueue();
 void DBC_SendBatchedTweetFlagUpdate(uint64_t id, uint64_t setmask, uint64_t unsetmask);

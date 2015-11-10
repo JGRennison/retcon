@@ -784,10 +784,11 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 		case DBSM::MSGLIST: {
 			cache.BeginTransaction(db);
 			dbsendmsg_list *m = static_cast<dbsendmsg_list *>(msg);
-			TSLogMsgFormat(LOGT::DBTRACE, "DBSM::MSGLIST: queue size: %d", m->msglist.size());
+			TSLogMsgFormat(LOGT::DBTRACE, "DBSM::MSGLIST: queue size: %d START", m->msglist.size());
 			for (auto &onemsg : m->msglist) {
 				ProcessMessage(db, onemsg, ok, cache, th, dbc);
 			}
+			TSLogMsgFormat(LOGT::DBTRACE, "DBSM::MSGLIST: queue size: %d END", m->msglist.size());
 			cache.EndTransaction(db);
 			break;
 		}
@@ -1146,11 +1147,11 @@ void dbconn::OnDBReplyEvt(wxCommandEvent &event) {
 	}
 }
 
-void dbconn::SendMessageOrAddToList(std::unique_ptr<dbsendmsg> msg, optional_observer_ptr<dbsendmsg_list> msglist) {
+void dbconn::SendMessageBatchedOrAddToList(std::unique_ptr<dbsendmsg> msg, optional_observer_ptr<dbsendmsg_list> msglist) {
 	if (msglist) {
 		msglist->msglist.emplace_back(std::move(msg));
 	} else {
-		SendMessage(std::move(msg));
+		SendMessageBatched(std::move(msg));
 	}
 }
 
@@ -1504,7 +1505,7 @@ void dbconn::InsertNewTweet(tweet_ptr_p tobj, std::string statjson, optional_obs
 	}
 	ad.loaded_db_tweet_ids.insert(tobj->id);
 
-	SendMessageOrAddToList(std::move(msg), msglist);
+	SendMessageBatchedOrAddToList(std::move(msg), msglist);
 	tobj->SetFlagsInDBNow(tobj->flags);
 }
 
@@ -1513,7 +1514,7 @@ void dbconn::UpdateTweetDyn(tweet_ptr_p tobj, optional_observer_ptr<dbsendmsg_li
 	msg->dynjson = tobj->mkdynjson();
 	msg->id = tobj->id;
 	msg->flags = tobj->flags.ToULLong();
-	SendMessageOrAddToList(std::move(msg), msglist);
+	SendMessageBatchedOrAddToList(std::move(msg), msglist);
 	tobj->SetFlagsInDBNow(tobj->flags);
 }
 
@@ -1530,7 +1531,7 @@ void dbconn::InsertUser(udc_ptr_p u, optional_observer_ptr<dbsendmsg_list> msgli
 	msg->profile_img_last_used = u->profile_img_last_used;
 	u->profile_img_last_used_db = u->profile_img_last_used;
 	u->udc_flags |= UDC::SAVED_IN_DB;
-	SendMessageOrAddToList(std::move(msg), msglist);
+	SendMessageBatchedOrAddToList(std::move(msg), msglist);
 }
 
 void dbconn::InsertMedia(media_entity &me, optional_observer_ptr<dbsendmsg_list> msglist) {
@@ -1538,7 +1539,7 @@ void dbconn::InsertMedia(media_entity &me, optional_observer_ptr<dbsendmsg_list>
 	msg->media_id = me.media_id;
 	msg->url = std::string(me.media_url.begin(), me.media_url.end());
 	msg->lastused = me.lastused;
-	SendMessageOrAddToList(std::move(msg), msglist);
+	SendMessageBatchedOrAddToList(std::move(msg), msglist);
 	me.flags |= MEF::IN_DB;
 }
 
@@ -1562,7 +1563,7 @@ void dbconn::UpdateMedia(media_entity &me, DBUMMT update_type, optional_observer
 			msg->lastused = me.lastused;
 			break;
 	}
-	SendMessageOrAddToList(std::move(msg), msglist);
+	SendMessageBatchedOrAddToList(std::move(msg), msglist);
 }
 
 void dbconn::InsertNewEventLogEntry(optional_observer_ptr<dbsendmsg_list> msglist, optional_observer_ptr<taccount> acc, DB_EVENTLOG_TYPE type,
@@ -1582,7 +1583,7 @@ void dbconn::InsertNewEventLogEntry(optional_observer_ptr<dbsendmsg_list> msglis
 		msg->eventtime = time(nullptr);
 	}
 	msg->extrajson = std::move(extrajson);
-	SendMessageOrAddToList(std::move(msg), msglist);
+	SendMessageBatchedOrAddToList(std::move(msg), msglist);
 }
 
 void dbconn::AccountSync(sqlite3 *adb) {
@@ -3213,8 +3214,8 @@ void DBC_SendMessage(std::unique_ptr<dbsendmsg> msg) {
 	dbc.SendMessage(std::move(msg));
 }
 
-void DBC_SendMessageOrAddToList(std::unique_ptr<dbsendmsg> msg, dbsendmsg_list *msglist) {
-	dbc.SendMessageOrAddToList(std::move(msg), msglist);
+void DBC_SendMessageBatchedOrAddToList(std::unique_ptr<dbsendmsg> msg, dbsendmsg_list *msglist) {
+	dbc.SendMessageBatchedOrAddToList(std::move(msg), msglist);
 }
 
 void DBC_SendMessageBatched(std::unique_ptr<dbsendmsg> msg) {
