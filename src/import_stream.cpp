@@ -40,9 +40,27 @@ static std::shared_ptr<taccount> GetAccountByFilename(const wxString &filename) 
 
 void StreamImportUserAction(wxWindow *parent) {
 	static wxString file_path;
-	wxString file = ::wxFileSelector(wxT("Choose a streaming API recording file"), file_path, wxT(""), wxT(""),
-			wxT("Stream Recording Files (twitter-stream-*.log)|twitter-stream-*.log|All Files (*)|*"), wxFD_OPEN | wxFD_FILE_MUST_EXIST);
-	if (!file.IsEmpty()) {
+
+	wxFileDialog dlg(parent, wxT("Choose streaming API recording file(s)"), file_path, wxT(""),
+			wxT("Stream Recording Files (twitter-stream-*.log)|twitter-stream-*.log|All Files (*)|*"), wxFD_OPEN | wxFD_FILE_MUST_EXIST | wxFD_MULTIPLE);
+
+	int result = dlg.ShowModal();
+	if (result != wxID_OK) return;
+
+	wxArrayString paths;
+	dlg.GetPaths(paths);
+	size_t items = paths.GetCount();
+
+	struct acc_import_set {
+		std::shared_ptr<taccount> acc;
+		std::vector<wxString> paths;
+	};
+	std::map<unsigned int, acc_import_set> acc_imports;
+
+	for (size_t i = 0; i < items; i++) {
+		const wxString &file = paths[i];
+		if (file.IsEmpty()) continue;
+
 		file_path = wxPathOnly(file);
 
 		std::shared_ptr<taccount> acc;
@@ -63,7 +81,8 @@ void StreamImportUserAction(wxWindow *parent) {
 				account_ptrs.push_back(it);
 			}
 
-			wxSingleChoiceDialog dlg(parent, wxT("Select account to import stream recording data into"), wxT("Select account"), account_names);
+			wxString select_message = wxString::Format(wxT("Select account to import stream recording data from file: %s, into"), file_path.c_str());
+			wxSingleChoiceDialog dlg(parent, select_message, wxT("Select account"), account_names);
 			if (dlg.ShowModal() != wxID_OK) {
 				return;
 			}
@@ -71,15 +90,33 @@ void StreamImportUserAction(wxWindow *parent) {
 			acc = account_ptrs[dlg.GetSelection()];
 		}
 
-		// confirm with user
-		wxString message = wxString::Format(wxT("About to import stream data from file: %s, into account: %s (@%s).\n\nThis cannot be undone."),
-				wxFileName(file).GetFullName().c_str(), wxstrstd(acc->usercont->GetUser().name).c_str(), wxstrstd(acc->usercont->GetUser().screen_name).c_str());
-		int result = ::wxMessageBox(message, wxT("Confirm import"), wxOK | wxCANCEL | wxICON_EXCLAMATION);
-		if (result != wxOK) {
-			return;
-		}
+		acc_import_set &ais = acc_imports[acc->dbindex];
+		if (!ais.acc) ais.acc = std::move(acc);
+		ais.paths.push_back(file);
+	}
 
-		StreamImport(acc, file);
+	if (acc_imports.empty()) return;
+
+	// confirm with user
+	wxString message = wxT("About to import stream data from file(s):\n\n");
+	for (auto &it : acc_imports) {
+		for (auto &file : it.second.paths) {
+			message += wxFileName(file).GetFullName();
+			message += wxT("\n");
+		}
+		const std::shared_ptr<taccount> &acc = it.second.acc;
+		message += wxString::Format(wxT("into account: %s (@%s)\n\n"),
+				wxstrstd(acc->usercont->GetUser().name).c_str(), wxstrstd(acc->usercont->GetUser().screen_name).c_str());
+	}
+	message += wxT("This cannot be undone.");
+
+	int confirm_result = ::wxMessageBox(message, wxT("Confirm import"), wxOK | wxCANCEL | wxICON_EXCLAMATION);
+	if (confirm_result != wxOK) return;
+
+	for (auto &it : acc_imports) {
+		for (auto &file : it.second.paths) {
+			StreamImport(it.second.acc, file);
+		}
 	}
 }
 
