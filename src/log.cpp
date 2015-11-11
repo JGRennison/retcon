@@ -349,6 +349,9 @@ void log_window::LWShow(bool shown) {
 		}
 	}
 	Show(shown);
+	if (shown) {
+		Raise();
+	}
 }
 
 void log_window::OnFrameClose(wxCloseEvent &event) {
