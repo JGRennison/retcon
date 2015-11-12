@@ -299,6 +299,9 @@ struct twitcurlext_simple: public twitcurlext {
 		UNBLOCK,
 		MUTE,
 		UNMUTE,
+		NO_RT_CREATE,
+		NO_RT_DESTROY,
+		FRIENDSHIP_SHOW,
 	};
 
 	CONNTYPE conntype;
@@ -306,10 +309,12 @@ struct twitcurlext_simple: public twitcurlext {
 
 	static std::unique_ptr<twitcurlext_simple> make_new(std::shared_ptr<taccount> acc, CONNTYPE type);
 
+	virtual void NotifyDoneSuccessHandler(const std::shared_ptr<taccount> &acc, NotifyDoneSuccessState &state) override;
 	virtual void ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) override;
 	virtual void HandleFailureHandler(const std::shared_ptr<taccount> &acc, HandleFailureState &state) override;
 	virtual std::string GetConnTypeNameBase() override;
 	virtual void HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) override;
+	void CheckUpdateUserFriendActFlag(bool set_flag) const;
 };
 
 struct twitcurlext_block_list: public twitcurlext {

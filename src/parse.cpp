@@ -758,8 +758,39 @@ void jsonparser::ProcessUserLookupWinResponse() {
 
 void jsonparser::ProcessGenericFriendActionResponse() {
 	udc_ptr u = DoUserParse(data->doc);
-	u->udc_flags &= ~UDC::FRIENDACT_IN_PROGRESS;
 	tac->LookupFriendships(u->id);
+}
+
+void jsonparser::ProcessFriendshipShowResponse() {
+	const rapidjson::Document &dc = data->doc;
+	if (!dc.IsObject()) return;
+
+	auto &dcr = dc["relationship"];
+	if (!dcr.IsObject()) return;
+
+	auto &dcs = dcr["source"];
+	if (!dcs.IsObject()) return;
+
+	auto &dct = dcr["target"];
+	if (!dct.IsObject()) return;
+
+	uint64_t uid;
+	if (!CheckTransJsonValue<uint64_t>(uid, dct, "id")) return;
+
+	bool want_rts;
+	if (CheckTransJsonValue<bool>(want_rts, dcs, "want_retweets")) {
+		tac->SetUserIdBlockedState(uid, BLOCKTYPE::NO_RT, !want_rts);
+	}
+	bool blocking;
+	if (CheckTransJsonValue<bool>(blocking, dcs, "blocking")) {
+		tac->SetUserIdBlockedState(uid, BLOCKTYPE::BLOCK, blocking);
+	}
+	bool muting;
+	if (CheckTransJsonValue<bool>(muting, dcs, "muting")) {
+		tac->SetUserIdBlockedState(uid, BLOCKTYPE::MUTE, muting);
+	}
+
+	user_window::RefreshAllFollow();
 }
 
 void jsonparser::ProcessGenericUserFollowListResponse(observer_ptr<tpanelparentwin_userproplisting> win) {

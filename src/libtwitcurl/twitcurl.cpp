@@ -1365,6 +1365,33 @@ bool twitCurl::muteDestroy( const std::string& userInfo, bool isUserId )
 }
 
 /*++
+* @method: twitCurl::updateFriendshipRetweets
+*
+* @description: method to enable/disable retweets from a user
+*
+* @input: userInfo  - user id or screen name of a user
+*         isUserId  - true if userInfo contains a user id instead of screen name
+*         enableRts - true if retweets should be enabled
+*
+* @output: true if POST is success, otherwise false. This does not check http
+*          response by twitter. Use getLastWebResponse() for that.
+*
+*--*/
+bool twitCurl::updateFriendshipRetweets( const std::string& userInfo, bool isUserId, bool enableRts )
+{
+    /* Prepare URL */
+    std::string buildUrl;
+    utilMakeUrlForUser( buildUrl, twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
+                        twitterDefaults::TWITCURL_FRIENDSHIP_UPDATE_URL +
+                        twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType],
+                        userInfo, isUserId );
+    buildUrl += enableRts ? twitCurlDefaults::TWITCURL_RT_ENABLED : twitCurlDefaults::TWITCURL_RT_DISABLED;
+
+    /* Perform POST */
+    return performPost( buildUrl, "" );
+}
+
+/*++
 * @method: twitCurl::savedSearchGet
 *
 * @description: gets authenticated user's saved search queries.

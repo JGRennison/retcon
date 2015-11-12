@@ -73,6 +73,8 @@ namespace twitCurlDefaults
     const std::string TWITCURL_MEDIAIDS = "media_ids=";
     const std::string TWITCURL_DMFULLTEXT = "full_text=true";
     const std::string TWITCURL_ID = "id=";
+    const std::string TWITCURL_RT_ENABLED = "&retweets=true";
+    const std::string TWITCURL_RT_DISABLED = "&retweets=false";
 
     const std::string TWITCURL_USERAGENT = "libcurl " LIBCURL_VERSION;
 
@@ -143,6 +145,9 @@ namespace twitterDefaults
     /* Mute URLs */
     const std::string TWITCURL_MUTESCREATE_URL = "api.twitter.com/1.1/mutes/users/create";
     const std::string TWITCURL_MUTESDESTROY_URL = "api.twitter.com/1.1/mutes/users/destroy";
+
+    /* Friendship update URL */
+    const std::string TWITCURL_FRIENDSHIP_UPDATE_URL = "api.twitter.com/1.1/friendships/update";
 
     /* Saved Search URLs */
     const std::string TWITCURL_SAVEDSEARCHGET_URL = "api.twitter.com/1.1/saved_searches";
@@ -259,6 +264,9 @@ public:
     /* Twitter mute APIs */
     bool muteCreate( const std::string& userInfo /* in */, bool isUserId = false /* in */  );
     bool muteDestroy( const std::string& userInfo /* in */, bool isUserId = false /* in */  );
+
+    /* Twitter friendship update APIs */
+    bool updateFriendshipRetweets( const std::string& userInfo /* in */, bool isUserId /* in */, bool enableRts /* in */ );
 
     /* Twitter search APIs */
     bool savedSearchGet();

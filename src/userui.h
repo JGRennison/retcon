@@ -105,6 +105,7 @@ struct user_window: public wxDialog, public safe_observer_ptr_target {
 	wxStaticText *followsme;
 	wxStaticText *is_blocked;
 	wxStaticText *is_muted;
+	wxStaticText *is_no_rt;
 	wxChoice *accchoice;
 
 	wxButton *followbtn;

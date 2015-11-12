@@ -921,6 +921,10 @@ std::unique_ptr<twitcurlext_simple> twitcurlext_simple::make_new(std::shared_ptr
 	return std::move(twit);
 }
 
+void twitcurlext_simple::NotifyDoneSuccessHandler(const std::shared_ptr<taccount> &acc, NotifyDoneSuccessState &state) {
+	CheckUpdateUserFriendActFlag(false);
+}
+
 void twitcurlext_simple::ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) {
 	switch (conntype) {
 		case CONNTYPE::FRIENDACTION_FOLLOW:
@@ -975,6 +979,19 @@ void twitcurlext_simple::ParseHandler(const std::shared_ptr<taccount> &acc, json
 			jp.ProcessOwnFollowerListingResponse();
 			break;
 
+		case CONNTYPE::NO_RT_CREATE:
+		case CONNTYPE::NO_RT_DESTROY: {
+			jp.ProcessFriendshipShowResponse();
+			std::unique_ptr<twitcurlext_simple> twit = twitcurlext_simple::make_new(acc, CONNTYPE::FRIENDSHIP_SHOW);
+			twit->extra_id = extra_id;
+			twitcurlext::QueueAsyncExec(std::move(twit));
+			break;
+		}
+
+		case CONNTYPE::FRIENDSHIP_SHOW:
+			jp.ProcessFriendshipShowResponse();
+			break;
+
 		case CONNTYPE::NONE:
 			assert(false);
 			break;
@@ -982,6 +999,8 @@ void twitcurlext_simple::ParseHandler(const std::shared_ptr<taccount> &acc, json
 }
 
 void twitcurlext_simple::HandleFailureHandler(const std::shared_ptr<taccount> &acc, twitcurlext::HandleFailureState &state) {
+	CheckUpdateUserFriendActFlag(false);
+
 	switch (conntype) {
 		case CONNTYPE::FRIENDACTION_FOLLOW:
 		case CONNTYPE::FRIENDACTION_UNFOLLOW:
@@ -994,6 +1013,8 @@ void twitcurlext_simple::HandleFailureHandler(const std::shared_ptr<taccount> &a
 		case CONNTYPE::UNBLOCK:
 		case CONNTYPE::MUTE:
 		case CONNTYPE::UNMUTE:
+		case CONNTYPE::NO_RT_CREATE:
+		case CONNTYPE::NO_RT_DESTROY:
 			state.msgbox = true;
 			break;
 
@@ -1027,12 +1048,17 @@ std::string twitcurlext_simple::GetConnTypeNameBase() {
 		case CONNTYPE::UNBLOCK: name = "Unblock user"; break;
 		case CONNTYPE::MUTE: name = "Mute user"; break;
 		case CONNTYPE::UNMUTE: name = "Unmute user"; break;
+		case CONNTYPE::NO_RT_CREATE: name = "Disable receiving retweets from user"; break;
+		case CONNTYPE::NO_RT_DESTROY: name = "Enable receiving retweets from user"; break;
+		case CONNTYPE::FRIENDSHIP_SHOW: name = "Retrieving friendship state"; break;
 		case CONNTYPE::NONE: assert(false); break;
 	}
 	return name;
 }
 
 void twitcurlext_simple::HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) {
+	CheckUpdateUserFriendActFlag(true);
+
 	switch (conntype) {
 		case CONNTYPE::FRIENDACTION_FOLLOW:
 			friendshipCreate(std::to_string(extra_id), true);
@@ -1105,8 +1131,43 @@ void twitcurlext_simple::HandleQueueAsyncExec(const std::shared_ptr<taccount> &a
 			muteDestroy(std::to_string(extra_id), true);
 			break;
 
+		case CONNTYPE::NO_RT_CREATE:
+			updateFriendshipRetweets(std::to_string(extra_id), true, false);
+			break;
+
+		case CONNTYPE::NO_RT_DESTROY:
+			updateFriendshipRetweets(std::to_string(extra_id), true, true);
+			break;
+
+		case CONNTYPE::FRIENDSHIP_SHOW:
+			genericGet(string_format("api.twitter.com/1.1/friendships/show.json?source_id=%" llFmtSpec "d&target_id=%" llFmtSpec "d",
+					acc->usercont->id, extra_id));
+			break;
+
 		case CONNTYPE::NONE:
 			assert(false);
+			break;
+	}
+}
+
+void twitcurlext_simple::CheckUpdateUserFriendActFlag(bool set_flag) const {
+	switch (conntype) {
+		case CONNTYPE::FRIENDACTION_FOLLOW:
+		case CONNTYPE::FRIENDACTION_UNFOLLOW:
+		case CONNTYPE::BLOCK:
+		case CONNTYPE::UNBLOCK:
+		case CONNTYPE::MUTE:
+		case CONNTYPE::UNMUTE:
+		case CONNTYPE::NO_RT_CREATE:
+		case CONNTYPE::NO_RT_DESTROY: {
+			optional_udc_ptr u = ad.GetExistingUserContainerById(extra_id);
+			if (u) {
+				SetOrClearBitsRef<UDC>(u->udc_flags, UDC::FRIENDACT_IN_PROGRESS, set_flag);
+			}
+			break;
+		}
+
+		default:
 			break;
 	}
 }

@@ -130,6 +130,7 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	insert_uw_row(this, follow_grid, wxT("Followed By:"), followsme);
 	insert_block_state_text(this, sbvbox, wxT("This user is blocked"), is_blocked);
 	insert_block_state_text(this, sbvbox, wxT("This user is muted"), is_muted);
+	insert_block_state_text(this, sbvbox, wxT("Retweets are disabled for this user"), is_no_rt);
 	sb->AddStretchSpacer();
 	wxBoxSizer *accbuttonbox = new wxBoxSizer(wxVERTICAL);
 	sb->Add(accbuttonbox, 0, wxALIGN_RIGHT | wxALIGN_TOP, 0);
@@ -375,6 +376,7 @@ void user_window::RefreshFollow(bool forcerefresh) {
 
 	is_blocked->Show(acc->blocked_users.count(userid));
 	is_muted->Show(acc->muted_users.count(userid));
+	is_no_rt->Show(acc->no_rt_users.count(userid));
 
 	switch (fbm) {
 		case FOLLOWBTNMODE::FBM_UNFOLLOW:
@@ -499,6 +501,7 @@ void user_window::OnMoreBtn(wxCommandEvent &event) {
 				switch (type) {
 					case BLOCKTYPE::BLOCK: type_str = wxT("block"); break;
 					case BLOCKTYPE::MUTE: type_str = wxT("mute"); break;
+					case BLOCKTYPE::NO_RT: type_str = wxT("disable retweets from"); break;
 				}
 				int result = ::wxMessageBox(wxString::Format(wxT("Are you sure that you want to %s @%s?"), type_str.c_str(), wxstrstd(u->GetUser().screen_name).c_str()),
 						wxT("Confirm ") + type_str, wxYES_NO | wxNO_DEFAULT | wxICON_EXCLAMATION, this);
@@ -511,7 +514,6 @@ void user_window::OnMoreBtn(wxCommandEvent &event) {
 				return;
 			}
 
-			u->udc_flags |= UDC::FRIENDACT_IN_PROGRESS;
 			std::unique_ptr<twitcurlext_simple> twit = twitcurlext_simple::make_new(acc, conntype);
 			twit->extra_id = userid;
 			twitcurlext::QueueAsyncExec(std::move(twit));
@@ -526,6 +528,7 @@ void user_window::OnMoreBtn(wxCommandEvent &event) {
 		pmenu.AppendSeparator();
 		wxMenuItem *block_item;
 		wxMenuItem *mute_item;
+		wxMenuItem *no_rt_item;
 		if (acc->blocked_users.count(userid)) {
 			block_item = pmenu.Append(add_block_handler(BLOCKTYPE::BLOCK, true, twitcurlext_simple::CONNTYPE::UNBLOCK), wxT("Unblock"));
 		} else {
@@ -536,9 +539,15 @@ void user_window::OnMoreBtn(wxCommandEvent &event) {
 		} else {
 			mute_item = pmenu.Append(add_block_handler(BLOCKTYPE::MUTE, false, twitcurlext_simple::CONNTYPE::MUTE), wxT("Mute"));
 		}
+		if (acc->no_rt_users.count(userid)) {
+			no_rt_item = pmenu.Append(add_block_handler(BLOCKTYPE::NO_RT, true, twitcurlext_simple::CONNTYPE::NO_RT_DESTROY), wxT("Enable retweets"));
+		} else {
+			no_rt_item = pmenu.Append(add_block_handler(BLOCKTYPE::NO_RT, false, twitcurlext_simple::CONNTYPE::NO_RT_CREATE), wxT("Disable retweets"));
+		}
 		if (u->udc_flags & UDC::FRIENDACT_IN_PROGRESS) {
 			block_item->Enable(false);
 			mute_item->Enable(false);
+			no_rt_item->Enable(false);
 		}
 	}
 

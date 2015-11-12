@@ -135,6 +135,7 @@ struct jsonparser : public genjsonparser {
 	void ProcessFriendLookupResponse();
 	void ProcessUserLookupWinResponse();
 	void ProcessGenericFriendActionResponse();
+	void ProcessFriendshipShowResponse();
 	void ProcessGenericUserFollowListResponse(observer_ptr<tpanelparentwin_userproplisting> win);
 	void ProcessOwnFollowerListingResponse();
 	std::string ProcessUploadMediaResponse();
