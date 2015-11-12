@@ -851,6 +851,15 @@ int64_t jsonparser::ProcessGetBlockListCursoredResponse(useridset &block_id_list
 	return CheckGetJsonValueDef<int64_t>(dc, "next_cursor", 0);
 }
 
+void jsonparser::ProcessRawIdListResponse(useridset &id_list) {
+	const rapidjson::Document &dc = data->doc;
+	if (!dc.IsArray()) return;
+
+	for (rapidjson::SizeType i = 0; i < dc.Size(); i++) {
+		id_list.insert(dc[i].GetUint64());
+	}
+}
+
 //don't use this for perspectival attributes
 udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> umpt_flags, optional_cref_intrusive_ptr<out_of_date_data> out_of_date_state) {
 	uint64_t id;

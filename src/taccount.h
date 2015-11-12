@@ -74,6 +74,7 @@ struct taccount_cfg {
 	bool ur_followsme_have_list = false;
 	uint64_t last_block_fetch_time = 0;
 	uint64_t last_mute_fetch_time = 0;
+	uint64_t last_no_rt_fetch_time = 0;
 
 	void CFGWriteOut(DBWriteConfig &twfc) const;
 	void CFGReadInBase(DBReadConfig &twfc);
@@ -117,6 +118,7 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 
 	useridset blocked_users;
 	useridset muted_users;
+	useridset no_rt_users;
 
 	std::unordered_map<uint64_t,udc_ptr> pendingusers;
 	std::forward_list<restbackfillstate> pending_rbfs_list;

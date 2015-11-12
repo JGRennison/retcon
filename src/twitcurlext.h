@@ -323,6 +323,7 @@ struct twitcurlext_block_list: public twitcurlext {
 	virtual void ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) override;
 	virtual std::string GetConnTypeNameBase() override;
 	virtual void HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) override;
+	bool IsCursored() const;
 };
 
 #endif

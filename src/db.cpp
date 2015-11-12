@@ -88,7 +88,7 @@ static const char *startup_sql=
 "PRAGMA locking_mode = EXCLUSIVE;"
 "CREATE TABLE IF NOT EXISTS tweets(id INTEGER PRIMARY KEY NOT NULL, statjson BLOB, dynjson BLOB, userid INTEGER, userrecipid INTEGER, flags INTEGER, timestamp INTEGER, rtid INTEGER);"
 "CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY NOT NULL, json BLOB, cachedprofimgurl BLOB, createtimestamp INTEGER, lastupdatetimestamp INTEGER, cachedprofileimgchecksum BLOB, mentionindex BLOB, profimglastusedtimestamp INTEGER);"
-"CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, dispname TEXT, json BLOB, tweetids BLOB, dmids BLOB, blockedids BLOB, mutedids BLOB, userid INTEGER);"
+"CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, dispname TEXT, json BLOB, tweetids BLOB, dmids BLOB, blockedids BLOB, mutedids BLOB, nortids BLOB, userid INTEGER);"
 "CREATE TABLE IF NOT EXISTS settings(accid BLOB, name TEXT, value BLOB, PRIMARY KEY (accid, name));"
 "CREATE TABLE IF NOT EXISTS rbfspending(accid INTEGER, type INTEGER, startid INTEGER, endid INTEGER, maxleft INTEGER);"
 "CREATE TABLE IF NOT EXISTS mediacache(mid INTEGER, tid INTEGER, url BLOB, fullchecksum BLOB, thumbchecksum BLOB, flags INTEGER, lastusedtimestamp INTEGER, PRIMARY KEY (mid, tid));"
@@ -112,7 +112,7 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"COMMIT;",
 	"INSERT OR REPLACE INTO users(id, json, cachedprofimgurl, createtimestamp, lastupdatetimestamp, cachedprofileimgchecksum, mentionindex, profimglastusedtimestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
 	"INSERT INTO acc(name, dispname, userid) VALUES (?, ?, ?);",
-	"UPDATE acc SET tweetids = ?, dmids = ?, blockedids = ?, mutedids = ?, dispname = ? WHERE id == ?;",
+	"UPDATE acc SET tweetids = ?, dmids = ?, blockedids = ?, mutedids = ?, nortids = ?, dispname = ? WHERE id == ?;",
 	"SELECT statjson, dynjson, userid, userrecipid, flags, timestamp, rtid FROM tweets WHERE id == ?;",
 	"INSERT INTO rbfspending(accid, type, startid, endid, maxleft) VALUES (?, ?, ?, ?, ?);",
 	"SELECT url, fullchecksum, thumbchecksum, flags, lastusedtimestamp FROM mediacache WHERE (mid == ? AND tid == ?);",
@@ -1590,7 +1590,7 @@ void dbconn::AccountSync(sqlite3 *adb) {
 	LogMsg(LOGT::DBINFO, "dbconn::AccountSync start");
 
 	unsigned int total = 0;
-	DBRowExecNoError(adb, "SELECT id, name, tweetids, dmids, userid, dispname, blockedids, mutedids FROM acc;", [&](sqlite3_stmt *getstmt) {
+	DBRowExecNoError(adb, "SELECT id, name, tweetids, dmids, userid, dispname, blockedids, mutedids, nortids FROM acc;", [&](sqlite3_stmt *getstmt) {
 		unsigned int id = (unsigned int) sqlite3_column_int(getstmt, 0);
 		wxString name = wxString::FromUTF8((const char*) sqlite3_column_text(getstmt, 1));
 
@@ -1603,18 +1603,20 @@ void dbconn::AccountSync(sqlite3 *adb) {
 		setfromcompressedblob(ta->dm_ids, getstmt, 3);
 		setfromcompressedblob(ta->blocked_users, getstmt, 6);
 		setfromcompressedblob(ta->muted_users, getstmt, 7);
+		setfromcompressedblob(ta->no_rt_users, getstmt, 8);
 		total += ta->tweet_ids.size();
 		total += ta->dm_ids.size();
 		total += ta->blocked_users.size();
 		total += ta->muted_users.size();
+		total += ta->no_rt_users.size();
 
 		uint64_t userid = (uint64_t) sqlite3_column_int64(getstmt, 4);
 		ta->usercont = SyncReadInUser(adb, userid);
 		ta->dispname = wxString::FromUTF8((const char*) sqlite3_column_text(getstmt, 5));
 
 		LogMsgFormat(LOGT::DBINFO, "dbconn::AccountSync: Found account: dbindex: %d, "
-				"name: %s, tweet IDs: %u, DM IDs: %u, blocked IDs: %u, muted IDs: %u",
-				id, cstr(name), ta->tweet_ids.size(), ta->dm_ids.size(), ta->blocked_users.size(), ta->muted_users.size());
+				"name: %s, tweet IDs: %u, DM IDs: %u, blocked IDs: %u, muted IDs: %u, no RT IDs: %u",
+				id, cstr(name), ta->tweet_ids.size(), ta->dm_ids.size(), ta->blocked_users.size(), ta->muted_users.size(), ta->no_rt_users.size());
 	});
 	LogMsgFormat(LOGT::DBINFO, "dbconn::AccountSync end, total: %u IDs", total);
 }
@@ -1988,6 +1990,9 @@ namespace {
 
 			db_bind_buffer_persistent<dbb_compressed> muted_blob;
 			size_t muted_count;
+
+			db_bind_buffer_persistent<dbb_compressed> no_rt_blob;
+			size_t no_rt_count;
 		};
 
 		//Where F is a functor of the form void(itemdata &&)
@@ -2008,6 +2013,9 @@ namespace {
 				data.muted_count = it->muted_users.size();
 				data.muted_blob = settocompressedblob_desc(it->muted_users);
 
+				data.no_rt_count = it->no_rt_users.size();
+				data.no_rt_blob = settocompressedblob_desc(it->no_rt_users);
+
 				data.dispname = stdstrwx(it->dispname);
 				data.dbindex = it->dbindex;
 
@@ -2027,10 +2035,11 @@ namespace {
 				bind_compressed(setstmt, 2, std::move(data.dm_blob), 'Z');
 				bind_compressed(setstmt, 3, std::move(data.blocked_blob), 'Z');
 				bind_compressed(setstmt, 4, std::move(data.muted_blob), 'Z');
-				sqlite3_bind_text(setstmt, 5, data.dispname.c_str(), data.dispname.size(), SQLITE_TRANSIENT);
-				sqlite3_bind_int(setstmt, 6, data.dbindex);
+				bind_compressed(setstmt, 5, std::move(data.no_rt_blob), 'Z');
+				sqlite3_bind_text(setstmt, 6, data.dispname.c_str(), data.dispname.size(), SQLITE_TRANSIENT);
+				sqlite3_bind_int(setstmt, 7, data.dbindex);
 
-				total += data.tweet_count + data.dm_count + data.blocked_count + data.muted_count;
+				total += data.tweet_count + data.dm_count + data.blocked_count + data.muted_count + data.no_rt_count;
 
 				int res = sqlite3_step(setstmt);
 				if (res != SQLITE_DONE) {
@@ -2038,8 +2047,9 @@ namespace {
 							cstr(funcname), res, cstr(sqlite3_errmsg(adb)), data.dbindex, cstr(data.dispname));
 				} else {
 					SLogMsgFormat(LOGT::DBINFO, TSLogging, "%s inserted account: dbindex: %d, name: %s, "
-							"tweet IDs: %u, DM IDs: %u, blocked IDs: %u, muted IDs: %u",
-							cstr(funcname), data.dbindex, cstr(data.dispname), data.tweet_count, data.dm_count, data.blocked_count, data.muted_count);
+							"tweet IDs: %u, DM IDs: %u, blocked IDs: %u, muted IDs: %u, no RT IDs: %u",
+							cstr(funcname), data.dbindex, cstr(data.dispname), data.tweet_count, data.dm_count, data.blocked_count,
+							data.muted_count, data.no_rt_count);
 				}
 				sqlite3_reset(setstmt);
 			});

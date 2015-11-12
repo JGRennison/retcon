@@ -1123,7 +1123,7 @@ std::unique_ptr<twitcurlext_block_list> twitcurlext_block_list::make_new(std::sh
 }
 
 void twitcurlext_block_list::NotifyDoneSuccessHandler(const std::shared_ptr<taccount> &acc, NotifyDoneSuccessState &state) {
-	if (current_cursor == 0) {
+	if (!IsCursored() || current_cursor == 0) {
 		// all done
 		acc->ReplaceBlockList(blocktype, std::move(block_id_list));
 		acc->UpdateBlockListFetchTime(blocktype);
@@ -1134,7 +1134,11 @@ void twitcurlext_block_list::NotifyDoneSuccessHandler(const std::shared_ptr<tacc
 }
 
 void twitcurlext_block_list::ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) {
-	current_cursor = jp.ProcessGetBlockListCursoredResponse(block_id_list);
+	if (IsCursored()) {
+		current_cursor = jp.ProcessGetBlockListCursoredResponse(block_id_list);
+	} else {
+		jp.ProcessRawIdListResponse(block_id_list);
+	}
 }
 
 std::string twitcurlext_block_list::GetConnTypeNameBase() {
@@ -1142,8 +1146,13 @@ std::string twitcurlext_block_list::GetConnTypeNameBase() {
 	switch (blocktype) {
 		case BLOCKTYPE::BLOCK: name = "Get block list"; break;
 		case BLOCKTYPE::MUTE: name = "Get mute list"; break;
+		case BLOCKTYPE::NO_RT: name = "Get no RT list"; break;
 	}
 	return name;
+}
+
+bool twitcurlext_block_list::IsCursored() const {
+	return blocktype != BLOCKTYPE::NO_RT;
 }
 
 void twitcurlext_block_list::HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) {
@@ -1157,7 +1166,15 @@ void twitcurlext_block_list::HandleQueueAsyncExec(const std::shared_ptr<taccount
 		case BLOCKTYPE::MUTE:
 			url_stem = "api.twitter.com/1.1/mutes/users/ids.json";
 			break;
+
+		case BLOCKTYPE::NO_RT:
+			url_stem = "api.twitter.com/1.1/friendships/no_retweets/ids.json";
+			break;
 	}
 
-	genericGet(string_format("%s?cursor=%" llFmtSpec "d", url_stem, current_cursor));
+	if (IsCursored()) {
+		genericGet(string_format("%s?cursor=%" llFmtSpec "d", url_stem, current_cursor));
+	} else {
+		genericGet(url_stem);
+	}
 }

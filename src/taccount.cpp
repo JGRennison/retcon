@@ -352,6 +352,10 @@ void taccount::NotifyBlockListChange(BLOCKTYPE type, uint64_t userid, bool now_b
 		case BLOCKTYPE::MUTE:
 			evttype = now_blocked ? "has been muted" : "has been unmuted";
 			break;
+
+		case BLOCKTYPE::NO_RT:
+			evttype = now_blocked ? "has had retweets disabled" : "has had retweets enabled";
+			break;
 	}
 	LogMsgFormat(LOGT::NOTIFYEVT, "taccount::NotifyBlockListChange: %s: %s %s",
 			cstr(dispname), cstr(user_short_log_line(userid)), cstr(evttype));
@@ -369,6 +373,9 @@ useridset &taccount::GetBlockList(BLOCKTYPE type) {
 
 		case BLOCKTYPE::MUTE:
 			return muted_users;
+
+		case BLOCKTYPE::NO_RT:
+			return no_rt_users;
 	}
 	__builtin_unreachable();
 }
@@ -381,6 +388,10 @@ void taccount::UpdateBlockListFetchTime(BLOCKTYPE type) {
 
 		case BLOCKTYPE::MUTE:
 			last_mute_fetch_time = time(nullptr);
+			break;
+
+		case BLOCKTYPE::NO_RT:
+			last_no_rt_fetch_time = time(nullptr);
 			break;
 	}
 }
@@ -491,6 +502,7 @@ void taccount::CheckUpdateBlockLists() {
 
 	trytostart(BLOCKTYPE::BLOCK, last_block_fetch_time);
 	trytostart(BLOCKTYPE::MUTE, last_mute_fetch_time);
+	trytostart(BLOCKTYPE::NO_RT, last_no_rt_fetch_time);
 }
 
 //limits are inclusive
