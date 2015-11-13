@@ -260,6 +260,7 @@ void user_window::RefreshAccState() {
 	} else {
 		is_blocked->Show(false);
 		is_muted->Show(false);
+		is_no_rt->Show(false);
 	}
 
 	bool should_have_incoming_pane = isownacc && u->GetUser().u_flags & userdata::UF::ISPROTECTED;
