@@ -505,6 +505,7 @@ wxStaticBoxSizer *settings_window::AddGenoptconfSettingBlock(wxWindow* parent, w
 
 	AddSettingRow_Bool(OPTWIN_TWITTER, parent, fgs,  wxT("Drop streamed tweets from blocked users"), flags | DBCV::ADVOPTION, goc.stream_drop_blocked, parentgoc.stream_drop_blocked);
 	AddSettingRow_Bool(OPTWIN_TWITTER, parent, fgs,  wxT("Drop streamed tweets from muted users"), flags | DBCV::ADVOPTION, goc.stream_drop_muted, parentgoc.stream_drop_muted);
+	AddSettingRow_Bool(OPTWIN_TWITTER, parent, fgs,  wxT("Drop streamed retweets from users with retweets disabled"), flags | DBCV::ADVOPTION, goc.stream_drop_no_rt, parentgoc.stream_drop_no_rt);
 
 	AddSettingRow_Bool(OPTWIN_TWITTER, parent, fgs,  wxT("Use SSL\n(Very strongly recommended)"), flags|DBCV::VERYADVOPTION, goc.ssl, parentgoc.ssl);
 	AddSettingRow_String(OPTWIN_TWITTER, parent, fgs, wxT("Twitter API Consumer Key Override"), flags|DBCV::HIDDENDEFAULT|DBCV::VERYADVOPTION, goc.tokenk, parentgoc.tokenk);

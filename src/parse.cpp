@@ -1087,6 +1087,11 @@ bool jsonparser::DoStreamTweetPreFilter(const rapidjson::Value& val) {
 				}
 			}
 		}
+		if (tac->stream_drop_no_rt && tac->no_rt_users.count(uid)) {
+			// retweeting user has retweets disabled
+			pre_bin();
+			return false;
+		}
 	}
 
 	if (tac->stream_reply_mode == SRM::ALL_REPLIES) return true;

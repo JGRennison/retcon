@@ -36,6 +36,7 @@ genoptconf gcdefaults {
 	{ wxT("1"), 1},
 	{ wxT("1"), 1},
 	{ wxT("1"), 1},
+	{ wxT("1"), 1},
 };
 
 
@@ -193,6 +194,7 @@ void taccount::CFGParamConv() {
 	stream_reply_mode = static_cast<SRM>(srm_tmp);
 	stream_drop_blocked = (cfg.stream_drop_blocked.val == wxT("1"));
 	stream_drop_muted = (cfg.stream_drop_muted.val == wxT("1"));
+	stream_drop_no_rt = (cfg.stream_drop_no_rt.val == wxT("1"));
 }
 
 void globconf_base::CFGWriteOut(DBWriteConfig &twfc) {
@@ -285,6 +287,7 @@ void genoptconf::IterateConfs(std::function<void(const std::string &, genopt gen
 	f("stream_reply_mode", &genoptconf::stream_reply_mode);
 	f("stream_drop_blocked", &genoptconf::stream_drop_blocked);
 	f("stream_drop_muted", &genoptconf::stream_drop_muted);
+	f("stream_drop_no_rt", &genoptconf::stream_drop_no_rt);
 }
 
 void genoptconf::UnShareStrings() {
