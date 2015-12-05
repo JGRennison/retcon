@@ -1143,6 +1143,23 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 		tds_flags &= ~TDSF::HIGHLIGHT;
 	}
 
+	auto set_foreground = [&](const wxColour &colour) {
+		wxTextAttrEx style = GetBasicStyle();
+		style.SetTextColour(colour);
+		SetBasicStyle(style);
+	};
+
+	bool deleted = tw.flags.Get('X');
+	if (deleted && !(tds_flags & TDSF::DELETED)) {
+		wxColour newcolour = ColourOp(default_foreground_colour, gc.gcfg.deleted_colourdelta.val);
+
+		set_foreground(newcolour);
+		tds_flags |= TDSF::DELETED;
+	} else if (!deleted && tds_flags & TDSF::DELETED) {
+		set_foreground(default_foreground_colour);
+		tds_flags &= ~TDSF::DELETED;
+	}
+
 	bool hidden = CheckHiddenState();
 
 	if (redrawimg) {

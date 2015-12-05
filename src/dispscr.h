@@ -58,6 +58,7 @@ enum class TDSF {    //for tweetdispscr.tds_flags
 	IMGTHUMBHIDEOVERRIDE  = 1<<3,
 	CANLOADMOREREPLIES    = 1<<4,
 	INSERTEDPANELIDREFS   = 1<<5,
+	DELETED               = 1<<6,
 };
 template<> struct enum_traits<TDSF> { static constexpr bool flags = true; };
 

@@ -134,6 +134,7 @@ typedef enum {
 	CO_AND,
 	CO_OR,
 	CO_RSUB,
+	CO_TINT,
 } COLOUR_OP;
 wxColour ColourOp(const wxColour &in, const wxColour &delta, COLOUR_OP co);
 wxColour ColourOp(const wxColour &in, const wxString &co_str);

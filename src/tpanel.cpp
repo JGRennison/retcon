@@ -2437,7 +2437,7 @@ void EnumAllDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setn
 void UpdateAllTweets(bool redrawimg, bool resethighlight) {
 	EnumAllDisplayedTweets([&](tweetdispscr *tds) {
 		if (resethighlight) {
-			tds->tds_flags &= ~TDSF::HIGHLIGHT;
+			tds->tds_flags &= ~(TDSF::HIGHLIGHT | TDSF::DELETED);
 		}
 		tds->DisplayTweet(redrawimg);
 		return true;

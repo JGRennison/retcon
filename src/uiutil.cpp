@@ -615,6 +615,10 @@ wxColour ColourOp(const wxColour &in, const wxColour &delta, COLOUR_OP co) {
 		br = delta.Red() - br;
 		bg = delta.Green() - bg;
 		bb = delta.Blue() - bb;
+	} else if (co == CO_TINT) {
+		br = (br + delta.Red()) / 2;
+		bg = (bg + delta.Green()) / 2;
+		bb = (bb + delta.Blue()) / 2;
 	}
 
 	return NormaliseColour(br, bg, bb);
@@ -687,6 +691,12 @@ wxColour ColourOp(const wxColour &in, const wxString &co_str) {
 			case '~': {
 				flush();
 				co = CO_RSUB;
+				break;
+			}
+
+			case '^': {
+				flush();
+				co = CO_TINT;
 				break;
 			}
 

@@ -607,6 +607,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("Max quoted tweet recursion depth"), DBCV::ISGLOBALCFG, gc.gcfg.tweet_quote_recursion_max_depth, gcglobdefaults.tweet_quote_recursion_max_depth, wxFILTER_NUMERIC);
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs, wxT("Show panel Unhighlight All button"), DBCV::ISGLOBALCFG, gc.gcfg.showunhighlightallbtn, gcglobdefaults.showunhighlightallbtn);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Highlight colour"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.highlight_colourdelta, gcglobdefaults.highlight_colourdelta);
+	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Deleted colour"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.deleted_colourdelta, gcglobdefaults.deleted_colourdelta);
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs, wxT("Show deleted tweets by default"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.showdeletedtweetsbydefault, gcglobdefaults.showdeletedtweetsbydefault);
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs, wxT("Mark deleted tweets and DMs as read"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.markdeletedtweetsasread, gcglobdefaults.markdeletedtweetsasread);
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs, wxT("Mark own tweets and DMs as read"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.markowntweetsasread, gcglobdefaults.markowntweetsasread);

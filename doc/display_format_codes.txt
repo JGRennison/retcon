@@ -95,6 +95,7 @@ Where OP is one of the following:
     ~               Set the colour to the given value minus the current colour
     |               Binary OR the current colour with the given value
     &               Binary AND the current colour with the given value
+    ^               Tint the current colour 50% towards the given value
 
 If after any operation, one or more colour components lie outside the valid range (0-255) the colour is normalised as follows:
 If a colour component is negative, shift up all the colour components equally such that the negative component is now zero.

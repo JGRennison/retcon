@@ -59,6 +59,7 @@ genoptconf gcdefaults {
 #define CFGDEFAULT_mouseover_rtdispformat                   wxT("XmXiXrXtXfXd")
 #define CFGDEFAULT_mouseover_userdispformat                 wxT("")
 #define CFGDEFAULT_highlight_colourdelta                    wxT("+#320000")
+#define CFGDEFAULT_deleted_colourdelta                      wxT("^#808080")
 #define CFGDEFAULT_mediasave_directorylist                  wxT("")    //this is initialised in InitCFGDefaults()
 #define CFGDEFAULT_incoming_filter                          wxT("")
 #define CFGDEFAULT_alltweet_filter                          wxT("")

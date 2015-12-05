@@ -89,6 +89,7 @@ struct genoptconf {
 	CFGTEMPL(mouseover_rtdispformat) \
 	CFGTEMPL(mouseover_userdispformat) \
 	CFGTEMPL(highlight_colourdelta) \
+	CFGTEMPL(deleted_colourdelta) \
 	CFGTEMPL(mediasave_directorylist) \
 	CFGTEMPL(incoming_filter) \
 	CFGTEMPL(alltweet_filter) \
