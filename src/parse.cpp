@@ -367,6 +367,10 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 				en->user->GetUser().screen_name = en->text;
 			}
 			en->text = "@" + en->text;
+			if (t->flags.Get('D')) {
+				// DMs should not also be set as mentions
+				continue;
+			}
 			if (en->user->udc_flags & UDC::THIS_IS_ACC_USER_HINT) {
 				t->flags.Set('M', true);
 			}
