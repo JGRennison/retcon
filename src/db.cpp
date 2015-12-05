@@ -1590,7 +1590,7 @@ void dbconn::AccountSync(sqlite3 *adb) {
 	LogMsg(LOGT::DBINFO, "dbconn::AccountSync start");
 
 	unsigned int total = 0;
-	DBRowExecNoError(adb, "SELECT id, name, tweetids, dmids, userid, dispname, blockedids, mutedids, nortids FROM acc;", [&](sqlite3_stmt *getstmt) {
+	DBRowExec(adb, "SELECT id, name, tweetids, dmids, userid, dispname, blockedids, mutedids, nortids FROM acc;", [&](sqlite3_stmt *getstmt) {
 		unsigned int id = (unsigned int) sqlite3_column_int(getstmt, 0);
 		wxString name = wxString::FromUTF8((const char*) sqlite3_column_text(getstmt, 1));
 
@@ -1617,7 +1617,7 @@ void dbconn::AccountSync(sqlite3 *adb) {
 		LogMsgFormat(LOGT::DBINFO, "dbconn::AccountSync: Found account: dbindex: %d, "
 				"name: %s, tweet IDs: %u, DM IDs: %u, blocked IDs: %u, muted IDs: %u, no RT IDs: %u",
 				id, cstr(name), ta->tweet_ids.size(), ta->dm_ids.size(), ta->blocked_users.size(), ta->muted_users.size(), ta->no_rt_users.size());
-	});
+	}, "dbconn::AccountSync");
 	LogMsgFormat(LOGT::DBINFO, "dbconn::AccountSync end, total: %u IDs", total);
 }
 
