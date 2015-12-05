@@ -50,6 +50,7 @@
 #include <forward_list>
 #include <algorithm>
 #include <deque>
+#include <ctype.h>
 
 #ifndef TPANEL_COPIOUS_LOGGING
 #define TPANEL_COPIOUS_LOGGING 0
@@ -124,6 +125,66 @@ static void PerAccTPanelMenu(wxMenu *menu, tpanelmenudata &map, int &nextid, fla
 	menu->Append(nextid++, wxT("Tweets, Mentions &and DMs"));
 }
 
+static void FillDmConversationsMenu(wxMenu *menu, int &nextid, tpanelmenudata &map) {
+	auto append_item = [&](wxMenu *submenu, dm_conversation_map_item &item) {
+		udc_ptr &u = item.u;
+		map[nextid] = [u](mainframe *parent) {
+			auto tp = tpanel::MkTPanel("", "", TPF::DELETEONWINCLOSE, { }, { { TPFU::DMSET, u } });
+			tp->MkTPanelWin(parent, true);
+		};
+		submenu->Append(nextid++, wxString::Format(wxT("@%s (%u)"), wxstrstd(u->GetUser().screen_name).c_str(), item.index->ids.size()));
+	};
+
+	const unsigned int threshold = 20;
+
+	auto dmsetmap = GetDMConversationMap();
+	if (!dmsetmap.empty()) {
+		wxMenu *submenu = new wxMenu;
+
+		char bucket_start = 0;
+		char bucket_end = 0;
+		unsigned int bucket_count = 0;
+		unsigned int buckets_added = 0;
+		wxMenu *bucket_menu = new wxMenu;
+
+		auto flush_bucket = [&]() {
+			if (bucket_start == bucket_end) {
+				submenu->AppendSubMenu(bucket_menu, wxString::Format(wxT("%c"), (wxChar) bucket_start));
+			} else {
+				submenu->AppendSubMenu(bucket_menu, wxString::Format(wxT("%c - %c"), (wxChar) bucket_start, (wxChar) bucket_end));
+			}
+			buckets_added++;
+			bucket_start = bucket_end = bucket_count = 0;
+			bucket_menu = new wxMenu;
+		};
+
+		for (auto &it : dmsetmap) {
+			char first_char = toupper(it.first[0]);
+			if (bucket_end != first_char && bucket_count >= threshold) {
+				flush_bucket();
+			} else if (bucket_start != 0 && (isdigit(bucket_start) != isdigit(first_char) || isalpha(bucket_start) != isalpha(first_char))) {
+				flush_bucket();
+			}
+			if (bucket_start == 0) {
+				bucket_start = first_char;
+			}
+			append_item(bucket_menu, it.second);
+			bucket_end = first_char;
+			bucket_count++;
+		}
+		if (buckets_added == 0) {
+			// only one bucket, make it the top level
+			menu->AppendSubMenu(bucket_menu, wxT("DM Conversations"));
+			delete submenu;
+		} else {
+			flush_bucket();
+			menu->AppendSubMenu(submenu, wxT("DM Conversations"));
+		}
+
+		menu->AppendSeparator();
+	}
+}
+
 void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map) {
 	DestroyMenuContents(menuP);
 	map.clear();
@@ -139,21 +200,7 @@ void MakeTPanelMenu(wxMenu *menuP, tpanelmenudata &map) {
 	}
 	menuP->AppendSeparator();
 
-	auto dmsetmap = GetDMConversationMap();
-	if (!dmsetmap.empty()) {
-		wxMenu *submenu = new wxMenu;
-		menuP->AppendSubMenu(submenu, wxT("DM Conversations"));
-		for (auto &it : dmsetmap) {
-			dm_conversation_map_item &item = it.second;
-			udc_ptr &u = item.u;
-			map[nextid] = [u](mainframe *parent) {
-				auto tp = tpanel::MkTPanel("", "", TPF::DELETEONWINCLOSE, { }, { { TPFU::DMSET, u } });
-				tp->MkTPanelWin(parent, true);
-			};
-			submenu->Append(nextid++, wxString::Format(wxT("@%s (%u)"), wxstrstd(u->GetUser().screen_name).c_str(), item.index->ids.size()));
-		};
-		menuP->AppendSeparator();
-	}
+	FillDmConversationsMenu(menuP, nextid, map);
 
 	map[nextid] = MkStdTpanelAction(0, TPF::DELETEONWINCLOSE | TPF::AUTO_NOACC | TPF::AUTO_HIGHLIGHTED);
 	menuP->Append(nextid++, wxT("All Highlighted"));
