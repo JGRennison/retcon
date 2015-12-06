@@ -424,8 +424,9 @@ END_EVENT_TABLE()
 
 void tpw_acc_callback(void *userdata, acc_choice *src, bool isgoodacc) {
 	tweetpostwin *win = (tweetpostwin *) userdata;
-	win->isgoodacc=isgoodacc;
+	win->isgoodacc = isgoodacc;
 	win->CheckEnableSendBtn();
+	win->CheckAddNamesBtn();
 }
 
 tweetpostwin::tweetpostwin(wxWindow *parent, mainframe *mparent, wxAuiManager *parentauim)
@@ -501,10 +502,18 @@ bool tweetpostwin::okToSend() {
 	return isgoodacc && !currently_posting && !(textctrl->IsEmpty() && image_upload_filenames.empty()) && current_length <= (dm_targ ? 10000 : 140);
 }
 
+bool ShouldMentionUser(udc_ptr_p user, const std::shared_ptr<taccount> &acc) {
+	if (!user) return false;
+
+	if (acc && acc->usercont == user) return false;
+
+	return true;
+}
+
 void tweetpostwin::OnSendBtn(wxCommandEvent &event) {
 	std::string curtext = stdstrwx(textctrl->GetValue());
 	if (okToSend()) {
-		if (tweet_reply_targ && !IsUserMentioned(curtext, tweet_reply_targ->user)) {
+		if (tweet_reply_targ && ShouldMentionUser(tweet_reply_targ->user, curacc) && !IsUserMentioned(curtext, tweet_reply_targ->user)) {
 			int res = ::wxMessageBox(wxString::Format(wxT("User: @%s is not mentioned in this tweet. Reply anyway?"),
 					wxstrstd(tweet_reply_targ->user->GetUser().screen_name).c_str()), wxT("Confirm"), wxYES_NO | wxICON_QUESTION, this);
 			if (res != wxYES) return;
@@ -742,10 +751,11 @@ wxBitmap &tweetpostwin::GetReplyDescLockBtnBitmap() {
 	return replydesc_locked ? tpg->proticon : tpg->unlockicon;
 }
 
-void CheckUserMentioned(bool &changed, udc_ptr_p user, tweetposttextbox *textctrl, std::unique_ptr<is_user_mentioned_cache> *cache = 0) {
-	if (user && !IsUserMentioned(stdstrwx(textctrl->GetValue()), user, cache)) {
+void CheckUserMentioned(bool &changed, udc_ptr_p user, const std::shared_ptr<taccount> &acc,
+		tweetposttextbox *textctrl, std::unique_ptr<is_user_mentioned_cache> *cache = 0) {
+	if (ShouldMentionUser(user, acc) && !IsUserMentioned(stdstrwx(textctrl->GetValue()), user, cache)) {
 		textctrl->WriteText(wxT("@") + wxstrstd(user->GetUser().screen_name) + wxT(" "));
-		changed=true;
+		changed = true;
 	}
 }
 
@@ -770,7 +780,7 @@ void tweetpostwin::CheckAddNamesBtn() {
 	if (tweet_reply_targ) {
 		std::string txt = stdstrwx(textctrl->GetValue());
 		IterateUserNames(tweet_reply_targ, [&](udc_ptr u) {
-			if (u && !IsUserMentioned(txt, u, &iumc)) {
+			if (ShouldMentionUser(u, curacc) && !IsUserMentioned(txt, u, &iumc)) {
 				missing_name = true;
 			}
 		});
@@ -785,7 +795,7 @@ void tweetpostwin::OnAddNamesBtn(wxCommandEvent &event) {
 		textctrl->SetInsertionPoint(0);
 		bool changed = false;
 		IterateUserNames(tweet_reply_targ, [&](udc_ptr u) {
-			CheckUserMentioned(changed, u, textctrl, &iumc);
+			CheckUserMentioned(changed, u, curacc, textctrl, &iumc);
 		});
 		if (changed) {
 			OnTCChange();
@@ -804,10 +814,6 @@ void tweetpostwin::SetReplyTarget(tweet_ptr_p targ) {
 	textctrl->SetInsertionPoint(0);
 	bool changed = false;
 	if (targ) {
-		IterateUserNames(targ, [&](udc_ptr u) {
-			CheckUserMentioned(changed, u, textctrl, &iumc);
-		});
-
 		unsigned int best_score = 0;
 		const taccount *best = 0;
 		targ->IterateTP([&](const tweet_perspective &tp) {
@@ -841,6 +847,10 @@ void tweetpostwin::SetReplyTarget(tweet_ptr_p targ) {
 		if (best && accc->curacc.get() != best) {
 			accc->TrySetSel(best);
 		}
+
+		IterateUserNames(targ, [&](udc_ptr u) {
+			CheckUserMentioned(changed, u, curacc, textctrl, &iumc);
+		});
 	}
 	tweet_reply_targ = targ;
 	dm_targ.reset();
