@@ -1052,6 +1052,7 @@ void dbconn::OnDBNewAccountInsert(wxCommandEvent &event) {
 	for (auto &it : alist) {
 		if (it->name == accname) {
 			it->dbindex = msg->dbindex;
+			it->sort_order = msg->dbindex;
 			it->beinginsertedintodb = false;
 			it->CalcEnabled();
 			it->Exec();
@@ -1254,6 +1255,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	SyncReadInUserDMIndexes(syncdb);
 	AccountSync(syncdb);
 	ReadAllCFGIn(syncdb, gc, alist);
+	SortAccounts();
 	SyncReadInRBFSs(syncdb);
 	SyncReadInHandleNewPendingOps(syncdb);
 	SyncReadInAllMediaEntities(syncdb);
@@ -3187,8 +3189,16 @@ bool DBReadConfig::ReadBool(const char *name, bool *strval, bool defval) {
 	*strval = (bool) value;
 	return res;
 }
+
 bool DBReadConfig::ReadUInt64(const char *name, uint64_t *strval, uint64_t defval) {
 	return ReadInt64(name, (int64_t *) strval, (int64_t) defval);
+}
+
+bool DBReadConfig::ReadUInt(const char *name, unsigned int *strval, unsigned int defval) {
+	int64_t val = *strval;
+	bool ok = ReadInt64(name, &val, (unsigned int) defval);
+	*strval = (unsigned int) val;
+	return ok;
 }
 
 bool DBReadConfig::ReadInt64(const char *name, int64_t *strval, int64_t defval) {

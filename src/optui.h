@@ -57,6 +57,17 @@ enum class DBCV {
 template<> struct enum_traits<DBCV> { static constexpr bool flags = true; };
 
 struct acc_window: public wxDialog {
+	wxListBox *lb;
+	wxButton *editbtn;
+	wxButton *endisbtn;
+	wxButton *reauthbtn;
+	wxButton *delbtn;
+	wxButton *reenableallbtns = nullptr;
+	wxButton *upbtn;
+	wxButton *downbtn;
+
+	static std::set<acc_window *> currentset;
+
 	acc_window(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name = wxT("dialogBox"));
 	~acc_window();
 	void AccEdit(wxCommandEvent &event);
@@ -66,17 +77,12 @@ struct acc_window: public wxDialog {
 	void EnDisable(wxCommandEvent &event);
 	void ReAuth(wxCommandEvent &event);
 	void ReEnableAll(wxCommandEvent &event);
-	void OnSelChange(wxCommandEvent &event) ;
+	void OnSelChange(wxCommandEvent &event);
+	void OnUpBtn(wxCommandEvent &event);
+	void OnDownBtn(wxCommandEvent &event);
+	void Reorder(bool up);
 	void UpdateLB();
-	void UpdateButtons() ;
-	wxListBox *lb;
-	wxButton *editbtn;
-	wxButton *endisbtn;
-	wxButton *reauthbtn;
-	wxButton *delbtn;
-	wxButton *reenableallbtns = nullptr;
-
-	static std::set<acc_window *> currentset;
+	void UpdateButtons();
 
 	DECLARE_EVENT_TABLE()
 };

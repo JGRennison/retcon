@@ -38,6 +38,8 @@ enum {
 	ACCWID_REAUTH,
 	ACCWID_REENABLEALL,
 	ACCWID_LISTWIN,
+	ACCWID_UP,
+	ACCWID_DOWN,
 };
 
 BEGIN_EVENT_TABLE(acc_window, wxDialog)
@@ -48,6 +50,8 @@ BEGIN_EVENT_TABLE(acc_window, wxDialog)
 	EVT_BUTTON(ACCWID_ENDISABLE, acc_window::EnDisable)
 	EVT_BUTTON(ACCWID_REAUTH, acc_window::ReAuth)
 	EVT_BUTTON(ACCWID_REENABLEALL, acc_window::ReEnableAll)
+	EVT_BUTTON(ACCWID_UP, acc_window::OnUpBtn)
+	EVT_BUTTON(ACCWID_DOWN, acc_window::OnDownBtn)
 	EVT_LISTBOX(ACCWID_LISTWIN, acc_window::OnSelChange)
 END_EVENT_TABLE()
 
@@ -63,7 +67,7 @@ acc_window::acc_window(wxWindow* parent, wxWindowID id, const wxString &title, c
 	wxBoxSizer *hbox2 = new wxBoxSizer(wxHORIZONTAL);
 	wxBoxSizer *vboxr = new wxBoxSizer(wxVERTICAL);
 
-	lb = new wxListBox(panel, ACCWID_LISTWIN, wxDefaultPosition, wxDefaultSize, 0, 0, wxLB_SINGLE | wxLB_SORT | wxLB_NEEDED_SB);
+	lb = new wxListBox(panel, ACCWID_LISTWIN, wxDefaultPosition, wxDefaultSize, 0, 0, wxLB_SINGLE | wxLB_NEEDED_SB);
 	UpdateLB();
 	editbtn = new wxButton(panel, wxID_PROPERTIES, wxT("Settings"));
 	endisbtn = new wxButton(panel, ACCWID_ENDISABLE, wxT("Disable"));
@@ -82,6 +86,13 @@ acc_window::acc_window(wxWindow* parent, wxWindowID id, const wxString &title, c
 	vboxr->Add(reauthbtn, 0, wxALIGN_TOP | wxEXPAND, 0);
 	hbox2->Add(newbtn, 0, wxALIGN_LEFT, 0);
 
+	wxBoxSizer *hbox_updown = new wxBoxSizer(wxHORIZONTAL);
+	upbtn = new wxButton(panel, ACCWID_UP, wxT("\x2191"));
+	downbtn = new wxButton(panel, ACCWID_DOWN, wxT("\x2193"));
+	hbox_updown->Add(upbtn, 0, wxALIGN_LEFT | wxEXPAND, 0);
+	hbox_updown->Add(downbtn, 0, wxALIGN_RIGHT | wxEXPAND, 0);
+	vboxr->Add(hbox_updown, 0, wxALIGN_TOP | wxEXPAND, 0);
+
 	if (gc.allaccsdisabled) {
 		reenableallbtns = new wxButton(panel, ACCWID_REENABLEALL, wxT("*Enable All*"));
 		hbox2->Add(reenableallbtns, 0, wxALIGN_LEFT, 0);
@@ -95,7 +106,7 @@ acc_window::acc_window(wxWindow* parent, wxWindowID id, const wxString &title, c
 	panel->SetSizer(vbox);
 	vbox->Fit(panel);
 
-	wxSize initsize=GetSize();
+	wxSize initsize = GetSize();
 	SetSizeHints(initsize.GetWidth(), initsize.GetHeight(), 9001, 9001);
 
 	currentset.insert(this);
@@ -112,15 +123,20 @@ void acc_window::OnSelChange(wxCommandEvent &event) {
 
 void acc_window::UpdateButtons() {
 	int selection = lb->GetSelection();
-	editbtn->Enable(selection!=wxNOT_FOUND);
-	endisbtn->Enable(selection!=wxNOT_FOUND);
-	reauthbtn->Enable(selection!=wxNOT_FOUND);
-	delbtn->Enable(selection!=wxNOT_FOUND);
+	editbtn->Enable(selection != wxNOT_FOUND);
+	endisbtn->Enable(selection != wxNOT_FOUND);
+	reauthbtn->Enable(selection != wxNOT_FOUND);
+	delbtn->Enable(selection != wxNOT_FOUND);
 	if (selection != wxNOT_FOUND) {
 		taccount *acc = static_cast<taccount *>(lb->GetClientData(selection));
 		endisbtn->SetLabel(acc->userenabled ? wxT("Disable") : wxT("Enable"));
+		upbtn->Enable(selection > 0);
+		downbtn->Enable(selection < (int) (lb->GetCount() - 1));
+	} else {
+		endisbtn->SetLabel(wxT("Disable"));
+		upbtn->Enable(false);
+		downbtn->Enable(false);
 	}
-	else endisbtn->SetLabel(wxT("Disable"));
 }
 
 void acc_window::UpdateLB() {
@@ -211,7 +227,7 @@ void acc_window::EnDisable(wxCommandEvent &event) {
 	int sel = lb->GetSelection();
 	if (sel == wxNOT_FOUND) return;
 	taccount *acc = static_cast<taccount *>(lb->GetClientData(sel));
-	acc->userenabled=!acc->userenabled;
+	acc->userenabled = !acc->userenabled;
 	acc->CalcEnabled();
 	acc->Exec();
 	UpdateLB();
@@ -247,6 +263,29 @@ void acc_window::ReEnableAll(wxCommandEvent &event) {
 		// Hide the button, it's single-use not a toggle
 		reenableallbtns->Show(false);
 	}
+}
+
+void acc_window::OnUpBtn(wxCommandEvent &event) {
+	Reorder(true);
+}
+
+void acc_window::OnDownBtn(wxCommandEvent &event) {
+	Reorder(false);
+}
+
+void acc_window::Reorder(bool up) {
+	int sel = lb->GetSelection();
+	if (sel == wxNOT_FOUND) return;
+	taccount *acc = static_cast<taccount *>(lb->GetClientData(sel));
+
+	int other = sel + (up ? -1 : +1);
+	if (other < 0 || other >= (int) lb->GetCount()) return;
+
+	taccount *other_acc = static_cast<taccount *>(lb->GetClientData(other));
+	std::swap(acc->sort_order, other_acc->sort_order);
+	SortAccounts();
+	UpdateLB();
+	UpdateButtons();
 }
 
 struct DefaultChkBoxValidatorCommon : public wxValidator {

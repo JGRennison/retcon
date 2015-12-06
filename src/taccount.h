@@ -75,6 +75,7 @@ struct taccount_cfg {
 	uint64_t last_block_fetch_time = 0;
 	uint64_t last_mute_fetch_time = 0;
 	uint64_t last_no_rt_fetch_time = 0;
+	unsigned int sort_order = 0;
 
 	void CFGWriteOut(DBWriteConfig &twfc) const;
 	void CFGReadInBase(DBReadConfig &twfc);
@@ -218,6 +219,7 @@ template<> struct enum_traits<taccount::TAF> { static constexpr bool flags = tru
 
 void AccountChangeTrigger();
 bool GetAccByDBIndex(unsigned int dbindex, std::shared_ptr<taccount> &acc);
+void SortAccounts();
 
 extern std::list<std::shared_ptr<taccount>> alist;
 

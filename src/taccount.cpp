@@ -1032,3 +1032,9 @@ void AccountChangeTrigger() {
 		it->UpdateLB();
 	}
 }
+
+void SortAccounts() {
+	alist.sort([](const std::shared_ptr<taccount> &a, const std::shared_ptr<taccount> &b) {
+		return a->sort_order < b->sort_order;
+	});
+}

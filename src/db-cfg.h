@@ -64,6 +64,7 @@ struct DBReadConfig : public DBGenConfig {
 	bool ReadInt64(const char *name, int64_t *strval, int64_t defval);
 	bool ReadBool(const char *name, bool *strval, bool defval);
 	bool ReadUInt64(const char *name, uint64_t *strval, uint64_t defval);
+	bool ReadUInt(const char *name, unsigned int *strval, unsigned int defval);
 	DBReadConfig(sqlite3 *db);
 	~DBReadConfig();
 

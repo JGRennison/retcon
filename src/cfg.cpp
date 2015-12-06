@@ -154,6 +154,7 @@ void taccount_cfg::CFGWriteOut(DBWriteConfig &twfc) const {
 	twfc.WriteInt64("last_block_fetch_time", last_block_fetch_time);
 	twfc.WriteInt64("last_mute_fetch_time", last_mute_fetch_time);
 	twfc.WriteInt64("last_no_rt_fetch_time", last_no_rt_fetch_time);
+	twfc.WriteInt64("sort_order", sort_order);
 }
 
 void taccount_cfg::CFGReadInBase(DBReadConfig &twfc) {
@@ -172,6 +173,7 @@ void taccount_cfg::CFGReadInBase(DBReadConfig &twfc) {
 	twfc.ReadUInt64("last_block_fetch_time", &last_block_fetch_time, 0);
 	twfc.ReadUInt64("last_mute_fetch_time", &last_mute_fetch_time, 0);
 	twfc.ReadUInt64("last_no_rt_fetch_time", &last_no_rt_fetch_time, 0);
+	twfc.ReadUInt("sort_order", &sort_order, dbindex);
 }
 
 void taccount_cfg::UnShareStrings() {
