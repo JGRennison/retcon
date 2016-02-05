@@ -86,6 +86,7 @@ static esctable allesctables[] = {
 
 static const char *startup_sql=
 "PRAGMA locking_mode = EXCLUSIVE;"
+"BEGIN EXCLUSIVE;"
 "CREATE TABLE IF NOT EXISTS tweets(id INTEGER PRIMARY KEY NOT NULL, statjson BLOB, dynjson BLOB, userid INTEGER, userrecipid INTEGER, flags INTEGER, timestamp INTEGER, rtid INTEGER);"
 "CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY NOT NULL, json BLOB, cachedprofimgurl BLOB, createtimestamp INTEGER, lastupdatetimestamp INTEGER, cachedprofileimgchecksum BLOB, mentionindex BLOB, profimglastusedtimestamp INTEGER);"
 "CREATE TABLE IF NOT EXISTS acc(id INTEGER PRIMARY KEY NOT NULL, name TEXT, dispname TEXT, json BLOB, tweetids BLOB, dmids BLOB, blockedids BLOB, mutedids BLOB, nortids BLOB, userid INTEGER);"
@@ -103,7 +104,8 @@ static const char *startup_sql=
 "CREATE TABLE IF NOT EXISTS handlenewpending(accid INTEGER, arrivalflags INTEGER, tweetid INTEGER);"
 "CREATE TABLE IF NOT EXISTS incrementaltweetids(id INTEGER PRIMARY KEY NOT NULL);"
 "CREATE TABLE IF NOT EXISTS eventlog(id INTEGER PRIMARY KEY NOT NULL, accid INTEGER, type INTEGER, flags INTEGER, obj INTEGER, timestamp INTEGER, extrajson BLOB);"
-"INSERT OR REPLACE INTO staticsettings(name, value) VALUES ('dirtyflag', strftime('%s','now'));";
+"INSERT OR REPLACE INTO staticsettings(name, value) VALUES ('dirtyflag', strftime('%s','now'));"
+"COMMIT;";
 
 static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"INSERT OR REPLACE INTO tweets(id, statjson, dynjson, userid, userrecipid, flags, timestamp, rtid) VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
@@ -1240,19 +1242,26 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 
 		LogMsgFormat(LOGT::DBTRACE, "dbconn::Init(): table_count: %d", table_count);
 
-		res = sqlite3_exec(syncdb, startup_sql, 0, 0, 0);
-		if (res != SQLITE_OK) {
+		auto db_startup_fatal = [&]() {
 			wxMessageDialog(0, wxString::Format(wxT("Startup SQL failed, got error: %d (%s)\nDatabase filename: %s\nCheck that the database is not locked by another process, and that the directory is read/writable."),
 					res, wxstrstd(sqlite3_errmsg(syncdb)).c_str(), wxstrstd(filename).c_str()),
 					wxT("Fatal Startup Error"), wxOK | wxICON_ERROR ).ShowModal();
 			sqlite3_close(syncdb);
 			syncdb = 0;
+		};
+
+		res = sqlite3_exec(syncdb, startup_sql, 0, 0, 0);
+		if (res != SQLITE_OK) {
+			db_startup_fatal();
 			return false;
 		}
 
 		if (table_count <= 0) {
 			// This is a new DB, no need to do update check, just write version
-			SyncWriteDBVersion(syncdb);
+			if (!SyncWriteDBVersion(syncdb)) {
+				db_startup_fatal();
+				return false;
+			}
 		} else {
 			// Check whether DB is old and needs to be updated
 			if (!SyncDoUpdates(syncdb)) {

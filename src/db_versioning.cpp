@@ -22,6 +22,7 @@
 #include "map.h"
 #include "log.h"
 #include "twit-common.h"
+#include "raii.h"
 #include <wx/msgdlg.h>
 
 static const unsigned int db_version = 9;
@@ -38,6 +39,7 @@ static const char *update_sql[] = {
 	nullptr
 	//"ALTER TABLE users ADD COLUMN dmindex BLOB;"
 	,
+	// special case: only run if version was previously 2
 	"UPDATE OR IGNORE users SET dmindex = NULL;"
 	// SyncDoUpdates_FillUserDMIndexes should be run here
 	,
@@ -62,43 +64,67 @@ static const char *update_sql[] = {
 
 // return false if all bets are off and DB should not be read
 bool dbconn::SyncDoUpdates(sqlite3 *adb) {
-	LogMsg(LOGT::DBINFO, "dbconn::DoUpdates start");
+	LogMsg(LOGT::DBINFO, "dbconn::SyncDoUpdates start");
 
 	unsigned int current_db_version = 0;
+	bool have_version = false;
 
-	sqlite3_stmt *getstmt = cache.GetStmt(adb, DBPSC_SELSTATICSETTING);
-	sqlite3_bind_text(getstmt, 1, "dbversion", -1, SQLITE_STATIC);
-	DBRowExec(adb, getstmt, [&](sqlite3_stmt *stmt) {
-		current_db_version = (unsigned int) sqlite3_column_int64(stmt, 0);
-	}, "dbconn::DoUpdates (get DB version)");
+	try {
+		sqlite3_stmt *getstmt = cache.GetStmt(adb, DBPSC_SELSTATICSETTING);
+		sqlite3_bind_text(getstmt, 1, "dbversion", -1, SQLITE_STATIC);
+		DBRowExec(adb, getstmt, [&](sqlite3_stmt *stmt) {
+			current_db_version = (unsigned int) sqlite3_column_int64(stmt, 0);
+			have_version = true;
+		}, db_throw_on_error("dbconn::SyncDoUpdates (get DB version)"));
 
-	if (current_db_version < db_version) {
-		cache.BeginTransaction(adb);
-		LogMsgFormat(LOGT::DBINFO, "dbconn::DoUpdates updating from %u to %u", current_db_version, db_version);
-		for (unsigned int i = current_db_version; i < db_version; i++) {
-			const char *sql = update_sql[i];
-			if (!sql) continue;
-
-			int res = sqlite3_exec(adb, sql, 0, 0, 0);
-			if (res != SQLITE_OK) {
-				LogMsgFormat(LOGT::DBERR, "dbconn::DoUpdates %u got error: %d (%s)", i, res, cstr(sqlite3_errmsg(adb)));
-			}
-			if (i == 3) {
-				SyncDoUpdates_FillUserDMIndexes(adb);
-			}
+		if (!have_version) {
+			throw std::runtime_error("dbversion row seems to be missing from database.");
 		}
-		SyncWriteDBVersion(adb);
-		cache.EndTransaction(adb);
-	} else if (current_db_version > db_version) {
-		LogMsgFormat(LOGT::DBERR, "dbconn::DoUpdates current DB version %u > %u", current_db_version, db_version);
 
-		wxMessageDialog(0, wxString::Format(wxT("Sorry, this database cannot be read.\nIt is version %u, this program can only read up to version %u, please upgrade.\n"),
-			current_db_version, db_version),
-			wxT("Error: database too new"), wxOK | wxICON_ERROR ).ShowModal();
+		if (current_db_version < db_version) {
+			LogMsgFormat(LOGT::DBINFO, "dbconn::SyncDoUpdates updating from %u to %u", current_db_version, db_version);
+			DBExec(adb, "BEGIN EXCLUSIVE;", db_throw_on_error("dbconn::SyncDoUpdates (lock)"));
+
+			auto finaliser = scope_guard([&]() {
+				DBExec(adb, "ROLLBACK;", "dbconn::SyncDoUpdates (rollback)");
+			});
+
+			for (unsigned int i = current_db_version; i < db_version; i++) {
+				const char *sql = update_sql[i];
+				if (!sql) continue;
+
+				if (i == 3) {
+					SyncDoUpdates_FillUserDMIndexes(adb);
+					if (current_db_version != 2) continue; // see special case above
+				}
+
+				DBExecStringMulti(adb, sql, [&](sqlite3_stmt *stmt, int res) {
+					DBDoErr(db_throw_on_error(string_format("dbconn::SyncDoUpdates %i", i)), adb, stmt, res);
+				});
+			}
+			SyncWriteDBVersion(adb);
+			DBExec(adb, "COMMIT;", db_throw_on_error("dbconn::SyncDoUpdates (unlock)"));
+			finaliser.cancel();
+		} else if (current_db_version > db_version) {
+			LogMsgFormat(LOGT::DBERR, "dbconn::SyncDoUpdates current DB version %u > %u", current_db_version, db_version);
+
+			wxMessageDialog(nullptr, wxString::Format(wxT("Sorry, this database cannot be read.\nIt is version %u, this program can only read up to version %u, please upgrade.\n"),
+				current_db_version, db_version),
+				wxT("Error: database too new"), wxOK | wxICON_ERROR).ShowModal();
+			return false;
+		}
+	} catch (std::exception &e) {
+		std::string msg;
+		if (have_version) {
+			msg = string_format("Database upgrade failed. Could not upgrade from version %u to %u.\n\n%s", current_db_version, db_version, cstr(e.what()));
+		} else {
+			msg = string_format("Database upgrade failed. Could not determine database version.\n\n%s", cstr(e.what()));
+		}
+		wxMessageDialog(nullptr, wxstrstd(msg), wxT("Error: database upgrade failed"), wxOK | wxICON_ERROR).ShowModal();
 		return false;
 	}
 
-	LogMsg(LOGT::DBINFO, "dbconn::DoUpdates end");
+	LogMsg(LOGT::DBINFO, "dbconn::SyncDoUpdates end");
 	return true;
 }
 
@@ -116,7 +142,7 @@ void dbconn::SyncDoUpdates_FillUserDMIndexes(sqlite3 *adb) {
 			dm_index_map[userid].push_back(id);
 			dm_index_map[userrecipid].push_back(id);
 		},
-		"dbconn::SyncDoUpdates_FillUserDMIndexes (DM listing)");
+		db_throw_on_error("dbconn::SyncDoUpdates_FillUserDMIndexes (DM listing)"));
 
 	DBRangeBindExec(adb, "INSERT OR REPLACE INTO userdmsets(userid, dmindex) VALUES (?, ?);",
 		dm_index_map.begin(), dm_index_map.end(),
@@ -124,12 +150,13 @@ void dbconn::SyncDoUpdates_FillUserDMIndexes(sqlite3 *adb) {
 			sqlite3_bind_int64(stmt, 1, it.first);
 			bind_compressed(stmt, 2, settocompressedblob_zigzag(it.second));
 		},
-		"dbconn::SyncDoUpdates_FillUserDMIndexes (DM index write back)");
+		db_throw_on_error("dbconn::SyncDoUpdates_FillUserDMIndexes (DM index write back)"));
 }
 
-void dbconn::SyncWriteDBVersion(sqlite3 *adb) {
+// returns true if OK
+bool dbconn::SyncWriteDBVersion(sqlite3 *adb) {
 	sqlite3_stmt *stmt = cache.GetStmt(adb, DBPSC_INSSTATICSETTING);
 	sqlite3_bind_text(stmt, 1, "dbversion", -1, SQLITE_STATIC);
 	sqlite3_bind_int64(stmt, 2, db_version);
-	DBExec(adb, stmt, "dbconn::SyncWriteDBVersion");
+	return DBExec(adb, stmt, "dbconn::SyncWriteDBVersion");
 }
