@@ -331,11 +331,7 @@ struct scoped_stmt_holder {
 	sqlite3_stmt *stmt() { return m_stmt.get(); }
 };
 
-inline scoped_stmt_holder DBInitialiseSql(sqlite3 *adb, std::string sql) {
-	sqlite3_stmt *stmt;
-	sqlite3_prepare_v2(adb, sql.c_str(), sql.size(), &stmt, nullptr);
-	return scoped_stmt_holder { std::unique_ptr<sqlite3_stmt, stmt_deleter>(stmt) };
-}
+scoped_stmt_holder DBInitialiseSql(sqlite3 *adb, std::string sql);
 
 inline scoped_stmt_holder DBInitialiseSql(sqlite3 *adb, const char *sql) {
 	return DBInitialiseSql(adb, std::string(sql));
@@ -408,6 +404,17 @@ void DBRangeBindRowExec(sqlite3 *adb, S sql, I rangebegin, J rangeend, B bindfun
 		sqlite3_reset(s.stmt());
 	}
 };
+
+// this function accepts multiple SQL statements separated by semicolons
+template <typename E> bool DBExecStringMulti(sqlite3 *adb, const char *sql, E errspec) {
+	int res = sqlite3_exec(adb, sql, nullptr, nullptr, nullptr);
+	if (res != SQLITE_OK) {
+		DBDoErr(errspec, adb, nullptr, res);
+		return false;
+	} else {
+		return true;
+	}
+}
 
 db_bind_buffer<dbb_compressed> DoCompress(const void *in, size_t insize, unsigned char tag = 'Z', bool *iscompressed = nullptr);
 db_bind_buffer<dbb_uncompressed> DoDecompress(db_bind_buffer<dbb_compressed> &&in);

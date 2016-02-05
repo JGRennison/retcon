@@ -241,6 +241,21 @@ static bool TagToDict(unsigned char tag, const unsigned char *&dict, size_t &dic
 	}
 }
 
+scoped_stmt_holder DBInitialiseSql(sqlite3 *adb, std::string sql) {
+	sqlite3_stmt *stmt;
+	const char *leftover = nullptr;
+	int result = sqlite3_prepare_v2(adb, sql.c_str(), sql.size(), &stmt, &leftover);
+	if (result != SQLITE_OK) {
+		TSLogMsgFormat(LOGT::DBERR, "sqlite3_prepare_v2 error: %d (%s)", result, cstr(sqlite3_errmsg(adb)));
+		return scoped_stmt_holder();
+	} else if (leftover && *leftover != 0) {
+		TSLogMsgFormat(LOGT::DBERR, "More than one SQL statement passed to sqlite3_prepare_v2: \"%s\"", cstr(sql));
+		return scoped_stmt_holder();
+	} else {
+		return scoped_stmt_holder { std::unique_ptr<sqlite3_stmt, stmt_deleter>(stmt) };
+	}
+}
+
 #define HEADERSIZE 5
 
 db_bind_buffer<dbb_compressed> DoCompress(const void *in, size_t insize, unsigned char tag, bool *iscompressed) {
