@@ -32,6 +32,8 @@
 #include <set>
 #include <map>
 #include <forward_list>
+#include <exception>
+#include <stdexcept>
 #include <wx/string.h>
 #include <wx/event.h>
 #include <wx/timer.h>
@@ -294,8 +296,20 @@ struct dbconn : public wxEvtHandler {
 };
 template<> struct enum_traits<dbconn::DBCF> { static constexpr bool flags = true; };
 
+struct db_throw_on_error {
+	const std::string msg;
+
+	db_throw_on_error(std::string msg_) : msg(std::move(msg_)) { }
+};
+
 template <typename E> void DBDoErr(E errspec, sqlite3 *adb, sqlite3_stmt *stmt, int res) {
 	errspec(stmt, res);
+}
+
+template <> inline void DBDoErr(db_throw_on_error errspec, sqlite3 *adb, sqlite3_stmt *stmt, int res) {
+	std::string msg = string_format("%s got error: %d (%s)", cstr(errspec.msg), res, cstr(sqlite3_errmsg(adb)));
+	TSLogMsg(LOGT::DBERR, msg);
+	throw std::runtime_error(msg);
 }
 
 template <> inline void DBDoErr<std::string>(std::string errspec, sqlite3 *adb, sqlite3_stmt *stmt, int res) {

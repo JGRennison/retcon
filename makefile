@@ -34,7 +34,7 @@ COBJS_CFLAGS := -Wno-missing-field-initializers -Wno-sign-compare
 OPTIMISE_FLAGS := -O3
 CFLAGS = $(OPTIMISE_FLAGS) $(COMMONCFLAGS)
 AFLAGS :=
-CXXFLAGS := -std=c++11 -fno-exceptions
+CXXFLAGS := -std=c++11
 TCFLAGS := -DSHA1_NO_UTILITY_FUNCTIONS -DSHA1_NO_STL_FUNCTIONS
 WXCFGFLAGS := --version=2.8
 GCC := g++
