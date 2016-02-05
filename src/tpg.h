@@ -57,6 +57,7 @@ struct tpanelglobal {
 	wxBitmap multiunreadicon;
 	wxBitmap photoicon;
 	wxImage photoicon_img;
+	wxBitmap playicon;
 
 	emoji_cache emoji;
 

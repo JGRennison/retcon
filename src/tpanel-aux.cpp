@@ -402,6 +402,7 @@ tpanelglobal::tpanelglobal() : arrow_dim(0) {
 	GetCloseIcon(&closeicon, 0);
 	GetMultiUnreadIcon(&multiunreadicon, 0);
 	GetPhotoIcon(&photoicon, &photoicon_img);
+	GetPlayIcon(&playicon, 0);
 }
 
 BEGIN_EVENT_TABLE(tpanel_item, wxPanel)

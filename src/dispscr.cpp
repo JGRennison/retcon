@@ -35,6 +35,7 @@
 #include "retcon.h"
 #include "tpanel-data.h"
 #include "emoji/emoji.h"
+#include <wx/dcmemory.h>
 #if HANDLE_PRIMARY_CLIPBOARD
 #include <wx/clipbrd.h>
 #endif
@@ -1236,7 +1237,17 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 					EndUnderline();
 				} else if (it->flags & MEF::HAVE_THUMB && !hide_thumb) {
 					long curpos = GetInsertionPoint();
-					WriteBitmap(it->thumbimg);
+					if (it->video) {
+						wxBitmap new_bitmap = it->thumbimg;
+						wxMemoryDC new_bitmap_dc;
+						new_bitmap_dc.SelectObject(new_bitmap);
+						const wxBitmap &play_icon = tpanelglobal::Get()->playicon;
+						new_bitmap_dc.DrawBitmap(play_icon, (it->thumbimg.GetWidth() - play_icon.GetWidth()) / 2, (it->thumbimg.GetHeight() - play_icon.GetHeight()) / 2, true);
+						new_bitmap_dc.SelectObjectAsSource(wxNullBitmap);
+						WriteBitmap(new_bitmap);
+					} else {
+						WriteBitmap(it->thumbimg);
+					}
 					SetInsertionPointEnd();
 					wxTextAttrEx attr(GetDefaultStyleEx());
 					attr.SetURL(url);
