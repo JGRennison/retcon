@@ -128,6 +128,35 @@ bool dbconn::SyncDoUpdates(sqlite3 *adb) {
 	return true;
 }
 
+bool dbconn::SyncCheckReadOnlyDBVersion(sqlite3 *adb) {
+	LogMsg(LOGT::DBINFO, "dbconn::SyncCheckReadOnlyDBVersion start");
+
+	unsigned int current_db_version = 0;
+
+	sqlite3_stmt *getstmt = cache.GetStmt(adb, DBPSC_SELSTATICSETTING);
+	sqlite3_bind_text(getstmt, 1, "dbversion", -1, SQLITE_STATIC);
+	DBRowExec(adb, getstmt, [&](sqlite3_stmt *stmt) {
+		current_db_version = (unsigned int) sqlite3_column_int64(stmt, 0);
+	}, "dbconn::SyncCheckReadOnlyDBVersion (get DB version)");
+
+	if (current_db_version > db_version) {
+		LogMsgFormat(LOGT::DBERR, "dbconn::SyncCheckReadOnlyDBVersion current DB version %u > %u", current_db_version, db_version);
+
+		wxMessageDialog(nullptr, wxString::Format(wxT("Sorry, this database cannot be read.\nIt is version %u, this program can only read up to version %u, please upgrade.\n"),
+				current_db_version, db_version), wxT("Error: database too new"), wxOK | wxICON_ERROR).ShowModal();
+		return false;
+	} else if (current_db_version < db_version) {
+		LogMsgFormat(LOGT::DBERR, "dbconn::SyncCheckReadOnlyDBVersion current DB version %u < %u", current_db_version, db_version);
+
+		wxMessageDialog(nullptr, wxString::Format(wxT("Sorry, this database cannot be read.\nIt is version %u, and cannot be upgraded to version %u in read-only mode.\n"),
+				current_db_version, db_version), wxT("Error: read-only database not upgradable"), wxOK | wxICON_ERROR).ShowModal();
+		return false;
+	}
+
+	LogMsg(LOGT::DBINFO, "dbconn::SyncCheckReadOnlyDBVersion end");
+	return true;
+}
+
 void dbconn::SyncDoUpdates_FillUserDMIndexes(sqlite3 *adb) {
 	container::map<uint64_t, std::deque<uint64_t> > dm_index_map;
 

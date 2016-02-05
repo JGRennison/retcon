@@ -1271,6 +1271,14 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 				return false;
 			}
 		}
+	} else {
+		// read-only DB, check it's the right version
+		if (!SyncCheckReadOnlyDBVersion(syncdb)) {
+			// Wrong version, give up now
+			sqlite3_close(syncdb);
+			syncdb = 0;
+			return false;
+		}
 	}
 
 	LogMsgFormat(LOGT::DBINFO, "dbconn::Init(): About to read in state from database");

@@ -257,6 +257,7 @@ struct dbconn : public wxEvtHandler {
 	void AsyncWriteBackTpanels(dbfunctionmsg &msg);
 
 	bool SyncDoUpdates(sqlite3 *adb);
+	bool SyncCheckReadOnlyDBVersion(sqlite3 *adb);
 	bool SyncWriteDBVersion(sqlite3 *adb);
 
 	bool CheckIfPurgeDue(sqlite3 *db, time_t threshold, const char *settingname, const char *funcname, time_t &delta);
