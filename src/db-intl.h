@@ -306,9 +306,8 @@ template <> inline void DBDoErr<const char *>(const char *errspec, sqlite3 *adb,
 	DBDoErr<std::string>(errspec, adb, stmt, res);
 }
 
-template <> inline void DBDoErr<std::nullptr_t>(std::nullptr_t p, sqlite3 *adb, sqlite3_stmt *stmt, int res) {
-	//do nothing
-}
+// this is deliberately not implemented
+template <> inline void DBDoErr<std::nullptr_t>(std::nullptr_t p, sqlite3 *adb, sqlite3_stmt *stmt, int res);
 
 struct stmt_holder {
 	sqlite3_stmt *m_stmt;
@@ -356,10 +355,6 @@ template <typename F, typename E> void DBRowExecStmt(sqlite3 *adb, sqlite3_stmt 
 	} while (true);
 }
 
-template <typename F> void DBRowExecStmtNoError(sqlite3 *adb, sqlite3_stmt *stmt, F func) {
-	DBRowExecStmt(adb, stmt, func, [](sqlite3_stmt *stmt_, int res_) { });
-};
-
 template <typename B, typename F, typename E, typename S> void DBBindRowExec(sqlite3 *adb, S sql, B bindfunc, F func, E errspec) {
 	auto s = DBInitialiseSql(adb, sql);
 	bindfunc(s.stmt());
@@ -371,27 +366,12 @@ template <typename F, typename E, typename S> void DBRowExec(sqlite3 *adb, S sql
 	DBBindRowExec(adb, sql, [](sqlite3_stmt *stmt) { }, func, errspec);
 }
 
-template <typename B, typename F, typename S> void DBBindRowExecNoError(sqlite3 *adb, S sql, B bindfunc, F func) {
-	DBBindRowExec(adb, sql, bindfunc, func, nullptr);
-};
-
-template <typename F, typename S> void DBRowExecNoError(sqlite3 *adb, S sql, F func) {
-	DBRowExec(adb, sql, func, nullptr);
-};
-
-
-
 template <typename E> void DBExecStmt(sqlite3 *adb, sqlite3_stmt *stmt, E errspec) {
 	int res = sqlite3_step(stmt);
 	if (res != SQLITE_DONE) {
 		DBDoErr(errspec, adb, stmt, res);
 	}
 }
-
-template <typename S> void DBExecStmtNoError(sqlite3 *adb, S sql) {
-	DBRowExecStmt(adb, sql, nullptr);
-};
-
 
 template <typename B, typename E, typename S> void DBBindExec(sqlite3 *adb, S sql, B bindfunc, E errspec) {
 	auto s = DBInitialiseSql(adb, sql);
@@ -405,11 +385,6 @@ template <typename E, typename S> void DBExec(sqlite3 *adb, S sql, E errspec) {
 	DBBindExec(adb, sql, [](sqlite3_stmt *stmt) { }, errspec);
 }
 
-template <typename B, typename S> void DBBindExecNoError(sqlite3 *adb, S sql, B bindfunc) {
-	DBBindExec(adb, sql, bindfunc, nullptr);
-};
-
-
 template <typename B, typename E, typename S, typename I, typename J> void DBRangeBindExec(sqlite3 *adb, S sql, I rangebegin, J rangeend, B bindfunc, E errspec) {
 	auto s = DBInitialiseSql(adb, sql);
 	for (auto it = rangebegin; it != rangeend; ++it) {
@@ -417,10 +392,6 @@ template <typename B, typename E, typename S, typename I, typename J> void DBRan
 		DBExecStmt(adb, s.stmt(), errspec);
 		sqlite3_reset(s.stmt());
 	}
-};
-
-template <typename B, typename S, typename I, typename J> void DBRangeBindExecNoError(sqlite3 *adb, S sql, I rangebegin, J rangeend, B bindfunc) {
-	DBRangeBindExec(adb, sql, rangebegin, rangeend, bindfunc, nullptr);
 };
 
 template <typename B, typename F, typename E, typename S, typename I, typename J>
@@ -431,11 +402,6 @@ void DBRangeBindRowExec(sqlite3 *adb, S sql, I rangebegin, J rangeend, B bindfun
 		DBRowExecStmt(adb, s.stmt(), func, errspec);
 		sqlite3_reset(s.stmt());
 	}
-};
-
-template <typename B, typename F, typename S, typename I, typename J>
-void DBRangeBindExecNoError(sqlite3 *adb, S sql, I rangebegin, J rangeend, B bindfunc, F func) {
-	DBRangeBindRowExec(adb, sql, rangebegin, rangeend, bindfunc, func, nullptr);
 };
 
 db_bind_buffer<dbb_compressed> DoCompress(const void *in, size_t insize, unsigned char tag = 'Z', bool *iscompressed = nullptr);
