@@ -172,6 +172,7 @@ struct dbinserttweetmsg : public dbsendmsg {
 	std::string dynjson;
 	uint64_t id, user1, user2, rtid, timestamp;
 	uint64_t flags;
+	std::vector<uint64_t> xref_tweet_ids;
 };
 
 struct dbupdatetweetmsg : public dbsendmsg {

@@ -104,6 +104,9 @@ static const char *startup_sql=
 "CREATE TABLE IF NOT EXISTS handlenewpending(accid INTEGER, arrivalflags INTEGER, tweetid INTEGER);"
 "CREATE TABLE IF NOT EXISTS incrementaltweetids(id INTEGER PRIMARY KEY NOT NULL);"
 "CREATE TABLE IF NOT EXISTS eventlog(id INTEGER PRIMARY KEY NOT NULL, accid INTEGER, type INTEGER, flags INTEGER, obj INTEGER, timestamp INTEGER, extrajson BLOB);"
+"CREATE TABLE IF NOT EXISTS tweetxref(fromid INTEGER, toid INTEGER, PRIMARY KEY (fromid, toid));"
+"CREATE INDEX IF NOT EXISTS tweetxref_index1 ON tweetxref (fromid);"
+"CREATE INDEX IF NOT EXISTS tweetxref_index2 ON tweetxref (toid);"
 "INSERT OR REPLACE INTO staticsettings(name, value) VALUES ('dirtyflag', strftime('%s','now'));"
 "COMMIT;";
 
@@ -138,6 +141,7 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"INSERT INTO handlenewpending (accid, arrivalflags, tweetid) VALUES (?, ?, ?);",
 	"INSERT OR IGNORE INTO incrementaltweetids(id) VALUES (?);",
 	"INSERT INTO eventlog(accid, type, flags, obj, timestamp, extrajson) VALUES (?, ?, ?, ?, ?, ?);",
+	"INSERT INTO tweetxref(fromid, toid) VALUES (?, ?);",
 };
 
 static const std::string globstr = "G";
@@ -521,6 +525,20 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 				dbc->dbc_flags |= dbconn::DBCF::TWEET_ID_CACHE_INVALID;
 			} else {
 				TSLogMsgFormat(LOGT::DBTRACE, "DBSM::INSERTTWEET inserted row id: %" llFmtSpec "d", (sqlite3_int64) m->id);
+				if (m->rtid) {
+					DBBindExec(db, cache.GetStmt(db, DBPSC_INSERTTWEETXREF), [&](sqlite3_stmt *incstmt) {
+						sqlite3_bind_int64(incstmt, 1, (sqlite3_int64) m->id);
+						sqlite3_bind_int64(incstmt, 2, (sqlite3_int64) m->rtid);
+					}, "DBSM::INSERTTWEET (rtid xref)");
+				}
+				if (!m->xref_tweet_ids.empty()) {
+					DBRangeBindExec(db, cache.GetStmt(db, DBPSC_INSERTTWEETXREF), m->xref_tweet_ids.begin(), m->xref_tweet_ids.end(),
+							[&](sqlite3_stmt *incstmt, uint64_t xref) {
+								sqlite3_bind_int64(incstmt, 1, (sqlite3_int64) m->id);
+								sqlite3_bind_int64(incstmt, 2, (sqlite3_int64) xref);
+							},
+							"DBSM::INSERTTWEET (reply xref)");
+				}
 			}
 			sqlite3_reset(stmt);
 			DBBindExec(db, cache.GetStmt(db, DBPSC_INSINCREMENTALTWEETID), [&](sqlite3_stmt *incstmt) {
@@ -1532,6 +1550,14 @@ void dbconn::InsertNewTweet(tweet_ptr_p tobj, std::string statjson, optional_obs
 	msg->user2 = tobj->user_recipient ? tobj->user_recipient->id : 0;
 	msg->timestamp = tobj->createtime;
 	msg->flags = tobj->flags.ToULLong();
+
+	msg->xref_tweet_ids = tobj->quoted_tweet_ids;
+	msg->xref_tweet_ids.push_back(tobj->in_reply_to_status_id);
+
+	// remove duplicates
+	std::sort(msg->xref_tweet_ids.begin(), msg->xref_tweet_ids.end());
+	msg->xref_tweet_ids.erase(std::unique(msg->xref_tweet_ids.begin(), msg->xref_tweet_ids.end()), msg->xref_tweet_ids.end());
+
 	if (tobj->rtsrc) {
 		msg->rtid = tobj->rtsrc->id;
 	} else {

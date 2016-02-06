@@ -28,6 +28,7 @@
 #include <wx/version.h>
 #include <wx/defs.h>
 #include <wx/string.h>
+#include <wx/uri.h>
 #include <string>
 #include <memory>
 #include <vector>
@@ -55,6 +56,7 @@ struct genjsonparser {
 			Handler *jw = 0, bool isnew = false, optional_observer_ptr<dbsendmsg_list> dbmsglist = nullptr, bool parse_entities = true);
 	static void DoEntitiesParse(const rapidjson::Value& val, optional_observer_ptr<const rapidjson::Value> val_ex, tweet_ptr_p t,
 			bool isnew = false, optional_observer_ptr<dbsendmsg_list> dbmsglist = nullptr);
+	static uint64_t ParseQuotedTweetUrl(const wxURI &wxuri);
 	static flagwrapper<USERPARSERESULT> ParseUserContents(const rapidjson::Value& val, userdata &userobj, flagwrapper<USERPARSEFLAGS> flags);
 	static void ParseTweetDyn(const rapidjson::Value& val, tweet_ptr_p tobj);
 };

@@ -312,34 +312,9 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 				me->CheckLoadThumb(MELF::LOADTIME);
 			}
 
-			if (wxuri.GetServer() == wxT("twitter.com") && !wxuri.HasQuery()) {
-				static pcre *pattern = 0;
-				static pcre_extra *patextra = 0;
-				static const char patsyntax[] = "^/[^/]+/status/(\\d+)$";
-
-				if (!pattern) {
-					const char *errptr;
-					int erroffset;
-					pattern = pcre_compile(patsyntax, PCRE_NO_UTF8_CHECK | PCRE_UTF8, &errptr, &erroffset, 0);
-					if (!pattern) {
-						LogMsgFormat(LOGT::OTHERERR, "genjsonparser::DoEntitiesParse: twitter URL: pcre_compile failed: %s (%d)\n%s",
-								cstr(errptr), erroffset, cstr(patsyntax));
-						continue;
-					}
-					patextra = pcre_study(pattern, 0, &errptr);
-				}
-
-				std::string path = stdstrwx(wxuri.GetPath());
-
-				const int ovecsize = 9;
-				int ovector[9];
-				if (pcre_exec(pattern, patextra, path.c_str(), path.size(), 0, 0, ovector, ovecsize) >= 2) {
-					uint64_t id = 0;
-					bool ok = ownstrtonum(id, path.c_str() + ovector[2], ovector[3] - ovector[2]);
-					if (ok) {
-						t->AddQuotedTweetId(id);
-					}
-				}
+			uint64_t quoted_tweet_id = ParseQuotedTweetUrl(wxuri);
+			if (quoted_tweet_id) {
+				t->AddQuotedTweetId(quoted_tweet_id);
 			}
 		}
 	}
@@ -491,6 +466,37 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 		LogMsgFormat(LOGT::PARSE, "Tweet %" llFmtSpec "d, have entity from %d to %d: %s", t->id, src_it.start,
 				src_it.end, cstr(src_it.text));
 	}
+}
+
+uint64_t genjsonparser::ParseQuotedTweetUrl(const wxURI &wxuri) {
+	if (wxuri.GetServer() == wxT("twitter.com") && !wxuri.HasQuery()) {
+		static pcre *pattern = 0;
+		static pcre_extra *patextra = 0;
+		static const char patsyntax[] = "^/[^/]+/status/(\\d+)$";
+
+		if (!pattern) {
+			const char *errptr;
+			int erroffset;
+			pattern = pcre_compile(patsyntax, PCRE_NO_UTF8_CHECK | PCRE_UTF8, &errptr, &erroffset, 0);
+			if (!pattern) {
+				LogMsgFormat(LOGT::OTHERERR, "genjsonparser::ParseQuotedTweetUrl: twitter URL: pcre_compile failed: %s (%d)\n%s",
+						cstr(errptr), erroffset, cstr(patsyntax));
+				return 0;
+			}
+			patextra = pcre_study(pattern, 0, &errptr);
+		}
+
+		std::string path = stdstrwx(wxuri.GetPath());
+
+		const int ovecsize = 9;
+		int ovector[9];
+		if (pcre_exec(pattern, patextra, path.c_str(), path.size(), 0, 0, ovector, ovecsize) >= 2) {
+			uint64_t id = 0;
+			bool ok = ownstrtonum(id, path.c_str() + ovector[2], ovector[3] - ovector[2]);
+			if (ok) return id;
+		}
+	}
+	return 0;
 }
 
 flagwrapper<genjsonparser::USERPARSERESULT> genjsonparser::ParseUserContents(const rapidjson::Value &val, userdata &userobj, flagwrapper<genjsonparser::USERPARSEFLAGS> flags) {

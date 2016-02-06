@@ -79,6 +79,7 @@ typedef enum {
 	DBPSC_INSHANDLENEWPENDINGS,
 	DBPSC_INSINCREMENTALTWEETID,
 	DBPSC_INSEVENTLOGENTRY,
+	DBPSC_INSERTTWEETXREF,
 
 	DBPSC_NUM_STATEMENTS,
 } DBPSC_TYPE;
@@ -294,6 +295,7 @@ struct dbconn : public wxEvtHandler {
 
 	private:
 	void SyncDoUpdates_FillUserDMIndexes(sqlite3 *adb);
+	void SyncDoUpdates_FillTweetXrefTable(sqlite3 *adb);
 };
 template<> struct enum_traits<dbconn::DBCF> { static constexpr bool flags = true; };
 
