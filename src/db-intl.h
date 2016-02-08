@@ -252,6 +252,7 @@ struct dbconn : public wxEvtHandler {
 
 	void SyncReadInAllTweetIDs(sqlite3 *syncdb);
 	void SyncWriteBackTweetIDIndexCache(sqlite3 *syncdb);
+	void MergeTweetIdSets();
 
 	void SyncReadInTpanels(sqlite3 *adb);
 	void SyncWriteBackTpanels(sqlite3 *adb);
@@ -265,6 +266,7 @@ struct dbconn : public wxEvtHandler {
 	void UpdateLastPurged(sqlite3 *db, const char *settingname, const char *funcname);
 	void SyncPurgeMediaEntities(sqlite3 *db);
 	void SyncPurgeProfileImages(sqlite3 *adb);
+	void SyncPurgeUnreferencedTweets(sqlite3 *adb);
 	void CheckPurgeTweets();
 	void CheckPurgeUsers();
 

@@ -33,6 +33,7 @@
 #include "tpanel-data.h"
 #include "set.h"
 #include "map.h"
+#include "raii.h"
 #ifdef __WINDOWS__
 #include <windows.h>
 #endif
@@ -1391,8 +1392,13 @@ void dbconn::DeInit() {
 
 	LogMsg(LOGT::DBINFO | LOGT::THREADTRACE, "dbconn::DeInit(): Database thread terminated");
 
+	MergeTweetIdSets();
+
 	if (!gc.readonlymode) {
 		cache.BeginTransaction(syncdb);
+	}
+	SyncPurgeUnreferencedTweets(syncdb); //this does a dry-run in read-only mode
+	if (!gc.readonlymode) {
 		WriteAllCFGOut(syncdb, gc, alist);
 		SyncWriteBackAllUsers(syncdb);
 		SyncWriteBackAccountIdLists(syncdb);
@@ -1901,18 +1907,20 @@ void dbconn::SyncReadInAllTweetIDs(sqlite3 *syncdb) {
 			incremental_ids.size(), ad.unloaded_db_tweet_ids.size());
 }
 
-void dbconn::SyncWriteBackTweetIDIndexCache(sqlite3 *syncdb) {
-	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncWriteBackTweetIDIndexCache start: unloaded: %zu, loaded: %zu",
+void dbconn::MergeTweetIdSets() {
+	LogMsgFormat(LOGT::DBINFO, "dbconn::MergeTweetIdSets start: unloaded: %zu, loaded: %zu",
 			ad.unloaded_db_tweet_ids.size(), ad.loaded_db_tweet_ids.size());
+	ad.unloaded_db_tweet_ids.insert(ad.loaded_db_tweet_ids.begin(), ad.loaded_db_tweet_ids.end());
+	LogMsgFormat(LOGT::DBINFO, "dbconn::MergeTweetIdSets end: total: %zu", ad.unloaded_db_tweet_ids.size());
+}
+
+void dbconn::SyncWriteBackTweetIDIndexCache(sqlite3 *syncdb) {
+	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncWriteBackTweetIDIndexCache start");
 
 	if (dbc_flags & DBCF::TWEET_ID_CACHE_INVALID) {
 		LogMsg(LOGT::DBINFO, "dbconn::SyncWriteBackTweetIDIndexCache not writing back as marked invalid");
 		return;
 	}
-
-	ad.unloaded_db_tweet_ids.insert(ad.loaded_db_tweet_ids.begin(), ad.loaded_db_tweet_ids.end());
-
-	LogMsg(LOGT::DBINFO, "dbconn::SyncWriteBackTweetIDIndexCache merged sets");
 
 	DBBindExec(syncdb, cache.GetStmt(syncdb, DBPSC_INSSTATICSETTING),
 		[&](sqlite3_stmt *setstmt) {
@@ -3096,6 +3104,118 @@ void dbconn::SyncPurgeProfileImages(sqlite3 *syncdb) {
 
 		LogMsgFormat(LOGT::DBINFO, "dbconn::SyncPurgeProfileImages end, last purged %" llFmtSpec "ds ago, %spurged %u",
 				(int64_t) delta, gc.readonlymode ? "would have " : "", (unsigned int) expire_list.size());
+	}
+}
+
+void dbconn::SyncPurgeUnreferencedTweets(sqlite3 *syncdb) {
+	LogMsgFormat(LOGT::DBINFO, "dbconn::SyncPurgeUnreferencedTweets start: %zd tweets in total", ad.unloaded_db_tweet_ids.size());
+
+	auto erase_ids_from = [&](tweetidset &set, const tweetidset &ids_to_remove) {
+		for (uint64_t id : ids_to_remove) {
+			set.erase(id);
+		}
+	};
+
+	try {
+		const char *lastpurgesetting = "lastunreferencedtweetspurge";
+		const char *funcname = "dbconn::SyncPurgeUnreferencedTweets";
+		const time_t day = 60 * 60 * 24;
+		time_t delta;
+		if (CheckIfPurgeDue(syncdb, day, lastpurgesetting, funcname, delta)) {
+			std::vector<observer_ptr<tweetidset>> save_id_sets;
+
+			save_id_sets.push_back(&(ad.cids.highlightids));
+			save_id_sets.push_back(&(ad.cids.unreadids));
+
+			for (auto &it : alist) {
+				save_id_sets.push_back(&(it->dm_ids));
+				save_id_sets.push_back(&(it->tweet_ids));
+				save_id_sets.push_back(&(it->usercont->mention_set));
+			}
+
+			for (auto &it : ad.user_dm_indexes) {
+				save_id_sets.push_back(&(it.second.ids));
+			}
+
+			for (auto &it : ad.tpanels) {
+				if (it.second->flags & TPF::MANUAL) {
+					save_id_sets.push_back(&(it.second->tweetlist));
+				}
+			}
+
+			tweetidset delete_candidates = ad.unloaded_db_tweet_ids;
+			for (auto &it : save_id_sets) {
+				erase_ids_from(delete_candidates, *it);
+			}
+
+			LogMsgFormat(LOGT::DBINFO, "dbconn::SyncPurgeUnreferencedTweets: %zd candidate tweets to check", delete_candidates.size());
+
+			tweetidset delete_ids;
+
+			auto stmt = DBInitialiseSql(syncdb, "SELECT fromid FROM tweetxref WHERE toid = ?;");
+
+			// iterate in descending ID order
+			// newer tweets may depend on older ones, but not vice versa
+			// the fromid field is the newer id, toid is the older id
+			for (auto it = delete_candidates.begin(); it != delete_candidates.end(); ++it) {
+				bool can_delete = true;
+				DBBindRowExec(syncdb, stmt.stmt(),
+						[&](sqlite3_stmt *stmt) {
+							sqlite3_bind_int64(stmt, 1, *it);
+						},
+						[&](sqlite3_stmt *stmt) {
+							if (!can_delete) return;
+
+							uint64_t fromid = (uint64_t) sqlite3_column_int64(stmt, 0);
+							if (delete_ids.find(fromid) == delete_ids.end()) {
+								// xref to something which was not found in the list of ids marked for deletion
+								can_delete = false;
+							}
+						}, db_throw_on_error("dbconn::SyncPurgeUnreferencedTweets (xref check)"));
+				if (can_delete) {
+					delete_ids.insert(*it);
+				}
+			}
+
+			if (!gc.readonlymode) {
+				DBExec(syncdb, "SAVEPOINT tweet_gc;", db_throw_on_error("dbconn::SyncPurgeUnreferencedTweets (savepoint)"));
+
+				auto finaliser = scope_guard([&]() {
+					DBExec(syncdb, "ROLLBACK TO SAVEPOINT tweet_gc;", "dbconn::SyncPurgeUnreferencedTweets (rollback)");
+				});
+
+				DBRangeBindExec(syncdb, "DELETE FROM tweets WHERE id = ?;",
+						delete_ids.begin(), delete_ids.end(),
+						[&](sqlite3_stmt *stmt, uint64_t id) {
+							sqlite3_bind_int64(stmt, 1, id);
+						},
+						db_throw_on_error("dbconn::SyncPurgeUnreferencedTweets (xref check)"));
+
+				DBRangeBindExec(syncdb, "DELETE FROM tweetxref WHERE fromid = ? OR toid = ?;",
+						delete_ids.begin(), delete_ids.end(),
+						[&](sqlite3_stmt *stmt, uint64_t id) {
+							sqlite3_bind_int64(stmt, 1, id);
+							sqlite3_bind_int64(stmt, 2, id);
+						},
+						db_throw_on_error("dbconn::SyncPurgeUnreferencedTweets (xref check)"));
+
+				UpdateLastPurged(syncdb, lastpurgesetting, funcname);
+
+				DBExec(syncdb, "RELEASE SAVEPOINT tweet_gc;", db_throw_on_error("dbconn::SyncPurgeUnreferencedTweets (unlock)"));
+
+				// do this after DB operations
+				erase_ids_from(ad.cids.hiddenids, delete_ids);
+				erase_ids_from(ad.cids.deletedids, delete_ids);
+				erase_ids_from(ad.unloaded_db_tweet_ids, delete_ids);
+
+				finaliser.cancel();
+			}
+
+			LogMsgFormat(LOGT::DBINFO, "dbconn::SyncPurgeUnreferencedTweets end, last purged %" llFmtSpec "ds ago, %spurged %zd",
+					(int64_t) delta, gc.readonlymode ? "would have " : "", delete_ids.size());
+		}
+	} catch (std::exception &e) {
+		LogMsgFormat(LOGT::DBERR, "dbconn::SyncPurgeUnreferencedTweets failed, rolling back. Exception: %s", cstr(e.what()));
 	}
 }
 
