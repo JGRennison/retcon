@@ -99,6 +99,8 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 	flagwrapper<TAF> ta_flags = 0;
 	unsigned long restinterval;    //seconds
 
+	unsigned long expire_tweets_days; // 0 means no expiry
+
 	uint64_t &GetMaxId(RBFS_TYPE type) {
 		switch (type) {
 			case RBFS_TWEETS: return max_tweet_id;

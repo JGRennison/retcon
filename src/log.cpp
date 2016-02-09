@@ -683,8 +683,10 @@ void dump_pending_retry_conn(LOGT logflags, const std::string &indent, const std
 }
 
 void dump_acc_socket_flags(LOGT logflags, const std::string &indent, taccount *acc) {
-	LogMsgFormat(logflags, "%sssl: %d, userstreams: %d, ta_flags: 0x%X, restinterval: %ds, enabled: %d, userenabled: %d, init: %d, active: %d, streaming_on: %d, stream_fail_count: %d, rest_on: %d",
-			cstr(indent), acc->ssl, acc->userstreams, acc->ta_flags, acc->restinterval, acc->enabled, acc->userenabled, acc->init, acc->active, acc->streaming_on, acc->stream_fail_count, acc->rest_on);
+	LogMsgFormat(logflags, "%sssl: %d, userstreams: %d, ta_flags: 0x%X, restinterval: %ds, enabled: %d, userenabled: %d, init: %d, "
+			"active: %d, streaming_on: %d, stream_fail_count: %d, rest_on: %d, expire_tweets_days: %d",
+			cstr(indent), acc->ssl, acc->userstreams, acc->ta_flags, acc->restinterval, acc->enabled, acc->userenabled, acc->init,
+			acc->active, acc->streaming_on, acc->stream_fail_count, acc->rest_on, acc->expire_tweets_days);
 }
 
 void dump_cids_stats(const cached_id_sets &cids, LOGT logflags, const std::string &indent, const std::string &indentstep) {

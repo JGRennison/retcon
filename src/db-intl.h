@@ -26,6 +26,7 @@
 #include "util.h"
 #include "rapidjson-inc.h"
 #include "tweetidset.h"
+#include "map.h"
 #include <cstdlib>
 #include <queue>
 #include <string>
@@ -80,6 +81,7 @@ typedef enum {
 	DBPSC_INSINCREMENTALTWEETID,
 	DBPSC_INSEVENTLOGENTRY,
 	DBPSC_INSERTTWEETXREF,
+	DBPSC_SELTWEETIDBYTIMESTAMP,
 
 	DBPSC_NUM_STATEMENTS,
 } DBPSC_TYPE;
@@ -146,6 +148,7 @@ enum {
 
 enum {
 	DBCONNTIMER_ID_ASYNCSTATEWRITE = 1,
+	DBCONNTIMER_ID_ASYNCPURGEOLDTWEETS,
 };
 
 struct dbconn : public wxEvtHandler {
@@ -159,6 +162,7 @@ struct dbconn : public wxEvtHandler {
 	dbpscache cache;
 	std::unique_ptr<dbsendmsg_list> batchqueue;
 	std::unique_ptr<wxTimer> asyncstateflush_timer;
+	std::unique_ptr<wxTimer> asyncpurgeoldtweets_timer;
 
 	// This has the same function as, but is distinct from ad.unloaded_db_user_ids.
 	// This is eventually consistent with ad.unloaded_db_user_ids, but not instantaneously consistent,
@@ -290,6 +294,11 @@ struct dbconn : public wxEvtHandler {
 
 	void OnAsyncStateWriteTimer(wxTimerEvent& event);
 	void ResetAsyncStateWriteTimer();
+
+	void OnAsyncPurgeOldTweetsTimer(wxTimerEvent& event);
+	void ResetPurgeOldTweetsTimer();
+	void SyncPurgeOldTweets(sqlite3 *syncdb);
+	void AsyncPurgeOldTweets();
 
 	void SyncClearDirtyFlag(sqlite3 *db);
 

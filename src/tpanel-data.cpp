@@ -363,6 +363,18 @@ tpanel::~tpanel() {
 	}
 }
 
+bool tpanel::AccountTimelineMatches(const std::shared_ptr<taccount> &acc) const {
+	for (auto &tpa : tpautos) {
+		if (tpa.autoflags & TPF::AUTO_TW) {
+			if (tpa.autoflags & TPF::AUTO_ALLACCS ||
+					tpa.acc.get() == acc.get()) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 //Do not assume that *acc is non-null
 bool tpanel::TweetMatches(tweet_ptr_p t, const std::shared_ptr<taccount> &acc) const {
 	for (auto &tpa : tpautos) {

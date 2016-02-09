@@ -360,5 +360,6 @@ void DBC_PrepareStdTweetLoadMsg(dbseltweetmsg &loadmsg);
 void DBC_DBSelUserReturnDataHandler(std::deque<dbretuserdata> data, optional_observer_ptr<db_handle_msg_pending_guard> pending_guard = nullptr);
 void DBC_SetDBSelUserMsgHandler(dbselusermsg &msg, std::function<void(dbselusermsg &, dbconn *)> f);
 void DBC_PrepareStdUserLoadMsg(dbselusermsg &loadmsg);
+void DBC_AsyncPurgeOldTweets();
 
 #endif

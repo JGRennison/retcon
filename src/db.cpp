@@ -108,6 +108,7 @@ static const char *startup_sql=
 "CREATE TABLE IF NOT EXISTS tweetxref(fromid INTEGER, toid INTEGER, PRIMARY KEY (fromid, toid));"
 "CREATE INDEX IF NOT EXISTS tweetxref_index1 ON tweetxref (fromid);"
 "CREATE INDEX IF NOT EXISTS tweetxref_index2 ON tweetxref (toid);"
+"CREATE INDEX IF NOT EXISTS tweets_ts_index ON tweets (timestamp);"
 "INSERT OR REPLACE INTO staticsettings(name, value) VALUES ('dirtyflag', strftime('%s','now'));"
 "COMMIT;";
 
@@ -143,6 +144,7 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"INSERT OR IGNORE INTO incrementaltweetids(id) VALUES (?);",
 	"INSERT INTO eventlog(accid, type, flags, obj, timestamp, extrajson) VALUES (?, ?, ?, ?, ?, ?);",
 	"INSERT INTO tweetxref(fromid, toid) VALUES (?, ?);",
+	"SELECT id FROM tweets WHERE timestamp < ? ORDER BY timestamp DESC LIMIT 1;",
 };
 
 static const std::string globstr = "G";
@@ -915,6 +917,7 @@ EVT_COMMAND(wxDBCONNEVT_ID_STDUSERLOAD, wxextDBCONN_NOTIFY, dbconn::OnStdUserLoa
 EVT_COMMAND(wxDBCONNEVT_ID_GENERICSELUSER, wxextDBCONN_NOTIFY, dbconn::GenericDBSelUserMsgHandler)
 EVT_COMMAND(wxDBCONNEVT_ID_FUNCTIONCALLBACK, wxextDBCONN_NOTIFY, dbconn::OnDBSendFunctionMsgCallback)
 EVT_TIMER(DBCONNTIMER_ID_ASYNCSTATEWRITE, dbconn::OnAsyncStateWriteTimer)
+EVT_TIMER(DBCONNTIMER_ID_ASYNCPURGEOLDTWEETS, dbconn::OnAsyncPurgeOldTweetsTimer)
 END_EVENT_TABLE()
 
 void dbconn::OnStdTweetLoadFromDB(wxCommandEvent &event) {
@@ -1311,6 +1314,7 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	SyncReadInHandleNewPendingOps(syncdb);
 	SyncReadInAllMediaEntities(syncdb);
 	SyncReadInAllTweetIDs(syncdb);
+	SyncPurgeOldTweets(syncdb);
 	SyncReadInTpanels(syncdb);
 	SyncReadInWindowLayout(syncdb);
 	SyncReadInUserRelationships(syncdb);
@@ -1355,7 +1359,9 @@ bool dbconn::Init(const std::string &filename /*UTF-8*/) {
 	LogMsgFormat(LOGT::DBINFO | LOGT::THREADTRACE, "dbconn::Init(): Created database thread: %d", th->GetId());
 
 	asyncstateflush_timer.reset(new wxTimer(this, DBCONNTIMER_ID_ASYNCSTATEWRITE));
+	asyncpurgeoldtweets_timer.reset(new wxTimer(this, DBCONNTIMER_ID_ASYNCPURGEOLDTWEETS));
 	ResetAsyncStateWriteTimer();
+	ResetPurgeOldTweetsTimer();
 
 	dbc_flags |= DBCF::INITED;
 
@@ -1371,6 +1377,7 @@ void dbconn::DeInit() {
 	if (!(dbc_flags & DBCF::INITED)) return;
 
 	asyncstateflush_timer.reset();
+	asyncpurgeoldtweets_timer.reset();
 
 	FlushBatchQueue();
 
@@ -3230,6 +3237,137 @@ void dbconn::ResetAsyncStateWriteTimer() {
 	}
 }
 
+struct tweet_id_timestamp_info {
+	time_t now;
+	container::map<time_t, uint64_t> timestamp_map;
+};
+
+static tweet_id_timestamp_info CreateTweetIdTimestampMap() {
+	tweet_id_timestamp_info out;
+
+	out.now = time(nullptr);
+
+	for (auto &it : alist) {
+		if (it->expire_tweets_days > 0) {
+			out.timestamp_map[out.now - (it->expire_tweets_days * 24 * 60 * 60)] = 0;
+		}
+	}
+	return out;
+}
+
+// returns true if none found
+static uint64_t DBGetNewestTweetOlderThan(sqlite3 *db, dbpscache &cache, time_t timestamp) {
+	uint64_t id = 0;
+	DBBindRowExec(db, cache.GetStmt(db, DBPSC_SELTWEETIDBYTIMESTAMP),
+			[&](sqlite3_stmt *stmt) {
+				sqlite3_bind_int64(stmt, 1, timestamp);
+			},
+			[&](sqlite3_stmt *stmt) {
+				id = (uint64_t) sqlite3_column_int64(stmt, 0);
+			}, "DBGetNewestTweetOlderThan");
+	return id;
+}
+
+static void FillTweetIdTimestampMap(sqlite3 *db, dbpscache &cache, tweet_id_timestamp_info &info) {
+	for (auto &it : info.timestamp_map) {
+		it.second = DBGetNewestTweetOlderThan(db, cache, it.first);
+	}
+}
+
+static void TimelineExpireOldTweets(const tweet_id_timestamp_info &info) {
+	LogMsgFormat(LOGT::DBINFO, "TimelineExpireOldTweets: start");
+	for (auto &acc : alist) {
+		if (acc->expire_tweets_days > 0) {
+			time_t expire_time = info.now - (acc->expire_tweets_days * 24 * 60 * 60);
+			uint64_t expire_id = 0;
+			auto it = info.timestamp_map.find(expire_time);
+			if (it != info.timestamp_map.end()) expire_id = it->second;
+			if (expire_id != 0) {
+				size_t old_size = acc->tweet_ids.size();
+				size_t unread_skipped = 0;
+				auto iter = acc->tweet_ids.lower_bound(expire_id); // finds the first id *less than or equal to* expire_id
+				if (iter != acc->tweet_ids.end() && !ad.cids.unreadids.empty() && *iter < *ad.cids.unreadids.rbegin()) {
+					// if the upper limit of the IDs to remove is less than the lower limit of unread IDs, there is no overlap
+					acc->tweet_ids.erase(iter, acc->tweet_ids.end());
+				} else {
+					// check unread set
+					auto delete_iter = iter;
+					for (size_t count = 1; iter != acc->tweet_ids.end(); count++) {
+						uint64_t id = *iter;
+						++iter;
+						if (ad.cids.unreadids.find(id) != ad.cids.unreadids.end()) {
+							// id in unreadids, do not delete this or prior items
+							delete_iter = iter;
+							unread_skipped = count;
+						}
+					}
+					acc->tweet_ids.erase(delete_iter, acc->tweet_ids.end());
+				}
+
+				if (old_size != acc->tweet_ids.size()) {
+					for (auto &it : ad.tpanels) {
+						tpanel &tp = *(it.second);
+						if (tp.AccountTimelineMatches(acc)) {
+							tp.RecalculateSets();
+							tp.UpdateCLabelLater_TP();
+						}
+					}
+				}
+
+				LogMsgFormat(LOGT::DBINFO, "TimelineExpireOldTweets: account name: %s, orig size: %zu, removed: %zu, not removed as unread: %zu, left: %zu",
+						cstr(acc->dispname), old_size, old_size - acc->tweet_ids.size(), unread_skipped, acc->tweet_ids.size());
+			}
+		}
+	}
+}
+
+void dbconn::SyncPurgeOldTweets(sqlite3 *syncdb) {
+	tweet_id_timestamp_info timestamp_map = CreateTweetIdTimestampMap();
+	FillTweetIdTimestampMap(syncdb, cache, timestamp_map);
+	TimelineExpireOldTweets(timestamp_map);
+}
+
+void dbconn::OnAsyncPurgeOldTweetsTimer(wxTimerEvent& event) {
+	AsyncWriteBackState();
+	ResetPurgeOldTweetsTimer();
+}
+
+
+void dbconn::AsyncPurgeOldTweets() {
+	LogMsgFormat(LOGT::DBTRACE, "dbconn::OnAsyncPurgeOldTweetsTimer: start");
+
+	struct db_get_timestamp_id_msg : public dbfunctionmsg_callback {
+		tweet_id_timestamp_info timestamp_map;
+	};
+
+	std::unique_ptr<db_get_timestamp_id_msg> msg(new db_get_timestamp_id_msg());
+	msg->timestamp_map = CreateTweetIdTimestampMap();
+
+	msg->db_func = [](sqlite3 *db, bool &ok, dbpscache &cache, dbfunctionmsg_callback &self_) {
+		// We are now in the DB thread
+
+		db_get_timestamp_id_msg &self = static_cast<db_get_timestamp_id_msg &>(self_);
+		FillTweetIdTimestampMap(db, cache, self.timestamp_map);
+	};
+
+	msg->callback_func = [](std::unique_ptr<dbfunctionmsg_callback> self_) {
+		LogMsgFormat(LOGT::DBTRACE, "dbconn::OnAsyncPurgeOldTweetsTimer: got reply from DB thread");
+
+		db_get_timestamp_id_msg &self = static_cast<db_get_timestamp_id_msg &>(*self_);
+		TimelineExpireOldTweets(self.timestamp_map);
+
+		LogMsgFormat(LOGT::DBTRACE, "dbconn::OnAsyncPurgeOldTweetsTimer: end");
+	};
+
+	SendFunctionMsgCallback(std::move(msg));
+}
+
+void dbconn::ResetPurgeOldTweetsTimer() {
+	if (gc.asyncpurgeoldtweetsintervalmins > 0) {
+		asyncpurgeoldtweets_timer->Start(gc.asyncpurgeoldtweetsintervalmins * 1000 * 60, wxTIMER_ONE_SHOT);
+	}
+}
+
 void dbconn::SyncClearDirtyFlag(sqlite3 *db) {
 	sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_DELSTATICSETTING);
 	sqlite3_bind_text(stmt, 1, "dirtyflag", -1, SQLITE_STATIC);
@@ -3479,4 +3617,8 @@ void DBC_SetDBSelUserMsgHandler(dbselusermsg &msg, std::function<void(dbseluserm
 
 void DBC_PrepareStdUserLoadMsg(dbselusermsg &loadmsg) {
 	dbc.PrepareStdUserLoadMsg(loadmsg);
+}
+
+void DBC_AsyncPurgeOldTweets() {
+	dbc.AsyncPurgeOldTweets();
 }

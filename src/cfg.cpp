@@ -37,6 +37,7 @@ genoptconf gcdefaults {
 	{ wxT("1"), 1},
 	{ wxT("1"), 1},
 	{ wxT("1"), 1},
+	{ wxT("0"), 1},
 };
 
 
@@ -88,6 +89,7 @@ genoptconf gcdefaults {
 #define CFGDEFAULT_profimgcachesavedays                     wxT("14")
 #define CFGDEFAULT_showunhighlightallbtn                    wxT("1")
 #define CFGDEFAULT_asyncstatewritebackintervalmins          wxT("30")
+#define CFGDEFAULT_asyncpurgeoldtweetsintervalmins          wxT("59")
 #define CFGDEFAULT_mousewheelscrollspeed                    wxT("50")
 #define CFGDEFAULT_linescrollspeed                          wxT("20")
 #define CFGDEFAULT_askuseraccsettingsonnewacc               wxT("0")
@@ -198,6 +200,7 @@ void taccount::CFGParamConv() {
 	stream_drop_blocked = (cfg.stream_drop_blocked.val == wxT("1"));
 	stream_drop_muted = (cfg.stream_drop_muted.val == wxT("1"));
 	stream_drop_no_rt = (cfg.stream_drop_no_rt.val == wxT("1"));
+	cfg.expire_tweets_days.val.ToULong(&expire_tweets_days);
 }
 
 void globconf_base::CFGWriteOut(DBWriteConfig &twfc) {
@@ -291,6 +294,7 @@ void genoptconf::IterateConfs(std::function<void(const std::string &, genopt gen
 	f("stream_drop_blocked", &genoptconf::stream_drop_blocked);
 	f("stream_drop_muted", &genoptconf::stream_drop_muted);
 	f("stream_drop_no_rt", &genoptconf::stream_drop_no_rt);
+	f("expire_tweets_days", &genoptconf::expire_tweets_days);
 }
 
 void genoptconf::UnShareStrings() {

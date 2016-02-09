@@ -532,6 +532,7 @@ wxStaticBoxSizer *settings_window::AddGenoptconfSettingBlock(wxWindow* parent, w
 		vbox->Show(lb, show);
 	});
 
+	AddSettingRow_String(OPTWIN_TWITTER, parent, fgs,  wxT("Keep timeline for this many days (0 = forever)"), flags, goc.expire_tweets_days, parentgoc.expire_tweets_days, wxFILTER_NUMERIC);
 	AddSettingRow_Bool(OPTWIN_TWITTER, parent, fgs,  wxT("Use User Streams (recommended)"), flags | DBCV::ADVOPTION, goc.userstreams, parentgoc.userstreams);
 	AddSettingRow_String(OPTWIN_TWITTER, parent, fgs, wxT("REST API Polling Interval / seconds"), flags|DBCV::ADVOPTION, goc.restinterval, parentgoc.restinterval, wxFILTER_NUMERIC);
 
@@ -716,6 +717,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 	AddSettingRow_Bool(OPTWIN_MISC, panel, fgs,  wxT("Show Import Stream File menu item"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.show_import_stream_menu_item, gcglobdefaults.show_import_stream_menu_item);
 	AddSettingRow_String(OPTWIN_MISC, panel, fgs, wxT("Thread pool limit, 0 to disable\nDo not set this too high\nRestart retcon for this to take effect"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.threadpoollimit, gcglobdefaults.threadpoollimit, wxFILTER_NUMERIC);
 	AddSettingRow_String(OPTWIN_MISC, panel, fgs, wxT("Flush all state to DB interval / mins, 0 to disable\nChanges take effect after the next flush"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.asyncstatewritebackintervalmins, gcglobdefaults.asyncstatewritebackintervalmins, wxFILTER_NUMERIC);
+	AddSettingRow_String(OPTWIN_MISC, panel, fgs, wxT("Purge old tweets from timeline interval / mins, 0 to disable\nChanges take effect after the next flush"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.asyncpurgeoldtweetsintervalmins, gcglobdefaults.asyncpurgeoldtweetsintervalmins, wxFILTER_NUMERIC);
 	AddSettingRow_Bool(OPTWIN_MISC, panel, fgs,  wxT("Show debug actions in tweet menu"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.tweetdebugactions, gcglobdefaults.tweetdebugactions);
 
 	wxFlexGridSizer *proxyfgs = nullptr;

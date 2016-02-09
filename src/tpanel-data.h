@@ -75,12 +75,15 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	void SetClabelUpdatePendingFlag_TP() const;
 	void UpdateCLabelLater_TP() const;
 	bool TweetMatches(tweet_ptr_p t, const std::shared_ptr<taccount> &acc) const;
+	bool AccountTimelineMatches(const std::shared_ptr<taccount> &acc) const;
 
 	//id must correspond to a usable tweet in ad.tweetobjs, if adding
 	void NotifyCIDSChange(uint64_t id, tweetidset cached_id_sets::* ptr, bool add, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
 	void NotifyCIDSChange_AddRemove(uint64_t id, tweetidset cached_id_sets::* ptr, bool add, flagwrapper<PUSHFLAGS> pushflags = PUSHFLAGS::DEFAULT);
 	void NotifyCIDSChange_AddRemove_Bulk(const tweetidset &ids, tweetidset cached_id_sets::* ptr, bool add);
 	void RecalculateCIDS();
+
+	void RecalculateSets();
 
 	void MarkSetRead(optional_observer_ptr<undo::item> undo_item);
 	void MarkSetReadOrUnread(tweetidset &&subset, optional_observer_ptr<undo::item> undo_item, bool mark_read);
@@ -112,7 +115,6 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	};
 	flagwrapper<TPIF> intl_flags;
 
-	void RecalculateSets();
 	void RecalculateTweetSet();
 	bool NotifyCIDSChange_AutoSource_AddRemove_IsApplicable(tweetidset cached_id_sets::* ptr) const;
 	bool NotifyCIDSChange_Intersection_AddRemove_IsApplicable(tweetidset cached_id_sets::* ptr) const;

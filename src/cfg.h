@@ -61,6 +61,7 @@ struct genoptconf {
 	genopt stream_drop_blocked;
 	genopt stream_drop_muted;
 	genopt stream_drop_no_rt;
+	genopt expire_tweets_days;
 	void CFGWriteOutCurDir(DBWriteConfig &twfc) const;
 	void CFGReadInCurDir(DBReadConfig &twfc, const genoptconf &parent);
 	void InheritFromParent(genoptconf &parent, bool ifunset = false);
@@ -118,6 +119,7 @@ struct genoptconf {
 	CFGTEMPL_UL(profimgcachesavedays) \
 	CFGTEMPL_BOOL(showunhighlightallbtn) \
 	CFGTEMPL_UL(asyncstatewritebackintervalmins) \
+	CFGTEMPL_UL(asyncpurgeoldtweetsintervalmins) \
 	CFGTEMPL_L(mousewheelscrollspeed) \
 	CFGTEMPL_L(linescrollspeed) \
 	CFGTEMPL_BOOL(askuseraccsettingsonnewacc) \
