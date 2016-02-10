@@ -1849,17 +1849,19 @@ void tpanelparentwin_impl::LoadMore(unsigned int n, uint64_t lessthanid, uint64_
 	if (lessthanid) {
 		stit = tp->tweetlist.upper_bound(lessthanid);       //finds the first id *less than* lessthanid
 	} else if (greaterthanid) {
-		stit = tp->tweetlist.lower_bound(greaterthanid);    //finds the first id *greater than or equal to* greaterthanid
-		if (*stit == greaterthanid) {
-			--stit;
-		}
+		stit = tp->tweetlist.lower_bound(greaterthanid);    //finds the first id *less than or equal to* greaterthanid
 		revdir = true;
 	} else {
-		stit=tp->tweetlist.cbegin();
+		stit = tp->tweetlist.cbegin();
 	}
 
 	for (unsigned int i = 0; i < n; i++) {
-		if (stit == tp->tweetlist.cend()) break;
+		if (revdir) {
+			if (stit == tp->tweetlist.cbegin()) break;
+			--stit;
+		} else {
+			if (stit == tp->tweetlist.cend()) break;
+		}
 
 		tweet_ptr tobj = ad.GetTweetById(*stit);
 		if (CheckFetchPendingSingleTweet(tobj, std::shared_ptr<taccount>(), &loadmsg, PENDING_REQ::GUI_DEFAULT, PENDING_RESULT::GUI_DEFAULT)) {
@@ -1868,10 +1870,7 @@ void tpanelparentwin_impl::LoadMore(unsigned int n, uint64_t lessthanid, uint64_
 			MarkPending_TPanelMap(tobj, base(), pushflags);
 		}
 
-		if (revdir) {
-			if (stit == tp->tweetlist.cbegin()) break;
-			--stit;
-		} else {
+		if (!revdir) {
 			++stit;
 		}
 	}
@@ -2185,10 +2184,7 @@ void tpanelparentwin_usertweets_impl::LoadMore(unsigned int n, uint64_t lessthan
 	if (lessthanid) {
 		stit = tp->tweetlist.upper_bound(lessthanid);       //finds the first id *less than* lessthanid
 	} else if (greaterthanid) {
-		stit = tp->tweetlist.lower_bound(greaterthanid);    //finds the first id *greater than or equal to* greaterthanid
-		if (*stit == greaterthanid) {
-			--stit;
-		}
+		stit = tp->tweetlist.lower_bound(greaterthanid);    //finds the first id *less than or equal to* greaterthanid
 		revdir = true;
 	} else {
 		stit = tp->tweetlist.cbegin();
@@ -2199,15 +2195,6 @@ void tpanelparentwin_usertweets_impl::LoadMore(unsigned int n, uint64_t lessthan
 	uint64_t load_greaterthanid = greaterthanid;
 
 	while (numleft) {
-		if (stit == tp->tweetlist.cend()) break;
-
-		tweet_ptr t = ad.GetTweetById(*stit);
-		if (CheckMarkTweetPending(t, tac.get())) {
-			PushTweet(t, PUSHFLAGS::USERTL | pushflags);
-		} else {
-			MarkPending_TPanelMap(t, 0, PUSHFLAGS::USERTL | pushflags, &tp);
-		}
-
 		if (revdir) {
 			if ((*stit) > load_greaterthanid) {
 				load_greaterthanid = *stit;
@@ -2216,8 +2203,18 @@ void tpanelparentwin_usertweets_impl::LoadMore(unsigned int n, uint64_t lessthan
 				break;
 			}
 			--stit;
+		} else {
+			if (stit == tp->tweetlist.cend()) break;
 		}
-		else {
+
+		tweet_ptr t = ad.GetTweetById(*stit);
+		if (CheckMarkTweetPending(t, tac.get())) {
+			PushTweet(t, PUSHFLAGS::USERTL | pushflags);
+		} else {
+			MarkPending_TPanelMap(t, 0, PUSHFLAGS::USERTL | pushflags, &tp);
+		}
+
+		if (!revdir) {
 			if ((*stit) < load_lessthanid) {
 				load_lessthanid = *stit;
 			}
