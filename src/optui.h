@@ -46,6 +46,7 @@
 struct taccount;
 struct genopt;
 struct genoptconf;
+struct filter_set;
 
 enum class DBCV {
 	HIDDENDEFAULT   = 1<<0,
@@ -131,6 +132,8 @@ struct settings_window : public wxDialog {
 			genopt &val, genopt &parentval, long style = wxFILTER_NONE, wxValidator *textctrlvalidator = nullptr);
 	void AddSettingRow_Bool(unsigned int win, wxWindow* parent, wxSizer *sizer, const wxString &name, flagwrapper<DBCV> flags,
 			genopt &val, genopt &parentval);
+	void AddSettingRow_FilterString(unsigned int win, wxWindow* parent, wxSizer *sizer, const wxString &name,
+			flagwrapper<DBCV> flags, genopt &val, filter_set &fs);
 	wxStaticBoxSizer *AddGenoptconfSettingBlock(wxWindow* parent, wxSizer *sizer, const wxString &name, genoptconf &goc,
 			genoptconf &parentgoc, flagwrapper<DBCV> flags);
 

@@ -518,6 +518,23 @@ void settings_window::AddSettingRow_Bool(unsigned int win, wxWindow* parent, wxS
 	AddSettingRow_Common(win, parent, sizer, name, flags, chkval, dcbv);
 }
 
+void settings_window::AddSettingRow_FilterString(unsigned int win, wxWindow* parent, wxSizer *sizer, const wxString &name,
+		flagwrapper<DBCV> flags, genopt &val, filter_set &fs) {
+	val.enable = 1;
+	FilterTextValidator filterval(fs, &val.val);
+	wxTextCtrl *tc = new wxTextCtrl(parent, wxID_ANY, wxT(""), wxDefaultPosition, wxDefaultSize,
+			(flags & DBCV::MULTILINE) ? wxTE_MULTILINE : 0, filterval);
+
+	wxStaticText *stat = new wxStaticText(parent, wxID_ANY, name);
+	sizer->Add(stat, 0, wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL, 4);
+	wxSize statsz = stat->GetSize();
+	sizer->SetItemMinSize(stat, std::max(200, statsz.GetWidth()), statsz.GetHeight());
+	sizer->AddSpacer(0);
+	sizer->Add(tc, 0, wxEXPAND | wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL, 4);
+	opts.emplace_front(option_item {sizer, stat, win, flags});
+	opts.emplace_front(option_item {sizer, tc, win, flags});
+}
+
 wxStaticBoxSizer *settings_window::AddGenoptconfSettingBlock(wxWindow* parent, wxSizer *sizer, const wxString &name,
 		genoptconf &goc, genoptconf &parentgoc, flagwrapper<DBCV> flags) {
 	wxStaticBoxSizer *sbox = new wxStaticBoxSizer(wxVERTICAL, parent, wxT("Account Settings - ") + name);
@@ -709,10 +726,10 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 
 	wxFlexGridSizer *tweetfilterfgs = nullptr;
 	addfgsizerblock(wxT("Tweet Filters - Read Documentation Before Use"), tweetfilterfgs);
-	FilterTextValidator filterval(ad.incoming_filter, &gc.gcfg.incoming_filter.val);
-	AddSettingRow_String(OPTWIN_FILTER, panel, tweetfilterfgs,  wxT("Timeline Tweet filter\nHome timeline, mentions, DMs"), DBCV::ISGLOBALCFG | DBCV::MULTILINE | DBCV::ADVOPTION, gc.gcfg.incoming_filter, gcglobdefaults.incoming_filter, 0, &filterval);
-	FilterTextValidator allt_filterval(ad.alltweet_filter, &gc.gcfg.alltweet_filter.val);
-	AddSettingRow_String(OPTWIN_FILTER, panel, tweetfilterfgs,  wxT("All Tweet filter\nAbove, plus inline replies,\nuser timelines, etc."), DBCV::ISGLOBALCFG | DBCV::MULTILINE | DBCV::ADVOPTION, gc.gcfg.alltweet_filter, gcglobdefaults.alltweet_filter, 0, &allt_filterval);
+	AddSettingRow_FilterString(OPTWIN_FILTER, panel, tweetfilterfgs, wxT("Timeline Tweet filter\nHome timeline, mentions, DMs"),
+			DBCV::ISGLOBALCFG | DBCV::MULTILINE | DBCV::ADVOPTION, gc.gcfg.incoming_filter, ad.incoming_filter);
+	AddSettingRow_FilterString(OPTWIN_FILTER, panel, tweetfilterfgs, wxT("All Tweet filter\nAbove, plus inline replies,\nuser timelines, etc."),
+			DBCV::ISGLOBALCFG | DBCV::MULTILINE | DBCV::ADVOPTION, gc.gcfg.alltweet_filter, ad.alltweet_filter);
 
 	AddSettingRow_Bool(OPTWIN_MISC, panel, fgs,  wxT("Show Import Stream File menu item"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.show_import_stream_menu_item, gcglobdefaults.show_import_stream_menu_item);
 	AddSettingRow_String(OPTWIN_MISC, panel, fgs, wxT("Thread pool limit, 0 to disable\nDo not set this too high\nRestart retcon for this to take effect"), DBCV::ISGLOBALCFG | DBCV::VERYADVOPTION, gc.gcfg.threadpoollimit, gcglobdefaults.threadpoollimit, wxFILTER_NUMERIC);
