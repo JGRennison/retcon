@@ -70,6 +70,7 @@ struct log_window : public log_object, public wxFrame {
 	void OnDumpConnInfo(wxCommandEvent &event);
 	void OnDumpStats(wxCommandEvent &event);
 	void OnFlushState(wxCommandEvent &event);
+	void OnPurgeTimelines(wxCommandEvent &event);
 	void OnFlushLogOutputs(wxCommandEvent &event);
 	void OnRetryFirstPendingConnNow(wxCommandEvent &event);
 	void OnRestartStreamConnsNow(wxCommandEvent &event);

@@ -234,6 +234,7 @@ enum {
 	LOGWIN_ID_DUMP_CONN,
 	LOGWIN_ID_DUMP_STATS,
 	LOGWIN_ID_FLUSH_STATE,
+	LOGWIN_ID_PURGE_TIMELINES,
 	LOGWIN_ID_FLUSH_LOGFILES,
 	LOGWIN_ID_RETRY_FIRST_CONN_NOW,
 	LOGWIN_ID_RETRY_STREAMS_NOW,
@@ -248,6 +249,7 @@ BEGIN_EVENT_TABLE(log_window, wxFrame)
 	EVT_MENU(LOGWIN_ID_DUMP_CONN, log_window::OnDumpConnInfo)
 	EVT_MENU(LOGWIN_ID_DUMP_STATS, log_window::OnDumpStats)
 	EVT_MENU(LOGWIN_ID_FLUSH_STATE, log_window::OnFlushState)
+	EVT_MENU(LOGWIN_ID_PURGE_TIMELINES, log_window::OnPurgeTimelines)
 	EVT_MENU(LOGWIN_ID_FLUSH_LOGFILES, log_window::OnFlushLogOutputs)
 	EVT_MENU(LOGWIN_ID_RETRY_FIRST_CONN_NOW, log_window::OnRetryFirstPendingConnNow)
 	EVT_MENU(LOGWIN_ID_RETRY_STREAMS_NOW, log_window::OnRestartStreamConnsNow)
@@ -305,6 +307,7 @@ void log_window::OnMenuOpen(wxMenuEvent &event) {
 		debug_menu->Append(LOGWIN_ID_DUMP_CONN, wxT("Dump &Socket Data"));
 		debug_menu->Append(LOGWIN_ID_DUMP_STATS, wxT("Dump S&tats"));
 		debug_menu->Append(LOGWIN_ID_FLUSH_STATE, wxT("&Flush State"));
+		debug_menu->Append(LOGWIN_ID_PURGE_TIMELINES, wxT("Purge old tweets from &timelines"));
 
 		unsigned int flushable_log_outputs = 0;
 		for (auto &it : logfunclist) {
@@ -406,6 +409,10 @@ void log_window::OnDumpStats(wxCommandEvent &event) {
 
 void log_window::OnFlushState(wxCommandEvent &event) {
 	DBC_AsyncWriteBackState();
+}
+
+void log_window::OnPurgeTimelines(wxCommandEvent &event) {
+	DBC_AsyncPurgeOldTweets();
 }
 
 void log_window::OnFlushLogOutputs(wxCommandEvent &event) {
