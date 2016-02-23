@@ -86,8 +86,8 @@ bool tpanel::ChildTpanelPushTweet(uint64_t id, optional_tweet_ptr_p t, flagwrapp
 }
 
 void tpanel::BulkPushTweet(tweetidset ids, flagwrapper<PUSHFLAGS> pushflags, optional_observer_ptr<tweetidset> actually_added) {
-	if (!twin.empty()) {
-		// There are windows for this panel open, slow path
+	if (!twin.empty() || !child_tpanels.empty()) {
+		// There are windows for this panel open, or there are child panels, slow path
 		SetNoUpdateFlag_TP();
 		for (auto &it : ids) {
 			bool added = PushTweet(it, nullptr, pushflags);
