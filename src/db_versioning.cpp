@@ -111,7 +111,9 @@ bool dbconn::SyncDoUpdates(sqlite3 *adb) {
 					DBDoErr(db_throw_on_error(string_format("dbconn::SyncDoUpdates %i", i)), adb, stmt, res);
 				});
 			}
-			SyncWriteDBVersion(adb);
+			if (!SyncWriteDBVersion(adb)) {
+				throw std::runtime_error(string_format("Failed to write DB version: %d, %s", sqlite3_errcode(adb), cstr(sqlite3_errmsg(adb))));
+			}
 			DBExec(adb, "COMMIT;", db_throw_on_error("dbconn::SyncDoUpdates (unlock)"));
 			finaliser.cancel();
 		} else if (current_db_version > db_version) {
