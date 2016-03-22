@@ -219,6 +219,15 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 };
 template<> struct enum_traits<taccount::TAF> { static constexpr bool flags = true; };
 
+struct user_relationship_change_guard {
+	taccount &acc;
+	uint64_t userid;
+	flagwrapper<user_relationship::URF> rel;
+
+	user_relationship_change_guard(taccount &acc_, uint64_t userid_);
+	~user_relationship_change_guard();
+};
+
 void AccountChangeTrigger();
 bool GetAccByDBIndex(unsigned int dbindex, std::shared_ptr<taccount> &acc);
 void SortAccounts();

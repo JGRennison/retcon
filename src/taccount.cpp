@@ -1015,6 +1015,25 @@ void taccount::setOAuthParameters(oAuth &auth) const {
 	}
 }
 
+user_relationship_change_guard::user_relationship_change_guard(taccount &acc_, uint64_t userid_)
+		: acc(acc_), userid(userid_) {
+	rel = acc.user_relations[userid].ur_flags;
+}
+
+user_relationship_change_guard::~user_relationship_change_guard() {
+	using URF = user_relationship::URF;
+	flagwrapper<URF> new_rel = acc.user_relations[userid].ur_flags;
+
+	flagwrapper<URF> follow_mask = URF::IFOLLOW_TRUE | URF::IFOLLOW_PENDING;
+	if ((new_rel & URF::IFOLLOW_KNOWN) && (new_rel & follow_mask) != (rel & follow_mask)) {
+		acc.NotifyUserRelationshipChange(userid, URF::IFOLLOW_KNOWN | (new_rel & follow_mask));
+	}
+	flagwrapper<URF> follows_me_mask = URF::FOLLOWSME_TRUE | URF::FOLLOWSME_PENDING;
+	if ((new_rel & URF::FOLLOWSME_KNOWN) && (new_rel & follows_me_mask) != (rel & follows_me_mask)) {
+		acc.NotifyUserRelationshipChange(userid, URF::FOLLOWSME_KNOWN | (new_rel & follows_me_mask));
+	}
+}
+
 bool GetAccByDBIndex(unsigned int dbindex, std::shared_ptr<taccount> &acc) {
 	for (auto &it : alist) {
 		if (it->dbindex == dbindex) {

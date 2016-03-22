@@ -575,6 +575,7 @@ void jsonparser::DoFriendLookupParse(const rapidjson::Value &val) {
 			if (userid) {
 				const rapidjson::Value& cons = val[i]["connections"];
 				if (cons.IsArray()) {
+					user_relationship_change_guard rel_guard(*tac, userid);
 					tac->SetUserRelationship(userid, URF::IFOLLOW_KNOWN | URF::FOLLOWSME_KNOWN, optime);
 					bool is_muting = false;
 					bool is_blocked = false;
