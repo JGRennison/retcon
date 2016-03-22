@@ -1827,14 +1827,56 @@ container::map<std::string, dm_conversation_map_item> GetDMConversationMap() {
 	return std::move(output);
 }
 
-void exec_on_ready::UserReadyInDB(udc_ptr_p u) {
-	if (CheckIfUserAlreadyInDBAndLoad(u)) {
-		refcount++;
-		auto self = shared_from_this();
-		ad.user_load_pending_funcs.emplace(u->id, [self](udc_ptr_p u) {
-			self->Unref();
-		});
-		u->udc_flags |= UDC::CHECK_STDFUNC_LIST;
+void exec_on_ready::UserReady(udc_ptr_p u, flagwrapper<exec_on_ready::EOR_UR> flags, std::shared_ptr<taccount> acc) {
+	auto add_pending = [&](bool use_fast) {
+		if (use_fast && (flags & EOR_UR::FAST)) {
+			refcount++;
+			auto self = shared_from_this();
+			ad.user_load_pending_funcs.emplace(u->id, [self](udc_ptr_p u) {
+				if (container_unordered_remove(self->pending_user_net_fetch, u->id)) self->Unref();
+			});
+			u->udc_flags |= UDC::CHECK_STDFUNC_LIST;
+
+			struct user_window_timer : public wxTimer {
+				std::weak_ptr<exec_on_ready> parent;
+				uint64_t user_id;
+
+				virtual void Notify() override {
+					if (auto ptr = parent.lock()) {
+						if (container_unordered_remove(ptr->pending_user_net_fetch, user_id)) ptr->Unref();
+					}
+				}
+
+				virtual ~user_window_timer() { }
+			};
+
+			std::unique_ptr<user_window_timer> timer(new user_window_timer());
+			timer->parent = shared_from_this();
+			timer->user_id = u->id;
+			timer->Start(15000, wxTIMER_ONE_SHOT);
+
+			pending_timers.push_back(static_pointer_cast<wxTimer>(std::move(timer)));
+		} else {
+			refcount++;
+			auto self = shared_from_this();
+			ad.user_load_pending_funcs.emplace(u->id, [self](udc_ptr_p u) {
+				self->Unref();
+			});
+			u->udc_flags |= UDC::CHECK_STDFUNC_LIST;
+		}
+	};
+
+	if (flags & EOR_UR::CHECK_DB && CheckIfUserAlreadyInDBAndLoad(u)) {
+		add_pending(false);
+	} else if (flags & EOR_UR::FETCH_NET && u->udc_flags & UDC::LOOKUP_IN_PROGRESS) {
+		if (std::find(pending_user_net_fetch.begin(), pending_user_net_fetch.end(), u->id) != pending_user_net_fetch.end()) return;
+		add_pending(true);
+	} else if (acc && acc->enabled && !u->IsReady(static_cast<PENDING_REQ>(0)) && flags & EOR_UR::FETCH_NET) {
+		if (std::find(pending_user_net_fetch.begin(), pending_user_net_fetch.end(), u->id) != pending_user_net_fetch.end()) return;
+		pending_user_net_fetch.push_back(u->id);
+		add_pending(true);
+		acc->MarkUserPending(u);
+		acc->StartRestQueryPendings();
 	}
 }
 

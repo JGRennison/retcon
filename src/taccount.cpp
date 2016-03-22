@@ -279,7 +279,7 @@ void taccount::NotifyUserRelationshipChange(uint64_t userid, user_relationship::
 	udc_ptr u = ad.GetUserContainerById(userid);
 	auto acc = shared_from_this();
 	auto ready = std::make_shared<exec_on_ready>();
-	ready->UserReadyInDB(u);
+	ready->UserReady(u, exec_on_ready::EOR_UR::CHECK_DB | exec_on_ready::EOR_UR::FETCH_NET | exec_on_ready::EOR_UR::FAST, acc);
 	ready->Execute([userid, flags, acc, u]() {
 		using URF = user_relationship::URF;
 		std::string evttype;
@@ -335,7 +335,7 @@ void taccount::NotifyTweetFavouriteEvent(uint64_t tweetid, uint64_t userid, bool
 	udc_ptr u = ad.GetUserContainerById(userid);
 	auto ready = std::make_shared<exec_on_ready>();
 	ready->TweetReady(ad.GetTweetById(tweetid), shared_from_this(), nullptr, PENDING_REQ::USEREXPIRE, PENDING_RESULT::CONTENT_READY);
-	ready->UserReadyInDB(u);
+	ready->UserReady(u, exec_on_ready::EOR_UR::CHECK_DB | exec_on_ready::EOR_UR::FETCH_NET | exec_on_ready::EOR_UR::FAST, acc);
 	ready->Execute([tweetid, userid, unfavourite, acc, u]() {
 		LogMsgFormat(LOGT::NOTIFYEVT, "taccount::NotifyTweetFavouriteEvent: %s: %s %s %s",
 				cstr(acc->dispname), cstr(user_short_log_line(userid)), unfavourite ? "unfavourited" : "favourited", cstr(tweet_short_log_line(tweetid)));

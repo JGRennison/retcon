@@ -706,9 +706,16 @@ struct exec_on_ready : std::enable_shared_from_this<exec_on_ready> {
 	private:
 	unsigned int refcount = 1;
 	std::function<void()> func;
+	std::vector<uint64_t> pending_user_net_fetch;
+	std::vector<std::unique_ptr<wxTimer>> pending_timers;
 
 	public:
-	void UserReadyInDB(udc_ptr_p u);
+	enum class EOR_UR : unsigned int {
+		CHECK_DB            = 1<<0,
+		FETCH_NET           = 1<<1,
+		FAST                = 1<<2,
+	};
+	void UserReady(udc_ptr_p u, flagwrapper<EOR_UR> flags, std::shared_ptr<taccount> acc);
 	void TweetReady(tweet_ptr_p tobj, std::shared_ptr<taccount> acc_hint, std::unique_ptr<dbseltweetmsg> *existing_dbsel = nullptr,
 			flagwrapper<PENDING_REQ> preq = PENDING_REQ::DEFAULT, flagwrapper<PENDING_RESULT> presult = PENDING_RESULT::DEFAULT);
 
@@ -724,5 +731,6 @@ struct exec_on_ready : std::enable_shared_from_this<exec_on_ready> {
 	private:
 	void Unref();
 };
+template<> struct enum_traits<exec_on_ready::EOR_UR> { static constexpr bool flags = true; };
 
 #endif
