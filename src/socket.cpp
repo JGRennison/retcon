@@ -143,6 +143,9 @@ void mcurlconn::HandleError(CURL *easy, long httpcode, CURLcode res, std::unique
 	if (errorcount >= 3 && err < MCC_FAILED) {
 		err = MCC_FAILED;
 	}
+	if (err == MCC_RETRY && mcflags & MCF::NORETRY) {
+		err = MCC_FAILED;
+	}
 
 	LogSocketErrorMessage(this, easy, httpcode, res, err);
 
@@ -247,7 +250,7 @@ bool socketmanager::AddConn(CURL* ch, std::unique_ptr<mcurlconn> cs) {
 	}
 
 	SetCurlHandleVerboseState(ch, currentlogflags & LOGT::CURLVERB);
-	curl_easy_setopt(ch, CURLOPT_TIMEOUT, (cs->mcflags & mcurlconn::MCF::NOTIMEOUT) ? 0 : 180);
+	curl_easy_setopt(ch, CURLOPT_TIMEOUT, (cs->mcflags & mcurlconn::MCF::NOTIMEOUT) ? 0 : cs->timeout);
 	curl_easy_setopt(ch, CURLOPT_PRIVATE, cs.get());
 	curl_easy_setopt(ch, CURLOPT_ACCEPT_ENCODING, ""); //accept all enabled encodings
 	if (currentlogflags & LOGT::SOCKTRACE) {

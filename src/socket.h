@@ -72,8 +72,10 @@ struct mcurlconn : public wxEvtHandler {
 		NOTIMEOUT             = 1<<0,
 		IN_RETRY_QUEUE        = 1<<1,
 		RETRY_NOW_ON_SUCCESS  = 1<<2,
+		NORETRY               = 1<<3,
 	};
 
+	unsigned int timeout = 180;
 	unsigned int errorcount = 0;
 	flagwrapper<MCF> mcflags;
 	std::string url;
