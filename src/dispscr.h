@@ -114,28 +114,39 @@ inline void generic_disp_base::CheckRefresh() {
 }
 
 struct dispscr_mouseoverwin : generic_disp_base, public safe_paired_observer_ptr<dispscr_base, dispscr_mouseoverwin> {
-	unsigned int mouse_refcount = 0;
+	bool mouse_is_entered_self = false;
+	bool mouse_is_entered_parent = false;
 	wxTimer mouseevttimer;
-	wxWindow *orig_parent = nullptr;
 
 	dispscr_mouseoverwin(wxWindow *parent, panelparentwin_base *tppw_, wxString thisname_ = wxT(""));
+	void Init();
 	virtual void OnPairedPtrChange(dispscr_base *targ, dispscr_base *prevtarg, bool targdestructing) override;
-	void Position(wxWindow *targ, const wxSize &targ_size);
+	void Position(const wxSize &targ_size);
 	void targsizehandler(wxSizeEvent &event);
 	virtual bool RefreshContent() { return false; }
 	virtual void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY, int noUnitsX, int noUnitsY,
 			int xPos = 0, int yPos = 0, bool noRefresh = false ) override;
+	void MouseSetParentMouseEntered(bool mouse_entered);
+
+	private:
 	void mouseenterhandler(wxMouseEvent &event);
 	void mouseleavehandler(wxMouseEvent &event);
-	void MouseEnterLeaveEvent(bool enter);
+	void MouseRefCountChange();
 	void OnMouseEventTimer(wxTimerEvent& event);
 
+	public:
 	DECLARE_EVENT_TABLE()
 };
 
-struct dispscr_base : public generic_disp_base, public safe_paired_observer_ptr<dispscr_mouseoverwin, dispscr_base> {
+struct dispscr_base : public generic_disp_base, public safe_paired_observer_ptr<dispscr_mouseoverwin, dispscr_base>,
+		public safe_observer_ptr_contained<dispscr_base>, public generic_popup_wrapper_hook {
 	tpanel_item *tpi;
 	wxBoxSizer *hbox;
+	bool mouse_is_entered = false;
+	int popup_count = 0;
+	bool last_mouse_entered_state = false;
+
+	static safe_observer_ptr_container<dispscr_base> mouse_is_entered_set;
 
 	dispscr_base(wxWindow *parent, tpanel_item *item, panelparentwin_base *tppw_, wxBoxSizer *hbox_, wxString thisname_ = wxT(""));
 	virtual void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY, int noUnitsX, int noUnitsY,
@@ -145,6 +156,10 @@ struct dispscr_base : public generic_disp_base, public safe_paired_observer_ptr<
 	virtual dispscr_mouseoverwin *MakeMouseOverWin() { return 0; }
 	virtual void PanelInsertEvt() { }
 	virtual void PanelRemoveEvt() { }
+	virtual void BeforePopup() override;
+	virtual void AfterPopup() override;
+	void MouseStateChange(bool check_others = true);
+	void CheckMouseState();
 
 	DECLARE_EVENT_TABLE()
 };
@@ -154,7 +169,7 @@ struct tweetdispscr_mouseoverwin : public dispscr_mouseoverwin {
 	flagwrapper<TDSF> tds_flags = 0;
 	safe_observer_ptr<tweetdispscr> current_tds;
 
-	tweetdispscr_mouseoverwin(wxWindow *parent, panelparentwin_base *tppw_, wxString thisname_ = wxT(""));
+	tweetdispscr_mouseoverwin(tweetdispscr *parent, panelparentwin_base *tppw_, wxString thisname_ = wxT(""));
 	virtual bool RefreshContent() override;
 	virtual void urlhandler(wxString url) override;
 	void rightclickhandler(wxMouseEvent &event);
@@ -171,7 +186,7 @@ enum {
 	TDS_WID_UNHIDEIMGOVERRIDETIMER  = 1,
 };
 
-struct tweetdispscr : public dispscr_base, public generic_popup_wrapper_hook {
+struct tweetdispscr : public dispscr_base {
 	tweet_ptr td;
 	profimg_staticbitmap *bm;
 	profimg_staticbitmap *bm2;
@@ -211,9 +226,6 @@ struct tweetdispscr : public dispscr_base, public generic_popup_wrapper_hook {
 
 	virtual void PanelInsertEvt() override;
 	virtual void PanelRemoveEvt() override;
-
-	virtual void BeforePopup() override;
-	virtual void AfterPopup() override;
 
 	DECLARE_EVENT_TABLE()
 };

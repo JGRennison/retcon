@@ -99,7 +99,6 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	virtual bool IsSingleAccountWin() const override;
 	void EnumDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush);
 	void UpdateOwnTweet(uint64_t id, bool redrawimg);
-	tweetdispscr_mouseoverwin *MakeMouseOverWin();
 	void GenericAction(std::function<void(tpanelparentwin_nt *)> func);
 	std::shared_ptr<tpanel> GetTP();
 

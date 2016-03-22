@@ -122,7 +122,6 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 	std::shared_ptr<tpanel> tp;
 	std::shared_ptr<tpanel> tp_base;
 	flagwrapper<TPF_INTERSECT> intersect_flags;
-	safe_observer_ptr<tweetdispscr_mouseoverwin> mouseoverwin;
 
 	struct tweetbatchqueue_item {
 		uint64_t id;
@@ -163,7 +162,6 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 	virtual void UpdateCLabel() override;
 	void EnumDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush);
 	void UpdateOwnTweet(uint64_t id, bool redrawimg);
-	tweetdispscr_mouseoverwin *MakeMouseOverWin();
 	void GenericAction(std::function<void(tpanelparentwin_nt *)> func);
 	void RecalculateDisplayOffset();
 	void SetTpanelIntersectionFlags(flagwrapper<TPF_INTERSECT> intersect_flags_);

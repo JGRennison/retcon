@@ -1629,17 +1629,6 @@ std::shared_ptr<tpanel> tpanelparentwin_nt::GetTP() {
 	return pimpl()->tp;
 }
 
-tweetdispscr_mouseoverwin *tpanelparentwin_nt::MakeMouseOverWin() {
-	return pimpl()->MakeMouseOverWin();
-}
-
-tweetdispscr_mouseoverwin *tpanelparentwin_nt_impl::MakeMouseOverWin() {
-	if (!mouseoverwin) {
-		mouseoverwin.set(new tweetdispscr_mouseoverwin(scrollpane, base()));
-	}
-	return mouseoverwin.get();
-}
-
 void tpanelparentwin_nt::IncTweetIDRefCounts(uint64_t tid, uint64_t rtid) {
 	pimpl()->tweetid_count_map[tid]++;
 	pimpl()->all_tweetid_count_map[tid]++;

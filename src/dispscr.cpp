@@ -135,50 +135,45 @@ BEGIN_EVENT_TABLE(dispscr_mouseoverwin, generic_disp_base)
 END_EVENT_TABLE()
 
 dispscr_mouseoverwin::dispscr_mouseoverwin(wxWindow *parent, panelparentwin_base *tppw_, wxString thisname_)
-: generic_disp_base(parent, tppw_, wxTE_DONTWRAP, thisname_), mouseevttimer(this, wxID_HIGHEST + 1), orig_parent(parent) {
-
+		: generic_disp_base(parent, tppw_, wxTE_DONTWRAP, thisname_), mouseevttimer(this, wxID_HIGHEST + 1) {
 	GetCaret()->Hide();
 }
 
+void dispscr_mouseoverwin::Init() {
+	wxWindow *targ = GetParent();
+	Show(false);
+	targ->Connect(wxEVT_SIZE, wxSizeEventHandler(dispscr_mouseoverwin::targsizehandler), 0, this);
+	SetSize(targ->GetSize());
+	Position(targ->GetSize());
+
+	Freeze();
+	BeginSuppressUndo();
+	bool show = RefreshContent();
+	if (show) {
+		SetSize(GetBuffer().GetCachedSize().x + GetBuffer().GetTopMargin() + GetBuffer().GetBottomMargin(),
+				GetBuffer().GetCachedSize().y + GetBuffer().GetLeftMargin() + GetBuffer().GetRightMargin());
+		Position(targ->GetSize());
+	}
+	Show(show);
+	EndSuppressUndo();
+	Thaw();
+}
+
 void dispscr_mouseoverwin::OnPairedPtrChange(dispscr_base *targ, dispscr_base *prevtarg, bool targdestructing) {
-	mouse_refcount = 0;
+	mouse_is_entered_parent = false;
 	if (prevtarg && !targdestructing) {
 		prevtarg->Disconnect(wxEVT_SIZE, wxSizeEventHandler(dispscr_mouseoverwin::targsizehandler), 0, this);
-	}
-	if (targ) {
-		Show(false);
-		targ->Connect(wxEVT_SIZE, wxSizeEventHandler(dispscr_mouseoverwin::targsizehandler), 0, this);
-		SetSize(targ->GetSize());
-		Position(targ, targ->GetSize());
-
-		Freeze();
-		BeginSuppressUndo();
-		bool show = RefreshContent();
-		if (show) {
-			SetSize(GetBuffer().GetCachedSize().x + GetBuffer().GetTopMargin() + GetBuffer().GetBottomMargin(),
-					GetBuffer().GetCachedSize().y + GetBuffer().GetLeftMargin() + GetBuffer().GetRightMargin());
-			Position(targ, targ->GetSize());
-		}
-		Show(show);
-		EndSuppressUndo();
-		Thaw();
-	} else {
-		Show(false);
-		Reparent(orig_parent);
+		MouseRefCountChange();
 	}
 }
 
 void dispscr_mouseoverwin::targsizehandler(wxSizeEvent &event) {
 	if (get_paired_ptr()) {
-		Position(get_paired_ptr(), event.GetSize());
+		Position(event.GetSize());
 	}
 }
 
-void dispscr_mouseoverwin::Position(wxWindow *targ, const wxSize &targ_size) {
-	if (GetParent() != targ) {
-		Reparent(targ);
-	}
-
+void dispscr_mouseoverwin::Position(const wxSize &targ_size) {
 	wxSize this_size = GetSize();
 	wxPoint this_position(targ_size.x - this_size.x, 0);
 	if (this_position != GetPosition()) {
@@ -206,23 +201,25 @@ void dispscr_mouseoverwin::mouseenterhandler(wxMouseEvent &event) {
 	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANELTRACE, "DCL: dispscr_mouseoverwin::mouseenterhandler: %s", cstr(GetThisName()));
 	#endif
-	MouseEnterLeaveEvent(true);
+	mouse_is_entered_self = true;
+	MouseRefCountChange();
 }
 
 void dispscr_mouseoverwin::mouseleavehandler(wxMouseEvent &event) {
 	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANELTRACE, "DCL: dispscr_mouseoverwin::mouseleavehandler: %s", cstr(GetThisName()));
 	#endif
-	MouseEnterLeaveEvent(false);
+	mouse_is_entered_self = false;
+	MouseRefCountChange();
 }
 
-void dispscr_mouseoverwin::MouseEnterLeaveEvent(bool enter) {
-	if (enter) {
-		mouse_refcount++;
-	} else if (mouse_refcount) {
-		mouse_refcount--;
-	}
-	if (mouse_refcount == 0) {
+void dispscr_mouseoverwin::MouseSetParentMouseEntered(bool mouse_entered) {
+	mouse_is_entered_parent = mouse_entered;
+	MouseRefCountChange();
+}
+
+void dispscr_mouseoverwin::MouseRefCountChange() {
+	if (!mouse_is_entered_self && !mouse_is_entered_parent) {
 		mouseevttimer.Start(15, wxTIMER_ONE_SHOT);
 	} else {
 		mouseevttimer.Stop();
@@ -230,8 +227,12 @@ void dispscr_mouseoverwin::MouseEnterLeaveEvent(bool enter) {
 }
 
 void dispscr_mouseoverwin::OnMouseEventTimer(wxTimerEvent& event) {
-	if (get_paired_ptr() && mouse_refcount == 0) {
+	if (get_paired_ptr() && !mouse_is_entered_self && !mouse_is_entered_parent) {
+		if (HasCapture()) {
+			return;
+		}
 		set_paired_ptr(nullptr, true);
+		Destroy();
 	}
 }
 
@@ -239,6 +240,8 @@ BEGIN_EVENT_TABLE(dispscr_base, generic_disp_base)
 	EVT_ENTER_WINDOW(dispscr_base::mouseenterhandler)
 	EVT_LEAVE_WINDOW(dispscr_base::mouseleavehandler)
 END_EVENT_TABLE()
+
+safe_observer_ptr_container<dispscr_base> dispscr_base::mouse_is_entered_set;
 
 dispscr_base::dispscr_base(wxWindow *parent, tpanel_item *item, panelparentwin_base *tppw_, wxBoxSizer *hbox_, wxString thisname_)
 : generic_disp_base(parent, tppw_, 0, thisname_), tpi(item), hbox(hbox_) {
@@ -262,25 +265,72 @@ void dispscr_base::SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY,
 	tpi->NotifySizeChange();
 }
 
+void dispscr_base::MouseStateChange(bool check_others) {
+	if (popup_count == 0 && last_mouse_entered_state != mouse_is_entered) {
+		last_mouse_entered_state = mouse_is_entered;
+		if (mouse_is_entered) {
+			mouse_is_entered_set.insert(this);
+		} else {
+			mouse_is_entered_set.remove(this);
+		}
+
+		if (check_others) {
+			// The temporary vector is to avoid iterator invalidation issues
+			std::vector<dispscr_base *> wins;
+			wins.reserve(mouse_is_entered_set.size());
+			for (auto &it : mouse_is_entered_set) {
+				if (it.get() != this) wins.push_back(it.get());
+			}
+			for (auto &it : wins) {
+				it->CheckMouseState();
+			}
+		}
+	}
+	if (get_paired_ptr()) {
+		get_paired_ptr()->MouseSetParentMouseEntered(mouse_is_entered || popup_count > 0);
+	}
+}
+
+void dispscr_base::CheckMouseState() {
+	if (popup_count == 0) {
+		bool entered = GetScreenRect().Contains(wxGetMousePosition());
+		if (mouse_is_entered != entered) {
+			mouse_is_entered = entered;
+			MouseStateChange(false);
+		}
+	}
+}
+
 void dispscr_base::mouseenterhandler(wxMouseEvent &event) {
 	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANELTRACE, "DCL: dispscr_base::mouseenterhandler: %s", cstr(GetThisName()));
 	#endif
+	mouse_is_entered = true;
 	if (!get_paired_ptr()) {
 		set_paired_ptr(MakeMouseOverWin());
 	}
-	if (get_paired_ptr()) {
-		get_paired_ptr()->MouseEnterLeaveEvent(true);
-	}
+	MouseStateChange();
 }
 
 void dispscr_base::mouseleavehandler(wxMouseEvent &event) {
 	#if DISPSCR_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANELTRACE, "DCL: dispscr_base::mouseleavehandler: %s", cstr(GetThisName()));
 	#endif
-	if (get_paired_ptr()) {
-		get_paired_ptr()->MouseEnterLeaveEvent(false);
+	mouse_is_entered = GetScreenRect().Contains(wxGetMousePosition());;
+	MouseStateChange();
+}
+
+// These are to stop the mouseover disappearing during a popup on Windows
+void dispscr_base::BeforePopup() {
+	popup_count++;
+	MouseStateChange();
+}
+void dispscr_base::AfterPopup() {
+	popup_count--;
+	if (popup_count == 0) {
+		mouse_is_entered = GetScreenRect().Contains(wxGetMousePosition());
 	}
+	MouseStateChange();
 }
 
 BEGIN_EVENT_TABLE(tweetdispscr, dispscr_base)
@@ -1872,34 +1922,24 @@ void tweetdispscr::OnTweetActMenuCmd(wxCommandEvent &event) {
 	});
 }
 
-// These are to stop the mouseover disappearing during a popup on Windows
-void tweetdispscr::BeforePopup() {
-	if (dispscr_mouseoverwin *m = get_paired_ptr()) {
-		m->MouseEnterLeaveEvent(true);
-	}
-}
-void tweetdispscr::AfterPopup() {
-	if (dispscr_mouseoverwin *m = get_paired_ptr()) {
-		m->MouseEnterLeaveEvent(false);
-	}
-}
-
 BEGIN_EVENT_TABLE(tweetdispscr_mouseoverwin, dispscr_mouseoverwin)
 	EVT_MENU_RANGE(tweetactmenustartid, tweetactmenuendid, tweetdispscr_mouseoverwin::OnTweetActMenuCmd)
 	EVT_RIGHT_DOWN(tweetdispscr_mouseoverwin::rightclickhandler)
 END_EVENT_TABLE()
 
 tweetdispscr_mouseoverwin *tweetdispscr::MakeMouseOverWin() {
-	tweetdispscr_mouseoverwin *mw = static_cast<tpanelparentwin_nt *>(tppw)->MakeMouseOverWin();
+	tweetdispscr_mouseoverwin *mw = new tweetdispscr_mouseoverwin(this, static_cast<tpanelparentwin_nt *>(tppw));
 	mw->td = td;
 	mw->tds_flags = tds_flags;
 	mw->current_tds.set(this);
 	mw->SetBackgroundColour(GetBackgroundColour());
+	mw->Init();
 	return mw;
 }
 
-tweetdispscr_mouseoverwin::tweetdispscr_mouseoverwin(wxWindow *parent, panelparentwin_base *tppw_, wxString thisname_)
-	: dispscr_mouseoverwin(parent, tppw_, thisname_.empty() ? wxT("tweetdispscr_mouseoverwin for ") + tppw_->GetThisName() : thisname_) {
+tweetdispscr_mouseoverwin::tweetdispscr_mouseoverwin(tweetdispscr *parent, panelparentwin_base *tppw_, wxString thisname_)
+		: dispscr_mouseoverwin(parent, tppw_,
+			thisname_.empty() ? wxString::Format(wxT("tweetdispscr_mouseoverwin for %s (%" wxLongLongFmtSpec "d)"), tppw_->GetThisName().c_str(), parent->td->id) : thisname_) {
 }
 
 bool tweetdispscr_mouseoverwin::RefreshContent() {

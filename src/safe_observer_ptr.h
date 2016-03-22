@@ -193,6 +193,13 @@ template<typename T> struct safe_observer_ptr_container {
 		list.push_back(t);
 	}
 
+	void remove(T *t) {
+		if (container_unordered_remove(list, t)) {
+			safe_observer_ptr_contained<T> *t_contained = t;
+			t_contained->Unmark(this);
+		}
+	}
+
 	void clear() {
 		for (auto &it : list) {
 			it->Unmark(this);
