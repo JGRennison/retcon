@@ -93,8 +93,15 @@ void genjsonparser::ParseTweetStatics(const rapidjson::Value &val, tweet_ptr_p t
 		}
 	}
 
-	LogMsgFormat(LOGT::PARSE, "genjsonparser::ParseTweetStatics: id: %" llFmtSpec "d, RTs: %u, favs: %u",
-			tobj->id, tobj->retweet_count, tobj->favourite_count);
+	if (currentlogflags & LOGT::PARSE) {
+		std::string json;
+		writestream wr(json);
+		Handler jw(wr);
+		val.Accept(jw);
+
+		LogMsgFormat(LOGT::PARSE, "genjsonparser::ParseTweetStatics: id: %" llFmtSpec "d, RTs: %u, favs: %u\n%s",
+				tobj->id, tobj->retweet_count, tobj->favourite_count, cstr(json));
+	}
 }
 
 //this is paired with tweet::mkdynjson
@@ -1002,6 +1009,13 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> 
 
 	if (currentlogflags & LOGT::PARSE) {
 		userdatacont->Dump();
+
+		std::string json;
+		writestream wr(json);
+		Handler jw(wr);
+		val.Accept(jw);
+
+		LogMsgFormat(LOGT::PARSE, "genjsonparser::ParseUserContents: id: %" llFmtSpec "d, %s", id, cstr(json));
 	}
 
 	return userdatacont;
