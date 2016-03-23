@@ -113,9 +113,11 @@ inline void generic_disp_base::CheckRefresh() {
 	}
 }
 
-struct dispscr_mouseoverwin : generic_disp_base, public safe_paired_observer_ptr<dispscr_base, dispscr_mouseoverwin> {
+struct dispscr_mouseoverwin : generic_disp_base, public safe_paired_observer_ptr<dispscr_base, dispscr_mouseoverwin>,
+		public generic_popup_wrapper_hook {
 	bool mouse_is_entered_self = false;
 	bool mouse_is_entered_parent = false;
+	int popup_count = 0;
 	wxTimer mouseevttimer;
 
 	dispscr_mouseoverwin(wxWindow *parent, panelparentwin_base *tppw_, wxString thisname_ = wxT(""));
@@ -127,12 +129,15 @@ struct dispscr_mouseoverwin : generic_disp_base, public safe_paired_observer_ptr
 	virtual void SetScrollbars(int pixelsPerUnitX, int pixelsPerUnitY, int noUnitsX, int noUnitsY,
 			int xPos = 0, int yPos = 0, bool noRefresh = false ) override;
 	void MouseSetParentMouseEntered(bool mouse_entered);
+	virtual void BeforePopup() override;
+	virtual void AfterPopup() override;
 
 	private:
 	void mouseenterhandler(wxMouseEvent &event);
 	void mouseleavehandler(wxMouseEvent &event);
 	void MouseRefCountChange();
 	void OnMouseEventTimer(wxTimerEvent& event);
+	bool IsDestroyable() const;
 
 	public:
 	DECLARE_EVENT_TABLE()

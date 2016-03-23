@@ -218,8 +218,18 @@ void dispscr_mouseoverwin::MouseSetParentMouseEntered(bool mouse_entered) {
 	MouseRefCountChange();
 }
 
+// These are to stop the mouseover disappearing during a popup, as mouse capture could be enabled
+void dispscr_mouseoverwin::BeforePopup() {
+	popup_count++;
+	MouseRefCountChange();
+}
+void dispscr_mouseoverwin::AfterPopup() {
+	popup_count--;
+	MouseRefCountChange();
+}
+
 void dispscr_mouseoverwin::MouseRefCountChange() {
-	if (!mouse_is_entered_self && !mouse_is_entered_parent) {
+	if (IsDestroyable()) {
 		mouseevttimer.Start(15, wxTIMER_ONE_SHOT);
 	} else {
 		mouseevttimer.Stop();
@@ -227,13 +237,17 @@ void dispscr_mouseoverwin::MouseRefCountChange() {
 }
 
 void dispscr_mouseoverwin::OnMouseEventTimer(wxTimerEvent& event) {
-	if (get_paired_ptr() && !mouse_is_entered_self && !mouse_is_entered_parent) {
+	if (get_paired_ptr() && IsDestroyable()) {
 		if (HasCapture()) {
 			return;
 		}
 		set_paired_ptr(nullptr, true);
 		Destroy();
 	}
+}
+
+bool dispscr_mouseoverwin::IsDestroyable() const {
+	return !mouse_is_entered_self && !mouse_is_entered_parent && popup_count == 0;
 }
 
 BEGIN_EVENT_TABLE(dispscr_base, generic_disp_base)
