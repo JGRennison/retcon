@@ -62,6 +62,7 @@ enum class DBSM {
 	SELUSER,
 	NOTIFYUSERSPURGED,
 	INSERTEVENTLOGENTRY,
+	SELEVENTLOGBYOBJ,
 };
 
 struct dbb_compressed { };
@@ -318,15 +319,18 @@ enum class DBELF {
 };
 template<> struct enum_traits<DBELF> { static constexpr bool flags = true; };
 
-struct dbinserteventlogentrymsg : public dbsendmsg {
-	dbinserteventlogentrymsg() : dbsendmsg(DBSM::INSERTEVENTLOGENTRY) { }
-
+struct dbeventlogdata {
+	uint64_t id = 0;
 	int accid;
-	DB_EVENTLOG_TYPE type;
+	DB_EVENTLOG_TYPE event_type;
 	flagwrapper<DBELF> flags;
 	uint64_t obj;
 	time_t eventtime;
 	std::string extrajson;
+};
+
+struct dbinserteventlogentrymsg : public dbsendmsg, public dbeventlogdata {
+	dbinserteventlogentrymsg() : dbsendmsg(DBSM::INSERTEVENTLOGENTRY) { }
 };
 
 
@@ -361,5 +365,6 @@ void DBC_DBSelUserReturnDataHandler(std::deque<dbretuserdata> data, optional_obs
 void DBC_SetDBSelUserMsgHandler(dbselusermsg &msg, std::function<void(dbselusermsg &, dbconn *)> f);
 void DBC_PrepareStdUserLoadMsg(dbselusermsg &loadmsg);
 void DBC_AsyncPurgeOldTweets();
+void DBC_AsyncSelEventLogByObj(uint64_t obj_id, std::function<void(std::deque<dbeventlogdata>)> completion);
 
 #endif

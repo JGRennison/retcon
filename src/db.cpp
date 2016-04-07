@@ -109,6 +109,7 @@ static const char *startup_sql=
 "CREATE INDEX IF NOT EXISTS tweetxref_index1 ON tweetxref (fromid);"
 "CREATE INDEX IF NOT EXISTS tweetxref_index2 ON tweetxref (toid);"
 "CREATE INDEX IF NOT EXISTS tweets_ts_index ON tweets (timestamp);"
+"CREATE INDEX IF NOT EXISTS eventlog_obj_index ON eventlog (obj);"
 "INSERT OR REPLACE INTO staticsettings(name, value) VALUES ('dirtyflag', strftime('%s','now'));"
 "COMMIT;";
 
@@ -145,6 +146,7 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"INSERT INTO eventlog(accid, type, flags, obj, timestamp, extrajson) VALUES (?, ?, ?, ?, ?, ?);",
 	"INSERT INTO tweetxref(fromid, toid) VALUES (?, ?);",
 	"SELECT id FROM tweets WHERE timestamp < ? ORDER BY timestamp DESC LIMIT 1;",
+	"SELECT id, accid, type, flags, timestamp, extrajson FROM eventlog WHERE obj == ?;",
 };
 
 static const std::string globstr = "G";
@@ -799,7 +801,7 @@ static void ProcessMessage(sqlite3 *db, std::unique_ptr<dbsendmsg> &themsg, bool
 			dbinserteventlogentrymsg *m = static_cast<dbinserteventlogentrymsg*>(msg);
 			sqlite3_stmt *stmt = cache.GetStmt(db, DBPSC_INSEVENTLOGENTRY);
 			sqlite3_bind_int64(stmt, 1, (sqlite3_int64) m->accid);
-			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->type);
+			sqlite3_bind_int64(stmt, 2, (sqlite3_int64) m->event_type);
 			sqlite3_bind_int64(stmt, 3, (sqlite3_int64) m->flags.get());
 			sqlite3_bind_int64(stmt, 4, (sqlite3_int64) m->obj);
 			sqlite3_bind_int64(stmt, 5, (sqlite3_int64) m->eventtime);
@@ -1647,7 +1649,7 @@ void dbconn::InsertNewEventLogEntry(optional_observer_ptr<dbsendmsg_list> msglis
 	} else {
 		msg->accid = -1;
 	}
-	msg->type = type;
+	msg->event_type = type;
 	msg->flags = flags;
 	msg->obj = obj;
 	if (eventtime) {
@@ -3374,6 +3376,58 @@ void dbconn::SyncClearDirtyFlag(sqlite3 *db) {
 	DBExec(db, stmt, "dbconn::ClearDirtyFlag");
 }
 
+void dbconn::AsyncSelEventLogByObj(uint64_t obj_id, std::function<void(std::deque<dbeventlogdata>)> completion) {
+	LogMsgFormat(LOGT::DBTRACE, "dbconn::AsyncSelEventLogByObj: start");
+
+	FlushBatchQueue();
+
+	struct dbseleventlogmsgbyobj : public dbfunctionmsg_callback {
+		uint64_t obj_id;
+		std::deque<dbeventlogdata> data;
+		std::function<void(std::deque<dbeventlogdata>)> completion;
+	};
+
+	std::unique_ptr<dbseleventlogmsgbyobj> msg(new dbseleventlogmsgbyobj());
+	msg->obj_id = obj_id;
+	msg->completion = std::move(completion);
+
+	msg->db_func = [](sqlite3 *db, bool &ok, dbpscache &cache, dbfunctionmsg_callback &self_) {
+		// We are now in the DB thread
+		dbseleventlogmsgbyobj &self = static_cast<dbseleventlogmsgbyobj &>(self_);
+
+		DBBindRowExec(db, cache.GetStmt(db, DBPSC_SELEVENTLOGBYOBJ),
+			[&](sqlite3_stmt *stmt) {
+				sqlite3_bind_int64(stmt, 1, self.obj_id);
+			},
+			[&](sqlite3_stmt *stmt) {
+				self.data.emplace_back();
+				dbeventlogdata &entry = self.data.back();
+				entry.id = (uint64_t) sqlite3_column_int64(stmt, 0);
+				entry.accid = sqlite3_column_int(stmt, 1);
+				entry.event_type = static_cast<DB_EVENTLOG_TYPE>(sqlite3_column_int(stmt, 2));
+				entry.flags = static_cast<DBELF>(sqlite3_column_int(stmt, 3));
+				entry.obj = self.obj_id;
+				entry.eventtime = (uint64_t) sqlite3_column_int64(stmt, 4);
+				db_bind_buffer<dbb_uncompressed> extrajson = column_get_compressed(stmt, 5);
+				entry.extrajson.assign(extrajson.data, extrajson.data_size);
+			},
+			"dbconn::AsyncSelEventLogByObj"
+		);
+	};
+
+	msg->callback_func = [](std::unique_ptr<dbfunctionmsg_callback> self_) {
+		dbseleventlogmsgbyobj &self = static_cast<dbseleventlogmsgbyobj &>(*self_);
+
+		LogMsgFormat(LOGT::DBTRACE, "dbconn::AsyncSelEventLogByObj: got reply from DB thread (%" llFmtSpec "d, %zu)", self.obj_id, self.data.size());
+
+		self.completion(std::move(self.data));
+
+		LogMsgFormat(LOGT::DBTRACE, "dbconn::AsyncSelEventLogByObj: end");
+	};
+
+	SendFunctionMsgCallback(std::move(msg));
+}
+
 //The contents of data will be released and stashed in the event sent to the main thread
 //The main thread will then unstash it from the event and stick it back in a unique_ptr
 void dbsendmsg_callback::SendReply(std::unique_ptr<dbsendmsg> data, dbiothread *th) {
@@ -3621,4 +3675,8 @@ void DBC_PrepareStdUserLoadMsg(dbselusermsg &loadmsg) {
 
 void DBC_AsyncPurgeOldTweets() {
 	dbc.AsyncPurgeOldTweets();
+}
+
+void DBC_AsyncSelEventLogByObj(uint64_t obj_id, std::function<void(std::deque<dbeventlogdata>)> completion) {
+	dbc.AsyncSelEventLogByObj(obj_id, std::move(completion));
 }

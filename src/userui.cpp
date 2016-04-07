@@ -29,10 +29,18 @@
 #include "alldata.h"
 #include "log.h"
 #include "bind_wxevt.h"
+#include "db.h"
 #include <wx/textctrl.h>
 #include <wx/msgdlg.h>
+#include <wx/grid.h>
 
 std::unordered_map<uint64_t, user_window*> userwinmap;
+
+struct user_window::event_log_entry {
+	std::weak_ptr<taccount> acc;
+	DB_EVENTLOG_TYPE type;
+	time_t eventtime;
+};
 
 BEGIN_EVENT_TABLE(notebook_event_prehandler, wxEvtHandler)
 	EVT_NOTEBOOK_PAGE_CHANGED(wxID_ANY, notebook_event_prehandler::OnPageChange)
@@ -216,7 +224,7 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 
 	SetSizer(vbox);
 
-	Refresh(false);
+	Refresh(false, true);
 	Thaw();
 
 	if (uwt_common.expired()) {
@@ -404,7 +412,7 @@ void user_window::RefreshFollow(bool forcerefresh) {
 	Fit();
 }
 
-void user_window::Refresh(bool refreshimg) {
+void user_window::Refresh(bool refreshimg, bool refresh_events) {
 	LogMsgFormat(LOGT::OTHERTRACE, "user_window::Refresh %" llFmtSpec "d, refreshimg: %d", u->id, refreshimg);
 	u->ImgIsReady(PENDING_REQ::PROFIMG_DOWNLOAD); //This will trigger asynchronous (down)load of the image if it is not already ready
 
@@ -446,6 +454,21 @@ void user_window::Refresh(bool refreshimg) {
 	id_str->SetLabel(wxString::Format(wxT("%" wxLongLongFmtSpec "d"), u->id));
 	if (refreshimg) {
 		usericon->SetBitmap(u->cached_profile_img);
+	}
+	if (refresh_events) {
+		uint64_t obj_id = userid;
+		DBC_AsyncSelEventLogByObj(userid, [obj_id](std::deque<dbeventlogdata> data) {
+			user_window *win = user_window::GetWin(obj_id);
+			if (!win) return;
+
+			win->events.clear();
+			for (auto &it : data) {
+				std::shared_ptr<taccount> acc;
+				GetAccByDBIndex(it.accid, acc);
+				win->events.push_back({ acc, it.event_type, it.eventtime });
+			}
+			win->EventListUpdated();
+		});
 	}
 
 	RefreshAccState();
@@ -685,11 +708,83 @@ void user_window::CloseAll() {
 	}
 }
 
-void user_window::CheckRefresh(uint64_t userid_, bool refreshimg) {
+void user_window::CheckRefresh(uint64_t userid_, bool refreshimg, bool refresh_events) {
 	user_window *cur = GetWin(userid_);
 	if (cur) {
-		cur->Refresh(refreshimg);
+		cur->Refresh(refreshimg, refresh_events);
 	}
+}
+
+void user_window::EventListUpdated() {
+	Freeze();
+	bool new_tab = false;
+	if (events_grid) {
+		events_grid->BeginBatch();
+	} else {
+		if (events.empty()) return;
+		wxPanel *events_tab = new wxPanel(nb, wxID_ANY);
+		wxSizer *events_sizer = new wxBoxSizer(wxVERTICAL);
+		events_tab->SetSizer(events_sizer);
+		wxString header_txt = wxT("User Events:");
+		events_sizer->Add(new wxStaticText(events_tab, wxID_ANY, header_txt), 0, wxALL, 2);
+		events_grid = new wxGrid(events_tab, EVENTS_GRID_ID);
+		events_grid->EnableEditing(false);
+		events_grid->DisableCellEditControl();
+		events_grid->DisableDragColMove();
+		events_grid->DisableDragColSize();
+		events_grid->DisableDragGridSize();
+		events_grid->DisableDragRowSize();
+		events_grid->SetRowLabelSize(0);
+		events_grid->SetColLabelSize(0);
+		events_grid->EnableGridLines(false);
+		events_grid->CreateGrid(0, 3);
+		events_sizer->Add(events_grid, 1, wxALL | wxEXPAND, 2);
+		nb->AddPage(events_tab, wxT("Events"));
+		new_tab = true;
+		events_grid->BeginBatch();
+	}
+	if (events.size() > (size_t) events_grid->GetNumberRows()) {
+		events_grid->AppendRows(events.size() - events_grid->GetNumberRows());
+	}
+	for (size_t i = 0; i < events.size(); i++) {
+		events_grid->SetCellValue(i, 0, cfg_strftime(events[i].eventtime));
+
+		std::shared_ptr<taccount> acc = events[i].acc.lock();
+		events_grid->SetCellValue(i, 1, acc ? acc->dispname : wxT("Unknown account"));
+
+		wxString evt = wxT("Unknown Event");
+		switch (events[i].type) {
+			case DB_EVENTLOG_TYPE::FOLLOWED_ME:
+				evt = wxT("Followed you");
+				break;
+			case DB_EVENTLOG_TYPE::FOLLOWED_ME_PENDING:
+				evt = wxT("Followed you (pending)");
+				break;
+			case DB_EVENTLOG_TYPE::UNFOLLOWED_ME:
+				evt = wxT("Unfollowed you");
+				break;
+			case DB_EVENTLOG_TYPE::I_FOLLOWED:
+				evt = wxT("You followed");
+				break;
+			case DB_EVENTLOG_TYPE::I_FOLLOWED_PENDING:
+				evt = wxT("You followed (pending)");
+				break;
+			case DB_EVENTLOG_TYPE::I_UNFOLLOWED:
+				evt = wxT("You unfollowed");
+				break;
+		}
+		events_grid->SetCellValue(i, 2, evt);
+	}
+
+	events_grid->Fit();
+	events_grid->EndBatch();
+	if (new_tab) {
+		SetNotebookMinSize();
+	}
+	Layout();
+	Fit();
+	events_grid->ForceRefresh();
+	Thaw();
 }
 
 void user_window_timer::Notify() {

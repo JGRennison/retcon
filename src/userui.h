@@ -45,6 +45,7 @@ struct userdatacontainer;
 struct taccount;
 struct user_window;
 struct wxPanel;
+struct wxGrid;
 struct wxTextCtrl;
 struct bindwxevt_win;
 
@@ -118,6 +119,10 @@ struct user_window: public wxDialog, public safe_observer_ptr_target {
 
 	std::unique_ptr<bindwxevt_win> evtbinder;
 
+	struct event_log_entry;
+	std::vector<event_log_entry> events;
+	wxGrid *events_grid = nullptr;
+
 	enum {
 		FOLLOWBTN_ID = 1,
 		REFRESHBTN_ID,
@@ -125,13 +130,14 @@ struct user_window: public wxDialog, public safe_observer_ptr_target {
 		DMBTN_ID,
 		DMCONVERSATIONBTN_ID,
 		NOTESTXT_ID,
+		EVENTS_GRID_ID,
 	};
 
 	user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_hint_);
 	~user_window();
 	void RefreshFollow(bool forcerefresh = false);
 	void RefreshAccState();
-	void Refresh(bool refreshimg = false);
+	void Refresh(bool refreshimg = false, bool refresh_events = false);
 	void CheckAccHint();
 	void fill_accchoice();
 	void OnClose(wxCloseEvent &event);
@@ -146,7 +152,7 @@ struct user_window: public wxDialog, public safe_observer_ptr_target {
 	void SetNotesTabTitle();
 	static user_window *MkWin(uint64_t userid_, const std::shared_ptr<taccount> &acc_hint_);
 	static user_window *GetWin(uint64_t userid_);
-	static void CheckRefresh(uint64_t userid_, bool refreshimg = false);
+	static void CheckRefresh(uint64_t userid_, bool refreshimg = false, bool refresh_events = false);
 	static void RefreshAllFollow();
 	static void RefreshAllAcc();
 	static void RefreshAll();
@@ -155,6 +161,10 @@ struct user_window: public wxDialog, public safe_observer_ptr_target {
 	std::shared_ptr<user_window_timer> uwt;
 	static std::weak_ptr<user_window_timer> uwt_common;
 
+	private:
+	void EventListUpdated();
+
+	public:
 	DECLARE_EVENT_TABLE()
 };
 

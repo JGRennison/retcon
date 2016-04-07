@@ -328,6 +328,7 @@ void taccount::NotifyUserRelationshipChange(uint64_t userid, user_relationship::
 		}
 		DBC_InsertNewEventLogEntry(DBC_GetMessageBatchQueue(), this, type, 0, userid);
 	}
+	user_window::CheckRefresh(userid, false, true);
 }
 
 void taccount::NotifyTweetFavouriteEvent(uint64_t tweetid, uint64_t userid, bool unfavourite) {
