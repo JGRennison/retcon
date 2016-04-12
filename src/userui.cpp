@@ -738,7 +738,7 @@ void user_window::EventListUpdated() {
 		events_grid->SetColLabelSize(0);
 		events_grid->EnableGridLines(false);
 		events_grid->CreateGrid(0, 3);
-		events_sizer->Add(events_grid, 1, wxALL | wxEXPAND, 2);
+		events_sizer->Add(events_grid, 1, wxALL | wxEXPAND | wxFIXED_MINSIZE, 2);
 		nb->AddPage(events_tab, wxT("Events"));
 		new_tab = true;
 		events_grid->BeginBatch();
@@ -776,14 +776,12 @@ void user_window::EventListUpdated() {
 		events_grid->SetCellValue(i, 2, evt);
 	}
 
-	events_grid->Fit();
+	events_grid->Layout();
+	events_grid->AutoSize();
 	events_grid->EndBatch();
 	if (new_tab) {
 		SetNotebookMinSize();
 	}
-	Layout();
-	Fit();
-	events_grid->ForceRefresh();
 	Thaw();
 }
 
