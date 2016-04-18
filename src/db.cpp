@@ -3330,10 +3330,9 @@ void dbconn::SyncPurgeOldTweets(sqlite3 *syncdb) {
 }
 
 void dbconn::OnAsyncPurgeOldTweetsTimer(wxTimerEvent& event) {
-	AsyncWriteBackState();
+	AsyncPurgeOldTweets();
 	ResetPurgeOldTweetsTimer();
 }
-
 
 void dbconn::AsyncPurgeOldTweets() {
 	LogMsgFormat(LOGT::DBTRACE, "dbconn::OnAsyncPurgeOldTweetsTimer: start");
