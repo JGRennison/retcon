@@ -41,6 +41,9 @@
 #include <wx/dc.h>
 #include <wx/dcclient.h>
 #include <algorithm>
+#include <wx/valtext.h>
+#include <wx/datetime.h>
+#include <wx/dialog.h>
 
 tweetactmenudata tamd;
 
@@ -994,4 +997,107 @@ void rounded_box_panel::OnSize(wxSizeEvent &event) {
 void rounded_box_panel::OnMouseWheel(wxMouseEvent &event) {
 	event.SetEventObject(GetParent());
 	GetParent()->GetEventHandler()->ProcessEvent(event);
+}
+
+struct DateTimeTextValidator : public wxTextValidator {
+	wxDateTime &dt_out;
+	wxDateTime dt_own;
+	wxString *valPtr;
+
+	DateTimeTextValidator(wxDateTime &date_time_, wxString *valPtr_ = nullptr)
+			: wxTextValidator((long) wxFILTER_NONE, valPtr_), dt_out(date_time_), valPtr(valPtr_) {
+	}
+
+	virtual wxObject *Clone() const override {
+		DateTimeTextValidator *newv = new DateTimeTextValidator(dt_out, valPtr);
+		return newv;
+	}
+
+	virtual bool TransferFromWindow() override {
+		bool result = wxTextValidator::TransferFromWindow();
+		if (result) {
+			dt_out = dt_own;
+			LogMsgFormat(LOGT::OTHERTRACE, "DateTimeTextValidator: %s %s", cstr(dt_out.FormatISODate()), cstr(dt_out.FormatISOTime()));
+		}
+		return result;
+	}
+
+	virtual bool TransferToWindow() override {
+		if (valPtr) *valPtr = dt_out.FormatISODate() + wxT(" ") + dt_out.FormatISOTime();
+		wxTextValidator::TransferToWindow();
+		return true;
+	}
+
+	virtual bool Validate(wxWindow *parent) override {
+		wxTextCtrl *win = (wxTextCtrl *) GetWindow();
+
+		auto check = [&](const wxChar *result) -> bool {
+			return result != nullptr && *result == 0;
+		};
+		if (check(dt_own.ParseDateTime(win->GetValue().c_str()))) return true;
+		if (check(dt_own.ParseDate(win->GetValue().c_str()))) return true;
+		if (check(dt_own.ParseTime(win->GetValue().c_str()))) return true;
+		return false;
+	}
+};
+
+class DateTimeDialog : public wxDialog {
+	wxTextCtrl *textctrl;
+	wxString date_time_str;
+	wxButton *ok_btn;
+
+	public:
+	DateTimeDialog(wxWindow *parent, wxString title, wxString prompt, wxDateTime &date_time)
+			: wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize) {
+
+		wxBoxSizer *vsizer = new wxBoxSizer(wxVERTICAL);
+		wxSizerFlags flagsBorder2;
+		flagsBorder2.DoubleBorder();
+		vsizer->Add(new wxStaticText(this, wxID_ANY, prompt), flagsBorder2);
+
+		textctrl = new wxTextCtrl(this, wxID_EDIT, wxT(""), wxDefaultPosition, wxSize(300, wxDefaultCoord), 0, DateTimeTextValidator(date_time, &date_time_str));
+		vsizer->Add(textctrl, wxSizerFlags().Expand().DoubleBorder(wxLEFT | wxRIGHT));
+
+		wxBoxSizer *btnsizer = new wxBoxSizer(wxHORIZONTAL);
+		ok_btn = new wxButton(this, wxID_OK);
+		ok_btn->SetDefault();
+		btnsizer->Add(ok_btn, 0, wxALIGN_CENTRE | wxRIGHT, 3);
+		btnsizer->Add(new wxButton(this, wxID_CANCEL), 0, wxALIGN_CENTRE | wxLEFT | wxRIGHT, 3);
+
+		vsizer->Add(btnsizer, wxSizerFlags(flagsBorder2).Expand());
+
+		SetAutoLayout(true);
+		SetSizer(vsizer);
+
+		vsizer->SetSizeHints(this);
+		vsizer->Fit(this);
+
+		textctrl->SetSelection(-1, -1);
+		textctrl->SetFocus();
+	}
+
+	void OnOK(wxCommandEvent& event) {
+		if (Validate() && TransferDataFromWindow()) {
+			EndModal(wxID_OK);
+		}
+	}
+
+	void OnTextChange(wxCommandEvent& event) {
+		ok_btn->Enable(Validate());
+	}
+
+	DECLARE_EVENT_TABLE()
+};
+
+BEGIN_EVENT_TABLE(DateTimeDialog, wxDialog)
+	EVT_BUTTON(wxID_OK, DateTimeDialog::OnOK)
+	EVT_TEXT(wxID_EDIT, DateTimeDialog::OnTextChange)
+END_EVENT_TABLE()
+
+// return true if OK
+bool ShowDateTimeEntryDialog(wxWindow *parent, wxString title, wxString prompt, wxDateTime &date_time) {
+	DateTimeDialog *ted = new DateTimeDialog(parent, title, prompt, date_time);
+	int res = ted->ShowModal();
+	ted->Destroy();
+	return res == wxID_OK;
 }

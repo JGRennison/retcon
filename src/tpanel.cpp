@@ -1310,6 +1310,31 @@ void tpanelparentwin_nt_impl::setupnavbuttonhandlers() {
 		}
 	});
 
+	addhandler(TPPWID_JUMPTOTIME, [this](wxCommandEvent &event) {
+		if (!tp->tweetlist.empty()) {
+			wxDateTime dt = wxDateTime::Now();
+			if (ShowDateTimeEntryDialog(base(), wxT("Enter date/time"),  wxT("Enter date/time to jump to"), dt)) {
+				safe_observer_ptr<tpanelparentwin_nt> self_weak(base());
+				DBC_AsyncGetNewestTweetOlderThan(dt.GetTicks(), [self_weak](uint64_t tweet_id) {
+					if (!self_weak) return;
+					tpanelparentwin_nt_impl *self = self_weak.get()->pimpl();
+					auto &tp = self->tp;
+
+					auto iter = tp->tweetlist.lower_bound(tweet_id);
+					if (iter != tp->tweetlist.end()) {
+						if (iter != tp->tweetlist.begin()) {
+							// jump to the tweet just before the first one after the given time, if available
+							--iter;
+						}
+						self->JumpToTweetID(*iter);
+					} else if (tp->tweetlist.size() > 0) {
+						self->JumpToTweetID(*(tp->tweetlist.rbegin()));
+					}
+				});
+			}
+		}
+	});
+
 	auto hidesettogglefunc = [&](int cmdid, flagwrapper<TPPWF> tppwflag, tweetidset cached_id_sets::* setptr, const std::string &logstr) {
 		addhandler(cmdid, [this, tppwflag, setptr, logstr](wxCommandEvent &event) {
 			tppw_flags ^= tppwflag;
@@ -1353,6 +1378,7 @@ void tpanelparentwin_nt_impl::morebtnhandler(wxCommandEvent &event) {
 	pmenu.Append(TPPWID_TOPBTN, wxT("Jump To &Top"));
 	pmenu.Append(TPPWID_JUMPTONUM, wxT("&Jump To Nth Tweet"));
 	pmenu.Append(TPPWID_JUMPTOID, wxT("Jump To Tweet &ID"));
+	pmenu.Append(TPPWID_JUMPTOTIME, wxT("Jump To Tim&e"));
 	if (!tp->cids.highlightids.empty()) {
 		pmenu.AppendSeparator();
 		pmenu.Append(TPPWID_UNHIGHLIGHTALLBTN, wxT("Unhighlight All"));

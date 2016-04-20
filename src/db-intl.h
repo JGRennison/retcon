@@ -301,6 +301,8 @@ struct dbconn : public wxEvtHandler {
 	void SyncPurgeOldTweets(sqlite3 *syncdb);
 	void AsyncPurgeOldTweets();
 
+	void AsyncGetNewestTweetOlderThan(time_t timestamp, std::function<void(uint64_t)> completion);
+
 	void SyncClearDirtyFlag(sqlite3 *db);
 
 	void AsyncSelEventLogByObj(uint64_t obj_id, std::function<void(std::deque<dbeventlogdata>)> completion);

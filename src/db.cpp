@@ -3257,7 +3257,7 @@ static tweet_id_timestamp_info CreateTweetIdTimestampMap() {
 	return out;
 }
 
-// returns true if none found
+// returns 0 if none found
 static uint64_t DBGetNewestTweetOlderThan(sqlite3 *db, dbpscache &cache, time_t timestamp) {
 	uint64_t id = 0;
 	DBBindRowExec(db, cache.GetStmt(db, DBPSC_SELTWEETIDBYTIMESTAMP),
@@ -3367,6 +3367,32 @@ void dbconn::ResetPurgeOldTweetsTimer() {
 	if (gc.asyncpurgeoldtweetsintervalmins > 0) {
 		asyncpurgeoldtweets_timer->Start(gc.asyncpurgeoldtweetsintervalmins * 1000 * 60, wxTIMER_ONE_SHOT);
 	}
+}
+
+void dbconn::AsyncGetNewestTweetOlderThan(time_t timestamp, std::function<void(uint64_t)> completion) {
+	struct msgobj : public dbfunctionmsg_callback {
+		time_t timestamp;
+		uint64_t tweet_id;
+		std::function<void(uint64_t)> completion;
+	};
+
+	std::unique_ptr<msgobj> msg(new msgobj());
+	msg->timestamp = timestamp;
+	msg->completion = std::move(completion);
+
+	msg->db_func = [](sqlite3 *db, bool &ok, dbpscache &cache, dbfunctionmsg_callback &self_) {
+		// We are now in the DB thread
+		msgobj &self = static_cast<msgobj &>(self_);
+
+		self.tweet_id = DBGetNewestTweetOlderThan(db, cache, self.timestamp);
+	};
+
+	msg->callback_func = [](std::unique_ptr<dbfunctionmsg_callback> self_) {
+		msgobj &self = static_cast<msgobj &>(*self_);
+		self.completion(self.tweet_id);
+	};
+
+	SendFunctionMsgCallback(std::move(msg));
 }
 
 void dbconn::SyncClearDirtyFlag(sqlite3 *db) {
@@ -3674,6 +3700,10 @@ void DBC_PrepareStdUserLoadMsg(dbselusermsg &loadmsg) {
 
 void DBC_AsyncPurgeOldTweets() {
 	dbc.AsyncPurgeOldTweets();
+}
+
+void DBC_AsyncGetNewestTweetOlderThan(time_t timestamp, std::function<void(uint64_t)> completion) {
+	dbc.AsyncGetNewestTweetOlderThan(timestamp, completion);
 }
 
 void DBC_AsyncSelEventLogByObj(uint64_t obj_id, std::function<void(std::deque<dbeventlogdata>)> completion) {

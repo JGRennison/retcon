@@ -198,4 +198,6 @@ struct rounded_box_panel : public wxPanel, safe_observer_ptr_contained<rounded_b
 	DECLARE_EVENT_TABLE()
 };
 
+bool ShowDateTimeEntryDialog(wxWindow *parent, wxString title, wxString prompt, wxDateTime &date_time);
+
 #endif
