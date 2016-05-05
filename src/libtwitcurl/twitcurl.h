@@ -163,7 +163,7 @@ namespace twitterDefaults
     const std::string TWITCURL_TRENDSAVAILABLE_URL = "api.twitter.com/1.1/trends/available";
 
     /* Streaming API URLs */
-    const std::string TWITCURL_USERSTREAM_URL = "https://userstream.twitter.com/2/user.json";
+    const std::string TWITCURL_USERSTREAM_URL = "https://userstream.twitter.com/1.1/user.json";
     const std::string TWITCURL_PUBLICFILTERSTREAM_URL = "https://stream.twitter.com/1.1/statuses/filter.json";
     const std::string TWITCURL_PUBLICSAMPLESTREAM_URL = "https://stream.twitter.com/1.1/statuses/sample.json";
 };
