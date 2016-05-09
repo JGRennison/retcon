@@ -162,7 +162,7 @@ struct user_window: public wxDialog, public safe_observer_ptr_target {
 	static std::weak_ptr<user_window_timer> uwt_common;
 
 	private:
-	void EventListUpdated();
+	void EventListUpdated(bool account_mode);
 
 	public:
 	DECLARE_EVENT_TABLE()

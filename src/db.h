@@ -366,6 +366,6 @@ void DBC_SetDBSelUserMsgHandler(dbselusermsg &msg, std::function<void(dbseluserm
 void DBC_PrepareStdUserLoadMsg(dbselusermsg &loadmsg);
 void DBC_AsyncPurgeOldTweets();
 void DBC_AsyncGetNewestTweetOlderThan(time_t timestamp, std::function<void(uint64_t)> completion);
-void DBC_AsyncSelEventLogByObj(uint64_t obj_id, std::function<void(std::deque<dbeventlogdata>)> completion);
+void DBC_AsyncSelEventLogByObj(uint64_t obj_id, int acc_db_index, std::function<void(std::deque<dbeventlogdata>)> completion);
 
 #endif

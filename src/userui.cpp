@@ -28,6 +28,7 @@
 #include "util.h"
 #include "alldata.h"
 #include "log.h"
+#include "log-util.h"
 #include "bind_wxevt.h"
 #include "db.h"
 #include <wx/textctrl.h>
@@ -40,6 +41,7 @@ struct user_window::event_log_entry {
 	std::weak_ptr<taccount> acc;
 	DB_EVENTLOG_TYPE type;
 	time_t eventtime;
+	uint64_t obj_id;
 };
 
 BEGIN_EVENT_TABLE(notebook_event_prehandler, wxEvtHandler)
@@ -457,17 +459,29 @@ void user_window::Refresh(bool refreshimg, bool refresh_events) {
 	}
 	if (refresh_events) {
 		uint64_t obj_id = userid;
-		DBC_AsyncSelEventLogByObj(userid, [obj_id](std::deque<dbeventlogdata> data) {
+		int acc_db_index = -1;
+		std::shared_ptr<taccount> user_acc = u->GetAccountOfUser();
+		if (user_acc) {
+			acc_db_index = user_acc->dbindex;
+		}
+		DBC_AsyncSelEventLogByObj(userid, acc_db_index, [obj_id, acc_db_index](std::deque<dbeventlogdata> data) {
 			user_window *win = user_window::GetWin(obj_id);
 			if (!win) return;
 
 			win->events.clear();
+			auto ready = std::make_shared<exec_on_ready>();
 			for (auto &it : data) {
 				std::shared_ptr<taccount> acc;
 				GetAccByDBIndex(it.accid, acc);
-				win->events.push_back({ acc, it.event_type, it.eventtime });
+				win->events.push_back({ acc, it.event_type, it.eventtime, it.obj });
+				if (it.obj != obj_id) {
+					ready->UserReady(ad.GetUserContainerById(it.obj), exec_on_ready::EOR_UR::CHECK_DB, acc);
+				}
 			}
-			win->EventListUpdated();
+			ready->Execute([obj_id, acc_db_index]() {
+				user_window *win = user_window::GetWin(obj_id);
+				if (win) win->EventListUpdated(acc_db_index >= 0);
+			});
 		});
 	}
 
@@ -715,11 +729,17 @@ void user_window::CheckRefresh(uint64_t userid_, bool refreshimg, bool refresh_e
 	}
 }
 
-void user_window::EventListUpdated() {
+void user_window::EventListUpdated(bool account_mode) {
 	Freeze();
 	bool new_tab = false;
+	int target_cols = account_mode ? 4 : 3;
 	if (events_grid) {
 		events_grid->BeginBatch();
+		if (target_cols < events_grid->GetNumberCols()) {
+			events_grid->DeleteCols(target_cols, events_grid->GetNumberCols() - target_cols);
+		} else if (target_cols > events_grid->GetNumberCols()) {
+			events_grid->AppendCols(target_cols - events_grid->GetNumberCols());
+		}
 	} else {
 		if (events.empty()) return;
 		wxPanel *events_tab = new wxPanel(nb, wxID_ANY);
@@ -737,7 +757,7 @@ void user_window::EventListUpdated() {
 		events_grid->SetRowLabelSize(0);
 		events_grid->SetColLabelSize(0);
 		events_grid->EnableGridLines(false);
-		events_grid->CreateGrid(0, 3);
+		events_grid->CreateGrid(0, target_cols);
 		events_sizer->Add(events_grid, 1, wxALL | wxEXPAND | wxFIXED_MINSIZE, 2);
 		nb->AddPage(events_tab, wxT("Events"));
 		new_tab = true;
@@ -774,6 +794,9 @@ void user_window::EventListUpdated() {
 				break;
 		}
 		events_grid->SetCellValue(i, 2, evt);
+		if (account_mode) {
+			events_grid->SetCellValue(i, 3, wxstrstd(user_screenname_log(events[i].obj_id)));
+		}
 	}
 
 	events_grid->Layout();

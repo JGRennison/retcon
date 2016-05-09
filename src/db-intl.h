@@ -83,6 +83,7 @@ typedef enum {
 	DBPSC_INSERTTWEETXREF,
 	DBPSC_SELTWEETIDBYTIMESTAMP,
 	DBPSC_SELEVENTLOGBYOBJ,
+	DBPSC_SELEVENTLOGBYOBJ_ACCID,
 
 	DBPSC_NUM_STATEMENTS,
 } DBPSC_TYPE;
@@ -305,7 +306,7 @@ struct dbconn : public wxEvtHandler {
 
 	void SyncClearDirtyFlag(sqlite3 *db);
 
-	void AsyncSelEventLogByObj(uint64_t obj_id, std::function<void(std::deque<dbeventlogdata>)> completion);
+	void AsyncSelEventLogByObj(uint64_t obj_id, int acc_db_index, std::function<void(std::deque<dbeventlogdata>)> completion);
 
 	DECLARE_EVENT_TABLE()
 

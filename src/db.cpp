@@ -147,6 +147,7 @@ static const char *std_sql_stmts[DBPSC_NUM_STATEMENTS]={
 	"INSERT INTO tweetxref(fromid, toid) VALUES (?, ?);",
 	"SELECT id FROM tweets WHERE timestamp < ? ORDER BY timestamp DESC LIMIT 1;",
 	"SELECT id, accid, type, flags, timestamp, extrajson FROM eventlog WHERE obj == ?;",
+	"SELECT id, accid, type, flags, timestamp, extrajson, obj FROM eventlog WHERE obj == ? OR accid == ?;",
 };
 
 static const std::string globstr = "G";
@@ -3401,28 +3402,35 @@ void dbconn::SyncClearDirtyFlag(sqlite3 *db) {
 	DBExec(db, stmt, "dbconn::ClearDirtyFlag");
 }
 
-void dbconn::AsyncSelEventLogByObj(uint64_t obj_id, std::function<void(std::deque<dbeventlogdata>)> completion) {
+// set acc_db_index to < 0, to only query by obj_id
+// set acc_db_index to >= 0, to query by obj_id OR acc db_index
+void dbconn::AsyncSelEventLogByObj(uint64_t obj_id, int acc_db_index, std::function<void(std::deque<dbeventlogdata>)> completion) {
 	LogMsgFormat(LOGT::DBTRACE, "dbconn::AsyncSelEventLogByObj: start");
 
 	FlushBatchQueue();
 
 	struct dbseleventlogmsgbyobj : public dbfunctionmsg_callback {
 		uint64_t obj_id;
+		int acc_db_index;
 		std::deque<dbeventlogdata> data;
 		std::function<void(std::deque<dbeventlogdata>)> completion;
 	};
 
 	std::unique_ptr<dbseleventlogmsgbyobj> msg(new dbseleventlogmsgbyobj());
 	msg->obj_id = obj_id;
+	msg->acc_db_index = acc_db_index;
 	msg->completion = std::move(completion);
 
 	msg->db_func = [](sqlite3 *db, bool &ok, dbpscache &cache, dbfunctionmsg_callback &self_) {
 		// We are now in the DB thread
 		dbseleventlogmsgbyobj &self = static_cast<dbseleventlogmsgbyobj &>(self_);
 
-		DBBindRowExec(db, cache.GetStmt(db, DBPSC_SELEVENTLOGBYOBJ),
+		DBBindRowExec(db, cache.GetStmt(db, self.acc_db_index >= 0 ? DBPSC_SELEVENTLOGBYOBJ_ACCID : DBPSC_SELEVENTLOGBYOBJ),
 			[&](sqlite3_stmt *stmt) {
 				sqlite3_bind_int64(stmt, 1, self.obj_id);
+				if (self.acc_db_index >= 0) {
+					sqlite3_bind_int(stmt, 2, self.acc_db_index);
+				}
 			},
 			[&](sqlite3_stmt *stmt) {
 				self.data.emplace_back();
@@ -3431,10 +3439,14 @@ void dbconn::AsyncSelEventLogByObj(uint64_t obj_id, std::function<void(std::dequ
 				entry.accid = sqlite3_column_int(stmt, 1);
 				entry.event_type = static_cast<DB_EVENTLOG_TYPE>(sqlite3_column_int(stmt, 2));
 				entry.flags = static_cast<DBELF>(sqlite3_column_int(stmt, 3));
-				entry.obj = self.obj_id;
 				entry.eventtime = (uint64_t) sqlite3_column_int64(stmt, 4);
 				db_bind_buffer<dbb_uncompressed> extrajson = column_get_compressed(stmt, 5);
 				entry.extrajson.assign(extrajson.data, extrajson.data_size);
+				if (self.acc_db_index >= 0) {
+					entry.obj =  (uint64_t) sqlite3_column_int64(stmt, 6);
+				} else {
+					entry.obj = self.obj_id;
+				}
 			},
 			"dbconn::AsyncSelEventLogByObj"
 		);
@@ -3443,7 +3455,8 @@ void dbconn::AsyncSelEventLogByObj(uint64_t obj_id, std::function<void(std::dequ
 	msg->callback_func = [](std::unique_ptr<dbfunctionmsg_callback> self_) {
 		dbseleventlogmsgbyobj &self = static_cast<dbseleventlogmsgbyobj &>(*self_);
 
-		LogMsgFormat(LOGT::DBTRACE, "dbconn::AsyncSelEventLogByObj: got reply from DB thread (%" llFmtSpec "d, %zu)", self.obj_id, self.data.size());
+		LogMsgFormat(LOGT::DBTRACE, "dbconn::AsyncSelEventLogByObj: got reply from DB thread (%" llFmtSpec "d, %d, %zu)",
+				self.obj_id, self.acc_db_index, self.data.size());
 
 		self.completion(std::move(self.data));
 
@@ -3706,6 +3719,6 @@ void DBC_AsyncGetNewestTweetOlderThan(time_t timestamp, std::function<void(uint6
 	dbc.AsyncGetNewestTweetOlderThan(timestamp, completion);
 }
 
-void DBC_AsyncSelEventLogByObj(uint64_t obj_id, std::function<void(std::deque<dbeventlogdata>)> completion) {
-	dbc.AsyncSelEventLogByObj(obj_id, std::move(completion));
+void DBC_AsyncSelEventLogByObj(uint64_t obj_id, int acc_db_index, std::function<void(std::deque<dbeventlogdata>)> completion) {
+	dbc.AsyncSelEventLogByObj(obj_id, acc_db_index, std::move(completion));
 }
