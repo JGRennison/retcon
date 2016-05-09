@@ -29,7 +29,7 @@ This project was previously hosted at:
 https://bitbucket.org/JGRennison/retcon
 
 Windows binaries are available at:  
-https://sourceforge.net/projects/retcon
+https://github.com/JGRennison/retcon/releases
 
 ### Documentation
 See doc/ directory.  
@@ -53,7 +53,7 @@ This includes documentation for:
 Should build out of the box with `make` and `make install`.  
 Requires a relatively recent gcc (4.7.1 or later).  
 Building for Windows involves a lot of hoop-jumping. See doc/building_on_windows.txt for details.  
-Windows users are encouraged to download pre-built binaries from Sourceforge (see above).  
+Windows users are encouraged to download pre-built binaries from GitHub (see above).  
 
 ### Credits
 The following libraries are bundled with the source:
