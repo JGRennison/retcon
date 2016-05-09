@@ -1,3 +1,33 @@
+retcon 0.1.3
+------------------------------------------------------
+
+Add support for user block, mute and retweets disabled.
+Add REST API get support for 10k character limit DM text.
+Change DM button to preferentially use retweet author.
+Make hidden tweets have a height of 0, instead of a few px padding.
+Raise log window to front when opening if it is already shown.
+Prevent DMs from being added to mentions lists.
+Change foreground colour of deleted tweets (setting default: grey).
+Split the DM Conversations Panel menu into submenu chunks as necessary, by the first letter of the screen name.
+No longer mention self when replying to an own tweet.
+Allow accounts to be manually re-ordered.
+Show a "play" icon on top of video thumbnails in tweets.
+Add an account expire timeline by days setting.
+Log account follow state changes in more cases.
+Add tab for event log entries in user window.
+Add tweet panel menu command to jump to tweet by date/time.
+Fix background colour changes of tweet quote rounded boxes.
+Fix character count when inserting emoji.
+Fix poor performance of stream importing.
+Fix issues with failed DB upgrades.
+Fix issues with upwards loading of tweet panels.
+Fix issues with bulk pushing tweets to a panel with no windows open, but with child panels.
+Update streaming API URL due to Twitter API change.
+Improve handling of mouse-over windows.
+Enable importing more than one stream file at a time.
+Enable force reload and debug info debug menu actions for DMs.
+
+
 retcon 0.1.2
 ------------------------------------------------------
 
