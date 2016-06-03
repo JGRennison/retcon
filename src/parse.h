@@ -46,6 +46,8 @@ struct genjsonparser {
 	enum class USERPARSERESULT {
 		PROFIMG_UPDATED        = 1<<0,
 		OTHER_UPDATED          = 1<<1,
+		DISP_NAME_CHANGED      = 1<<2,
+		SCREEN_NAME_CHANGED    = 1<<3,
 	};
 	enum class USERPARSEFLAGS {
 		IS_SSL                = 1<<0,

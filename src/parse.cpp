@@ -508,9 +508,11 @@ uint64_t genjsonparser::ParseQuotedTweetUrl(const wxURI &wxuri) {
 
 flagwrapper<genjsonparser::USERPARSERESULT> genjsonparser::ParseUserContents(const rapidjson::Value &val, userdata &userobj, flagwrapper<genjsonparser::USERPARSEFLAGS> flags) {
 	bool changed = false;
+	bool disp_name_changed = false;
+	bool screen_name_changed = false;
 	bool img_changed = false;
-	CheckTransJsonValueDefTrackChanges(changed, userobj.name, val, "name", "");
-	CheckTransJsonValueDefTrackChanges(changed, userobj.screen_name, val, "screen_name", "");
+	CheckTransJsonValueDefTrackChanges(disp_name_changed, userobj.name, val, "name", "");
+	CheckTransJsonValueDefTrackChanges(screen_name_changed, userobj.screen_name, val, "screen_name", "");
 	CheckTransJsonValueDefTrackChanges(changed, userobj.description, val, "description", "");
 	CheckTransJsonValueDefTrackChanges(changed, userobj.location, val, "location", "");
 	CheckTransJsonValueDefTrackChanges(changed, userobj.userurl, val, "url", "");
@@ -529,6 +531,9 @@ flagwrapper<genjsonparser::USERPARSERESULT> genjsonparser::ParseUserContents(con
 	CheckTransJsonValueDefTrackChanges(changed, userobj.statuses_count, val, "statuses_count", userobj.statuses_count);
 	CheckTransJsonValueDefTrackChanges(changed, userobj.friends_count, val, "friends_count", userobj.friends_count);
 	CheckTransJsonValueDefTrackChanges(changed, userobj.favourites_count, val, "favourites_count", userobj.favourites_count);
+	if (disp_name_changed || screen_name_changed) {
+		changed = true;
+	}
 	if (flags & USERPARSEFLAGS::IS_DB_LOAD) {
 		CheckTransJsonValueDefTrackChanges(changed, userobj.notes, val, "retcon_notes", "");
 	}
@@ -538,6 +543,12 @@ flagwrapper<genjsonparser::USERPARSERESULT> genjsonparser::ParseUserContents(con
 	}
 	if (img_changed) {
 		result |= USERPARSERESULT::PROFIMG_UPDATED;
+	}
+	if (disp_name_changed) {
+		result |= USERPARSERESULT::DISP_NAME_CHANGED;
+	}
+	if (screen_name_changed) {
+		result |= USERPARSERESULT::SCREEN_NAME_CHANGED;
 	}
 	if (changed || img_changed) {
 		userobj.revision_number++;
@@ -987,6 +998,16 @@ udc_ptr jsonparser::DoUserParse(const rapidjson::Value &val, flagwrapper<UMPTF> 
 			// The URL has changed, so download the new one now
 			userdatacont->udc_flags &= ~UDC::PROFILE_IMAGE_DL_FAILED;
 			userdatacont->ImgIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
+		}
+	}
+	if (parseresult & (genjsonparser::USERPARSERESULT::DISP_NAME_CHANGED | genjsonparser::USERPARSERESULT::SCREEN_NAME_CHANGED)) {
+		if (userdatacont->udc_flags & UDC::THIS_IS_ACC_USER_HINT) {
+			// account user has changed, update account name
+			auto acc = userdatacont->GetAccountOfUser();
+			if (acc) {
+				acc->SetName();
+				AccountChangeTrigger();
+			}
 		}
 	}
 	if (!userobj.createtime) {				//this means that the object is new
