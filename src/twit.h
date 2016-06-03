@@ -40,6 +40,7 @@
 #include <string>
 #include <forward_list>
 #include <deque>
+#include <map>
 
 struct tpanelparentwin_nt;
 struct tpanel;

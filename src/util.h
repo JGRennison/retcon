@@ -24,6 +24,7 @@
 #include <wx/string.h>
 #include <string>
 #include <memory>
+#include <algorithm>
 
 inline wxString wxstrstd(const std::string &st) {
 	return wxString::FromUTF8(st.c_str());

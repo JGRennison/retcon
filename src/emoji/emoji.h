@@ -21,6 +21,7 @@
 
 #include "../univdefs.h"
 #include "../cfg.h"
+#include <map>
 #include <utility>
 #include <wx/bitmap.h>
 

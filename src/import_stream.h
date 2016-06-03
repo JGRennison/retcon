@@ -20,6 +20,7 @@
 #define HGUARD_SRC_IMPORT_STREAM
 
 #include "univdefs.h"
+#include <memory>
 #include <wx/string.h>
 #include <wx/window.h>
 

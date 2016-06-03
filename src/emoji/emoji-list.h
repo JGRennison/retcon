@@ -20,6 +20,8 @@
 #define HGUARD_SRC_EMOJI_TWEMOJI
 
 #include "../univdefs.h"
+#include <string>
+#include <utility>
 
 extern const std::string emoji_regex;
 
