@@ -358,11 +358,17 @@ void taccount::NotifyBlockListChange(BLOCKTYPE type, uint64_t userid, bool now_b
 			evttype = now_blocked ? "has had retweets disabled" : "has had retweets enabled";
 			break;
 	}
-	LogMsgFormat(LOGT::NOTIFYEVT, "taccount::NotifyBlockListChange: %s: %s %s",
-			cstr(dispname), cstr(user_short_log_line(userid)), cstr(evttype));
 
-	optional_udc_ptr udc = ad.GetExistingUserContainerById(userid);
-	if (udc && udc->udc_flags & UDC::WINDOWOPEN) {
+	auto acc = shared_from_this();
+	udc_ptr u = ad.GetUserContainerById(userid);
+	auto ready = std::make_shared<exec_on_ready>();
+	ready->UserReady(u, exec_on_ready::EOR_UR::CHECK_DB | exec_on_ready::EOR_UR::FETCH_NET | exec_on_ready::EOR_UR::FAST, acc);
+	ready->Execute([userid, acc, evttype]() {
+		LogMsgFormat(LOGT::NOTIFYEVT, "taccount::NotifyBlockListChange: %s: %s %s",
+				cstr(acc->dispname), cstr(user_short_log_line(userid)), cstr(evttype));
+	});
+
+	if (u->udc_flags & UDC::WINDOWOPEN) {
 		user_window::CheckRefresh(userid, false);
 	}
 }
