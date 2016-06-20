@@ -71,7 +71,7 @@ uint64_t db_lazy_tweet::GetUint64Generic(flagwrapper<LF> flag, uint64_t &value, 
 const std::string &db_lazy_tweet::GetJsonStringGeneric(flagwrapper<LF> flag, std::string &value, const char *key) {
 	if (NeedsLoading(flag)) {
 		GetStatJson();
-		parse_util::CheckTransJsonValueDef(value, statjson, key, "");
+		if (statjson.IsObject()) parse_util::CheckTransJsonValueDef(value, statjson, key, "");
 	}
 	return value;
 }
@@ -120,7 +120,7 @@ void db_lazy_user::GetUserJson() {
 const std::string &db_lazy_user::GetJsonStringGeneric(flagwrapper<LF> flag, std::string &value, const char *key) {
 	if (NeedsLoading(flag)) {
 		GetUserJson();
-		parse_util::CheckTransJsonValueDef(value, userjson, key, "");
+		if (userjson.IsObject()) parse_util::CheckTransJsonValueDef(value, userjson, key, "");
 	}
 	return value;
 }
