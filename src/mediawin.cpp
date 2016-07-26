@@ -21,6 +21,7 @@
 #include "cfg.h"
 #include "log.h"
 #include "mediawin.h"
+#include "raii.h"
 #include "socket-ops.h"
 #include "twit.h"
 #include "util.h"
@@ -319,6 +320,10 @@ struct media_display_win_pimpl : public wxEvtHandler {
 	void TryLoadVideo();
 	void NotifyVideoLoadSuccess(const std::string &url);
 	void NotifyVideoLoadFailure(const std::string &url);
+
+#if defined(__WXGTK__)
+	bool TryGtkLoadAnim(observer_ptr<media_entity> me);
+#endif
 
 	DECLARE_EVENT_TABLE()
 };
@@ -797,36 +802,78 @@ void media_display_win_pimpl::DoSizerLayout() {
 	win->Layout();
 }
 
+#if defined(__WXGTK__)
+bool media_display_win_pimpl::TryGtkLoadAnim(observer_ptr<media_entity> me) {
+	GdkPixbufLoader *loader = gdk_pixbuf_loader_new_with_type("gif", nullptr);
+	if (!loader) return false;
+
+	bool closed = false;
+
+	auto finaliser = scope_guard([&]() {
+		if(!closed) gdk_pixbuf_loader_close(loader, NULL);
+		g_object_unref(loader);
+	});
+
+	if (!gdk_pixbuf_loader_write(loader, (const guchar*) me->fulldata.data(), me->fulldata.size(), nullptr)) return false;
+
+	bool ok = gdk_pixbuf_loader_close(loader, NULL);
+	closed = true;
+	if (!ok) return false;
+
+	GdkPixbufAnimation *gdk_anim = gdk_pixbuf_loader_get_animation(loader);
+	if (!gdk_anim) return false;
+
+	auto finaliser2 = scope_guard([&]() {
+		g_object_unref(gdk_anim);
+	});
+
+	if (gdk_pixbuf_animation_is_static_image(gdk_anim)) {
+		return false;
+	}
+
+	if (!using_anim_ctrl) {
+		anim.SetPixbuf(gdk_anim);
+		using_anim_ctrl = true;
+		anim_ctrl.Create(win, wxID_ANY, anim);
+	}
+	return true;
+}
+#endif
+
 void media_display_win_pimpl::GetImage(wxString &message) {
 	observer_ptr<media_entity> me = GetMediaEntity();
 	if (me) {
 		if (me->flags & MEF::HAVE_FULL) {
 			is_animated = false;
 
-			wxMemoryInputStream memstream2(me->fulldata.data(), me->fulldata.size());
-			current_img.LoadFile(memstream2, wxBITMAP_TYPE_ANY);
-			img_ok = current_img.IsOk();
+			if (me->fulldata.size() >= 3 && me->fulldata[0] == 'G' && me->fulldata[1] == 'I' && me->fulldata[2] == 'F') {
+				// This looks like a GIF
 
-			if (img_ok) {
+				#if defined(__WXGTK__)
+				if (TryGtkLoadAnim(me)) {
+					img_ok = true;
+					return;
+				}
+				#else
 				wxMemoryInputStream memstream(me->fulldata.data(), me->fulldata.size());
-				if (anim.Load(memstream, wxANIMATION_TYPE_ANY)) {
+				if (anim.Load(memstream, wxANIMATION_TYPE_GIF)) {
 					if (anim.GetFrameCount() > 1) {
 						LogMsgFormat(LOGT::OTHERTRACE, "media_display_win_pimpl::GetImage found animation: %d frames", anim.GetFrameCount());
 						is_animated = true;
 						current_img = anim.GetFrame(0);
 						current_frame_index = 0;
 						animation_timer.SetOwner(this, MDID_TIMER_EVT);
+						img_ok = true;
+						return;
 					}
-					#if defined(__WXGTK__)
-					else {
-						if (!using_anim_ctrl && !gdk_pixbuf_animation_is_static_image(anim.GetPixbuf())) {
-							using_anim_ctrl = true;
-							anim_ctrl.Create(win, wxID_ANY, anim);
-						}
-					}
-					#endif
 				}
-			} else {
+				#endif
+			}
+
+			wxMemoryInputStream memstream2(me->fulldata.data(), me->fulldata.size());
+			current_img.LoadFile(memstream2, wxBITMAP_TYPE_ANY);
+			img_ok = current_img.IsOk();
+			if (!img_ok) {
 				LogMsgFormat(LOGT::OTHERERR, "media_display_win_pimpl::GetImage: Image is not OK, corrupted or partial download?");
 			}
 			return;
