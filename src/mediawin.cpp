@@ -57,7 +57,6 @@
 #endif
 
 #ifdef __WXGTK__
-#include <gdk-pixbuf/gdk-pixbuf.h>
 #include <gdk/gdkx.h>
 #include <gtk/gtk.h>
 #include <wx/gtk/win_gtk.h>
@@ -267,16 +266,9 @@ struct media_display_win_pimpl : public wxEvtHandler {
 	wxBoxSizer *sz = nullptr;
 	std::function<void(bool)> setsavemenuenablestate;
 	std::vector<std::function<void(wxMenuEvent &)> > menuopenhandlers;
-	wxAnimation anim;
-	bool is_animated = false;
 	bool img_ok = false;
 	unsigned int current_frame_index = 0;
 	wxImage current_img;
-	wxTimer animation_timer;
-#if defined(__WXGTK__)
-	wxAnimationCtrl anim_ctrl;
-	bool using_anim_ctrl = false;
-#endif
 
 	safe_observer_ptr<media_ctrl_panel> media_ctrl;
 	bool using_media_ctrl = false;
@@ -304,8 +296,6 @@ struct media_display_win_pimpl : public wxEvtHandler {
 	void GetImage(wxString &message);
 	observer_ptr<media_entity> GetMediaEntity();
 	void SaveToDir(const wxString &dir, const wxString &title, const wxString &url, std::function<void(observer_ptr<media_entity>, wxString)> save_action);
-	void DelayLoadNextAnimFrame();
-	void OnAnimationTimer(wxTimerEvent& event);
 	void dynmenudispatchhandler(wxCommandEvent &event);
 	void OnMenuOpen(wxMenuEvent &event);
 	void OnMenuZoomFit(wxCommandEvent &event);
@@ -326,7 +316,6 @@ struct media_display_win_pimpl : public wxEvtHandler {
 std::vector<wxString> media_display_win_pimpl::recent_save_paths;
 
 enum {
-	MDID_TIMER_EVT       = 2,
 	MDID_ZOOM_FIT        = 3,
 	MDID_ZOOM_ORIG       = 4,
 	MDID_ZOOM_SET        = 5,
@@ -334,7 +323,6 @@ enum {
 };
 
 BEGIN_EVENT_TABLE(media_display_win_pimpl, wxEvtHandler)
-	EVT_TIMER(MDID_TIMER_EVT, media_display_win_pimpl::OnAnimationTimer)
 	EVT_MENU_OPEN(media_display_win_pimpl::OnMenuOpen)
 	EVT_MENU(MDID_ZOOM_FIT, media_display_win_pimpl::OnMenuZoomFit)
 	EVT_MENU(MDID_ZOOM_ORIG, media_display_win_pimpl::OnMenuZoomOrig)
@@ -438,15 +426,6 @@ media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_
 			}
 
 			DestroyMenuContents(zoom_menu);
-
-#if defined(__WXGTK__)
-			if (using_anim_ctrl) {
-				wxMenuItem *wmi = zoom_menu->Append(MDID_ZOOM_ORIG, wxT("&Original Size"), wxT(""), wxITEM_CHECK);
-				wmi->Check(true);
-				wmi->Enable(false);
-				return;
-			}
-#endif
 
 			wxMenuItem *wmi1 = zoom_menu->Append(MDID_ZOOM_FIT, wxT("&Fit to Window"), wxT(""), wxITEM_CHECK);
 			wmi1->Check(zoomflags == static_cast<MDZF>(0));
@@ -602,23 +581,7 @@ void media_display_win_pimpl::UpdateImage() {
 		setsavemenuenablestate(true);
 		ClearAllUnlessShowingImage();
 
-		#if defined(__WXGTK__)
-		if (using_anim_ctrl) {
-			wxSize imgsize(current_img.GetWidth(), current_img.GetHeight());
-			wxSize origwinsize = win->ClientToWindowSize(imgsize);
-			sz->Add(&anim_ctrl, 1, wxEXPAND | wxALIGN_CENTRE);
-			anim_ctrl.Play();
-			win->SetSize(origwinsize);
-			win->SetMinSize(origwinsize);	//don't allow resizing the window, as animation controls don't scale
-			win->SetMaxSize(origwinsize);
-			return;
-		}
-		#endif
-
 		DoSizerLayout();
-		if (is_animated) {
-			DelayLoadNextAnimFrame();
-		}
 	} else {
 		ShowErrorMessage(message);
 	}
@@ -801,32 +764,10 @@ void media_display_win_pimpl::GetImage(wxString &message) {
 	observer_ptr<media_entity> me = GetMediaEntity();
 	if (me) {
 		if (me->flags & MEF::HAVE_FULL) {
-			is_animated = false;
-
 			wxMemoryInputStream memstream2(me->fulldata.data(), me->fulldata.size());
 			current_img.LoadFile(memstream2, wxBITMAP_TYPE_ANY);
 			img_ok = current_img.IsOk();
-
-			if (img_ok) {
-				wxMemoryInputStream memstream(me->fulldata.data(), me->fulldata.size());
-				if (anim.Load(memstream, wxANIMATION_TYPE_ANY)) {
-					if (anim.GetFrameCount() > 1) {
-						LogMsgFormat(LOGT::OTHERTRACE, "media_display_win_pimpl::GetImage found animation: %d frames", anim.GetFrameCount());
-						is_animated = true;
-						current_img = anim.GetFrame(0);
-						current_frame_index = 0;
-						animation_timer.SetOwner(this, MDID_TIMER_EVT);
-					}
-					#if defined(__WXGTK__)
-					else {
-						if (!using_anim_ctrl && !gdk_pixbuf_animation_is_static_image(anim.GetPixbuf())) {
-							using_anim_ctrl = true;
-							anim_ctrl.Create(win, wxID_ANY, anim);
-						}
-					}
-					#endif
-				}
-			} else {
+			if (!img_ok) {
 				LogMsgFormat(LOGT::OTHERERR, "media_display_win_pimpl::GetImage: Image is not OK, corrupted or partial download?");
 			}
 			return;
@@ -840,24 +781,6 @@ void media_display_win_pimpl::GetImage(wxString &message) {
 	}
 	img_ok = false;
 	return;
-}
-
-void media_display_win_pimpl::DelayLoadNextAnimFrame() {
-	int delay = anim.GetDelay(current_frame_index);
-	if (delay >= 0) animation_timer.Start(delay, wxTIMER_ONE_SHOT);
-}
-
-void media_display_win_pimpl::OnAnimationTimer(wxTimerEvent& event) {
-	if (!sb) return;
-	current_frame_index++;
-	if (current_frame_index >= anim.GetFrameCount()) {
-		current_frame_index = 0;
-	}
-	current_img = anim.GetFrame(current_frame_index);
-	sb->img = current_img;
-	sb->UpdateBitmap();
-	sb->Refresh();
-	DelayLoadNextAnimFrame();
 }
 
 observer_ptr<media_entity> media_display_win_pimpl::GetMediaEntity() {
