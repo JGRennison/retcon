@@ -27,6 +27,7 @@
 #include "uiutil.h"
 #include <wx/animate.h>
 #include <wx/bitmap.h>
+#include <wx/clipbrd.h>
 #include <wx/dcclient.h>
 #include <wx/dcscreen.h>
 #include <wx/event.h>
@@ -288,6 +289,7 @@ struct media_display_win_pimpl : public wxEvtHandler {
 
 	media_display_win_pimpl(media_display_win *win_, media_id_type media_id_);
 	~media_display_win_pimpl();
+	void AddDynMenuItem(wxMenu *menu, const wxString &item_name, std::function<void(wxCommandEvent &event)> func);
 	void AddSaveMenu(wxMenuBar *menuBar, const wxString &title, std::function<std::string(observer_ptr<media_entity> me)> get_url,
 			std::function<void(observer_ptr<media_entity>, wxString)> save_action);
 	void AddRecentSavePath(wxString path);
@@ -344,6 +346,17 @@ media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_
 	media_entity *me = ad.media_list[media_id_].get();
 	me->win = win;
 
+	wxMenu *copy_url_menu = new wxMenu;
+
+	auto add_copy_url_menu_item = [&](wxMenu *parent, const std::string &url, const wxString &title) {
+		AddDynMenuItem(parent, title, [url](wxCommandEvent event) {
+			if (wxTheClipboard->Open()) {
+				wxTheClipboard->SetData(new wxTextDataObject(wxstrstd(url)));
+				wxTheClipboard->Close();
+			}
+		});
+	};
+
 	if (me->video && me->video->variants.size() > 0) {
 		// This is a video
 		// Don't request static image
@@ -353,6 +366,13 @@ media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_
 		video_entity::video_variant *webm = nullptr;
 		for (auto &vv : me->video->variants) {
 			LogMsgFormat(LOGT::OTHERTRACE, "media_display_win_pimpl: found video variant: %s (%u)", cstr(vv.content_type), vv.bitrate);
+			std::string title;
+			if (vv.bitrate) {
+				title = string_format("%s (%dk)", vv.content_type.c_str(), vv.bitrate / 1000);
+			} else {
+				title = vv.content_type;
+			}
+			add_copy_url_menu_item(copy_url_menu, vv.url, wxstrstd(title));
 			if (vv.content_type == "video/mp4") {
 				if (!mp4 || vv.bitrate > mp4->bitrate) {
 					mp4 = &vv;
@@ -405,8 +425,7 @@ media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_
 		if (!webm_save_url.empty()) {
 			add_video_save_menu(webm_save_url, wxT("Save WebM"));
 		}
-	}
-	else {
+	} else {
 		int menubarcount = menuBar->GetMenuCount();
 		setsavemenuenablestate = [menubarcount, this, menuBar](bool enable) {
 			menuBar->EnableTop(menubarcount, enable);
@@ -417,6 +436,14 @@ media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_
 			wxFile file(filename, wxFile::write);
 			file.Write(me->fulldata.data(), me->fulldata.size());
 		});
+		if (me->image_variants.empty()) {
+			add_copy_url_menu_item(copy_url_menu, me->media_url, wxT("large"));
+		} else {
+			for (const auto &it : me->image_variants) {
+				std::string title = string_format("%s (%d x %d)", cstr(it.name), it.size_w, it.size_h);
+				add_copy_url_menu_item(copy_url_menu, it.url, wxstrstd(title));
+			}
+		}
 
 		zoom_menu = new wxMenu;
 
@@ -436,6 +463,8 @@ media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_
 
 		menuBar->Append(zoom_menu, wxT("&Zoom"));
 	}
+
+	menuBar->Append(copy_url_menu, wxT("&Copy URL"));
 
 	win->SetMenuBar(menuBar);
 
@@ -457,6 +486,13 @@ media_display_win_pimpl::~media_display_win_pimpl() {
 	win->PopEventHandler();
 }
 
+void media_display_win_pimpl::AddDynMenuItem(wxMenu *menu, const wxString &item_name, std::function<void(wxCommandEvent &event)> func) {
+	menu->Append(next_dynmenu_id, item_name);
+	dynmenuhandlerlist[next_dynmenu_id] = std::move(func);
+	Connect(next_dynmenu_id, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(media_display_win_pimpl::dynmenudispatchhandler));
+	next_dynmenu_id++;
+};
+
 void media_display_win_pimpl::AddSaveMenu(wxMenuBar *menuBar, const wxString &title, std::function<std::string(observer_ptr<media_entity> me)> get_url,
 			std::function<void(observer_ptr<media_entity>, wxString)> save_action) {
 	wxMenu *menuF = new wxMenu;
@@ -477,15 +513,8 @@ void media_display_win_pimpl::AddSaveMenu(wxMenuBar *menuBar, const wxString &ti
 			return;
 		}
 
-		auto add_dyn_menu_generic = [&](wxMenu *menu, const wxString &item_name, std::function<void(wxCommandEvent &event)> func) {
-			menu->Append(next_dynmenu_id, item_name);
-			dynmenuhandlerlist[next_dynmenu_id] = std::move(func);
-			Connect(next_dynmenu_id, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(media_display_win_pimpl::dynmenudispatchhandler));
-			next_dynmenu_id++;
-		};
-
 		auto add_dyn_menu = [&](wxMenu *menu, const wxString &item_name, const wxString &token) {
-			add_dyn_menu_generic(menu, item_name, [token, this, title, url, save_action](wxCommandEvent &e) {
+			AddDynMenuItem(menu, item_name, [token, this, title, url, save_action](wxCommandEvent &e) {
 				this->SaveToDir(token, title, wxstrstd(url), save_action);
 			});
 		};
@@ -498,7 +527,7 @@ void media_display_win_pimpl::AddSaveMenu(wxMenuBar *menuBar, const wxString &ti
 				add_dyn_menu(recent_menu, wxT("Save to: ") + it, it);
 			}
 			recent_menu->AppendSeparator();
-			add_dyn_menu_generic(recent_menu, wxT("Clear recent"), [&](wxCommandEvent &e) {
+			AddDynMenuItem(recent_menu, wxT("Clear recent"), [&](wxCommandEvent &e) {
 				recent_save_paths.clear();
 			});
 		}

@@ -382,7 +382,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 			en->media_id.t_id = 0;
 
 			observer_ptr<media_entity> me = media_entity::GetExisting(en->media_id);
-			if (!me) {
+			{
 				std::string url;
 				if (t->flags.Get('s')) {
 					if (!CheckTransJsonValueDef(url, media[i], "media_url_https", "")) {
@@ -393,11 +393,50 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 						CheckTransJsonValueDef(url, media[i], "media_url_https", "");
 					}
 				}
-				url += ":large";
-				me = media_entity::MakeNew(en->media_id, url);
-				if (gc.cachethumbs || gc.cachemedia) {
-					DBC_InsertMedia(*me, dbmsglist);
+
+				using image_variant = media_entity::image_variant;
+
+				std::vector<image_variant> image_variants;
+				const rapidjson::Value &sizes = media[i]["sizes"];
+				if (sizes.IsObject()) {
+					for (auto it = sizes.MemberBegin(); it != sizes.MemberEnd(); ++it) {
+						image_variants.emplace_back();
+						image_variant &iv = image_variants.back();
+						iv.name = it->name.GetString();
+						iv.url = url + ":" + iv.name;
+						iv.size_w = CheckGetJsonValueDef<unsigned int>(it->value, "w", 0);
+						iv.size_h = CheckGetJsonValueDef<unsigned int>(it->value, "h", 0);
+					}
 				}
+				auto variant_num = [](const std::string &name) -> unsigned int {
+					if (name == "thumb") {
+						return 0;
+					} else if (name == "small") {
+						return 1;
+					} else if (name == "medium") {
+						return 2;
+					} else if (name == "large") {
+						return 3;
+					} else {
+						return 4;
+					}
+				};
+				std::sort(image_variants.begin(), image_variants.end(), [&](const image_variant &a, const image_variant &b) {
+					return std::make_tuple(a.size_w * a.size_h, variant_num(a.name)) <
+							std::make_tuple(b.size_w * b.size_h, variant_num(b.name));
+				});
+				if (image_variants.empty()) {
+					url += ":large";
+				} else {
+					url += ":" + image_variants.back().name;
+				}
+				if (!me) {
+					me = media_entity::MakeNew(en->media_id, url);
+					if (gc.cachethumbs || gc.cachemedia) {
+						DBC_InsertMedia(*me, dbmsglist);
+					}
+				}
+				me->image_variants = std::move(image_variants);
 			}
 
 			const rapidjson::Value &videoinfo = media[i]["video_info"];

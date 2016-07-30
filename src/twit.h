@@ -563,6 +563,14 @@ struct media_entity {
 	std::unique_ptr<video_entity> video;
 	std::map<std::string, temp_file_holder> video_file_cache;
 
+	struct image_variant {
+		std::string url;
+		std::string name;
+		unsigned int size_w;
+		unsigned int size_h;
+	};
+	std::vector<image_variant> image_variants;
+
 	flagwrapper<MEF> flags = 0;
 	std::function<void(media_entity *, flagwrapper<MELF>)> check_load_thumb_func;
 
