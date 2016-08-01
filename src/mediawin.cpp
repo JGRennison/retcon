@@ -224,7 +224,7 @@ struct media_ctrl_panel : public wxPanel, public safe_observer_ptr_target {
 		wxFileName filename = wxFileName::FileName(event.GetString());
 		filename.MakeRelativeTo();
 		media = libvlc_media_new_path(vlc_inst, filename.GetFullPath().mb_str());
-		libvlc_media_add_option(media, "input-repeat=-1");
+		libvlc_media_add_option(media, "input-repeat=65535");
 		libvlc_media_player_set_media(media_player, media);
 		libvlc_media_player_play(media_player);
 		libvlc_media_release(media);
@@ -242,7 +242,7 @@ struct media_ctrl_panel : public wxPanel, public safe_observer_ptr_target {
 			 * --input-repeat=-1 causes it to enter an infinite loop trying to
 			 * play it.
 			 */
-			libvlc_media_add_option(media, "input-repeat=-1");
+			libvlc_media_add_option(media, "input-repeat=65535");
 		} else {
 			LogMsg(LOGT::OTHERERR, "libvlc 2 has issues playing Twitter's HLS streams, try using libvlc 3");
 		}
