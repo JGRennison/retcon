@@ -540,6 +540,7 @@ struct video_entity {
 		std::string content_type;
 		std::string url;
 		unsigned int bitrate;
+		bool is_stream = false;
 	};
 	std::vector<video_variant> variants;
 	unsigned int aspect_w = 0;

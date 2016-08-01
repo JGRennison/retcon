@@ -460,6 +460,9 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 						CheckTransJsonValueDef(v.content_type, var, "content_type", "");
 						CheckTransJsonValueDef(v.url, var, "url", "");
 						CheckTransJsonValueDef(v.bitrate, var, "bitrate", 0);
+						if (v.content_type == "application/x-mpegURL" || v.content_type == "application/dash+xml") {
+							v.is_stream = true;
+						}
 					}
 				}
 				const rapidjson::Value &sizes = media[i]["sizes"];

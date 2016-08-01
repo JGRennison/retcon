@@ -55,6 +55,7 @@
 #include <vlc/vlc.h>
 #else
 #include <wx/mediactrl.h>
+#include <wx/uri.h>
 #endif
 
 #ifdef __WXGTK__
@@ -115,6 +116,7 @@ DEFINE_EVENT_TYPE(wxextVLC_MEDIAWIN_EVT)
 
 enum {
 	MCP_ID_LOAD = 1,
+	MCP_ID_LOAD_STREAM,
 };
 
 void VLC_Log_CB(void *data, int level, const libvlc_log_t *ctx, const char *fmt, va_list args) {
@@ -207,6 +209,13 @@ struct media_ctrl_panel : public wxPanel, public safe_observer_ptr_target {
 		return true;
 	}
 
+	bool LoadStreamUrl(wxString url) {
+		wxCommandEvent event(wxextVLC_MEDIAWIN_EVT, MCP_ID_LOAD_STREAM);
+		event.SetString(url);
+		AddPendingEvent(event);
+		return true;
+	}
+
 	private:
 	void LoadEvent(wxCommandEvent &event) {
 		InitVLC();
@@ -221,11 +230,33 @@ struct media_ctrl_panel : public wxPanel, public safe_observer_ptr_target {
 		libvlc_media_release(media);
 	}
 
+	void LoadStreamEvent(wxCommandEvent &event) {
+		InitVLC();
+
+		libvlc_media_t *media;
+		media = libvlc_media_new_location(vlc_inst, event.GetString().mb_str());
+		const char *ver = libvlc_get_version();
+		if (ver && ver[0] && atoi(ver) > 2) {
+			/*
+			 * This is because vlc 2.* seems to choke on Twitter's HLS streams and
+			 * --input-repeat=-1 causes it to enter an infinite loop trying to
+			 * play it.
+			 */
+			libvlc_media_add_option(media, "input-repeat=-1");
+		} else {
+			LogMsg(LOGT::OTHERERR, "libvlc 2 has issues playing Twitter's HLS streams, try using libvlc 3");
+		}
+		libvlc_media_player_set_media(media_player, media);
+		libvlc_media_player_play(media_player);
+		libvlc_media_release(media);
+	}
+
 	DECLARE_EVENT_TABLE()
 };
 
 BEGIN_EVENT_TABLE(media_ctrl_panel, wxPanel)
 	EVT_COMMAND(MCP_ID_LOAD, wxextVLC_MEDIAWIN_EVT, media_ctrl_panel::LoadEvent)
+	EVT_COMMAND(MCP_ID_LOAD_STREAM, wxextVLC_MEDIAWIN_EVT, media_ctrl_panel::LoadStreamEvent)
 END_EVENT_TABLE()
 
 #else
@@ -240,6 +271,10 @@ struct media_ctrl_panel : public wxMediaCtrl, public safe_observer_ptr_target {
 
 	void OnMediaFinished(wxMediaEvent& evt) {
 		Play();
+	}
+
+	bool LoadStreamUrl(wxString url) {
+		Load(wxURI(url.c_str()));
 	}
 
 	DECLARE_EVENT_TABLE()
@@ -311,6 +346,7 @@ struct media_display_win_pimpl : public wxEvtHandler {
 	void TryLoadVideo();
 	void NotifyVideoLoadSuccess(const std::string &url);
 	void NotifyVideoLoadFailure(const std::string &url);
+	void LoadVideoStream(const std::string &url);
 
 	DECLARE_EVENT_TABLE()
 };
@@ -364,6 +400,7 @@ media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_
 
 		video_entity::video_variant *mp4 = nullptr;
 		video_entity::video_variant *webm = nullptr;
+		video_entity::video_variant *hls = nullptr;
 		for (auto &vv : me->video->variants) {
 			LogMsgFormat(LOGT::OTHERTRACE, "media_display_win_pimpl: found video variant: %s (%u)", cstr(vv.content_type), vv.bitrate);
 			std::string title;
@@ -383,9 +420,17 @@ media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_
 					webm = &vv;
 				}
 			}
+			if (vv.content_type == "application/x-mpegURL") {
+				if (!hls || vv.bitrate > hls->bitrate) {
+					hls = &vv;
+				}
+			}
 		}
 
 		// Highest priority last
+		if (hls) {
+			video_variants.push_back(*hls);
+		}
 		if (webm) {
 			video_variants.push_back(*webm);
 			webm_save_url = webm->url;
@@ -880,6 +925,11 @@ void media_display_win_pimpl::TryLoadVideo() {
 		return;
 	}
 
+	if (vv.is_stream) {
+		LoadVideoStream(vv.url);
+		return;
+	}
+
 	auto vc = me->video_file_cache.find(vv.url);
 	if (vc == me->video_file_cache.end()) {
 		std::shared_ptr<taccount> acc = me->dm_media_acc.lock();
@@ -946,5 +996,20 @@ void media_display_win_pimpl::NotifyVideoLoadFailure(const std::string &url) {
 		ShowErrorMessage(wxT("Loading video failed"));
 	} else {
 		TryLoadVideo();
+	}
+}
+
+void media_display_win_pimpl::LoadVideoStream(const std::string &url) {
+	LogMsgFormat(LOGT::OTHERTRACE, "media_display_win_pimpl::LoadVideoStream");
+
+	ClearAll();
+	media_ctrl = new media_ctrl_panel(win);
+	sz->Add(media_ctrl.get(), 1, wxSHAPED | wxALIGN_CENTRE);
+	bool video_ok = media_ctrl->LoadStreamUrl(wxstrstd(url));
+	if (!video_ok) {
+		NotifyVideoLoadFailure(url);
+	} else {
+		LogMsgFormat(LOGT::OTHERTRACE, "media_display_win_pimpl::LoadVideoStream: appeared to load successfully");
+		DoSizerLayout();
 	}
 }
