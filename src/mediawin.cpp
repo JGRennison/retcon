@@ -117,6 +117,7 @@ DEFINE_EVENT_TYPE(wxextVLC_MEDIAWIN_EVT)
 enum {
 	MCP_ID_LOAD = 1,
 	MCP_ID_LOAD_STREAM,
+	MCP_ID_RELOAD,
 };
 
 void VLC_Log_CB(void *data, int level, const libvlc_log_t *ctx, const char *fmt, va_list args) {
@@ -153,6 +154,7 @@ struct media_ctrl_panel : public wxPanel, public safe_observer_ptr_target {
 	libvlc_media_player_t *media_player = nullptr;
 	libvlc_instance_t *vlc_inst = nullptr;
 	libvlc_event_manager_t *vlc_evt_man = nullptr;
+	libvlc_media_t *media = nullptr;
 	bool vlc_inited = false;
 
 	media_ctrl_panel(wxWindow *parent, wxSize size = wxDefaultSize)
@@ -167,6 +169,9 @@ struct media_ctrl_panel : public wxPanel, public safe_observer_ptr_target {
 	}
 
 	~media_ctrl_panel() {
+		if (media) {
+			libvlc_media_release(media);
+		}
 		if (vlc_inited) {
 			libvlc_media_player_release(media_player);
 			libvlc_release(vlc_inst);
@@ -192,6 +197,7 @@ struct media_ctrl_panel : public wxPanel, public safe_observer_ptr_target {
 		libvlc_log_set(vlc_inst, VLC_Log_CB, nullptr);
 		media_player = libvlc_media_player_new(vlc_inst);
 		vlc_evt_man = libvlc_media_player_event_manager(media_player);
+		libvlc_event_attach(vlc_evt_man, libvlc_MediaPlayerEndReached, MediaPlayerEndReachedCallback, (void *) this);
 		Show(true);
 #ifdef __WXGTK__
 		libvlc_media_player_set_xwindow(media_player, GET_XID(player_widget));
@@ -217,38 +223,46 @@ struct media_ctrl_panel : public wxPanel, public safe_observer_ptr_target {
 	}
 
 	private:
+	static void MediaPlayerEndReachedCallback(const struct libvlc_event_t *event, void *data) {
+		media_ctrl_panel *self = (media_ctrl_panel *) data;
+		wxCommandEvent ev(wxextVLC_MEDIAWIN_EVT, MCP_ID_RELOAD);
+		self->AddPendingEvent(ev);
+	}
+
+	void ReloadEvent(wxCommandEvent &event) {
+		libvlc_media_player_set_media(media_player, media);
+		libvlc_media_player_play(media_player);
+	}
+
 	void LoadEvent(wxCommandEvent &event) {
 		InitVLC();
 
-		libvlc_media_t *media;
+		if (media) {
+			libvlc_media_release(media);
+		}
 		wxFileName filename = wxFileName::FileName(event.GetString());
 		filename.MakeRelativeTo();
 		media = libvlc_media_new_path(vlc_inst, filename.GetFullPath().mb_str());
-		libvlc_media_add_option(media, "input-repeat=65535");
 		libvlc_media_player_set_media(media_player, media);
 		libvlc_media_player_play(media_player);
-		libvlc_media_release(media);
 	}
 
 	void LoadStreamEvent(wxCommandEvent &event) {
 		InitVLC();
 
-		libvlc_media_t *media;
+		if (media) {
+			libvlc_media_release(media);
+		}
 		media = libvlc_media_new_location(vlc_inst, event.GetString().mb_str());
 		const char *ver = libvlc_get_version();
-		if (ver && ver[0] && atoi(ver) > 2) {
+		if (!(ver && ver[0] && atoi(ver) > 2)) {
 			/*
-			 * This is because vlc 2.* seems to choke on Twitter's HLS streams and
-			 * --input-repeat=-1 causes it to enter an infinite loop trying to
-			 * play it.
+			 * This is because vlc 2.* seems to choke on Twitter's HLS streams
 			 */
-			libvlc_media_add_option(media, "input-repeat=65535");
-		} else {
 			LogMsg(LOGT::OTHERERR, "libvlc 2 has issues playing Twitter's HLS streams, try using libvlc 3");
 		}
 		libvlc_media_player_set_media(media_player, media);
 		libvlc_media_player_play(media_player);
-		libvlc_media_release(media);
 	}
 
 	DECLARE_EVENT_TABLE()
@@ -257,6 +271,7 @@ struct media_ctrl_panel : public wxPanel, public safe_observer_ptr_target {
 BEGIN_EVENT_TABLE(media_ctrl_panel, wxPanel)
 	EVT_COMMAND(MCP_ID_LOAD, wxextVLC_MEDIAWIN_EVT, media_ctrl_panel::LoadEvent)
 	EVT_COMMAND(MCP_ID_LOAD_STREAM, wxextVLC_MEDIAWIN_EVT, media_ctrl_panel::LoadStreamEvent)
+	EVT_COMMAND(MCP_ID_RELOAD, wxextVLC_MEDIAWIN_EVT, media_ctrl_panel::ReloadEvent)
 END_EVENT_TABLE()
 
 #else
