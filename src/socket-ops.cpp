@@ -295,6 +295,17 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr
 	LogMsgFormat(LOGT::NETACT, "Media image downloaded: %s, id: %" llFmtSpec "d/%" llFmtSpec "d, flags: %X, conn ID: %d",
 			cstr(url), media_id.m_id, media_id.t_id, flags, id);
 
+	if (data.size() == 0) {
+		char *req_url = nullptr;
+		curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &req_url);
+
+		LogMsgFormat(LOGT::SOCKERR, "Media image download returned 0 bytes, handling as failure, type: %s, url: %s, conn ID: %u",
+				cstr(GetConnTypeName()), cstr(req_url), id);
+
+		HandleFailure(0, res, std::move(this_owner));
+		return;
+	}
+
 	if (flags & MIDC::VIDEO) {
 		observer_ptr<media_entity> me = media_entity::GetExisting(media_id);
 		if (!me) {
