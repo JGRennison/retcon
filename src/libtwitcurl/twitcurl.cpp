@@ -479,12 +479,15 @@ bool twitCurl::statusReTweet( const std::string& statusId, signed char includeEn
     bool retVal = false;
     if( statusId.length() )
     {
+        std::string postData = twitCurlDefaults::TWITCURL_EXTENDEDTWEETS;
+        if (includeEntities) postData += twitCurlDefaults::TWITCURL_URL_SEP_AMP + twitCurlDefaults::TWITCURL_INCENTITIES + ((includeEntities > 0) ? "1" : "0");
+
         /* Perform POST */
         retVal = performPost( twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
                               twitterDefaults::TWITCURL_STATUSRETWEET_URL +
                               statusId +
                               twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType],
-                              includeEntities ? twitCurlDefaults::TWITCURL_INCENTITIES + ((includeEntities>0)?"1":"0") : "" );
+                              postData );
     }
     return retVal;
 }
@@ -508,7 +511,8 @@ bool twitCurl::statusShowById( const std::string& statusId )
         /* Prepare URL */
         std::string buildUrl = twitCurlDefaults::TWITCURL_PROTOCOLS[m_eProtocolType] +
                                twitterDefaults::TWITCURL_STATUSSHOW_URL + statusId +
-                               twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType];
+                               twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType] +
+                               twitCurlDefaults::TWITCURL_URL_SEP_QUES + twitCurlDefaults::TWITCURL_EXTENDEDTWEETS;
 
         /* Perform GET */
         retVal = performGet( buildUrl );
@@ -538,7 +542,7 @@ bool twitCurl::statusDestroyById( const std::string& statusId )
                                twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType];
 
         /* Perform DELETE */
-        retVal = performPost( buildUrl );
+        retVal = performPost( buildUrl, twitCurlDefaults::TWITCURL_EXTENDEDTWEETS );
     }
     return retVal;
 }
@@ -687,6 +691,8 @@ void twitCurl::UtilTimelineProcessParams( const struct timelineparams &tmps, std
         if(tmps.exclude_replies) {
                 buildUrl += twitCurlDefaults::TWITCURL_URL_SEP_AMP + twitCurlDefaults::TWITCURL_EXCREPLIES + ((tmps.exclude_replies>0)?"1":"0");
         }
+
+        buildUrl += twitCurlDefaults::TWITCURL_URL_SEP_AMP + twitCurlDefaults::TWITCURL_EXTENDEDTWEETS;
 }
 
 /*++
@@ -921,7 +927,8 @@ bool twitCurl::directMessageShowById( const std::string& statusId )
                                twitterDefaults::TWITCURL_DIRECTMESSAGESSHOW_URL + twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType] +
                                twitCurlDefaults::TWITCURL_URL_SEP_QUES +
                                twitCurlDefaults::TWITCURL_ID + statusId +
-                               twitCurlDefaults::TWITCURL_URL_SEP_AMP + twitCurlDefaults::TWITCURL_DMFULLTEXT;
+                               twitCurlDefaults::TWITCURL_URL_SEP_AMP + twitCurlDefaults::TWITCURL_DMFULLTEXT +
+                               twitCurlDefaults::TWITCURL_URL_SEP_AMP + twitCurlDefaults::TWITCURL_EXTENDEDTWEETS;
 
         /* Perform GET */
         retVal = performGet( buildUrl );
@@ -952,6 +959,7 @@ bool twitCurl::directMessageDestroyById( const std::string& dMsgId )
                                twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType];
 
         std::string postData = "id=" + urlencode(dMsgId);
+        postData += twitCurlDefaults::TWITCURL_URL_SEP_AMP + twitCurlDefaults::TWITCURL_EXTENDEDTWEETS;
 
         /* Perform DELETE */
         retVal = performPost( buildUrl, postData );
@@ -1235,6 +1243,7 @@ bool twitCurl::favoriteCreate( const std::string& statusId )
                            twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType];
 
     std::string postData = "id=" + urlencode(statusId);
+    postData += twitCurlDefaults::TWITCURL_URL_SEP_AMP + twitCurlDefaults::TWITCURL_EXTENDEDTWEETS;
 
     /* Perform POST */
     return performPost( buildUrl, postData );
@@ -1259,6 +1268,7 @@ bool twitCurl::favoriteDestroy( const std::string& statusId )
                            twitCurlDefaults::TWITCURL_EXTENSIONFORMATS[m_eApiFormatType];
 
     std::string postData = "id=" + urlencode(statusId);
+    postData += twitCurlDefaults::TWITCURL_URL_SEP_AMP + twitCurlDefaults::TWITCURL_EXTENDEDTWEETS;
 
     /* Perform DELETE */
     return performPost( buildUrl, postData );

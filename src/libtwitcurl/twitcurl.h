@@ -75,6 +75,7 @@ namespace twitCurlDefaults
     const std::string TWITCURL_ID = "id=";
     const std::string TWITCURL_RT_ENABLED = "&retweets=true";
     const std::string TWITCURL_RT_DISABLED = "&retweets=false";
+    const std::string TWITCURL_EXTENDEDTWEETS = "tweet_mode=extended";
 
     const std::string TWITCURL_USERAGENT = "libcurl " LIBCURL_VERSION;
 
