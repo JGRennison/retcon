@@ -68,11 +68,31 @@ void genjsonparser::ParseTweetStatics(const rapidjson::Value &val, tweet_ptr_p t
 	CheckTransJsonValue(tobj->favourite_count, val, "favorite_count");
 	CheckTransJsonValueDef(tobj->source, val, "source", "", jw);
 	CheckTransJsonValueDef(tobj->text, val, "text", "", jw);
+	CheckTransJsonValue(tobj->text, val, "full_text", jw);
 
 	uint64_t quoted_status_id;
 	CheckTransJsonValueDef(quoted_status_id, val, "quoted_status_id", 0, jw);
 	if (quoted_status_id) {
 		tobj->AddQuotedTweetId(quoted_status_id);
+	}
+
+	const rapidjson::Value &ext = val["extended_tweet"];
+	if (ext.IsObject()) {
+		const rapidjson::Value &entv = ext["entities"];
+		const rapidjson::Value &entvex = ext["extended_entities"];
+		if (parse_entities) {
+			DoEntitiesParse(entv, entvex.IsObject() ? &entvex : nullptr, tobj, isnew, dbmsglist);
+
+			// already parsed extended_tweet entities, don't need to parse again
+			parse_entities = false;
+		}
+
+		CheckTransJsonValue(tobj->text, ext, "full_text");
+
+		if (jw) {
+			jw->String("extended_tweet");
+			ext.Accept(*jw);
+		}
 	}
 
 	const rapidjson::Value &entv = val["entities"];
@@ -712,8 +732,11 @@ void jsonparser::ProcessStreamResponse(bool out_of_date_parse) {
 	const rapidjson::Value &eval = dc["event"];
 	const rapidjson::Value &ival = dc["id"];
 	const rapidjson::Value &tval = dc["text"];
+	const rapidjson::Value &ftval = dc["full_text"];
 	const rapidjson::Value &dmval = dc["direct_message"];
 	const rapidjson::Value &delval = dc["delete"];
+
+	const bool has_text = tval.IsString() || ftval.IsString();
 
 	intrusive_ptr<out_of_date_data> out_of_date_state;
 	if (out_of_date_parse) {
@@ -756,9 +779,9 @@ void jsonparser::ProcessStreamResponse(bool out_of_date_parse) {
 			out_of_date_state->CheckEventToplevelJson(delval);
 		}
 		DoTweetParse(delval["status"], JDTP::DEL, out_of_date_state);
-	} else if (ival.IsNumber() && tval.IsString() && dc["recipient"].IsObject() && dc["sender"].IsObject()) {    //assume this is a direct message
+	} else if (ival.IsNumber() && has_text && dc["recipient"].IsObject() && dc["sender"].IsObject()) {    //assume this is a direct message
 		DoTweetParse(dc, JDTP::ARRIVED | JDTP::TIMELINERECV | JDTP::ISDM, out_of_date_state);
-	} else if (ival.IsNumber() && tval.IsString() && dc["user"].IsObject()) {    //assume that this is a tweet
+	} else if (ival.IsNumber() && has_text && dc["user"].IsObject()) {    //assume that this is a tweet
 		if (DoStreamTweetPreFilter(dc)) {
 			DoTweetParse(dc, JDTP::ARRIVED | JDTP::TIMELINERECV, out_of_date_state);
 		}
