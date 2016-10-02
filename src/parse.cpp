@@ -33,6 +33,7 @@
 #include "mainui.h"
 #include "userui.h"
 #include "retcon.h"
+#include "utf8.h"
 #include <cstring>
 #include <limits>
 #include <wx/uri.h>
@@ -178,6 +179,23 @@ static std::string ProcessMediaURL(std::string url, const wxURI &wxuri) {
 	return url;
 }
 
+static std::string SafeSubstrTweetText(const std::string &str, int start, int end) {
+	auto fail = [&]() {
+		LogMsgFormat(LOGT::PARSEERR, "SafeSubstrTweetText: attempting to substring range: (%d, %d) of text: %s",
+				start, end, cstr(str));
+		return "";
+	};
+	if (start < 0 || end < 0 || end < start) {
+		return fail();
+	}
+	const char *start_ptr = getstrfromstr_offset_utf8(str.c_str(), start, str.size());
+	const char *end_ptr = getstrfromstr_offset_utf8(str.c_str(), end, str.size());
+	if (!start_ptr || !end_ptr) {
+		return fail();
+	}
+	return std::string(start_ptr, end_ptr);
+}
+
 void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observer_ptr<const rapidjson::Value> val_ex, tweet_ptr_p t, bool isnew, optional_observer_ptr<dbsendmsg_list> dbmsglist) {
 	LogMsg(LOGT::PARSE, "jsonparser::DoEntitiesParse");
 
@@ -301,7 +319,9 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 				t->entlist.pop_back();
 				continue;
 			}
-			CheckTransJsonValueDef(en->text, urls[i], "display_url", t->text.substr(en->start, en->end-en->start));
+			if (!CheckTransJsonValue(en->text, urls[i], "display_url")) {
+				en->text = SafeSubstrTweetText(t->text, en->start, en->end);
+			}
 			CheckTransJsonValueDef(en->fullurl, urls[i], "expanded_url", en->text);
 
 			wxURI wxuri(wxstrstd(en->fullurl));
@@ -395,7 +415,9 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 				t->entlist.pop_back();
 				continue;
 			}
-			CheckTransJsonValueDef(en->text, media[i], "display_url", t->text.substr(en->start, en->end-en->start));
+			if (!CheckTransJsonValue(en->text, media[i], "display_url")) {
+				en->text = SafeSubstrTweetText(t->text, en->start, en->end);
+			}
 			CheckTransJsonValueDef(en->fullurl, media[i], "expanded_url", en->text);
 			if (!CheckTransJsonValueDef(en->media_id.m_id, media[i], "id", 0)) {
 				t->entlist.pop_back();
