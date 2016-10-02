@@ -1237,7 +1237,8 @@ bool jsonparser::DoStreamTweetPreFilter(const rapidjson::Value& val) {
 
 	if (is_reply || tac->stream_reply_mode == SRM::ALL_MENTIONS) {
 		//Check user mentions
-		const rapidjson::Value &entv = val["entities"];
+		const rapidjson::Value &extt = val["extended_tweet"];
+		const rapidjson::Value &entv = extt.IsObject() ? extt["entities"] : val["entities"];
 		if (entv.IsObject()) {
 			const rapidjson::Value &um = entv["user_mentions"];
 			if (um.IsArray()) {
