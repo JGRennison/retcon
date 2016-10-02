@@ -81,7 +81,9 @@ void genjsonparser::ParseTweetStatics(const rapidjson::Value &val, tweet_ptr_p t
 		const rapidjson::Value &entv = ext["entities"];
 		const rapidjson::Value &entvex = ext["extended_entities"];
 		if (parse_entities) {
-			DoEntitiesParse(entv, entvex.IsObject() ? &entvex : nullptr, tobj, isnew, dbmsglist);
+			if (entv.IsObject()) {
+				DoEntitiesParse(entv, entvex.IsObject() ? &entvex : nullptr, tobj, isnew, dbmsglist);
+			}
 
 			// already parsed extended_tweet entities, don't need to parse again
 			parse_entities = false;
