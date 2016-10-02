@@ -22,6 +22,7 @@
 #include "parse.h"
 #include "taccount.h"
 #include "db.h"
+#include "log.h"
 #include <wx/msgdlg.h>
 #include <wx/filedlg.h>
 #include <wx/filename.h>
@@ -137,9 +138,15 @@ void StreamImport(std::shared_ptr<taccount> acc, const wxString &filename) {
 
 		jsonparser jp(acc, nullptr);
 		jp.dbmsglist = std::move(dbmsglist);
-		bool ok = jp.ParseString(std::string(data.begin() + start, data.begin() + end));
-		if (ok) {
-			jp.ProcessStreamResponse(true);
+		try {
+			bool ok = jp.ParseString(std::string(data.begin() + start, data.begin() + end));
+			if (ok) {
+				jp.ProcessStreamResponse(true);
+			}
+		} catch (std::exception &e) {
+			LogMsgFormat(LOGT::PARSEERR, "Failed to parse line from stream import: %s\n%s", cstr(e.what()), cstr(jp.data->source_str));
+		} catch (...) {
+			LogMsgFormat(LOGT::PARSEERR, "Failed to parse line from stream import: %s", cstr(jp.data->source_str));
 		}
 		dbmsglist = std::move(jp.dbmsglist);
 	};

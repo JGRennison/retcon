@@ -293,9 +293,15 @@ void twitcurlext_stream::StreamCallback(std::string &data, twitCurl *pTwitCurlOb
 
 	LogMsgFormat(LOGT::SOCKTRACE, "StreamCallback: Received: %s, conn ID: %d", cstr(data), obj->id);
 	jsonparser jp(acc, obj);
-	bool ok = jp.ParseString(std::move(data));
-	if (ok) {
-		jp.ProcessStreamResponse();
+	try {
+		bool ok = jp.ParseString(std::move(data));
+		if (ok) {
+			jp.ProcessStreamResponse();
+		}
+	} catch (std::exception &e) {
+		LogMsgFormat(LOGT::PARSEERR, "Failed to parse line from stream: %s\n%s", cstr(e.what()), cstr(jp.data->source_str));
+	} catch (...) {
+		LogMsgFormat(LOGT::PARSEERR, "Failed to parse line from stream: %s", cstr(jp.data->source_str));
 	}
 	data.clear();
 }
