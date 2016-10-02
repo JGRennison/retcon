@@ -93,7 +93,7 @@ inline const char *getstrfromstr_offset_utf8(const char *str, size_t offset, siz
 	if (offset == 0) {
 		return str + bytelength;     //end of string
 	}
-	return 0;                        //offset is beyond end of string
+	return nullptr;                  //offset is beyond end of string
 }
 
 inline char *getstrfromstr_offset_utf8(char *str, size_t offset, size_t bytelength) {
