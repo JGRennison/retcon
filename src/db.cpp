@@ -34,6 +34,7 @@
 #include "set.h"
 #include "map.h"
 #include "raii.h"
+#include "retcon.h"
 #ifdef __WINDOWS__
 #include <windows.h>
 #endif
@@ -1401,6 +1402,21 @@ void dbconn::DeInit() {
 	delete th;
 
 	LogMsg(LOGT::DBINFO | LOGT::THREADTRACE, "dbconn::DeInit(): Database thread terminated");
+
+	size_t pending = 0;
+	while (wxGetApp().Pending()) {
+		pending++;
+		wxGetApp().Dispatch();
+	}
+
+	LogMsgFormat(LOGT::DBINFO | LOGT::THREADTRACE, "dbconn::DeInit(): Flushed %u pending events", pending);
+
+	if (generic_sel_funcs.size()) {
+		LogMsgFormat(LOGT::DBERR, "dbconn::DeInit(): %zu handlers left in generic_sel_funcs", generic_sel_funcs.size());
+	}
+	if (generic_sel_user_funcs.size()) {
+		LogMsgFormat(LOGT::DBERR, "dbconn::DeInit(): %zu handlers left in generic_sel_user_funcs", generic_sel_user_funcs.size());
+	}
 
 	MergeTweetIdSets();
 
