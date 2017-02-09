@@ -523,17 +523,20 @@ void tweet_pending_bits_guard::reset() {
 tweet_pending_bits_guard TryUnmarkPendingTweet(tweet_ptr_p t, flagwrapper<UMPTF> umpt_flags, optional_observer_ptr<taccount> acc) {
 	LogMsgFormat(LOGT::PENDTRACE, "Try Unmark Pending: %s, pending ops: %zu", cstr(tweet_log_line(t.get())), t->pending_ops.size());
 	tweet_pending_bits_guard result;
-	std::vector<std::unique_ptr<pending_op> > still_pending;
-	for (auto &it : t->pending_ops) {
-		tweet_pending tp = t->IsPending(it->preq);
-		if (tp.IsReady(it->presult_required)) {
-			it->MarkUnpending(t, umpt_flags);
+	std::vector<std::unique_ptr<pending_op> > no_longer_pending;
+	container_unordered_remove_if (t->pending_ops, [&](std::unique_ptr<pending_op> &op) {
+		tweet_pending tp = t->IsPending(op->preq);
+		if (tp.IsReady(op->presult_required)) {
+			no_longer_pending.emplace_back(std::move(op));
+			return true;
 		} else {
-			still_pending.emplace_back(std::move(it));
 			result.bits |= tp.bits;
+			return false;
 		}
+	});
+	for (auto &it : no_longer_pending) {
+		it->MarkUnpending(t, umpt_flags);
 	}
-	t->pending_ops = std::move(still_pending);
 	if (t->pending_ops.empty()) {
 		t->lflags &= ~TLF::BEINGLOADEDFROMDB;
 	}
