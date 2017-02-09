@@ -79,9 +79,15 @@ void DebugDestructAlldata() {
 	ad.tpanels.clear();
 	LogMsgFormat(logflags, "Cleared: ad.tpanels");
 
+	for (auto &it : ad.tweetobjs) {
+		it.second->pending_ops.clear();
+	}
 	ad.tweetobjs.clear();
 	LogMsgFormat(logflags, "Cleared: ad.tweetobjs");
 
+	for (auto &it : ad.userconts) {
+		it.second->pendingtweets.clear();
+	}
 	ad.userconts.clear();
 	LogMsgFormat(logflags, "Cleared: ad.userconts");
 
