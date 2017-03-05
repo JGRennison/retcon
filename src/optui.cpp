@@ -176,7 +176,7 @@ void acc_window::AccDel(wxCommandEvent &event) {
 		std::unique_ptr<dbdelaccmsg> delmsg(new dbdelaccmsg);
 		delmsg->dbindex = acc->dbindex;
 		DBC_SendMessage(std::move(delmsg));
-		alist.remove_if ([&](const std::shared_ptr<taccount> &a) { return a.get() == acc; });
+		alist.erase(std::remove_if(alist.begin(), alist.end(), [&](const std::shared_ptr<taccount> &a) { return a.get() == acc; }), alist.end());
 		lb->SetSelection(wxNOT_FOUND);
 		UpdateLB();
 	}

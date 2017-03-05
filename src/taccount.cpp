@@ -34,7 +34,7 @@
 #include <wx/dialog.h>
 #include <wx/clipbrd.h>
 
-std::list<std::shared_ptr<taccount> > alist;
+std::vector<std::shared_ptr<taccount> > alist;
 
 BEGIN_EVENT_TABLE(taccount, wxEvtHandler)
 	EVT_TIMER(TAF_WINID_RESTTIMER, taccount::OnRestTimer)
@@ -1060,7 +1060,7 @@ void AccountChangeTrigger() {
 }
 
 void SortAccounts() {
-	alist.sort([](const std::shared_ptr<taccount> &a, const std::shared_ptr<taccount> &b) {
+	std::sort(alist.begin(), alist.end(), [](const std::shared_ptr<taccount> &a, const std::shared_ptr<taccount> &b) {
 		return a->sort_order < b->sort_order;
 	});
 }

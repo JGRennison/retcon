@@ -192,9 +192,9 @@ extern const format_set format_set_medium;
 extern const format_set format_set_long;
 const format_set &IndexToFormatSet(unsigned long fdn);
 
-void ReadAllCFGIn(sqlite3 *db, globconf &gc, std::list<std::shared_ptr<taccount>> &lalist);
-void WriteAllCFGOut(sqlite3 *db, const globconf &gc, const std::list<std::shared_ptr<taccount>> &lalist);
-std::function<void(DBWriteConfig &)> WriteAllCFGOutClosure(const globconf &lgc, const std::list<std::shared_ptr<taccount>> &lalist, bool unshare_strings);
+void ReadAllCFGIn(sqlite3 *db, globconf &gc, std::vector<std::shared_ptr<taccount>> &lalist);
+void WriteAllCFGOut(sqlite3 *db, const globconf &gc, const std::vector<std::shared_ptr<taccount>> &lalist);
+std::function<void(DBWriteConfig &)> WriteAllCFGOutClosure(const globconf &lgc, const std::vector<std::shared_ptr<taccount>> &lalist, bool unshare_strings);
 void AllUsersInheritFromParentIfUnset();
 void InitCFGDefaults();
 

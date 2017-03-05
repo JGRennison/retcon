@@ -232,6 +232,6 @@ void AccountChangeTrigger();
 bool GetAccByDBIndex(unsigned int dbindex, std::shared_ptr<taccount> &acc);
 void SortAccounts();
 
-extern std::list<std::shared_ptr<taccount>> alist;
+extern std::vector<std::shared_ptr<taccount>> alist;
 
 #endif

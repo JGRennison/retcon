@@ -357,7 +357,7 @@ void genopt::InheritFromParent(genopt &parent, bool ifunset) {
 	}
 }
 
-void ReadAllCFGIn(sqlite3 *db, globconf &lgc, std::list<std::shared_ptr<taccount>> &lalist) {
+void ReadAllCFGIn(sqlite3 *db, globconf &lgc, std::vector<std::shared_ptr<taccount>> &lalist) {
 	LogMsg(LOGT::DBINFO, "dbconn::ReadAllCFGIn start");
 	DBReadConfig twfc(db);
 	lgc.CFGReadIn(twfc);
@@ -370,7 +370,7 @@ void ReadAllCFGIn(sqlite3 *db, globconf &lgc, std::list<std::shared_ptr<taccount
 
 //This returns a closure that can be executed now or later and is safe to use in a different thread
 //Set unshare_strings if COW semantics need to be worked around
-std::function<void(DBWriteConfig &)> WriteAllCFGOutClosure(const globconf &lgc, const std::list<std::shared_ptr<taccount>> &lalist, bool unshare_strings) {
+std::function<void(DBWriteConfig &)> WriteAllCFGOutClosure(const globconf &lgc, const std::vector<std::shared_ptr<taccount>> &lalist, bool unshare_strings) {
 	struct cfgdata {
 		int64_t now;
 		std::vector<taccount_cfg> taccs;
@@ -400,7 +400,7 @@ std::function<void(DBWriteConfig &)> WriteAllCFGOutClosure(const globconf &lgc, 
 	};
 }
 
-void WriteAllCFGOut(sqlite3 *db, const globconf &lgc, const std::list<std::shared_ptr<taccount>> &lalist) {
+void WriteAllCFGOut(sqlite3 *db, const globconf &lgc, const std::vector<std::shared_ptr<taccount>> &lalist) {
 	LogMsg(LOGT::DBINFO, "dbconn::WriteAllCFGOut start");
 	DBWriteConfig twfc(db);
 	WriteAllCFGOutClosure(lgc, lalist, false)(twfc);
