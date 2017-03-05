@@ -711,7 +711,7 @@ gboolean gs_check(GSource *source) {
 
 gboolean gs_dispatch(GSource *source, GSourceFunc callback, gpointer user_data) {
 	sock_gsource *gs = (sock_gsource*) source;
-	std::forward_list<std::pair<curl_socket_t,int>> actlist;
+	std::vector<std::pair<curl_socket_t, int>> actlist;
 	for (auto &it : gs->sm->sockpollmap) {
 		if (it.second.revents) {
 			int sendbitmask = 0;
@@ -724,7 +724,7 @@ gboolean gs_dispatch(GSource *source, GSourceFunc callback, gpointer user_data) 
 			if (it.second.revents&(G_IO_ERR|G_IO_HUP)) {
 				sendbitmask |= CURL_CSELECT_ERR;
 			}
-			actlist.push_front(std::make_pair(it.first, sendbitmask));    //NotifySockEvent is entitled to modify the set of monitored sockets
+			actlist.push_back(std::make_pair(it.first, sendbitmask));    //NotifySockEvent is entitled to modify the set of monitored sockets
 		}
 	}
 	for (auto &it : actlist) {
@@ -952,7 +952,7 @@ static void removefdfrompollset(int fd, std::vector<struct pollfd> &pollset) {
 
 wxThread::ExitCode socketpollthread::Entry() {
 	std::vector<struct pollfd> pollset;
-	std::forward_list<struct pollfd> disabled_pollset;
+	std::vector<struct pollfd> disabled_pollset;
 	pollset.emplace_back();
 	memset(&pollset[0], 0, sizeof(pollset[0]));
 	pollset[0].fd = pipefd;
@@ -966,7 +966,7 @@ wxThread::ExitCode socketpollthread::Entry() {
 				AddPendingEventForSocketPollEvent(pollset[i].fd, pollset[i].revents, true);
 
 				//remove fd from pollset temporarily to stop it repeatedly re-firing
-				disabled_pollset.push_front(pollset[i]);
+				disabled_pollset.push_back(pollset[i]);
 				if (i != pollset.size() - 1) {
 					pollset[i] = pollset[pollset.size() - 1];
 				}
@@ -999,7 +999,7 @@ wxThread::ExitCode socketpollthread::Entry() {
 					return 0;
 
 				case SPM_FDCHANGE:
-					disabled_pollset.remove_if ([&](const struct pollfd &pfd) { return pfd.fd == spm.fd; });
+					container_unordered_remove_if(disabled_pollset, [&](const struct pollfd &pfd) { return pfd.fd == spm.fd; });
 					if (spm.events) {
 						size_t offset = getpollsetoffsetfromfd(spm.fd, pollset);
 						pollset[offset].events = spm.events;
@@ -1009,7 +1009,7 @@ wxThread::ExitCode socketpollthread::Entry() {
 					break;
 
 				case SPM_ENABLE:
-					disabled_pollset.remove_if ([&](const struct pollfd &pfd) {
+					container_unordered_remove_if(disabled_pollset, [&](const struct pollfd &pfd) {
 						if (pfd.fd == spm.fd) {
 							pollset.push_back(pfd);
 							return true;
