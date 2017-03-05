@@ -555,7 +555,7 @@ struct media_entity {
 	std::string media_url;
 	std::string fulldata;	//the full unmodified content of the image data
 	wxBitmap thumbimg;
-	std::forward_list<tweet_ptr> tweet_list;
+	std::vector<uint64_t> tweet_list;
 	media_display_win *win = nullptr;
 	shb_iptr full_img_sha1;
 	shb_iptr thumb_img_sha1;

@@ -282,7 +282,7 @@ void mediaimgdlconn::HandleFailure(long httpcode, CURLcode res, std::unique_ptr<
 		}
 		if (flags & MIDC::REDRAW_TWEETS) {
 			for (auto &jt : me.tweet_list) {
-				UpdateTweet(*jt);
+				UpdateTweet(jt);
 			}
 		}
 		if (flags & MIDC::VIDEO) {
@@ -435,7 +435,7 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr
 
 			if (flags & MIDC::REDRAW_TWEETS) {
 				for (auto &jt : me.tweet_list) {
-					UpdateTweet(*jt);
+					UpdateTweet(jt);
 				}
 			}
 		}

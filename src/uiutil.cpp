@@ -473,16 +473,17 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 		case TAMI_DELETECACHEDIMG: {
 			std::vector<media_entity *> mes;
 			map[curid].tw->GetMediaEntities(mes, MEF::HAVE_THUMB | MEF::HAVE_FULL);
-			std::map<uint64_t, tweet_ptr> tweetupdates;
+			container::set<uint64_t> tweetupdates;
 			for (auto &me : mes) {
 				me->PurgeCache();
 				for (auto &it : me->tweet_list) {
-					tweetupdates[it->id] = it;
+					tweetupdates.insert(it);
 				}
 			}
+			const uint64_t self_id = map[curid].tw->id;
 			for (auto &it : tweetupdates) {
-				if (it.first != map[curid].tw->id) { //don't update current tweet twice
-					UpdateTweet(*it.second);
+				if (it != self_id) { //don't update current tweet twice
+					UpdateTweet(it);
 				}
 			}
 			UpdateTweet(*(map[curid].tw), false);

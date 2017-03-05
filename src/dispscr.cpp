@@ -1513,7 +1513,7 @@ void TweetURLHandler(wxWindow *win, wxString url, tweet_ptr_p td, panelparentwin
 
 		ad.media_list[media_id]->CheckLoadThumb(MELF::FORCE);
 		for (auto &it : ad.media_list[media_id]->tweet_list) {
-			UpdateTweet(*it);
+			UpdateTweet(it);
 		}
 	} else if (url[0] == 'U') {
 		uint64_t userid = ParseUrlID(url);

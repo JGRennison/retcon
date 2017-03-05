@@ -295,7 +295,7 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 							m.thumbimg = wxBitmap(job_data->img);
 							m.flags |= MEF::HAVE_THUMB;
 							for (auto &jt : m.tweet_list) {
-								UpdateTweet(*jt);
+								UpdateTweet(jt);
 							}
 						} else {
 							LogMsgFormat(LOGT::FILEIOERR, "genjsonparser::DoEntitiesParse::mk_media_thumb_load_func, cached media thumbnail file: %s, url: %s, missing, invalid or failed hash check",
@@ -343,11 +343,11 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 						DBC_InsertMedia(*me, dbmsglist);
 					}
 				}
-				auto res = std::find_if (me->tweet_list.begin(), me->tweet_list.end(), [&](tweet_ptr_p tt) {
-					return tt->id == t->id;
+				auto res = std::find_if (me->tweet_list.begin(), me->tweet_list.end(), [&](uint64_t id) {
+					return id == t->id;
 				});
 				if (res == me->tweet_list.end()) {
-					me->tweet_list.push_front(t);
+					me->tweet_list.push_back(t->id);
 				}
 
 				flagwrapper<MELF> netloadmask = 0;
@@ -521,11 +521,11 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 				me->video = std::move(ve);
 			}
 
-			auto res = std::find_if (me->tweet_list.begin(), me->tweet_list.end(), [&](tweet_ptr_p tt) {
-				return tt->id == t->id;
+			auto res = std::find_if (me->tweet_list.begin(), me->tweet_list.end(), [&](uint64_t id) {
+				return id == t->id;
 			});
 			if (res == me->tweet_list.end()) {
-				me->tweet_list.push_front(t);
+				me->tweet_list.push_back(t->id);
 			}
 
 			// Test this here as well as in TweetFormatProc as we may want to load the thumbnail immediately below
