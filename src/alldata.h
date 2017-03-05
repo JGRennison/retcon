@@ -31,19 +31,20 @@
 #include <map>
 #include <functional>
 #include "map.h"
+#include "hash_map.h"
 
 struct tweet;
 struct media_entity;
 struct user_dm_index;
 
 struct alldata {
-	container::map<uint64_t, udc_ptr> userconts;
-	container::map<uint64_t, tweet_ptr> tweetobjs;
-	std::map<std::string, std::shared_ptr<tpanel> > tpanels;
-	std::unordered_map<media_id_type, std::unique_ptr<media_entity> > media_list;
-	std::unordered_map<std::string, observer_ptr<media_entity> > img_media_map;
-	container::map<uint64_t, tweet_ptr> noacc_pending_tweetobjs;
-	container::map<uint64_t, udc_ptr> noacc_pending_userconts;
+	container::hash_map<uint64_t, udc_ptr> userconts;
+	container::hash_map<uint64_t, tweet_ptr> tweetobjs;
+	container::hash_map<std::string, std::shared_ptr<tpanel> > tpanels;
+	container::hash_map<media_id_type, std::unique_ptr<media_entity> > media_list;
+	container::hash_map<std::string, observer_ptr<media_entity> > img_media_map;
+	container::hash_map<uint64_t, tweet_ptr> noacc_pending_tweetobjs;
+	container::hash_map<uint64_t, udc_ptr> noacc_pending_userconts;
 	std::unordered_map<uint64_t, user_dm_index> user_dm_indexes;
 	tweetidset unloaded_db_tweet_ids;
 	tweetidset loaded_db_tweet_ids;

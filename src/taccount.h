@@ -124,7 +124,7 @@ struct taccount : public wxEvtHandler, public taccount_cfg, std::enable_shared_f
 	useridset muted_users;
 	useridset no_rt_users;
 
-	std::unordered_map<uint64_t,udc_ptr> pendingusers;
+	std::unordered_map<uint64_t, udc_ptr> pendingusers;
 	std::forward_list<restbackfillstate> pending_rbfs_list;
 
 	std::deque<std::unique_ptr<twitcurlext>> failed_pending_conns;	//strict subset of cp.activeset

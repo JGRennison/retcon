@@ -942,8 +942,8 @@ void taccount::NoAccPendingContentEvent() {
 	LogMsgFormat(LOGT::PENDTRACE, "taccount::NoAccPendingContentEvent: account: %s, About to process %d tweets and %d users",
 			cstr(dispname), ad.noacc_pending_tweetobjs.size(), ad.noacc_pending_userconts.size());
 
-	container::map<uint64_t, tweet_ptr> unhandled_tweets;
-	container::map<uint64_t, udc_ptr> unhandled_users;
+	container::hash_map<uint64_t, tweet_ptr> unhandled_tweets;
+	container::hash_map<uint64_t, udc_ptr> unhandled_users;
 
 	for (auto &it : ad.noacc_pending_tweetobjs) {
 		tweet_ptr t = it.second;
@@ -959,7 +959,7 @@ void taccount::NoAccPendingContentEvent() {
 	}
 	ad.noacc_pending_tweetobjs = std::move(unhandled_tweets);
 
-	std::map<unsigned int, taccount *> queried_accs;
+	container::hash_map<unsigned int, taccount *> queried_accs;
 
 	for (auto &it : ad.noacc_pending_userconts) {
 		udc_ptr &u = it.second;
