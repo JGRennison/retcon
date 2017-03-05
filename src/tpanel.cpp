@@ -56,7 +56,7 @@
 #define TPANEL_COPIOUS_LOGGING 0
 #endif
 
-std::forward_list<tpanelparentwin_nt*> tpanelparentwinlist;
+std::vector<tpanelparentwin_nt*> tpanelparentwinlist;
 
 std::function<void(mainframe *)> MkStdTpanelAction(unsigned int dbindex, flagwrapper<TPF> flags) {
 	return [dbindex, flags](mainframe *parent) {
@@ -708,7 +708,7 @@ tpanelparentwin_nt::tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWin
 	LogMsgFormat(LOGT::TPANELTRACE, "Creating tweet panel window %s", cstr(pimpl()->tp->name));
 
 	pimpl()->tp->twin.push_back(this);
-	tpanelparentwinlist.push_front(this);
+	tpanelparentwinlist.push_back(this);
 
 	pimpl()->clabel->SetLabel(wxT("No Tweets"));
 	pimpl()->ShowHideButtons("more", true);
@@ -721,7 +721,7 @@ tpanelparentwin_nt::tpanelparentwin_nt(const std::shared_ptr<tpanel> &tp_, wxWin
 
 tpanelparentwin_nt::~tpanelparentwin_nt() {
 	pimpl()->tp->OnTPanelWinClose(this);
-	tpanelparentwinlist.remove(this);
+	container_unordered_remove(tpanelparentwinlist, this);
 }
 
 void tpanelparentwin_nt::PushTweet(uint64_t id, optional_tweet_ptr_p t, flagwrapper<PUSHFLAGS> pushflags) {

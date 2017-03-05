@@ -181,6 +181,6 @@ void SetNoUpdateFlag_All();
 
 void EnumAllDisplayedTweets(std::function<bool (tweetdispscr *)> func, bool setnoupdateonpush);
 
-extern std::forward_list<tpanelparentwin_nt*> tpanelparentwinlist;
+extern std::vector<tpanelparentwin_nt*> tpanelparentwinlist;
 
 #endif

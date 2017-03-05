@@ -206,10 +206,10 @@ user_window::user_window(uint64_t userid_, const std::shared_ptr<taccount> &acc_
 	friends_pane = new tpanelparentwin_userproplisting(u, nb, getacc_prop, tpanelparentwin_userproplisting::TYPE::USERFOLLOWING);
 	nb->AddPage(friends_pane, wxT("Following"), false);
 
-	nb_prehndlr.timeline_pane_list.push_front(timeline_pane);
-	nb_prehndlr.timeline_pane_list.push_front(fav_timeline_pane);
-	nb_prehndlr.userlist_pane_list.push_front(followers_pane);
-	nb_prehndlr.userlist_pane_list.push_front(friends_pane);
+	nb_prehndlr.timeline_pane_list.push_back(timeline_pane);
+	nb_prehndlr.timeline_pane_list.push_back(fav_timeline_pane);
+	nb_prehndlr.userlist_pane_list.push_back(followers_pane);
+	nb_prehndlr.userlist_pane_list.push_back(friends_pane);
 	nb_prehndlr.nb = nb;
 	nb->PushEventHandler(&nb_prehndlr);
 
@@ -279,16 +279,16 @@ void user_window::RefreshAccState() {
 	if (should_have_incoming_pane && !incoming_pane) {
 		incoming_pane = new tpanelparentwin_userproplisting(u, nb, [acc](tpanelparentwin_userproplisting &) { return acc; }, tpanelparentwin_userproplisting::TYPE::OWNINCOMINGFOLLOWLISTING);
 		nb->InsertPage(nb_tab_insertion_point, incoming_pane, wxT("Incoming"), false);
-		nb_prehndlr.userlist_pane_list.push_front(incoming_pane);
+		nb_prehndlr.userlist_pane_list.push_back(incoming_pane);
 	}
 	if (should_have_outgoing_pane && !outgoing_pane) {
 		outgoing_pane = new tpanelparentwin_userproplisting(u, nb, [acc](tpanelparentwin_userproplisting &) { return acc; }, tpanelparentwin_userproplisting::TYPE::OWNOUTGOINGFOLLOWLISTING);
 		nb->InsertPage(nb_tab_insertion_point, outgoing_pane, wxT("Outgoing"), false);
-		nb_prehndlr.userlist_pane_list.push_front(outgoing_pane);
+		nb_prehndlr.userlist_pane_list.push_back(outgoing_pane);
 	}
 
 	auto remove_page = [&](tpanelparentwin_userproplisting *&ptr) {
-		nb_prehndlr.userlist_pane_list.remove(ptr);
+		container_unordered_remove(nb_prehndlr.userlist_pane_list, ptr);
 		for (size_t i = 0; i < nb->GetPageCount(); i++) {
 			if (nb->GetPage(i) == ptr) {
 				nb->DeletePage(i);

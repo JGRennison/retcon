@@ -206,11 +206,11 @@ void tpanelnotebook::PostSplitSizeCorrect() {
 	wxAuiPaneInfoArray& all_panes = m_mgr.GetAllPanes();
 	size_t pane_count = all_panes.GetCount();
 	size_t tabctrl_count = 0;
-	std::forward_list<wxAuiPaneInfo *> tabctrlarray;
+	std::vector<wxAuiPaneInfo *> tabctrlarray;
 	for (size_t i = 0; i < pane_count; ++i) {
 		if (all_panes.Item(i).name != wxT("dummy")) {
 			tabctrl_count++;
-			tabctrlarray.push_front(&(all_panes.Item(i)));
+			tabctrlarray.push_back(&(all_panes.Item(i)));
 			#if TPANEL_COPIOUS_LOGGING
 				LogMsgFormat(LOGT::TPANELTRACE, "TCL: PostSplitSizeCorrect1 %d %d %d %d", all_panes.Item(i).dock_direction, all_panes.Item(i).dock_layer,
 						all_panes.Item(i).dock_row, all_panes.Item(i).dock_pos);

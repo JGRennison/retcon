@@ -219,15 +219,15 @@ userlookup::~userlookup() {
 }
 
 void userlookup::UnMarkAll() {
-	while (!users_queried.empty()) {
-		users_queried.front()->udc_flags &= ~UDC::LOOKUP_IN_PROGRESS;
-		users_queried.pop_front();
+	for (auto &it : users_queried) {
+		it->udc_flags &= ~UDC::LOOKUP_IN_PROGRESS;
 	}
+	users_queried.clear();
 }
 
 void userlookup::Mark(udc_ptr udc) {
 	udc->udc_flags |= UDC::LOOKUP_IN_PROGRESS;
-	users_queried.push_front(udc);
+	users_queried.push_back(udc);
 }
 
 void userlookup::GetIdList(std::string &idlist) const {

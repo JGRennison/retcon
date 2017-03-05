@@ -604,7 +604,7 @@ struct media_entity {
 };
 
 struct userlookup {
-	std::forward_list<udc_ptr> users_queried;
+	std::vector<udc_ptr> users_queried;
 	~userlookup();
 	void UnMarkAll();
 	void Mark(udc_ptr udc);
