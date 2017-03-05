@@ -22,7 +22,7 @@
 #include "univdefs.h"
 #include <wx/string.h>
 #include <memory>
-#include <list>
+#include <vector>
 #include <functional>
 
 struct DBWriteConfig;
