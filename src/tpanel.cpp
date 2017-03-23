@@ -499,9 +499,10 @@ void panelparentwin_base_impl::RemoveIndex(size_t offset) {
 
 void panelparentwin_base_impl::RemoveIndexIntl(size_t offset) {
 	auto toremove = std::next(currentdisp.begin(), offset);
-	toremove->disp->PanelRemoveEvt();
-	toremove->item->Destroy();
+	const tpanel_disp_item tdi = *toremove;
 	currentdisp.erase(toremove);
+	tdi.disp->PanelRemoveEvt();
+	tdi.item->Destroy();
 }
 
 void panelparentwin_base_impl::pageupevthandler(wxCommandEvent &event) {
