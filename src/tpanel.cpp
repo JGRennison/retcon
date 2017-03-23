@@ -1544,7 +1544,7 @@ void tpanelparentwin_nt_impl::OnBatchTimerModeTimer(wxTimerEvent& event) {
 			uint64_t id;
 			tweetbatchqueue_item *pushptr;
 		};
-		std::list<simulation_disp> simulation_currentdisp;
+		std::deque<simulation_disp> simulation_currentdisp;
 		tweetidset gotids;
 		for (auto &it : currentdisp) {
 			simulation_currentdisp.push_back({ it.id, nullptr });

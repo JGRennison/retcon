@@ -56,7 +56,7 @@ struct tpanel_disp_item {
 	tpanel_item *item;
 };
 
-typedef std::list<tpanel_disp_item> tpanel_disp_item_list;
+typedef std::vector<tpanel_disp_item> tpanel_disp_item_list;
 
 struct panelparentwin_base_impl;
 
