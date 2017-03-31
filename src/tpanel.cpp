@@ -770,7 +770,7 @@ void tpanelparentwin_nt_impl::PushTweet(uint64_t id, optional_tweet_ptr t, flagw
 		recalcdisplayoffset = true;
 	}
 	if (displayoffset > 0) {
-		if (id > currentdisp.front().id) {
+		if (!currentdisp.empty() && id > currentdisp.front().id) {
 			if (!(pushflags & PUSHFLAGS::ABOVE)) {
 				if (!(pushflags & PUSHFLAGS::NOINCDISPOFFSET)) {
 					displayoffset++;
@@ -1027,7 +1027,7 @@ void tpanelparentwin_nt_impl::RemoveTweet(uint64_t id, flagwrapper<PUSHFLAGS> pu
 }
 
 void tpanelparentwin_nt_impl::PageUpHandler() {
-	if (displayoffset > 0) {
+	if (displayoffset > 0 && !currentdisp.empty()) {
 		SetNoUpdateFlag();
 		size_t pagemove = std::min((size_t) (gc.maxtweetsdisplayinpanel + 1) / 2, (size_t) displayoffset);
 		uint64_t greaterthanid = currentdisp.front().id;
@@ -1040,7 +1040,7 @@ void tpanelparentwin_nt_impl::PageDownHandler() {
 	SetNoUpdateFlag();
 	size_t curnum = currentdisp.size();
 	size_t tweetnum = tp->tweetlist.size();
-	if (displayoffset >= 0 && (curnum + displayoffset < tweetnum || tppw_flags & TPPWF::CANALWAYSSCROLLDOWN)) {
+	if (displayoffset >= 0 && (curnum + displayoffset < tweetnum || tppw_flags & TPPWF::CANALWAYSSCROLLDOWN) && !currentdisp.empty()) {
 		size_t pagemove;
 		if (tppw_flags & TPPWF::CANALWAYSSCROLLDOWN) {
 			pagemove = (gc.maxtweetsdisplayinpanel + 1) / 2;
@@ -1077,7 +1077,7 @@ void tpanelparentwin_nt_impl::JumpToTweetID(uint64_t id) {
 
 	bool alldone = false;
 
-	if (id <= currentdisp.front().id && id >= currentdisp.back().id) {
+	if (!currentdisp.empty() && id <= currentdisp.front().id && id >= currentdisp.back().id) {
 		bool ok = scrollbar->ScrollToId(id, 0);
 		if (ok) {
 			if (GetCurrentViewTopID() == id) {
