@@ -334,8 +334,7 @@ struct media_display_win_pimpl : public wxEvtHandler {
 	media_display_win_pimpl(media_display_win *win_, media_id_type media_id_);
 	~media_display_win_pimpl();
 	void AddDynMenuItem(wxMenu *menu, const wxString &item_name, std::function<void(wxCommandEvent &event)> func);
-	void AddSaveMenu(wxMenuBar *menuBar, const wxString &title, std::function<std::string(observer_ptr<media_entity> me)> get_url,
-			std::function<void(observer_ptr<media_entity>, wxString)> save_action);
+	void AddSaveMenu(wxMenuBar *menuBar, const wxString &title, const std::string url, std::function<void(observer_ptr<media_entity>, wxString)> save_action);
 	void UpdateImage();
 	void GetImage(wxString &message);
 	observer_ptr<media_entity> GetMediaEntity();
@@ -455,9 +454,7 @@ media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_
 
 	if (is_video) {
 		auto add_video_save_menu = [&](const std::string &url, const wxString &title) {
-			AddSaveMenu(menuBar, title, [url](observer_ptr<media_entity> me) -> std::string {
-				return url;
-			}, [url](observer_ptr<media_entity> me, wxString filename) {
+			AddSaveMenu(menuBar, title, url, [url](observer_ptr<media_entity> me, wxString filename) {
 				media_entity::pending_video_save_requests.insert(std::make_pair(url, filename));
 				me->CheckVideoLoadSaveActions(url);
 				auto vc = me->video_file_cache.find(url);
@@ -475,9 +472,7 @@ media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_
 			add_video_save_menu(webm_save_url, wxT("Save WebM"));
 		}
 	} else {
-		AddSaveMenu(menuBar, wxT("Save Image"), [](observer_ptr<media_entity> me) -> std::string {
-			return me->media_url;
-		}, [](observer_ptr<media_entity> me, wxString filename) {
+		AddSaveMenu(menuBar, wxT("Save Image"), me->media_url, [](observer_ptr<media_entity> me, wxString filename) {
 			media_entity::pending_full_image_save_requests.insert(std::make_pair(me->media_id, filename));
 			me->StartFetchImageData();
 		});
@@ -535,23 +530,18 @@ void media_display_win_pimpl::AddDynMenuItem(wxMenu *menu, const wxString &item_
 	menu->Append(dyn_menu_handlers.AddHandler(std::move(func)), item_name);
 };
 
-void media_display_win_pimpl::AddSaveMenu(wxMenuBar *menuBar, const wxString &title, std::function<std::string(observer_ptr<media_entity> me)> get_url,
+void media_display_win_pimpl::AddSaveMenu(wxMenuBar *menuBar, const wxString &title, const std::string url,
 			std::function<void(observer_ptr<media_entity>, wxString)> save_action) {
 	wxMenu *menuF = new wxMenu;
 	menuBar->Append(menuF, title);
 
-	menuopenhandlers.push_back([this, menuF, get_url, title, save_action](wxMenuEvent &event) {
+	menuopenhandlers.push_back([this, menuF, url, title, save_action](wxMenuEvent &event) {
 		if (event.GetMenu() != menuF) return;
 
 		DestroyMenuContents(menuF);
 
 		observer_ptr<media_entity> me = this->GetMediaEntity();
 		if (!me) {
-			return;
-		}
-
-		std::string url = get_url(me);
-		if (url.empty()) {
 			return;
 		}
 
