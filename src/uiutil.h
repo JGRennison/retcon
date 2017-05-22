@@ -99,6 +99,29 @@ typedef std::map<int,tweetactmenuitem> tweetactmenudata;
 
 extern tweetactmenudata tamd;
 
+struct dyn_menu_handler_set {
+	private:
+	const int first_id;
+	std::vector<std::function<void(wxCommandEvent &event)> > menu_cmd_handlers;
+
+	public:
+	dyn_menu_handler_set(int first_id_) : first_id(first_id_) {}
+
+	int AddHandler(std::function<void(wxCommandEvent &event)> func) {
+		menu_cmd_handlers.emplace_back(std::move(func));
+		return first_id + menu_cmd_handlers.size() - 1;
+	}
+
+	void Dispatch(int id, wxCommandEvent &event) {
+		assert(id >= first_id && id < first_id + (int) menu_cmd_handlers.size());
+		menu_cmd_handlers[id - first_id](event);
+	}
+
+	void Clear() {
+		menu_cmd_handlers.clear();
+	}
+};
+
 void AppendToTAMIMenuMap(tweetactmenudata &map, int &nextid, TAMI_TYPE type, tweet_ptr tw,
 		unsigned int dbindex = 0, udc_ptr_p user = nullptr,
 		flagwrapper<TPF> flags = 0, wxString extra = wxT(""), panelparentwin_base *ppwb = nullptr);
