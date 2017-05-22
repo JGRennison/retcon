@@ -54,6 +54,7 @@
 #include <wx/filename.h>
 #include <wx/filedlg.h>
 #include <wx/file.h>
+#include <wx/tokenzr.h>
 #include <algorithm>
 #include <unordered_map>
 
@@ -301,6 +302,51 @@ void media_entity::CheckFullImageLoadSaveActions() {
 		}
 	}
 	pending_full_image_save_requests.erase(iterpair.first, iterpair.second);
+}
+
+void media_entity::FillSaveMenu(wxMenu * const menuF, dyn_menu_handler_set &dyn_menu_handlers, const std::string url,
+		const wxString &title, std::function<void(observer_ptr<media_entity>, wxString)> save_action) {
+	const media_id_type mid = this->media_id;
+	auto add_dyn_menu = [&](wxMenu *menu, const wxString &item_name, const wxString &token) {
+		menu->Append(dyn_menu_handlers.AddHandler([token, mid, title, url, save_action](wxCommandEvent &e) {
+			observer_ptr<media_entity> me = media_entity::GetExisting(mid);
+			if (me) me->SaveToDir(token, title, wxstrstd(url), save_action);
+		}), item_name);
+	};
+
+	add_dyn_menu(menuF, wxT("&Save..."), wxT(""));
+
+	wxMenu *recent_menu = new wxMenu();
+	if (!ad.recent_media_save_paths.empty()) {
+		for (auto &it : ad.recent_media_save_paths) {
+			add_dyn_menu(recent_menu, wxT("Save to: ") + it, it);
+		}
+		recent_menu->AppendSeparator();
+		recent_menu->Append(dyn_menu_handlers.AddHandler([&](wxCommandEvent &e) {
+			ad.recent_media_save_paths.clear();
+		}), wxT("Clear recent"));
+	}
+	wxMenuItem *recent_menu_item = menuF->AppendSubMenu(recent_menu, wxT("Save to &recent..."));
+	if (ad.recent_media_save_paths.empty()) {
+		recent_menu_item->Enable(false);
+	}
+
+	wxStringTokenizer tkn(gc.gcfg.mediasave_directorylist.val, wxT("\r\n"), wxTOKEN_STRTOK);
+
+	bool added_seperator = false;
+
+	while (tkn.HasMoreTokens()) {
+		wxString token = tkn.GetNextToken();
+
+		if (!wxFileName::DirExists(token)) continue;
+
+		if (!added_seperator) {
+			menuF->AppendSeparator();
+			added_seperator = true;
+		}
+
+		add_dyn_menu(menuF, wxT("Save to: ") + token, token);
+	}
 }
 
 std::multimap<std::string, wxString> media_entity::pending_video_save_requests;

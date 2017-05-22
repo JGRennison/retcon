@@ -41,7 +41,6 @@
 #include <wx/stattext.h>
 #include <wx/textdlg.h>
 #include <wx/timer.h>
-#include <wx/tokenzr.h>
 #include <wx/window.h>
 #include <cmath>
 #include <functional>
@@ -544,47 +543,7 @@ void media_display_win_pimpl::AddSaveMenu(wxMenuBar *menuBar, const wxString &ti
 		if (!me) {
 			return;
 		}
-
-		auto add_dyn_menu = [&](wxMenu *menu, const wxString &item_name, const wxString &token) {
-			AddDynMenuItem(menu, item_name, [token, this, title, url, save_action](wxCommandEvent &e) {
-				observer_ptr<media_entity> me = this->GetMediaEntity();
-				if (me) me->SaveToDir(token, title, wxstrstd(url), save_action);
-			});
-		};
-
-		add_dyn_menu(menuF, wxT("&Save..."), wxT(""));
-
-		wxMenu *recent_menu = new wxMenu();
-		if (!ad.recent_media_save_paths.empty()) {
-			for (auto &it : ad.recent_media_save_paths) {
-				add_dyn_menu(recent_menu, wxT("Save to: ") + it, it);
-			}
-			recent_menu->AppendSeparator();
-			AddDynMenuItem(recent_menu, wxT("Clear recent"), [&](wxCommandEvent &e) {
-				ad.recent_media_save_paths.clear();
-			});
-		}
-		wxMenuItem *recent_menu_item = menuF->AppendSubMenu(recent_menu, wxT("Save to &recent..."));
-		if (ad.recent_media_save_paths.empty()) {
-			recent_menu_item->Enable(false);
-		}
-
-		wxStringTokenizer tkn(gc.gcfg.mediasave_directorylist.val, wxT("\r\n"), wxTOKEN_STRTOK);
-
-		bool added_seperator = false;
-
-		while (tkn.HasMoreTokens()) {
-			wxString token = tkn.GetNextToken();
-
-			if (!wxFileName::DirExists(token)) continue;
-
-			if (!added_seperator) {
-				menuF->AppendSeparator();
-				added_seperator = true;
-			}
-
-			add_dyn_menu(menuF, wxT("Save to: ") + token, token);
-		}
+		me->FillSaveMenu(menuF, dyn_menu_handlers, url, title, save_action);
 	});
 }
 

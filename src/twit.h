@@ -55,6 +55,7 @@ class wxSizer;
 struct dbseltweetmsg;
 enum class MEF : unsigned int;
 struct dbsendmsg_list;
+struct dyn_menu_handler_set;
 
 void HandleNewTweet(tweet_ptr_p t, const std::shared_ptr<taccount> &acc, flagwrapper<ARRIVAL> arr);
 
@@ -607,6 +608,8 @@ struct media_entity {
 	void NotifyFullImageLoadSuccess();
 	void NotifyFullImageLoadFailure();
 	void CheckFullImageLoadSaveActions();
+	void FillSaveMenu(wxMenu * const menuF, dyn_menu_handler_set &dyn_menu_handlers, const std::string url,
+		const wxString &title, std::function<void(observer_ptr<media_entity>, wxString)> save_action);
 };
 
 struct userlookup {
