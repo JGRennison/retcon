@@ -31,7 +31,6 @@
 #include <wx/dcclient.h>
 #include <wx/dcscreen.h>
 #include <wx/event.h>
-#include <wx/filedlg.h>
 #include <wx/file.h>
 #include <wx/filename.h>
 #include <wx/image.h>
@@ -339,12 +338,9 @@ struct media_display_win_pimpl : public wxEvtHandler {
 	void AddDynMenuItem(wxMenu *menu, const wxString &item_name, std::function<void(wxCommandEvent &event)> func);
 	void AddSaveMenu(wxMenuBar *menuBar, const wxString &title, std::function<std::string(observer_ptr<media_entity> me)> get_url,
 			std::function<void(observer_ptr<media_entity>, wxString)> save_action);
-	void AddRecentSavePath(wxString path);
-	void StartFetchImageData();
 	void UpdateImage();
 	void GetImage(wxString &message);
 	observer_ptr<media_entity> GetMediaEntity();
-	void SaveToDir(const wxString &dir, const wxString &title, const wxString &url, std::function<void(observer_ptr<media_entity>, wxString)> save_action);
 	void OnDynMenuHandler(wxCommandEvent &event);
 	void OnMenuOpen(wxMenuEvent &event);
 	void OnMenuZoomFit(wxCommandEvent &event);
@@ -454,7 +450,7 @@ media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_
 		LogMsgFormat(LOGT::OTHERTRACE, "media_display_win_pimpl: using %d video variants", video_variants.size());
 	} else {
 		win->SetTitle(wxstrstd(me->media_url));
-		StartFetchImageData();
+		me->StartFetchImageData();
 	}
 
 	wxMenuBar *menuBar = new wxMenuBar;
@@ -569,24 +565,25 @@ void media_display_win_pimpl::AddSaveMenu(wxMenuBar *menuBar, const wxString &ti
 
 		auto add_dyn_menu = [&](wxMenu *menu, const wxString &item_name, const wxString &token) {
 			AddDynMenuItem(menu, item_name, [token, this, title, url, save_action](wxCommandEvent &e) {
-				this->SaveToDir(token, title, wxstrstd(url), save_action);
+				observer_ptr<media_entity> me = this->GetMediaEntity();
+				if (me) me->SaveToDir(token, title, wxstrstd(url), save_action);
 			});
 		};
 
 		add_dyn_menu(menuF, wxT("&Save..."), wxT(""));
 
 		wxMenu *recent_menu = new wxMenu();
-		if (!ad.recent_image_save_paths.empty()) {
-			for (auto &it : ad.recent_image_save_paths) {
+		if (!ad.recent_media_save_paths.empty()) {
+			for (auto &it : ad.recent_media_save_paths) {
 				add_dyn_menu(recent_menu, wxT("Save to: ") + it, it);
 			}
 			recent_menu->AppendSeparator();
 			AddDynMenuItem(recent_menu, wxT("Clear recent"), [&](wxCommandEvent &e) {
-				ad.recent_image_save_paths.clear();
+				ad.recent_media_save_paths.clear();
 			});
 		}
 		wxMenuItem *recent_menu_item = menuF->AppendSubMenu(recent_menu, wxT("Save to &recent..."));
-		if (ad.recent_image_save_paths.empty()) {
+		if (ad.recent_media_save_paths.empty()) {
 			recent_menu_item->Enable(false);
 		}
 
@@ -607,36 +604,6 @@ void media_display_win_pimpl::AddSaveMenu(wxMenuBar *menuBar, const wxString &ti
 			add_dyn_menu(menuF, wxT("Save to: ") + token, token);
 		}
 	});
-}
-
-void media_display_win_pimpl::AddRecentSavePath(wxString path) {
-	std::vector<wxString> &recent_save_paths = ad.recent_image_save_paths;
-	recent_save_paths.erase(std::remove(recent_save_paths.begin(), recent_save_paths.end(), path), recent_save_paths.end());
-	if (recent_save_paths.size() >= 10) {
-		recent_save_paths.pop_back();
-	}
-	recent_save_paths.emplace(recent_save_paths.begin(), std::move(path));
-}
-
-void media_display_win_pimpl::StartFetchImageData() {
-	observer_ptr<media_entity> me = GetMediaEntity();
-	if (!me) {
-		return;
-	}
-
-	if (me->flags & MEF::LOAD_FULL && !(me->flags & MEF::HAVE_FULL)) {
-		//try to load from file
-		std::string data;
-		if (LoadFromFileAndCheckHash(me->cached_full_filename(), me->full_img_sha1, data)) {
-			me->flags |= MEF::HAVE_FULL;
-			me->fulldata = std::move(data);
-		}
-	}
-	if (!(me->flags & MEF::FULL_NET_INPROGRESS) && !(me->flags & MEF::HAVE_FULL) && me->media_url.size()) {
-		flagwrapper<MIDC> flags = MIDC::FULLIMG | MIDC::OPPORTUNIST_THUMB | MIDC::OPPORTUNIST_REDRAW_TWEETS;
-		std::shared_ptr<taccount> acc = me->dm_media_acc.lock();
-		mediaimgdlconn::NewConnWithOptAccOAuth(me->media_url, media_id, flags, acc.get());
-	}
 }
 
 void media_display_win_pimpl::OnDynMenuHandler(wxCommandEvent &event) {
@@ -869,29 +836,6 @@ void media_display_win_pimpl::GetImage(wxString &message) {
 
 observer_ptr<media_entity> media_display_win_pimpl::GetMediaEntity() {
 	return media_entity::GetExisting(media_id);
-}
-
-void media_display_win_pimpl::SaveToDir(const wxString &dir, const wxString &title, const wxString &url,
-		std::function<void(observer_ptr<media_entity>, wxString)> save_action) {
-	observer_ptr<media_entity> me = GetMediaEntity();
-	if (me) {
-		wxString hint;
-		wxString ext;
-		bool hasext;
-		wxFileName::SplitPath(url, 0, 0, &hint, &ext, &hasext, wxPATH_UNIX);
-		if (hasext) {
-			hint += wxT(".") + ext;
-		}
-		wxString newhint;
-		if (hint.EndsWith(wxT(":large"), &newhint)) {
-			hint = newhint;
-		}
-		wxString filename = wxFileSelector(title, dir, hint, ext, wxT("*.*"), wxFD_SAVE | wxFD_OVERWRITE_PROMPT, win);
-		if (filename.Len()) {
-			AddRecentSavePath(wxPathOnly(filename));
-			save_action(me, filename);
-		}
-	}
 }
 
 void media_display_win_pimpl::OnMenuZoomFit(wxCommandEvent &event) {

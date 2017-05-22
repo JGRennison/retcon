@@ -77,3 +77,11 @@ optional_observer_ptr<user_dm_index> alldata::GetExistingUserDMIndexById(uint64_
 user_dm_index &alldata::GetUserDMIndexById(uint64_t id) {
 	return user_dm_indexes[id];
 }
+
+void alldata::AddRecentMediaSavePath(wxString path) {
+	recent_media_save_paths.erase(std::remove(recent_media_save_paths.begin(), recent_media_save_paths.end(), path), recent_media_save_paths.end());
+	if (recent_media_save_paths.size() >= 10) {
+		recent_media_save_paths.pop_back();
+	}
+	recent_media_save_paths.emplace(recent_media_save_paths.begin(), std::move(path));
+}

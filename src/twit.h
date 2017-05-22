@@ -601,6 +601,8 @@ struct media_entity {
 	void NotifyVideoLoadSuccess(const std::string &url, temp_file_holder video_file);
 	void NotifyVideoLoadFailure(const std::string &url);
 	void CheckVideoLoadSaveActions(const std::string &url);
+	void StartFetchImageData();
+	void SaveToDir(const wxString &dir, const wxString &title, const wxString &url, std::function<void(observer_ptr<media_entity>, wxString)> save_action);
 };
 
 struct userlookup {

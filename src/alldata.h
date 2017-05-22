@@ -58,7 +58,7 @@ struct alldata {
 	filter_set alltweet_filter;
 	std::multimap<uint64_t, std::function<void(udc_ptr_p)>> user_load_pending_funcs;
 	safe_observer_ptr_container<handlenew_pending_op> handlenew_pending_ops;
-	std::vector<wxString> recent_image_save_paths;
+	std::vector<wxString> recent_media_save_paths;
 
 	udc_ptr GetUserContainerById(uint64_t id);
 	optional_udc_ptr GetExistingUserContainerById(uint64_t id);
@@ -67,6 +67,7 @@ struct alldata {
 	void UnlinkTweetById(uint64_t id);
 	optional_observer_ptr<user_dm_index> GetExistingUserDMIndexById(uint64_t id);
 	user_dm_index &GetUserDMIndexById(uint64_t id);
+	void AddRecentMediaSavePath(wxString path);
 };
 
 extern alldata ad;

@@ -52,6 +52,7 @@
 #include <wx/dcmemory.h>
 #include <wx/filefn.h>
 #include <wx/filename.h>
+#include <wx/filedlg.h>
 #include <algorithm>
 #include <unordered_map>
 
@@ -209,6 +210,44 @@ void media_entity::CheckVideoLoadSaveActions(const std::string &url) {
 			}
 		}
 		pending_video_save_requests.erase(iterpair.first, iterpair.second);
+	}
+}
+
+void media_entity::StartFetchImageData() {
+	if (flags & MEF::LOAD_FULL && !(flags & MEF::HAVE_FULL)) {
+		//try to load from file
+		std::string data;
+		if (LoadFromFileAndCheckHash(cached_full_filename(), full_img_sha1, data)) {
+			flags |= MEF::HAVE_FULL;
+			fulldata = std::move(data);
+		}
+	}
+	if (!(flags & MEF::FULL_NET_INPROGRESS) && !(flags & MEF::HAVE_FULL) && media_url.size()) {
+		flagwrapper<MIDC> flags = MIDC::FULLIMG | MIDC::OPPORTUNIST_THUMB | MIDC::OPPORTUNIST_REDRAW_TWEETS;
+		std::shared_ptr<taccount> acc = dm_media_acc.lock();
+		mediaimgdlconn::NewConnWithOptAccOAuth(media_url, media_id, flags, acc.get());
+	}
+}
+
+void media_entity::SaveToDir(const wxString &dir, const wxString &title, const wxString &url,
+		std::function<void(observer_ptr<media_entity>, wxString)> save_action) {
+	const media_id_type mid = this->media_id;
+	wxString hint;
+	wxString ext;
+	bool hasext;
+	wxFileName::SplitPath(url, 0, 0, &hint, &ext, &hasext, wxPATH_UNIX);
+	if (hasext) {
+		hint += wxT(".") + ext;
+	}
+	wxString newhint;
+	if (hint.EndsWith(wxT(":large"), &newhint)) {
+		hint = newhint;
+	}
+	wxString filename = wxFileSelector(title, dir, hint, ext, wxT("*.*"), wxFD_SAVE | wxFD_OVERWRITE_PROMPT, win);
+	observer_ptr<media_entity> me = media_entity::GetExisting(mid);
+	if (filename.Len() && me) {
+		ad.AddRecentMediaSavePath(wxPathOnly(filename));
+		save_action(me, filename);
 	}
 }
 
