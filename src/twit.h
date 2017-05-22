@@ -576,6 +576,7 @@ struct media_entity {
 	std::function<void(media_entity *, flagwrapper<MELF>)> check_load_thumb_func;
 
 	static std::multimap<std::string, wxString> pending_video_save_requests;
+	static std::multimap<media_id_type, wxString> pending_full_image_save_requests;
 
 	static wxString cached_full_filename(media_id_type media_id);
 	static wxString cached_thumb_filename(media_id_type media_id);
@@ -603,6 +604,9 @@ struct media_entity {
 	void CheckVideoLoadSaveActions(const std::string &url);
 	void StartFetchImageData();
 	void SaveToDir(const wxString &dir, const wxString &title, const wxString &url, std::function<void(observer_ptr<media_entity>, wxString)> save_action);
+	void NotifyFullImageLoadSuccess();
+	void NotifyFullImageLoadFailure();
+	void CheckFullImageLoadSaveActions();
 };
 
 struct userlookup {

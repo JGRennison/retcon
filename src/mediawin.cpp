@@ -31,7 +31,6 @@
 #include <wx/dcclient.h>
 #include <wx/dcscreen.h>
 #include <wx/event.h>
-#include <wx/file.h>
 #include <wx/filename.h>
 #include <wx/image.h>
 #include <wx/menu.h>
@@ -314,7 +313,6 @@ struct media_display_win_pimpl : public wxEvtHandler {
 	wxStaticText *st = nullptr;
 	wxBoxSizer *st_sizer = nullptr;
 	wxBoxSizer *sz = nullptr;
-	std::function<void(bool)> setsavemenuenablestate;
 	std::vector<std::function<void(wxMenuEvent &)> > menuopenhandlers;
 	bool img_ok = false;
 	unsigned int current_frame_index = 0;
@@ -456,8 +454,6 @@ media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_
 	wxMenuBar *menuBar = new wxMenuBar;
 
 	if (is_video) {
-		setsavemenuenablestate = [](bool enable) { };
-
 		auto add_video_save_menu = [&](const std::string &url, const wxString &title) {
 			AddSaveMenu(menuBar, title, [url](observer_ptr<media_entity> me) -> std::string {
 				return url;
@@ -479,15 +475,11 @@ media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_
 			add_video_save_menu(webm_save_url, wxT("Save WebM"));
 		}
 	} else {
-		int menubarcount = menuBar->GetMenuCount();
-		setsavemenuenablestate = [menubarcount, this, menuBar](bool enable) {
-			menuBar->EnableTop(menubarcount, enable);
-		};
 		AddSaveMenu(menuBar, wxT("Save Image"), [](observer_ptr<media_entity> me) -> std::string {
 			return me->media_url;
 		}, [](observer_ptr<media_entity> me, wxString filename) {
-			wxFile file(filename, wxFile::write);
-			file.Write(me->fulldata.data(), me->fulldata.size());
+			media_entity::pending_full_image_save_requests.insert(std::make_pair(me->media_id, filename));
+			me->StartFetchImageData();
 		});
 		if (me->image_variants.empty()) {
 			add_copy_url_menu_item(copy_url_menu, me->media_url, wxT("large"));
@@ -629,7 +621,6 @@ void media_display_win_pimpl::UpdateImage() {
 	wxString message;
 	GetImage(message);
 	if (img_ok) {
-		setsavemenuenablestate(true);
 		ClearAllUnlessShowingImage();
 
 		DoSizerLayout();
@@ -673,8 +664,6 @@ void media_display_win_pimpl::ClearAll() {
 }
 
 void media_display_win_pimpl::ShowErrorMessage(const wxString &message) {
-	setsavemenuenablestate(false);
-
 	ClearAll();
 	st = new wxStaticText(win, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE);
 	st_sizer = new wxBoxSizer(wxVERTICAL);

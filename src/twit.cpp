@@ -53,6 +53,7 @@
 #include <wx/filefn.h>
 #include <wx/filename.h>
 #include <wx/filedlg.h>
+#include <wx/file.h>
 #include <algorithm>
 #include <unordered_map>
 
@@ -227,6 +228,9 @@ void media_entity::StartFetchImageData() {
 		std::shared_ptr<taccount> acc = dm_media_acc.lock();
 		mediaimgdlconn::NewConnWithOptAccOAuth(media_url, media_id, flags, acc.get());
 	}
+	if (flags & MEF::HAVE_FULL) {
+		CheckFullImageLoadSaveActions();
+	}
 }
 
 void media_entity::SaveToDir(const wxString &dir, const wxString &title, const wxString &url,
@@ -251,7 +255,56 @@ void media_entity::SaveToDir(const wxString &dir, const wxString &title, const w
 	}
 }
 
+void media_entity::NotifyFullImageLoadSuccess() {
+	CheckFullImageLoadSaveActions();
+}
+
+void media_entity::NotifyFullImageLoadFailure() {
+	auto iterpair = pending_full_image_save_requests.equal_range(media_id);
+	if (iterpair.first != iterpair.second) {
+		// pending save actions
+		wxString message = wxT("Couldn't save image file to:");
+		for (auto it = iterpair.first; it != iterpair.second; ++it) {
+			const wxString &target = it->second;
+			message += wxT("\n\t");
+			message += target;
+		}
+		message += wxT("\n\nDownload failed.");
+		::wxMessageBox(message, wxT("Save Failed"), wxOK | wxICON_ERROR);
+		pending_full_image_save_requests.erase(iterpair.first, iterpair.second);
+	}
+}
+
+void media_entity::CheckFullImageLoadSaveActions() {
+	if (!(flags & MEF::HAVE_FULL)) return;
+
+	auto iterpair = pending_full_image_save_requests.equal_range(media_id);
+	if (iterpair.first == iterpair.second) {
+		return; // no pending save actions
+	}
+
+	for (auto it = iterpair.first; it != iterpair.second; ++it) {
+		const wxString &target = it->second;
+		auto fail = [&]() {
+			::wxMessageBox(wxString::Format(wxT("Couldn't save image file to:\n\t%s\n\nIs directory writable?"), target.c_str()),
+					wxT("Save Failed"), wxOK | wxICON_ERROR);
+		};
+		wxFile file(target, wxFile::write);
+		if (!file.IsOpened()) {
+			fail();
+			continue;
+		}
+		size_t written = file.Write(fulldata.data(), fulldata.size());
+		if (written != fulldata.size()) {
+			fail();
+			continue;
+		}
+	}
+	pending_full_image_save_requests.erase(iterpair.first, iterpair.second);
+}
+
 std::multimap<std::string, wxString> media_entity::pending_video_save_requests;
+std::multimap<media_id_type, wxString> media_entity::pending_full_image_save_requests;
 
 userlookup::~userlookup() {
 	UnMarkAll();

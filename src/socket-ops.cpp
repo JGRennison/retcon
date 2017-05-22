@@ -275,6 +275,7 @@ void mediaimgdlconn::HandleFailure(long httpcode, CURLcode res, std::unique_ptr<
 			me.flags |= MEF::FULL_FAILED;
 			me.flags &= ~MEF::FULL_NET_INPROGRESS;
 			if (me.win) me.win->UpdateImage();
+			me.NotifyFullImageLoadFailure();
 		}
 		if (flags & MIDC::THUMBIMG) {
 			me.flags |= MEF::THUMB_FAILED;
@@ -431,6 +432,7 @@ void mediaimgdlconn::NotifyDoneSuccess(CURL *easy, CURLcode res, std::unique_ptr
 				if (me.win) {
 					me.win->UpdateImage();
 				}
+				me.NotifyFullImageLoadSuccess();
 			}
 
 			if (flags & MIDC::REDRAW_TWEETS) {
