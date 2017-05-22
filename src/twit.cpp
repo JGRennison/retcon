@@ -349,6 +349,26 @@ void media_entity::FillSaveMenu(wxMenu * const menuF, dyn_menu_handler_set &dyn_
 	}
 }
 
+std::function<void(observer_ptr<media_entity>, wxString)> media_entity::MakeFullImageSaver() {
+	return [](observer_ptr<media_entity> me, wxString filename) {
+		media_entity::pending_full_image_save_requests.insert(std::make_pair(me->media_id, filename));
+		me->StartFetchImageData();
+	};
+}
+
+std::function<void(observer_ptr<media_entity>, wxString)> media_entity::MakeVideoSaver(const std::string &url) {
+	return [url](observer_ptr<media_entity> me, wxString filename) {
+		media_entity::pending_video_save_requests.insert(std::make_pair(url, filename));
+		me->CheckVideoLoadSaveActions(url);
+		auto vc = me->video_file_cache.find(url);
+		if (vc == me->video_file_cache.end()) {
+			// Start download if not already in progress/done
+			std::shared_ptr<taccount> acc = me->dm_media_acc.lock();
+			mediaimgdlconn::NewConnWithOptAccOAuth(url, me->media_id, MIDC::VIDEO, acc.get());
+		}
+	};
+}
+
 std::multimap<std::string, wxString> media_entity::pending_video_save_requests;
 std::multimap<media_id_type, wxString> media_entity::pending_full_image_save_requests;
 

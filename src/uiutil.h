@@ -47,6 +47,8 @@ enum { tweetactmenustartid         = wxID_HIGHEST + 12001 };
 enum { tweetactmenuendid           = wxID_HIGHEST + 16000 };
 enum { lookupprofilestartid        = wxID_HIGHEST + 16001 };
 enum { lookupprofileendid          = wxID_HIGHEST + 17000 };
+enum { dynmenustartid              = wxID_HIGHEST + 17001 };
+enum { dynmenuendid                = wxID_HIGHEST + 19000 };
 
 typedef enum {
 	TAMI_RETWEET = 1,

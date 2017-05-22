@@ -52,11 +52,12 @@ BEGIN_EVENT_TABLE(generic_disp_base, commonRichTextCtrl)
 	EVT_MOUSEWHEEL(generic_disp_base::mousewheelhandler)
 	EVT_TEXT_URL(wxID_ANY, generic_disp_base::urleventhandler)
 	EVT_COMMAND(wxID_ANY, wxextGDB_Popup_Evt, generic_disp_base::popupmenuhandler)
+	EVT_MENU_RANGE(dynmenustartid, dynmenuendid, generic_disp_base::OnDynMenuCmd)
 END_EVENT_TABLE()
 
 generic_disp_base::generic_disp_base(wxWindow *parent, panelparentwin_base *tppw_, long extraflags, wxString thisname_)
 		: commonRichTextCtrl(parent, wxID_ANY, wxEmptyString, wxRE_READONLY | wxRE_MULTILINE | wxBORDER_NONE | wxCLIP_CHILDREN | extraflags),
-			tppw(tppw_), thisname(thisname_) {
+			tppw(tppw_), thisname(thisname_), dyn_menu_handlers(dynmenustartid) {
 	default_background_colour = GetBackgroundColour();
 	default_foreground_colour = GetForegroundColour();
 	#if DISPSCR_COPIOUS_LOGGING
@@ -126,6 +127,10 @@ void generic_disp_base::DoAction(std::function<void()> &&f) {
 	} else {
 		f();
 	}
+}
+
+void generic_disp_base::OnDynMenuCmd(wxCommandEvent &event) {
+	dyn_menu_handlers.Dispatch(event.GetId(), event);
 }
 
 BEGIN_EVENT_TABLE(dispscr_mouseoverwin, generic_disp_base)
@@ -1845,6 +1850,8 @@ void TweetRightClickHandler(generic_disp_base *win, wxMouseEvent &event, tweet_p
 	if (style.HasURL()) {
 		wxString url = style.GetURL();
 		int nextid = tweetactmenustartid;
+		tamd.clear();
+		win->dyn_menu_handlers.Clear();
 		wxMenu menu;
 
 		auto urlmenupopup = [&](const wxString &urlstr) {
@@ -1858,10 +1865,41 @@ void TweetRightClickHandler(generic_disp_base *win, wxMouseEvent &event, tweet_p
 		};
 
 		if (url[0] == 'M') {
-			media_id_type media_id=ParseMediaID(url);
+			media_id_type media_id = ParseMediaID(url);
 			menu.Append(nextid, wxT("Open Media in Window"));
 			AppendToTAMIMenuMap(tamd, nextid, TAMI_MEDIAWIN, td, 0, udc_ptr(), 0, url);
-			urlmenupopup(wxstrstd(ad.media_list[media_id]->media_url));
+
+			observer_ptr<media_entity> me = media_entity::GetExisting(media_id);
+
+			if (me) {
+				auto save_menu = [&](const wxString &title, std::string url, std::function<void(observer_ptr<media_entity>, wxString)> save_action) {
+					wxMenu *savemenu = new wxMenu;
+					menu.AppendSubMenu(savemenu, title);
+					me->FillSaveMenu(savemenu, win->dyn_menu_handlers, std::move(url), title, std::move(save_action));
+				};
+				if (me->video && me->video->variants.size() > 0) {
+					video_entity::video_variant *mp4 = nullptr;
+					video_entity::video_variant *webm = nullptr;
+					for (auto &vv : me->video->variants) {
+						if (vv.content_type == "video/mp4") {
+							if (!mp4 || vv.bitrate > mp4->bitrate) {
+								mp4 = &vv;
+							}
+						}
+						if (vv.content_type == "video/webm") {
+							if (!webm || vv.bitrate > webm->bitrate) {
+								webm = &vv;
+							}
+						}
+					}
+					if (mp4) save_menu(wxT("Save MP4"), mp4->url, media_entity::MakeVideoSaver(mp4->url));
+					if (webm) save_menu(wxT("Save WebM"), webm->url, media_entity::MakeVideoSaver(webm->url));
+				} else {
+					save_menu(wxT("Save Image"), me->media_url, media_entity::MakeFullImageSaver());
+				}
+				urlmenupopup(wxstrstd(me->media_url));
+			}
+
 			GenericPopupWrapper(win, &menu);
 		} else if (url[0] == 'U') {
 			uint64_t userid = ParseUrlID(url);

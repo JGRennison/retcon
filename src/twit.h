@@ -610,6 +610,8 @@ struct media_entity {
 	void CheckFullImageLoadSaveActions();
 	void FillSaveMenu(wxMenu * const menuF, dyn_menu_handler_set &dyn_menu_handlers, const std::string url,
 		const wxString &title, std::function<void(observer_ptr<media_entity>, wxString)> save_action);
+	static std::function<void(observer_ptr<media_entity>, wxString)> MakeFullImageSaver();
+	static std::function<void(observer_ptr<media_entity>, wxString)> MakeVideoSaver(const std::string &url);
 };
 
 struct userlookup {

@@ -81,6 +81,7 @@ struct generic_disp_base : public commonRichTextCtrl, public safe_observer_ptr_t
 	flagwrapper<GDB_F> gdb_flags = 0;
 	std::shared_ptr<wxMenu> menuptr;
 	std::vector<std::function<void()> > action_batch;
+	dyn_menu_handler_set dyn_menu_handlers;
 
 	generic_disp_base(wxWindow *parent, panelparentwin_base *tppw_, long extraflags = 0, wxString thisname_ = wxT(""));
 	void mousewheelhandler(wxMouseEvent &event);
@@ -100,6 +101,7 @@ struct generic_disp_base : public commonRichTextCtrl, public safe_observer_ptr_t
 	void StartActionBatch();
 	void StopActionBatch();
 	void DoAction(std::function<void()> &&f);
+	void OnDynMenuCmd(wxCommandEvent &event);
 
 	DECLARE_EVENT_TABLE()
 };

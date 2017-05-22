@@ -453,16 +453,7 @@ media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_
 
 	if (is_video) {
 		auto add_video_save_menu = [&](const std::string &url, const wxString &title) {
-			AddSaveMenu(menuBar, title, url, [url](observer_ptr<media_entity> me, wxString filename) {
-				media_entity::pending_video_save_requests.insert(std::make_pair(url, filename));
-				me->CheckVideoLoadSaveActions(url);
-				auto vc = me->video_file_cache.find(url);
-				if (vc == me->video_file_cache.end()) {
-					// Start download if not already in progress/done
-					std::shared_ptr<taccount> acc = me->dm_media_acc.lock();
-					mediaimgdlconn::NewConnWithOptAccOAuth(url, me->media_id, MIDC::VIDEO, acc.get());
-				}
-			});
+			AddSaveMenu(menuBar, title, url, media_entity::MakeVideoSaver(url));
 		};
 		if (!mp4_save_url.empty()) {
 			add_video_save_menu(mp4_save_url, wxT("Save MP4"));
@@ -471,10 +462,7 @@ media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_
 			add_video_save_menu(webm_save_url, wxT("Save WebM"));
 		}
 	} else {
-		AddSaveMenu(menuBar, wxT("Save Image"), me->media_url, [](observer_ptr<media_entity> me, wxString filename) {
-			media_entity::pending_full_image_save_requests.insert(std::make_pair(me->media_id, filename));
-			me->StartFetchImageData();
-		});
+		AddSaveMenu(menuBar, wxT("Save Image"), me->media_url, media_entity::MakeFullImageSaver());
 		if (me->image_variants.empty()) {
 			add_copy_url_menu_item(copy_url_menu, me->media_url, wxT("large"));
 		} else {
