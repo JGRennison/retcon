@@ -234,10 +234,10 @@ void MakeTPanelMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet
 }
 
 void MakeImageMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw) {
-	wxMenuItem *wmi5 = menuP->Append(nextid, wxT("Image Previews Hidden"), wxT(""), wxITEM_CHECK);
+	wxMenuItem *wmi5 = menuP->Append(nextid, wxT("Image Thumbnails Hidden"), wxT(""), wxITEM_CHECK);
 	wmi5->Check(tw->flags.Get('p'));
 	AppendToTAMIMenuMap(map, nextid, TAMI_TOGGLEHIDEIMG, tw);
-	wxMenuItem *wmi6 = menuP->Append(nextid, wxT("No Image Preview Auto-Download"), wxT(""), wxITEM_CHECK);
+	wxMenuItem *wmi6 = menuP->Append(nextid, wxT("No Image Thumbnails Auto-Download"), wxT(""), wxITEM_CHECK);
 	wmi6->Check(tw->flags.Get('n'));
 	AppendToTAMIMenuMap(map, nextid, TAMI_TOGGLEIMGPREVIEWNOAUTOLOAD, tw);
 
