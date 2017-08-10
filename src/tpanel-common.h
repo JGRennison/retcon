@@ -99,6 +99,8 @@ enum class TPPWF {	//for tppw_flags
 	SHOWDELETED           = 1<<4,
 	FROZEN                = 1<<5,
 	BATCHTIMERMODE        = 1<<6,
+	HIDEALLTHUMBS         = 1<<7,
+	SHOWALLTHUMBS         = 1<<8,
 
 	DB_SAVE_MASK          = SHOWHIDDEN | SHOWDELETED,
 };

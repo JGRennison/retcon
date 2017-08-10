@@ -1282,12 +1282,14 @@ void tweetdispscr::DisplayTweet(bool redrawimg) {
 			BeginAlignment(wxTEXT_ALIGNMENT_CENTRE);
 			wxRichTextRange img_range = AddParagraph(wxT(""));
 			SetInsertionPoint(img_range.GetEnd());
+			const flagwrapper<TPPWF> tppw_flags = tppw->GetTPPWFlags();
 			for (auto &it : me_list) {
 				media_entity_updaters.emplace_back(it);
 
 				if (have_first) WriteText(wxT(" "));
 
-				bool hide_thumb = (tw.flags.Get('p') || gc.hideallthumbs) && !hidden_thumbnails_override;
+				bool hide_thumb = (tw.flags.Get('p') || gc.hideallthumbs || (tppw_flags & TPPWF::HIDEALLTHUMBS)) &&
+						!(tppw_flags & TPPWF::SHOWALLTHUMBS) && !hidden_thumbnails_override;
 
 				if (gc.dispthumbs && !(!gc.loadhiddenthumbs && hide_thumb)) {
 					flagwrapper<MELF> loadflags = MELF::DISPTIME;

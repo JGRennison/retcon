@@ -1371,6 +1371,23 @@ void tpanelparentwin_nt_impl::setupnavbuttonhandlers() {
 	};
 	handle_intersection_change_func(TPPWID_TOGGLE_INTERSECT_UNREAD, TPF_INTERSECT::UNREAD);
 	handle_intersection_change_func(TPPWID_TOGGLE_INTERSECT_HIGHLIGHTED, TPF_INTERSECT::HIGHLIGHTED);
+
+	auto handle_thumb_show_hide_change_func = [&](int cmdid, flagwrapper<TPPWF> flags) {
+		addhandler(cmdid, [this, flags](wxCommandEvent &event) {
+			tppw_flags &= ~(TPPWF::HIDEALLTHUMBS | TPPWF::SHOWALLTHUMBS);
+			tppw_flags |= flags;
+
+			SetNoUpdateFlag();
+			//refresh all currently displayed tweets
+			IterateCurrentDisp([&](uint64_t id, dispscr_base *scr) {
+				static_cast<tweetdispscr *>(scr)->DisplayTweet(false);
+			});
+			CheckClearNoUpdateFlag();
+		});
+	};
+	handle_thumb_show_hide_change_func(TPPWID_HIDE_ALL_THUMBS, TPPWF::HIDEALLTHUMBS);
+	handle_thumb_show_hide_change_func(TPPWID_SHOW_HIDE_THUMBS_NORMAL, 0);
+	handle_thumb_show_hide_change_func(TPPWID_SHOW_ALL_THUMBS, TPPWF::SHOWALLTHUMBS);
 }
 
 void tpanelparentwin_nt_impl::morebtnhandler(wxCommandEvent &event) {
@@ -1410,6 +1427,13 @@ void tpanelparentwin_nt_impl::morebtnhandler(wxCommandEvent &event) {
 	wmith3->Check(intersect_flags & TPF_INTERSECT::UNREAD);
 	wxMenuItem *wmith4 = pmenu.Append(TPPWID_TOGGLE_INTERSECT_HIGHLIGHTED, wxString::Format(wxT("Show Only Highlighted Tweets (%d)"), tp_base->cids.highlightids.size()), wxT(""), wxITEM_CHECK);
 	wmith4->Check(intersect_flags & TPF_INTERSECT::HIGHLIGHTED);
+	pmenu.AppendSeparator();
+	wxMenuItem *wmi_thumb_ctrl_1 = pmenu.Append(TPPWID_HIDE_ALL_THUMBS, wxT("Hide All Image Thumbnails"), wxT(""), wxITEM_RADIO);
+	wmi_thumb_ctrl_1->Check(tppw_flags & TPPWF::HIDEALLTHUMBS);
+	wxMenuItem *wmi_thumb_ctrl_2 = pmenu.Append(TPPWID_SHOW_HIDE_THUMBS_NORMAL, wxT("Show/Hide Image Thumbnails As Normal"), wxT(""), wxITEM_RADIO);
+	wmi_thumb_ctrl_2->Check(!(tppw_flags & (TPPWF::SHOWALLTHUMBS | TPPWF::HIDEALLTHUMBS)));
+	wxMenuItem *wmi_thumb_ctrl_3 = pmenu.Append(TPPWID_SHOW_ALL_THUMBS, wxT("Show All Image Thumbnails"), wxT(""), wxITEM_RADIO);
+	wmi_thumb_ctrl_3->Check(tppw_flags & TPPWF::SHOWALLTHUMBS);
 
 	GenericPopupWrapper(base(), &pmenu, btnrect.GetLeft(), btnrect.GetBottom());
 }
