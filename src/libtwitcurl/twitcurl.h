@@ -76,6 +76,7 @@ namespace twitCurlDefaults
     const std::string TWITCURL_RT_ENABLED = "&retweets=true";
     const std::string TWITCURL_RT_DISABLED = "&retweets=false";
     const std::string TWITCURL_EXTENDEDTWEETS = "tweet_mode=extended";
+    const std::string TWITCURL_ALTTEXT = "include_ext_alt_text=";
 
     const std::string TWITCURL_USERAGENT = "libcurl " LIBCURL_VERSION;
 
@@ -177,7 +178,7 @@ struct timelineparams {
 	signed char include_rts;	//"
 	signed char include_entities;	//"
 	signed char exclude_replies;	//"
-
+	signed char alt_text;	//"
 };
 
 /* twitCurl class */

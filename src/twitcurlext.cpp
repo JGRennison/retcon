@@ -447,7 +447,8 @@ void twitcurlext_rbfs::DoExecRestGetTweetBackfill(std::unique_ptr<mcurlconn> thi
 			(signed char) ((rbfs->type == RBFS_TWEETS || rbfs->type == RBFS_MENTIONS) ? 1 : 0),
 			(signed char) ((rbfs->type == RBFS_TWEETS || rbfs->type == RBFS_MENTIONS) ? 1 : 0),
 			1,
-			0
+			0,
+			1
 		};
 
 		switch (rbfs->type) {

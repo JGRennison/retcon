@@ -564,6 +564,7 @@ struct media_entity {
 	std::weak_ptr<taccount> dm_media_acc;
 	std::unique_ptr<video_entity> video;
 	std::map<std::string, temp_file_holder> video_file_cache;
+	std::string alt_text;
 
 	struct image_variant {
 		std::string url;

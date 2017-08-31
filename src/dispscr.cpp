@@ -1868,10 +1868,23 @@ void TweetRightClickHandler(generic_disp_base *win, wxMouseEvent &event, tweet_p
 
 		if (url[0] == 'M') {
 			media_id_type media_id = ParseMediaID(url);
-			menu.Append(nextid, wxT("Open Media in Window"));
-			AppendToTAMIMenuMap(tamd, nextid, TAMI_MEDIAWIN, td, 0, udc_ptr(), 0, url);
 
 			observer_ptr<media_entity> me = media_entity::GetExisting(media_id);
+
+			if (me && !me->alt_text.empty()) {
+				wxMenu *submenu = new wxMenu;
+				wxString text = wxstrstd(me->alt_text);
+				submenu->Append(nextid, text);
+				AppendToTAMIMenuMap(tamd, nextid, TAMI_NULL, td, 0, udc_ptr(), 0, text);
+				submenu->AppendSeparator();
+				submenu->Append(nextid, wxT("Copy to Clipboard"));
+				AppendToTAMIMenuMap(tamd, nextid, TAMI_COPYEXTRA, td, 0, udc_ptr(), 0, text);
+				menu.AppendSubMenu(submenu, wxT("Alt text"));
+				menu.AppendSeparator();
+			}
+
+			menu.Append(nextid, wxT("Open Media in Window"));
+			AppendToTAMIMenuMap(tamd, nextid, TAMI_MEDIAWIN, td, 0, udc_ptr(), 0, url);
 
 			if (me) {
 				auto save_menu = [&](const wxString &title, std::string url, std::function<void(observer_ptr<media_entity>, wxString)> save_action) {

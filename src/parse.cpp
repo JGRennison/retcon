@@ -483,6 +483,8 @@ void genjsonparser::DoEntitiesParse(const rapidjson::Value &val, optional_observ
 				me->image_variants = std::move(image_variants);
 			}
 
+			CheckTransJsonValueDef(me->alt_text, media[i], "ext_alt_text", "");
+
 			const rapidjson::Value &videoinfo = media[i]["video_info"];
 			if (videoinfo.IsObject()) {
 				std::unique_ptr<video_entity> ve(new video_entity());
