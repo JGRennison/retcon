@@ -1311,6 +1311,20 @@ void tpanelparentwin_nt_impl::setupnavbuttonhandlers() {
 		}
 	});
 
+	addhandler(TPPWID_MANUALADDTWEETID, [this, getjumpval](wxCommandEvent &event) {
+		if (tp->flags & TPF::MANUAL) {
+			uint64_t value;
+			if (getjumpval(value, wxT("Enter tweet ID to add."), 0, std::numeric_limits<uint64_t>::max())) {
+				if (tp->tweetlist.find(value) != tp->tweetlist.end()) {
+					::wxMessageBox(wxString::Format(wxT("Tweet with ID: %" wxLongLongFmtSpec "d is already in this panel"), value),
+							wxT("Already in panel"), wxOK | wxICON_EXCLAMATION, base());
+				} else if (tp->flags & TPF::MANUAL) {
+					tp->PushTweet(value, nullptr);
+				}
+			}
+		}
+	});
+
 	addhandler(TPPWID_JUMPTOTIME, [this](wxCommandEvent &event) {
 		if (!tp->tweetlist.empty()) {
 			wxDateTime dt = wxDateTime::Now();
@@ -1434,6 +1448,11 @@ void tpanelparentwin_nt_impl::morebtnhandler(wxCommandEvent &event) {
 	wmi_thumb_ctrl_2->Check(!(tppw_flags & (TPPWF::SHOWALLTHUMBS | TPPWF::HIDEALLTHUMBS)));
 	wxMenuItem *wmi_thumb_ctrl_3 = pmenu.Append(TPPWID_SHOW_ALL_THUMBS, wxT("Show All Image Thumbnails"), wxT(""), wxITEM_RADIO);
 	wmi_thumb_ctrl_3->Check(tppw_flags & TPPWF::SHOWALLTHUMBS);
+
+	if (tp->flags & TPF::MANUAL) {
+		pmenu.AppendSeparator();
+		pmenu.Append(TPPWID_MANUALADDTWEETID, wxT("Add Tweet ID"));
+	}
 
 	GenericPopupWrapper(base(), &pmenu, btnrect.GetLeft(), btnrect.GetBottom());
 }
