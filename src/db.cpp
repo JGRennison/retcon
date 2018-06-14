@@ -2189,7 +2189,7 @@ namespace {
 			for (auto &it : ad.userconts) {
 				udc_ptr_p u = it.second;
 
-				if (u->user.screen_name.empty() && u->user.notes.empty()) {
+				if (!u->user.IsValid() && u->user.notes.empty()) {
 					continue;    //don't bother saving empty user stubs
 				}
 

@@ -253,7 +253,7 @@ void mainframe::OnLookupUser(wxCommandEvent &event) {
 			uint64_t id = 0;
 			if (ownstrtonum(id, search_string.data(), search_string.size())) {
 				udc_ptr u = ad.GetExistingUserContainerById(id);
-				if (u && !u->GetUser().screen_name.empty()) {
+				if (u && u->GetUser().IsValid()) {
 					user_window::MkWin(u->id, acctouse);
 				}
 			}

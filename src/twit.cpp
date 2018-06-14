@@ -447,7 +447,7 @@ bool userdatacontainer::NeedsUpdating(flagwrapper<PENDING_REQ> preq, time_t time
 	if (!lastupdate) {
 		return true;
 	}
-	if (!GetUser().screen_name.size()) {
+	if (!GetUser().IsValid()) {
 		return true;
 	}
 	if (!timevalue) {

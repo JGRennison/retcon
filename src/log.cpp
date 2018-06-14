@@ -499,7 +499,7 @@ std::string truncate_tweet_text(const std::string &input) {
 
 std::string tweet_log_line(const tweet *t) {
 	std::string sname = "???";
-	if (t->user && !t->user->GetUser().screen_name.empty()) {
+	if (t->user && t->user->GetUser().IsValid()) {
 		sname = t->user->GetUser().screen_name;
 	}
 
@@ -525,7 +525,7 @@ std::string tweet_long_log_line(const tweet *t) {
 	std::string output = tweet_log_line(t) + "\n\t";
 	if (t->user_recipient) {
 		std::string sname = "???";
-		if (!t->user_recipient->GetUser().screen_name.empty()) {
+		if (t->user_recipient->GetUser().IsValid()) {
 			sname = t->user_recipient->GetUser().screen_name;
 		}
 		output += "recipient: " + sname + ", ";
@@ -553,7 +553,7 @@ std::string tweet_long_log_line(const tweet *t) {
 
 std::string user_screenname_log(uint64_t id) {
 	udc_ptr u = ad.GetExistingUserContainerById(id);
-	if (u && !u->GetUser().screen_name.empty()) {
+	if (u && u->GetUser().IsValid()) {
 		return u->GetUser().screen_name;
 	} else {
 		return "????";

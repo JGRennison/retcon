@@ -136,6 +136,8 @@ struct userdata {
 
 	//Any change to any other member of this struct, should increment this value
 	unsigned int revision_number = 0;
+
+	inline bool IsValid() const { return !(screen_name.empty() && name.empty()); }
 };
 template<> struct enum_traits<userdata::UF> { static constexpr bool flags = true; };
 
