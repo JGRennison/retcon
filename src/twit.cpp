@@ -71,7 +71,7 @@ void HandleNewTweet(tweet_ptr_p t, const std::shared_ptr<taccount> &acc, flagwra
 	if (arr & ARRIVAL::NEW) {
 		for (auto &it : ad.tpanels) {
 			tpanel &tp = *(it.second);
-			if (tp.TweetMatches(t, acc)) {
+			if (tp.TweetMatches(t)) {
 				tp.PushTweet(t);
 			}
 		}

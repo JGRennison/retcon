@@ -75,6 +75,7 @@ struct panelparentwin_base_impl : public bindwxevt {
 	wxString GetThisName() const;
 	virtual mainframe *GetMainframe();
 	tpanel_disp_item *CreateItemAtPosition(tpanel_disp_item_list::iterator iter, uint64_t id);
+	virtual flagwrapper<TPANEL_IS_ACC_TIMELINE> IsAccountTimelineOnlyWin() const;
 
 	void ResetBatchTimer();
 
@@ -165,6 +166,7 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 	void GenericAction(std::function<void(tpanelparentwin_nt *)> func);
 	void RecalculateDisplayOffset();
 	void SetTpanelIntersectionFlags(flagwrapper<TPF_INTERSECT> intersect_flags_);
+	virtual flagwrapper<TPANEL_IS_ACC_TIMELINE> IsAccountTimelineOnlyWin() const override;
 
 	DECLARE_EVENT_TABLE()
 };

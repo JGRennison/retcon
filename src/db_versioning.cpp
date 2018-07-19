@@ -27,7 +27,7 @@
 #include "parse.h"
 #include <wx/msgdlg.h>
 
-static const unsigned int db_version = 10;
+static const unsigned int db_version = 11;
 
 static const char *update_sql[] = {
 	"ALTER TABLE mediacache ADD COLUMN lastusedtimestamp INTEGER;"
@@ -65,6 +65,9 @@ static const char *update_sql[] = {
 	,
 	nullptr
 	// SyncDoUpdates_FillTweetXrefTable should be run here
+	,
+	nullptr
+	// added timelinehiddenids
 };
 
 // return false if all bets are off and DB should not be read

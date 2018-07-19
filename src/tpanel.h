@@ -76,6 +76,7 @@ struct panelparentwin_base : public wxPanel, public safe_observer_ptr_target {
 	void SetClabelUpdatePendingFlag();
 	void CheckClearNoUpdateFlag();
 	virtual bool IsSingleAccountWin() const;
+	flagwrapper<TPANEL_IS_ACC_TIMELINE> IsAccountTimelineOnlyWin() const;
 	virtual void NotifyRequestFailed() { }
 	wxString GetThisName() const;
 	uint64_t GetCurrentViewTopID(optional_observer_ptr<int> offset = nullptr) const;
@@ -101,6 +102,7 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	void UpdateOwnTweet(uint64_t id, bool redrawimg);
 	void GenericAction(std::function<void(tpanelparentwin_nt *)> func);
 	std::shared_ptr<tpanel> GetTP();
+	bool ShouldHideTimelineOnlyTweet(tweet_ptr_p t) const;
 
 	//These are for TweetActMenuAction
 	void MarkSetRead(tweetidset &&subset, optional_observer_ptr<undo::item> undo_item);

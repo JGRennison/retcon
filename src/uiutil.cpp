@@ -199,6 +199,9 @@ void MakeMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p
 	wxMenuItem *wmi6 = menuP->Append(nextid, wxT("Hidden"), wxT(""), wxITEM_CHECK);
 	wmi6->Check(tw->flags.Get('h'));
 	AppendToTAMIMenuMap(map, nextid, TAMI_TOGGLEHIDDEN, tw);
+	wxMenuItem *wmi7 = menuP->Append(nextid, wxT("Timeline hidden"), wxT(""), wxITEM_CHECK);
+	wmi7->Check(tw->flags.Get('q'));
+	AppendToTAMIMenuMap(map, nextid, TAMI_TOGGLETIMELINEHIDDEN, tw);
 }
 
 void MakeTPanelMarkMenu(wxMenu *menuP, tweetactmenudata &map, int &nextid, tweet_ptr_p tw, tpanelparentwin_nt *tppw) {
@@ -493,6 +496,12 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 
 		case TAMI_TOGGLEHIDDEN: {
 			map[curid].tw->flags.Toggle('h');
+			map[curid].tw->CheckFlagsUpdated(tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
+			break;
+		}
+
+		case TAMI_TOGGLETIMELINEHIDDEN: {
+			map[curid].tw->flags.Toggle('q');
 			map[curid].tw->CheckFlagsUpdated(tweet::CFUF::SEND_DB_UPDATE | tweet::CFUF::UPDATE_TWEET);
 			break;
 		}

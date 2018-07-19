@@ -1156,6 +1156,9 @@ bool tweetdispscr::CheckHiddenState() {
 	} else {
 		hidden = (td->flags.Get('h') && !(tppw->GetTPPWFlags() & TPPWF::SHOWHIDDEN))
 				|| (td->flags.Get('X') && !(tppw->GetTPPWFlags() & TPPWF::SHOWDELETED));
+		if (td->flags.Get('q') && !(tds_flags & TDSF::SUBTWEET) && !(tppw->GetTPPWFlags() & TPPWF::SHOWTIMELINEHIDDEN)) {
+			if (static_cast<tpanelparentwin_nt *>(tppw)->ShouldHideTimelineOnlyTweet(td)) hidden = true;
+		}
 	}
 
 	if (hidden && !(tds_flags & TDSF::HIDDEN)) {

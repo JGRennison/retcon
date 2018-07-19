@@ -101,8 +101,9 @@ enum class TPPWF {	//for tppw_flags
 	BATCHTIMERMODE        = 1<<6,
 	HIDEALLTHUMBS         = 1<<7,
 	SHOWALLTHUMBS         = 1<<8,
+	SHOWTIMELINEHIDDEN    = 1<<9,
 
-	DB_SAVE_MASK          = SHOWHIDDEN | SHOWDELETED,
+	DB_SAVE_MASK          = SHOWHIDDEN | SHOWDELETED | SHOWTIMELINEHIDDEN,
 };
 template<> struct enum_traits<TPPWF> { static constexpr bool flags = true; };
 
@@ -118,6 +119,14 @@ struct twin_layout_desc {
 	flagwrapper<TPF_INTERSECT> intersect_flags;
 	flagwrapper<TPPWF> tppw_flags;
 };
+
+enum class TPANEL_IS_ACC_TIMELINE {
+	YES                   = 1<<0,
+	NO                    = 1<<1,
+
+	PARTIAL               = YES | NO,
+};
+template<> struct enum_traits<TPANEL_IS_ACC_TIMELINE> { static constexpr bool flags = true; };
 
 void UpdateTweet(const tweet &t, bool redrawimg = false);
 void UpdateTweet(uint64_t id, bool redrawimg = false);

@@ -142,35 +142,43 @@ inline tweet_flags operator ^(const tweet_flags &l, const tweet_flags &r) {
 	return std::move(result);
 }
 
+enum class CIDS_ITERATE_FLAGS {
+	DEFAULT              = 0,
+	NO_TIMELINEHIDDENIDS = 1<<0,
+};
+template<> struct enum_traits<CIDS_ITERATE_FLAGS> { static constexpr bool flags = true; };
+
 struct cached_id_sets {
 	tweetidset unreadids;
 	tweetidset highlightids;
 	tweetidset hiddenids;
+	tweetidset timelinehiddenids;
 	tweetidset deletedids;
 
 	//! Functor should have signature of void(const char *, tweetidset cached_id_sets::*, unsigned long long)
 	template <typename F>
-	inline static void IterateLists(F f) {
+	inline static void IterateLists(F f, flagwrapper<CIDS_ITERATE_FLAGS> flags = CIDS_ITERATE_FLAGS::DEFAULT) {
 		f("unreadids", &cached_id_sets::unreadids, tweet_flags::GetFlagValue('u'));
 		f("highlightids", &cached_id_sets::highlightids, tweet_flags::GetFlagValue('H'));
 		f("hiddenids", &cached_id_sets::hiddenids, tweet_flags::GetFlagValue('h'));
 		f("deletedids", &cached_id_sets::deletedids, tweet_flags::GetFlagValue('X'));
+		if (!(flags & CIDS_ITERATE_FLAGS::NO_TIMELINEHIDDENIDS)) f("timelinehiddenids", &cached_id_sets::timelinehiddenids, tweet_flags::GetFlagValue('q'));
 	}
 
 	//! Functor should have signature of void(tweetidset &)
 	template <typename F>
-	inline void foreach(F f) {
+	inline void foreach(F f, flagwrapper<CIDS_ITERATE_FLAGS> flags = CIDS_ITERATE_FLAGS::DEFAULT) {
 		IterateLists([&](const char *name, tweetidset cached_id_sets::*ptr, unsigned long long tweetflag) {
 			f(this->*ptr);
-		});
+		}, flags);
 	}
 
 	//! Functor should have signature of void(tweetidset &, tweetidset &)
 	template <typename F>
-	inline void foreach(cached_id_sets &cid2, F f) {
+	inline void foreach(cached_id_sets &cid2, F f, flagwrapper<CIDS_ITERATE_FLAGS> flags = CIDS_ITERATE_FLAGS::DEFAULT) {
 		IterateLists([&](const char *name, tweetidset cached_id_sets::*ptr, unsigned long long tweetflag) {
 			f(this->*ptr, cid2.*ptr);
-		});
+		}, flags);
 	}
 	void CheckTweet(tweet &tw);
 	void CheckTweetID(uint64_t id);

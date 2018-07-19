@@ -3231,6 +3231,7 @@ void dbconn::SyncPurgeUnreferencedTweets(sqlite3 *syncdb) {
 
 				// do this after DB operations
 				erase_ids_from(ad.cids.hiddenids, delete_ids);
+				erase_ids_from(ad.cids.timelinehiddenids, delete_ids);
 				erase_ids_from(ad.cids.deletedids, delete_ids);
 				erase_ids_from(ad.unloaded_db_tweet_ids, delete_ids);
 

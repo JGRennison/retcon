@@ -48,6 +48,8 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	std::shared_ptr<tpanel> parent_tpanel;              // this must only be modified by SetTpanelParent or ~tpanel
 	std::vector<observer_ptr<tpanel>> child_tpanels;    // "
 
+	flagwrapper<TPANEL_IS_ACC_TIMELINE> is_acc_timeline = TPANEL_IS_ACC_TIMELINE::NO;
+
 	static std::shared_ptr<tpanel> MkTPanel(const std::string &name_, const std::string &dispname_, flagwrapper<TPF> flags_ = 0,
 			std::shared_ptr<taccount> *acc = nullptr);
 	static std::shared_ptr<tpanel> MkTPanel(const std::string &name_, const std::string &dispname_, flagwrapper<TPF> flags_,
@@ -74,7 +76,13 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	void CheckClearNoUpdateFlag_TP() const;
 	void SetClabelUpdatePendingFlag_TP() const;
 	void UpdateCLabelLater_TP() const;
-	bool TweetMatches(tweet_ptr_p t, const std::shared_ptr<taccount> &acc) const;
+
+	enum class TWEET_MATCH_FLAGS {
+		DEFAULT                      = 0,
+		NO_TIMELINE                  = 1<<0,
+	};
+	bool TweetMatches(tweet_ptr_p t, flagwrapper<TWEET_MATCH_FLAGS> matchflags = TWEET_MATCH_FLAGS::DEFAULT) const;
+
 	bool AccountTimelineMatches(const std::shared_ptr<taccount> &acc) const;
 
 	//id must correspond to a usable tweet in ad.tweetobjs, if adding
@@ -84,6 +92,13 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	void RecalculateCIDS();
 
 	void RecalculateSets();
+	void RecalculateAccountTimelineOnly();
+
+	flagwrapper<CIDS_ITERATE_FLAGS> GetCIDSIterationFlags() const {
+		return is_acc_timeline == TPANEL_IS_ACC_TIMELINE::NO ? CIDS_ITERATE_FLAGS::NO_TIMELINEHIDDENIDS : CIDS_ITERATE_FLAGS::DEFAULT;
+	}
+
+	bool ShouldHideTimelineOnlyTweet(tweet_ptr_p t) const;
 
 	void MarkSetRead(optional_observer_ptr<undo::item> undo_item);
 	void MarkSetReadOrUnread(tweetidset &&subset, optional_observer_ptr<undo::item> undo_item, bool mark_read);
@@ -123,6 +138,7 @@ struct tpanel : std::enable_shared_from_this<tpanel> {
 	void NotifyCIDSChange_Intersection_AddRemoveIntl(uint64_t id, tweetidset cached_id_sets::*ptr, bool add, flagwrapper<PUSHFLAGS> pushflags);
 };
 template<> struct enum_traits<tpanel::TPIF> { static constexpr bool flags = true; };
+template<> struct enum_traits<tpanel::TWEET_MATCH_FLAGS> { static constexpr bool flags = true; };
 
 inline void tpanel::NotifyCIDSChange_AddRemove(uint64_t id, tweetidset cached_id_sets::*ptr, bool add, flagwrapper<PUSHFLAGS> pushflags) {
 	if (intl_flags & tpanel::TPIF::RECALCSETSONCIDSCHANGE) {

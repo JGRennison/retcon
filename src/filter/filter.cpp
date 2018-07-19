@@ -435,7 +435,7 @@ struct filter_item_action : public filter_item {
 	}
 };
 
-const char setflags_allowed[] = "hnpruH";
+const char setflags_allowed[] = "hnpqruH";
 struct filter_item_action_setflag : public filter_item_action {
 	uint64_t setflags = 0;
 	uint64_t unsetflags = 0;

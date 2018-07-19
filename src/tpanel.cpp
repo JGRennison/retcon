@@ -467,6 +467,10 @@ tpanel_disp_item *panelparentwin_base_impl::CreateItemAtPosition(tpanel_disp_ite
 	return &(*newit);
 }
 
+flagwrapper<TPANEL_IS_ACC_TIMELINE> panelparentwin_base_impl::IsAccountTimelineOnlyWin() const {
+	return TPANEL_IS_ACC_TIMELINE::NO;
+}
+
 void panelparentwin_base_impl::PopTop() {
 	#if TPANEL_COPIOUS_LOGGING
 		LogMsgFormat(LOGT::TPANELTRACE, "TCL: panelparentwin_base_impl::PopTop() %s START", cstr(GetThisName()));
@@ -641,6 +645,10 @@ mainframe *panelparentwin_base_impl::GetMainframe() {
 
 bool panelparentwin_base::IsSingleAccountWin() const {
 	return alist.size() <= 1;
+}
+
+flagwrapper<TPANEL_IS_ACC_TIMELINE> panelparentwin_base::IsAccountTimelineOnlyWin() const {
+	return pimpl()->IsAccountTimelineOnlyWin();
 }
 
 void panelparentwin_base::IterateCurrentDisp(std::function<void(uint64_t, dispscr_base *)> func) const {
@@ -1369,6 +1377,7 @@ void tpanelparentwin_nt_impl::setupnavbuttonhandlers() {
 		});
 	};
 	hidesettogglefunc(TPPWID_TOGGLEHIDDEN, TPPWF::SHOWHIDDEN, &cached_id_sets::hiddenids, "TPPWID_TOGGLEHIDDEN: Hidden IDs");
+	hidesettogglefunc(TPPWID_TOGGLETIMELINEHIDDEN, TPPWF::SHOWTIMELINEHIDDEN, &cached_id_sets::timelinehiddenids, "TPPWID_TOGGLETIMELINEHIDDEN: Timeline hidden IDs");
 	hidesettogglefunc(TPPWID_TOGGLEHIDEDELETED, TPPWF::SHOWDELETED, &cached_id_sets::deletedids, "TPPWID_TOGGLEHIDEDELETED: Deleted IDs");
 	addhandler(TPPWID_FILTERDLGBTN, [this](wxCommandEvent &event) {
 		filter_dlg *fdg = new filter_dlg(base(), wxID_ANY, [this]() -> const tweetidset * {
@@ -1434,6 +1443,10 @@ void tpanelparentwin_nt_impl::morebtnhandler(wxCommandEvent &event) {
 	pmenu.AppendSeparator();
 	wxMenuItem *wmith = pmenu.Append(TPPWID_TOGGLEHIDDEN, wxString::Format(wxT("Show Hidden Tweets (%d)"), tp->cids.hiddenids.size()), wxT(""), wxITEM_CHECK);
 	wmith->Check(tppw_flags & TPPWF::SHOWHIDDEN);
+	if (tp->is_acc_timeline & TPANEL_IS_ACC_TIMELINE::YES) {
+		wxMenuItem *wmitth = pmenu.Append(TPPWID_TOGGLETIMELINEHIDDEN, wxString::Format(wxT("Show Timeline Hidden Tweets (%d)"), tp->cids.timelinehiddenids.size()), wxT(""), wxITEM_CHECK);
+		wmitth->Check(tppw_flags & TPPWF::SHOWTIMELINEHIDDEN);
+	}
 	wxMenuItem *wmith2 = pmenu.Append(TPPWID_TOGGLEHIDEDELETED, wxString::Format(wxT("Show Deleted Tweets (%d)"), tp->cids.deletedids.size()), wxT(""), wxITEM_CHECK);
 	wmith2->Check(tppw_flags & TPPWF::SHOWDELETED);
 	pmenu.AppendSeparator();
@@ -1699,6 +1712,10 @@ std::shared_ptr<tpanel> tpanelparentwin_nt::GetTP() {
 	return pimpl()->tp;
 }
 
+bool tpanelparentwin_nt::ShouldHideTimelineOnlyTweet(tweet_ptr_p t) const {
+	return pimpl()->tp->ShouldHideTimelineOnlyTweet(t);
+}
+
 void tpanelparentwin_nt::IncTweetIDRefCounts(uint64_t tid, uint64_t rtid) {
 	pimpl()->tweetid_count_map[tid]++;
 	pimpl()->all_tweetid_count_map[tid]++;
@@ -1861,6 +1878,10 @@ void tpanelparentwin_nt_impl::SetTpanelIntersectionFlags(flagwrapper<TPF_INTERSE
 	for (auto it = target_iter; it != end_iter; ++it) {
 		PushTweet(*it, nullptr, PUSHFLAGS::CHECKSCROLLTOID | PUSHFLAGS::NOINCDISPOFFSET);
 	}
+}
+
+flagwrapper<TPANEL_IS_ACC_TIMELINE> tpanelparentwin_nt_impl::IsAccountTimelineOnlyWin() const {
+	return tp->is_acc_timeline;
 }
 
 BEGIN_EVENT_TABLE(tpanelparentwin_impl, tpanelparentwin_nt_impl)

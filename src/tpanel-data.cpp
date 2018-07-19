@@ -376,9 +376,9 @@ bool tpanel::AccountTimelineMatches(const std::shared_ptr<taccount> &acc) const 
 }
 
 //Do not assume that *acc is non-null
-bool tpanel::TweetMatches(tweet_ptr_p t, const std::shared_ptr<taccount> &acc) const {
+bool tpanel::TweetMatches(tweet_ptr_p t, flagwrapper<TWEET_MATCH_FLAGS> matchflags) const {
 	for (auto &tpa : tpautos) {
-		if ((tpa.autoflags & TPF::AUTO_DM && t->flags.Get('D')) || (tpa.autoflags & TPF::AUTO_TW && t->flags.Get('T')) ||
+		if ((tpa.autoflags & TPF::AUTO_DM && t->flags.Get('D')) || (tpa.autoflags & TPF::AUTO_TW && t->flags.Get('T') && !(matchflags & TWEET_MATCH_FLAGS::NO_TIMELINE)) ||
 				(tpa.autoflags & TPF::AUTO_MN && t->flags.Get('M'))) {
 			if (tpa.autoflags & TPF::AUTO_ALLACCS && t->IsArrivedHereAnyPerspective()) {
 				return true;
@@ -498,6 +498,8 @@ void tpanel::RecalculateTweetSet() {
 //! This handles all CIDS changes
 //! Bulk CIDS operations do not use this however
 void tpanel::NotifyCIDSChange(uint64_t id, tweetidset cached_id_sets::*ptr, bool add, flagwrapper<PUSHFLAGS> pushflags) {
+	if (ptr == &cached_id_sets::timelinehiddenids && is_acc_timeline == TPANEL_IS_ACC_TIMELINE::NO) return;
+
 	if (add) {
 		if (tweetlist.count(id)) {
 			auto result = (cids.*ptr).insert(id);
@@ -622,7 +624,7 @@ void tpanel::RecalculateCIDS() {
 	LogMsgFormat(LOGT::TPANELINFO, "tpanel::RecalculateCIDS START: panel %s", cstr(name));
 	ad.cids.foreach(this->cids, [&](tweetidset &adtis, tweetidset &thistis) {
 		std::set_intersection(tweetlist.begin(), tweetlist.end(), adtis.begin(), adtis.end(), std::inserter(thistis, thistis.end()), tweetlist.key_comp());
-	});
+	}, GetCIDSIterationFlags());
 	LogMsgFormat(LOGT::TPANELINFO, "tpanel::RecalculateCIDS END: %zu ids, %s", tweetlist.size(), cstr(this->cids.DumpInfo()));
 }
 
@@ -738,11 +740,46 @@ void tpanel::MarkCIDSSetHandler(tweetidset cached_id_sets::* idsetptr, tpanel *e
 }
 
 void tpanel::RecalculateSets() {
+	RecalculateAccountTimelineOnly();
 	RecalculateTweetSet();
 	RecalculateCIDS();
 	for (auto &it : child_tpanels) {
 		it->RecalculateSets();
 	}
+}
+
+void tpanel::RecalculateAccountTimelineOnly() {
+	if (parent_tpanel) {
+		is_acc_timeline = parent_tpanel->is_acc_timeline;
+		return;
+	}
+
+	if (tpautos.empty()) {
+		is_acc_timeline = TPANEL_IS_ACC_TIMELINE::NO;
+		return;
+	}
+
+	is_acc_timeline = 0;
+	for (const auto &tpa : tpautos) {
+		if (tpa.autoflags & TPF::AUTO_TW) is_acc_timeline |= TPANEL_IS_ACC_TIMELINE::YES;
+		if (tpa.autoflags & TPF::AUTO_MASK & (~TPF::AUTO_TW)) is_acc_timeline |= TPANEL_IS_ACC_TIMELINE::NO;
+	}
+	if (!tpudcautos.empty()) is_acc_timeline |= TPANEL_IS_ACC_TIMELINE::NO;
+}
+
+bool tpanel::ShouldHideTimelineOnlyTweet(tweet_ptr_p t) const {
+	if (!t->flags.Get('q')) return false;
+	switch (is_acc_timeline.get()) {
+		case TPANEL_IS_ACC_TIMELINE::NO:
+			return false;
+
+		case TPANEL_IS_ACC_TIMELINE::YES:
+			return true;
+
+		case TPANEL_IS_ACC_TIMELINE::PARTIAL:
+			return !TweetMatches(t, TWEET_MATCH_FLAGS::NO_TIMELINE);
+	}
+	__builtin_unreachable();
 }
 
 void tpanel::OnTPanelWinClose(tpanelparentwin_nt *tppw) {
