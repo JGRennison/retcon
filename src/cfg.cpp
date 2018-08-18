@@ -31,7 +31,7 @@ genoptconf gcdefaults {
 	{ wxT("qUfhKgogatGDPDeBaP1qBw"), 1},
 	{ wxT("dvJVLBwaJhmSyTxSUe7T8qz84lrydtFbxQ4snZxmYgM"), 1},
 	{ wxT("1"), 1},
-	{ wxT("1"), 1},
+	{ wxT("0"), 1},
 	{ wxT("300"), 1},
 	{ wxT("1"), 1},
 	{ wxT("1"), 1},

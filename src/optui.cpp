@@ -550,7 +550,7 @@ wxStaticBoxSizer *settings_window::AddGenoptconfSettingBlock(wxWindow* parent, w
 	});
 
 	AddSettingRow_String(OPTWIN_TWITTER, parent, fgs,  wxT("Keep timeline for this many days (0 = forever)"), flags, goc.expire_tweets_days, parentgoc.expire_tweets_days, wxFILTER_NUMERIC);
-	AddSettingRow_Bool(OPTWIN_TWITTER, parent, fgs,  wxT("Use User Streams (recommended)"), flags | DBCV::ADVOPTION, goc.userstreams, parentgoc.userstreams);
+	AddSettingRow_Bool(OPTWIN_TWITTER, parent, fgs,  wxT("Use User Streams (not recommended)"), flags | DBCV::ADVOPTION, goc.userstreams, parentgoc.userstreams);
 	AddSettingRow_String(OPTWIN_TWITTER, parent, fgs, wxT("REST API Polling Interval / seconds"), flags|DBCV::ADVOPTION, goc.restinterval, parentgoc.restinterval, wxFILTER_NUMERIC);
 
 	auto replychoice = new wxChoice(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, 0, nullptr, 0, GenericChoiceValidator(goc.stream_reply_mode));
