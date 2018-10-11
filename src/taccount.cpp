@@ -477,10 +477,10 @@ void taccount::GetRestBackfill() {
 	if (oktostart(RBFS_TWEETS)) {
 		StartRestGetTweetBackfill(GetMaxId(RBFS_TWEETS), 0, 800, RBFS_TWEETS);
 	}
-	if (oktostart(RBFS_RECVDM)) {
+	if (false && oktostart(RBFS_RECVDM)) {
 		StartRestGetTweetBackfill(GetMaxId(RBFS_RECVDM), 0, 800, RBFS_RECVDM);
 	}
-	if (oktostart(RBFS_SENTDM)) {
+	if (false && oktostart(RBFS_SENTDM)) {
 		StartRestGetTweetBackfill(GetMaxId(RBFS_SENTDM), 0, 800, RBFS_SENTDM);
 	}
 	if (!gc.assumementionistweet) {
