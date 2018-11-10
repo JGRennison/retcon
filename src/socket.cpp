@@ -503,11 +503,7 @@ void socketmanager::InitMultiIOHandlerCommon() {
 	curl_multi_setopt(curlmulti, CURLMOPT_MAX_TOTAL_CONNECTIONS, 64);
 	curl_multi_setopt(curlmulti, CURLMOPT_MAX_HOST_CONNECTIONS, 32);
 #endif
-#if LIBCURL_VERSION_NUM >= 0x072900
-	curl_multi_setopt(curlmulti, CURLMOPT_PIPELINING, CURLPIPE_HTTP1 | CURLPIPE_MULTIPLEX);
-#elif LIBCURL_VERSION_NUM >= 0x071000
-	curl_multi_setopt(curlmulti, CURLMOPT_PIPELINING, 1);
-#endif
+	curl_multi_setopt(curlmulti, CURLMOPT_PIPELINING, 0);
 
 	curl_version_info_data *data = curl_version_info(CURLVERSION_NOW);
 	if (!(data->features & CURL_VERSION_ASYNCHDNS)) {
