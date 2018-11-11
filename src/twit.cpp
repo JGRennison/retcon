@@ -549,8 +549,12 @@ bool userdatacontainer::ImgIsReady(flagwrapper<PENDING_REQ> preq) {
 		} else {
 			return true;
 		}
+	} else if (GetUser().IsValid()) {
+		LogMsgFormat(LOGT::OTHERTRACE, "userdatacontainer::ImgIsReady, profile_img_url is empty for user id %" llFmtSpec "d (@%s), considering ready",
+				id, cstr(GetUser().screen_name));
+		return true;
 	} else {
-		LogMsgFormat(LOGT::OTHERTRACE, "userdatacontainer::ImgIsReady, profile_img_url is empty for user id %" llFmtSpec "d (@%s), ",
+		LogMsgFormat(LOGT::OTHERTRACE, "userdatacontainer::ImgIsReady, profile_img_url is empty for user id %" llFmtSpec "d (@%s), user not valid",
 				id, cstr(GetUser().screen_name));
 		return false;
 	}
