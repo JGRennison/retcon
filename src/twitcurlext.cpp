@@ -399,7 +399,7 @@ void twitcurlext_rbfs::HandleFailureHandler(const std::shared_ptr<taccount> &acc
 		if (conntype == CONNTYPE::USERTIMELINE || conntype == CONNTYPE::USERFAVS) {
 			delrbfs = true;
 		}
-		if (rbfs->end_tweet_id == 0) {
+		if (rbfs->end_tweet_id == 0 && acc->userstreams) {
 			delrbfs = true;
 		}
 
