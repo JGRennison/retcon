@@ -316,6 +316,7 @@ struct media_display_win_pimpl : public wxEvtHandler {
 	bool img_ok = false;
 	unsigned int current_frame_index = 0;
 	wxImage current_img;
+	tweet_ptr_p src_tweet;
 
 	safe_observer_ptr<media_ctrl_panel> media_ctrl;
 	bool using_media_ctrl = false;
@@ -330,7 +331,7 @@ struct media_display_win_pimpl : public wxEvtHandler {
 	flagwrapper<MDZF> zoomflags = 0;
 	double zoomvalue = 1.0;
 
-	media_display_win_pimpl(media_display_win *win_, media_id_type media_id_);
+	media_display_win_pimpl(media_display_win *win_, media_id_type media_id_, optional_tweet_ptr_p src_tweet_);
 	~media_display_win_pimpl();
 	void AddDynMenuItem(wxMenu *menu, const wxString &item_name, std::function<void(wxCommandEvent &event)> func);
 	void AddSaveMenu(wxMenuBar *menuBar, const wxString &title, const std::string url, std::function<void(observer_ptr<media_entity>, wxString)> save_action);
@@ -371,14 +372,14 @@ BEGIN_EVENT_TABLE(media_display_win_pimpl, wxEvtHandler)
 	EVT_MENU_RANGE(MDID_DYN_START, MDID_DYN_END, media_display_win_pimpl::OnDynMenuHandler)
 END_EVENT_TABLE()
 
-media_display_win::media_display_win(wxWindow *parent, media_id_type media_id_)
+media_display_win::media_display_win(wxWindow *parent, media_id_type media_id_, optional_tweet_ptr_p src_tweet_)
 	: wxFrame(parent, wxID_ANY, wxT("")) {
 
-	pimpl.reset(new media_display_win_pimpl(this, media_id_));
+	pimpl.reset(new media_display_win_pimpl(this, media_id_, src_tweet_));
 }
 
-media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_id_type media_id_)
-	: win(win_), media_id(media_id_), dyn_menu_handlers(MDID_DYN_START) {
+media_display_win_pimpl::media_display_win_pimpl(media_display_win *win_, media_id_type media_id_, optional_tweet_ptr_p src_tweet_)
+	: win(win_), media_id(media_id_), src_tweet(src_tweet_), dyn_menu_handlers(MDID_DYN_START) {
 
 	win->PushEventHandler(this);
 

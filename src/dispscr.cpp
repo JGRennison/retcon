@@ -1513,7 +1513,7 @@ void TweetURLHandler(wxWindow *win, wxString url, tweet_ptr_p td, panelparentwin
 			if (parent_mf) {
 				win = parent_mf;
 			}
-			new media_display_win(win, media_id);
+			new media_display_win(win, media_id, td);
 		}
 	} else if (url[0] == 'L') {
 		media_id_type media_id = ParseMediaID(url);

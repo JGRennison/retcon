@@ -32,7 +32,7 @@ struct media_display_win : public wxFrame {
 	std::unique_ptr<media_display_win_pimpl> pimpl;
 
 	public:
-	media_display_win(wxWindow *parent, media_id_type media_id_);
+	media_display_win(wxWindow *parent, media_id_type media_id_, optional_tweet_ptr_p src_tweet_);
 	~media_display_win();
 	void UpdateImage();
 	void NotifyVideoLoadSuccess(const std::string &url);

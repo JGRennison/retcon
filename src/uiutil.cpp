@@ -376,7 +376,7 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 			if (ad.media_list[media_id]->win) {
 				ad.media_list[media_id]->win->Raise();
 			} else {
-				new media_display_win(mainwin, media_id);
+				new media_display_win(mainwin, media_id, map[curid].tw);
 			}
 			break;
 		}
