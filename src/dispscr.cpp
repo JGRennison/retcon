@@ -1893,7 +1893,7 @@ void TweetRightClickHandler(generic_disp_base *win, wxMouseEvent &event, tweet_p
 				auto save_menu = [&](const wxString &title, std::string url, std::function<void(observer_ptr<media_entity>, wxString)> save_action) {
 					wxMenu *savemenu = new wxMenu;
 					menu.AppendSubMenu(savemenu, title);
-					me->FillSaveMenu(savemenu, win->dyn_menu_handlers, std::move(url), title, std::move(save_action));
+					me->FillSaveMenu(savemenu, win->dyn_menu_handlers, std::move(url), title, std::move(save_action), td);
 				};
 				if (me->video && me->video->variants.size() > 0) {
 					video_entity::video_variant *mp4 = nullptr;

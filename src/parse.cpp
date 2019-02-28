@@ -599,6 +599,7 @@ flagwrapper<genjsonparser::USERPARSERESULT> genjsonparser::ParseUserContents(con
 	bool disp_name_changed = false;
 	bool screen_name_changed = false;
 	bool img_changed = false;
+	bool rmsp_changed = false;
 	CheckTransJsonValueDefTrackChanges(disp_name_changed, userobj.name, val, "name", "");
 	CheckTransJsonValueDefTrackChanges(screen_name_changed, userobj.screen_name, val, "screen_name", "");
 	CheckTransJsonValueDefTrackChanges(changed, userobj.description, val, "description", "");
@@ -624,6 +625,16 @@ flagwrapper<genjsonparser::USERPARSERESULT> genjsonparser::ParseUserContents(con
 	}
 	if (flags & USERPARSEFLAGS::IS_DB_LOAD) {
 		CheckTransJsonValueDefTrackChanges(changed, userobj.notes, val, "retcon_notes", "");
+
+		auto &rmsps = val["retcon_rmsp"];
+		rapidjson::SizeType rmsp_length = rmsps.IsArray() ? rmsps.Size() : 0;
+		if (rmsp_length != userobj.recent_media_save_paths.size()) {
+			userobj.recent_media_save_paths.resize(rmsp_length);
+			rmsp_changed = true;
+		}
+		for (rapidjson::SizeType i = 0; i < rmsp_length; i++) {
+			CheckTransJsonValueDefTrackChanges(rmsp_changed, userobj.recent_media_save_paths[i], rmsps[i], nullptr, "");
+		}
 	}
 	flagwrapper<USERPARSERESULT> result = 0;
 	if (changed) {
@@ -638,7 +649,7 @@ flagwrapper<genjsonparser::USERPARSERESULT> genjsonparser::ParseUserContents(con
 	if (screen_name_changed) {
 		result |= USERPARSERESULT::SCREEN_NAME_CHANGED;
 	}
-	if (changed || img_changed || disp_name_changed || screen_name_changed) {
+	if (changed || img_changed || disp_name_changed || screen_name_changed || rmsp_changed) {
 		userobj.revision_number++;
 	}
 	return result;

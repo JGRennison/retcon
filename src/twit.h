@@ -133,6 +133,7 @@ struct userdata {
 	std::string userurl;
 
 	std::string notes;
+	std::vector<std::string> recent_media_save_paths;
 
 	//Any change to any other member of this struct, should increment this value
 	unsigned int revision_number = 0;
@@ -207,6 +208,8 @@ struct userdatacontainer {
 	void NotifyProfileImageChange();
 	void MakeProfileImageFailurePlaceholder();
 	const tweetidset &GetMentionSet() { return mention_set; }
+	void AddRecentMediaSavePath(std::string path);
+	void ClearRecentMediaSavePaths();
 
 	void intrusive_ptr_increment() {
 		refcount++;
@@ -607,12 +610,12 @@ struct media_entity {
 	void NotifyVideoLoadFailure(const std::string &url);
 	void CheckVideoLoadSaveActions(const std::string &url);
 	void StartFetchImageData();
-	void SaveToDir(const wxString &dir, const wxString &title, const wxString &url, std::function<void(observer_ptr<media_entity>, wxString)> save_action);
+	void SaveToDir(const wxString &dir, const wxString &title, const wxString &url, std::function<void(observer_ptr<media_entity>, wxString)> save_action, optional_tweet_ptr_p src_tweet);
 	void NotifyFullImageLoadSuccess();
 	void NotifyFullImageLoadFailure();
 	void CheckFullImageLoadSaveActions();
 	void FillSaveMenu(wxMenu * const menuF, dyn_menu_handler_set &dyn_menu_handlers, const std::string url,
-		const wxString &title, std::function<void(observer_ptr<media_entity>, wxString)> save_action);
+		const wxString &title, std::function<void(observer_ptr<media_entity>, wxString)> save_action, optional_tweet_ptr_p src_tweet);
 	static std::function<void(observer_ptr<media_entity>, wxString)> MakeFullImageSaver();
 	static std::function<void(observer_ptr<media_entity>, wxString)> MakeVideoSaver(const std::string &url);
 };

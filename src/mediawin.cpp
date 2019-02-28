@@ -532,7 +532,7 @@ void media_display_win_pimpl::AddSaveMenu(wxMenuBar *menuBar, const wxString &ti
 		if (!me) {
 			return;
 		}
-		me->FillSaveMenu(menuF, dyn_menu_handlers, url, title, save_action);
+		me->FillSaveMenu(menuF, dyn_menu_handlers, url, title, save_action, this->src_tweet);
 	});
 }
 
