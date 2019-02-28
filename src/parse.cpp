@@ -638,7 +638,7 @@ flagwrapper<genjsonparser::USERPARSERESULT> genjsonparser::ParseUserContents(con
 	if (screen_name_changed) {
 		result |= USERPARSERESULT::SCREEN_NAME_CHANGED;
 	}
-	if (changed || img_changed) {
+	if (changed || img_changed || disp_name_changed || screen_name_changed) {
 		userobj.revision_number++;
 	}
 	return result;
