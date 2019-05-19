@@ -7,6 +7,7 @@ q*	Is hidden in top-level account timeline only
 r*	Has been read
 s	Was retrieved over SSL
 u*	Is unread
+w	Is a retweet of a tweet from the same user
 B	Backed up to database
 D	Is a DM
 H*	Is highlighted

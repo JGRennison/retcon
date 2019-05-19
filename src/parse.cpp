@@ -1429,6 +1429,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 	}
 
 	std::string json;
+	uint64_t rtuser = 0;
 	if (!(sflags & JDTP::DEL)) {
 		if ((tobj->createtime == 0) || (sflags & JDTP::ALWAYSREPARSE)) {
 			// this is a better test than merely whether the tweet object is new
@@ -1449,6 +1450,17 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 				tobj->rtsrc = DoTweetParse(rtval, (sflags & JDTP::SAVE_MASK) | JDTP::ISRTSRC, out_of_date_state);
 				if (tobj->rtsrc) {
 					tobj->flags.Set('R');
+					if (tobj->rtsrc->user) {
+						rtuser = tobj->rtsrc->user->id;
+					} else {
+						const rapidjson::Value& userobj = rtval["user"];
+						if (userobj.IsObject()) {
+							const rapidjson::Value& useridval = userobj["id"];
+							if (useridval.IsUint64()) {
+								rtuser = useridval.GetUint64();
+							}
+						}
+					}
 				}
 			}
 		} else {
@@ -1492,6 +1504,7 @@ tweet_ptr jsonparser::DoTweetParse(const rapidjson::Value &val, flagwrapper<JDTP
 					if (tobj->user->udc_flags & UDC::THIS_IS_ACC_USER_HINT) {
 						tobj->flags.Set('O', true);
 					}
+					if (rtuser == userid) tobj->flags.Set('w', true);
 				}
 			}
 		} else {	//direct message

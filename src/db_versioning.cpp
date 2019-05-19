@@ -27,7 +27,7 @@
 #include "parse.h"
 #include <wx/msgdlg.h>
 
-static const unsigned int db_version = 11;
+static const unsigned int db_version = 12;
 
 static const char *update_sql[] = {
 	"ALTER TABLE mediacache ADD COLUMN lastusedtimestamp INTEGER;"
@@ -68,6 +68,9 @@ static const char *update_sql[] = {
 	,
 	nullptr
 	// added timelinehiddenids
+	,
+	nullptr
+	// SyncDoUpdates_SetTweetFlag_w should be run here
 };
 
 // return false if all bets are off and DB should not be read
@@ -100,6 +103,9 @@ bool dbconn::SyncDoUpdates(sqlite3 *adb) {
 			for (unsigned int i = current_db_version; i < db_version; i++) {
 				if (i == 9) {
 					SyncDoUpdates_FillTweetXrefTable(adb);
+				}
+				if (i == 11) {
+					SyncDoUpdates_SetTweetFlag_w(adb);
 				}
 
 				const char *sql = update_sql[i];
@@ -259,6 +265,37 @@ void dbconn::SyncDoUpdates_FillTweetXrefTable(sqlite3 *adb) {
 		}
 	}, db_throw_on_error("dbconn::SyncDoUpdates_FillTweetXrefTable (table scan)"));
 	LogMsg(LOGT::DBINFO, "dbconn::SyncDoUpdates_FillTweetXrefTable end");
+}
+
+void dbconn::SyncDoUpdates_SetTweetFlag_w(sqlite3 *adb) {
+	LogMsg(LOGT::DBINFO, "dbconn::SyncDoUpdates_SetTweetFlag_w start");
+
+	auto getrtuser = DBInitialiseSql(adb, "SELECT userid FROM tweets WHERE id == ?;");
+	auto updateflags = DBInitialiseSql(adb, "UPDATE tweets SET flags = ? WHERE id == ?;");
+
+	DBRowExec(adb, "SELECT id, rtid, userid, flags FROM tweets WHERE rtid > 0;", [&](sqlite3_stmt *getstmt) {
+		uint64_t id = (uint64_t) sqlite3_column_int64(getstmt, 0);
+		uint64_t rtid = (uint64_t) sqlite3_column_int64(getstmt, 1);
+		uint64_t userid = (uint64_t) sqlite3_column_int64(getstmt, 2);
+		uint64_t flags = (uint64_t) sqlite3_column_int64(getstmt, 3);
+
+		DBBindRowExec(adb, getrtuser.stmt(),
+			[&](sqlite3_stmt *stmt2) {
+				sqlite3_bind_int64(stmt2, 1, rtid);
+			},
+			[&](sqlite3_stmt *stmt2) {
+				uint64_t rtuserid = (uint64_t) sqlite3_column_int64(stmt2, 0);
+				if (rtuserid == userid) {
+					DBBindExec(adb, updateflags.stmt(), [&](sqlite3_stmt *updatestmt) {
+						sqlite3_bind_int64(updatestmt, 1, (sqlite3_int64) flags | tweet_flags::GetFlagValue('w'));
+						sqlite3_bind_int64(updatestmt, 2, id);
+					}, "dbconn::SyncDoUpdates_SetTweetFlag_w (flag update)");
+				}
+			},
+			"dbconn::SyncDoUpdates_SetTweetFlag_w (rt src)");
+	}, db_throw_on_error("dbconn::SyncDoUpdates_SetTweetFlag_w (rt scan)"));
+
+	LogMsg(LOGT::DBINFO, "dbconn::SyncDoUpdates_SetTweetFlag_w end");
 }
 
 // returns true if OK
