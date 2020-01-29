@@ -366,7 +366,7 @@ void adns::RemoveShareHndl() {
 
 //return true if has been handled asynchronously
 bool adns::CheckAsync(CURL *ch, std::unique_ptr<mcurlconn> &&cs) {
-	long timeout = -1;
+	long timeout = 120;
 	curl_easy_setopt(ch, CURLOPT_DNS_CACHE_TIMEOUT, timeout);
 	curl_easy_setopt(ch, CURLOPT_SHARE, GetHndl());
 
