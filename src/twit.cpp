@@ -326,14 +326,14 @@ void media_entity::FillSaveMenu(wxMenu * const menuF, dyn_menu_handler_set &dyn_
 	wxMenu *recent_menu = new wxMenu();
 	bool enable_recent_menu = false;
 	if (src_tweet) {
-		udc_ptr_p user = src_tweet->rtsrc && src_tweet->rtsrc->user ? src_tweet->rtsrc->user : src_tweet->user;
+		udc_ptr user = src_tweet->rtsrc && src_tweet->rtsrc->user ? src_tweet->rtsrc->user : src_tweet->user;
 		if (user && !user->user.recent_media_save_paths.empty()) {
 			enable_recent_menu = true;
 			for (auto &it : user->user.recent_media_save_paths) {
 				add_dyn_menu(recent_menu, wxT("Save to: ") + wxstrstd(it), wxstrstd(it));
 			}
 			recent_menu->AppendSeparator();
-			recent_menu->Append(dyn_menu_handlers.AddHandler([&](wxCommandEvent &e) {
+			recent_menu->Append(dyn_menu_handlers.AddHandler([user](wxCommandEvent &e) {
 				user->ClearRecentMediaSavePaths();
 			}), wxT("Clear recent from: ") + wxstrstd(user->user.screen_name));
 		}
