@@ -275,7 +275,7 @@ bool socketmanager::AddConn(CURL* ch, std::unique_ptr<mcurlconn> cs) {
 	connlist.push_back({ ch, std::move(cs) });
 
 	bool ret = (CURLM_OK == curl_multi_add_handle(curlmulti, ch));
-	curl_multi_socket_action(curlmulti, 0, 0, &curnumsocks);
+	curl_multi_socket_action(curlmulti, CURL_SOCKET_TIMEOUT, 0, &curnumsocks);
 	check_multi_info(&sm);
 	return ret;
 }
@@ -296,7 +296,7 @@ std::unique_ptr<mcurlconn> socketmanager::RemoveConn(CURL *ch) {
 			return false;
 		}
 	});
-	curl_multi_socket_action(curlmulti, 0, 0, &curnumsocks);
+	curl_multi_socket_action(curlmulti, CURL_SOCKET_TIMEOUT, 0, &curnumsocks);
 	return std::move(conn);
 }
 
