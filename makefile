@@ -198,11 +198,12 @@ endif
 OBJS := $(patsubst src/%.cpp,$(OBJDIR)/%.o,$(addprefix src/,$(OBJS_SRC)))
 TCOBJS := $(patsubst src/%.cpp,$(OBJDIR)/%.o,$(addprefix src/,$(TCOBJS_SRC)))
 COBJS := $(patsubst deps/%.c,$(OBJDIR)/deps/%.o,$(addprefix deps/,$(COBJS_SRC)))
-ROBJS := $(patsubst src/res/%.png,$(OBJDIR)/res/%.o,$(wildcard src/res/*.png) $(wildcard src/res/twemoji/16x16/*.png) $(wildcard src/res/twemoji/36x36/*.png))
+ROBJS := $(patsubst src/res/%.png,$(OBJDIR)/res/%.o,$(wildcard src/res/*.png))
+PACKROBJS := $(OBJDIR)/res/tw16.o $(OBJDIR)/res/tw36.o
 RTROBJS := $(patsubst %,$(OBJDIR)/rtres/%.o,$(RTROBJS_SRC))
 EXOBJS := $(patsubst %.c,$(OBJDIR)/deps/%.o,$(EXCOBJS_SRC))
 
-ALL_OBJS := $(OBJS) $(TCOBJS) $(COBJS) $(SPOBJS) $(ROBJS) $(RTROBJS) $(EXOBJS)
+ALL_OBJS := $(OBJS) $(TCOBJS) $(COBJS) $(SPOBJS) $(ROBJS) $(RTROBJS) $(EXOBJS) $(PACKROBJS)
 
 ifneq ($(ARCH),)
 CFLAGS2 += -march=$(ARCH)
@@ -256,6 +257,12 @@ $(COBJS): $(OBJDIR)/deps/%.o: deps/%.c
 $(TCOBJS): $(OBJDIR)/%.o: src/%.cpp
 	@echo '    g++     $<'
 	$(call EXEC,$(GCC) -c $< -o $@ $(CFLAGS) $(TCFLAGS) $(CFLAGS2) $(CXXFLAGS) $(GFLAGS) $(MAKEDEPS))
+
+$(OBJDIR)/res/tw16.o: $(patsubst src/res/%.png,$(OBJDIR)/res/%.o,$(wildcard src/res/twemoji/16x16/*.png))
+	$(LD) -r -relocatable $^ -o $@
+
+$(OBJDIR)/res/tw36.o: $(patsubst src/res/%.png,$(OBJDIR)/res/%.o,$(wildcard src/res/twemoji/36x36/*.png))
+	$(LD) -r -relocatable $^ -o $@
 
 ifeq "$(PLATFORM)" "WIN"
 LINKRES = $(GCC) -Wl,-r -Wl,-b,binary $< -o $@ -nostdlib
