@@ -857,7 +857,9 @@ END_EVENT_TABLE()
 //TODO: Fix string being converted twice for wxCommandEvent bundling
 
 void logevt_handler::OnThreadLogMsg(wxCommandEvent &event) {
-	LogMsg(flag_wrap<LOGT>(event.GetExtraLong()), stdstrwx(event.GetString()));
+	std::unique_ptr<std::string> msg(static_cast<std::string *>(event.GetClientData()));
+	event.SetClientData(0);
+	LogMsg(flag_wrap<LOGT>(event.GetExtraLong()), std::move(*msg));
 }
 
 logevt_handler the_logevt_handler;
@@ -873,7 +875,7 @@ void ThreadSafeLogMsg(LOGT logflags, const std::string &str) {
 
 void ThreadAlwaysLogMsg(LOGT logflags, const std::string &str) {
 	wxCommandEvent evt(wxextLOGEVT, wxextLOGEVT_ID_THREADLOGMSG);
-	evt.SetString(wxstrstd(str));	//prevent any COW semantics
+	evt.SetClientData(new std::string(str));
 	evt.SetExtraLong(flag_unwrap<LOGT>(logflags));
 	the_logevt_handler.AddPendingEvent(evt);
 }
