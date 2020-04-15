@@ -133,7 +133,7 @@ std::string LogMsgFlagString(LOGT logflags) {
 	return out;
 }
 
-void LogMsgProcess(LOGT logflags, const std::string &str) {
+void LogMsgProcess(LOGT logflags, std::string in) {
 	time_t now = time(nullptr);
 	unsigned int ms;
 	#ifdef __WINDOWS__
@@ -147,7 +147,6 @@ void LogMsgProcess(LOGT logflags, const std::string &str) {
 	#endif
 	std::string time_str = rc_strftime(string_format("%%F %%T.%03d %%z", ms), localtime(&now), now, true);
 	std::string flag_str = LogMsgFlagString(logflags) + ":";
-	std::string in = str;
 	in.erase(std::find_if(in.rbegin(), in.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), in.end());
 
 	#ifndef __WINDOWS__
@@ -864,18 +863,18 @@ void logevt_handler::OnThreadLogMsg(wxCommandEvent &event) {
 
 logevt_handler the_logevt_handler;
 
-void ThreadSafeLogMsg(LOGT logflags, const std::string &str) {
+void ThreadSafeLogMsg(LOGT logflags, std::string str) {
 	if (wxThread::IsMain()) {
-		LogMsg(logflags, str);
+		LogMsg(logflags, std::move(str));
 		return;
 	}
 
-	ThreadAlwaysLogMsg(logflags, str);
+	ThreadAlwaysLogMsg(logflags, std::move(str));
 }
 
-void ThreadAlwaysLogMsg(LOGT logflags, const std::string &str) {
+void ThreadAlwaysLogMsg(LOGT logflags, std::string str) {
 	wxCommandEvent evt(wxextLOGEVT, wxextLOGEVT_ID_THREADLOGMSG);
-	evt.SetClientData(new std::string(str));
+	evt.SetClientData(new std::string(std::move(str)));
 	evt.SetExtraLong(flag_unwrap<LOGT>(logflags));
 	the_logevt_handler.AddPendingEvent(evt);
 }
