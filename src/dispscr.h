@@ -59,6 +59,7 @@ enum class TDSF {    //for tweetdispscr.tds_flags
 	CANLOADMOREREPLIES    = 1<<4,
 	INSERTEDPANELIDREFS   = 1<<5,
 	DELETED               = 1<<6,
+	TEXTHIDEOVERRIDE      = 1<<7,
 };
 template<> struct enum_traits<TDSF> { static constexpr bool flags = true; };
 
@@ -226,6 +227,8 @@ struct tweetdispscr : public dispscr_base {
 	void unhideimageoverridetimeouthandler(wxTimerEvent &event);
 	void unhideimageoverridetimeoutexec();
 	void unhideimageoverridestarttimeout();
+	void unhidetext();
+	void rehidetext();
 
 	virtual tweet_ptr GetTweet() const override { return td; }
 	virtual tweetdispscr *GetTDS() override { return this; }

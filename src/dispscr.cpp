@@ -428,8 +428,15 @@ void TweetReplaceStringSeq(std::function<void(const char *, size_t)> func, const
 	func(&str[start_offset], end_offset - start_offset);
 }
 
+enum class DWS_MODE {
+	ZERO                   = 0,
+	HIDDEN                 = 1<<0,
+	NON_EMPTY              = 1<<1,
+};
+template<> struct enum_traits<DWS_MODE> { static constexpr bool flags = true; };
+
 //use -1 for end to run until end of string
-static void DoWriteSubstr(commonRichTextCtrl &td, const std::string &str, int start, int end, int &track_byte, int &track_index, bool trim) {
+static void DoWriteSubstr(commonRichTextCtrl &td, const std::string &str, int start, int end, int &track_byte, int &track_index, bool trim, DWS_MODE &dws_mode) {
 	std::string output;
 	TweetReplaceStringSeq([&](const char *s, size_t len) {
 		output.append(s, len);
@@ -441,6 +448,8 @@ static void DoWriteSubstr(commonRichTextCtrl &td, const std::string &str, int st
 
 	auto tpg = tpanelglobal::Get();
 	if (!output.empty()) {
+		dws_mode |= DWS_MODE::NON_EMPTY;
+		if (dws_mode & DWS_MODE::HIDDEN) return;
 		bool prev_supress_insert_check = td.supress_insert_check;
 		td.supress_insert_check = true;
 		EmojiParseString(
@@ -461,7 +470,8 @@ static void DoWriteSubstr(commonRichTextCtrl &td, const std::string &str, int st
 void WriteToRichTextCtrlWithEmojis(commonRichTextCtrl &td, const std::string &str) {
 	int track_byte = 0;
 	int track_index = 0;
-	DoWriteSubstr(td, str, 0, str.size(), track_byte, track_index, true);
+	DWS_MODE mode = DWS_MODE::ZERO;
+	DoWriteSubstr(td, str, 0, str.size(), track_byte, track_index, true, mode);
 }
 
 inline void GenFlush(generic_disp_base *obj, wxString &str) {
@@ -796,6 +806,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 			case 'c': {
 				flush();
 				if (me_list) {
+					DWS_MODE mode = (tw.flags.Get('e') && !(tds_flags & TDSF::TEXTHIDEOVERRIDE)) ? DWS_MODE::HIDDEN : DWS_MODE::ZERO;
 					tweet &twgen = (format[i] == 'c' && tw.rtsrc && gc.rtdisp) ? *(tw.rtsrc) : tw;
 					wxString urlcodeprefix = (format[i] == 'c' && tw.rtsrc && gc.rtdisp) ? wxT("R") : wxT("");
 					unsigned int nextoffset = 0;
@@ -807,7 +818,7 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 					int last_end = -1;
 					for (auto it = twgen.entlist.begin(); it != twgen.entlist.end(); it++, entnum++) {
 						entity &et = *it;
-						DoWriteSubstr(*obj, twgen.text, nextoffset, et.start, track_byte, track_index, false);
+						DoWriteSubstr(*obj, twgen.text, nextoffset, et.start, track_byte, track_index, false, mode);
 
 						// This is to de-duplicate entities which have the same start and end points
 						// In particular this is the case for DMs with embedded media, which have
@@ -816,11 +827,14 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 						// Discard all but the first one.
 						if (last_start != et.start || last_end != et.end) {
 							if (!((et.type == ENT_MEDIA || et.type == ENT_URL_IMG) && !gc.showmeurls)) {
-								obj->BeginUnderline();
-								obj->BeginURL(urlcodeprefix + wxString::Format(wxT("%d"), entnum));
-								obj->WriteText(wxstrstd(et.text));
-								obj->EndURL();
-								obj->EndUnderline();
+								mode |= DWS_MODE::NON_EMPTY;
+								if (!(mode & DWS_MODE::HIDDEN)) {
+									obj->BeginUnderline();
+									obj->BeginURL(urlcodeprefix + wxString::Format(wxT("%d"), entnum));
+									obj->WriteText(wxstrstd(et.text));
+									obj->EndURL();
+									obj->EndUnderline();
+								}
 							}
 							last_start = et.start;
 							last_end = et.end;
@@ -844,7 +858,23 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 							me_list->push_back(&me);
 						}
 					}
-					DoWriteSubstr(*obj, twgen.text, nextoffset, -1, track_byte, track_index, true);
+					DoWriteSubstr(*obj, twgen.text, nextoffset, -1, track_byte, track_index, true, mode);
+					if (tw.flags.Get('e') && mode & DWS_MODE::NON_EMPTY) {
+						if (mode & DWS_MODE::HIDDEN) {
+							obj->BeginURL(wxT("Xe"));
+							obj->BeginUnderline();
+							obj->WriteText(wxT("..."));
+							obj->EndUnderline();
+							obj->EndURL();
+						} else {
+							obj->WriteText(wxT(" "));
+							obj->BeginURL(wxT("XE"));
+							obj->BeginUnderline();
+							obj->WriteText(wxT("[Hide]"));
+							obj->EndUnderline();
+							obj->EndURL();
+						}
+					}
 				}
 				break;
 			}
@@ -1455,6 +1485,20 @@ void tweetdispscr::unhideimageoverridestarttimeout() {
 	}
 }
 
+void tweetdispscr::unhidetext() {
+	if (!(tds_flags & TDSF::TEXTHIDEOVERRIDE)) {
+		tds_flags |= TDSF::TEXTHIDEOVERRIDE;
+		DisplayTweet(false);
+	}
+}
+
+void tweetdispscr::rehidetext() {
+	if (tds_flags & TDSF::TEXTHIDEOVERRIDE) {
+		tds_flags &= ~TDSF::TEXTHIDEOVERRIDE;
+		DisplayTweet(false);
+	}
+}
+
 void tweetdispscr::PanelInsertEvt() {
 	dispscr_base::PanelInsertEvt();
 	if (!(tds_flags & TDSF::INSERTEDPANELIDREFS)) {
@@ -1745,6 +1789,22 @@ void TweetURLHandler(wxWindow *win, wxString url, tweet_ptr_p td, panelparentwin
 				tweetdispscr *tds = dynamic_cast<tweetdispscr *>(win);
 				if (tds) {
 					tds->unhideimageoverridetimeoutexec();
+				}
+				break;
+			}
+
+			case 'e': {
+				tweetdispscr *tds = dynamic_cast<tweetdispscr *>(win);
+				if (tds) {
+					tds->unhidetext();
+				}
+				break;
+			}
+
+			case 'E': {
+				tweetdispscr *tds = dynamic_cast<tweetdispscr *>(win);
+				if (tds) {
+					tds->rehidetext();
 				}
 				break;
 			}
