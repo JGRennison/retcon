@@ -199,6 +199,7 @@ OBJS := $(patsubst src/%.cpp,$(OBJDIR)/%.o,$(addprefix src/,$(OBJS_SRC)))
 TCOBJS := $(patsubst src/%.cpp,$(OBJDIR)/%.o,$(addprefix src/,$(TCOBJS_SRC)))
 COBJS := $(patsubst deps/%.c,$(OBJDIR)/deps/%.o,$(addprefix deps/,$(COBJS_SRC)))
 ROBJS := $(patsubst src/res/%.png,$(OBJDIR)/res/%.o,$(wildcard src/res/*.png))
+PSRCROBJS := $(patsubst src/res/%.png,$(OBJDIR)/res/%.o,$(wildcard src/res/twemoji/16x16/*.png) $(wildcard src/res/twemoji/36x36/*.png))
 PACKROBJS := $(OBJDIR)/res/tw16.o $(OBJDIR)/res/tw36.o
 RTROBJS := $(patsubst %,$(OBJDIR)/rtres/%.o,$(RTROBJS_SRC))
 EXOBJS := $(patsubst %.c,$(OBJDIR)/deps/%.o,$(EXCOBJS_SRC))
@@ -271,10 +272,10 @@ LINKRES = $(LD) -r -b binary $< -o $@
 endif
 OBJCOPYRES = objcopy --rename-section .data=.rodata,alloc,load,readonly,data,contents $@ $@
 
-$(ROBJS): $(OBJDIR)/%.o: src/%.png
+$(ROBJS) $(PSRCROBJS): $(OBJDIR)/%.o: src/%.png
 $(RTROBJS): $(OBJDIR)/rtres/%.o: %
 
-$(ROBJS) $(RTROBJS):
+$(ROBJS) $(PSRCROBJS) $(RTROBJS):
 	$(call EXEC,$(LINKRES))
 	$(call EXEC,$(OBJCOPYRES))
 
