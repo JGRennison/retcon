@@ -659,6 +659,7 @@ settings_window::settings_window(wxWindow* parent, wxWindowID id, const wxString
 
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs, wxT("Max no. of items to display in panel"), DBCV::ISGLOBALCFG, gc.gcfg.maxtweetsdisplayinpanel, gcglobdefaults.maxtweetsdisplayinpanel, wxFILTER_NUMERIC);
 	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs,  wxT("Display Native Re-Tweets"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.rtdisp, gcglobdefaults.rtdisp);
+	AddSettingRow_Bool(OPTWIN_DISPLAY, panel, fgs,  wxT("Show URLs for media entities"), DBCV::ISGLOBALCFG | DBCV::ADVOPTION, gc.gcfg.showmeurls, gcglobdefaults.showmeurls);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("No. of inline tweet replies"), DBCV::ISGLOBALCFG, gc.gcfg.inlinereplyloadcount, gcglobdefaults.inlinereplyloadcount, wxFILTER_NUMERIC);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("No. of inline tweet replies to load on request"), DBCV::ISGLOBALCFG, gc.gcfg.inlinereplyloadmorecount, gcglobdefaults.inlinereplyloadmorecount, wxFILTER_NUMERIC);
 	AddSettingRow_String(OPTWIN_DISPLAY, panel, fgs,  wxT("Max quoted tweet recursion depth"), DBCV::ISGLOBALCFG, gc.gcfg.tweet_quote_recursion_max_depth, gcglobdefaults.tweet_quote_recursion_max_depth, wxFILTER_NUMERIC);

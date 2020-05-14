@@ -54,6 +54,7 @@ genoptconf gcdefaults {
 #define CFGDEFAULT_cachethumbs                              wxT("1")
 #define CFGDEFAULT_cachemedia                               wxT("0")
 #define CFGDEFAULT_rtdisp                                   wxT("1")
+#define CFGDEFAULT_showmeurls                               wxT("0")
 #define CFGDEFAULT_assumementionistweet                     wxT("0")
 #define CFGDEFAULT_mouseover_tweetdispformat                wxT("XmXiXrXtXfXd")
 #define CFGDEFAULT_mouseover_dmdispformat                   wxT("XiXd")

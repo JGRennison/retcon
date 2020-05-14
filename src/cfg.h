@@ -84,6 +84,7 @@ struct genoptconf {
 	CFGTEMPL_BOOL(cachethumbs) \
 	CFGTEMPL_BOOL(cachemedia) \
 	CFGTEMPL_BOOL(rtdisp) \
+	CFGTEMPL_BOOL(showmeurls) \
 	CFGTEMPL_BOOL(assumementionistweet) \
 	CFGTEMPL(mouseover_tweetdispformat) \
 	CFGTEMPL(mouseover_dmdispformat) \

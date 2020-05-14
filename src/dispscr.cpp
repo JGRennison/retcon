@@ -815,11 +815,13 @@ void TweetFormatProc(generic_disp_base *obj, const wxString &format, tweet &tw, 
 						// with multiple attached media using extended_entities
 						// Discard all but the first one.
 						if (last_start != et.start || last_end != et.end) {
-							obj->BeginUnderline();
-							obj->BeginURL(urlcodeprefix + wxString::Format(wxT("%d"), entnum));
-							obj->WriteText(wxstrstd(et.text));
-							obj->EndURL();
-							obj->EndUnderline();
+							if (!((et.type == ENT_MEDIA || et.type == ENT_URL_IMG) && !gc.showmeurls)) {
+								obj->BeginUnderline();
+								obj->BeginURL(urlcodeprefix + wxString::Format(wxT("%d"), entnum));
+								obj->WriteText(wxstrstd(et.text));
+								obj->EndURL();
+								obj->EndUnderline();
+							}
 							last_start = et.start;
 							last_end = et.end;
 						}
