@@ -2982,7 +2982,6 @@ void dbconn::SyncWriteBackUserRelationships(sqlite3 *adb) {
 			if (!(flags & (URF::FOLLOWSME_TRUE | URF::IFOLLOW_TRUE | URF::FOLLOWSME_PENDING | URF::IFOLLOW_PENDING))) {
 				continue;
 			}
-			flags &= ~URF::QUERY_PENDING;
 
 			DBBindExec(adb, s.stmt(),
 				[&](sqlite3_stmt *stmt) {

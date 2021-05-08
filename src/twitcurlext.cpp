@@ -852,11 +852,23 @@ void twitcurlext_friendlookup::HandleFailureHandler(const std::shared_ptr<taccou
 }
 
 std::string twitcurlext_friendlookup::GetConnTypeNameBase() {
-	return "Friend/follower lookup";
+	return string_format("Friend/follower lookup: %u IDs", (uint)fl->ids.size());
 }
 
 void twitcurlext_friendlookup::HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) {
 	genericGet(fl->GetTwitterURL());
+}
+
+twitcurlext_friendlookup::~twitcurlext_friendlookup() {
+	using URF = user_relationship::URF;
+	if (auto acc = tacc.lock()) {
+		for (uint64_t id : fl->ids) {
+			auto rel = acc->user_relations.find(id);
+			if (rel != acc->user_relations.end()) {
+				rel->second.ur_flags  &= ~URF::QUERY_PENDING;
+			}
+		}
+	}
 }
 
 /* * * * * * * * * * * * * * * */

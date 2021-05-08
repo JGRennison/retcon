@@ -139,7 +139,6 @@ void taccount::SetUserRelationship(uint64_t userid, flagwrapper<user_relationshi
 		ur.ur_flags |= URF::IFOLLOW_KNOWN | (flags&(URF::IFOLLOW_TRUE | URF::IFOLLOW_PENDING));
 		ur.ifollow_updtime = optime;
 	}
-	ur.ur_flags &= ~URF::QUERY_PENDING;
 }
 
 bool taccount::IsFollowingUser(uint64_t userid) {
@@ -162,34 +161,30 @@ void taccount::LookupFriendships(uint64_t userid) {
 			return;	//already being looked up, don't repeat query
 		}
 		fl->ids.insert(userid);
+		user_relations[userid].ur_flags |= URF::QUERY_PENDING;
 	}
 
 	bool opportunist = true;
 
 	if (opportunist) {
 		//find out more if users are followed by us or otherwise have a relationship with us
+
+		time_t threshold = time(nullptr) - (7 * 24 * 60 * 60); // last checked 7 days ago
+		auto check_update_time = [&](time_t t) -> bool {
+			return t > 0 && t < threshold;
+		};
 		for (auto it = user_relations.begin(); it != user_relations.end() && fl->ids.size() < 100; ++it) {
 			if (it->second.ur_flags & URF::QUERY_PENDING) {
 				continue;
 			}
-			if (!(it->second.ur_flags & URF::FOLLOWSME_KNOWN) || !(it->second.ur_flags & URF::IFOLLOW_KNOWN)) {
+			if (!(it->second.ur_flags & URF::FOLLOWSME_KNOWN) || !(it->second.ur_flags & URF::IFOLLOW_KNOWN)
+					|| check_update_time(it->second.followsme_updtime) || check_update_time(it->second.ifollow_updtime)) {
 				udc_ptr usp = ad.GetExistingUserContainerById(it->first);
 				if (!(usp && usp->GetUser().u_flags & userdata::UF::ISDEAD)) {
 					fl->ids.insert(it->first);
 					it->second.ur_flags |= URF::QUERY_PENDING;
 				}
 			}
-		}
-
-		//fill up the rest of the query with users who we don't know if we have a relationship with
-		for (auto it = ad.userconts.begin(); it != ad.userconts.end() && fl->ids.size() < 100; ++it) {
-			if (it->second->GetUser().u_flags & userdata::UF::ISDEAD) {
-				continue;
-			}
-			if (user_relations.find(it->first) == user_relations.end()) {
-				fl->ids.insert(it->first);
-			}
-			user_relations[it->first].ur_flags |= URF::QUERY_PENDING;
 		}
 	}
 

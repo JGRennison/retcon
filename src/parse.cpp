@@ -684,6 +684,15 @@ void jsonparser::RestTweetPreParseUpdateParams(optional_observer_ptr<restbackfil
 }
 
 void jsonparser::DoFriendLookupParse(const rapidjson::Value &val) {
+	if (currentlogflags & LOGT::PARSE) {
+		std::string json;
+		writestream wr(json);
+		Handler jw(wr);
+		val.Accept(jw);
+
+		LogMsgFormat(LOGT::PARSE, "jsonparser::DoFriendLookupParse: IDs: %u, %s", val.IsArray() ? (uint)val.Size() : 0, cstr(json));
+	}
+
 	using URF = user_relationship::URF;
 	time_t optime = (tac->ta_flags & taccount::TAF::STREAM_UP) ? 0 : time(nullptr);
 	if (val.IsArray()) {

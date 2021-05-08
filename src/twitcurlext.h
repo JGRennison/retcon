@@ -258,6 +258,7 @@ struct twitcurlext_friendlookup: public twitcurlext {
 	virtual void HandleFailureHandler(const std::shared_ptr<taccount> &acc, HandleFailureState &state) override;
 	virtual std::string GetConnTypeNameBase() override;
 	virtual void HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc, std::unique_ptr<mcurlconn> &&this_owner) override;
+	~twitcurlext_friendlookup();
 };
 
 struct twitcurlext_userlookupwin: public twitcurlext {
