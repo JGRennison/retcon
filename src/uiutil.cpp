@@ -557,6 +557,12 @@ void TweetActMenuAction(tweetactmenudata &map, int curid, mainframe *mainwin) {
 			break;
 		}
 
+		case TAMI_PANEL_FILTER_USER: {
+			tpanelparentwin_nt *tppw = static_cast<tpanelparentwin_nt *>(map[curid].ppwb);
+			tppw->ShowFilterDialogForUser(map[curid].user);
+			break;
+		}
+
 		case TAMI_NULL: {
 			break;
 		}

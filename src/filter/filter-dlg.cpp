@@ -361,3 +361,7 @@ void filter_dlg::ExecFilter() {
 		});
 	}
 }
+
+void filter_dlg::SetFilterText(wxString text) {
+	fdg->apply_filter_txt = text;
+}

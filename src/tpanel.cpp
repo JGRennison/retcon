@@ -867,16 +867,16 @@ tweetdispscr *tpanelparentwin_nt_impl::CreateTweetInItem(tweet_ptr_p t, tpanel_d
 
 	if (t->flags.Get('T')) {
 		if (t->rtsrc && gc.rtdisp) {
-			td->bm = new profimg_staticbitmap(item, t->rtsrc->user->cached_profile_img, t->rtsrc->user, t, GetMainframe());
+			td->bm = new profimg_staticbitmap(item, t->rtsrc->user->cached_profile_img, t->rtsrc->user, t, GetMainframe(), 0, base());
 		} else {
-			td->bm = new profimg_staticbitmap(item, t->user->cached_profile_img, t->user, t, GetMainframe());
+			td->bm = new profimg_staticbitmap(item, t->user->cached_profile_img, t->user, t, GetMainframe(), 0, base());
 		}
 		item->hbox->Prepend(td->bm, 0, wxALL, 2);
 	} else if (t->flags.Get('D') && t->user_recipient) {
 			t->user->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
 			t->user_recipient->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
-			td->bm = new profimg_staticbitmap(item, t->user->cached_profile_img_half, t->user, t, GetMainframe(), profimg_staticbitmap::PISBF::HALF);
-			td->bm2 = new profimg_staticbitmap(item, t->user_recipient->cached_profile_img_half, t->user_recipient, t, GetMainframe(), profimg_staticbitmap::PISBF::HALF);
+			td->bm = new profimg_staticbitmap(item, t->user->cached_profile_img_half, t->user, t, GetMainframe(), profimg_staticbitmap::PISBF::HALF, base());
+			td->bm2 = new profimg_staticbitmap(item, t->user_recipient->cached_profile_img_half, t->user_recipient, t, GetMainframe(), profimg_staticbitmap::PISBF::HALF, base());
 			int dim = gc.maxpanelprofimgsize / 2;
 			if (tpg->arrow_dim != dim) {
 				tpg->arrow = GetArrowIconDim(dim);
@@ -958,11 +958,11 @@ tweetdispscr *tpanelparentwin_nt_impl::CreateSubTweetInItemHbox(tweet_ptr_p t, t
 	if (t->rtsrc && gc.rtdisp) {
 		t->rtsrc->user->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
 		subtd->bm = new profimg_staticbitmap(parent, t->rtsrc->user->cached_profile_img_half, t->rtsrc->user, t, base()->GetMainframe(),
-				profimg_staticbitmap::PISBF::HALF);
+				profimg_staticbitmap::PISBF::HALF, base());
 	} else {
 		t->user->ImgHalfIsReady(PENDING_REQ::PROFIMG_DOWNLOAD);
 		subtd->bm = new profimg_staticbitmap(parent, t->user->cached_profile_img_half, t->user, t, base()->GetMainframe(),
-				profimg_staticbitmap::PISBF::HALF);
+				profimg_staticbitmap::PISBF::HALF, base());
 	}
 	subhbox->Add(subtd->bm, 0, wxALL, 1);
 	subhbox->Add(subtd->vbox, 1, wxEXPAND, 0);
@@ -1716,6 +1716,19 @@ bool tpanelparentwin_nt::ShouldHideTimelineOnlyTweet(tweet_ptr_p t) const {
 	return pimpl()->tp->ShouldHideTimelineOnlyTweet(t);
 }
 
+void tpanelparentwin_nt::ShowFilterDialogForUser(udc_ptr_p u) {
+	pimpl()->ShowFilterDialogForUser(u);
+}
+
+void tpanelparentwin_nt_impl::ShowFilterDialogForUser(udc_ptr_p u) {
+	filter_dlg *fdg = new filter_dlg(base(), wxID_ANY, [this]() -> const tweetidset * {
+		return &(tp->tweetlist);
+	}, tp->dispname);
+	fdg->SetFilterText(wxString::Format(wxT("if anyuser.id ^%" wxLongLongFmtSpec "d$\nfi\n"), u->id));
+	fdg->ShowModal();
+	fdg->Destroy();
+}
+
 void tpanelparentwin_nt::IncTweetIDRefCounts(uint64_t tid, uint64_t rtid) {
 	pimpl()->tweetid_count_map[tid]++;
 	pimpl()->all_tweetid_count_map[tid]++;
@@ -2161,7 +2174,7 @@ bool tpanelparentwin_user_impl::UpdateUser(udc_ptr_p u) {
 		userdispscr *td = new userdispscr(u, item, base(), item->hbox);
 		tpdi->disp = td;
 
-		td->bm = new profimg_staticbitmap(item, u->cached_profile_img, u, nullptr, GetMainframe());
+		td->bm = new profimg_staticbitmap(item, u->cached_profile_img, u, nullptr, GetMainframe(), 0, base());
 		item->hbox->Prepend(td->bm, 0, wxALL, 2);
 
 		item->vbox->Add(td, 1, wxLEFT | wxRIGHT | wxEXPAND, 2);

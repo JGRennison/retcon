@@ -48,6 +48,7 @@ class filter_dlg : public wxDialog {
 	void ApplyLimit();
 	void OnOK(wxCommandEvent &event);
 	void ExecFilter();
+	void SetFilterText(wxString text);
 
 	DECLARE_EVENT_TABLE()
 };

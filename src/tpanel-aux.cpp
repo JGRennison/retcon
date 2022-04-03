@@ -341,8 +341,8 @@ BEGIN_EVENT_TABLE(profimg_staticbitmap, wxStaticBitmap)
 	EVT_MENU_RANGE(tweetactmenustartid, tweetactmenuendid, profimg_staticbitmap::OnTweetActMenuCmd)
 END_EVENT_TABLE()
 
-profimg_staticbitmap::profimg_staticbitmap(wxWindow* parent, const wxBitmap& label, udc_ptr udc_, tweet_ptr t_, mainframe *owner_, flagwrapper<PISBF> flags)
-		: wxStaticBitmap(parent, wxID_ANY, label, wxPoint(-1000, -1000)), udc(std::move(udc_)), t(std::move(t_)), owner(owner_), pisb_flags(flags) {
+profimg_staticbitmap::profimg_staticbitmap(wxWindow* parent, const wxBitmap& label, udc_ptr udc_, tweet_ptr t_, mainframe *owner_, flagwrapper<PISBF> flags, panelparentwin_base *tppw_)
+		: wxStaticBitmap(parent, wxID_ANY, label, wxPoint(-1000, -1000)), udc(std::move(udc_)), t(std::move(t_)), owner(owner_), pisb_flags(flags), tppw(tppw_) {
 	udc->profile_img_last_used = time(nullptr);
 }
 
@@ -363,7 +363,7 @@ void profimg_staticbitmap::RightClickHandler(wxMouseEvent &event) {
 		wxMenu menu;
 		int nextid = tweetactmenustartid;
 		tamd.clear();
-		AppendUserMenuItems(menu, tamd, nextid, udc, t);
+		AppendUserMenuItems(menu, tamd, nextid, udc, t, this->tppw);
 		GenericPopupWrapper(this, &menu);
 	}
 }

@@ -41,6 +41,7 @@ struct profimg_staticbitmap : public wxStaticBitmap {
 	udc_ptr udc;
 	tweet_ptr t; // This may be nullptr
 	mainframe *owner;
+	panelparentwin_base *tppw;
 
 	enum class PISBF {
 		HALF                = 1<<0,
@@ -48,7 +49,7 @@ struct profimg_staticbitmap : public wxStaticBitmap {
 	};
 	flagwrapper<PISBF> pisb_flags;
 
-	profimg_staticbitmap(wxWindow* parent, const wxBitmap& label, udc_ptr udc_, tweet_ptr t_, mainframe *owner_ = nullptr, flagwrapper<PISBF> flags = 0);
+	profimg_staticbitmap(wxWindow* parent, const wxBitmap& label, udc_ptr udc_, tweet_ptr t_, mainframe *owner_ = nullptr, flagwrapper<PISBF> flags = 0, panelparentwin_base *tppw_ = nullptr);
 	~profimg_staticbitmap();
 	void ClickHandler(wxMouseEvent &event);
 	void RightClickHandler(wxMouseEvent &event);

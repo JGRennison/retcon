@@ -1877,7 +1877,7 @@ void tweetdispscr::urlhandler(wxString url) {
 	TweetURLHandler(this, url, td, tppw);
 }
 
-void AppendUserMenuItems(wxMenu &menu, tweetactmenudata &map, int &nextid, udc_ptr user, tweet_ptr tw) {
+void AppendUserMenuItems(wxMenu &menu, tweetactmenudata &map, int &nextid, udc_ptr user, tweet_ptr tw, panelparentwin_base *tppw) {
 	menu.Append(nextid, wxT("Open User Window"));
 	AppendToTAMIMenuMap(map, nextid, TAMI_USERWINDOW, tw, 0, user);
 
@@ -1906,6 +1906,12 @@ void AppendUserMenuItems(wxMenu &menu, tweetactmenudata &map, int &nextid, udc_p
 	wxString useridstr = wxString::Format(wxT("%" wxLongLongFmtSpec "d"), user->id);
 	menu.Append(nextid, wxString::Format(wxT("Copy User ID (%s) to Clipboard"), useridstr.c_str()));
 	AppendToTAMIMenuMap(map, nextid, TAMI_COPYEXTRA, tw, 0, user, 0, useridstr);
+
+	tpanelparentwin_nt *tppw_nt = dynamic_cast<tpanelparentwin_nt *>(tppw);
+	if (tppw_nt) {
+		menu.Append(nextid, wxT("Filter panel tweets from this user"));
+		AppendToTAMIMenuMap(map, nextid, TAMI_PANEL_FILTER_USER, tw, 0, user, 0, wxT(""), tppw_nt);
+	}
 }
 
 void TweetRightClickHandler(generic_disp_base *win, wxMouseEvent &event, tweet_ptr_p td) {
@@ -1985,7 +1991,7 @@ void TweetRightClickHandler(generic_disp_base *win, wxMouseEvent &event, tweet_p
 			uint64_t userid = ParseUrlID(url);
 			if (userid) {
 				udc_ptr user = ad.GetUserContainerById(userid);
-				AppendUserMenuItems(menu, tamd, nextid, user, td);
+				AppendUserMenuItems(menu, tamd, nextid, user, td, win->tppw);
 				GenericPopupWrapper(win, &menu);
 			}
 		} else if (url[0] == 'W') {
@@ -2022,7 +2028,7 @@ void TweetRightClickHandler(generic_disp_base *win, wxMouseEvent &event, tweet_p
 							GenericPopupWrapper(win, &menu);
 						break;
 						case ENT_MENTION: {
-							AppendUserMenuItems(menu, tamd, nextid, et.user, td);
+							AppendUserMenuItems(menu, tamd, nextid, et.user, td, win->tppw);
 							GenericPopupWrapper(win, &menu);
 							break;
 						}

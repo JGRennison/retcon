@@ -253,7 +253,7 @@ struct userdispscr : public dispscr_base {
 	DECLARE_EVENT_TABLE()
 };
 
-void AppendUserMenuItems(wxMenu &menu, tweetactmenudata &map, int &nextid, udc_ptr user, tweet_ptr tw);
+void AppendUserMenuItems(wxMenu &menu, tweetactmenudata &map, int &nextid, udc_ptr user, tweet_ptr tw, panelparentwin_base *tppw);
 void TweetReplaceStringSeq(std::function<void(const char *, size_t)> func, const std::string &str, int start, int end, int &track_byte, int &track_index);
 void WriteToRichTextCtrlWithEmojis(commonRichTextCtrl &td, const std::string &str);
 

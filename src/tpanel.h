@@ -103,6 +103,7 @@ struct tpanelparentwin_nt : public panelparentwin_base {
 	void GenericAction(std::function<void(tpanelparentwin_nt *)> func);
 	std::shared_ptr<tpanel> GetTP();
 	bool ShouldHideTimelineOnlyTweet(tweet_ptr_p t) const;
+	void ShowFilterDialogForUser(udc_ptr_p u);
 
 	//These are for TweetActMenuAction
 	void MarkSetRead(tweetidset &&subset, optional_observer_ptr<undo::item> undo_item);

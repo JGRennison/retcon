@@ -85,6 +85,7 @@ typedef enum {
 	TAMI_DMSETPANEL,
 	TAMI_DBG_FORCERELOAD,
 	TAMI_COPY_DEBUG_INFO,
+	TAMI_PANEL_FILTER_USER,
 } TAMI_TYPE;
 
 struct tweetactmenuitem {

@@ -167,6 +167,7 @@ struct tpanelparentwin_nt_impl : public panelparentwin_base_impl {
 	void RecalculateDisplayOffset();
 	void SetTpanelIntersectionFlags(flagwrapper<TPF_INTERSECT> intersect_flags_);
 	virtual flagwrapper<TPANEL_IS_ACC_TIMELINE> IsAccountTimelineOnlyWin() const override;
+	void ShowFilterDialogForUser(udc_ptr_p u);
 
 	DECLARE_EVENT_TABLE()
 };
