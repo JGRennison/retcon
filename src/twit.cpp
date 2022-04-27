@@ -248,6 +248,15 @@ void media_entity::SaveToDir(const wxString &dir, const wxString &title, const w
 	if (hint.EndsWith(wxT(":large"), &newhint)) {
 		hint = newhint;
 	}
+	if (src_tweet) {
+		udc_ptr_p user = src_tweet->rtsrc && src_tweet->rtsrc->user ? src_tweet->rtsrc->user : src_tweet->user;
+		if (user && user->GetUser().IsValid()) {
+			wxString current = hint;
+			hint = wxstrstd(user->GetUser().screen_name);
+			hint += wxT("_");
+			hint += current;
+		}
+	}
 	wxString filename = wxFileSelector(title, dir, hint, ext, wxT("*.*"), wxFD_SAVE | wxFD_OVERWRITE_PROMPT, win);
 	observer_ptr<media_entity> me = media_entity::GetExisting(mid);
 	if (filename.Len() && me) {
