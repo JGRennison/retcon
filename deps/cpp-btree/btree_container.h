@@ -138,9 +138,7 @@ class btree_container {
   }
 
   // Functor retrieval
-  key_compare key_comp() const {
-    return key_compare();
-  }
+  key_compare key_comp() const { return tree_.key_comp(); }
 
  protected:
   Tree tree_;
