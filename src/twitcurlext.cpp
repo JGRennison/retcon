@@ -197,7 +197,7 @@ std::unique_ptr<twitcurlext_stream> twitcurlext_stream::make_new(std::shared_ptr
 	std::unique_ptr<twitcurlext_stream> twit(new twitcurlext_stream());
 	twit->TwInit(std::move(acc));
 	twit->tc_flags |= TCF::ISSTREAM;
-	return std::move(twit);
+	return twit;
 }
 
 void twitcurlext_stream::NotifyDoneSuccessHandler(const std::shared_ptr<taccount> &acc, twitcurlext::NotifyDoneSuccessState &state) {
@@ -349,7 +349,7 @@ std::unique_ptr<twitcurlext_rbfs> twitcurlext_rbfs::make_new(std::shared_ptr<tac
 	twit->TwInit(std::move(acc));
 	twit->rbfs = rbfs;
 	twit->conntype = RbfsTypeToConntype(rbfs->type);
-	return std::move(twit);
+	return twit;
 }
 
 void twitcurlext_rbfs::NotifyDoneSuccessHandler(const std::shared_ptr<taccount> &acc, NotifyDoneSuccessState &state) {
@@ -547,7 +547,7 @@ void twitcurlext_rbfs::HandleQueueAsyncExec(const std::shared_ptr<taccount> &acc
 std::unique_ptr<twitcurlext_accverify> twitcurlext_accverify::make_new(std::shared_ptr<taccount> acc) {
 	std::unique_ptr<twitcurlext_accverify> twit(new twitcurlext_accverify());
 	twit->TwInit(std::move(acc));
-	return std::move(twit);
+	return twit;
 }
 
 void twitcurlext_accverify::ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) {
@@ -606,7 +606,7 @@ std::unique_ptr<twitcurlext_postcontent> twitcurlext_postcontent::make_new(std::
 	std::unique_ptr<twitcurlext_postcontent> twit(new twitcurlext_postcontent());
 	twit->TwInit(std::move(acc));
 	twit->conntype = type;
-	return std::move(twit);
+	return twit;
 }
 
 void twitcurlext_postcontent::ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) {
@@ -735,7 +735,7 @@ std::unique_ptr<twitcurlext_uploadmedia> twitcurlext_uploadmedia::make_new(std::
 	twit->TwInit(std::move(acc));
 	twit->item = std::move(item_);
 	twit->upload_state = std::move(upload_state_);
-	return std::move(twit);
+	return twit;
 }
 
 void twitcurlext_uploadmedia::ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) {
@@ -774,7 +774,7 @@ std::unique_ptr<twitcurlext_userlist> twitcurlext_userlist::make_new(std::shared
 	std::unique_ptr<twitcurlext_userlist> twit(new twitcurlext_userlist());
 	twit->TwInit(std::move(acc));
 	twit->ul = std::move(ul_);
-	return std::move(twit);
+	return twit;
 }
 
 void twitcurlext_userlist::ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) {
@@ -817,7 +817,7 @@ std::unique_ptr<twitcurlext_friendlookup> twitcurlext_friendlookup::make_new(std
 	std::unique_ptr<twitcurlext_friendlookup> twit(new twitcurlext_friendlookup());
 	twit->TwInit(std::move(acc));
 	twit->fl = std::move(fl_);
-	return std::move(twit);
+	return twit;
 }
 
 void twitcurlext_friendlookup::ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) {
@@ -881,7 +881,7 @@ std::unique_ptr<twitcurlext_userlookupwin> twitcurlext_userlookupwin::make_new(s
 	twit->TwInit(std::move(acc));
 	twit->mode = mode;
 	twit->search_string = search_string;
-	return std::move(twit);
+	return twit;
 }
 
 void twitcurlext_userlookupwin::ParseHandler(const std::shared_ptr<taccount> &acc, jsonparser &jp) {
@@ -937,7 +937,7 @@ std::unique_ptr<twitcurlext_simple> twitcurlext_simple::make_new(std::shared_ptr
 	std::unique_ptr<twitcurlext_simple> twit(new twitcurlext_simple());
 	twit->TwInit(std::move(acc));
 	twit->conntype = type;
-	return std::move(twit);
+	return twit;
 }
 
 void twitcurlext_simple::NotifyDoneSuccessHandler(const std::shared_ptr<taccount> &acc, NotifyDoneSuccessState &state) {
@@ -1199,7 +1199,7 @@ std::unique_ptr<twitcurlext_block_list> twitcurlext_block_list::make_new(std::sh
 	std::unique_ptr<twitcurlext_block_list> twit(new twitcurlext_block_list());
 	twit->TwInit(std::move(acc));
 	twit->blocktype = type;
-	return std::move(twit);
+	return twit;
 }
 
 void twitcurlext_block_list::NotifyDoneSuccessHandler(const std::shared_ptr<taccount> &acc, NotifyDoneSuccessState &state) {

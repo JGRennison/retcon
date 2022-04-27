@@ -109,6 +109,10 @@ struct tweet_flags {
 		return GetValueString(ToULLong());
 	}
 
+	tweet_flags & operator =(const tweet_flags &other) {
+		bits = other.bits;
+		return *this;
+	}
 	tweet_flags & operator &=(const tweet_flags &other) {
 		bits &= other.bits;
 		return *this;
@@ -129,17 +133,17 @@ struct tweet_flags {
 inline tweet_flags operator &(const tweet_flags &l, const tweet_flags &r) {
 	tweet_flags result = l;
 	result &= r;
-	return std::move(result);
+	return result;
 }
 inline tweet_flags operator |(const tweet_flags &l, const tweet_flags &r) {
 	tweet_flags result = l;
 	result |= r;
-	return std::move(result);
+	return result;
 }
 inline tweet_flags operator ^(const tweet_flags &l, const tweet_flags &r) {
 	tweet_flags result = l;
 	result ^= r;
-	return std::move(result);
+	return result;
 }
 
 enum class CIDS_ITERATE_FLAGS {

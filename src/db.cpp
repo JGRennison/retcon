@@ -331,7 +331,7 @@ db_bind_buffer<dbb_compressed> DoCompress(const void *in, size_t insize, unsigne
 		TSLogMsgFormat(LOGT::ZLIBTRACE, "compress: %d -> %d, cum: %f", insize, out.data_size, (double) cumout / (double) cumin);
 	#endif
 
-	return std::move(out);
+	return out;
 }
 
 db_bind_buffer<dbb_uncompressed> DoDecompress(db_bind_buffer<dbb_compressed> &&in) {
@@ -348,7 +348,7 @@ db_bind_buffer<dbb_uncompressed> DoDecompress(db_bind_buffer<dbb_compressed> &&i
 						db_bind_buffer<dbb_uncompressed> out;
 						out.data = allesctables[i].start[j].text;
 						out.data_size = strlen(allesctables[i].start[j].text);
-						return std::move(out);
+						return out;
 					}
 				}
 				TSLogMsg(LOGT::ZLIBERR, "DoDecompress: Bad escape table identifier");
@@ -364,7 +364,7 @@ db_bind_buffer<dbb_uncompressed> DoDecompress(db_bind_buffer<dbb_compressed> &&i
 			std::swap(out.membuffer, in.membuffer);
 			out.data = in.data + 1;
 			out.data_size = in.data_size - 1;
-			return std::move(out);
+			return out;
 		}
 
 		default: {
@@ -429,7 +429,7 @@ db_bind_buffer<dbb_uncompressed> DoDecompress(db_bind_buffer<dbb_compressed> &&i
 	#if DB_COPIOUS_LOGGING
 		TSLogMsgFormat(LOGT::ZLIBTRACE, "decompress: %d -> %d", in.data_size, out.data_size);
 	#endif
-	return std::move(out);
+	return out;
 }
 
 db_bind_buffer<dbb_uncompressed> column_get_compressed(sqlite3_stmt* stmt, int num) {
@@ -449,7 +449,7 @@ db_bind_buffer<dbb_uncompressed> column_get_compressed_and_parse(sqlite3_stmt* s
 	} else {
 		dc.SetNull();
 	}
-	return std::move(buffer);
+	return buffer;
 }
 
 //! This calls itself for retweet sources, *unless* the retweet source ID is in idset

@@ -32,6 +32,10 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual"
 #endif
+#if wxCHECK_GCC_VERSION(8, 0)
+#pragma GCC diagnostic ignored "-Wclass-memaccess"
+#pragma GCC diagnostic ignored "-Wdeprecated-copy"
+#endif
 
 #include <sparsepp/spp.h>
 

@@ -72,13 +72,13 @@ std::unique_ptr<mcurlconn> mcurlconn::RemoveConnCommon(const char *logprefix) {
 	std::unique_ptr<mcurlconn> conn = sm.UnregisterRetryConn(*this);
 	if (conn) {
 		LogMsgFormat(LOGT::SOCKTRACE, "%s (retry list): conn ID: %d", logprefix, id);
-		return std::move(conn);
+		return conn;
 	}
 
 	conn = sm.RemoveConn(GenGetCurlHandle());
 	if (conn) {
 		LogMsgFormat(LOGT::SOCKTRACE, "%s: conn ID: %d", logprefix, id);
-		return std::move(conn);
+		return conn;
 	}
 
 	LogMsgFormat(LOGT::SOCKERR, "%s: failed, conn ID: %d", logprefix, id);
@@ -297,7 +297,7 @@ std::unique_ptr<mcurlconn> socketmanager::RemoveConn(CURL *ch) {
 		}
 	});
 	curl_multi_socket_action(curlmulti, CURL_SOCKET_TIMEOUT, 0, &curnumsocks);
-	return std::move(conn);
+	return conn;
 }
 
 void sockettimeout::Notify() {
@@ -550,7 +550,7 @@ std::unique_ptr<mcurlconn> socketmanager::UnregisterRetryConn(mcurlconn &cs) {
 			return false;
 		}
 	});
-	return std::move(csptr);
+	return csptr;
 }
 
 void socketmanager::RetryConnNow() {

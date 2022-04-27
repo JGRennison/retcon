@@ -514,7 +514,7 @@ template <typename C, typename F> db_bind_buffer<dbb_compressed> settocompressed
 		out.data_size = curdata - reinterpret_cast<unsigned char *>(out.mutable_data());
 	}
 
-	return std::move(out);
+	return out;
 }
 
 // Descending diff

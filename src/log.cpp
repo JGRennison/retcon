@@ -493,7 +493,7 @@ std::string truncate_tweet_text(const std::string &input) {
 		short_text.resize(newsize);
 		short_text += "...";
 	}
-	return std::move(short_text);
+	return short_text;
 }
 
 std::string tweet_log_line(const tweet *t) {
@@ -517,7 +517,7 @@ std::string tweet_log_line(const tweet *t) {
 		}
 		output += thistp;
 	});
-	return std::move(output);
+	return output;
 }
 
 std::string tweet_long_log_line(const tweet *t) {
@@ -547,7 +547,7 @@ std::string tweet_long_log_line(const tweet *t) {
 	if (t->rtsrc) {
 		output += "\n\tRT source: " + tweet_long_log_line(t->rtsrc.get());
 	}
-	return std::move(output);
+	return output;
 }
 
 std::string user_screenname_log(uint64_t id) {

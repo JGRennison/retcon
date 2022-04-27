@@ -31,7 +31,7 @@ std::string hexify(const char *in, size_t len) {
 	std::string out;
 	out.reserve(2 * len);
 	for (size_t i = 0; i < len; i++) {
-		const unsigned char c = (const unsigned char) in[i];
+		const unsigned char c = (unsigned char) in[i];
 		hexify_char(out, c);
 	}
 	return out;
@@ -42,7 +42,7 @@ wxString hexify_wx(const char *in, size_t len) {
 	wxString out;
 	out.Alloc(2 * len);
 	for (size_t i = 0; i < len; i++) {
-		const unsigned char c = (const unsigned char) in[i];
+		const unsigned char c = (unsigned char) in[i];
 		out.Append(hex[c >> 4]);
 		out.Append(hex[c & 15]);
 	}
@@ -52,7 +52,7 @@ wxString hexify_wx(const char *in, size_t len) {
 shb_iptr hash_block(const void *data, size_t length) {
 	std::shared_ptr<sha1_hash_block> hash = std::make_shared<sha1_hash_block>();
 	hash_block(*hash, data, length);
-	return std::move(hash);
+	return hash;
 }
 
 void hash_block(sha1_hash_block &out, const void *data, size_t length) {

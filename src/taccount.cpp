@@ -792,7 +792,7 @@ void taccount::Exec() {
 std::unique_ptr<twitcurlext> taccount::PrepareNewStreamConn() {
 	std::unique_ptr<twitcurlext_stream> twit_stream = twitcurlext_stream::make_new(shared_from_this());
 	twit_stream->post_action_flags |= PAF::STREAM_CONN_READ_BACKFILL;
-	return std::move(twit_stream);
+	return twit_stream;
 }
 
 void taccount::CalcEnabled() {

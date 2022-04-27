@@ -342,7 +342,7 @@ BEGIN_EVENT_TABLE(profimg_staticbitmap, wxStaticBitmap)
 END_EVENT_TABLE()
 
 profimg_staticbitmap::profimg_staticbitmap(wxWindow* parent, const wxBitmap& label, udc_ptr udc_, tweet_ptr t_, mainframe *owner_, flagwrapper<PISBF> flags, panelparentwin_base *tppw_)
-		: wxStaticBitmap(parent, wxID_ANY, label, wxPoint(-1000, -1000)), udc(std::move(udc_)), t(std::move(t_)), owner(owner_), pisb_flags(flags), tppw(tppw_) {
+		: wxStaticBitmap(parent, wxID_ANY, label, wxPoint(-1000, -1000)), udc(std::move(udc_)), t(std::move(t_)), owner(owner_), tppw(tppw_), pisb_flags(flags) {
 	udc->profile_img_last_used = time(nullptr);
 }
 

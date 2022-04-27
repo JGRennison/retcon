@@ -929,7 +929,7 @@ std::string tweet_perspective::GetFlagString() const {
 	addchar('N');
 	addchar('T');
 	addchar('Q');
-	return std::move(output);
+	return output;
 }
 
 std::string tweet_perspective::GetFlagStringWithName(bool always) const {
@@ -2037,7 +2037,7 @@ container::map<std::string, dm_conversation_map_item> GetDMConversationMap() {
 		}
 	}
 
-	return std::move(output);
+	return output;
 }
 
 void exec_on_ready::UserReady(udc_ptr_p u, flagwrapper<exec_on_ready::EOR_UR> flags, std::shared_ptr<taccount> acc) {

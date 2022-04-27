@@ -31,6 +31,9 @@
 #if wxCHECK_GCC_VERSION(4, 7)
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
+#if wxCHECK_GCC_VERSION(8, 0)
+#pragma GCC diagnostic ignored "-Wclass-memaccess"
+#endif
 #include "rapidjson/document.h"
 #if wxCHECK_GCC_VERSION(4, 6)
 #pragma GCC diagnostic pop
